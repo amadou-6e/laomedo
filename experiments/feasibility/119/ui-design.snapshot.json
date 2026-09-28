@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "skill_id": "ui-design",
+  "revision_id": "sha256:473ee24445555b1b881dda17e5cd3deb1ed1519bf67714de8b9206d95ec4dac4",
+  "tree_hash": "sha256:473ee24445555b1b881dda17e5cd3deb1ed1519bf67714de8b9206d95ec4dac4",
+  "file_hashes": {
+    "SKILL.md": "sha256:9286647025f40ee4ace7a52bdc0ae711923974e444b41a4c2f2d921419e96274",
+    "ui-to-drawio/agents/openai.yaml": "sha256:49d173d54c43b8a3976db06b4f7d8983be1426e6a6f7764406b86615cc2a9954",
+    "ui-to-drawio/scripts/inspect_drawio.py": "sha256:acc9d447cfb05d739eadaf188520073db4214975b6ee7c469f134996fc21577d",
+    "ui-to-drawio/scripts/render_drawio.py": "sha256:30e0dc6fcf987be91a4265c155ddffd3754350df8d3843ee04c7e581a2550735"
+  },
+  "items": [
+    {
+      "id": "protect-work",
+      "kind": "rule",
+      "source": {
+        "path": "SKILL.md",
+        "heading": "## Protect Work Before Editing"
+      },
+      "content_hash": "sha256:457585e6647b39b531abc290e78afcfe3659b78275335918202f877a2136a9c6"
+    },
+    {
+      "id": "start-with-evidence",
+      "kind": "rule",
+      "source": {
+        "path": "SKILL.md",
+        "heading": "## Start With Evidence"
+      },
+      "content_hash": "sha256:564dd583e57c1829a27cb148bff479b112a509c3630146c493a9a7e5b03a44f5"
+    }
+  ],
+  "selection": {
+    "item_ids": [
+      "start-with-evidence"
+    ],
+    "dependency_files": [
+      "SKILL.md",
+      "ui-to-drawio/scripts/inspect_drawio.py"
+    ],
+    "delivery_mode": "direct_context_required",
+    "reason": "Native loading of SKILL.md exposes all its sections, not only the selected item."
+  }
+}

@@ -45,3 +45,29 @@ versions. `skills/list` is documented in the
 
 No Claude executable or dedicated Laomedo project credential was available
 for this run. Claude discovery and selected-skill execution were not tested.
+
+## Read-only manifest pilot
+
+`snapshot_bundle.py` applies an explicit overlay manifest to two existing
+skills with different layouts: `ui-design` has a small script bundle and
+`html-to-drawio` has scripts plus references. The manifests are local to this
+experiment. The source skills are read and hashed, never edited. Reproduce
+from the Laomedo repository root when the sibling `my-skills` checkout exists:
+
+```powershell
+python experiments/feasibility/119/snapshot_bundle.py --source '..\my-skills\ui-design' --manifest experiments/feasibility/119/ui-design.manifest.json --select start-with-evidence --output experiments/feasibility/119/ui-design.snapshot.json
+python experiments/feasibility/119/snapshot_bundle.py --source '..\my-skills\graphics\html-to-drawio' --manifest experiments/feasibility/119/html-to-drawio.manifest.json --select usage-example --output experiments/feasibility/119/html-to-drawio.snapshot.json
+```
+
+The pilot assigns explicit stable item IDs to exact headings and lists each
+item's file dependencies. It rejects duplicate IDs, missing or escaped files,
+and ambiguous headings. Per-file SHA-256 hashes are combined into a canonical
+tree hash by sorting relative paths and hashing each path, NUL, file hash, and
+newline. The snapshots include selected item IDs and dependency files.
+
+Both selected headings live in a `SKILL.md` that contains other sections.
+Native discovery would expose the whole file, so the selection records say
+`direct_context_required`. A future subset materializer would need to render
+the selected text and dependencies into a new frozen bundle, or pass the
+selection as direct context while labeling it as such. The committed JSON
+contains hashes and relative paths only, no copied skill content.

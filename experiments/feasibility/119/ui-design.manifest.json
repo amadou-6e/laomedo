@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "skill_id": "ui-design",
+  "files": [
+    "SKILL.md",
+    "ui-to-drawio/agents/openai.yaml",
+    "ui-to-drawio/scripts/inspect_drawio.py",
+    "ui-to-drawio/scripts/render_drawio.py"
+  ],
+  "items": [
+    {
+      "id": "protect-work",
+      "kind": "rule",
+      "source": {"path": "SKILL.md", "heading": "## Protect Work Before Editing"},
+      "requires": []
+    },
+    {
+      "id": "start-with-evidence",
+      "kind": "rule",
+      "source": {"path": "SKILL.md", "heading": "## Start With Evidence"},
+      "requires": ["ui-to-drawio/scripts/inspect_drawio.py"]
+    }
+  ]
+}
