@@ -70,17 +70,33 @@ reported ChatGPT login, not API-key mode. The native preflight found the
 synthetic skill and no skill path outside private state. The app-server listed
 `gpt-6-luna` with low effort available.
 
-Two `gpt-6-luna` low-effort turns were submitted with an explicit `skill` input.
-Both were accepted but had no agent answer or `turn/completed` event within a
-90-second deadline. The instrumented second attempt emitted `error` and
-`warning` notifications and its private stderr contained network and HTTP
-Forbidden signals. The raw session showed no assistant response. Whether this
-is local network restriction or server-side authorization remains unknown.
-Native selected-skill execution and actual usage remain unproven. No script was
-invoked. The personal skill and auth file comparisons were unchanged; personal
-session contents changed while this IDE session was active, so that comparison
-cannot attribute the change to this probe. The two submitted turns count
-against #119's three-turn cap; no third turn was made.
+Two `gpt-6-luna` low-effort turns were submitted with an explicit `skill` input
+in the restricted command context. Both were accepted but had no agent answer
+or `turn/completed` event within a 90-second deadline. The instrumented second
+attempt emitted `error` and `warning` notifications and its private stderr
+contained network and HTTP Forbidden signals. A credential-free HTTPS check
+from that context failed to connect to `chatgpt.com`, while the network-enabled
+context received HTTP 200.
+
+A new ignored, access-restricted private runner directory was created in the
+network-enabled context because that context could not read the first private
+directory's ACL. Only the file-backed auth was copied from the personal source
+into this second private directory. Its no-model auth and discovery preflight
+passed. The third and final #119 turn then completed in about eight seconds
+and returned the exact marker from the native selected skill. The private raw
+trace contains one assistant message with that marker, one token-usage event,
+and no tool calls. It recorded 16,253 input tokens, including 11,008 cached
+input tokens, and 13 output tokens. At the [GPT-6 Luna Standard short-context
+API rates](https://developers.openai.com/api/docs/models/gpt-6-luna), this is
+about USD 0.00064 API-equivalent usage, not an actual subscription charge.
+
+The completed turn supports native selection of this whole synthetic skill on
+the installed CLI. It does not prove a skill-file read event is recorded or
+that an isolated subsection can be selected. No script was invoked. Corrected
+before/after comparisons for the third turn found the personal skill,
+session, and auth roots unchanged. The earlier turns' auth-file comparison
+used a defective file hash and their session comparison was confounded by the
+active IDE session. All three allowed turns have now been used.
 
 ## Read-only manifest pilot
 
