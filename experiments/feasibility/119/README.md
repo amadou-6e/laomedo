@@ -52,7 +52,10 @@ for this run. Claude discovery was not tested.
 profile and prints only status booleans. `probe_codex_skill_turn.py` starts an
 app-server in that profile, discovers one synthetic project skill, and can
 submit one native `skill` input in a model turn. It prints sanitized event
-counts and marker booleans. The raw session and stderr remain in the private
+counts and marker booleans. Before `--run` submits a turn, a credential-free
+TCP check must reach `chatgpt.com:443`; the check is only a prerequisite and
+does not prove that the authenticated model request will succeed. The raw
+session and stderr remain in the private
 state directory, not in this repository. The caller must first provision a
 file-backed Codex auth copy under the private `codex-home/auth.json` according
 to the narrow local exception in #119. Neither script provisions credentials.
@@ -77,6 +80,8 @@ attempt emitted `error` and `warning` notifications and its private stderr
 contained network and HTTP Forbidden signals. A credential-free HTTPS check
 from that context failed to connect to `chatgpt.com`, while the network-enabled
 context received HTTP 200.
+The new no-model preflight reports `chatgpt_tcp_reachable: false` in the
+restricted context and `true` in the network-enabled context.
 
 A new ignored, access-restricted private runner directory was created in the
 network-enabled context because that context could not read the first private

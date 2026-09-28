@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import socket
 import subprocess
 import threading
 import time
@@ -119,9 +120,16 @@ def main():
         summary["selected_model"] = model
         efforts = selected.get("supportedReasoningEfforts", [])
         summary["supported_efforts"] = [x.get("reasoningEffort", x) if isinstance(x, dict) else x for x in efforts]
+        try:
+            with socket.create_connection(("chatgpt.com", 443), timeout=3):
+                summary["chatgpt_tcp_reachable"] = True
+        except OSError:
+            summary["chatgpt_tcp_reachable"] = False
         if not args.run:
             return print(json.dumps(summary, indent=2))
-        if not summary["fixture_discovered"] or not model or summary["skills_outside_private_state"]:
+        if (not summary["fixture_discovered"] or not model or
+                summary["skills_outside_private_state"] or
+                not summary["chatgpt_tcp_reachable"]):
             summary["blocked_before_turn"] = True
             return print(json.dumps(summary, indent=2))
         start = request(process, messages, {"method": "thread/start", "id": 4,
