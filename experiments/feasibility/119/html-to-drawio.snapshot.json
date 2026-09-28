@@ -27,7 +27,7 @@
         "path": "SKILL.md",
         "heading": "## Usage"
       },
-      "content_hash": "sha256:613734552f4472572e219f718155f32da877199de987f4edcffb679f30f255cc"
+      "content_hash": "sha256:e84f144e4efb6f43ab470c0e9b96c0b9a88130e13369630c7dad85633dd5b0e8"
     },
     {
       "id": "required-references",
@@ -36,7 +36,7 @@
         "path": "SKILL.md",
         "heading": "## Required References Before Any Fix"
       },
-      "content_hash": "sha256:3cdb66203d00466e5460c891b36c2011652b7cd28da1068aae9b10e5dcd4a4ce"
+      "content_hash": "sha256:4f0b92cf0f284d747691f2d3323494899c0315b03188ab6b091ca232901651f6"
     }
   ],
   "selection": {

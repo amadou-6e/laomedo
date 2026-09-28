@@ -21,9 +21,9 @@ def safe_file(root: Path, relative: str) -> Path:
     return candidate
 
 
-def section_bytes(content: str, heading: str) -> bytes:
+def section_bytes(content: bytes, heading: str) -> bytes:
     lines = content.splitlines(keepends=True)
-    matches = [index for index, line in enumerate(lines) if line.rstrip("\r\n") == heading]
+    matches = [index for index, line in enumerate(lines) if line.rstrip(b"\r\n").decode("utf-8") == heading]
     if len(matches) != 1:
         raise ValueError(f"heading must occur exactly once: {heading}")
     start = matches[0]
@@ -31,12 +31,12 @@ def section_bytes(content: str, heading: str) -> bytes:
     end = len(lines)
     for index in range(start + 1, len(lines)):
         line = lines[index]
-        if line.startswith("#"):
-            next_level = len(line) - len(line.lstrip("#"))
-            if next_level <= level and line[next_level : next_level + 1] == " ":
+        if line.startswith(b"#"):
+            next_level = len(line) - len(line.lstrip(b"#"))
+            if next_level <= level and line[next_level : next_level + 1] == b" ":
                 end = index
                 break
-    return "".join(lines[start:end]).encode("utf-8")
+    return b"".join(lines[start:end])
 
 
 def build(root: Path, manifest: dict, selection: list[str]) -> dict:
@@ -58,7 +58,7 @@ def build(root: Path, manifest: dict, selection: list[str]) -> dict:
         for relative in [source["path"], *requirements]:
             if relative not in file_hashes:
                 raise ValueError(f"undeclared dependency: {relative}")
-        content = safe_file(root, source["path"]).read_text(encoding="utf-8")
+        content = safe_file(root, source["path"]).read_bytes()
         content_hash = sha256(section_bytes(content, source["heading"]))
         item_records.append({"id": item["id"], "kind": item["kind"], "source": source, "content_hash": content_hash})
         if item["id"] in selection:
