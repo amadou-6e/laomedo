@@ -1,4 +1,4 @@
-# Issue 119: no-model Codex discovery probe
+# Issue 119: Codex discovery and private-login probe
 
 This directory contains a synthetic, disposable probe for the first part of
 [specs issue #119](https://github.com/amadou-6e/specs/issues/119). It starts
@@ -44,7 +44,43 @@ versions. `skills/list` is documented in the
 [Codex app-server reference](https://learn.chatgpt.com/docs/app-server).
 
 No Claude executable or dedicated Laomedo project credential was available
-for this run. Claude discovery and selected-skill execution were not tested.
+for this run. Claude discovery was not tested.
+
+## Private ChatGPT login and selected-skill attempt
+
+`check_private_auth.py` checks the authentication mode from a private runner
+profile and prints only status booleans. `probe_codex_skill_turn.py` starts an
+app-server in that profile, discovers one synthetic project skill, and can
+submit one native `skill` input in a model turn. It prints sanitized event
+counts and marker booleans. The raw session and stderr remain in the private
+state directory, not in this repository. The caller must first provision a
+file-backed Codex auth copy under the private `codex-home/auth.json` according
+to the narrow local exception in #119. Neither script provisions credentials.
+
+```powershell
+python experiments/feasibility/119/check_private_auth.py --codex '<absolute-path-to-codex.exe>' --state-dir '<private-state-dir>'
+python experiments/feasibility/119/probe_codex_skill_turn.py --codex '<absolute-path-to-codex.exe>' --state-dir '<private-state-dir>'
+python experiments/feasibility/119/probe_codex_skill_turn.py --codex '<absolute-path-to-codex.exe>' --state-dir '<private-state-dir>' --run
+```
+
+On 2026-09-28, a local file-backed ChatGPT Codex auth file was copied once
+into an ignored, access-restricted private state directory. Only that auth
+file was copied. `codex login status` in a constructed private environment
+reported ChatGPT login, not API-key mode. The native preflight found the
+synthetic skill and no skill path outside private state. The app-server listed
+`gpt-6-luna` with low effort available.
+
+Two `gpt-6-luna` low-effort turns were submitted with an explicit `skill` input.
+Both were accepted but had no agent answer or `turn/completed` event within a
+90-second deadline. The instrumented second attempt emitted `error` and
+`warning` notifications and its private stderr contained network and HTTP
+Forbidden signals. The raw session showed no assistant response. Whether this
+is local network restriction or server-side authorization remains unknown.
+Native selected-skill execution and actual usage remain unproven. No script was
+invoked. The personal skill and auth file comparisons were unchanged; personal
+session contents changed while this IDE session was active, so that comparison
+cannot attribute the change to this probe. The two submitted turns count
+against #119's three-turn cap; no third turn was made.
 
 ## Read-only manifest pilot
 
