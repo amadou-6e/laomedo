@@ -13,6 +13,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import stat
 from uuid import uuid4
 
 
@@ -54,7 +55,13 @@ def _safe_relative(value: str) -> str:
 
 
 def _is_link(path: Path) -> bool:
-    return path.is_symlink() or getattr(path, "is_junction", lambda: False)()
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    return (stat.S_ISLNK(metadata.st_mode) or
+            bool(getattr(metadata, "st_file_attributes", 0) &
+                 getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)))
 
 
 def inventory(root: Path) -> dict[str, bytes]:
@@ -73,6 +80,8 @@ def inventory(root: Path) -> dict[str, bytes]:
                 continue
             if not path.is_file():
                 raise SkillStoreError("special_file")
+            if path.stat().st_nlink > 1:
+                raise SkillStoreError("hardlinked_file")
             relative = path.relative_to(root).as_posix()
             _safe_relative(relative)
             files[relative] = path.read_bytes()
@@ -101,7 +110,7 @@ def file_hashes(files: dict[str, bytes]) -> dict[str, str]:
 
 def validate_policy(policy: dict) -> dict:
     required = ("policy_id", "revision_id", "allowed_paths", "allowed_suffixes",
-                "allow_new_files", "allow_scripts", "allow_dependencies",
+                "allow_new_files", "allow_deletions", "allow_scripts", "allow_dependencies",
                 "allow_assets", "required_frontmatter",
                 "permitted_validation_commands", "max_files", "max_file_bytes")
     if not isinstance(policy, dict) or any(key not in policy for key in required):
@@ -122,13 +131,18 @@ def validate_policy(policy: dict) -> dict:
             any(not isinstance(item, str) or not item.startswith(".")
                 for item in suffixes)):
         raise SkillStoreError("invalid_suffixes")
-    for key in ("allow_new_files", "allow_scripts", "allow_dependencies",
+    for key in ("allow_new_files", "allow_deletions", "allow_scripts", "allow_dependencies",
                 "allow_assets"):
         if not isinstance(policy[key], bool):
             raise SkillStoreError("invalid_policy_boolean")
+    safe_documents = {".md", ".txt", ".json", ".yaml", ".yml"}
+    safe_assets = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf"}
+    script_suffixes = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx",
+                       ".sh", ".ps1", ".bat", ".cmd", ".rb", ".pl", ".php"}
     if not policy["allow_scripts"] and any(
             "scripts" in PurePosixPath(path).parts or
-            PurePosixPath(path).suffix in (".py", ".js", ".sh", ".ps1", ".bat")
+            PurePosixPath(path).suffix.lower() not in
+            (safe_documents | (safe_assets if policy["allow_assets"] else set()))
             for path in paths):
         raise SkillStoreError("policy_grants_disallowed_scripts")
     if not policy["allow_dependencies"] and any(
@@ -137,7 +151,8 @@ def validate_policy(policy: dict) -> dict:
             for path in paths):
         raise SkillStoreError("policy_grants_disallowed_dependencies")
     if not policy["allow_assets"] and any(
-            PurePosixPath(path).suffix not in (".md", ".txt", ".json", ".yaml", ".yml")
+            PurePosixPath(path).suffix.lower() not in
+            (safe_documents | (script_suffixes if policy["allow_scripts"] else set()))
             for path in paths):
         raise SkillStoreError("policy_grants_disallowed_assets")
     for key in ("required_frontmatter", "permitted_validation_commands"):
@@ -166,6 +181,13 @@ def validate_draft(base: dict[str, bytes], draft: dict[str, bytes],
             errors.append("forbidden_path")
         if relative not in base and not policy["allow_new_files"]:
             errors.append("new_file_forbidden")
+        if relative not in draft and not policy["allow_deletions"]:
+            errors.append("deletion_forbidden")
+        if relative in draft:
+            try:
+                draft[relative].decode("utf-8")
+            except UnicodeDecodeError:
+                errors.append("non_utf8_changed_file")
     for relative, data in draft.items():
         if len(data) > policy["max_file_bytes"]:
             errors.append("file_too_large")
@@ -181,7 +203,8 @@ def validate_draft(base: dict[str, bytes], draft: dict[str, bytes],
             continue
         frontmatter = content.split("\n---\n", 1)[0]
         for field in policy["required_frontmatter"]:
-            if not any(line.startswith(field + ": ")
+            if not any(line.startswith(field + ": ") and
+                       line.split(":", 1)[1].strip()
                        for line in frontmatter.splitlines()):
                 errors.append("frontmatter_field_missing")
     return sorted(set(errors))
@@ -192,11 +215,19 @@ def patch_for(base: dict[str, bytes], draft: dict[str, bytes]) -> str:
     for relative in sorted(base.keys() | draft.keys()):
         if base.get(relative) == draft.get(relative):
             continue
-        before = base.get(relative, b"").decode("utf-8", errors="replace")
-        after = draft.get(relative, b"").decode("utf-8", errors="replace")
+        try:
+            before = base.get(relative, b"").decode("utf-8")
+            after = draft.get(relative, b"").decode("utf-8")
+        except UnicodeDecodeError:
+            chunks.append(f"--- base/{relative}\n+++ draft/{relative}\n")
+            chunks.append(f"-bytes {base.get(relative, b'')!r}\n")
+            chunks.append(f"+bytes {draft.get(relative, b'')!r}\n")
+            continue
+        def exact_lines(value: str) -> list[str]:
+            return [line.encode("unicode_escape").decode("ascii") + "\n"
+                    for line in value.splitlines(keepends=True)]
         chunks.extend(difflib.unified_diff(
-            before.replace("\r\n", "\n").splitlines(True),
-            after.replace("\r\n", "\n").splitlines(True),
+            exact_lines(before), exact_lines(after),
             fromfile="base/" + relative, tofile="draft/" + relative))
     return "".join(chunks)
 
@@ -215,14 +246,24 @@ def _read_json(path: Path) -> dict:
 
 
 class SkillStore:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, draft_root: Path | None = None):
         self.root = root.resolve()
+        draft_root = draft_root or (self.root.parent / (self.root.name + "-drafts"))
+        self.draft_root = draft_root.resolve()
         if _is_link(root):
             raise SkillStoreError("linked_store_root")
-        if any((candidate / ".git").exists()
-               for candidate in (self.root, *self.root.parents)):
+        if _is_link(draft_root):
+            raise SkillStoreError("linked_draft_root")
+        if (self.root == self.draft_root or
+                self.root.is_relative_to(self.draft_root) or
+                self.draft_root.is_relative_to(self.root)):
+            raise SkillStoreError("draft_root_overlaps_store")
+        if any((candidate / ".git").exists() for checked in
+               (self.root, self.draft_root) for candidate in
+               (checked, *checked.parents)):
             raise SkillStoreError("store_inside_git_tree")
         self.root.mkdir(parents=True, exist_ok=True)
+        self.draft_root.mkdir(parents=True, exist_ok=True)
 
     def _skill(self, skill_id: str) -> Path:
         return self.root / "skills" / _safe_name(skill_id)
@@ -236,6 +277,10 @@ class SkillStore:
         if canonical != draft_id:
             raise SkillStoreError("invalid_draft_id")
         return self.root / "drafts" / draft_id
+
+    def _workspace(self, draft_id: str) -> Path:
+        self._draft(draft_id)
+        return self.draft_root / draft_id
 
     def _revision_dir(self, skill_id: str, revision_id: str) -> Path:
         if not HASH.fullmatch(revision_id):
@@ -281,7 +326,10 @@ class SkillStore:
         skill = self._skill(skill_id)
         skill.mkdir(parents=True, exist_ok=True)
         lock = skill / "import.lock"
-        descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            raise ConflictError("import_busy") from None
         try:
             os.close(descriptor)
             if (skill / "latest.json").exists():
@@ -330,8 +378,8 @@ class SkillStore:
         folder.mkdir(parents=True)
         try:
             shutil.copytree(self._revision_dir(skill_id, base_revision) / "bundle",
-                            folder / "workspace")
-            if tree_hash(inventory(folder / "workspace")) != base_revision:
+                            self._workspace(draft_id))
+            if tree_hash(inventory(self._workspace(draft_id))) != base_revision:
                 raise SkillStoreError("draft_copy_mismatch")
             _write_json(folder / "policy.json", policy)
             record = {"draft_id": draft_id, "skill_id": skill_id,
@@ -341,6 +389,9 @@ class SkillStore:
             return record
         except Exception:
             shutil.rmtree(folder)
+            workspace = self._workspace(draft_id)
+            if workspace.exists():
+                shutil.rmtree(workspace)
             raise
 
     def draft_workspace(self, draft_id: str) -> Path:
@@ -348,7 +399,7 @@ class SkillStore:
         record = _read_json(folder / "record.json")
         if record.get("status") != "open":
             raise SkillStoreError("draft_not_open")
-        return folder / "workspace"
+        return self._workspace(draft_id)
 
     def freeze_draft(self, draft_id: str) -> dict:
         """Create a review artifact. This never promotes it."""
@@ -364,7 +415,7 @@ class SkillStore:
                                             record["base_revision"]) / "bundle")
         if base_record["tree_hash"] != record["base_tree_hash"]:
             raise SkillStoreError("base_integrity_failure")
-        workspace = folder / "workspace"
+        workspace = self._workspace(draft_id)
         try:
             proposed = inventory(workspace)
             errors = validate_draft(base, proposed, policy)
@@ -374,28 +425,33 @@ class SkillStore:
         if proposed is not None and tree_hash(proposed) == record["base_tree_hash"]:
             errors.append("no_change")
         frozen = folder / "frozen"
-        if proposed is not None:
-            shutil.copytree(workspace, frozen)
+        if proposed is not None and not errors:
+            if not frozen.exists():
+                shutil.copytree(workspace, frozen)
             if tree_hash(inventory(frozen)) != tree_hash(proposed):
-                raise SkillStoreError("draft_changed_while_freezing")
+                raise ConflictError("interrupted_freeze_conflict")
+        eligible = proposed is not None and not errors
+        observed_hash = tree_hash(proposed) if proposed is not None else None
         result = {"draft_id": draft_id, "base_ref": {
             "revision_id": record["base_revision"],
             "tree_hash": record["base_tree_hash"]},
             "policy_ref": record["policy_ref"],
             "editor_kind": "human", "edit_run_id": None, "trace_ref": None,
-            "proposed_tree_hash": tree_hash(proposed) if proposed is not None else None,
-            "proposed_ref": ({"tree_hash": tree_hash(proposed),
+            "observed_tree_hash": observed_hash,
+            "proposed_tree_hash": observed_hash if eligible else None,
+            "proposed_ref": ({"tree_hash": observed_hash,
                               "file_hashes": file_hashes(proposed)}
-                             if proposed is not None else None),
-            "changed_paths": sorted(path for path in base.keys() | (proposed or {}).keys()
-                                    if base.get(path) != (proposed or {}).get(path)),
+                             if eligible else None),
+            "changed_paths": (sorted(path for path in base.keys() | proposed.keys()
+                                     if base.get(path) != proposed.get(path))
+                              if proposed is not None else []),
             "patch": patch_for(base, proposed) if proposed is not None else None,
             "validation_errors": sorted(set(errors)),
             "validation_results": [{"validator": "structural-v1",
                                     "passed": not errors,
                                     "errors": sorted(set(errors))}],
             "evaluation_results": [],
-            "promotion_eligible": not errors,
+            "promotion_eligible": eligible,
             "promotion_performed": False}
         _write_json(folder / "result.json", result)
         record["status"] = "frozen"
@@ -403,7 +459,8 @@ class SkillStore:
         return result
 
     def promote_draft(self, draft_id: str, *, expected_base_revision: str,
-                      reviewed_draft_hash: str) -> dict:
+                      reviewed_draft_hash: str,
+                      expected_policy_hash: str) -> dict:
         """Separate reviewed operation with a compare-and-swap latest update."""
         folder = self._draft(draft_id)
         record = _read_json(folder / "record.json")
@@ -414,7 +471,9 @@ class SkillStore:
         if validate_policy(policy) != record.get("policy_ref"):
             raise SkillStoreError("policy_integrity_failure")
         if (expected_base_revision != record["base_revision"] or
-                reviewed_draft_hash != result["proposed_tree_hash"]):
+                reviewed_draft_hash != result["proposed_tree_hash"] or
+                expected_policy_hash != record["policy_ref"]["hash"] or
+                expected_policy_hash != result["policy_ref"]["hash"]):
             raise ConflictError("reviewed_ref_mismatch")
         frozen = folder / "frozen"
         frozen_files = inventory(frozen)
@@ -426,10 +485,21 @@ class SkillStore:
             raise SkillStoreError("frozen_draft_validation_failure")
         skill = self._skill(record["skill_id"])
         lock = skill / "promotion.lock"
-        descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            raise ConflictError("promotion_busy") from None
         try:
             os.close(descriptor)
             current = _read_json(skill / "latest.json")
+            if (current.get("revision_id") == reviewed_draft_hash and
+                    current.get("draft_id") == draft_id and
+                    current.get("parent_revision") == expected_base_revision and
+                    current.get("policy_hash") == expected_policy_hash):
+                promoted = self.revision(record["skill_id"], reviewed_draft_hash)
+                self._finish_promotion(skill, folder, record, result,
+                                       expected_base_revision, reviewed_draft_hash)
+                return promoted
             if (current["revision_id"] != expected_base_revision or
                     current["tree_hash"] != record["base_tree_hash"]):
                 raise ConflictError("base_revision_changed")
@@ -439,10 +509,27 @@ class SkillStore:
             if promoted["tree_hash"] != reviewed_draft_hash:
                 raise SkillStoreError("promoted_hash_mismatch")
             _write_json(skill / "latest.json", {"revision_id": promoted["revision_id"],
-                                                 "tree_hash": promoted["tree_hash"]})
-            result["promotion_performed"] = True
-            result["promoted_revision"] = promoted["revision_id"]
-            _write_json(folder / "result.json", result)
+                                                 "tree_hash": promoted["tree_hash"],
+                                                 "parent_revision": expected_base_revision,
+                                                 "draft_id": draft_id,
+                                                 "policy_hash": expected_policy_hash})
+            self._finish_promotion(skill, folder, record, result,
+                                   expected_base_revision, reviewed_draft_hash)
             return promoted
         finally:
             lock.unlink(missing_ok=True)
+
+    def _finish_promotion(self, skill: Path, folder: Path, record: dict,
+                          result: dict, base_revision: str, reviewed_hash: str) -> None:
+        log = skill / "promotions" / (record["draft_id"] + ".json")
+        entry = {"draft_id": record["draft_id"], "base_revision": base_revision,
+                 "promoted_revision": reviewed_hash, "policy_ref": record["policy_ref"]}
+        log.parent.mkdir(exist_ok=True)
+        if log.exists():
+            if _read_json(log) != entry:
+                raise SkillStoreError("promotion_log_conflict")
+        else:
+            _write_json(log, entry)
+        result["promotion_performed"] = True
+        result["promoted_revision"] = reviewed_hash
+        _write_json(folder / "result.json", result)
