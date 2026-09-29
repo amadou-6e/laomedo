@@ -85,8 +85,11 @@ def write_skill(root: Path, name: str, content: str = None) -> None:
     (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
 
 
-def ensure_clean(path: Path) -> Path:
-    """Create a run directory, removing any stale contents from a prior run."""
+def ensure_clean(path: Path) -> int:
+    """(Re)create a run directory, removing stale contents from a prior run.
+    Returns the number of entries that could not be removed, for example a
+    file locked by Windows."""
+    leftover = 0
     if path.exists():
         for child in sorted(path.rglob("*"), reverse=True):
             try:
@@ -95,19 +98,10 @@ def ensure_clean(path: Path) -> Path:
                 else:
                     child.unlink()
             except OSError:
-                pass
+                leftover += 1
+        leftover += len(list(path.rglob("*")))
     path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def resettable_dir(root: Path) -> Path:
-    """A run directory that is safe to reset, with a guard against deleting
-    anything that is not inside the experiment tree."""
-    experiment = Path(__file__).resolve().parent
-    resolved = root.resolve()
-    if not resolved.is_relative_to(experiment):
-        raise ValueError("refusing to reset a directory outside the experiment tree")
-    return ensure_clean(resolved)
+    return leftover
 
 
 def inside_git_tree(path: Path) -> bool:
@@ -155,8 +149,20 @@ def login_status(codex: Path, cwd: Path, env: dict) -> dict:
     }
 
 
+def resettable_dir(root: Path) -> tuple:
+    """A run directory safe to reset, with a guard against deleting anything
+    outside the experiment tree. Returns (resolved_path, leftover_count)."""
+    experiment = Path(__file__).resolve().parent
+    resolved = root.resolve()
+    if not resolved.is_relative_to(experiment):
+        raise ValueError("refusing to reset a directory outside the experiment tree")
+    leftovers = ensure_clean(resolved)
+    return resolved, leftovers
+
+
 def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
-                    state: Path) -> dict:
+                    state: Path, api_host: str = "api.openai.com",
+                    api_port: int = 443) -> dict:
     """Decide whether a model call is permitted.
 
     Accepts a dedicated API-key credential. Rejects a copied personal ChatGPT
@@ -182,8 +188,10 @@ def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
         verdict["reason"] = "unknown_auth_mode"
         return verdict
     verdict["credential_mode"] = "api_key"
-    if not tcp_reachable("chatgpt.com", 443):
-        verdict["reason"] = "chatgpt_unreachable"
+    host = verdict["api_host"] = api_host
+    port = verdict["api_port"] = api_port
+    if not tcp_reachable(host, port):
+        verdict["reason"] = "api_host_unreachable"
         return verdict
     verdict["permitted"] = True
     return verdict

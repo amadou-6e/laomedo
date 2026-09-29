@@ -1,16 +1,15 @@
 """Probe Codex model listing, effort selection, and setting rejection.
 
-No credential and no spend: this probe refuses to submit a model turn when a
-credential is present unless --allow-spend is passed. It tests:
-- model/list supported efforts and defaults.
-- What the server reports as requested and effective on thread/start.
-- Explicit rejection of an invalid effort string and of a valid-but-unsupported
-  level (silent-downgrade check).
-- Rejection of an unknown model id.
+Unauthenticated by construction: the scratch profile has no credential and the
+constructed environment carries none, so a dispatched turn cannot spend. It
+tests model/list efforts, the effective values thread/start reports, explicit
+rejection of an invalid effort string and of a valid-but-unsupported level, and
+rejection of an unknown model id.
 
-Caveat: with no credential, a rejected-setting check observes dispatch-time
-validation only. It can show an explicit error; it cannot show that an accepted
-turn would not have been silently downgraded.
+Dispatch-time rejection can be observed here. The "no silent downgrade" half
+of condition 5 needs a credentialed probe and is out of scope for this script;
+with no credential, an accepted turn fails at authentication and cannot show
+what effort the model actually used.
 """
 
 import argparse
@@ -20,13 +19,19 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _shared import (AppServer, RequestTimeout, codex_version, construct_env,
-                      credential_gate, hash_personal_roots, compare_personal_roots,
-                      login_status, resettable_dir, summarize_methods, write_skill)
+                      hash_personal_roots, compare_personal_roots,
+                      resettable_dir, summarize_methods, write_skill)
 
 
 def thread_start_effective(server, model):
     """Start a thread and report exactly which effective fields the server
-    returned, rather than asserting field names."""
+    returned rather than asserting field names.
+
+    Per the SDK 0.157.1 schema, the effective model, reasoningEffort, sandbox,
+    and approvalPolicy are top-level fields of the thread/start result; the
+    thread object itself may not carry them. Both sets of keys are recorded so
+    a different runner version cannot be misread.
+    """
     response = server.send("thread/start", {
         "model": model, "cwd": str(server.state), "approvalPolicy": "never",
         "sandbox": "read-only",
@@ -38,8 +43,11 @@ def thread_start_effective(server, model):
     return {
         "result_keys": sorted(result.keys()),
         "thread_keys": sorted(thread.keys()),
-        "reported_model": thread.get("model"),
-        "reported_effort": thread.get("reasoningEffort") or thread.get("effort"),
+        "reported_model": result.get("model") or thread.get("model"),
+        "reported_effort": result.get("reasoningEffort") or thread.get("reasoningEffort"),
+        "reported_sandbox": result.get("sandbox") or thread.get("sandbox"),
+        "reported_approval_policy": result.get("approvalPolicy"),
+        "cli_version": thread.get("cliVersion"),
         "instruction_sources": result.get("instructionSources"),
     }, thread.get("id")
 
@@ -62,19 +70,20 @@ def effort_dispatch(server, model, effort):
         return {"outcome": "rejected",
                 "error": response["error"]}
     turn = response.get("result", {}).get("turn", {})
+    # The Turn object has no effort field; effort effectiveness for a turn has
+    # to be read from elsewhere, such as the rollout's turn_context record.
     return {"outcome": "accepted",
             "turn_keys": sorted(turn.keys()),
-            "reported_effort": turn.get("reasoningEffort") or turn.get("effort")}
+            "turn_id": turn.get("id")}
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--codex", type=Path, required=True)
-    parser.add_argument("--allow-spend", action="store_true",
-                        help="permit turn/start dispatch tests with a credential")
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
-    state = resettable_dir(Path(__file__).resolve().parent / "_scratch_120_model")
+    state, leftovers = resettable_dir(
+        Path(__file__).resolve().parent / "_scratch_120_model")
     private_home = state / "home"
     codex_home = state / "codex-home"
     project = state / "project"
@@ -136,50 +145,45 @@ def main():
             "error": unknown.get("error"),
         }
 
-        # Effort dispatch checks.
-        status = login_status(codex, project, env)
-        summary["auth_mode"] = {k: status.get(k) for k in ("ok", "chatgpt", "api_key")}
-        authenticated = bool(status.get("chatgpt") or status.get("api_key"))
-        if authenticated and not args.allow_spend:
-            summary["effort_checks"] = {
-                "skipped": True,
-                "reason": "credential_present_without_allow_spend",
+        # Effort dispatch checks. The scratch profile is unauthenticated, so a
+        # dispatched turn cannot complete or spend.
+        valid_unsupported = sorted(union - set(model_efforts))
+        checks = {}
+        checks["invalid_string"] = {"effort": "superultra",
+                                    "value_space": "not_a_valid_level"}
+        if valid_unsupported:
+            checks["valid_but_unsupported"] = {
+                "effort": valid_unsupported[0],
+                "value_space": "valid_level_absent_from_model",
             }
         else:
-            valid_unsupported = sorted(union - set(model_efforts))
-            checks = {}
-            checks["invalid_string"] = {"effort": "superultra",
-                                        "value_space": "not_a_valid_level"}
-            if valid_unsupported:
-                checks["valid_but_unsupported"] = {
-                    "effort": valid_unsupported[0],
-                    "value_space": "valid_level_absent_from_model",
+            checks["valid_but_unsupported"] = {
+                "not_applicable": "every valid level is supported by the selected model"}
+        results = {}
+        for name, case in checks.items():
+            if "not_applicable" in case:
+                results[name] = case
+                continue
+            try:
+                results[name] = {
+                    **case,
+                    **effort_dispatch(server, model, case["effort"]),
                 }
-            else:
-                checks["valid_but_unsupported"] = {
-                    "not_applicable": "every valid level is supported by the selected model"}
-            results = {}
-            for name, case in checks.items():
-                if "not_applicable" in case:
-                    results[name] = case
-                    continue
-                try:
-                    results[name] = {
-                        **case,
-                        **effort_dispatch(server, model, case["effort"]),
-                    }
-                except RequestTimeout as exc:
-                    results[name] = {**case, "outcome": "timeout",
-                                     "method": str(exc)}
-            summary["effort_checks"] = results
+            except RequestTimeout as exc:
+                results[name] = {**case, "outcome": "timeout",
+                                 "method": str(exc)}
+        summary["effort_checks"] = results
 
         summary["event_methods"] = summarize_methods(server)
-        print(json.dumps(summary, indent=2))
+    except RequestTimeout as exc:
+        summary["fatal_timeout"] = str(exc)
     finally:
         stderr = server.close()
-        print(json.dumps({"stderr_signals": stderr}, indent=2))
-        print(json.dumps({"personal_roots_unchanged":
-                          compare_personal_roots(before, hash_personal_roots())}, indent=2))
+        summary["stderr_signals"] = stderr
+        summary["personal_roots_unchanged"] = compare_personal_roots(
+            before, hash_personal_roots())
+        summary["scratch_leftovers"] = leftovers
+        print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":

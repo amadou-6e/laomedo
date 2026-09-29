@@ -23,7 +23,7 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import (AppServer, codex_version,
+from _shared import (AppServer, RequestTimeout, codex_version,
                       compare_personal_roots, construct_env, credential_gate,
                       fingerprint, hash_personal_roots, resettable_dir,
                       summarize_methods, write_skill)
@@ -50,6 +50,7 @@ def create_and_run(server, model, project, summary, label):
     result = started["result"]
     thread_id = result["thread"]["id"]
     summary[f"{label}_thread_id"] = thread_id
+    summary[f"{label}_cli_version"] = result["thread"].get("cliVersion")
     summary[f"{label}_instruction_source_count"] = len(result.get("instructionSources") or [])
     turn = server.send("turn/start", {
         "threadId": thread_id,
@@ -101,7 +102,6 @@ def main():
         ok, _ = server.initialize()
         summary["run1_initialized"] = ok
         if not ok:
-            print(json.dumps(summary, indent=2))
             return
         listing = server.send("model/list", {"limit": 100})
         models = listing.get("result", {}).get("data", [])
@@ -109,11 +109,21 @@ def main():
         model = (selected or {}).get("id") or (selected or {}).get("model")
         summary["selected_model"] = model
         thread_id = create_and_run(server, model, project, summary, "run1")
-        summary["model_calls"] = 1
+        # An attempted turn may still have been submitted even if the wait
+        # timed out, so it counts as a possible model call either way.
+        summary["model_calls"] = 1 if thread_id else 0
+    except RequestTimeout as exc:
+        summary["run1_fatal_timeout"] = str(exc)
     finally:
         summary["run1_stderr"] = server.close()
+        summary["run1_event_methods"] = summarize_methods(server)
 
     if not thread_id:
+        summary["personal_roots_unchanged"] = compare_personal_roots(
+            before, hash_personal_roots())
+        summary["note"] = ("Codex has no Laomedo workspace snapshot; a "
+                           "missing-snapshot refusal is the runner registry's "
+                           "responsibility (see 120.md).")
         print(json.dumps(summary, indent=2))
         return
 
@@ -140,9 +150,11 @@ def main():
         if "error" in resumed:
             summary["resume_error"] = resumed["error"]
         else:
-            resumed_thread = resumed["result"].get("thread", {})
+            result = resumed["result"]
+            resumed_thread = result.get("thread", {})
             summary["resume_same_id"] = resumed_thread.get("id") == thread_id
-            summary["resume_instruction_source_count"] = len(resumed["result"].get("instructionSources") or [])
+            summary["resume_cli_version"] = resumed_thread.get("cliVersion")
+            summary["resume_instruction_source_count"] = len(result.get("instructionSources") or [])
             turn = server.send("turn/start", {
                 "threadId": thread_id,
                 "input": [{"type": "text", "text": "Reply with the single word resumed."}],
@@ -160,8 +172,12 @@ def main():
             "outcome": "rejected" if "error" in unknown else "accepted",
             "error": unknown.get("error"),
         }
+    except RequestTimeout as exc:
+        summary["run2_fatal_timeout"] = str(exc)
+        summary["model_calls"] += 1
     finally:
         summary["run2_stderr"] = server.close()
+        summary["run2_event_methods"] = summarize_methods(server)
 
     # Run 3: resume from a different cwd (recorded, not asserted).
     other_cwd = state / "other-cwd"
@@ -175,10 +191,12 @@ def main():
             "outcome": "accepted" if "result" in moved else "rejected",
             "error": moved.get("error"),
         }
+    except RequestTimeout as exc:
+        summary["run3_fatal_timeout"] = str(exc)
     finally:
         summary["run3_stderr"] = server.close()
+        summary["run3_event_methods"] = summarize_methods(server)
 
-    summary["event_methods"] = summarize_methods(server)
     summary["personal_roots_unchanged"] = compare_personal_roots(before, hash_personal_roots())
     summary["note"] = ("Codex has no Laomedo workspace snapshot; a missing-snapshot "
                        "refusal is the runner registry's responsibility (see 120.md).")

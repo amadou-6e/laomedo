@@ -28,7 +28,8 @@ def main():
     parser.add_argument("--codex", type=Path, required=True)
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
-    state = resettable_dir(Path(__file__).resolve().parent / "_scratch_120_iso")
+    state, leftovers = resettable_dir(
+        Path(__file__).resolve().parent / "_scratch_120_iso")
     private_home = state / "home"
     codex_home = state / "codex-home"
     project = state / "project"
@@ -94,6 +95,11 @@ def main():
                 thread = result.get("thread", {})
                 summary["thread_created"] = True
                 summary["thread_keys"] = sorted(thread.keys())
+                summary["cli_version"] = thread.get("cliVersion")
+                summary["effective_model"] = (result.get("model")
+                                              or thread.get("model"))
+                summary["effective_effort"] = (result.get("reasoningEffort")
+                                               or thread.get("reasoningEffort"))
                 sources = result.get("instructionSources") or []
                 summary["instruction_source_count"] = len(sources)
                 summary["instruction_source_under_real_home"] = sum(
@@ -107,10 +113,13 @@ def main():
                 summary["thread_start_error"] = started.get("error")
 
         summary["event_methods"] = summarize_methods(server)
-        print(json.dumps(summary, indent=2))
+    except Exception as exc:
+        summary["fatal"] = f"{type(exc).__name__}: {exc}"
     finally:
         stderr = server.close()
-        print(json.dumps({"stderr_signals": stderr}, indent=2))
+        summary["stderr_signals"] = stderr
+        summary["scratch_leftovers"] = leftovers
+        print(json.dumps(summary, indent=2))
         print(json.dumps({"personal_roots_unchanged":
                           compare_personal_roots(before, hash_personal_roots())}, indent=2))
 

@@ -15,15 +15,20 @@ and investigate whether Codex can run as a persistent Laomedo flow step.
 
 | Probe | Credential | Model call | What it tests |
 | --- | --- | --- | --- |
-| `probe_model_effort.py` | none (refuses if present) | no | model/list efforts, effective values from `thread/start`, invalid and valid-but-unsupported effort rejection, unknown model rejection |
+| `probe_model_effort.py` | none | no | model/list efforts, effective values from `thread/start`, invalid and valid-but-unsupported effort rejection, unknown model rejection |
 | `probe_isolation.py` | none | no | private skill discovery, `instructionSources` leak check, personal root comparison |
 | `probe_persistence.py` | API key | yes | `thread/resume` after restart, `thread/list`, unknown-thread rejection, resume from a different cwd |
 | `probe_stream_events.py` | API key | yes | raw item notifications, tool call with matching result, usage |
 
-`probe_model_effort.py` calls `turn/start` for the rejection checks. Run it
-against an unauthenticated private profile; it skips those checks when a
-credential is present unless `--allow-spend` is passed, so it never spends by
-default.
+`probe_model_effort.py` is unauthenticated by construction: the scratch profile
+has no credential and the constructed environment carries none, so a dispatched
+turn cannot spend. It calls `turn/start` for the rejection checks only. The
+"no silent downgrade" half of condition 5 needs a credentialed probe and is not
+claimable from this script.
+
+Both credentialed probes print the accumulated summary even when a request
+times out after a turn was submitted, so a paid turn is never lost without
+evidence; an attempted turn counts toward the model-call total either way.
 
 ## Credential gate
 
@@ -33,10 +38,13 @@ it fails. The gate:
 - accepts only a dedicated **API-key** credential (`codex login status`
   reports API-key mode);
 - rejects a copied personal **ChatGPT** login, per the #120 rule and the #119
-  statement that its ChatGPT-auth exception does not extend to #120;
+  statement that its ChatGPT-auth exception does not extend to #120. This also
+  blocks a dedicated ChatGPT service-account token, which #119 listed as a
+  production option; that is a conservative choice for this spike, not a claim
+  that service accounts are unsuitable;
 - rejects a `--state-dir` inside a git working tree;
-- requires TCP reachability to `chatgpt.com:443` as a prerequisite (not a
-  guarantee of an authenticated request).
+- requires TCP reachability to `api.openai.com:443`, the API-key traffic host,
+  as a prerequisite (not a guarantee of an authenticated request).
 
 No credential value, session, or raw trace leaves the private state directory.
 

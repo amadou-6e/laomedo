@@ -17,9 +17,9 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import (AppServer, codex_version, compare_personal_roots,
-                      construct_env, credential_gate, hash_personal_roots,
-                      summarize_methods, write_skill)
+from _shared import (AppServer, RequestTimeout, codex_version,
+                      compare_personal_roots, construct_env, credential_gate,
+                      hash_personal_roots, summarize_methods, write_skill)
 
 MARKER = "LAOMEDO_120_STREAM"
 SKILL_NAME = "fixture-stream-120"
@@ -131,11 +131,15 @@ def main():
             return
         thread_id = started["result"]["thread"]["id"]
         summary["thread_id"] = thread_id
+        summary["cli_version"] = started["result"]["thread"].get("cliVersion")
 
+        # One invocation channel only: the explicit skill input item. The
+        # "$<name>" text mention from #119 is deliberately omitted so a
+        # positive result is attributable to the skill item alone.
         turn = server.send("turn/start", {
             "threadId": thread_id,
             "input": [
-                {"type": "text", "text": f"${SKILL_NAME} Follow the skill."},
+                {"type": "text", "text": "Follow the skill."},
                 {"type": "skill", "name": SKILL_NAME,
                  "path": str(project / ".agents" / "skills" / SKILL_NAME / "SKILL.md")},
             ],
@@ -145,9 +149,12 @@ def main():
             summary["turn_start_error"] = turn["error"]
             print(json.dumps(summary, indent=2))
             return
+        # The turn was submitted; count it as a possible model call even if the
+        # wait below times out.
         summary["model_calls"] = 1
 
-        # Wait for terminal turn status, then a short settle drain.
+        # Wait for terminal turn status, then a short settle drain. On timeout,
+        # keep whatever events arrived; the finally block still prints them.
         deadline = time.monotonic() + 120
         status = None
         while time.monotonic() < deadline:
@@ -175,10 +182,15 @@ def main():
         summary["tool_call_and_result_observed"] = bool(with_result)
         summary["turn_diff_seen"] = any(m.get("method") == "turn/diff/updated" for m in server.events)
         summary["event_methods"] = summarize_methods(server)
-        print(json.dumps(summary, indent=2))
+    except RequestTimeout as exc:
+        # A timeout after turn/start still leaves the events collected so far;
+        # keep them and report the timeout rather than losing the paid turn.
+        summary["fatal_timeout"] = str(exc)
+        summary["event_methods"] = summarize_methods(server)
     finally:
         stderr = server.close()
-        print(json.dumps({"stderr_signals": stderr}, indent=2))
+        summary["stderr_signals"] = stderr
+        print(json.dumps(summary, indent=2))
         print(json.dumps({"personal_roots_unchanged":
                           compare_personal_roots(before, hash_personal_roots())}, indent=2))
 
