@@ -20,24 +20,40 @@ step through the Claude Agent SDK.
 | --- | --- | --- | --- |
 | `probe_environment.py` | none (forced-invalid key) | no | SDK/CLI versions, wheel tag, CLI resolution, explicit auth failure, config-dir plumbing |
 | `probe_isolation_settings.py` | API key | yes | `setting_sources` control with decoys at both candidate user roots, parent-leak decoys, requested vs effective model/effort, documented-unsupported pair, invalid settings rejection |
-| `probe_stream_resume.py` | API key | yes | `ToolUseBlock`/`ToolResultBlock` linkage, marker-verified resume continuity, listed-skill invocation, unlisted-skill refusal and Read reachability, explicit failures, `interrupt()` cancellation |
+| `probe_stream_resume.py` | API key | yes | `ToolUseBlock`/`ToolResultBlock` linkage, resume continuity (marker returned with no Read call), listed-skill invocation, unlisted-skill attempt state, Read reachability, `/name` dispatch of an unlisted skill, explicit failures, `interrupt()` cancellation |
 
 ## State directory and isolation boundaries
 
-The credentialed probes require `--state-dir`: a **new or empty** directory
-outside any git working tree, ideally outside the user folder. The probes
-never delete anything; they refuse a non-empty directory. Decoys are planted:
+Each credentialed probe requires its own `--state-dir`: a **new or empty**
+directory outside any git working tree, ideally outside the user folder. The
+probes never delete anything and never write outside `--state-dir`; they
+refuse a non-empty directory, so use a different directory per probe.
 
-- project skill in `<state>/project/.claude/skills` (the probes run with
-  `cwd=<state>/project`, since Claude looks for project skills in the working
-  directory and its parents, never in child folders);
-- user skills at **both** candidate roots, `<state>/home/.claude/skills` and
-  `<state>/claude-config/skills`, under different names, so a miss identifies
-  which root the runner version actually reads;
-- a parent skill and a `CLAUDE.md` next to the state directory, only when
-  those paths do not already exist, to detect parent-folder leakage. A parent
-  skill seen in `system/init` means leakage. `CLAUDE.md` loading is not
-  observable in the sanitized stream and is recorded as unobservable.
+The settings probe lays out its run one level down, in `<state>/run/`, and
+plants decoys:
+
+- project skill in `<state>/run/project/.claude/skills` (the probe runs with
+  `cwd=<state>/run/project`, since Claude looks for project skills in the
+  working directory and its parents, never in child folders);
+- user skills at **both** candidate roots, `<state>/run/home/.claude/skills`
+  and `<state>/run/claude-config/skills`, under different names, so a miss
+  identifies which root the runner version actually reads;
+- a parent skill and a `CLAUDE.md` in `<state>` itself, a parent of the
+  working directory that the probe created. A parent skill seen in
+  `system/init` means leakage. `CLAUDE.md` loading is not observable in the
+  sanitized stream and is recorded as unobservable. Directories above
+  `--state-dir` are not tested.
+
+## Skill checks
+
+Skill runs are classified from the `Skill` call's own result as
+`not_attempted`, `attempted_refused`, `attempted_allowed`, or
+`attempted_no_result`; errors from other tools do not count. Each fixture
+skill's body contains a marker, so a returned marker shows the body actually
+ran. The reference says unlisted skills are hidden from the model, so
+`not_attempted` is the expected state for the unlisted skill. It also says
+`/<name>` dispatch bypasses the allowlist; `unlisted_slash_dispatch` records
+whether it did.
 
 The environment hygiene follows #118: the parent process environment reaches
 the CLI through the SDK's `env` merge, so `options_env` overrides `HOME`,
@@ -49,8 +65,9 @@ parent environment.
 ## Credential gate
 
 Both credentialed probes stop before any model call unless the gate passes.
-The gate accepts only a dedicated `ANTHROPIC_API_KEY` in standard `sk-ant-`
-format from the runner environment, rejects a state dir inside a git working
+The gate accepts only a dedicated `ANTHROPIC_API_KEY` with the `sk-ant-api`
+prefix from the runner environment (subscription OAuth tokens also start with
+`sk-ant-` and are refused), rejects a state dir inside a git working
 tree, refuses when any provider-redirecting variable is set, rejects an OAuth
 token file in the private config dir, and requires reachability of
 `api.anthropic.com`. Per the SDK docs, `ANTHROPIC_API_KEY` takes precedence
@@ -59,7 +76,7 @@ over a subscription login when present.
 ## Spend
 
 USD 20 is the cap from issue #121. Per-call `max_budget_usd` ceilings sum to
-about USD 11.25 worst case (6 calls at $0.25 in the settings probe, 7 at
+about USD 12.75 worst case (7 calls at $0.25 in the settings probe, 8 at
 $1.25 plus one at $1.00 in the stream probe). `max_budget_usd` is checked
 between turns, so a single turn can exceed its ceiling. Under an API-key
 credential, `ResultMessage.total_cost_usd` is real provider spend; the probes
@@ -95,7 +112,8 @@ last post-run workspace snapshot before a resume is the Laomedo runner
 registry's responsibility; `probe_stream_resume.py` fingerprints the workspace
 before and after and records the distinction instead of claiming the SDK
 provides it. Continuity across resume is verified by a synthetic marker
-returning without re-reading its file.
+returning in the resumed run with no Read call; a re-read is reported as
+`run2_reread_file` and does not count as continuity.
 
 ## Reproduction
 
@@ -105,8 +123,8 @@ From the Laomedo repository root:
 python -m venv .venv
 .venv\Scripts\python -m pip install -r experiments/feasibility/121/requirements.txt
 .venv\Scripts\python experiments/feasibility/121/probe_environment.py
-.venv\Scripts\python experiments/feasibility/121/probe_isolation_settings.py --state-dir '<new-or-empty-private-state-dir>'
-.venv\Scripts\python experiments/feasibility/121/probe_stream_resume.py --state-dir '<same-state-dir>'
+.venv\Scripts\python experiments/feasibility/121/probe_isolation_settings.py --state-dir '<new-or-empty-state-dir-1>'
+.venv\Scripts\python experiments/feasibility/121/probe_stream_resume.py --state-dir '<new-or-empty-state-dir-2>'
 ```
 
 `_scratch_121_*` run directories, `__pycache__`, and `.venv` are gitignored.

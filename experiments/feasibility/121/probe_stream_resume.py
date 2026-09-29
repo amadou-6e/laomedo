@@ -6,11 +6,14 @@ Tests:
 - Streamed messages contain a tool call (ToolUseBlock) and its matching result
   (ToolResultBlock with the same tool_use_id).
 - Continuity: run 1 reads a synthetic code from the workspace; run 2 resumes
-  in a fresh CLI process and must return the code without re-reading it. The
+  in a fresh CLI process and must return the code with no Read call. The
   code is a fixed synthetic marker, so the check leaks nothing.
-- Skill invocation: a listed skill is invoked as a Skill tool use; an unlisted
-  skill is refused by the Skill tool; the unlisted skill's files stay readable
-  with Read, as the reference documents.
+- Skill invocation: each skill run is classified as not_attempted,
+  attempted_refused, attempted_allowed, or attempted_no_result from the Skill
+  call's own result. Skill bodies carry markers, so a returned marker shows
+  the body ran. Read access to an unlisted skill's files must succeed, and
+  /name dispatch of an unlisted skill is recorded because the reference says
+  it bypasses the allowlist.
 - Failure: an invalid model fails explicitly. Cancellation via interrupt()
   ends with terminal_reason aborted_*.
 - Resuming an unknown session id fails explicitly.
@@ -29,7 +32,10 @@ import sys
 import time
 
 PROJECT_SKILL = "fixture-121-stream"
+UNLISTED_SKILL = "fixture-121-unlisted"
 MARKER = "LAOMEDO-121-READY"
+LISTED_MARKER = "LISTED-121-RAN"
+UNLISTED_MARKER = "UNLISTED-121-RAN"
 
 
 async def collect_query(prompt, options, summary, label, marker=None,
@@ -131,7 +137,7 @@ def main():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from _shared import (compare_personal_roots, credential_gate, fingerprint,
                           hash_personal_roots, prepare_state_dir,
-                          runner_versions, write_skill)
+                          runner_versions, skill_attempt, write_skill)
 
     state = args.state_dir.resolve()
     prepared = prepare_state_dir(state)
@@ -151,10 +157,13 @@ def main():
     (project / "notes.txt").write_text(
         f"The launch code is {MARKER}.\n", encoding="utf-8")
     write_skill(project / ".claude" / "skills", PROJECT_SKILL,
-                "Synthetic streaming fixture for issue 121. Reply READY when invoked.")
-    # An unlisted decoy for the refusal test.
-    write_skill(project / ".claude" / "skills", "fixture-121-unlisted",
-                "Synthetic unlisted fixture for issue 121.")
+                "Synthetic streaming fixture for issue 121.",
+                f"When invoked, reply with exactly {LISTED_MARKER}.\n")
+    # An unlisted decoy for the refusal and dispatch tests. Its marker appears
+    # only in the skill body, so the marker coming back means the body ran.
+    write_skill(project / ".claude" / "skills", UNLISTED_SKILL,
+                "Synthetic unlisted fixture for issue 121.",
+                f"When invoked, reply with exactly {UNLISTED_MARKER}.\n")
 
     gate = credential_gate(state, config_dir)
     summary["credential_gate"] = gate
@@ -203,14 +212,20 @@ def main():
             summary["run2_session_id"] = ((run2.get("result") or {}).get("session_id")
                                           or (run2.get("init") or {}).get("session_id"))
             summary["resume_same_session"] = (summary["run2_session_id"] == session_id)
-            summary["resume_continuity_marker"] = run2.get("marker_returned")
+            # Continuity counts only if the marker came back without a new
+            # Read; a re-read would prove file access, not conversation memory.
+            reread = "Read" in (run2.get("tool_call_names") or [])
+            summary["run2_reread_file"] = reread
+            summary["resume_continuity_marker"] = (
+                bool(run2.get("marker_returned")) and not reread)
 
         # Skill invocation: listed skill is invoked; unlisted is refused.
-        asyncio.run(collect_query(
-            "Use the fixture-121-stream skill, then reply with its READY line.",
-            make_options(), summary, "skill_listed_invoked"))
-        skill_runs = asyncio.run(_skill_pair(
-            project, private_home, config_dir, state, make_options, summary))
+        listed = asyncio.run(collect_query(
+            f"Use the {PROJECT_SKILL} skill and follow it.",
+            make_options(), summary, "skill_listed_invoked",
+            marker=LISTED_MARKER))
+        summary["skill_listed_invoked"]["attempt"] = skill_attempt(listed, PROJECT_SKILL)
+        asyncio.run(_skill_pair(make_options, summary))
 
         # Unavailable session: resume a fabricated id must fail explicitly.
         asyncio.run(collect_query(
@@ -247,29 +262,40 @@ def main():
         print(json.dumps(summary, indent=2))
 
 
-async def _skill_pair(project, private_home, config_dir, state, make_options,
-                      summary):
-    """Listed skill: expect a Skill tool use. Unlisted skill: expect the Skill
-    tool to refuse while Read still reaches the files."""
+async def _skill_pair(make_options, summary):
+    """Unlisted skill with only the listed skill allowed: record whether the
+    model attempted it (the reference says unlisted skills are hidden from the
+    model, so not_attempted is the expected state) and whether its body ran.
+    Then check Read access to its files and /name dispatch, which the
+    reference says bypasses the allowlist."""
+    from _shared import skill_attempt, tool_succeeded
+
     unlisted = await collect_query(
-        "Use the fixture-121-unlisted skill.",
+        f"Use the {UNLISTED_SKILL} skill and follow it.",
         make_options(skills=(PROJECT_SKILL,)), summary,
-        "skill_unlisted_refused")
-    unlisted_calls = unlisted.get("tool_call_names") or []
-    errors = unlisted.get("tool_result_errors") or {}
-    matched = unlisted.get("tool_results_matched") or []
-    summary["skill_unlisted_refused"]["unlisted_skill_refused"] = bool(
-        "Skill" in unlisted_calls and matched
-        and any(errors.get(tool_id) for tool_id in matched))
+        "skill_unlisted_refused", marker=UNLISTED_MARKER)
+    summary["skill_unlisted_refused"]["attempt"] = skill_attempt(unlisted, UNLISTED_SKILL)
+    summary["skill_unlisted_refused"]["unlisted_body_ran"] = bool(
+        unlisted.get("marker_returned"))
+
     read_run = await collect_query(
-        "Read the file .claude/skills/fixture-121-unlisted/SKILL.md with the "
+        f"Read the file .claude/skills/{UNLISTED_SKILL}/SKILL.md with the "
         "Read tool, then reply done.",
         make_options(skills=[]), summary, "unlisted_readable_via_read")
-    summary["unlisted_readable_via_read"] = {
-        "read_observed": "Read" in (read_run.get("tool_call_names") or []),
-        "outcome": read_run.get("outcome"),
-    }
-    return unlisted, read_run
+    summary["unlisted_readable_via_read"]["read_attempted"] = (
+        "Read" in (read_run.get("tool_call_names") or []))
+    summary["unlisted_readable_via_read"]["read_succeeded"] = tool_succeeded(
+        read_run, "Read")
+
+    dispatch = await collect_query(
+        f"/{UNLISTED_SKILL}",
+        make_options(skills=(PROJECT_SKILL,)), summary,
+        "unlisted_slash_dispatch", marker=UNLISTED_MARKER)
+    summary["unlisted_slash_dispatch"]["unlisted_body_ran"] = bool(
+        dispatch.get("marker_returned"))
+    summary["unlisted_slash_dispatch"]["note"] = (
+        "True means /name dispatch ran an unlisted skill, so the skills "
+        "allowlist is not an isolation boundary.")
 
 
 if __name__ == "__main__":

@@ -8,8 +8,9 @@ Tests:
   user roots, `<private HOME>/.claude/skills` and
   `$CLAUDE_CONFIG_DIR/skills`, under different names, so a miss identifies
   which root the runner version actually reads.
-- A parent-level decoy skill and CLAUDE.md are planted next to the state
-  directory; a skill seen in init means parent leakage. CLAUDE.md loading is
+- A parent-level decoy skill and CLAUDE.md are planted in <state>, which is a
+  parent of the working directory <state>/run/project; nothing is written
+  outside --state-dir. A parent skill seen in init means leakage. CLAUDE.md loading is
   not observable in the sanitized stream and is recorded as unobservable.
 - Requested model/effort versus effective model. The supported pair uses a
   model from the documented effort table; Haiku is the documented-unsupported
@@ -127,9 +128,14 @@ def main():
         print(json.dumps(summary, indent=2))
         return
 
-    private_home = state / "home"
-    config_dir = state / "claude-config"
-    project = state / "project"
+    # Everything lives inside the user-supplied new-or-empty state dir. The
+    # run layout sits one level down so the parent-leak decoys can go in
+    # <state> itself: a parent of the working directory that this probe
+    # created, never a directory outside it.
+    run_root = state / "run"
+    private_home = run_root / "home"
+    config_dir = run_root / "claude-config"
+    project = run_root / "project"
     for directory in (private_home, config_dir, project):
         directory.mkdir(parents=True, exist_ok=True)
     (project / "notes.txt").write_text(f"The launch code is {MARKER}.\n",
@@ -141,23 +147,17 @@ def main():
                 "Synthetic user-home fixture for issue 121.")
     write_skill(config_dir / "skills", CONFIG_SKILL,
                 "Synthetic config-dir fixture for issue 121.")
-    # Parent leakage decoys, only where they cannot overwrite anything.
-    parent = state.parent
-    planted = []
-    parent_claude_md = parent / PARENT_CLAUDE_MD
-    parent_skills = parent / ".claude" / "skills" / PARENT_SKILL
-    if not parent_claude_md.exists():
-        parent_claude_md.write_text("Decoy: must not be loaded.\n", encoding="utf-8")
-        planted.append("CLAUDE.md")
-    if not parent_skills.exists():
-        write_skill(parent / ".claude" / "skills", PARENT_SKILL,
-                    "Synthetic parent fixture for issue 121.")
-        planted.append(PARENT_SKILL)
-    summary["parent_decoys_planted"] = planted
+    # Parent leakage decoys in <state>, two levels above the working directory.
+    (state / PARENT_CLAUDE_MD).write_text("Decoy: must not be loaded.\n", encoding="utf-8")
+    write_skill(state / ".claude" / "skills", PARENT_SKILL,
+                "Synthetic parent fixture for issue 121.")
+    summary["parent_decoys_planted"] = ["CLAUDE.md", PARENT_SKILL]
     summary["parent_decoy_note"] = (
-        "A parent skill seen in init means leakage. CLAUDE.md loading is not "
-        "observable in the sanitized stream and is recorded as unobservable; "
-        "run from a state root outside the user folder to limit exposure.")
+        "Decoys are in the probe's own state dir, a parent of the working "
+        "directory; nothing is written outside --state-dir. A parent skill seen "
+        "in init means leakage. CLAUDE.md loading is not observable in the "
+        "sanitized stream and is recorded as unobservable. Directories above "
+        "--state-dir are not tested; use a state root outside the user folder.")
 
     gate = credential_gate(state, config_dir)
     summary["credential_gate"] = gate

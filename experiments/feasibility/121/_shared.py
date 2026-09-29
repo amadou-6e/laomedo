@@ -25,8 +25,6 @@ import socket
 import subprocess
 import sys
 
-from claude_agent_sdk.types import TextBlock
-
 
 PERSONAL_ROOT_NAMES = [
     "user_skills",
@@ -235,7 +233,8 @@ def credential_gate(state: Path, config_dir: Path) -> dict:
     """Decide whether a model call is permitted.
 
     Accepts only a dedicated ANTHROPIC_API_KEY from the runner environment
-    (standard sk-ant- format). Refuses a state dir inside a git tree, a
+    (sk-ant-api prefix; subscription OAuth tokens also start with sk-ant- and
+    are refused). Refuses a state dir inside a git tree, a
     missing or malformed key, any provider-redirecting variable set in the
     parent environment, a personal OAuth token file in the private config
     dir, and an unreachable api.anthropic.com. Never prints a value.
@@ -248,8 +247,8 @@ def credential_gate(state: Path, config_dir: Path) -> dict:
     if not api_key.strip():
         verdict["reason"] = "missing_anthropic_api_key"
         return verdict
-    if not api_key.startswith("sk-ant-"):
-        verdict["reason"] = "unexpected_key_format"
+    if not api_key.startswith("sk-ant-api"):
+        verdict["reason"] = "not_an_api_key_format"
         return verdict
     active = [name for name in PROVIDER_ENV_VARS
               if os.environ.get(name, "").strip()]
@@ -328,6 +327,12 @@ def redact_message(message) -> dict:
                 entry["id"] = block.id
                 entry["name"] = block.name
                 entry["input_keys"] = sorted((block.input or {}).keys())
+                if block.name == "Skill":
+                    # Skill arguments name synthetic fixtures only; keep short
+                    # string values so the invoked skill is attributable.
+                    entry["skill_args"] = {
+                        key: value for key, value in (block.input or {}).items()
+                        if isinstance(value, str) and len(value) <= 100}
             elif bkind == "TextBlock":
                 entry["text_length"] = len(block.text or "")
             elif bkind == "ToolResultBlock":
@@ -375,7 +380,10 @@ def collect_events(messages, marker: str = None) -> dict:
     """Summarize a message list: tool calls, matching results, terminal state.
     When marker is given, records whether it appeared in final result or
     assistant text without printing that text."""
+    from claude_agent_sdk.types import TextBlock
+
     tool_calls = {}
+    call_details = {}
     tool_results = []
     tool_result_errors = {}
     init_view = None
@@ -392,6 +400,10 @@ def collect_events(messages, marker: str = None) -> dict:
             for block in view["blocks"]:
                 if block["kind"] == "ToolUseBlock":
                     tool_calls[block["id"]] = block["name"]
+                    call_details[block["id"]] = {
+                        "id": block["id"], "name": block["name"],
+                        "skill_args": block.get("skill_args"),
+                    }
         elif view["kind"] == "UserMessage":
             for block in view["blocks"]:
                 if block["kind"] == "ToolResultBlock":
@@ -403,8 +415,14 @@ def collect_events(messages, marker: str = None) -> dict:
             result_view = view
             if marker and isinstance(message.result, str) and marker in message.result:
                 marker_returned = True
+    calls = []
+    for call_id, detail in call_details.items():
+        calls.append({**detail,
+                      "result_seen": call_id in tool_result_errors,
+                      "is_error": tool_result_errors.get(call_id)})
     return {
         "message_count": len(redacted),
+        "tool_calls": calls,
         "events": redacted,
         "init": init_view,
         "result": result_view,
@@ -416,3 +434,31 @@ def collect_events(messages, marker: str = None) -> dict:
         "tool_call_and_result_observed": bool(tool_calls) and bool(set(tool_calls) & set(tool_results)),
         "marker_returned": marker_returned if marker else None,
     }
+
+
+def skill_attempt(collected: dict, skill_name: str) -> dict:
+    """Classify Skill tool use for one skill as not_attempted,
+    attempted_refused, attempted_allowed, or attempted_no_result. Only the
+    Skill call's own result counts; errors from other tools are ignored. When
+    no Skill call names the skill, any Skill call is used and flagged."""
+    skill_calls = [c for c in collected.get("tool_calls") or [] if c["name"] == "Skill"]
+    named = [c for c in skill_calls
+             if skill_name in (c.get("skill_args") or {}).values()]
+    considered = named or skill_calls
+    report = {"skill": skill_name, "skill_call_count": len(skill_calls),
+              "attributed_by_name": bool(named)}
+    if not considered:
+        report["state"] = "not_attempted"
+    elif any(c["result_seen"] and c["is_error"] for c in considered):
+        report["state"] = "attempted_refused"
+    elif any(c["result_seen"] and not c["is_error"] for c in considered):
+        report["state"] = "attempted_allowed"
+    else:
+        report["state"] = "attempted_no_result"
+    return report
+
+
+def tool_succeeded(collected: dict, tool_name: str) -> bool:
+    """True when a call to tool_name produced a non-error result."""
+    return any(c["name"] == tool_name and c["result_seen"] and not c["is_error"]
+               for c in collected.get("tool_calls") or [])
