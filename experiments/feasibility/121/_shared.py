@@ -25,6 +25,8 @@ import socket
 import subprocess
 import sys
 
+from claude_agent_sdk.types import TextBlock
+
 
 PERSONAL_ROOT_NAMES = [
     "user_skills",
@@ -33,6 +35,29 @@ PERSONAL_ROOT_NAMES = [
     "user_claude.json",
     "user_projects",
     "user_plugins",
+]
+
+
+# Environment variables that could redirect credentials or the endpoint away
+# from the dedicated key. The gate refuses when any is set in the parent
+# environment, and options_env blanks them for defense in depth.
+PROVIDER_ENV_VARS = [
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_BEDROCK_BASE_URL",
+    "ANTHROPIC_VERTEX_BASE_URL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "CLAUDE_CODE_EFFORT_LEVEL",
+    "ANTHROPIC_CUSTOM_HEADERS",
 ]
 
 
@@ -46,6 +71,12 @@ def personal_roots():
         home / ".claude" / "projects",
         home / ".claude" / "plugins",
     ]
+
+
+# Roots whose hash changes whenever any Claude Code session is running,
+# including the session that hosts this probe. Their comparison is recorded
+# but labeled inconclusive by design, as in #119.
+INCONCLUSIVE_ROOTS = {"user_projects"}
 
 
 def fingerprint(root: Path) -> str:
@@ -75,7 +106,10 @@ def hash_personal_roots():
 
 
 def compare_personal_roots(before, after):
-    return dict(zip(PERSONAL_ROOT_NAMES, (a == b for a, b in zip(before, after))))
+    result = {}
+    for name, equal in zip(PERSONAL_ROOT_NAMES, (a == b for a, b in zip(before, after))):
+        result[name] = equal if name not in INCONCLUSIVE_ROOTS else "inconclusive"
+    return result
 
 
 def inside_git_tree(path: Path) -> bool:
@@ -182,13 +216,29 @@ def tcp_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:
         return False
 
 
+def prepare_state_dir(state: Path) -> dict:
+    """Accept a user-supplied state directory only if it is new or empty.
+    Never deletes anything. Returns a report for the summary."""
+    report = {"path_exists": state.exists()}
+    if state.exists():
+        entries = list(state.iterdir())
+        report["existing_entries"] = len(entries)
+        if entries:
+            report["refused"] = "state_dir_not_empty"
+            return report
+    state.mkdir(parents=True, exist_ok=True)
+    report["prepared"] = True
+    return report
+
+
 def credential_gate(state: Path, config_dir: Path) -> dict:
     """Decide whether a model call is permitted.
 
-    Accepts only a dedicated ANTHROPIC_API_KEY from the runner environment.
-    Rejects a state dir inside a git tree, a missing key, a personal OAuth
-    token present in the private config dir (a copied login), and an
-    unreachable api.anthropic.com. Never reads or prints the key value.
+    Accepts only a dedicated ANTHROPIC_API_KEY from the runner environment
+    (standard sk-ant- format). Refuses a state dir inside a git tree, a
+    missing or malformed key, any provider-redirecting variable set in the
+    parent environment, a personal OAuth token file in the private config
+    dir, and an unreachable api.anthropic.com. Never prints a value.
     """
     verdict = {"permitted": False, "credential_mode": None}
     if inside_git_tree(state):
@@ -198,9 +248,18 @@ def credential_gate(state: Path, config_dir: Path) -> dict:
     if not api_key.strip():
         verdict["reason"] = "missing_anthropic_api_key"
         return verdict
+    if not api_key.startswith("sk-ant-"):
+        verdict["reason"] = "unexpected_key_format"
+        return verdict
+    active = [name for name in PROVIDER_ENV_VARS
+              if os.environ.get(name, "").strip()]
+    if active:
+        verdict["reason"] = "provider_env_vars_set"
+        verdict["provider_env_vars"] = active
+        return verdict
     for token_name in (".credentials.json", "credentials.json"):
         if (config_dir / token_name).is_file():
-            verdict["reason"] = "personal_oauth_token_in_config_dir"
+            verdict["reason"] = "oauth_token_file_in_config_dir"
             return verdict
     verdict["credential_mode"] = "anthropic_api_key"
     if not tcp_reachable("api.anthropic.com"):
@@ -210,18 +269,25 @@ def credential_gate(state: Path, config_dir: Path) -> dict:
     return verdict
 
 
-def options_env(private_home: Path, config_dir: Path, api_key: str = None) -> dict:
+def options_env(private_home: Path, config_dir: Path, state: Path,
+                api_key: str = None) -> dict:
     """Environment passed to the CLI subprocess via options.env. The SDK merges
     this on top of the inherited process environment, so every personal-profile
-    variable is overridden explicitly."""
+    and provider-redirecting variable is overridden explicitly (see #118: the
+    parent process environment reaches the CLI unless overridden here)."""
     env = {
         "HOME": str(private_home),
         "USERPROFILE": str(private_home),
+        "APPDATA": str(state / "appdata"),
+        "LOCALAPPDATA": str(state / "localappdata"),
         "CLAUDE_CONFIG_DIR": str(config_dir),
+        "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
         "DISABLE_AUTOUPDATER": "1",
     }
+    for name in PROVIDER_ENV_VARS:
+        env[name] = ""
     if api_key is not None:
         env["ANTHROPIC_API_KEY"] = api_key
     return env
@@ -305,17 +371,24 @@ def redact_message(message) -> dict:
     return view
 
 
-def collect_events(messages) -> dict:
-    """Summarize a message list: tool calls, matching results, terminal state."""
+def collect_events(messages, marker: str = None) -> dict:
+    """Summarize a message list: tool calls, matching results, terminal state.
+    When marker is given, records whether it appeared in final result or
+    assistant text without printing that text."""
     tool_calls = {}
     tool_results = []
+    tool_result_errors = {}
     init_view = None
     result_view = None
+    marker_returned = False
     redacted = []
     for message in messages:
         view = redact_message(message)
         redacted.append(view)
         if view["kind"] == "AssistantMessage":
+            for block in (message.content or []):
+                if isinstance(block, TextBlock) and marker and marker in (block.text or ""):
+                    marker_returned = True
             for block in view["blocks"]:
                 if block["kind"] == "ToolUseBlock":
                     tool_calls[block["id"]] = block["name"]
@@ -323,10 +396,13 @@ def collect_events(messages) -> dict:
             for block in view["blocks"]:
                 if block["kind"] == "ToolResultBlock":
                     tool_results.append(block["tool_use_id"])
+                    tool_result_errors[block["tool_use_id"]] = block.get("is_error")
         elif view["kind"] == "SystemMessage" and view.get("subtype") == "init":
             init_view = view
         elif view["kind"] == "ResultMessage":
             result_view = view
+            if marker and isinstance(message.result, str) and marker in message.result:
+                marker_returned = True
     return {
         "message_count": len(redacted),
         "events": redacted,
@@ -336,5 +412,7 @@ def collect_events(messages) -> dict:
         "tool_call_names": sorted(set(tool_calls.values())),
         "tool_result_ids": sorted(tool_results),
         "tool_results_matched": sorted(set(tool_calls) & set(tool_results)),
+        "tool_result_errors": tool_result_errors,
         "tool_call_and_result_observed": bool(tool_calls) and bool(set(tool_calls) & set(tool_results)),
+        "marker_returned": marker_returned if marker else None,
     }

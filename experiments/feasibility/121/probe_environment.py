@@ -52,7 +52,7 @@ def main():
         async def attempt():
             options = ClaudeAgentOptions(
                 cwd=str(state),
-                env=options_env(private_home, config_dir,
+                env=options_env(private_home, config_dir, state,
                                 api_key="invalid-laomedo-121-no-spend"),
                 setting_sources=[],
                 max_turns=1,

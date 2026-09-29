@@ -1,14 +1,18 @@
-"""Probe Claude Agent SDK streaming, failure, cancellation, and resume.
+"""Probe Claude Agent SDK streaming, skill invocation, failure, cancellation,
+and resume.
 
 Credential required: the credential gate must pass before any model call.
 Tests:
 - Streamed messages contain a tool call (ToolUseBlock) and its matching result
   (ToolResultBlock with the same tool_use_id).
-- Failure produces an explicit ResultMessage subtype or SDK error.
-- Cancellation via client.interrupt() ends with terminal_reason aborted_*.
-- A session ID captured from run 1 resumes in a fresh CLI process (each
-  query() spawns a new process, which is the runner restart) and the init
-  message reports the same session ID.
+- Continuity: run 1 reads a synthetic code from the workspace; run 2 resumes
+  in a fresh CLI process and must return the code without re-reading it. The
+  code is a fixed synthetic marker, so the check leaks nothing.
+- Skill invocation: a listed skill is invoked as a Skill tool use; an unlisted
+  skill is refused by the Skill tool; the unlisted skill's files stay readable
+  with Read, as the reference documents.
+- Failure: an invalid model fails explicitly. Cancellation via interrupt()
+  ends with terminal_reason aborted_*.
 - Resuming an unknown session id fails explicitly.
 - The workspace is fingerprinted before and after; the probe records that the
   SDK persists conversation only, so restoring the last post-run workspace
@@ -17,17 +21,19 @@ Tests:
 Every credentialed call is bounded by max_turns and max_budget_usd.
 """
 
+import argparse
 import asyncio
 import json
-import os
 from pathlib import Path
 import sys
 import time
 
 PROJECT_SKILL = "fixture-121-stream"
+MARKER = "LAOMEDO-121-READY"
 
 
-async def collect_query(prompt, options, summary, label, timeout_s=120):
+async def collect_query(prompt, options, summary, label, marker=None,
+                        timeout_s=180):
     """One-shot query() with a wall-clock deadline. Returns collected events."""
     from claude_agent_sdk._errors import (CLIConnectionError, CLINotFoundError,
                                           ProcessError, ResultError)
@@ -59,7 +65,7 @@ async def collect_query(prompt, options, summary, label, timeout_s=120):
     except Exception as exc:
         outcome["outcome"] = "other_error"
         outcome["error"] = f"{type(exc).__name__}: {exc}"
-    collected = collect_events(messages)
+    collected = collect_events(messages, marker=marker)
     summary[label] = {**outcome, **collected}
     return summary[label]
 
@@ -70,15 +76,15 @@ async def _query(prompt, options):
         yield message
 
 
-async def run_interrupt(state, private_home, config_dir, summary):
+async def run_interrupt(project, private_home, config_dir, state, summary):
     """Start a long turn, interrupt it, and drain to its ResultMessage."""
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ResultMessage
     from claude_agent_sdk._errors import CLIConnectionError, CLINotFoundError
-    from _shared import options_env, collect_events, count_attempted_turn
+    from _shared import collect_events, count_attempted_turn, options_env
 
     options = ClaudeAgentOptions(
-        cwd=str(state),
-        env=options_env(private_home, config_dir),
+        cwd=str(project),
+        env=options_env(private_home, config_dir, state),
         setting_sources=["project"],
         max_turns=1,
         max_budget_usd=1.0,
@@ -98,9 +104,8 @@ async def run_interrupt(state, private_home, config_dir, summary):
                 if isinstance(message, ResultMessage):
                     break
     except (CLINotFoundError, CLIConnectionError) as exc:
-        outcome["outcome"] = "cli_unavailable"
-        outcome["error"] = type(exc).__name__
-        summary["cancellation"] = {**outcome}
+        summary["cancellation"] = {"outcome": "cli_unavailable",
+                                   "error": type(exc).__name__}
         return
     except Exception as exc:
         outcome["outcome"] = "other_error"
@@ -121,26 +126,36 @@ async def run_interrupt(state, private_home, config_dir, summary):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state-dir", type=Path, required=True,
-                        help="private state dir outside any git tree")
+                        help="new or empty private state dir outside any git tree")
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from _shared import (compare_personal_roots, credential_gate, fingerprint,
-                          hash_personal_roots, options_env, resettable_dir,
+                          hash_personal_roots, prepare_state_dir,
                           runner_versions, write_skill)
 
-    state, leftovers = resettable_dir(args.state_dir.resolve())
+    state = args.state_dir.resolve()
+    prepared = prepare_state_dir(state)
+    summary = dict(runner_versions())
+    summary["state_dir"] = prepared
+    if prepared.get("refused"):
+        summary["credential_gate"] = {"permitted": False,
+                                      "reason": prepared["refused"]}
+        print(json.dumps(summary, indent=2))
+        return
+
     private_home = state / "home"
     config_dir = state / "claude-config"
     project = state / "project"
     for directory in (private_home, config_dir, project):
         directory.mkdir(parents=True, exist_ok=True)
     (project / "notes.txt").write_text(
-        "The launch code is LAOMEDO-121-READY.\n", encoding="utf-8")
+        f"The launch code is {MARKER}.\n", encoding="utf-8")
     write_skill(project / ".claude" / "skills", PROJECT_SKILL,
-                "Synthetic streaming fixture for issue 121.")
+                "Synthetic streaming fixture for issue 121. Reply READY when invoked.")
+    # An unlisted decoy for the refusal test.
+    write_skill(project / ".claude" / "skills", "fixture-121-unlisted",
+                "Synthetic unlisted fixture for issue 121.")
 
-    summary = dict(runner_versions())
-    summary["scratch_leftovers"] = leftovers
     gate = credential_gate(state, config_dir)
     summary["credential_gate"] = gate
     if not gate.get("permitted"):
@@ -153,26 +168,24 @@ def main():
         from claude_agent_sdk import ClaudeAgentOptions
         from _shared import options_env
 
-        def make_options(resume=None):
+        def make_options(resume=None, skills=(PROJECT_SKILL,)):
             return ClaudeAgentOptions(
                 cwd=str(project),
-                env=options_env(private_home, config_dir),
+                env=options_env(private_home, config_dir, state),
                 setting_sources=["project"],
-                skills=[PROJECT_SKILL],
+                skills=list(skills),
                 max_turns=3,
-                max_budget_usd=2.0,
+                max_budget_usd=1.25,
                 permission_mode="default",
                 allowed_tools=["Read", "Glob", "Grep"],
                 resume=resume,
             )
 
-        # Run 1: streamed tool call and matching result.
+        # Run 1: streamed tool call and matching result, returning the marker.
         run1 = asyncio.run(collect_query(
             "Read the file notes.txt in the project directory, then reply with "
             "exactly the launch code it contains.",
-            make_options(), summary, "run1_stream"))
-
-        # Workspace snapshot before and after run 1.
+            make_options(), summary, "run1_stream", marker=MARKER))
         summary["workspace_hash_run1"] = fingerprint(project)
         session_id = ((run1.get("result") or {}).get("session_id")
                       or (run1.get("init") or {}).get("session_id"))
@@ -180,15 +193,24 @@ def main():
 
         if session_id:
             # Run 2: resume in a fresh CLI process (a new query() process is
-            # the runner restart). Record that conversation resumes but the
-            # workspace is the caller's responsibility.
+            # the runner restart). Continuity is proven by the marker coming
+            # back without re-reading the file.
             run2 = asyncio.run(collect_query(
-                "Without reading the file again, reply with the launch code "
+                "Without reading any file, reply with exactly the launch code "
                 "you read earlier.",
-                make_options(resume=session_id), summary, "run2_resume"))
+                make_options(resume=session_id), summary, "run2_resume",
+                marker=MARKER))
             summary["run2_session_id"] = ((run2.get("result") or {}).get("session_id")
                                           or (run2.get("init") or {}).get("session_id"))
             summary["resume_same_session"] = (summary["run2_session_id"] == session_id)
+            summary["resume_continuity_marker"] = run2.get("marker_returned")
+
+        # Skill invocation: listed skill is invoked; unlisted is refused.
+        asyncio.run(collect_query(
+            "Use the fixture-121-stream skill, then reply with its READY line.",
+            make_options(), summary, "skill_listed_invoked"))
+        skill_runs = asyncio.run(_skill_pair(
+            project, private_home, config_dir, state, make_options, summary))
 
         # Unavailable session: resume a fabricated id must fail explicitly.
         asyncio.run(collect_query(
@@ -203,7 +225,7 @@ def main():
             "Reply with ok.", options_bad, summary, "failure_invalid_model"))
 
         # Cancellation.
-        asyncio.run(run_interrupt(state, private_home, config_dir, summary))
+        asyncio.run(run_interrupt(project, private_home, config_dir, state, summary))
 
         summary["workspace_hash_final"] = fingerprint(project)
         summary["workspace_changed"] = summary["workspace_hash_run1"] != summary["workspace_hash_final"]
@@ -218,10 +240,36 @@ def main():
         summary["observed_cost_usd"] = round(sum(costs), 6) if costs else None
         summary["model_calls_note"] = ("upper bound on billable model calls: a "
                                        "turn is counted when submitted, before "
-                                       "any response")
+                                       "any response; max_budget_usd is checked "
+                                       "between turns, so one turn can exceed it")
         summary["personal_roots_unchanged"] = compare_personal_roots(
             before, hash_personal_roots())
         print(json.dumps(summary, indent=2))
+
+
+async def _skill_pair(project, private_home, config_dir, state, make_options,
+                      summary):
+    """Listed skill: expect a Skill tool use. Unlisted skill: expect the Skill
+    tool to refuse while Read still reaches the files."""
+    unlisted = await collect_query(
+        "Use the fixture-121-unlisted skill.",
+        make_options(skills=(PROJECT_SKILL,)), summary,
+        "skill_unlisted_refused")
+    unlisted_calls = unlisted.get("tool_call_names") or []
+    errors = unlisted.get("tool_result_errors") or {}
+    matched = unlisted.get("tool_results_matched") or []
+    summary["skill_unlisted_refused"]["unlisted_skill_refused"] = bool(
+        "Skill" in unlisted_calls and matched
+        and any(errors.get(tool_id) for tool_id in matched))
+    read_run = await collect_query(
+        "Read the file .claude/skills/fixture-121-unlisted/SKILL.md with the "
+        "Read tool, then reply done.",
+        make_options(skills=[]), summary, "unlisted_readable_via_read")
+    summary["unlisted_readable_via_read"] = {
+        "read_observed": "Read" in (read_run.get("tool_call_names") or []),
+        "outcome": read_run.get("outcome"),
+    }
+    return unlisted, read_run
 
 
 if __name__ == "__main__":

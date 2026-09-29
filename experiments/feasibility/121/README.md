@@ -18,33 +18,74 @@ step through the Claude Agent SDK.
 
 | Probe | Credential | Model call | What it tests |
 | --- | --- | --- | --- |
-| `probe_environment.py` | none (forced-invalid key) | no | SDK/CLI versions, CLI resolution, explicit failure without a credential, config-dir plumbing |
-| `probe_isolation_settings.py` | API key | yes | `setting_sources` control over planted decoy skills, init `skills` array, requested vs effective model/effort, invalid settings rejection |
-| `probe_stream_resume.py` | API key | yes | streamed `ToolUseBlock`/`ToolResultBlock` linkage, explicit failures, `interrupt()` cancellation, resume in a fresh CLI process, unknown-session rejection |
+| `probe_environment.py` | none (forced-invalid key) | no | SDK/CLI versions, wheel tag, CLI resolution, explicit auth failure, config-dir plumbing |
+| `probe_isolation_settings.py` | API key | yes | `setting_sources` control with decoys at both candidate user roots, parent-leak decoys, requested vs effective model/effort, documented-unsupported pair, invalid settings rejection |
+| `probe_stream_resume.py` | API key | yes | `ToolUseBlock`/`ToolResultBlock` linkage, marker-verified resume continuity, listed-skill invocation, unlisted-skill refusal and Read reachability, explicit failures, `interrupt()` cancellation |
 
-The environment probe passes `ANTHROPIC_API_KEY=invalid-laomedo-121-no-spend`
-so session start fails at authentication and cannot bill. The two credentialed
-probes count a turn on submission, bound every call with `max_turns` and
-`max_budget_usd`, and report `observed_cost_usd` from `ResultMessage`
-totals, which are real provider spend under an API-key credential.
+## State directory and isolation boundaries
+
+The credentialed probes require `--state-dir`: a **new or empty** directory
+outside any git working tree, ideally outside the user folder. The probes
+never delete anything; they refuse a non-empty directory. Decoys are planted:
+
+- project skill in `<state>/project/.claude/skills` (the probes run with
+  `cwd=<state>/project`, since Claude looks for project skills in the working
+  directory and its parents, never in child folders);
+- user skills at **both** candidate roots, `<state>/home/.claude/skills` and
+  `<state>/claude-config/skills`, under different names, so a miss identifies
+  which root the runner version actually reads;
+- a parent skill and a `CLAUDE.md` next to the state directory, only when
+  those paths do not already exist, to detect parent-folder leakage. A parent
+  skill seen in `system/init` means leakage. `CLAUDE.md` loading is not
+  observable in the sanitized stream and is recorded as unobservable.
+
+The environment hygiene follows #118: the parent process environment reaches
+the CLI through the SDK's `env` merge, so `options_env` overrides `HOME`,
+`USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `CLAUDE_CONFIG_DIR`, sets
+`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, and blanks every provider-redirecting
+variable. The gate refuses to run when any of those variables is set in the
+parent environment.
 
 ## Credential gate
 
 Both credentialed probes stop before any model call unless the gate passes.
-The gate accepts only a dedicated `ANTHROPIC_API_KEY` from the runner
-environment, rejects a state dir inside a git working tree, rejects a personal
-OAuth token file present in the private config dir (a copied login), and
-requires TCP reachability to `api.anthropic.com`. Per the SDK docs,
-`ANTHROPIC_API_KEY` takes precedence over a subscription login when present.
+The gate accepts only a dedicated `ANTHROPIC_API_KEY` in standard `sk-ant-`
+format from the runner environment, rejects a state dir inside a git working
+tree, refuses when any provider-redirecting variable is set, rejects an OAuth
+token file in the private config dir, and requires reachability of
+`api.anthropic.com`. Per the SDK docs, `ANTHROPIC_API_KEY` takes precedence
+over a subscription login when present.
+
+## Spend
+
+USD 20 is the cap from issue #121. Per-call `max_budget_usd` ceilings sum to
+about USD 11.25 worst case (6 calls at $0.25 in the settings probe, 7 at
+$1.25 plus one at $1.00 in the stream probe). `max_budget_usd` is checked
+between turns, so a single turn can exceed its ceiling. Under an API-key
+credential, `ResultMessage.total_cost_usd` is real provider spend; the probes
+sum it into `observed_cost_usd` and count a turn on submission as an upper
+bound on billable calls.
 
 ## Observed on the authoring machine (2026-09-29)
 
-`probe_environment.py` ran with `claude-agent-sdk 0.2.161` (Python 3.12.10,
-Node v20.11.1, Windows AMD64). No CLI resolved: the PyPI wheel ships no
-bundled CLI on this platform and no native `claude.exe` is installed, so
-session start fails with `CLINotFoundError` before any authentication or model
-call. Personal roots were unchanged. The two credentialed probes have not been
+`probe_environment.py` ran with `claude-agent-sdk 0.2.161`, Python 3.12.10,
+Node v20.11.1, Windows AMD64. The installed distribution is a pure-Python
+wheel (`Tag: py3-none-any`), which cannot carry a platform binary, so the SDK
+resolved no bundled CLI and no native `claude.exe` is installed: session start
+fails with `CLINotFoundError` before any authentication or model call.
+Personal roots were unchanged. The two credentialed probes have not been
 executed; they require a native `claude.exe` install and a dedicated key.
+
+## Model and effort support
+
+Per the model configuration reference, effort support is model-specific:
+Fable 5.x, Opus 5.x/4.7/4.8, and Sonnet 5.x support `low` through `max`;
+Opus 4.6 and Sonnet 4.6 support `low` through `max` without `xhigh`; models
+not listed do not support effort at all. The supported-pair test therefore
+uses `claude-sonnet-4-6` with `low`, and the documented-unsupported case uses
+`claude-haiku-4-5` with `low`. The reference documents a silent fallback:
+a level the model does not support runs at the highest supported level at or
+below it (for example `xhigh` runs as `high` on Opus 4.6).
 
 ## Scope limit: conversation versus workspace
 
@@ -53,7 +94,8 @@ The SDK persists conversation history only. Session files live under
 last post-run workspace snapshot before a resume is the Laomedo runner
 registry's responsibility; `probe_stream_resume.py` fingerprints the workspace
 before and after and records the distinction instead of claiming the SDK
-provides it.
+provides it. Continuity across resume is verified by a synthetic marker
+returning without re-reading its file.
 
 ## Reproduction
 
@@ -63,10 +105,12 @@ From the Laomedo repository root:
 python -m venv .venv
 .venv\Scripts\python -m pip install -r experiments/feasibility/121/requirements.txt
 .venv\Scripts\python experiments/feasibility/121/probe_environment.py
-.venv\Scripts\python experiments/feasibility/121/probe_isolation_settings.py --state-dir '<private-state-dir>'
-.venv\Scripts\python experiments/feasibility/121/probe_stream_resume.py --state-dir '<private-state-dir>'
+.venv\Scripts\python experiments/feasibility/121/probe_isolation_settings.py --state-dir '<new-or-empty-private-state-dir>'
+.venv\Scripts\python experiments/feasibility/121/probe_stream_resume.py --state-dir '<same-state-dir>'
 ```
 
 `_scratch_121_*` run directories, `__pycache__`, and `.venv` are gitignored.
 No personal file name, path, or content is printed; personal roots are
-compared by hash. Raw transcripts stay in the private state directory.
+compared by hash, with `user_projects` labeled inconclusive because any
+concurrent Claude Code session changes it. Raw transcripts stay in the
+private state directory.
