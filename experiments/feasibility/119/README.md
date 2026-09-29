@@ -51,14 +51,18 @@ for this run. Claude discovery was not tested.
 `check_private_auth.py` checks the authentication mode from a private runner
 profile and prints only status booleans. `probe_codex_skill_turn.py` starts an
 app-server in that profile, discovers one synthetic project skill, and can
-submit one native `skill` input in a model turn. It prints sanitized event
-counts and marker booleans. Before `--run` submits a turn, a credential-free
+submit a `$skill` text mention and structured `skill` input together in a
+model turn. It prints sanitized event counts and marker booleans. Before
+`--run` submits a turn, a credential-free
 TCP check must reach `chatgpt.com:443`; the check is only a prerequisite and
 does not prove that the authenticated model request will succeed. The raw
-session and stderr remain in the private
-state directory, not in this repository. The caller must first provision a
-file-backed Codex auth copy under the private `codex-home/auth.json` according
-to the narrow local exception in #119. Neither script provisions credentials.
+session and stderr remain in the private state directory. Both scripts now
+reject `--state-dir` inside any Git working
+tree or Git metadata. The caller must provision a credential in the private
+`codex-home/auth.json`; neither script provisions credentials. The one-time
+local auth-copy exception and all three model turns allowed by #119 have been
+used, so the `--run` example below is for a separately authorized experiment
+with its own credential and spend limit.
 
 ```powershell
 python experiments/feasibility/119/check_private_auth.py --codex '<absolute-path-to-codex.exe>' --state-dir '<private-state-dir>'
@@ -66,16 +70,19 @@ python experiments/feasibility/119/probe_codex_skill_turn.py --codex '<absolute-
 python experiments/feasibility/119/probe_codex_skill_turn.py --codex '<absolute-path-to-codex.exe>' --state-dir '<private-state-dir>' --run
 ```
 
-On 2026-09-28, a local file-backed ChatGPT Codex auth file was copied once
-into an ignored, access-restricted private state directory. Only that auth
+On 2026-09-28, a local file-backed ChatGPT Codex auth file was copied into an
+ignored, access-restricted private state directory inside the AGENTVIZ Git
+working tree. This violated the stated outside-repository rule. Only that auth
 file was copied. `codex login status` in a constructed private environment
 reported ChatGPT login, not API-key mode. The native preflight found the
 synthetic skill and no skill path outside private state. The app-server listed
 `gpt-6-luna` with low effort available.
 
-Two `gpt-6-luna` low-effort turns were submitted with an explicit `skill` input
-in the restricted command context. Both were accepted but had no agent answer
-or `turn/completed` event within a 90-second deadline. The instrumented second
+Two `gpt-6-luna` low-effort turns were submitted with both a `$skill` text
+mention and structured `skill` input in the calling agent's network-restricted
+tool context. This was separate from the Codex thread's `read-only` sandbox.
+Both were accepted but had no agent answer or `turn/completed` event within a
+90-second deadline. The instrumented second
 attempt emitted `error` and `warning` notifications and its private stderr
 contained network and HTTP Forbidden signals. A credential-free HTTPS check
 from that context failed to connect to `chatgpt.com`, while the network-enabled
@@ -83,22 +90,26 @@ context received HTTP 200.
 The new no-model preflight reports `chatgpt_tcp_reachable: false` in the
 restricted context and `true` in the network-enabled context.
 
-A new ignored, access-restricted private runner directory was created in the
-network-enabled context because that context could not read the first private
-directory's ACL. Only the file-backed auth was copied from the personal source
-into this second private directory. Its no-model auth and discovery preflight
-passed. The third and final #119 turn then completed in about eight seconds
-and returned the exact marker from the native selected skill. The private raw
+A second ignored, access-restricted private runner directory was created
+inside the AGENTVIZ Git working tree because the network-enabled context could
+not read the first private directory's ACL. Only the file-backed auth was
+copied from the personal source into this second directory. This second copy
+went beyond #119's one-time handoff allowance. Both auth copies were deleted
+on 2026-09-29 after review. Refresh-token rotation effects on the personal
+login were not tested. The second directory's no-model auth and discovery
+preflight passed. The third and final #119 turn then completed in about eight seconds
+and returned the exact marker from the synthetic skill. The private raw
 trace contains one assistant message with that marker, one token-usage event,
 and no tool calls. It recorded 16,253 input tokens, including 11,008 cached
 input tokens, and 13 output tokens. At the [GPT-6 Luna Standard short-context
 API rates](https://developers.openai.com/api/docs/models/gpt-6-luna), this is
 about USD 0.00064 API-equivalent usage, not an actual subscription charge.
 
-The completed turn supports native selection of this whole synthetic skill on
-the installed CLI. It does not prove a skill-file read event is recorded or
-that an isolated subsection can be selected. No script was invoked. Corrected
-before/after comparisons for the third turn found the personal skill,
+The completed turn shows that the skill body's instruction reached the model.
+It does not isolate the structured `skill` input from the `$skill` mention or
+normal project-root discovery. A structured input alone, a distinct skill-file
+read event, and isolated subsection selection remain unproven. No script was
+invoked. Corrected before/after comparisons for the third turn found the personal skill,
 session, and auth roots unchanged. The earlier turns' auth-file comparison
 used a defective file hash and their session comparison was confounded by the
 active IDE session. All three allowed turns have now been used.

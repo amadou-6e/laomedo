@@ -7,6 +7,26 @@ from pathlib import Path
 import subprocess
 
 
+def require_outside_git_worktree(state: Path) -> None:
+    """Fail closed if the private state is in a Git worktree or Git directory."""
+    for flag in ("--is-inside-work-tree", "--is-inside-git-dir"):
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(state), "rev-parse", flag],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise RuntimeError("cannot verify private state is outside Git") from error
+        if result.returncode == 0 and result.stdout.strip() == "true":
+            raise ValueError("private state must be outside every Git working tree")
+        if result.returncode != 0 and "not a git repository" not in result.stderr.lower():
+            raise RuntimeError("cannot verify private state is outside Git")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--codex", type=Path, required=True)
@@ -14,6 +34,7 @@ def main() -> None:
     args = parser.parse_args()
 
     state = args.state_dir.resolve(strict=True)
+    require_outside_git_worktree(state)
     private_home = state / "home"
     codex_home = state / "codex-home"
     if not private_home.is_dir() or not codex_home.is_dir():

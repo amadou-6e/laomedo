@@ -16,6 +16,7 @@ import threading
 import time
 
 from probe_codex_discovery import fingerprint, read_lines
+from check_private_auth import require_outside_git_worktree
 
 
 MARKER = "LAOMEDO_NATIVE_SKILL_119"
@@ -48,6 +49,7 @@ def main():
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
     state = args.state_dir.resolve(strict=True)
+    require_outside_git_worktree(state)
     private_home = state / "home"
     codex_home = state / "codex-home"
     if not (codex_home / "auth.json").is_file():
