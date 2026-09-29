@@ -1,10 +1,15 @@
-"""Probe Codex skill and session isolation in a private runner.
+"""Probe Codex skill, session, and instruction isolation in a private runner.
 
-No model turns. Verifies:
-- Synthetic fixture skills are discovered in the private project/runner.
-- No skills from the user's personal Codex profile or home are loaded.
-- Starting a thread and turn (read-only, no model call) does not modify
-  personal session or skill directories.
+No credential and no model call: it calls initialize, skills/list, model/list,
+and thread/start only. thread/start creates a local thread and returns
+instructionSources; it does not start a turn or bill a model.
+
+Tests:
+- A synthetic fixture skill is discovered in the private project.
+- No skill path resolves under the real user home.
+- instructionSources do not include a file under the real user home
+  (a personal AGENTS.md leak check).
+- Personal skill/session roots are unchanged.
 """
 
 import argparse
@@ -13,9 +18,9 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import (construct_env, hash_personal_roots, initialize,
-                      list_skills, list_models, personal_roots, start_app_server,
-                      start_thread, start_turn, stop_app_server, write_skill)
+from _shared import (AppServer, codex_version, compare_personal_roots,
+                      construct_env, hash_personal_roots, resettable_dir,
+                      summarize_methods, write_skill)
 
 
 def main():
@@ -23,69 +28,91 @@ def main():
     parser.add_argument("--codex", type=Path, required=True)
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
-    state = Path(__file__).resolve().parent / "_scratch_120_iso"
-    state.mkdir(parents=True, exist_ok=True)
-    private_home = state / "home"; codex_home = state / "codex-home"
+    state = resettable_dir(Path(__file__).resolve().parent / "_scratch_120_iso")
+    private_home = state / "home"
+    codex_home = state / "codex-home"
     project = state / "project"
-    for d in [private_home, codex_home, project]:
-        d.mkdir(parents=True, exist_ok=True)
-
-    write_skill(project / ".agents" / "skills", "fixture-120")
+    for directory in (private_home, codex_home, project):
+        directory.mkdir(parents=True, exist_ok=True)
+    write_skill(project / ".agents" / "skills", "fixture-120-iso")
+    write_skill(private_home / ".agents" / "skills", "fixture-user-120-iso")
 
     env = construct_env(private_home, codex_home, state, codex.parent)
     before = hash_personal_roots()
-    process, messages, error_log = start_app_server(codex, project, env)
-    summary = {"model_calls": 0}
+    real_home = Path.home().resolve()
+    summary = {"version": codex_version(codex, env), "model_calls": 0}
+
+    server = AppServer(codex, project, env, state)
     try:
-        ok, init_resp = initialize(process, messages)
+        ok, info = server.initialize()
         summary["initialized"] = ok
+        summary["server_platform"] = {k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")}
         if not ok:
-            summary["initialize_error"] = init_resp.get("error", {}).get("code")
+            summary["initialize_error"] = info
             return print(json.dumps(summary, indent=2))
 
-        skills = list_skills(process, messages, project)
+        listing = server.send("skills/list", {
+            "cwds": [str(project)], "forceReload": True})
+        skills = listing.get("result", {}).get("data", [{}])[0].get("skills", [])
         names = {s.get("name") for s in skills}
-        summary["fixture_discovered"] = "fixture-120" in names
         state_resolved = state.resolve()
-        real_home = Path.home().resolve()
-        summary["skills_inside_private_state"] = sum(
-            1 for s in skills if Path(s.get("path", "C:/missing")).resolve().is_relative_to(state_resolved))
-        summary["skills_under_real_home"] = sum(
-            1 for s in skills if Path(s.get("path", "C:/missing")).resolve().is_relative_to(real_home))
-        summary["other_skill_count"] = len(names - {"fixture-120"})
-        summary["other_skill_names"] = sorted(names - {"fixture-120"})
-
-        models_result, models = list_models(process, messages)
-        summary["model_list_ok"] = "result" in models_result
-        model = None
-        for m in models:
-            mid = m.get("id") or m.get("model")
-            if m.get("isDefault") or mid == "gpt-6-luna":
-                model = mid
-                break
-        if not model and models:
-            model = models[0].get("id") or models[0].get("model")
-        if model:
-            thr = start_thread(process, messages, model, project, timeout=20)
-            if "result" in thr:
-                thread_id = thr["result"].get("thread", {}).get("id")
-                summary["thread_started"] = bool(thread_id)
-                if thread_id:
-                    turn_resp = start_turn(process, messages, thread_id,
-                        input_items=[{"type": "text", "text": "No-op."}], timeout=20)
-                    summary["turn_started"] = "result" in turn_resp
-                    summary["turn_start_error"] = turn_resp.get("error", {}).get("code",
-                        "missing") if "error" in turn_resp else None
+        inside_state = 0
+        under_real_home = 0
+        outside_both = 0
+        for skill in skills:
+            path = Path(skill.get("path", "C:/missing")).resolve()
+            if path.is_relative_to(state_resolved):
+                inside_state += 1
+            elif path.is_relative_to(real_home):
+                under_real_home += 1
             else:
-                summary["thread_start_error"] = thr.get("error", {}).get("code")
+                outside_both += 1
+        summary["fixture_discovered"] = "fixture-120-iso" in names
+        summary["user_fixture_discovered"] = "fixture-user-120-iso" in names
+        summary["skill_counts"] = {
+            "total": len(skills),
+            "inside_private_state": inside_state,
+            "under_real_home": under_real_home,
+            "outside_both": outside_both,
+        }
+        summary["other_skill_names"] = sorted(n for n in names
+                                              if n and not n.startswith("fixture-"))
+
+        models = server.send("model/list", {"limit": 100})
+        model_data = models.get("result", {}).get("data", [])
+        summary["model_list_ok"] = "result" in models
+        selected = next((m for m in model_data if m.get("isDefault")), None) or (model_data[0] if model_data else None)
+        if selected:
+            model = selected.get("id") or selected.get("model")
+            summary["selected_model"] = model
+            started = server.send("thread/start", {
+                "model": model, "cwd": str(project), "approvalPolicy": "never",
+                "sandbox": "read-only",
+            }, timeout=30)
+            if "result" in started:
+                result = started["result"]
+                thread = result.get("thread", {})
+                summary["thread_created"] = True
+                summary["thread_keys"] = sorted(thread.keys())
+                sources = result.get("instructionSources") or []
+                summary["instruction_source_count"] = len(sources)
+                summary["instruction_source_under_real_home"] = sum(
+                    1 for source in sources
+                    if Path(source).resolve().is_relative_to(real_home))
+                summary["instruction_sources_outside_private_state"] = sum(
+                    1 for source in sources
+                    if not Path(source).resolve().is_relative_to(state_resolved)
+                    and not Path(source).resolve().is_relative_to(real_home))
+            else:
+                summary["thread_start_error"] = started.get("error")
+
+        summary["event_methods"] = summarize_methods(server)
         print(json.dumps(summary, indent=2))
     finally:
-        stderr = stop_app_server(process, error_log, state)
-        after = hash_personal_roots()
-        summary_post = dict(
-            ("_".join(r.parts[-2:]) if len(r.parts) > 1 else r.name,
-             a == b) for r, a, b in zip(personal_roots(), before, after))
-        print(json.dumps({"stderr_signals": stderr, "personal_roots_unchanged": summary_post}, indent=2))
+        stderr = server.close()
+        print(json.dumps({"stderr_signals": stderr}, indent=2))
+        print(json.dumps({"personal_roots_unchanged":
+                          compare_personal_roots(before, hash_personal_roots())}, indent=2))
 
 
 if __name__ == "__main__":

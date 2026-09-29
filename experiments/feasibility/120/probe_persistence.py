@@ -1,182 +1,187 @@
 """Probe Codex thread persistence across runner restarts.
 
-No model turns. Tests:
-- Thread resume after app-server restart when workspace snapshot is present.
-- Resume fails when the last post-run workspace snapshot is missing.
-- Session data survives app-server teardown and restart (thread/list).
+Credential required: a thread is only persisted after a completed turn, so this
+probe stops before any model call unless the credential gate passes with a
+dedicated API-key credential.
+
+Tests:
+- thread/resume reopens the same native thread id after an app-server restart.
+- A resumed turn appends to the same thread.
+- thread/list surfaces the thread after restart.
+- Resuming an unknown thread id fails explicitly.
+- Resume from a different cwd is recorded (Codex accepts or rejects it).
+
+Scope limit: Codex has no concept of a Laomedo workspace snapshot. The runner's
+session registry, not Codex, must refuse a resume whose last post-run snapshot
+is missing. This probe can only record what Codex does.
 """
 
 import argparse
 import json
 from pathlib import Path
-import shutil
 import sys
+import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import (construct_env, fingerprint, hash_personal_roots, initialize,
-                      list_models, personal_roots, request, start_app_server,
-                      start_thread, start_turn, stop_app_server, write_skill)
+from _shared import (AppServer, codex_version,
+                      compare_personal_roots, construct_env, credential_gate,
+                      fingerprint, hash_personal_roots, resettable_dir,
+                      summarize_methods, write_skill)
 
 
-def list_threads(process, messages, cwd):
-    try:
-        return request(process, messages, {
-            "method": "thread/list", "id": 10,
-            "params": {"cwd": str(cwd)},
-        }, timeout=15)
-    except Exception:
-        return {"error": {"code": "unsupported_method"}}
+def await_turn(server, timeout=90):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        for message in server.events:
+            if message.get("method") == "turn/completed":
+                return message.get("params", {}).get("turn", {}).get("status")
+        server.drain(0.5)
+    return "timeout"
 
 
-def resume_via_thread_start(process, messages, model, cwd, thread_id,
-                            existing_threads):
-    """Attempt to resume a thread using thread/start with threadId or by
-    listing and picking the matching thread."""
-    params = {
-        "model": model, "cwd": str(cwd),
-        "approvalPolicy": "never",
-        "config": {"model_reasoning_effort": "low"},
+def create_and_run(server, model, project, summary, label):
+    started = server.send("thread/start", {
+        "model": model, "cwd": str(project), "approvalPolicy": "never",
         "sandbox": "read-only",
-    }
-    if thread_id:
-        params["threadId"] = thread_id
-    return request(process, messages, {
-        "method": "thread/start", "id": 4,
-        "params": params,
-    }, timeout=20)
-
-
-def run_and_resume(codex, project, env, model, summary):
-    """Start a thread, submit a turn, restart, and attempt resume."""
-    # Run 1: create thread + one turn
-    process, messages, error_log = start_app_server(codex, project, env)
-    try:
-        ok, _ = initialize(process, messages)
-        if not ok:
-            summary["run1_init_error"] = True
-            return None
-        thr = start_thread(process, messages, model, project, timeout=20)
-        if "error" in thr:
-            summary["run1_thread_error"] = thr["error"].get("code")
-            return None
-        thread_id = thr["result"]["thread"]["id"]
-        summary["run1_thread_id"] = thread_id
-        turn = start_turn(process, messages, thread_id,
-            input_items=[{"type": "text", "text": "Initial turn for persistence test."}],
-            timeout=20)
-        summary["run1_turn_accepted"] = "result" in turn
-        if "error" in turn:
-            summary["run1_turn_error"] = turn["error"].get("code")
-    finally:
-        stop_app_server(process, error_log, Path(env["TEMP"]))
-
-    # Restart and attempt resume
-    process2, messages2, err2 = start_app_server(codex, project, env)
-    try:
-        ok2, _ = initialize(process2, messages2)
-        summary["resume_init_ok"] = ok2
-        if not ok2:
-            return thread_id
-
-        tl = list_threads(process2, messages2, project)
-        summary["thread_list_supported"] = "result" in tl
-        if "result" in tl:
-            threads = tl.get("result", {}).get("threads", [])
-            summary["thread_count"] = len(threads)
-            summary["thread_still_listed"] = any(
-                t.get("id") == thread_id for t in threads)
-
-        resume = resume_via_thread_start(process2, messages2, model, project,
-                                          thread_id, threads if "result" in tl else [])
-        summary["resume_accepted"] = "result" in resume
-        if "error" in resume:
-            summary["resume_error_code"] = resume["error"].get("code")
-            summary["resume_error_msg"] = resume.get("error", {}).get("message", "")
-
-        if "result" in resume:
-            resumed_id = resume["result"].get("thread", {}).get("id")
-            summary["resumed_thread_id"] = resumed_id
-            summary["same_thread_resumed"] = resumed_id == thread_id
-            turn2 = start_turn(process2, messages2, resumed_id,
-                input_items=[{"type": "text", "text": "Resumed turn."}], timeout=20)
-            summary["resume_turn_accepted"] = "result" in turn2
-    finally:
-        stop_app_server(process2, err2, Path(env["TEMP"]))
-
+    }, timeout=30)
+    if "result" not in started:
+        summary[f"{label}_thread_error"] = started.get("error")
+        return None
+    result = started["result"]
+    thread_id = result["thread"]["id"]
+    summary[f"{label}_thread_id"] = thread_id
+    summary[f"{label}_instruction_source_count"] = len(result.get("instructionSources") or [])
+    turn = server.send("turn/start", {
+        "threadId": thread_id,
+        "input": [{"type": "text", "text": "Reply with the single word ready."}],
+        "model": model, "effort": "low",
+    }, timeout=30)
+    if "error" in turn:
+        summary[f"{label}_turn_error"] = turn["error"]
+        return thread_id
+    summary[f"{label}_turn_status"] = await_turn(server)
     return thread_id
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--codex", type=Path, required=True)
+    parser.add_argument("--state-dir", type=Path,
+                        help="provisioned private state dir with codex-home/auth.json")
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
-    state = Path(__file__).resolve().parent / "_scratch_120_persist"
-    state.mkdir(parents=True, exist_ok=True)
-    private_home = state / "home"; codex_home = state / "codex-home"
+    if not args.state_dir:
+        print(json.dumps({"blocked": "no_state_dir",
+                          "detail": "pass --state-dir with a dedicated API-key credential"}, indent=2))
+        return
+    state = args.state_dir.resolve(strict=True)
+    if not state.is_dir():
+        print(json.dumps({"blocked": "state_dir_missing"}, indent=2))
+        return
+    private_home = state / "home"
+    codex_home = state / "codex-home"
     project = state / "project"
-    for d in [private_home, codex_home, project]:
-        d.mkdir(parents=True, exist_ok=True)
-
+    for directory in (private_home, codex_home, project):
+        directory.mkdir(parents=True, exist_ok=True)
     write_skill(project / ".agents" / "skills", "fixture-120-persist")
     env = construct_env(private_home, codex_home, state, codex.parent)
+
+    summary = {"version": codex_version(codex, env)}
+    gate = credential_gate(codex, project, env, codex_home, state)
+    summary["credential_gate"] = gate
+    if not gate.get("permitted"):
+        print(json.dumps(summary, indent=2))
+        return
+
     before = hash_personal_roots()
-    summary = {"model_calls": 0}
 
-    # Resolve model first
-    process, messages, error_log = start_app_server(codex, project, env)
+    # Run 1: create a thread and complete a turn.
+    server = AppServer(codex, project, env, state)
     try:
-        ok, _ = initialize(process, messages)
+        ok, _ = server.initialize()
+        summary["run1_initialized"] = ok
         if not ok:
-            summary["init_error"] = True
-            return print(json.dumps(summary, indent=2))
-        _mr, models = list_models(process, messages)
-        default = next((m for m in models if m.get("isDefault")), None)
-        if not default and models:
-            default = models[0]
-        model = default.get("id") or default.get("model")
+            print(json.dumps(summary, indent=2))
+            return
+        listing = server.send("model/list", {"limit": 100})
+        models = listing.get("result", {}).get("data", [])
+        selected = next((m for m in models if m.get("isDefault")), None) or (models[0] if models else None)
+        model = (selected or {}).get("id") or (selected or {}).get("model")
         summary["selected_model"] = model
+        thread_id = create_and_run(server, model, project, summary, "run1")
+        summary["model_calls"] = 1
     finally:
-        stop_app_server(process, error_log, state)
+        summary["run1_stderr"] = server.close()
 
-    # Primary test: run, restart, resume
-    thread_id = run_and_resume(codex, project, env, model, summary)
-    summary["thread_created"] = bool(thread_id)
+    if not thread_id:
+        print(json.dumps(summary, indent=2))
+        return
 
-    # Test: resume with missing workspace snapshot
-    if thread_id:
-        project_backup = state / "project.backup"
-        if project.exists():
-            shutil.copytree(str(project), str(project_backup))
-            shutil.rmtree(str(project))
-        project_missing = state / "project"
-        project_missing.mkdir(parents=True, exist_ok=True)
-        write_skill(project_missing / ".agents" / "skills", "fixture-120-persist")
-        summary["workspace_removed_for_test"] = True
+    pre_restart = fingerprint(project)
+    summary["pre_restart_workspace_hash"] = pre_restart
 
-        process3, messages3, err3 = start_app_server(codex, project_missing, env)
-        try:
-            ok3, _ = initialize(process3, messages3)
-            resume_missing = resume_via_thread_start(process3, messages3, model,
-                                                      project_missing, thread_id, [])
-            summary["missing_ws_resume_accepted"] = "result" in resume_missing
-            if "error" in resume_missing:
-                summary["missing_ws_resume_error_code"] = resume_missing["error"].get("code")
-                summary["missing_ws_resume_error_msg"] = resume_missing.get("error", {}).get("message", "")
-        finally:
-            stop_app_server(process3, err3, state)
+    # Run 2: restart and resume the same thread.
+    server = AppServer(codex, project, env, state)
+    try:
+        ok, _ = server.initialize()
+        summary["run2_initialized"] = ok
+        listed = server.send("thread/list", {"cwd": str(project)}, timeout=20)
+        summary["thread_list_ok"] = "result" in listed
+        if "result" in listed:
+            payload = listed["result"]
+            summary["thread_list_result_keys"] = sorted(payload.keys())
+            threads = payload.get("data") or payload.get("threads") or []
+            summary["thread_list_count"] = len(threads)
+            summary["thread_found_after_restart"] = any(
+                (t.get("id") or t.get("threadId")) == thread_id for t in threads)
 
-        # Restore
-        if project_backup.exists():
-            if project_missing.exists():
-                shutil.rmtree(str(project_missing))
-            shutil.move(str(project_backup), str(project))
+        resumed = server.send("thread/resume", {"threadId": thread_id}, timeout=30)
+        summary["resume_ok"] = "result" in resumed
+        if "error" in resumed:
+            summary["resume_error"] = resumed["error"]
+        else:
+            resumed_thread = resumed["result"].get("thread", {})
+            summary["resume_same_id"] = resumed_thread.get("id") == thread_id
+            summary["resume_instruction_source_count"] = len(resumed["result"].get("instructionSources") or [])
+            turn = server.send("turn/start", {
+                "threadId": thread_id,
+                "input": [{"type": "text", "text": "Reply with the single word resumed."}],
+                "model": model, "effort": "low",
+            }, timeout=30)
+            if "error" in turn:
+                summary["resume_turn_error"] = turn["error"]
+            else:
+                summary["resume_turn_status"] = await_turn(server)
+                summary["model_calls"] += 1
 
-    after = hash_personal_roots()
-    summary["personal_roots_unchanged"] = dict(
-        ("_".join(r.parts[-2:]) if len(r.parts) > 1 else r.name,
-         a == b) for r, a, b in zip(personal_roots(), before, after))
+        # Unknown thread id must fail explicitly.
+        unknown = server.send("thread/resume", {"threadId": "thr_does_not_exist_120"}, timeout=20)
+        summary["unknown_thread"] = {
+            "outcome": "rejected" if "error" in unknown else "accepted",
+            "error": unknown.get("error"),
+        }
+    finally:
+        summary["run2_stderr"] = server.close()
 
+    # Run 3: resume from a different cwd (recorded, not asserted).
+    other_cwd = state / "other-cwd"
+    other_cwd.mkdir(parents=True, exist_ok=True)
+    server = AppServer(codex, other_cwd, env, state)
+    try:
+        ok, _ = server.initialize()
+        summary["run3_initialized"] = ok
+        moved = server.send("thread/resume", {"threadId": thread_id, "cwd": str(other_cwd)}, timeout=20)
+        summary["resume_other_cwd"] = {
+            "outcome": "accepted" if "result" in moved else "rejected",
+            "error": moved.get("error"),
+        }
+    finally:
+        summary["run3_stderr"] = server.close()
+
+    summary["event_methods"] = summarize_methods(server)
+    summary["personal_roots_unchanged"] = compare_personal_roots(before, hash_personal_roots())
+    summary["note"] = ("Codex has no Laomedo workspace snapshot; a missing-snapshot "
+                       "refusal is the runner registry's responsibility (see 120.md).")
     print(json.dumps(summary, indent=2))
 
 

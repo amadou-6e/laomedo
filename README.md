@@ -8,7 +8,7 @@ fixtures without a credential. The completed turn and its remaining limits
 are documented in the experiment README.
 
 The [issue 120 runner isolation probes](experiments/feasibility/120/README.md)
-build no-model checks for model/effort validation, private profile isolation,
-thread persistence, and a guarded stream-events probe. All four no-model
-probes run without a credential; the stream probe requires one and stops
-before any model call if unavailable.
+add no-model checks for model/effort dispatch and profile isolation, plus two
+credential-gated probes for thread resume and streamed tool events. The two
+credential-gated probes accept only a dedicated API-key credential and stop
+before any model call otherwise.

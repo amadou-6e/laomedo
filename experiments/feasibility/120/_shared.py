@@ -1,8 +1,13 @@
-"""Shared utilities for Codex app-server probes.
+"""Shared app-server client and utilities for Codex probes (issue 120).
 
-Use this module instead of probe_codex_discovery and probe_codex_skill_turn
-so the #119 probes remain exact reproduction sources and this module can be
-changed for #120 without affecting those reproductions.
+Fixes over the first probe draft:
+- Buffers notifications and server requests instead of dropping them.
+- Uses a monotonic request-id counter (no id collisions).
+- Raises a typed RequestTimeout instead of an uncaught queue.Empty.
+- Accepts both API-key and (rejected) ChatGPT auth modes for the gate.
+- Records the real Codex version.
+
+No protocol behavior is assumed beyond the documented app-server reference.
 """
 
 import hashlib
@@ -13,6 +18,13 @@ from pathlib import Path
 import subprocess
 import threading
 import time
+
+
+DEFAULT_TIMEOUT = 20.0
+
+
+class RequestTimeout(TimeoutError):
+    """Raised when no matching response arrives before the deadline."""
 
 
 def fingerprint(root: Path) -> str:
@@ -31,39 +43,10 @@ def fingerprint(root: Path) -> str:
     return digest.hexdigest()
 
 
-def hash_path(path):
+def hash_path(path: Path) -> str:
     if path.is_file():
         return hashlib.sha256(path.read_bytes()).hexdigest()
     return fingerprint(path)
-
-
-def read_lines(stream, messages: queue.Queue, label: str = "") -> None:
-    for line in stream:
-        try:
-            messages.put(json.loads(line))
-        except json.JSONDecodeError:
-            messages.put({"invalid_json": True, "label": label})
-
-
-def request(process, messages: queue.Queue, payload: dict,
-            timeout: float = 20) -> dict:
-    process.stdin.write(json.dumps(payload) + "\n")
-    process.stdin.flush()
-    while True:
-        message = messages.get(timeout=timeout)
-        if message.get("id") == payload["id"]:
-            return message
-
-
-def write_skill(root: Path, name: str, content: str = None) -> None:
-    skill_dir = root / name
-    skill_dir.mkdir(parents=True)
-    if content is None:
-        content = (
-            f"---\nname: {name}\ndescription: Synthetic fixture.\n---\n\n"
-            "This fixture must not run a model turn unless explicitly requested.\n"
-        )
-    (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
 
 
 def personal_roots():
@@ -80,7 +63,62 @@ def hash_personal_roots():
     return [hash_path(root) for root in personal_roots()]
 
 
-def construct_env(private_home, codex_home, state, codex_parent):
+def personal_root_names():
+    return [
+        "_".join(root.parts[-2:]) if len(root.parts) > 1 else root.name
+        for root in personal_roots()
+    ]
+
+
+def compare_personal_roots(before, after):
+    return dict(zip(personal_root_names(), (a == b for a, b in zip(before, after))))
+
+
+def write_skill(root: Path, name: str, content: str = None) -> None:
+    skill_dir = root / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    if content is None:
+        content = (
+            f"---\nname: {name}\ndescription: Synthetic fixture.\n---\n\n"
+            "This fixture is synthetic probe content.\n"
+        )
+    (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
+
+
+def ensure_clean(path: Path) -> Path:
+    """Create a run directory, removing any stale contents from a prior run."""
+    if path.exists():
+        for child in sorted(path.rglob("*"), reverse=True):
+            try:
+                if child.is_dir() and not child.is_symlink():
+                    child.rmdir()
+                else:
+                    child.unlink()
+            except OSError:
+                pass
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def resettable_dir(root: Path) -> Path:
+    """A run directory that is safe to reset, with a guard against deleting
+    anything that is not inside the experiment tree."""
+    experiment = Path(__file__).resolve().parent
+    resolved = root.resolve()
+    if not resolved.is_relative_to(experiment):
+        raise ValueError("refusing to reset a directory outside the experiment tree")
+    return ensure_clean(resolved)
+
+
+def inside_git_tree(path: Path) -> bool:
+    """True if the path is inside a git working tree (including .git dirs)."""
+    for candidate in [path.resolve(), *path.resolve().parents]:
+        if (candidate / ".git").exists():
+            return True
+    return False
+
+
+def construct_env(private_home: Path, codex_home: Path, state: Path, codex_parent: Path):
     system_root = os.environ.get("SystemRoot", r"C:\Windows")
     return {
         "HOME": str(private_home),
@@ -98,81 +136,192 @@ def construct_env(private_home, codex_home, state, codex_parent):
     }
 
 
-def start_app_server(codex: Path, cwd: Path, env: dict):
-    error_log = (Path(env["TEMP"]) / "app-server.stderr.log").open("w", encoding="utf-8")
-    process = subprocess.Popen(
-        [str(codex), "app-server", "--stdio"],
-        cwd=cwd, env=env,
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=error_log,
-        text=True, encoding="utf-8",
-    )
-    messages = queue.Queue()
-    threading.Thread(target=read_lines, args=(process.stdout, messages), daemon=True).start()
-    return process, messages, error_log
-
-
-def stop_app_server(process, error_log, state):
-    process.terminate()
+def login_status(codex: Path, cwd: Path, env: dict) -> dict:
+    """Report the auth mode without printing credential material."""
     try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait()
-    error_log.close()
-    error_text = (state / "app-server.stderr.log").read_text(encoding="utf-8", errors="replace").lower()
+        result = subprocess.run(
+            [str(codex), "login", "status"], cwd=cwd, env=env,
+            capture_output=True, text=True, timeout=20, encoding="utf-8",
+            errors="replace",
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"ok": False, "error": type(exc).__name__}
+    text = (result.stdout + result.stderr).lower()
     return {
-        "authentication": any(x in error_text for x in ("auth", "unauthorized", "token expired")),
-        "network": any(x in error_text for x in ("connection", "network", "dns", "timeout")),
-        "sandbox": "sandbox" in error_text,
-        "nonempty": bool(error_text.strip()),
+        "ok": result.returncode == 0,
+        "exit_code": result.returncode,
+        "chatgpt": result.returncode == 0 and "chatgpt" in text,
+        "api_key": result.returncode == 0 and "api key" in text,
     }
 
 
-def initialize(process, messages):
-    init = request(process, messages, {
-        "method": "initialize", "id": 1,
-        "params": {"clientInfo": {"name": "laomedo_feasibility_120",
-                                   "title": "Laomedo Feasibility Probe 120",
-                                   "version": "0.1.0"}},
-    })
-    ok = "result" in init
-    if not ok:
-        return False, init
-    process.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
-    process.stdin.flush()
-    return True, init
+def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
+                    state: Path) -> dict:
+    """Decide whether a model call is permitted.
+
+    Accepts a dedicated API-key credential. Rejects a copied personal ChatGPT
+    login, missing auth, an unknown auth mode, a state dir inside a git tree,
+    and unreachable connectivity. No credential value is read or printed.
+    """
+    verdict = {"permitted": False}
+    if inside_git_tree(state):
+        verdict["reason"] = "state_dir_inside_git_tree"
+        return verdict
+    if not (codex_home / "auth.json").is_file():
+        verdict["reason"] = "missing_auth_file"
+        return verdict
+    status = login_status(codex, cwd, env)
+    verdict["login_status"] = status
+    if not status.get("ok"):
+        verdict["reason"] = "login_status_failed"
+        return verdict
+    if status.get("chatgpt"):
+        verdict["reason"] = "personal_chatgpt_login_not_allowed"
+        return verdict
+    if not status.get("api_key"):
+        verdict["reason"] = "unknown_auth_mode"
+        return verdict
+    verdict["credential_mode"] = "api_key"
+    if not tcp_reachable("chatgpt.com", 443):
+        verdict["reason"] = "chatgpt_unreachable"
+        return verdict
+    verdict["permitted"] = True
+    return verdict
 
 
-def list_skills(process, messages, project: Path):
-    found = request(process, messages, {
-        "method": "skills/list", "id": 2,
-        "params": {"cwds": [str(project)], "forceReload": True},
-    })
-    skills = found.get("result", {}).get("data", [{}])[0].get("skills", [])
-    return skills
+def tcp_reachable(host: str, port: int, timeout: float = 3.0) -> bool:
+    import socket
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
-def list_models(process, messages):
-    result = request(process, messages, {"method": "model/list", "id": 3, "params": {"limit": 100}})
-    data = result.get("result", {}).get("data", [])
-    return result, data
+def codex_version(codex: Path, env: dict) -> str:
+    try:
+        result = subprocess.run(
+            [str(codex), "--version"], env=env, capture_output=True, text=True,
+            timeout=20, encoding="utf-8", errors="replace",
+        )
+        return (result.stdout + result.stderr).strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"unavailable: {type(exc).__name__}"
 
 
-def start_thread(process, messages, model, cwd, effort="low", sandbox="read-only",
-                 approval="never", timeout=30):
-    return request(process, messages, {
-        "method": "thread/start", "id": 4,
-        "params": {
-            "model": model, "cwd": str(cwd),
-            "approvalPolicy": approval,
-            "config": {"model_reasoning_effort": effort},
-            "sandbox": sandbox,
-        },
-    }, timeout=timeout)
+class AppServer:
+    """One app-server connection that never drops messages.
+
+    All messages that are not the response to the current request are kept in
+    self.events in arrival order: notifications (method, no id) and
+    server-initiated requests (method and id).
+    """
+
+    def __init__(self, codex: Path, cwd: Path, env: dict, state: Path):
+        self.state = state
+        self.error_log_path = state / "app-server.stderr.log"
+        self.error_log = self.error_log_path.open("w", encoding="utf-8")
+        self.process = subprocess.Popen(
+            [str(codex), "app-server", "--stdio"], cwd=cwd, env=env,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.error_log,
+            text=True, encoding="utf-8",
+        )
+        self.messages: queue.Queue = queue.Queue()
+        self.events = []
+        self.invalid_lines = 0
+        self._id = 1000
+        threading.Thread(target=self._reader, args=(self.process.stdout,), daemon=True).start()
+
+    def _reader(self, stream):
+        for line in stream:
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                self.invalid_lines += 1
+                continue
+            self.messages.put(message)
+
+    def send(self, method: str, params=None, timeout: float = DEFAULT_TIMEOUT) -> dict:
+        self._id += 1
+        request_id = self._id
+        payload = {"method": method, "id": request_id}
+        if params is not None:
+            payload["params"] = params
+        self.process.stdin.write(json.dumps(payload) + "\n")
+        self.process.stdin.flush()
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RequestTimeout(method)
+            try:
+                message = self.messages.get(timeout=remaining)
+            except queue.Empty:
+                raise RequestTimeout(method)
+            if message.get("id") == request_id and "method" not in message:
+                return message
+            # Anything else is a notification or a server request. Keep it.
+            self.events.append(message)
+
+    def notify(self, method: str, params=None) -> None:
+        payload = {"method": method}
+        if params is not None:
+            payload["params"] = params
+        self.process.stdin.write(json.dumps(payload) + "\n")
+        self.process.stdin.flush()
+
+    def drain(self, seconds: float) -> None:
+        deadline = time.monotonic() + seconds
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            try:
+                self.events.append(self.messages.get(timeout=remaining))
+            except queue.Empty:
+                return
+
+    def close(self) -> dict:
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+            self.process.wait()
+        self.error_log.close()
+        text = self.error_log_path.read_text(encoding="utf-8", errors="replace").lower()
+        return {
+            "authentication": any(x in text for x in ("auth", "unauthorized", "token expired")),
+            "network": any(x in text for x in ("connection", "network", "dns", "timeout")),
+            "sandbox": "sandbox" in text,
+            "nonempty": bool(text.strip()),
+        }
+
+    def initialize(self) -> tuple:
+        response = self.send("initialize", {
+            "clientInfo": {"name": "laomedo_feasibility_120",
+                           "title": "Laomedo Feasibility Probe 120",
+                           "version": "0.1.0"},
+        })
+        ok = "result" in response
+        info = response.get("result", {}) if ok else response.get("error", {})
+        if ok:
+            self.notify("initialized", {})
+        return ok, info
 
 
-def start_turn(process, messages, thread_id, input_items, timeout=30):
-    return request(process, messages, {
-        "method": "turn/start", "id": 5,
-        "params": {"threadId": thread_id, "input": input_items},
-    }, timeout=timeout)
+def messages_of(server: AppServer, methods=()):
+    """Return buffered notifications, optionally filtered by method."""
+    if not methods:
+        return list(server.events)
+    wanted = set(methods)
+    return [m for m in server.events if m.get("method") in wanted]
+
+
+def summarize_methods(server: AppServer) -> dict:
+    counts = {}
+    for message in server.events:
+        method = message.get("method")
+        if method:
+            counts[method] = counts.get(method, 0) + 1
+    return counts
