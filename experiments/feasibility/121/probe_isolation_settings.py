@@ -40,7 +40,7 @@ UNSUPPORTED_EFFORT_MODEL = "claude-haiku-4-5"  # documented: no effort support
 
 async def run_query(project, private_home, config_dir, state, prompt, summary,
                     label, setting_sources, skills, model=None, effort=None,
-                    max_turns=1, budget=0.25):
+                    max_turns=1, budget=0.25, ledger=None):
     from claude_agent_sdk import ClaudeAgentOptions
     from claude_agent_sdk._errors import (CLIConnectionError, CLINotFoundError,
                                           ProcessError, ResultError)
@@ -63,8 +63,12 @@ async def run_query(project, private_home, config_dir, state, prompt, summary,
 
     messages = []
     outcome = {}
-    # Counted on submission: an attempted turn is an upper bound on billable
-    # model calls even when the request is rejected before generation.
+    # The shared ledger reserves before dispatch, including rejected calls.
+    try:
+        reservation = ledger.reserve(budget)
+    except (OSError, ValueError) as exc:
+        summary[label] = {"outcome": "budget_blocked", "reason": type(exc).__name__}
+        return summary[label]
     count_attempted_turn(summary)
     try:
         async for message in _query(prompt, options):
@@ -76,19 +80,23 @@ async def run_query(project, private_home, config_dir, state, prompt, summary,
         outcome["outcome"] = "result_error"
         outcome["subtype"] = getattr(exc, "subtype", None)
         outcome["terminal_reason"] = getattr(exc, "terminal_reason", None)
-        outcome["errors"] = getattr(exc, "errors", None)
+        outcome["error_present"] = bool(getattr(exc, "errors", None))
     except ProcessError as exc:
         outcome["outcome"] = "process_error"
         outcome["exit_code"] = getattr(exc, "exit_code", None)
         outcome["error"] = type(exc).__name__
     except ValueError as exc:
         outcome["outcome"] = "rejected_client_side"
-        outcome["error"] = f"ValueError: {exc}"
+        outcome["error"] = type(exc).__name__
     except Exception as exc:
         outcome["outcome"] = "other_error"
-        outcome["error"] = f"{type(exc).__name__}: {exc}"
+        outcome["error"] = type(exc).__name__
     collected = collect_events(messages)
     summary[label] = {**outcome, **collected}
+    result = collected.get("result") or {}
+    summary[label]["budget"] = ledger.settle(
+        reservation, result.get("total_cost_usd"),
+        outcome.get("outcome") or result.get("subtype") or "unknown")
     return summary[label]
 
 
@@ -112,15 +120,23 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state-dir", type=Path, required=True,
                         help="new or empty private state dir outside any git tree")
+    parser.add_argument("--budget-dir", type=Path, required=True,
+                        help="existing private parent shared with the stream probe")
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _shared import (compare_personal_roots, credential_gate,
+    from _shared import (BudgetLedger, compare_personal_roots, credential_gate,
                           hash_personal_roots, prepare_state_dir,
                           runner_versions, write_skill)
 
     state = args.state_dir.resolve()
-    prepared = prepare_state_dir(state)
     summary = dict(runner_versions())
+    try:
+        ledger = BudgetLedger(args.budget_dir, state)
+    except (OSError, ValueError) as exc:
+        summary["blocked"] = f"invalid_budget_directory:{type(exc).__name__}"
+        print(json.dumps(summary, indent=2))
+        return
+    prepared = prepare_state_dir(state)
     summary["state_dir"] = prepared
     if prepared.get("refused"):
         summary["credential_gate"] = {"permitted": False,
@@ -178,7 +194,7 @@ def main():
         for label, sources, prompt in source_cases:
             run = asyncio.run(run_query(
                 project, private_home, config_dir, state, prompt, summary,
-                label, sources, "all"))
+                label, sources, "all", ledger=ledger))
             decoy_state(summary, label, run.get("init"))
 
         # Supported pair: model and effort both in the documented table.
@@ -186,7 +202,7 @@ def main():
             project, private_home, config_dir, state,
             "Reply with the single word ready.",
             summary, "supported_model_effort", ["project"], "all",
-            model=SUPPORTED_MODEL, effort="low"))
+            model=SUPPORTED_MODEL, effort="low", ledger=ledger))
         decoy_state(summary, "supported_model_effort", run.get("init"))
 
         # Documented-unsupported: Haiku supports no effort levels. Record what
@@ -195,19 +211,19 @@ def main():
             project, private_home, config_dir, state,
             "Reply with the single word ready.",
             summary, "haiku_with_low_effort", ["project"], "all",
-            model=UNSUPPORTED_EFFORT_MODEL, effort="low"))
+            model=UNSUPPORTED_EFFORT_MODEL, effort="low", ledger=ledger))
 
         # Invalid settings must fail explicitly.
         asyncio.run(run_query(
             project, private_home, config_dir, state,
             "Reply with the single word ready.",
             summary, "invalid_effort", ["project"], "all",
-            model=SUPPORTED_MODEL, effort="superultra"))
+            model=SUPPORTED_MODEL, effort="superultra", ledger=ledger))
         asyncio.run(run_query(
             project, private_home, config_dir, state,
             "Reply with the single word ready.",
             summary, "invalid_model", ["project"], "all",
-            model="nonexistent-model-121"))
+            model="nonexistent-model-121", ledger=ledger))
     finally:
         costs = [entry["result"]["total_cost_usd"]
                  for entry in summary.values()

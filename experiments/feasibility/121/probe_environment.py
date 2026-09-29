@@ -75,7 +75,7 @@ def main():
                 outcome["error"] = f"{type(exc).__name__}"
             except Exception as exc:
                 outcome["outcome"] = "other_error"
-                outcome["error"] = f"{type(exc).__name__}: {exc}"
+                outcome["error"] = type(exc).__name__
             else:
                 outcome["outcome"] = "unexpected_success"
             return outcome
@@ -84,7 +84,7 @@ def main():
     except ImportError as exc:
         summary["no_credential_session_start"] = {
             "outcome": "sdk_import_failed",
-            "error": str(exc),
+            "error": type(exc).__name__,
         }
 
     summary["config_dir_created"] = config_dir.is_dir()

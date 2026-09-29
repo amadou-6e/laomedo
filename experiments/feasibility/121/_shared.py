@@ -19,8 +19,10 @@ No credential value is ever printed. Personal roots are compared by hash.
 import hashlib
 import json
 import os
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import platform
+import shutil
 import socket
 import subprocess
 import sys
@@ -34,6 +36,11 @@ PERSONAL_ROOT_NAMES = [
     "user_projects",
     "user_plugins",
 ]
+
+FIXTURE_SKILL_NAMES = frozenset({
+    "fixture-121-project", "fixture-121-user-home", "fixture-121-user-config",
+    "fixture-121-parent", "fixture-121-stream", "fixture-121-unlisted",
+})
 
 
 # Environment variables that could redirect credentials or the endpoint away
@@ -186,14 +193,14 @@ def runner_versions() -> dict:
 
 def resolve_cli():
     """Resolve the Claude Code CLI the way the SDK does. Returns
-    (path_or_None, error_message_or_None). Never spawns a model call."""
+    (path_or_None, error_class_or_None). Never spawns a model call."""
     from claude_agent_sdk._internal.transport.subprocess_cli import SubprocessCLITransport
     from claude_agent_sdk import ClaudeAgentOptions
     transport = SubprocessCLITransport(prompt="x", options=ClaudeAgentOptions())
     try:
         return transport._find_cli(), None
     except Exception as exc:
-        return None, f"{type(exc).__name__}: {exc}"
+        return None, type(exc).__name__
 
 
 def cli_version(cli_path: str) -> str:
@@ -218,7 +225,18 @@ def prepare_state_dir(state: Path) -> dict:
     """Accept a user-supplied state directory only if it is new or empty.
     Never deletes anything. Returns a report for the summary."""
     report = {"path_exists": state.exists()}
+    resolved = state.resolve()
+    if inside_git_tree(resolved):
+        report["refused"] = "state_dir_inside_git_tree"
+        return report
+    personal_config = (Path.home() / ".claude").resolve()
+    if resolved == Path.home().resolve() or resolved.is_relative_to(personal_config):
+        report["refused"] = "state_dir_is_personal_profile"
+        return report
     if state.exists():
+        if not state.is_dir() or state.is_symlink():
+            report["refused"] = "state_dir_not_plain_directory"
+            return report
         entries = list(state.iterdir())
         report["existing_entries"] = len(entries)
         if entries:
@@ -227,6 +245,138 @@ def prepare_state_dir(state: Path) -> dict:
     state.mkdir(parents=True, exist_ok=True)
     report["prepared"] = True
     return report
+
+
+def _private_workspace_paths(state: Path, project: Path, snapshot: Path) -> None:
+    root = state.resolve()
+    for path in (project, snapshot):
+        resolved = path.resolve()
+        if resolved == root or not resolved.is_relative_to(root) or path.is_symlink():
+            raise ValueError("workspace path escapes private state")
+    if (snapshot.resolve().is_relative_to(project.resolve())
+            or project.resolve().is_relative_to(snapshot.resolve())):
+        raise ValueError("project and snapshot cannot contain each other")
+
+
+def _reject_symlinks(root: Path) -> None:
+    if any(path.is_symlink() for path in root.rglob("*")):
+        raise ValueError("workspace contains a symlink")
+
+
+def snapshot_workspace(state: Path, project: Path, snapshot: Path) -> str:
+    """Freeze one post-run workspace inside private state."""
+    _private_workspace_paths(state, project, snapshot)
+    if snapshot.exists():
+        raise FileExistsError("snapshot already exists")
+    _reject_symlinks(project)
+    shutil.copytree(project, snapshot)
+    return fingerprint(snapshot)
+
+
+def restore_workspace_snapshot(state: Path, project: Path, snapshot: Path,
+                               expected_hash: str) -> str:
+    """Refuse a missing or changed snapshot before touching the workspace."""
+    _private_workspace_paths(state, project, snapshot)
+    if not snapshot.is_dir():
+        raise FileNotFoundError("last post-run workspace snapshot unavailable")
+    _reject_symlinks(snapshot)
+    if fingerprint(snapshot) != expected_hash:
+        raise ValueError("last post-run workspace snapshot hash mismatch")
+    _reject_symlinks(project)
+    shutil.rmtree(project)
+    shutil.copytree(snapshot, project)
+    return fingerprint(project)
+
+
+class BudgetLedger:
+    """Conservative, shared #121 spend ledger across both probe processes.
+
+    Reservations and unknown-cost calls retain their full per-call ceiling.
+    This prevents another call after the observed cap, but an SDK per-call
+    ceiling can still be exceeded within one turn; it is not a provider cap.
+    """
+
+    def __init__(self, root: Path, state: Path, cap: str = "20", max_calls: int = 16):
+        self.root = root.resolve(strict=True)
+        if (not self.root.is_dir() or root.is_symlink() or inside_git_tree(self.root)
+                or state.resolve().parent != self.root):
+            raise ValueError("budget root must be the private parent of state outside git")
+        self.path = self.root / "issue-121-budget.json"
+        self.lock = self.root / "issue-121-budget.lock"
+        self.cap = Decimal(cap)
+        self.max_calls = max_calls
+
+    def _read(self) -> dict:
+        if not self.path.exists():
+            return {"attempts": []}
+        record = json.loads(self.path.read_text(encoding="utf-8"))
+        if not isinstance(record, dict) or not isinstance(record.get("attempts"), list):
+            raise ValueError("invalid budget ledger")
+        return record
+
+    def _write(self, record: dict) -> None:
+        pending = self.root / "issue-121-budget.pending"
+        pending.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        os.replace(pending, self.path)
+
+    def _locked(self, operation):
+        descriptor = os.open(self.lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            os.close(descriptor)
+            return operation()
+        finally:
+            self.lock.unlink(missing_ok=True)
+
+    @staticmethod
+    def _amount(value) -> Decimal:
+        try:
+            amount = Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            raise ValueError("invalid budget amount") from None
+        if not amount.is_finite() or amount < 0:
+            raise ValueError("invalid budget amount")
+        return amount
+
+    def reserve(self, per_call_ceiling: float) -> int:
+        ceiling = self._amount(per_call_ceiling)
+
+        def update():
+            record = self._read()
+            attempts = record["attempts"]
+            if len(attempts) >= self.max_calls:
+                raise ValueError("issue model-call cap reached")
+            exposure = sum((max(self._amount(item["reserved_usd"]),
+                                self._amount(item["observed_usd"])
+                                if item.get("observed_usd") is not None else Decimal(0))
+                            for item in attempts), Decimal(0))
+            if exposure + ceiling > self.cap:
+                raise ValueError("issue spend cap reached")
+            reservation_id = len(attempts) + 1
+            attempts.append({"id": reservation_id, "reserved_usd": str(ceiling),
+                             "observed_usd": None, "outcome": "submitted"})
+            self._write(record)
+            return reservation_id
+
+        return self._locked(update)
+
+    def settle(self, reservation_id: int, observed_cost, outcome: str) -> dict:
+        def update():
+            record = self._read()
+            matches = [item for item in record["attempts"]
+                       if item.get("id") == reservation_id]
+            if len(matches) != 1:
+                raise ValueError("budget reservation missing")
+            item = matches[0]
+            if item.get("outcome") != "submitted":
+                raise ValueError("budget reservation already settled")
+            item["observed_usd"] = (str(self._amount(observed_cost))
+                                    if observed_cost is not None else None)
+            item["outcome"] = outcome
+            self._write(record)
+            return {"attempted_calls": len(record["attempts"]),
+                    "observed_cost_usd": item["observed_usd"]}
+
+        return self._locked(update)
 
 
 def credential_gate(state: Path, config_dir: Path) -> dict:
@@ -263,6 +413,14 @@ def credential_gate(state: Path, config_dir: Path) -> dict:
     verdict["credential_mode"] = "anthropic_api_key"
     if not tcp_reachable("api.anthropic.com"):
         verdict["reason"] = "api_anthropic_unreachable"
+        return verdict
+    try:
+        cli_path, cli_error = resolve_cli()
+    except (ImportError, OSError) as exc:
+        cli_path, cli_error = None, type(exc).__name__
+    if not cli_path:
+        verdict["reason"] = "claude_cli_unavailable"
+        verdict["cli_error_class"] = cli_error
         return verdict
     verdict["permitted"] = True
     return verdict
@@ -309,10 +467,16 @@ def redact_message(message) -> dict:
         view["subtype"] = message.subtype
         if message.subtype == "init":
             skills = data.get("skills") or []
+            names = [str(skill.get("name")) if isinstance(skill, dict)
+                     else str(skill) for skill in skills]
             view["data_keys"] = sorted(data.keys())
             view["session_id"] = data.get("session_id")
             view["model"] = data.get("model")
-            view["skill_names"] = sorted(str(s) for s in skills)
+            view["skill_count"] = len(names)
+            view["skill_names"] = sorted(name for name in names
+                                         if name in FIXTURE_SKILL_NAMES)
+            view["unrecognized_skill_count"] = sum(
+                name not in FIXTURE_SKILL_NAMES for name in names)
             view["slash_command_count"] = len(data.get("slash_commands") or [])
             view["version"] = data.get("version")
     elif kind == "AssistantMessage":
@@ -328,11 +492,15 @@ def redact_message(message) -> dict:
                 entry["name"] = block.name
                 entry["input_keys"] = sorted((block.input or {}).keys())
                 if block.name == "Skill":
-                    # Skill arguments name synthetic fixtures only; keep short
-                    # string values so the invoked skill is attributable.
+                    # Attribute only known synthetic fixtures. Never print
+                    # arbitrary skill names or other argument values.
                     entry["skill_args"] = {
                         key: value for key, value in (block.input or {}).items()
-                        if isinstance(value, str) and len(value) <= 100}
+                        if isinstance(value, str)
+                        and value in FIXTURE_SKILL_NAMES}
+                    entry["unrecognized_skill_arg_count"] = sum(
+                        isinstance(value, str) and value not in FIXTURE_SKILL_NAMES
+                        for value in (block.input or {}).values())
             elif bkind == "TextBlock":
                 entry["text_length"] = len(block.text or "")
             elif bkind == "ToolResultBlock":
@@ -364,7 +532,7 @@ def redact_message(message) -> dict:
             "total_cost_usd": message.total_cost_usd,
             "api_error_status": message.api_error_status,
             "terminal_reason": message.terminal_reason,
-            "errors": message.errors,
+            "error_present": bool(message.errors),
             "usage": message.usage,
             "model_usage_models": sorted((message.model_usage or {}).keys())
                                   if message.model_usage else [],

@@ -24,10 +24,12 @@ step through the Claude Agent SDK.
 
 ## State directory and isolation boundaries
 
-Each credentialed probe requires its own `--state-dir`: a **new or empty**
-directory outside any git working tree, ideally outside the user folder. The
-probes never delete anything and never write outside `--state-dir`; they
-refuse a non-empty directory, so use a different directory per probe.
+Both credentialed probes share an existing private `--budget-dir` outside any
+git working tree, ideally outside the user folder. Each `--state-dir` must be
+a distinct **new or empty** immediate child of that directory. The probes
+refuse a non-empty state directory. Fixture and transcript writes stay in the
+state directory; the shared spend ledger stays in the private budget directory.
+Keep both directories private and never commit them.
 
 The settings probe lays out its run one level down, in `<state>/run/`, and
 plants decoys:
@@ -70,18 +72,23 @@ prefix from the runner environment (subscription OAuth tokens also start with
 `sk-ant-` and are refused), rejects a state dir inside a git working
 tree, refuses when any provider-redirecting variable is set, rejects an OAuth
 token file in the private config dir, and requires reachability of
-`api.anthropic.com`. Per the SDK docs, `ANTHROPIC_API_KEY` takes precedence
-over a subscription login when present.
+`api.anthropic.com`, and confirms a runnable Claude CLI before reserving any
+model-call budget. Per the SDK docs, `ANTHROPIC_API_KEY` takes precedence over
+a subscription login when present. The key prefix is a format check; the
+operator must verify that the key is dedicated to this spike.
 
 ## Spend
 
-USD 20 is the cap from issue #121. Per-call `max_budget_usd` ceilings sum to
-about USD 12.75 worst case (7 calls at $0.25 in the settings probe, 8 at
-$1.25 plus one at $1.00 in the stream probe). `max_budget_usd` is checked
-between turns, so a single turn can exceed its ceiling. Under an API-key
-credential, `ResultMessage.total_cost_usd` is real provider spend; the probes
-sum it into `observed_cost_usd` and count a turn on submission as an upper
-bound on billable calls.
+USD 20 is the issue cap. A persistent `issue-121-budget.json` ledger in the
+shared budget directory reserves each submitted call before dispatch and
+stops after 16 calls or when reserved/observed exposure would reach USD 20.
+The intended per-call `max_budget_usd` ceilings sum to USD 12.75 (7 calls at
+$0.25, 8 at $1.25, and one at $1.00). Failed calls without a cost report
+retain their full reservation. This is a conservative local stop, **not a hard
+provider spend cap**: the SDK checks `max_budget_usd` between turns, so one
+turn may exceed its ceiling. A strict USD 20 provider cap needs a provider-side
+budget. `ResultMessage.total_cost_usd` supplies observed cost when available;
+the output also counts calls at submission.
 
 ## Observed on the authoring machine (2026-09-29)
 
@@ -107,13 +114,14 @@ below it (for example `xhigh` runs as `high` on Opus 4.6).
 ## Scope limit: conversation versus workspace
 
 The SDK persists conversation history only. Session files live under
-`$CLAUDE_CONFIG_DIR/projects/<encoded-cwd>/<session-id>.jsonl`. Restoring the
-last post-run workspace snapshot before a resume is the Laomedo runner
-registry's responsibility; `probe_stream_resume.py` fingerprints the workspace
-before and after and records the distinction instead of claiming the SDK
-provides it. Continuity across resume is verified by a synthetic marker
-returning in the resumed run with no Read call; a re-read is reported as
-`run2_reread_file` and does not count as continuity.
+`$CLAUDE_CONFIG_DIR/projects/<encoded-cwd>/<session-id>.jsonl`. The stream
+probe copies the exact post-run workspace into private state, introduces
+drift, verifies that a missing snapshot is refused before modification,
+restores the saved workspace and checks its hash **before** resuming in a
+fresh query process. This tests a runner-side snapshot guard, not an SDK
+workspace feature or a production snapshot registry. Continuity across resume
+also requires the synthetic marker to return with no Read call; a re-read is
+reported as `run2_reread_file` and does not count as continuity.
 
 ## Reproduction
 
@@ -123,12 +131,14 @@ From the Laomedo repository root:
 python -m venv .venv
 .venv\Scripts\python -m pip install -r experiments/feasibility/121/requirements.txt
 .venv\Scripts\python experiments/feasibility/121/probe_environment.py
-.venv\Scripts\python experiments/feasibility/121/probe_isolation_settings.py --state-dir '<new-or-empty-state-dir-1>'
-.venv\Scripts\python experiments/feasibility/121/probe_stream_resume.py --state-dir '<new-or-empty-state-dir-2>'
+$privateRoot = 'C:\private-laomedo-121' # create privately outside every git tree first
+.venv\Scripts\python experiments/feasibility/121/probe_isolation_settings.py --budget-dir $privateRoot --state-dir "$privateRoot\settings"
+.venv\Scripts\python experiments/feasibility/121/probe_stream_resume.py --budget-dir $privateRoot --state-dir "$privateRoot\stream"
 ```
 
 `_scratch_121_*` run directories, `__pycache__`, and `.venv` are gitignored.
-No personal file name, path, or content is printed; personal roots are
-compared by hash, with `user_projects` labeled inconclusive because any
-concurrent Claude Code session changes it. Raw transcripts stay in the
-private state directory.
+Output is sanitized to fixture skill names, structural event fields, and
+error classes; arbitrary skill names, tool inputs, and raw error text are not
+printed. Personal roots are compared by hash, with `user_projects` labeled
+inconclusive because any concurrent Claude Code session changes it. Raw
+transcripts stay in the private state directory.
