@@ -99,7 +99,6 @@ def main():
         summary["initialized"] = ok
         summary["server_platform"] = {k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")}
         if not ok:
-            print(json.dumps(summary, indent=2))
             return
 
         skills = server.send("skills/list", {"cwds": [str(project)], "forceReload": True})
@@ -114,11 +113,9 @@ def main():
 
         if not args.run:
             summary["preflight_only"] = True
-            print(json.dumps(summary, indent=2))
             return
         if not summary["fixture_discovered"]:
             summary["blocked_before_turn"] = "fixture_not_discovered"
-            print(json.dumps(summary, indent=2))
             return
 
         started = server.send("thread/start", {
@@ -127,7 +124,6 @@ def main():
         }, timeout=30)
         if "error" in started:
             summary["thread_error"] = started["error"]
-            print(json.dumps(summary, indent=2))
             return
         thread_id = started["result"]["thread"]["id"]
         summary["thread_id"] = thread_id
@@ -136,6 +132,9 @@ def main():
         # One invocation channel only: the explicit skill input item. The
         # "$<name>" text mention from #119 is deliberately omitted so a
         # positive result is attributable to the skill item alone.
+        # Counted before sending: an attempted turn/start is an upper bound on
+        # billable model calls even if this request itself times out.
+        summary["model_calls"] = summary.get("model_calls", 0) + 1
         turn = server.send("turn/start", {
             "threadId": thread_id,
             "input": [
@@ -147,11 +146,7 @@ def main():
         }, timeout=30)
         if "error" in turn:
             summary["turn_start_error"] = turn["error"]
-            print(json.dumps(summary, indent=2))
             return
-        # The turn was submitted; count it as a possible model call even if the
-        # wait below times out.
-        summary["model_calls"] = 1
 
         # Wait for terminal turn status, then a short settle drain. On timeout,
         # keep whatever events arrived; the finally block still prints them.
@@ -190,6 +185,9 @@ def main():
     finally:
         stderr = server.close()
         summary["stderr_signals"] = stderr
+        summary["model_calls_note"] = ("upper bound on billable model calls: a "
+                                       "turn/start is counted when submitted, "
+                                       "before any response")
         print(json.dumps(summary, indent=2))
         print(json.dumps({"personal_roots_unchanged":
                           compare_personal_roots(before, hash_personal_roots())}, indent=2))

@@ -39,6 +39,13 @@ def await_turn(server, timeout=90):
     return "timeout"
 
 
+def count_attempted_turn(summary):
+    """Count a turn/start immediately before sending it. The count is an upper
+    bound on billable model calls: a submitted turn/start may still be rejected
+    before generation, but every billable call must have been submitted."""
+    summary["model_calls"] = summary.get("model_calls", 0) + 1
+
+
 def create_and_run(server, model, project, summary, label):
     started = server.send("thread/start", {
         "model": model, "cwd": str(project), "approvalPolicy": "never",
@@ -52,6 +59,7 @@ def create_and_run(server, model, project, summary, label):
     summary[f"{label}_thread_id"] = thread_id
     summary[f"{label}_cli_version"] = result["thread"].get("cliVersion")
     summary[f"{label}_instruction_source_count"] = len(result.get("instructionSources") or [])
+    count_attempted_turn(summary)
     turn = server.send("turn/start", {
         "threadId": thread_id,
         "input": [{"type": "text", "text": "Reply with the single word ready."}],
@@ -95,112 +103,111 @@ def main():
         return
 
     before = hash_personal_roots()
+    thread_id = None
+    model = None
 
-    # Run 1: create a thread and complete a turn.
-    server = AppServer(codex, project, env, state)
     try:
-        ok, _ = server.initialize()
-        summary["run1_initialized"] = ok
-        if not ok:
-            return
-        listing = server.send("model/list", {"limit": 100})
-        models = listing.get("result", {}).get("data", [])
-        selected = next((m for m in models if m.get("isDefault")), None) or (models[0] if models else None)
-        model = (selected or {}).get("id") or (selected or {}).get("model")
-        summary["selected_model"] = model
-        thread_id = create_and_run(server, model, project, summary, "run1")
-        # An attempted turn may still have been submitted even if the wait
-        # timed out, so it counts as a possible model call either way.
-        summary["model_calls"] = 1 if thread_id else 0
-    except RequestTimeout as exc:
-        summary["run1_fatal_timeout"] = str(exc)
-    finally:
-        summary["run1_stderr"] = server.close()
-        summary["run1_event_methods"] = summarize_methods(server)
+        # Run 1: create a thread and complete a turn.
+        server = AppServer(codex, project, env, state)
+        try:
+            ok, _ = server.initialize()
+            summary["run1_initialized"] = ok
+            if ok:
+                listing = server.send("model/list", {"limit": 100})
+                models = listing.get("result", {}).get("data", [])
+                selected = next((m for m in models if m.get("isDefault")), None) or (models[0] if models else None)
+                model = (selected or {}).get("id") or (selected or {}).get("model")
+                summary["selected_model"] = model
+                thread_id = create_and_run(server, model, project, summary, "run1")
+        except RequestTimeout as exc:
+            summary["run1_fatal_timeout"] = str(exc)
+        finally:
+            summary["run1_stderr"] = server.close()
+            summary["run1_event_methods"] = summarize_methods(server)
 
-    if not thread_id:
+        if not thread_id:
+            return
+
+        pre_restart = fingerprint(project)
+        summary["pre_restart_workspace_hash"] = pre_restart
+
+        # Run 2: restart and resume the same thread.
+        server = AppServer(codex, project, env, state)
+        try:
+            ok, _ = server.initialize()
+            summary["run2_initialized"] = ok
+            listed = server.send("thread/list", {"cwd": str(project)}, timeout=20)
+            summary["thread_list_ok"] = "result" in listed
+            if "result" in listed:
+                payload = listed["result"]
+                summary["thread_list_result_keys"] = sorted(payload.keys())
+                threads = payload.get("data") or payload.get("threads") or []
+                summary["thread_list_count"] = len(threads)
+                summary["thread_found_after_restart"] = any(
+                    (t.get("id") or t.get("threadId")) == thread_id for t in threads)
+
+            resumed = server.send("thread/resume", {"threadId": thread_id}, timeout=30)
+            summary["resume_ok"] = "result" in resumed
+            if "error" in resumed:
+                summary["resume_error"] = resumed["error"]
+            else:
+                result = resumed["result"]
+                resumed_thread = result.get("thread", {})
+                summary["resume_same_id"] = resumed_thread.get("id") == thread_id
+                summary["resume_cli_version"] = resumed_thread.get("cliVersion")
+                summary["resume_instruction_source_count"] = len(result.get("instructionSources") or [])
+                if model:
+                    count_attempted_turn(summary)
+                    turn = server.send("turn/start", {
+                        "threadId": thread_id,
+                        "input": [{"type": "text", "text": "Reply with the single word resumed."}],
+                        "model": model, "effort": "low",
+                    }, timeout=30)
+                    if "error" in turn:
+                        summary["resume_turn_error"] = turn["error"]
+                    else:
+                        summary["resume_turn_status"] = await_turn(server)
+
+            # Unknown thread id must fail explicitly.
+            unknown = server.send("thread/resume", {"threadId": "thr_does_not_exist_120"}, timeout=20)
+            summary["unknown_thread"] = {
+                "outcome": "rejected" if "error" in unknown else "accepted",
+                "error": unknown.get("error"),
+            }
+        except RequestTimeout as exc:
+            summary["run2_fatal_timeout"] = str(exc)
+        finally:
+            summary["run2_stderr"] = server.close()
+            summary["run2_event_methods"] = summarize_methods(server)
+
+        # Run 3: resume from a different cwd (recorded, not asserted).
+        other_cwd = state / "other-cwd"
+        other_cwd.mkdir(parents=True, exist_ok=True)
+        server = AppServer(codex, other_cwd, env, state)
+        try:
+            ok, _ = server.initialize()
+            summary["run3_initialized"] = ok
+            moved = server.send("thread/resume", {"threadId": thread_id, "cwd": str(other_cwd)}, timeout=20)
+            summary["resume_other_cwd"] = {
+                "outcome": "accepted" if "result" in moved else "rejected",
+                "error": moved.get("error"),
+            }
+        except RequestTimeout as exc:
+            summary["run3_fatal_timeout"] = str(exc)
+        finally:
+            summary["run3_stderr"] = server.close()
+            summary["run3_event_methods"] = summarize_methods(server)
+    finally:
+        # One summary print on every path, including a crash mid-run.
+        summary["model_calls_note"] = ("upper bound on billable model calls: a "
+                                       "turn/start is counted when submitted, "
+                                       "before any response")
         summary["personal_roots_unchanged"] = compare_personal_roots(
             before, hash_personal_roots())
         summary["note"] = ("Codex has no Laomedo workspace snapshot; a "
                            "missing-snapshot refusal is the runner registry's "
                            "responsibility (see 120.md).")
         print(json.dumps(summary, indent=2))
-        return
-
-    pre_restart = fingerprint(project)
-    summary["pre_restart_workspace_hash"] = pre_restart
-
-    # Run 2: restart and resume the same thread.
-    server = AppServer(codex, project, env, state)
-    try:
-        ok, _ = server.initialize()
-        summary["run2_initialized"] = ok
-        listed = server.send("thread/list", {"cwd": str(project)}, timeout=20)
-        summary["thread_list_ok"] = "result" in listed
-        if "result" in listed:
-            payload = listed["result"]
-            summary["thread_list_result_keys"] = sorted(payload.keys())
-            threads = payload.get("data") or payload.get("threads") or []
-            summary["thread_list_count"] = len(threads)
-            summary["thread_found_after_restart"] = any(
-                (t.get("id") or t.get("threadId")) == thread_id for t in threads)
-
-        resumed = server.send("thread/resume", {"threadId": thread_id}, timeout=30)
-        summary["resume_ok"] = "result" in resumed
-        if "error" in resumed:
-            summary["resume_error"] = resumed["error"]
-        else:
-            result = resumed["result"]
-            resumed_thread = result.get("thread", {})
-            summary["resume_same_id"] = resumed_thread.get("id") == thread_id
-            summary["resume_cli_version"] = resumed_thread.get("cliVersion")
-            summary["resume_instruction_source_count"] = len(result.get("instructionSources") or [])
-            turn = server.send("turn/start", {
-                "threadId": thread_id,
-                "input": [{"type": "text", "text": "Reply with the single word resumed."}],
-                "model": model, "effort": "low",
-            }, timeout=30)
-            if "error" in turn:
-                summary["resume_turn_error"] = turn["error"]
-            else:
-                summary["resume_turn_status"] = await_turn(server)
-                summary["model_calls"] += 1
-
-        # Unknown thread id must fail explicitly.
-        unknown = server.send("thread/resume", {"threadId": "thr_does_not_exist_120"}, timeout=20)
-        summary["unknown_thread"] = {
-            "outcome": "rejected" if "error" in unknown else "accepted",
-            "error": unknown.get("error"),
-        }
-    except RequestTimeout as exc:
-        summary["run2_fatal_timeout"] = str(exc)
-        summary["model_calls"] += 1
-    finally:
-        summary["run2_stderr"] = server.close()
-        summary["run2_event_methods"] = summarize_methods(server)
-
-    # Run 3: resume from a different cwd (recorded, not asserted).
-    other_cwd = state / "other-cwd"
-    other_cwd.mkdir(parents=True, exist_ok=True)
-    server = AppServer(codex, other_cwd, env, state)
-    try:
-        ok, _ = server.initialize()
-        summary["run3_initialized"] = ok
-        moved = server.send("thread/resume", {"threadId": thread_id, "cwd": str(other_cwd)}, timeout=20)
-        summary["resume_other_cwd"] = {
-            "outcome": "accepted" if "result" in moved else "rejected",
-            "error": moved.get("error"),
-        }
-    except RequestTimeout as exc:
-        summary["run3_fatal_timeout"] = str(exc)
-    finally:
-        summary["run3_stderr"] = server.close()
-        summary["run3_event_methods"] = summarize_methods(server)
-
-    summary["personal_roots_unchanged"] = compare_personal_roots(before, hash_personal_roots())
-    summary["note"] = ("Codex has no Laomedo workspace snapshot; a missing-snapshot "
-                       "refusal is the runner registry's responsibility (see 120.md).")
-    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
