@@ -1,15 +1,18 @@
 # Issue 119: Codex discovery and private-login probe
 
-This directory contains a synthetic, disposable probe for the first part of
-[specs issue #119](https://github.com/amadou-6e/specs/issues/119). It starts
-`codex app-server`, calls `initialize` and `skills/list`, and stops. It never
-starts a thread or model turn. It does not need a credential.
+This directory contains synthetic discovery, selected-skill, and manifest
+probes for [specs issue #119](https://github.com/amadou-6e/specs/issues/119).
+`probe_codex_discovery.py` starts `codex app-server`, calls `initialize` and
+`skills/list`, and stops without a thread, model turn, or credential.
 
 ## Reproduce
 
-Requirements: Python 3.9 or newer and a Codex CLI binary. The observed run used
-Python 3.12 and `codex-cli 0.155.0-alpha.16.3` on Windows. From the Laomedo
-repository root:
+The observed Windows toolchain is Python `3.12.10` and
+`codex-cli 0.155.0-alpha.16.3`. The observed `codex.exe` SHA-256 is
+`589f2546cc1e86703da326b00741f8b7a58fd182a1a90499faa0beebf22a24e2`.
+The Python scripts use only the standard library, so there are no pip packages
+or Codex SDK dependency to install or pin. This pins the observed experiment,
+not the target CLI/SDK pair for #120. From the Laomedo repository root:
 
 ```powershell
 python experiments/feasibility/119/probe_codex_discovery.py --codex '<absolute-path-to-codex.exe>'
@@ -36,6 +39,10 @@ zero discovered paths outside scratch under the personal home, and zero model
 calls. The personal skill directory hashes were unchanged. The personal
 session directory hash varied across repeated runs while this IDE Codex
 session was active, so session-file isolation remains unproven by this probe.
+On a 2026-09-29 no-model rerun, six additional discovered skill paths were
+under the disposable `CODEX_HOME/skills/.system` directory. There were zero
+other private skill paths and zero personal skill paths. The runtime-provided
+system skills mean the fixture was not the only skill visible to `skills/list`.
 
 The current [Codex skill documentation](https://learn.chatgpt.com/docs/build-skills)
 describes `$HOME/.agents/skills` as a user location. The observed CLI predates
@@ -63,6 +70,9 @@ tree or Git metadata. The caller must provision a credential in the private
 local auth-copy exception and all three model turns allowed by #119 have been
 used, so the `--run` example below is for a separately authorized experiment
 with its own credential and spend limit.
+An app-server request timeout is reported by method and turn state without
+printing raw server output. The TCP check also reports the exception class
+when it fails; the single host check does not enumerate every Codex endpoint.
 
 ```powershell
 python experiments/feasibility/119/check_private_auth.py --codex '<absolute-path-to-codex.exe>' --state-dir '<private-state-dir>'
@@ -104,6 +114,8 @@ and no tool calls. It recorded 16,253 input tokens, including 11,008 cached
 input tokens, and 13 output tokens. At the [GPT-6 Luna Standard short-context
 API rates](https://developers.openai.com/api/docs/models/gpt-6-luna), this is
 about USD 0.00064 API-equivalent usage, not an actual subscription charge.
+The trace reported `cache_write_input_tokens: 0`, so this estimate includes no
+cache-write charge; cached input tokens are reads, not evidence of writes.
 
 The completed turn shows that the skill body's instruction reached the model.
 It does not isolate the structured `skill` input from the `$skill` mention or

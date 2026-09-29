@@ -156,6 +156,9 @@ def main() -> None:
     scratch_resolved = scratch.resolve()
     personal_skill_count = 0
     scratch_skill_count = 0
+    system_skill_count = 0
+    other_private_skill_count = 0
+    system_skill_root = (codex_home / "skills" / ".system").resolve()
     for skill in skills:
         path_text = skill.get("path")
         if not path_text:
@@ -163,6 +166,10 @@ def main() -> None:
         skill_path = Path(path_text).resolve()
         if skill_path.is_relative_to(scratch_resolved):
             scratch_skill_count += 1
+            if skill_path.is_relative_to(system_skill_root):
+                system_skill_count += 1
+            elif skill.get("name") not in {"fixture-repo", "fixture-user", "fixture-codex-home"}:
+                other_private_skill_count += 1
         elif skill_path.is_relative_to(real_home_resolved):
             personal_skill_count += 1
     print(
@@ -174,6 +181,8 @@ def main() -> None:
                 "other_skill_count": len(names - {"fixture-repo", "fixture-user", "fixture-codex-home"}),
                 "personal_skill_count": personal_skill_count,
                 "scratch_skill_count": scratch_skill_count,
+                "system_skill_count": system_skill_count,
+                "other_private_skill_count": other_private_skill_count,
                 "personal_roots_unchanged": {
                     "user_skills": before[0] == after[0],
                     "codex_skills": before[1] == after[1],

@@ -23,6 +23,12 @@ MARKER = "LAOMEDO_NATIVE_SKILL_119"
 SKILL_NAME = "fixture-native-119"
 
 
+class RequestTimeout(TimeoutError):
+    def __init__(self, method):
+        super().__init__(f"app-server response timed out for {method}")
+        self.method = method
+
+
 def hash_path(path):
     if path.is_file():
         return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -34,7 +40,13 @@ def request(process, messages, payload, pending=None, timeout=20):
     process.stdin.flush()
     deadline = time.monotonic() + timeout
     while True:
-        message = messages.get(timeout=max(0.1, deadline - time.monotonic()))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RequestTimeout(payload["method"])
+        try:
+            message = messages.get(timeout=remaining)
+        except queue.Empty as error:
+            raise RequestTimeout(payload["method"]) from error
         if message.get("id") == payload["id"]:
             return message
         if pending is not None:
@@ -125,8 +137,9 @@ def main():
         try:
             with socket.create_connection(("chatgpt.com", 443), timeout=3):
                 summary["chatgpt_tcp_reachable"] = True
-        except OSError:
+        except OSError as error:
             summary["chatgpt_tcp_reachable"] = False
+            summary["chatgpt_tcp_error_type"] = type(error).__name__
         if not args.run:
             return print(json.dumps(summary, indent=2))
         if (not summary["fixture_discovered"] or not model or
@@ -145,6 +158,7 @@ def main():
         if not thread_id:
             summary["thread_id_missing"] = True
             return print(json.dumps(summary, indent=2))
+        summary["selection_mode"] = "explicit_combined_text_and_skill_item"
         summary["model_calls"] = 1
         turn = request(process, messages, {"method": "turn/start", "id": 5,
             "params": {"threadId": thread_id,
@@ -182,6 +196,10 @@ def main():
         summary["event_methods"] = {k: v for k, v in methods.items() if k in
             ("item/started", "item/updated", "item/completed", "turn/completed", "thread/tokenUsage/updated")}
         summary["other_event_methods"] = sorted(k for k in methods if k not in summary["event_methods"])
+        print(json.dumps(summary, indent=2))
+    except RequestTimeout as error:
+        summary["request_timeout_stage"] = error.method
+        summary["turn_status"] = "request_timeout" if summary["model_calls"] else "not_started"
         print(json.dumps(summary, indent=2))
     finally:
         process.terminate()
