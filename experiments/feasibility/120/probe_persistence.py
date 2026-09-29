@@ -26,7 +26,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _shared import (AppServer, RequestTimeout, codex_version,
                       compare_personal_roots, construct_env, credential_gate,
                       fingerprint, hash_personal_roots, read_turn_context,
-                      restore_workspace_snapshot, select_supported_pair,
+                      reserve_model_turn, restore_workspace_snapshot,
+                      select_supported_pair,
                       snapshot_workspace, summarize_methods, validate_pair,
                       write_skill)
 
@@ -41,10 +42,11 @@ def await_turn(server, timeout=90):
     return "timeout"
 
 
-def count_attempted_turn(summary):
+def count_attempted_turn(summary, state):
     """Count a turn/start immediately before sending it. The count is an upper
     bound on billable model calls: a submitted turn/start may still be rejected
     before generation, but every billable call must have been submitted."""
+    summary["cumulative_attempted_turns"] = reserve_model_turn(state)
     summary["model_calls"] = summary.get("model_calls", 0) + 1
 
 
@@ -62,7 +64,7 @@ def create_and_run(server, model, project, summary, label):
     thread_path = result["thread"].get("path")
     summary[f"{label}_cli_version"] = result["thread"].get("cliVersion")
     summary[f"{label}_instruction_source_count"] = len(result.get("instructionSources") or [])
-    count_attempted_turn(summary)
+    count_attempted_turn(summary, server.state)
     turn = server.send("turn/start", {
         "threadId": thread_id,
         "input": [{"type": "text", "text": "Reply with the single word ready."}],
@@ -84,7 +86,9 @@ def main():
     parser.add_argument("--codex", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path,
                         help="provisioned private state dir with codex-home/auth.json")
-    parser.add_argument("--credential-ref", help="dedicated secret-store reference, not a key")
+    parser.add_argument("--credential-mode", choices=("chatgpt_handoff", "api_key"),
+                        default="chatgpt_handoff")
+    parser.add_argument("--credential-ref", help="API-key secret-store reference, not a key")
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
     if not args.state_dir:
@@ -105,7 +109,7 @@ def main():
 
     summary = {"version": codex_version(codex, env)}
     gate = credential_gate(codex, project, env, codex_home, state,
-                           args.credential_ref)
+                           args.credential_mode, args.credential_ref)
     summary["credential_gate"] = gate
     if not gate.get("permitted"):
         print(json.dumps(summary, indent=2))
@@ -204,7 +208,7 @@ def main():
                 summary["resume_cli_version"] = resumed_thread.get("cliVersion")
                 summary["resume_instruction_source_count"] = len(result.get("instructionSources") or [])
                 if model:
-                    count_attempted_turn(summary)
+                    count_attempted_turn(summary, state)
                     turn = server.send("turn/start", {
                         "threadId": thread_id,
                         "input": [{"type": "text", "text": "Reply with the single word resumed."}],

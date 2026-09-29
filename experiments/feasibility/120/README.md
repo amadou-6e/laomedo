@@ -24,8 +24,8 @@ and investigate whether Codex can run as a persistent Laomedo flow step.
 | --- | --- | --- | --- |
 | `probe_model_effort.py` | none | no | model/list efforts, requested supported pair, runner-side rejection of unknown model and invalid or unsupported effort; thread-start effective model |
 | `probe_isolation.py` | none | no | private skill discovery, `instructionSources` leak check, personal root comparison |
-| `probe_persistence.py` | API key | yes | completed turn, frozen post-run workspace, drift and restore before `thread/resume`, missing-snapshot refusal, `thread/list`, unknown-thread rejection |
-| `probe_stream_events.py` | API key | yes | raw item notifications, matching `item/started` and terminal `item/completed` tool result, usage-event count |
+| `probe_persistence.py` | private ChatGPT handoff | yes | completed turn, frozen post-run workspace, drift and restore before `thread/resume`, missing-snapshot refusal, `thread/list`, unknown-thread rejection |
+| `probe_stream_events.py` | private ChatGPT handoff | yes | raw item notifications, matching `item/started` and terminal `item/completed` tool result, usage-event count |
 
 `probe_model_effort.py` is unauthenticated by construction and submits no
 `turn/start`. A local run against the observed CLI found that it accepted an
@@ -42,40 +42,39 @@ evidence; an attempted turn counts toward the model-call total either way.
 
 ## Credential gate
 
-Both credentialed probes use the same gate and stop before any model call when
-it fails. The gate:
+For this single-user feasibility spike, `provision_chatgpt_handoff.py` copies
+only the current file-backed ChatGPT `auth.json` into one persistent private
+Codex profile. Create an access-restricted state directory outside every Git
+working tree first. Provision **once**; the script refuses to overwrite an
+existing private auth file. Reuse that same directory for all #120 tests so
+Codex can refresh its private copy in place. Do not recopy from the personal
+profile before each test. This is a temporary approach until #129 defines
+the production login flow.
 
-- requires a declared dedicated secret-store reference, rejects an exact copy
-  of the personal `auth.json`, and accepts only **API-key** mode as reported by
-  `codex login status`. The reference is a provisioning declaration, not
-  cryptographic proof of who owns the API key. A reviewer must verify that the
-  reference belongs to a dedicated Laomedo credential before running;
-- rejects a copied personal **ChatGPT** login, per the #120 rule and the #119
-  statement that its ChatGPT-auth exception does not extend to #120. This also
-  blocks a dedicated ChatGPT service-account token, which #119 listed as a
-  production option; that is a conservative choice for this spike, not a claim
-  that service accounts are unsuitable;
+Both credentialed probes use the same gate and stop before any model call when
+it fails. The ChatGPT handoff gate:
+
+- requires file-backed **ChatGPT** mode as reported by `codex login status`;
 - rejects a `--state-dir` inside a git working tree;
-- requires TCP reachability to `api.openai.com:443`, the API-key traffic host,
+- requires TCP reachability to `chatgpt.com:443`,
   as a prerequisite (not a guarantee of an authenticated request).
 
-No credential value, session, or raw trace leaves the private state directory.
-The CLI's credential material must be provisioned into that directory by the
-runner's secret store outside this repository; these scripts never copy a
-login or key. The preflight is deliberately fail-closed when no reference or
-auth file is present.
+The provisioning script copies the credential once but never prints its value.
+No credential, session, or raw trace is committed. A private copy can refresh
+independently and may invalidate the original interactive login. Keep the
+private profile persistent and inspect the personal login if a refresh occurs.
+The API-key mode remains available with `--credential-mode api_key` and a
+dedicated `--credential-ref`, but is not required for this temporary spike.
 
 ## Spend
 
-The paid probes prefer advertised `gpt-6-luna` with low effort to keep the
-bounded calls inexpensive, then fall back to an advertised supported pair.
-The USD 20 cap is set by issue #120. Because the gate admits only an API-key
-credential, spend is real provider spend, not an API-equivalent estimate from a
-ChatGPT subscription. Track it from the provider's usage dashboard and from the
-token-usage event count the stream probe records. The raw usage counters
-remain in private state; a sanitized count alone does not calculate cost.
-A ChatGPT-authenticated run would
-not be billed in dollars and is out of scope for this spike.
+The model-backed probes prefer advertised `gpt-6-luna` with low effort, then
+fall back to an advertised supported pair. One private `turn-budget.json`
+allows at most three submitted turns across both probes, counting a timeout as
+an attempt. A ChatGPT subscription run has no direct API dollar charge; record
+token usage and an API-equivalent estimate separately, without calling it
+actual spend. An API-key run has real provider spend and still requires the
+USD 20 limit from #120.
 
 ## Scope limit: workspace snapshots
 
@@ -94,9 +93,10 @@ From the Laomedo repository root:
 python experiments/feasibility/120/probe_model_effort.py --codex '<absolute-path-to-codex>'
 python experiments/feasibility/120/probe_isolation.py --codex '<absolute-path-to-codex>'
 python -m unittest discover -s experiments/feasibility/120 -p 'test_*.py' -v
-python experiments/feasibility/120/probe_persistence.py --codex '<absolute-path-to-codex>' --state-dir '<private-state-dir>' --credential-ref '<secret-store-reference>'
-python experiments/feasibility/120/probe_stream_events.py --codex '<absolute-path-to-codex>' --state-dir '<private-state-dir>' --credential-ref '<secret-store-reference>'          # preflight
-python experiments/feasibility/120/probe_stream_events.py --codex '<absolute-path-to-codex>' --state-dir '<private-state-dir>' --credential-ref '<secret-store-reference>' --run    # model turn
+python experiments/feasibility/120/provision_chatgpt_handoff.py --state-dir '<private-state-dir>'  # once
+python experiments/feasibility/120/probe_persistence.py --codex '<absolute-path-to-codex>' --state-dir '<private-state-dir>'
+python experiments/feasibility/120/probe_stream_events.py --codex '<absolute-path-to-codex>' --state-dir '<private-state-dir>'          # preflight
+python experiments/feasibility/120/probe_stream_events.py --codex '<absolute-path-to-codex>' --state-dir '<private-state-dir>' --run    # one turn
 ```
 
 `_scratch_120_*` run directories and `__pycache__` are gitignored. No personal

@@ -185,6 +185,35 @@ def restore_workspace_snapshot(state: Path, project: Path, snapshot: Path,
     return fingerprint(project)
 
 
+def reserve_model_turn(state: Path, max_turns: int = 3) -> int:
+    """Persist a conservative cross-probe turn cap before dispatch.
+
+    An abandoned reservation still counts. An existing lock fails closed, so
+    concurrent probes cannot each spend the last allowed turn.
+    """
+    ledger = state / "turn-budget.json"
+    lock = state / "turn-budget.lock"
+    descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.close(descriptor)
+        count = 0
+        if ledger.exists():
+            record = json.loads(ledger.read_text(encoding="utf-8"))
+            count = record["attempted_turns"]
+            if not isinstance(count, int) or count < 0:
+                raise ValueError("invalid turn ledger")
+        if count >= max_turns:
+            raise ValueError("model turn cap reached")
+        next_count = count + 1
+        temporary = state / "turn-budget.pending"
+        temporary.write_text(json.dumps({"attempted_turns": next_count}) + "\n",
+                             encoding="utf-8")
+        os.replace(temporary, ledger)
+        return next_count
+    finally:
+        lock.unlink(missing_ok=True)
+
+
 def ensure_clean(path: Path) -> int:
     """(Re)create a run directory, removing stale contents from a prior run.
     Returns the number of entries that could not be removed, for example a
@@ -261,20 +290,24 @@ def resettable_dir(root: Path) -> tuple:
 
 
 def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
-                    state: Path, credential_ref: str = None,
-                    api_host: str = "api.openai.com",
+                    state: Path, credential_mode: str = "chatgpt_handoff",
+                    credential_ref: str = None,
+                    api_host: str = None,
                     api_port: int = 443) -> dict:
     """Decide whether a model call is permitted.
 
-    Requires a declared secret-store reference and API-key mode. A reference
-    is an attestation by the provisioner, not proof of credential ownership.
-    Rejects a byte-for-byte copy of the personal auth file. Never prints a key.
+    ChatGPT mode requires an explicitly provisioned private auth file. The
+    probe never copies or prints the credential. API-key mode requires a
+    declared secret-store reference. Neither mode proves credential ownership.
     """
     verdict = {"permitted": False}
     if inside_git_tree(state):
         verdict["reason"] = "state_dir_inside_git_tree"
         return verdict
-    if not credential_ref:
+    if credential_mode not in ("chatgpt_handoff", "api_key"):
+        verdict["reason"] = "unsupported_credential_mode"
+        return verdict
+    if credential_mode == "api_key" and not credential_ref:
         verdict["reason"] = "missing_credential_store_reference"
         return verdict
     auth_file = codex_home / "auth.json"
@@ -282,7 +315,7 @@ def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
         verdict["reason"] = "missing_auth_file"
         return verdict
     personal_auth = Path.home() / ".codex" / "auth.json"
-    if personal_auth.is_file():
+    if credential_mode == "api_key" and personal_auth.is_file():
         try:
             if hash_path(auth_file) == hash_path(personal_auth):
                 verdict["reason"] = "copied_personal_auth_file"
@@ -295,14 +328,16 @@ def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
     if not status.get("ok"):
         verdict["reason"] = "login_status_failed"
         return verdict
-    if status.get("chatgpt"):
-        verdict["reason"] = "personal_chatgpt_login_not_allowed"
+    if credential_mode == "chatgpt_handoff" and not status.get("chatgpt"):
+        verdict["reason"] = "expected_chatgpt_login"
         return verdict
-    if not status.get("api_key"):
-        verdict["reason"] = "unknown_auth_mode"
+    if credential_mode == "api_key" and not status.get("api_key"):
+        verdict["reason"] = "expected_api_key_login"
         return verdict
-    verdict["credential_mode"] = "api_key"
-    verdict["credential_provenance"] = "declared_store_reference_not_verified"
+    verdict["credential_mode"] = credential_mode
+    verdict["credential_provenance"] = "explicitly_provisioned_not_verified"
+    if api_host is None:
+        api_host = "chatgpt.com" if credential_mode == "chatgpt_handoff" else "api.openai.com"
     host = verdict["api_host"] = api_host
     port = verdict["api_port"] = api_port
     if not tcp_reachable(host, port):

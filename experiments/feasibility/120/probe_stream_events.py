@@ -20,7 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _shared import (AppServer, RequestTimeout, codex_version,
                       compare_personal_roots, construct_env, credential_gate,
                       fingerprint, hash_personal_roots, read_turn_context,
-                      select_supported_pair, summarize_methods, validate_pair,
+                      reserve_model_turn, select_supported_pair,
+                      summarize_methods, validate_pair,
                       write_skill)
 
 MARKER = "LAOMEDO_120_STREAM"
@@ -119,7 +120,9 @@ def main():
     parser.add_argument("--codex", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path,
                         help="provisioned private state dir with codex-home/auth.json")
-    parser.add_argument("--credential-ref", help="dedicated secret-store reference, not a key")
+    parser.add_argument("--credential-mode", choices=("chatgpt_handoff", "api_key"),
+                        default="chatgpt_handoff")
+    parser.add_argument("--credential-ref", help="API-key secret-store reference, not a key")
     parser.add_argument("--run", action="store_true", help="submit the model turn")
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
@@ -137,7 +140,7 @@ def main():
 
     summary = {"version": codex_version(codex, env), "model_calls": 0}
     gate = credential_gate(codex, project, env, codex_home, state,
-                           args.credential_ref)
+                           args.credential_mode, args.credential_ref)
     summary["credential_gate"] = gate
     if not gate.get("permitted"):
         print(json.dumps(summary, indent=2))
@@ -188,6 +191,7 @@ def main():
         # positive result is attributable to the skill item alone.
         # Counted before sending: an attempted turn/start is an upper bound on
         # billable model calls even if this request itself times out.
+        summary["cumulative_attempted_turns"] = reserve_model_turn(state)
         summary["model_calls"] = summary.get("model_calls", 0) + 1
         turn = server.send("turn/start", {
             "threadId": thread_id,

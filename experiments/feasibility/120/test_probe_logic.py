@@ -5,9 +5,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from _shared import (credential_gate, fingerprint, restore_workspace_snapshot,
-                     select_supported_pair, snapshot_workspace, validate_pair)
+from _shared import (credential_gate, fingerprint, reserve_model_turn,
+                     restore_workspace_snapshot, select_supported_pair,
+                     snapshot_workspace, validate_pair)
 from probe_stream_events import stream_evidence
+from provision_chatgpt_handoff import provision
 
 
 class ProbeLogicTests(unittest.TestCase):
@@ -49,7 +51,7 @@ class ProbeLogicTests(unittest.TestCase):
         self.assertFalse(stream_evidence([started, other_turn])[
             "tool_call_and_result_observed"])
 
-    def test_credential_gate_needs_reference_and_rejects_personal_copy(self):
+    def test_credential_gate_allows_private_chatgpt_handoff(self):
         with tempfile.TemporaryDirectory(prefix="laomedo-120-test-") as root:
             state = Path(root)
             codex_home = state / "codex-home"
@@ -60,11 +62,36 @@ class ProbeLogicTests(unittest.TestCase):
             (codex_home / "auth.json").write_text("same", encoding="utf-8")
             with patch("_shared.Path.home", return_value=personal):
                 missing = credential_gate(state / "codex", state, {},
-                                          codex_home, state)
+                                          codex_home, state, "api_key")
                 copied = credential_gate(state / "codex", state, {},
-                                         codex_home, state, "store/laomedo/test")
+                                         codex_home, state, "api_key",
+                                         "store/laomedo/test")
+                with patch("_shared.login_status", return_value={
+                    "ok": True, "chatgpt": True, "api_key": False}), \
+                     patch("_shared.tcp_reachable", return_value=True):
+                    handoff = credential_gate(state / "codex", state, {},
+                                              codex_home, state)
             self.assertEqual(missing["reason"], "missing_credential_store_reference")
             self.assertEqual(copied["reason"], "copied_personal_auth_file")
+            self.assertTrue(handoff["permitted"])
+            self.assertEqual(handoff["credential_mode"], "chatgpt_handoff")
+
+    def test_handoff_is_one_time_and_turn_cap_persists(self):
+        with tempfile.TemporaryDirectory(prefix="laomedo-120-test-") as root:
+            temp = Path(root)
+            source = temp / "synthetic-auth.json"
+            source.write_text("synthetic-only", encoding="utf-8")
+            state = temp / "private-state"
+            state.mkdir()
+            self.assertTrue(provision(source, state)["provisioned"])
+            self.assertEqual((state / "codex-home" / "auth.json").read_text(
+                encoding="utf-8"), "synthetic-only")
+            with self.assertRaises(FileExistsError):
+                provision(source, state)
+            self.assertEqual([reserve_model_turn(state) for _ in range(3)],
+                             [1, 2, 3])
+            with self.assertRaises(ValueError):
+                reserve_model_turn(state)
 
     def test_missing_snapshot_fails_before_changing_project(self):
         with tempfile.TemporaryDirectory(prefix="laomedo-120-test-") as root:
