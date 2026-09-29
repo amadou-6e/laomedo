@@ -50,7 +50,7 @@ def main():
         summary["server_platform"] = {k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")}
         if not ok:
             summary["initialize_error"] = info
-            return print(json.dumps(summary, indent=2))
+            return
 
         listing = server.send("skills/list", {
             "cwds": [str(project)], "forceReload": True})
@@ -76,8 +76,8 @@ def main():
             "under_real_home": under_real_home,
             "outside_both": outside_both,
         }
-        summary["other_skill_names"] = sorted(n for n in names
-                                              if n and not n.startswith("fixture-"))
+        summary["other_skill_count"] = sum(
+            bool(name and not name.startswith("fixture-")) for name in names)
 
         models = server.send("model/list", {"limit": 100})
         model_data = models.get("result", {}).get("data", [])

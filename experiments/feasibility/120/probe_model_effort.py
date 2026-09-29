@@ -1,15 +1,9 @@
 """Probe Codex model listing, effort selection, and setting rejection.
 
-Unauthenticated by construction: the scratch profile has no credential and the
-constructed environment carries none, so a dispatched turn cannot spend. It
-tests model/list efforts, the effective values thread/start reports, explicit
-rejection of an invalid effort string and of a valid-but-unsupported level, and
-rejection of an unknown model id.
-
-Dispatch-time rejection can be observed here. The "no silent downgrade" half
-of condition 5 needs a credentialed probe and is out of scope for this script;
-with no credential, an accepted turn fails at authentication and cannot show
-what effort the model actually used.
+Unauthenticated by construction. No turn is submitted. This probes model/list
+and tests the runner's own pre-dispatch validation. The app-server accepted
+invalid values in a prior no-credential run, so provider rejection is not the
+boundary. Effective per-turn effort needs a credentialed completed turn.
 """
 
 import argparse
@@ -20,7 +14,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _shared import (AppServer, RequestTimeout, codex_version, construct_env,
                       hash_personal_roots, compare_personal_roots,
-                      resettable_dir, summarize_methods, write_skill)
+                      resettable_dir, summarize_methods, validate_pair,
+                      write_skill)
 
 
 def thread_start_effective(server, model):
@@ -52,31 +47,6 @@ def thread_start_effective(server, model):
     }, thread.get("id")
 
 
-def effort_dispatch(server, model, effort):
-    """Start a fresh thread and submit a turn with the given effort.
-    Classifies the immediate response as rejected or accepted."""
-    fresh = server.send("thread/start", {
-        "model": model, "cwd": str(server.state), "approvalPolicy": "never",
-        "sandbox": "read-only",
-    }, timeout=30)
-    if "result" not in fresh:
-        return {"outcome": "thread_start_failed", "error": fresh.get("error")}
-    thread_id = fresh["result"]["thread"]["id"]
-    response = server.send("turn/start", {
-        "threadId": thread_id, "input": [{"type": "text", "text": "No-op."}],
-        "model": model, "effort": effort,
-    }, timeout=30)
-    if "error" in response:
-        return {"outcome": "rejected",
-                "error": response["error"]}
-    turn = response.get("result", {}).get("turn", {})
-    # The Turn object has no effort field; effort effectiveness for a turn has
-    # to be read from elsewhere, such as the rollout's turn_context record.
-    return {"outcome": "accepted",
-            "turn_keys": sorted(turn.keys()),
-            "turn_id": turn.get("id")}
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--codex", type=Path, required=True)
@@ -92,7 +62,7 @@ def main():
     write_skill(project / ".agents" / "skills", "fixture-120-model")
     env = construct_env(private_home, codex_home, state, codex.parent)
     before = hash_personal_roots()
-    summary = {"version": codex_version(codex, env), "model_calls_planned": 0}
+    summary = {"version": codex_version(codex, env), "model_calls": 0}
 
     server = AppServer(codex, project, env, state)
     try:
@@ -101,7 +71,7 @@ def main():
         summary["server_platform"] = {k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")}
         if not ok:
             summary["initialize_error"] = info
-            return print(json.dumps(summary, indent=2))
+            return
 
         listing = server.send("model/list", {"limit": 100})
         models = listing.get("result", {}).get("data", [])
@@ -125,54 +95,39 @@ def main():
         selected = next((m for m in models if m.get("isDefault")), None) or (models[0] if models else None)
         if not selected:
             summary["no_models"] = True
-            return print(json.dumps(summary, indent=2))
+            return
         model = selected.get("id") or selected.get("model")
         summary["selected_model"] = model
-        model_efforts = supported_by_model.get(model, {}).get("efforts", [])
-
-        # Effective values reported by thread/start (no model call).
-        effective, thread_id = thread_start_effective(server, model)
-        summary["thread_start_effective"] = effective
-        summary["thread_created"] = bool(thread_id)
-
-        # Unknown model rejection (no model call).
-        unknown = server.send("thread/start", {
-            "model": "nonexistent-model-120", "cwd": str(project),
-            "approvalPolicy": "never", "sandbox": "read-only",
-        }, timeout=20)
-        summary["unknown_model"] = {
-            "outcome": "rejected" if "error" in unknown else "accepted",
-            "error": unknown.get("error"),
+        requested_effort = supported_by_model[model]["default_effort"]
+        summary["supported_pair"] = {
+            "requested_model": model,
+            "requested_effort": requested_effort,
+            "validation": validate_pair(supported_by_model, model, requested_effort),
+            "effective_turn_effort": "unknown_without_completed_turn",
         }
 
-        # Effort dispatch checks. The scratch profile is unauthenticated, so a
-        # dispatched turn cannot complete or spend.
-        valid_unsupported = sorted(union - set(model_efforts))
-        checks = {}
-        checks["invalid_string"] = {"effort": "superultra",
-                                    "value_space": "not_a_valid_level"}
-        if valid_unsupported:
-            checks["valid_but_unsupported"] = {
-                "effort": valid_unsupported[0],
-                "value_space": "valid_level_absent_from_model",
+        if summary["supported_pair"]["validation"]["accepted"]:
+            effective, thread_id = thread_start_effective(server, model)
+            summary["thread_start_effective"] = effective
+            summary["thread_created"] = bool(thread_id)
+
+        narrow = next((mid for mid, data in supported_by_model.items()
+                       if union - set(data["efforts"])), None)
+        summary["predispatch_checks"] = {
+            "unknown_model": validate_pair(supported_by_model,
+                                           "nonexistent-model-120", "low"),
+            "invalid_effort": validate_pair(supported_by_model, model,
+                                            "superultra"),
+        }
+        if narrow:
+            unsupported = sorted(union - set(supported_by_model[narrow]["efforts"]))[0]
+            summary["predispatch_checks"]["valid_but_unsupported"] = {
+                "model": narrow, "effort": unsupported,
+                **validate_pair(supported_by_model, narrow, unsupported),
             }
         else:
-            checks["valid_but_unsupported"] = {
-                "not_applicable": "every valid level is supported by the selected model"}
-        results = {}
-        for name, case in checks.items():
-            if "not_applicable" in case:
-                results[name] = case
-                continue
-            try:
-                results[name] = {
-                    **case,
-                    **effort_dispatch(server, model, case["effort"]),
-                }
-            except RequestTimeout as exc:
-                results[name] = {**case, "outcome": "timeout",
-                                 "method": str(exc)}
-        summary["effort_checks"] = results
+            summary["predispatch_checks"]["valid_but_unsupported"] = {
+                "not_applicable": "no model has a narrower effort set"}
 
         summary["event_methods"] = summarize_methods(server)
     except RequestTimeout as exc:

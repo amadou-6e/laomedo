@@ -15,6 +15,7 @@ import json
 import os
 import queue
 from pathlib import Path
+import shutil
 import subprocess
 import threading
 import time
@@ -83,6 +84,105 @@ def write_skill(root: Path, name: str, content: str = None) -> None:
             "This fixture is synthetic probe content.\n"
         )
     (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
+
+
+def validate_pair(supported_by_model: dict, model: str, effort: str) -> dict:
+    """Fail closed before dispatch using the advertised model capabilities."""
+    if model not in supported_by_model:
+        return {"accepted": False, "reason": "unknown_model"}
+    levels = supported_by_model[model]
+    if isinstance(levels, dict):
+        levels = levels["efforts"]
+    if effort not in levels:
+        return {"accepted": False, "reason": "unsupported_effort"}
+    return {"accepted": True, "reason": "supported_pair"}
+
+
+def model_efforts(listing: dict) -> dict:
+    result = {}
+    for entry in listing.get("result", {}).get("data", []):
+        model = entry.get("id") or entry.get("model")
+        if model:
+            result[model] = [level.get("reasoningEffort")
+                             if isinstance(level, dict) else level
+                             for level in entry.get("supportedReasoningEfforts", [])]
+    return result
+
+
+def select_supported_pair(listing: dict, effort: str = "low",
+                          preferred_model: str = None) -> tuple:
+    """Select an advertised pair, preferring an explicit low-cost test model."""
+    entries = listing.get("result", {}).get("data", [])
+    capabilities = model_efforts(listing)
+    ordered = sorted(entries, key=lambda entry: (
+        (entry.get("id") or entry.get("model")) != preferred_model,
+        not entry.get("isDefault", False)))
+    for entry in ordered:
+        model = entry.get("id") or entry.get("model")
+        if validate_pair(capabilities, model, effort)["accepted"]:
+            return model, effort, capabilities
+    raise ValueError("no advertised model supports the requested effort")
+
+
+def read_turn_context(codex_home: Path, thread_path: str, turn_id: str) -> dict:
+    """Read only model/effort from a private rollout's matching turn context."""
+    if not thread_path:
+        return {"status": "thread_path_unavailable"}
+    path = Path(thread_path).resolve()
+    if not path.is_relative_to(codex_home.resolve()) or not path.is_file():
+        return {"status": "private_rollout_unavailable"}
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            payload = record.get("payload", {})
+            if record.get("type") == "turn_context" and payload.get("turn_id") == turn_id:
+                return {"status": "observed", "model": payload.get("model"),
+                        "effort": payload.get("effort")}
+    return {"status": "turn_context_unavailable"}
+
+
+def _private_workspace_paths(state: Path, project: Path, snapshot: Path) -> None:
+    root = state.resolve()
+    for path in (project, snapshot):
+        resolved = path.resolve()
+        if resolved == root or not resolved.is_relative_to(root) or path.is_symlink():
+            raise ValueError("workspace path escapes private state")
+    if (snapshot.resolve().is_relative_to(project.resolve())
+            or project.resolve().is_relative_to(snapshot.resolve())):
+        raise ValueError("project and snapshot cannot contain each other")
+
+
+def _reject_symlinks(root: Path) -> None:
+    if any(path.is_symlink() for path in root.rglob("*")):
+        raise ValueError("workspace contains a symlink")
+
+
+def snapshot_workspace(state: Path, project: Path, snapshot: Path) -> str:
+    _private_workspace_paths(state, project, snapshot)
+    if snapshot.exists():
+        raise FileExistsError("snapshot already exists")
+    _reject_symlinks(project)
+    shutil.copytree(project, snapshot)
+    return fingerprint(snapshot)
+
+
+def restore_workspace_snapshot(state: Path, project: Path, snapshot: Path,
+                               expected_hash: str) -> str:
+    """Fail before changing the project if the post-run snapshot is missing."""
+    _private_workspace_paths(state, project, snapshot)
+    if not snapshot.is_dir():
+        raise FileNotFoundError("last post-run workspace snapshot unavailable")
+    _reject_symlinks(snapshot)
+    if fingerprint(snapshot) != expected_hash:
+        raise ValueError("last post-run workspace snapshot hash mismatch")
+    _reject_symlinks(project)
+    # Both resolved targets were checked above and are confined to state.
+    shutil.rmtree(project)
+    shutil.copytree(snapshot, project)
+    return fingerprint(project)
 
 
 def ensure_clean(path: Path) -> int:
@@ -161,21 +261,35 @@ def resettable_dir(root: Path) -> tuple:
 
 
 def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
-                    state: Path, api_host: str = "api.openai.com",
+                    state: Path, credential_ref: str = None,
+                    api_host: str = "api.openai.com",
                     api_port: int = 443) -> dict:
     """Decide whether a model call is permitted.
 
-    Accepts a dedicated API-key credential. Rejects a copied personal ChatGPT
-    login, missing auth, an unknown auth mode, a state dir inside a git tree,
-    and unreachable connectivity. No credential value is read or printed.
+    Requires a declared secret-store reference and API-key mode. A reference
+    is an attestation by the provisioner, not proof of credential ownership.
+    Rejects a byte-for-byte copy of the personal auth file. Never prints a key.
     """
     verdict = {"permitted": False}
     if inside_git_tree(state):
         verdict["reason"] = "state_dir_inside_git_tree"
         return verdict
-    if not (codex_home / "auth.json").is_file():
+    if not credential_ref:
+        verdict["reason"] = "missing_credential_store_reference"
+        return verdict
+    auth_file = codex_home / "auth.json"
+    if auth_file.is_symlink() or not auth_file.is_file():
         verdict["reason"] = "missing_auth_file"
         return verdict
+    personal_auth = Path.home() / ".codex" / "auth.json"
+    if personal_auth.is_file():
+        try:
+            if hash_path(auth_file) == hash_path(personal_auth):
+                verdict["reason"] = "copied_personal_auth_file"
+                return verdict
+        except OSError:
+            verdict["reason"] = "auth_comparison_failed"
+            return verdict
     status = login_status(codex, cwd, env)
     verdict["login_status"] = status
     if not status.get("ok"):
@@ -188,6 +302,7 @@ def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
         verdict["reason"] = "unknown_auth_mode"
         return verdict
     verdict["credential_mode"] = "api_key"
+    verdict["credential_provenance"] = "declared_store_reference_not_verified"
     host = verdict["api_host"] = api_host
     port = verdict["api_port"] = api_port
     if not tcp_reachable(host, port):
@@ -227,8 +342,11 @@ class AppServer:
 
     def __init__(self, codex: Path, cwd: Path, env: dict, state: Path):
         self.state = state
-        self.error_log_path = state / "app-server.stderr.log"
+        log_id = str(time.time_ns())
+        self.error_log_path = state / f"app-server-{log_id}.stderr.log"
+        self.event_log_path = state / f"app-server-{log_id}.events.jsonl"
         self.error_log = self.error_log_path.open("w", encoding="utf-8")
+        self.event_log = self.event_log_path.open("w", encoding="utf-8")
         self.process = subprocess.Popen(
             [str(codex), "app-server", "--stdio"], cwd=cwd, env=env,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.error_log,
@@ -238,10 +356,14 @@ class AppServer:
         self.events = []
         self.invalid_lines = 0
         self._id = 1000
-        threading.Thread(target=self._reader, args=(self.process.stdout,), daemon=True).start()
+        self.reader = threading.Thread(target=self._reader,
+                                       args=(self.process.stdout,), daemon=True)
+        self.reader.start()
 
     def _reader(self, stream):
         for line in stream:
+            self.event_log.write(line)
+            self.event_log.flush()
             try:
                 message = json.loads(line)
             except json.JSONDecodeError:
@@ -296,6 +418,8 @@ class AppServer:
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
+        self.reader.join(timeout=5)
+        self.event_log.close()
         self.error_log.close()
         text = self.error_log_path.read_text(encoding="utf-8", errors="replace").lower()
         return {
