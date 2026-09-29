@@ -43,7 +43,11 @@ thread still reported `readOnly`. Its private turn context did record
 `workspace-write`, yet the agent said its read and patch actions were blocked
 by environment policy. A credential-free comparison with Codex CLI 0.159.0
 showed the same thread response and successful command canary; upgrading the
-binary alone did not resolve the discrepancy. The personal skill and auth hashes stayed
+binary alone did not resolve the discrepancy. Its `configRequirements/read`
+response contained no active requirements, and `config/read` reported no
+configured sandbox or approval default in the disposable environment. These
+read-only responses do not establish why `thread/start` resolves to `readOnly`.
+The personal skill and auth hashes stayed
 unchanged; the personal session-root hash changed during concurrent IDE use
 and cannot be attributed. No agent-edit resume was attempted because there was
 no valid first edit. The sanitized facts and API-equivalent estimate are in

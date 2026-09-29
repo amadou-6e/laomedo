@@ -40,6 +40,30 @@ def main():
             summary["initialized"] = ok
             if not ok:
                 return
+            # Report only permission fields. The raw response may contain
+            # local configuration, so it stays in the disposable temp root.
+            for method, key in (("configRequirements/read", "requirements"),
+                                ("config/read", "config")):
+                response = server.send(method, {}, timeout=20)
+                summary[key + "_available"] = "result" in response
+                if "result" in response:
+                    result = response["result"] or {}
+                    if key == "requirements":
+                        requirements = result.get("requirements") or result
+                        summary["requirements_present"] = bool(
+                            requirements.get("requirements"))
+                        summary["allowed_sandbox_modes"] = requirements.get(
+                            "allowedSandboxModes")
+                        summary["allowed_approval_policies"] = requirements.get(
+                            "allowedApprovalPolicies")
+                    else:
+                        config = result.get("config") or result
+                        summary["configured_sandbox_mode"] = config.get("sandbox_mode")
+                        summary["configured_approval_policy"] = config.get(
+                            "approval_policy")
+                else:
+                    summary[key + "_error_code"] = (response.get("error") or {}).get(
+                        "code")
             started = server.send("thread/start", {
                 "cwd": str(project), "approvalPolicy": "never",
                 "sandbox": "workspace-write",
