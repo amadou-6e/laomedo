@@ -62,8 +62,10 @@ a successful agent edit. Rule/example item manifests and selected-subset
 materialization remain separate work; `read_file` returns exact revision bytes
 and provenance but does not claim that an agent consumed them.
 
-Run the core tests from the repository root:
+Run the core tests from the repository root with `uv`. It selects or downloads
+the requested Python version; the core has no third-party dependencies:
 
 ```powershell
-python -m unittest discover -s tests -p 'test_*.py' -v
+uv run --python 3.10 python -m unittest discover -s tests -p 'test_*.py' -v
+uv run --python 3.12 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
