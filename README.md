@@ -8,7 +8,11 @@ fixtures without a credential. The completed turn and its remaining limits
 are documented in the experiment README.
 
 The [issue 120 runner isolation probes](experiments/feasibility/120/README.md)
-add no-model checks for model/effort dispatch and profile isolation, plus two
-credential-gated probes for thread resume and streamed tool events. The two
-credential-gated probes accept only a dedicated API-key credential and stop
-before any model call otherwise.
+add no-model checks for model/effort dispatch and profile isolation, plus
+bounded ChatGPT-backed tests of native resume and streamed tool events.
+
+The [issue 122 Skill Draft proof](experiments/feasibility/122/README.md)
+records versioned editing rules, deterministic draft guards, and the current
+agent-tool blocker. The [local skill core](laomedo/README.md) implements
+immutable revisions and human-reviewed draft promotion without depending on
+that blocked agent-edit path.
