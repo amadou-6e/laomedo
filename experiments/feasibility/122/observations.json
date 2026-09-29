@@ -1,0 +1,61 @@
+{
+  "issue": 122,
+  "observed_on": "2026-09-29",
+  "codex_cli": "0.155.0-alpha.16.3",
+  "provider": "Codex",
+  "credential_mode": "private_chatgpt_handoff_reused_from_120",
+  "submitted_turns": 2,
+  "turn_cap": 6,
+  "actual_api_spend_usd": null,
+  "api_equivalent_estimate_usd": 0.00546944,
+  "estimate_basis": "GPT-6 Luna Standard short-context API rates recorded in #120; final cumulative counters per fresh thread; no cache writes reported",
+  "runs": [
+    {
+      "run_id": "b040771b-814d-44bf-bbc1-73e948b7a2a3",
+      "native_thread_id": "01a0eca0-1d1f-7df2-a26c-1c241f9f1e42",
+      "native_turn_id": "01a0eca0-1d5f-7ff0-834a-169675ac9da1",
+      "requested_model": "gpt-6-luna",
+      "requested_effort": "low",
+      "recorded_model": "gpt-6-luna",
+      "recorded_effort": "low",
+      "requested_thread_sandbox": "workspace-write",
+      "effective_thread_sandbox": "readOnly",
+      "turn_completed": true,
+      "file_changed": false,
+      "tool_items": 0,
+      "final_cumulative_usage": {
+        "input_tokens": 27885,
+        "cached_input_tokens": 24064,
+        "cache_write_tokens": 0,
+        "output_tokens": 109
+      },
+      "personal_skill_and_auth_hashes_unchanged": true,
+      "personal_session_hash_unchanged": false
+    },
+    {
+      "run_id": "8f9cf97b-39b1-4583-833a-50be032b77bd",
+      "native_thread_id": "01a0eca3-96ae-7bd0-8929-b7afdeccf9e7",
+      "native_turn_id": "01a0eca3-96ea-7431-b3d5-58f9efdfb6fd",
+      "requested_model": "gpt-6-luna",
+      "requested_effort": "low",
+      "recorded_model": "gpt-6-luna",
+      "recorded_effort": "low",
+      "requested_thread_sandbox": "workspace-write",
+      "requested_turn_sandbox_policy": "workspaceWrite",
+      "effective_thread_sandbox": "readOnly",
+      "credential_free_command_exec_write_canary": true,
+      "turn_completed": true,
+      "file_changed": false,
+      "tool_items": 0,
+      "final_cumulative_usage": {
+        "input_tokens": 123486,
+        "cached_input_tokens": 85760,
+        "cache_write_tokens": 0,
+        "output_tokens": 324
+      },
+      "personal_skill_and_auth_hashes_unchanged": true,
+      "personal_session_hash_unchanged": false
+    }
+  ],
+  "interpretation": "Neither run demonstrated an agent edit; no agent-edit resume was attempted. Personal session changes are confounded by concurrent IDE activity. Raw app-server streams remain private."
+}
