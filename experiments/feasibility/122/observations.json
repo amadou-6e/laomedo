@@ -20,6 +20,7 @@
       "recorded_effort": "low",
       "requested_thread_sandbox": "workspace-write",
       "effective_thread_sandbox": "readOnly",
+      "recorded_turn_sandbox": "read-only",
       "turn_completed": true,
       "file_changed": false,
       "tool_items": 0,
@@ -43,6 +44,7 @@
       "requested_thread_sandbox": "workspace-write",
       "requested_turn_sandbox_policy": "workspaceWrite",
       "effective_thread_sandbox": "readOnly",
+      "recorded_turn_sandbox": "workspace-write",
       "credential_free_command_exec_write_canary": true,
       "turn_completed": true,
       "file_changed": false,
@@ -57,5 +59,11 @@
       "personal_session_hash_unchanged": false
     }
   ],
-  "interpretation": "Neither run demonstrated an agent edit; no agent-edit resume was attempted. Personal session changes are confounded by concurrent IDE activity. Raw app-server streams remain private."
+  "credential_free_permission_comparison": {
+    "versions": ["0.155.0-alpha.16.3", "0.159.0"],
+    "thread_start_returned": "readOnly",
+    "command_exec_workspace_write_canary": true,
+    "model_calls": 0
+  },
+  "interpretation": "The second private turn context recorded workspace-write, but no agent tool call or edit occurred. Neither run demonstrated an agent edit or resume. Personal session changes are confounded by concurrent IDE activity. Raw app-server streams remain private."
 }

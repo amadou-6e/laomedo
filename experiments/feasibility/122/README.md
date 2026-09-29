@@ -39,8 +39,11 @@ Both completed, but neither changed `SKILL.md`, and neither stream contained a
 tool item. The first requested thread sandbox `workspace-write`, yet the
 server returned `readOnly`. The second added an explicit turn-level
 `workspaceWrite` policy and passed the credential-free write canary, but the
-thread still reported `readOnly` and the agent said its read and patch actions
-were blocked by environment policy. The personal skill and auth hashes stayed
+thread still reported `readOnly`. Its private turn context did record
+`workspace-write`, yet the agent said its read and patch actions were blocked
+by environment policy. A credential-free comparison with Codex CLI 0.159.0
+showed the same thread response and successful command canary; upgrading the
+binary alone did not resolve the discrepancy. The personal skill and auth hashes stayed
 unchanged; the personal session-root hash changed during concurrent IDE use
 and cannot be attributed. No agent-edit resume was attempted because there was
 no valid first edit. The sanitized facts and API-equivalent estimate are in
@@ -80,3 +83,8 @@ The two submitted turns already counted in the private ledger. The probe
 never prints credential content or raw model text. The profile must remain
 persistent across runs because its own refresh may invalidate the interactive
 login, as documented in #120. Production authentication belongs to #129.
+
+`probe_appserver_permissions.py` compares CLI permission surfaces without
+loading credentials or submitting a turn. `inspect_private_turn_policy.py`
+reads only the sandbox and approval fields for a named private turn; its
+output omits prompts, file contents, and credentials.

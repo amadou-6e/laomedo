@@ -23,6 +23,7 @@ from _shared import (AppServer, RequestTimeout, codex_version, compare_personal_
 from probe_draft_guards import (BASE_SKILL, fixed_case_evaluation,
                                 inventory, patch_for, policy_ref, restore,
                                 snapshot, structural_validation, tree_hash)
+from inspect_private_turn_policy import inspect_turn_policy
 
 
 def reserve_turn(state: Path, limit: int = 6) -> int:
@@ -112,6 +113,7 @@ def run_turn(server: AppServer, thread_id: str, model: str, effort: str,
         result["status"] = await_turn(server, turn_id, start)
         result["effective_context"] = read_turn_context(
             codex_home, thread_path, turn_id)
+        result["recorded_turn_policy"] = inspect_turn_policy(codex_home, turn_id)
     except RequestTimeout:
         result["status"] = "timeout"
     except Exception as exc:
