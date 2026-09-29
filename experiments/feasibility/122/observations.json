@@ -65,5 +65,31 @@
     "command_exec_workspace_write_canary": true,
     "model_calls": 0
   },
-  "interpretation": "The second private turn context recorded workspace-write, but no agent tool call or edit occurred. Neither run demonstrated an agent edit or resume. Personal session changes are confounded by concurrent IDE activity. Raw app-server streams remain private."
+  "native_write_boundary_probe": {
+    "codex_cli": "0.159.0",
+    "model_calls": 0,
+    "credential_used": false,
+    "configuration_file_changed": false,
+    "sandbox_setup_requested": false,
+    "network_access_enabled_for_synthetic_echo_only": true,
+    "default_without_windows_mode": {
+      "read_only_write_succeeded": true,
+      "draft_write_succeeded": true,
+      "sibling_store_write_succeeded": true
+    },
+    "explicit_unelevated_outside_tool_sandbox": {
+      "read_only_write_succeeded": false,
+      "draft_write_succeeded": false,
+      "sibling_store_write_succeeded": false,
+      "failure": "Access is denied for every attempted write"
+    },
+    "explicit_elevated_outside_tool_sandbox": {
+      "read_only_write_succeeded": false,
+      "draft_write_succeeded": true,
+      "sibling_store_write_succeeded": false,
+      "protected_store_file_unchanged": true
+    },
+    "protected_codex_setup_state_retained_outside_git": true
+  },
+  "interpretation": "The second private turn context recorded workspace-write, but no agent tool call or edit occurred. Neither run demonstrated an agent edit or resume. A later credential-free direct-command probe demonstrated the draft/store filesystem boundary only with explicit elevated Windows sandbox mode outside the calling tool sandbox; it did not test an agent edit or network isolation. Personal session changes are confounded by concurrent IDE activity. Raw app-server streams remain private."
 }

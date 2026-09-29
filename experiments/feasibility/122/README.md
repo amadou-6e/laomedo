@@ -55,10 +55,36 @@ no valid first edit. The sanitized facts and API-equivalent estimate are in
 
 The current runner is a **no-go for automated skill editing**. Post-edit
 validation works on synthetic changes, but the model-backed edit and the
-runtime write boundary are not established. The remaining four #122 turns
+integrated runner write boundary are not established. The remaining four #122 turns
 should be reserved for a revised runner with a verified effective write grant
 and observable tool calls. The ChatGPT run has no direct API bill; the estimate
 is API-equivalent only, using the pinned #120 Luna rate assumptions.
+
+### Credential-free native Windows boundary check
+
+On the locally installed Codex CLI 0.159.0, a synthetic `command/exec` probe
+used a draft and a sibling store under a disposable root. With no explicit
+Windows sandbox mode, both a requested `readOnly` command and a
+`workspaceWrite` command wrote outside their intended boundaries. The
+`sandboxPolicy` field alone was therefore not evidence of enforcement.
+
+An explicit per-process `windows.sandbox="elevated"` override, run outside the
+calling tool's own restricted context, gave the expected filesystem result:
+the read-only write failed, the draft write succeeded, and the sibling-store
+write failed. The protected store file stayed unchanged. An explicit
+`unelevated` attempt denied all three writes, including the allowed draft
+write, so it was not usable in this environment. These were direct synthetic
+commands with no model call or credential. Network access was enabled for the
+synthetic `echo` command to avoid an unrelated offline startup failure; network
+isolation was not tested. The earlier model turns still had no agent tool call,
+so this result does not establish automated skill editing.
+
+The probe used a CLI override rather than changing `config.toml` and did not
+request Windows sandbox setup. Elevated mode generated protected setup state
+that ordinary cleanup could not delete. That exact disposable directory was
+moved out of the Git worktree into the ignored `probe-artifacts.local/` folder
+at the AGENTVIZ workspace root. Do not open or publish its `.sandbox-secrets`
+content. An administrator cleanup path remains to be tested.
 
 ## Reproduction
 
@@ -92,3 +118,11 @@ login, as documented in #120. Production authentication belongs to #129.
 loading credentials or submitting a turn. `inspect_private_turn_policy.py`
 reads only the sandbox and approval fields for a named private turn; its
 output omits prompts, file contents, and credentials.
+
+`probe_native_write_boundary.py` checks a read-only write, an allowed draft
+write, and a forbidden sibling-store write without credentials or model turns.
+It uses a private scratch root outside Git and prints command status with short
+error excerpts from these synthetic commands. Elevated mode may retain a
+protected scratch directory if Windows denies cleanup. Run it with
+`--windows-mode elevated` and an explicit Codex
+binary path after reviewing that boundary and the local sandbox setup.
