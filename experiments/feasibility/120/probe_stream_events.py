@@ -1,7 +1,7 @@
 """Probe raw streamed tool-call and result events from Codex app-server.
 
-Credential required. The credential gate accepts a dedicated API-key credential
-and stops before any model call otherwise.
+Credential required. The gate accepts the private ChatGPT handoff or an optional
+dedicated API-key credential and stops before any model call otherwise.
 
 Submits a turn whose skill asks for one command execution, then records every
 item notification. Item types follow the app-server reference: commandExecution,

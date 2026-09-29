@@ -40,6 +40,30 @@ Both credentialed probes print the accumulated summary even when a request
 times out after a turn was submitted, so a paid turn is never lost without
 evidence; an attempted turn counts toward the model-call total either way.
 
+## Observed bounded run, 2026-09-29
+
+The one-time private ChatGPT handoff was provisioned in an access-restricted
+LocalAppData directory outside Git. It was reused for exactly three submitted
+turns, all completed on `gpt-6-luna` at low effort. The persistent turn ledger
+now reads 3, so further model turns are refused for this spike.
+
+The persistence probe completed a first turn, hashed a post-run workspace
+snapshot, introduced drift, restored the exact snapshot, restarted app-server,
+and resumed the same native thread for a second completed turn. `thread/list`
+found that thread after restart. An unavailable snapshot failed before changing
+the workspace. The private rollout recorded the requested model and effort for
+both turns. The separate stream probe also recorded the requested model and
+effort, and returned its synthetic skill marker, but the raw stream contained
+no tool item. A matching tool call/result pair was therefore **not observed**.
+
+The personal skill and auth hashes stayed unchanged. The personal session root
+hash changed while the user's IDE session was active, so this comparison alone
+cannot establish that the runner made no personal-profile writes. The two probe
+thread IDs were found only in private state, not under the personal session
+root. See the sanitized [#120 finding](https://github.com/amadou-6e/specs/blob/docs/120/projects/laomedo/feasibility/120.md)
+for native IDs, token counts, and the go/no-go assessment. Raw event streams and
+the private credential remain outside both repositories.
+
 ## Credential gate
 
 For this single-user feasibility spike, `provision_chatgpt_handoff.py` copies

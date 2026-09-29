@@ -4,7 +4,7 @@ Fixes over the first probe draft:
 - Buffers notifications and server requests instead of dropping them.
 - Uses a monotonic request-id counter (no id collisions).
 - Raises a typed RequestTimeout instead of an uncaught queue.Empty.
-- Accepts both API-key and (rejected) ChatGPT auth modes for the gate.
+- Accepts the temporary private ChatGPT handoff and optional API-key modes.
 - Records the real Codex version.
 
 No protocol behavior is assumed beyond the documented app-server reference.

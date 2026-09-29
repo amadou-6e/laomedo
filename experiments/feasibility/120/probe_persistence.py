@@ -1,8 +1,8 @@
 """Probe Codex thread persistence across runner restarts.
 
 Credential required: a thread is only persisted after a completed turn, so this
-probe stops before any model call unless the credential gate passes with a
-dedicated API-key credential.
+probe stops before any model call unless the private ChatGPT handoff or optional
+dedicated API-key credential gate passes.
 
 Tests:
 - thread/resume reopens the same native thread id after an app-server restart.
@@ -11,9 +11,9 @@ Tests:
 - Resuming an unknown thread id fails explicitly.
 - Resume from a different cwd is recorded (Codex accepts or rejects it).
 
-Scope limit: Codex has no concept of a Laomedo workspace snapshot. The runner's
-session registry, not Codex, must refuse a resume whose last post-run snapshot
-is missing. This probe can only record what Codex does.
+Scope limit: Codex has no concept of a Laomedo workspace snapshot. This probe
+guards and restores one private post-run snapshot before native resume; a
+production runner registry remains out of scope.
 """
 
 import argparse
@@ -93,7 +93,7 @@ def main():
     codex = args.codex.resolve(strict=True)
     if not args.state_dir:
         print(json.dumps({"blocked": "no_state_dir",
-                          "detail": "pass --state-dir with a dedicated API-key credential"}, indent=2))
+                          "detail": "pass --state-dir with provisioned private auth"}, indent=2))
         return
     state = args.state_dir.resolve(strict=True)
     if not state.is_dir():
