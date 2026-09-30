@@ -8,7 +8,12 @@ fixtures without a credential. The completed turn and its remaining limits
 are documented in the experiment README.
 
 The [issue 120 runner isolation probes](experiments/feasibility/120/README.md)
-add no-model checks for model/effort dispatch and profile isolation, plus two
-credential-gated probes for thread resume and streamed tool events. The two
-credential-gated probes accept only a dedicated API-key credential and stop
-before any model call otherwise.
+add no-model checks for model/effort dispatch and profile isolation, plus a
+bounded private ChatGPT handoff for thread resume and streamed events. The
+three-turn spike reported a no-go for the proposed local MVP on its evidence.
+
+The [issue 121 Claude probes](experiments/feasibility/121/README.md) pin the
+Claude Agent SDK and guard isolation, settings, streaming, and resume tests.
+No Claude model call ran: the native CLI and dedicated credential were
+unavailable, so Claude capability remains unknown and the local MVP is no-go
+on current evidence.
