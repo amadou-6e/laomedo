@@ -1,11 +1,12 @@
 """Contract checks for issue 120's fail-closed probe logic (stdlib only)."""
 
 import tempfile
+import ntpath
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from _shared import (credential_gate, fingerprint, reserve_model_turn,
+from _shared import (construct_env, credential_gate, fingerprint, reserve_model_turn,
                      restore_workspace_snapshot, select_supported_pair,
                      snapshot_workspace, validate_pair)
 from probe_stream_events import stream_evidence
@@ -13,6 +14,15 @@ from provision_chatgpt_handoff import provision
 
 
 class ProbeLogicTests(unittest.TestCase):
+    def test_private_windows_environment_resolves_system_drive(self):
+        with tempfile.TemporaryDirectory(prefix="laomedo-120-env-") as root:
+            state = Path(root)
+            env = construct_env(state / "home", state / "codex-home",
+                                state, state / "binary")
+            self.assertEqual(env["SystemDrive"],
+                             ntpath.splitdrive(env["SystemRoot"])[0])
+            self.assertTrue(env["SystemDrive"].endswith(":"))
+
     def test_model_pair_validation_rejects_unknown_and_unsupported(self):
         listing = {"result": {"data": [
             {"id": "wide", "isDefault": True,

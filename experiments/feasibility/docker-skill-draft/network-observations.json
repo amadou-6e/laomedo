@@ -1,0 +1,55 @@
+{
+  "credential_used": false,
+  "model_calls": 0,
+  "docker_network": "bridge",
+  "sandbox_command_control": {
+    "code": 0,
+    "started": false,
+    "connected": false,
+    "stdout_excerpt": "sandbox_entered",
+    "stderr_excerpt": "",
+    "error_class": null
+  },
+  "sandbox_node_control": {
+    "code": 0,
+    "started": false,
+    "connected": false,
+    "stdout_excerpt": "v22.23.3\n",
+    "stderr_excerpt": "",
+    "error_class": null
+  },
+  "loopback_direct": {
+    "code": 0,
+    "started": true,
+    "connected": true,
+    "stdout_excerpt": "started\nconnected",
+    "stderr_excerpt": "",
+    "error_class": null
+  },
+  "loopback_sandboxed": {
+    "code": 1,
+    "started": true,
+    "connected": false,
+    "stdout_excerpt": "sandbox_enteredstarted\n",
+    "stderr_excerpt": "EPERM",
+    "error_class": "EPERM"
+  },
+  "external_direct": {
+    "code": 0,
+    "started": true,
+    "connected": true,
+    "stdout_excerpt": "started\nconnected",
+    "stderr_excerpt": "",
+    "error_class": null
+  },
+  "external_sandboxed": {
+    "code": 1,
+    "started": true,
+    "connected": false,
+    "stdout_excerpt": "sandbox_enteredstarted\n",
+    "stderr_excerpt": "EAI_AGAIN",
+    "error_class": "EAI_AGAIN"
+  },
+  "boundary_passed": true,
+  "container_exit_code": 0
+}

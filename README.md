@@ -17,3 +17,8 @@ Claude Agent SDK and guard isolation, settings, streaming, and resume tests.
 No Claude model call ran: the native CLI and dedicated credential were
 unavailable, so Claude capability remains unknown and the local MVP is no-go
 on current evidence.
+
+The [issue 123 trace spike](experiments/feasibility/123/README.md) checks a
+synthetic private Codex rollout against AGENTVIZ's parser and tests a minimal
+event projection without additional model calls. Claude and full Langflow
+correlation remain unverified.

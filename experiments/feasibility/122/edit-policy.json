@@ -1,0 +1,14 @@
+{
+  "policy_id": "fixture-edit-policy-122",
+  "revision_id": "1",
+  "allowed_paths": ["SKILL.md", "examples/amber.md"],
+  "allowed_suffixes": [".md"],
+  "allow_new_files": true,
+  "allow_scripts": false,
+  "allow_dependencies": false,
+  "allow_assets": false,
+  "required_frontmatter": ["name", "description"],
+  "permitted_validation_commands": ["structural-v1", "fixed-case-v1"],
+  "max_files": 2,
+  "max_file_bytes": 8192
+}
