@@ -11,9 +11,10 @@ Current result on 2026-09-30: an isolated Codex agent edited the synthetic
 draft, and a restarted app-server resumed the same native thread against the
 frozen post-edit draft. The final draft contains only the intended `SKILL.md`,
 passes structural validation and the fixed case, and is promotion eligible.
-The canonical skill was never modified or promoted. Five of six authorized
-model turns are used. Agent-originated forbidden writes and network isolation
-are still untested.
+The canonical skill was never modified or promoted. All six authorized model
+turns are used. The sixth turn timed out before any shell or file-change item,
+so an agent-originated forbidden-write denial remains unproven. A credential-free
+loopback network probe also timed out before returning a command result.
 
 ## Proof boundaries
 
@@ -91,7 +92,7 @@ so this result does not establish automated skill editing.
 The probe used a CLI override rather than changing `config.toml` and did not
 request Windows sandbox setup. Elevated mode generated protected setup state
 that ordinary cleanup could not delete. That exact disposable directory was
-moved out of the Git worktree into the ignored `probe-artifacts.local/` folder
+moved out of the Laomedo worktree into the ignored `probe-artifacts.local/` folder
 at the AGENTVIZ workspace root. Do not open or publish its `.sandbox-secrets`
 content. An administrator cleanup path remains to be tested.
 
@@ -124,7 +125,7 @@ traceable to the original permission path; the successful follow-up changed
 the CLI version, Windows sandbox mode, and calling-tool context together, so
 it does not isolate which one resolved each denial.
 The diagnostic left another protected scratch directory under the ignored
-AGENTVIZ `probe-artifacts.local/` root; ordinary cleanup may be denied.
+AGENTVIZ `probe-artifacts.local/` root, ignored by Git; ordinary cleanup may be denied.
 
 ### Follow-up on 2026-09-30: valid edit and native resume
 
@@ -172,7 +173,7 @@ python experiments/feasibility/122/probe_codex_edit.py --codex $codexBinary --pr
 # The valid edit and resume used the same command without --first-only.
 ```
 
-Five submitted turns already count in the private ledger, leaving one. The probe
+Six submitted turns already count in the private ledger, leaving none. The probe
 never prints credential content or raw model text. The profile must remain
 persistent across runs because its own refresh may invalidate the interactive
 login, as documented in #120. Production authentication belongs to #129.
@@ -184,7 +185,7 @@ output omits prompts, file contents, and credentials.
 
 `probe_native_write_boundary.py` checks a read-only write, an allowed draft
 write, and a forbidden sibling-store write without credentials or model turns.
-It uses a private scratch root outside Git and prints command status with short
+It uses an ignored scratch root in the AGENTVIZ checkout and prints command status with short
 error excerpts from these synthetic commands. Elevated mode may retain a
 protected scratch directory if Windows denies cleanup. Run it with
 `--windows-mode elevated` and an explicit Codex
@@ -192,7 +193,33 @@ binary path after reviewing that boundary and the local sandbox setup.
 
 `probe_windows_env.py` reproduces the PowerShell cache side effect with and
 without `SystemDrive`, using no credential or model turn. It uses disposable
-scratch outside Git and may retain protected sandbox setup state. Run it with
+scratch in the ignored AGENTVIZ directory and may retain protected sandbox setup state. Run it with
 the same explicit Codex binary path. `verify_clean_skill.py` takes one private
 run directory and validates a temporary copy containing only that run's edited
 `SKILL.md`; it does not alter the original run.
+
+### Final bounded negative probes
+
+`probe_network_boundary.py` serves a synthetic loopback marker and asks the
+elevated app-server to fetch it with network access enabled and disabled. Both
+attempts stopped at the first network-enabled `command/exec` timeout. Neither
+allow nor deny behavior was observed, so this does not establish network
+isolation. The probe uses no credential or model turn.
+
+`probe_agent_forbidden_write.py` reuses the existing private profile and
+six-turn ledger. Its first run timed out on a credential-free direct-command
+canary without reserving a model turn. A second run skipped that current
+canary using the earlier successful elevated direct-command boundary result.
+It started a native workspace-write thread and submitted turn 6, asking for
+one write to a synthetic sibling-store file. The agent said it would attempt
+the write, but the 120-second turn wait timed out with no command or file-change
+item in the stream. The target remained absent and the synthetic sentinel was
+unchanged. This is an inconclusive agent-originated boundary test, not a
+demonstrated denial. The cap now forbids further #122 model turns.
+
+Three earlier elevated-sandbox scratch directories remain under the ignored
+`probe-artifacts.local/` root inside the AGENTVIZ checkout but ignored by Git.
+Exact-path recursive cleanup was
+attempted, but Windows denied access to their `sandbox_users.json` setup files
+even from the elevated tool context. They require an administrator cleanup
+route; no protected file contents were opened or published.
