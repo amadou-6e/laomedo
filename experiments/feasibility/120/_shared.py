@@ -12,6 +12,7 @@ No protocol behavior is assumed beyond the documented app-server reference.
 
 import hashlib
 import json
+import ntpath
 import os
 import queue
 from pathlib import Path
@@ -243,6 +244,9 @@ def inside_git_tree(path: Path) -> bool:
 
 def construct_env(private_home: Path, codex_home: Path, state: Path, codex_parent: Path):
     system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    system_drive = ntpath.splitdrive(system_root)[0]
+    if not system_drive:
+        raise ValueError("system_root_missing_drive")
     return {
         "HOME": str(private_home),
         "USERPROFILE": str(private_home),
@@ -254,6 +258,7 @@ def construct_env(private_home: Path, codex_home: Path, state: Path, codex_paren
         "TEMP": str(state),
         "TMP": str(state),
         "SystemRoot": system_root,
+        "SystemDrive": system_drive,
         "WINDIR": system_root,
         "PATH": os.pathsep.join([str(codex_parent), str(Path(system_root) / "System32")]),
     }

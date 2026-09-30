@@ -33,6 +33,8 @@ with tempfile.TemporaryDirectory(prefix="laomedo-122-env-", dir=parent,
         env["TEMP"] = env["TMP"] = str(state / "tmp")
         if with_system_drive:
             env["SystemDrive"] = Path(env["SystemRoot"]).drive
+        else:
+            env.pop("SystemDrive")
         server = AppServer(codex, draft, env, state,
                            startup_args=["-c", 'windows.sandbox="elevated"'])
         try:

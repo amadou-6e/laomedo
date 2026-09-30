@@ -291,7 +291,8 @@ def main() -> None:
         (project / "drift.txt").write_text("synthetic drift\n", encoding="utf-8")
         before_missing = tree_hash(inventory(project))
         try:
-            restore(run_dir / "snapshots" / "missing", project, post_run_hash)
+            restore(run_dir / "snapshots" / "missing", project,
+                    post_run_hash, run_dir)
             summary["missing_snapshot_refused"] = False
         except ValueError:
             summary["missing_snapshot_refused"] = (
@@ -300,7 +301,7 @@ def main() -> None:
             summary["resume_skipped"] = "missing_snapshot_accepted"
             return
         summary["restored_post_run_hash_matches"] = (
-            restore(frozen, project, post_run_hash) == post_run_hash)
+            restore(frozen, project, post_run_hash, run_dir) == post_run_hash)
         if not summary["restored_post_run_hash_matches"]:
             summary["resume_skipped"] = "snapshot_restore_mismatch"
             return

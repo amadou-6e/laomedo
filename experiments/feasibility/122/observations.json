@@ -1,14 +1,15 @@
 {
   "issue": 122,
-  "observed_on": "2026-09-29",
-  "codex_cli": "0.155.0-alpha.16.3",
+  "observed_on": "2026-09-29 to 2026-09-30",
+  "initial_codex_cli": "0.155.0-alpha.16.3",
   "provider": "Codex",
   "credential_mode": "private_chatgpt_handoff_reused_from_120",
-  "submitted_turns": 3,
+  "submitted_turns": 5,
   "turn_cap": 6,
   "actual_api_spend_usd": null,
   "api_equivalent_estimate_usd_first_two_turns": 0.00546944,
-  "estimate_basis": "The recorded estimate covers only the first two turns, using GPT-6 Luna Standard short-context API rates recorded in #120; the third turn has not been priced here. This is not an actual ChatGPT bill.",
+  "api_equivalent_estimate_usd_all_five_turns": 0.00857218,
+  "estimate_basis": "GPT-6 Luna Standard short-context API-equivalent rates: USD 0.10 per million uncached input, 0.01 cached input, and 0.50 output. Zero cache-write tokens were reported. Resume usage is the final cumulative thread total minus the first turn total. No request exceeded 272K input. This assumes Standard processing and is not an actual ChatGPT bill.",
   "runs": [
     {
       "run_id": "b040771b-814d-44bf-bbc1-73e948b7a2a3",
@@ -85,6 +86,58 @@
         "cache_write_tokens": 0,
         "output_tokens": 457
       }
+    },
+    {
+      "run_id": "6992de82-1f09-471a-a027-8bee6e07c021",
+      "native_thread_id": "01a0f2b9-3a2a-76c3-8a6e-428ee9674ee7",
+      "codex_cli": "0.159.0",
+      "requested_model": "gpt-6-luna",
+      "requested_effort": "low",
+      "windows_sandbox_override": "elevated",
+      "called_outside_outer_tool_sandbox": true,
+      "effective_thread_sandbox": "workspaceWrite",
+      "canonical_skill_unchanged": true,
+      "draft_file_count_after_resume": 1,
+      "changed_paths_after_resume": ["SKILL.md"],
+      "final_draft_hash": "sha256:fb24178da9a8a24d09d7b607bc0f6a64741bedc73ecab860d7a4993eb83df4e3",
+      "first_turn": {
+        "attempted_turn_number": 4,
+        "native_turn_id": "01a0f2b9-3a7b-7a72-a3b4-5a81d4138f74",
+        "status": "completed",
+        "completed_command_items": 1,
+        "completed_file_change_items": 1,
+        "validation_violations": [],
+        "fixed_case_passed": true,
+        "first_example_present_in_snapshot": true,
+        "final_cumulative_usage": {
+          "input_tokens": 42960,
+          "cached_input_tokens": 39168,
+          "cache_write_tokens": 0,
+          "output_tokens": 223
+        }
+      },
+      "resume": {
+        "attempted_turn_number": 5,
+        "native_turn_id": "01a0f2b9-5edb-7e91-b3d7-a4355a8a1468",
+        "status": "completed",
+        "same_native_thread": true,
+        "missing_snapshot_refused_before_change": true,
+        "restored_post_run_hash_matches": true,
+        "completed_command_items": 1,
+        "completed_file_change_items": 1,
+        "first_example_retained": true,
+        "second_example_added": true,
+        "validation_violations": [],
+        "fixed_case_passed": true,
+        "final_cumulative_usage": {
+          "input_tokens": 86943,
+          "cached_input_tokens": 81408,
+          "cache_write_tokens": 0,
+          "output_tokens": 436
+        }
+      },
+      "promotion_eligible": true,
+      "promotion_performed": false
     }
   ],
   "windows_environment_diagnostic": {
@@ -93,7 +146,8 @@
     "command": "synthetic PowerShell read under explicit elevated Windows sandbox",
     "literal_systemdrive_cache_created_without_systemdrive": true,
     "literal_systemdrive_cache_created_with_systemdrive": false,
-    "runner_construct_env_currently_omits_systemdrive": true
+    "runner_construct_env_omitted_systemdrive_before_fix": true,
+    "runner_construct_env_now_supplies_systemdrive": true
   },
   "credential_free_permission_comparison": {
     "versions": ["0.155.0-alpha.16.3", "0.159.0"],
@@ -127,5 +181,5 @@
     },
     "protected_codex_setup_state_retained_outside_git": true
   },
-  "interpretation": "The first two turns had no agent tool item or edit. The third turn, using Codex CLI 0.159.0 and explicit elevated Windows sandbox outside the calling tool sandbox, did edit the draft through agent tools. The draft was ineligible because the clean runner environment omitted SystemDrive, allowing PowerShell to write a literal %SystemDrive% cache directory inside the draft. A credential-free comparison reproduced and prevented that artifact by supplying SystemDrive. The original run was retained; a clean copy of the edited SKILL.md alone passed validation and the fixed case. Resume and agent-originated forbidden writes remain untested. Raw app-server streams remain private."
+  "interpretation": "The first two turns had no agent tool item or edit. The third edited SKILL.md but was ineligible because missing SystemDrive caused a PowerShell cache directory inside the draft. Adding SystemDrive to the constructed private environment removed that incidental path. The fourth turn produced a valid agent edit, and the fifth resumed the same native thread from the frozen post-run draft, retained its first example, and added the second. The canonical skill stayed unchanged and no promotion occurred. Direct-command elevated sandbox tests denied writes outside the draft; agent-originated forbidden writes and network isolation remain untested. Raw app-server streams remain private."
 }

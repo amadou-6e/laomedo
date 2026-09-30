@@ -41,12 +41,18 @@ class DraftGuardTests(unittest.TestCase):
             (draft / "SKILL.md").write_text(BASE_SKILL, encoding="utf-8")
             before = tree_hash(inventory(draft))
             with self.assertRaises(ValueError):
-                restore(root / "missing", draft, before)
+                restore(root / "missing", draft, before, root)
             self.assertEqual(tree_hash(inventory(draft)), before)
             frozen = root / "snapshot"
             snapshot(draft, frozen)
             (draft / "SKILL.md").write_text("drift", encoding="utf-8")
-            self.assertEqual(restore(frozen, draft, before), before)
+            narrow_root = root / "narrow"
+            narrow_root.mkdir()
+            with self.assertRaisesRegex(ValueError, "restore_path_outside_run_root"):
+                restore(frozen, draft, before, narrow_root)
+            self.assertEqual((draft / "SKILL.md").read_text(encoding="utf-8"),
+                             "drift")
+            self.assertEqual(restore(frozen, draft, before, root), before)
 
     def test_issue_turn_ledger_counts_failed_attempts(self):
         with tempfile.TemporaryDirectory() as temporary:

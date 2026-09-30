@@ -4,7 +4,16 @@ This is a disposable proof for [specs issue #122](https://github.com/amadou-6e/s
 It is stacked on the #120 Codex runner branch and imports that branch's
 `_shared.py` app-server client. Python 3.9+ standard library is the only Python
 dependency. The observed Codex executable was `codex-cli
-0.155.0-alpha.16.3`, pinned by hash in the #120 report.
+0.155.0-alpha.16.3` in the first two turns, pinned by hash in the #120 report;
+later tests used Codex CLI 0.159.0.
+
+Current result on 2026-09-30: an isolated Codex agent edited the synthetic
+draft, and a restarted app-server resumed the same native thread against the
+frozen post-edit draft. The final draft contains only the intended `SKILL.md`,
+passes structural validation and the fixed case, and is promotion eligible.
+The canonical skill was never modified or promoted. Five of six authorized
+model turns are used. Agent-originated forbidden writes and network isolation
+are still untested.
 
 ## Proof boundaries
 
@@ -109,16 +118,35 @@ altered for that check.
 A separate credential-free PowerShell read reproduced the cache tree when the
 runner's constructed environment omitted `SystemDrive`; supplying the drive
 from `SystemRoot` prevented it. This identifies the missing environment variable
-as the cause of this incidental draft write. No persistent configuration or
-shared runner environment has been changed yet. The next candidate is to add
-`SystemDrive` to the constructed private environment, verify that no system
-cache lands in the draft, then spend one remaining turn on a clean edit and
-resume only if validation passes. The earlier shell and patch denials remain
+as the cause of this incidental draft write. At this stage, no shared runner
+environment change had been applied. The earlier shell and patch denials remain
 traceable to the original permission path; the successful follow-up changed
 the CLI version, Windows sandbox mode, and calling-tool context together, so
 it does not isolate which one resolved each denial.
 The diagnostic left another protected scratch directory under the ignored
 AGENTVIZ `probe-artifacts.local/` root; ordinary cleanup may be denied.
+
+### Follow-up on 2026-09-30: valid edit and native resume
+
+The runner now supplies `SystemDrive` derived from `SystemRoot` in its clean
+private environment. A credential-free elevated PowerShell check again created
+the literal cache directory when that variable was deliberately removed and
+left the draft clean when it was present. A regression test checks the
+constructed environment. The edit probe also verifies resolved draft and
+snapshot paths stay under its exact run root before recursive restore.
+
+One new two-turn run used Codex CLI 0.159.0 with the per-process elevated
+Windows sandbox and the existing private profile. Turn 4 made the requested
+edit through observed command and file-change items. The post-run draft had
+only `SKILL.md`, no validation violations, a patch, and a passing fixed case.
+The runner froze that draft, injected a disposable drift file, proved a missing
+snapshot was refused without changing the draft, and restored the frozen hash.
+After app-server restart, turn 5 resumed the same native thread, saw the first
+example, and added the second. The final draft again contained only `SKILL.md`,
+with no validation violations and a passing fixed case. The final result is
+promotion eligible, but the probe performed no promotion. The canonical base
+tree stayed unchanged. Sanitized IDs, aggregate usage, and hashes are recorded
+in `observations.json`; private raw traces remain outside Git.
 
 ## Reproduction
 
@@ -139,11 +167,12 @@ $privateProfile = Join-Path $env:LOCALAPPDATA 'Laomedo\feasibility-120'
 $issueState = Join-Path $privateProfile 'issue-122'
 $codexBinary = (Get-Command codex).Source
 python experiments/feasibility/122/probe_codex_edit.py --codex $codexBinary --profile-dir $privateProfile --state-dir $issueState
-# Only after the environment fix is reviewed and the binary version is checked:
+# Historical bounded invocation; do not rerun against the current five-turn ledger:
 python experiments/feasibility/122/probe_codex_edit.py --codex $codexBinary --profile-dir $privateProfile --state-dir $issueState --windows-mode elevated --first-only --run
+# The valid edit and resume used the same command without --first-only.
 ```
 
-The three submitted turns already counted in the private ledger. The probe
+Five submitted turns already count in the private ledger, leaving one. The probe
 never prints credential content or raw model text. The profile must remain
 persistent across runs because its own refresh may invalidate the interactive
 login, as documented in #120. Production authentication belongs to #129.

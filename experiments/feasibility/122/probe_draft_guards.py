@@ -140,13 +140,19 @@ def snapshot(root: Path, destination: Path) -> str:
     return tree_hash(original)
 
 
-def restore(snapshot_dir: Path, draft_dir: Path, expected_hash: str) -> str:
+def restore(snapshot_dir: Path, draft_dir: Path, expected_hash: str,
+            allowed_root: Path) -> str:
     if not snapshot_dir.is_dir() or tree_hash(inventory(snapshot_dir)) != expected_hash:
         raise ValueError("post_run_snapshot_unavailable")
     inventory(draft_dir)
-    # Validate before touching the draft. Paths are owned by this disposable
-    # probe; a production runner must also confine them with an OS boundary.
-    if draft_dir.resolve() == snapshot_dir.resolve():
+    root = allowed_root.resolve(strict=True)
+    draft = draft_dir.resolve(strict=True)
+    frozen = snapshot_dir.resolve(strict=True)
+    if (draft == root or frozen == root or
+            not draft.is_relative_to(root) or
+            not frozen.is_relative_to(root)):
+        raise ValueError("restore_path_outside_run_root")
+    if draft == frozen:
         raise ValueError("snapshot_equals_draft")
     shutil.rmtree(draft_dir)
     shutil.copytree(snapshot_dir, draft_dir)
@@ -249,11 +255,11 @@ def run_cases() -> dict:
         (draft / "SKILL.md").write_text(BASE_SKILL + "Drift line.\n", encoding="utf-8")
         before_missing = tree_hash(inventory(draft))
         try:
-            restore(resume_home / "missing", draft, post_run_hash)
+            restore(resume_home / "missing", draft, post_run_hash, resume_home)
             missing_refused = False
         except ValueError:
             missing_refused = tree_hash(inventory(draft)) == before_missing
-        restored_hash = restore(frozen, draft, post_run_hash)
+        restored_hash = restore(frozen, draft, post_run_hash, resume_home)
         results["resume"] = {"missing_snapshot_refused_before_change": missing_refused,
                              "restored_last_post_run_hash": restored_hash == post_run_hash,
                              "post_run_content_visible": "Post-run line." in
