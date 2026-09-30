@@ -62,6 +62,29 @@ class DraftGuardTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "issue_122_turn_cap_reached"):
                 reserve_turn(state, limit=2)
 
+    def test_supplemental_turn_uses_existing_ledger(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            (state / "turn-budget-122.json").write_text(
+                '{"attempted_turns": 6}\n', encoding="utf-8")
+            self.assertEqual(reserve_turn(state), 7)
+            with self.assertRaisesRegex(ValueError, "issue_122_turn_cap_reached"):
+                reserve_turn(state)
+
+    def test_agent_denial_requires_exact_target_and_failed_command(self):
+        from probe_agent_forbidden_write import denied_command_items
+        target = Path(r"C:\fixture\forbidden\agent-marker.txt")
+        denied = {"method": "item/completed", "params": {"item": {
+            "type": "commandExecution", "status": "failed", "exitCode": 1,
+            "command": r"Set-Content C:\\fixture\\forbidden\\agent-marker.txt",
+            "aggregatedOutput": "Access is denied"}}}
+        unrelated = {"method": "item/completed", "params": {"item": {
+            "type": "commandExecution", "status": "failed", "exitCode": 1,
+            "command": r"Set-Content C:\fixture\other.txt",
+            "aggregatedOutput": "Access is denied"}}}
+        self.assertEqual(len(denied_command_items([denied, unrelated], target)), 1)
+        self.assertEqual(denied_command_items([unrelated], target), [])
+
     def test_symlink_in_inventory_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

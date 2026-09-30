@@ -11,10 +11,12 @@ Current result on 2026-09-30: an isolated Codex agent edited the synthetic
 draft, and a restarted app-server resumed the same native thread against the
 frozen post-edit draft. The final draft contains only the intended `SKILL.md`,
 passes structural validation and the fixed case, and is promotion eligible.
-The canonical skill was never modified or promoted. All six authorized model
-turns are used. The sixth turn timed out before any shell or file-change item,
-so an agent-originated forbidden-write denial remains unproven. A credential-free
-loopback network probe also timed out before returning a command result.
+The canonical skill was never modified or promoted. The original six authorized
+model turns were used. The user then authorized one supplemental retry, raising
+the retained ledger cap to seven without resetting its count. Turn 7 completed
+with an agent-originated forbidden-write denial. The credential-free network
+probe reached its loopback fixture with network access both enabled and
+disabled; external egress and sandbox identity checks remain incomplete.
 
 ## Proof boundaries
 
@@ -34,7 +36,7 @@ This validator detects disallowed changes **after** an edit. It is not an OS
 write boundary and cannot prove a forbidden write was prevented.
 
 `probe_codex_edit.py` reuses the private ChatGPT profile provisioned for #120
-without copying its credential. It uses a separate persistent six-turn ledger
+without copying its credential. It uses a separate persistent turn ledger
 under the #122 state root, new run directories for every attempt, and raw
 app-server logs only in private state. It performs a credential-free
 `command/exec` write canary before a paid edit. It requests a turn-level
@@ -161,7 +163,7 @@ python experiments/feasibility/122/probe_draft_guards.py
 The model-backed probe requires an existing, access-restricted private #120
 profile and a distinct #122 state root beneath it, both outside Git. Do not
 copy the personal auth file or create another login. Use the same state root
-for every attempt so the six-turn ledger cannot reset:
+for every attempt so the turn ledger cannot reset:
 
 ```powershell
 $privateProfile = Join-Path $env:LOCALAPPDATA 'Laomedo\feasibility-120'
@@ -173,7 +175,8 @@ python experiments/feasibility/122/probe_codex_edit.py --codex $codexBinary --pr
 # The valid edit and resume used the same command without --first-only.
 ```
 
-Six submitted turns already count in the private ledger, leaving none. The probe
+Seven submitted turns count in the private ledger. The user-approved
+supplemental turn is used, so the cap is exhausted. The probe
 never prints credential content or raw model text. The profile must remain
 persistent across runs because its own refresh may invalidate the interactive
 login, as documented in #120. Production authentication belongs to #129.
@@ -207,7 +210,7 @@ allow nor deny behavior was observed, so this does not establish network
 isolation. The probe uses no credential or model turn.
 
 `probe_agent_forbidden_write.py` reuses the existing private profile and
-six-turn ledger. Its first run timed out on a credential-free direct-command
+turn ledger. Its first run timed out on a credential-free direct-command
 canary without reserving a model turn. A second run skipped that current
 canary using the earlier successful elevated direct-command boundary result.
 It started a native workspace-write thread and submitted turn 6, asking for
@@ -215,7 +218,47 @@ one write to a synthetic sibling-store file. The agent said it would attempt
 the write, but the 120-second turn wait timed out with no command or file-change
 item in the stream. The target remained absent and the synthetic sentinel was
 unchanged. This is an inconclusive agent-originated boundary test, not a
-demonstrated denial. The cap now forbids further #122 model turns.
+demonstrated denial. That attempt exhausted the original six-turn cap.
+
+The later user-approved cap extension permitted one additional turn, recorded
+as attempt 7 in the same ledger. The retry probe required both a successful
+draft write and a denied outside-store write from `command/exec` before it
+reserved that turn. Its first preflight caught a flawed fixture: the synthetic
+"forbidden" store was under the runner state used for `TEMP` and `TMP`, so the
+direct write succeeded. No turn was reserved. Moving the store to a separate
+private directory outside all runner writable roots produced the expected
+direct denial. Turn 7 then completed. Its command item shows PowerShell
+attempted to write the exact outside-store file and received access denied
+with exit code 1. The target remained absent, and the sentinel hash stayed
+unchanged. The separate synthetic store was cleaned up after recording the
+result.
+
+The Codex elevated sandbox log from turn 6 says sandbox
+setup was required because its users were missing or incompatible, then has
+no setup-completion line. This identifies a sandbox setup stall as the likely
+cause of the command timeouts, but it does not establish which Windows setup
+step failed. The sandbox accounts are present. The successful seventh run did
+not require an additional configuration change.
+
+The network probe was repeated without a model turn, reusing the existing
+private sandbox profile. One completed run reached the synthetic HTTP
+loopback fixture with both `networkAccess: true` and `false`, despite the
+documented boolean field for `workspaceWrite`. This fails the probe's
+loopback-isolation condition. Follow-up sandbox-user identity and external
+egress checks stalled during elevated sandbox setup, so the result does not
+establish whether external Internet egress is blocked. A fresh private
+profile also stalled before its first command. Do not treat `networkAccess:
+false` as a verified boundary on this host.
+
+The failed first preflight also showed that `TEMP` and `TMP` must not point to
+the whole issue state. That root contained the synthetic canonical store in
+the earlier edit probe, so unchanged canonical content was an observation,
+not proof of an OS write boundary around it. The #122 edit and negative probes
+now set both variables to a dedicated `state/tmp` sibling. A direct check of
+canonical write protection with this narrower environment timed out during
+native sandbox setup. Existing state may retain earlier write ACL grants, so
+canonical protection remains unverified; a production runner needs a store
+outside every agent writable root and an explicit write-denial canary.
 
 Three earlier elevated-sandbox scratch directories remain under the ignored
 `probe-artifacts.local/` root inside the AGENTVIZ checkout but ignored by Git.

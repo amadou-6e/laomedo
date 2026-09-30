@@ -26,7 +26,7 @@ from probe_draft_guards import (BASE_SKILL, fixed_case_evaluation,
 from inspect_private_turn_policy import inspect_turn_policy
 
 
-def reserve_turn(state: Path, limit: int = 6) -> int:
+def reserve_turn(state: Path, limit: int = 7) -> int:
     """An abandoned reservation counts. A concurrent process fails closed."""
     ledger = state / "turn-budget-122.json"
     lock = state / "turn-budget-122.lock"
@@ -187,11 +187,14 @@ def main() -> None:
             raise ValueError("state_must_not_have_credential_copy")
         codex_home = profile / "codex-home"
         private_home = state / "home"
+        private_temp = state / "tmp"
         run_dir = state / "runs" / summary["run_id"]
         project = run_dir / "draft-workspace"
         private_home.mkdir(exist_ok=True)
+        private_temp.mkdir(exist_ok=True)
         project.mkdir(parents=True)
         env = construct_env(private_home, codex_home, state, codex.parent)
+        env["TEMP"] = env["TMP"] = str(private_temp)
         gate = credential_gate(codex, project, env, codex_home, state)
         summary["credential_gate"] = gate
         summary["version"] = codex_version(codex, env)
