@@ -1,0 +1,632 @@
+"""Shared harness for the Claude Agent SDK probes (issue 121).
+
+Coded against the verified surface of claude-agent-sdk 0.2.161:
+- ClaudeAgentOptions: cwd, env, setting_sources, skills, model, effort,
+  permission_mode, allowed_tools, max_turns, max_budget_usd, resume,
+  fork_session, include_partial_messages, stderr.
+- Messages: SystemMessage(subtype, data), AssistantMessage(content blocks,
+  model, usage), UserMessage, ResultMessage(subtype, session_id, usage,
+  model_usage, terminal_reason, errors), StreamEvent.
+- Blocks: TextBlock, ThinkingBlock, ToolUseBlock(id, name, input),
+  ToolResultBlock(tool_use_id, content, is_error), ServerToolUseBlock,
+  ServerToolResultBlock.
+- Errors: CLINotFoundError, CLIConnectionError, ProcessError, ResultError,
+  CLIJSONDecodeError.
+
+No credential value is ever printed. Personal roots are compared by hash.
+"""
+
+import hashlib
+import json
+import os
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+import platform
+import shutil
+import socket
+import subprocess
+import sys
+
+
+PERSONAL_ROOT_NAMES = [
+    "user_skills",
+    "user_commands",
+    "user_settings.json",
+    "user_claude.json",
+    "user_projects",
+    "user_plugins",
+]
+
+FIXTURE_SKILL_NAMES = frozenset({
+    "fixture-121-project", "fixture-121-user-home", "fixture-121-user-config",
+    "fixture-121-parent", "fixture-121-stream", "fixture-121-unlisted",
+})
+
+
+# Environment variables that could redirect credentials or the endpoint away
+# from the dedicated key. The gate refuses when any is set in the parent
+# environment, and options_env blanks them for defense in depth.
+PROVIDER_ENV_VARS = [
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_BEDROCK_BASE_URL",
+    "ANTHROPIC_VERTEX_BASE_URL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "CLAUDE_CODE_EFFORT_LEVEL",
+    "ANTHROPIC_CUSTOM_HEADERS",
+]
+
+
+def personal_roots():
+    home = Path.home()
+    return [
+        home / ".claude" / "skills",
+        home / ".claude" / "commands",
+        home / ".claude" / "settings.json",
+        home / ".claude.json",
+        home / ".claude" / "projects",
+        home / ".claude" / "plugins",
+    ]
+
+
+# Roots whose hash changes whenever any Claude Code session is running,
+# including the session that hosts this probe. Their comparison is recorded
+# but labeled inconclusive by design, as in #119.
+INCONCLUSIVE_ROOTS = {"user_projects"}
+
+
+def fingerprint(root: Path) -> str:
+    digest = hashlib.sha256()
+    if not root.exists():
+        return "absent"
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            continue
+        relative = path.relative_to(root).as_posix()
+        digest.update(relative.encode("utf-8"))
+        if path.is_file():
+            with path.open("rb") as handle:
+                while chunk := handle.read(1024 * 1024):
+                    digest.update(chunk)
+    return digest.hexdigest()
+
+
+def hash_path(path: Path) -> str:
+    if path.is_file():
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    return fingerprint(path)
+
+
+def hash_personal_roots():
+    return [hash_path(root) for root in personal_roots()]
+
+
+def compare_personal_roots(before, after):
+    result = {}
+    for name, equal in zip(PERSONAL_ROOT_NAMES, (a == b for a, b in zip(before, after))):
+        result[name] = equal if name not in INCONCLUSIVE_ROOTS else "inconclusive"
+    return result
+
+
+def inside_git_tree(path: Path) -> bool:
+    for candidate in [path.resolve(), *path.resolve().parents]:
+        if (candidate / ".git").exists():
+            return True
+    return False
+
+
+def ensure_clean(path: Path) -> int:
+    """(Re)create a run directory. Returns the count of entries that could not
+    be removed (for example a file locked by Windows)."""
+    leftover = 0
+    if path.exists():
+        for child in sorted(path.rglob("*"), reverse=True):
+            try:
+                if child.is_dir() and not child.is_symlink():
+                    child.rmdir()
+                else:
+                    child.unlink()
+            except OSError:
+                leftover += 1
+        leftover += len(list(path.rglob("*")))
+    path.mkdir(parents=True, exist_ok=True)
+    return leftover
+
+
+def resettable_dir(root: Path) -> tuple:
+    """A run directory safe to reset, guarded against deleting anything
+    outside the experiment tree. Returns (resolved_path, leftover_count)."""
+    experiment = Path(__file__).resolve().parent
+    resolved = root.resolve()
+    if not resolved.is_relative_to(experiment):
+        raise ValueError("refusing to reset a directory outside the experiment tree")
+    leftovers = ensure_clean(resolved)
+    return resolved, leftovers
+
+
+def write_skill(root: Path, name: str, description: str, content: str = None):
+    """Create <root>/<name>/SKILL.md with a description so the skill is
+    user-invocable and appears in the init skills array."""
+    skill_dir = root / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    if content is None:
+        content = "This fixture is synthetic probe content.\n"
+    (skill_dir / "SKILL.md").write_text(
+        f"---\nname: {name}\ndescription: {description}\n---\n\n{content}",
+        encoding="utf-8",
+    )
+    return skill_dir
+
+
+def sdk_version() -> str:
+    try:
+        import importlib.metadata as metadata
+        return metadata.version("claude-agent-sdk")
+    except Exception:
+        return "not-installed"
+
+
+def runner_versions() -> dict:
+    versions = {
+        "sdk": sdk_version(),
+        "python": platform.python_version(),
+        "platform": f"{platform.system()} {platform.machine()}",
+        "node": None,
+    }
+    try:
+        result = subprocess.run(["node", "--version"], capture_output=True,
+                                text=True, timeout=20, encoding="utf-8")
+        versions["node"] = result.stdout.strip() or result.stderr.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return versions
+
+
+def resolve_cli():
+    """Resolve the Claude Code CLI the way the SDK does. Returns
+    (path_or_None, error_class_or_None). Never spawns a model call."""
+    from claude_agent_sdk._internal.transport.subprocess_cli import SubprocessCLITransport
+    from claude_agent_sdk import ClaudeAgentOptions
+    transport = SubprocessCLITransport(prompt="x", options=ClaudeAgentOptions())
+    try:
+        return transport._find_cli(), None
+    except Exception as exc:
+        return None, type(exc).__name__
+
+
+def cli_version(cli_path: str) -> str:
+    try:
+        result = subprocess.run([cli_path, "--version"], capture_output=True,
+                                text=True, timeout=30, encoding="utf-8",
+                                errors="replace")
+        return (result.stdout + result.stderr).strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"unavailable: {type(exc).__name__}"
+
+
+def tcp_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def prepare_state_dir(state: Path) -> dict:
+    """Accept a user-supplied state directory only if it is new or empty.
+    Never deletes anything. Returns a report for the summary."""
+    report = {"path_exists": state.exists()}
+    resolved = state.resolve()
+    if inside_git_tree(resolved):
+        report["refused"] = "state_dir_inside_git_tree"
+        return report
+    personal_config = (Path.home() / ".claude").resolve()
+    if resolved == Path.home().resolve() or resolved.is_relative_to(personal_config):
+        report["refused"] = "state_dir_is_personal_profile"
+        return report
+    if state.exists():
+        if not state.is_dir() or state.is_symlink():
+            report["refused"] = "state_dir_not_plain_directory"
+            return report
+        entries = list(state.iterdir())
+        report["existing_entries"] = len(entries)
+        if entries:
+            report["refused"] = "state_dir_not_empty"
+            return report
+    state.mkdir(parents=True, exist_ok=True)
+    report["prepared"] = True
+    return report
+
+
+def _private_workspace_paths(state: Path, project: Path, snapshot: Path) -> None:
+    root = state.resolve()
+    for path in (project, snapshot):
+        resolved = path.resolve()
+        if resolved == root or not resolved.is_relative_to(root) or path.is_symlink():
+            raise ValueError("workspace path escapes private state")
+    if (snapshot.resolve().is_relative_to(project.resolve())
+            or project.resolve().is_relative_to(snapshot.resolve())):
+        raise ValueError("project and snapshot cannot contain each other")
+
+
+def _reject_symlinks(root: Path) -> None:
+    if any(path.is_symlink() for path in root.rglob("*")):
+        raise ValueError("workspace contains a symlink")
+
+
+def snapshot_workspace(state: Path, project: Path, snapshot: Path) -> str:
+    """Freeze one post-run workspace inside private state."""
+    _private_workspace_paths(state, project, snapshot)
+    if snapshot.exists():
+        raise FileExistsError("snapshot already exists")
+    _reject_symlinks(project)
+    shutil.copytree(project, snapshot)
+    return fingerprint(snapshot)
+
+
+def restore_workspace_snapshot(state: Path, project: Path, snapshot: Path,
+                               expected_hash: str) -> str:
+    """Refuse a missing or changed snapshot before touching the workspace."""
+    _private_workspace_paths(state, project, snapshot)
+    if not snapshot.is_dir():
+        raise FileNotFoundError("last post-run workspace snapshot unavailable")
+    _reject_symlinks(snapshot)
+    if fingerprint(snapshot) != expected_hash:
+        raise ValueError("last post-run workspace snapshot hash mismatch")
+    _reject_symlinks(project)
+    shutil.rmtree(project)
+    shutil.copytree(snapshot, project)
+    return fingerprint(project)
+
+
+class BudgetLedger:
+    """Conservative, shared #121 spend ledger across both probe processes.
+
+    Reservations and unknown-cost calls retain their full per-call ceiling.
+    This prevents another call after the observed cap, but an SDK per-call
+    ceiling can still be exceeded within one turn; it is not a provider cap.
+    """
+
+    def __init__(self, root: Path, state: Path, cap: str = "20", max_calls: int = 16):
+        self.root = root.resolve(strict=True)
+        if (not self.root.is_dir() or root.is_symlink() or inside_git_tree(self.root)
+                or state.resolve().parent != self.root):
+            raise ValueError("budget root must be the private parent of state outside git")
+        self.path = self.root / "issue-121-budget.json"
+        self.lock = self.root / "issue-121-budget.lock"
+        self.cap = Decimal(cap)
+        self.max_calls = max_calls
+
+    def _read(self) -> dict:
+        if not self.path.exists():
+            return {"attempts": []}
+        record = json.loads(self.path.read_text(encoding="utf-8"))
+        if not isinstance(record, dict) or not isinstance(record.get("attempts"), list):
+            raise ValueError("invalid budget ledger")
+        return record
+
+    def _write(self, record: dict) -> None:
+        pending = self.root / "issue-121-budget.pending"
+        pending.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        os.replace(pending, self.path)
+
+    def _locked(self, operation):
+        descriptor = os.open(self.lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            os.close(descriptor)
+            return operation()
+        finally:
+            self.lock.unlink(missing_ok=True)
+
+    @staticmethod
+    def _amount(value) -> Decimal:
+        try:
+            amount = Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            raise ValueError("invalid budget amount") from None
+        if not amount.is_finite() or amount < 0:
+            raise ValueError("invalid budget amount")
+        return amount
+
+    def reserve(self, per_call_ceiling: float) -> int:
+        ceiling = self._amount(per_call_ceiling)
+
+        def update():
+            record = self._read()
+            attempts = record["attempts"]
+            if len(attempts) >= self.max_calls:
+                raise ValueError("issue model-call cap reached")
+            exposure = sum((max(self._amount(item["reserved_usd"]),
+                                self._amount(item["observed_usd"])
+                                if item.get("observed_usd") is not None else Decimal(0))
+                            for item in attempts), Decimal(0))
+            if exposure + ceiling > self.cap:
+                raise ValueError("issue spend cap reached")
+            reservation_id = len(attempts) + 1
+            attempts.append({"id": reservation_id, "reserved_usd": str(ceiling),
+                             "observed_usd": None, "outcome": "submitted"})
+            self._write(record)
+            return reservation_id
+
+        return self._locked(update)
+
+    def settle(self, reservation_id: int, observed_cost, outcome: str) -> dict:
+        def update():
+            record = self._read()
+            matches = [item for item in record["attempts"]
+                       if item.get("id") == reservation_id]
+            if len(matches) != 1:
+                raise ValueError("budget reservation missing")
+            item = matches[0]
+            if item.get("outcome") != "submitted":
+                raise ValueError("budget reservation already settled")
+            item["observed_usd"] = (str(self._amount(observed_cost))
+                                    if observed_cost is not None else None)
+            item["outcome"] = outcome
+            self._write(record)
+            return {"attempted_calls": len(record["attempts"]),
+                    "observed_cost_usd": item["observed_usd"]}
+
+        return self._locked(update)
+
+
+def credential_gate(state: Path, config_dir: Path) -> dict:
+    """Decide whether a model call is permitted.
+
+    Accepts only a dedicated ANTHROPIC_API_KEY from the runner environment
+    (sk-ant-api prefix; subscription OAuth tokens also start with sk-ant- and
+    are refused). Refuses a state dir inside a git tree, a
+    missing or malformed key, any provider-redirecting variable set in the
+    parent environment, a personal OAuth token file in the private config
+    dir, and an unreachable api.anthropic.com. Never prints a value.
+    """
+    verdict = {"permitted": False, "credential_mode": None}
+    if inside_git_tree(state):
+        verdict["reason"] = "state_dir_inside_git_tree"
+        return verdict
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key.strip():
+        verdict["reason"] = "missing_anthropic_api_key"
+        return verdict
+    if not api_key.startswith("sk-ant-api"):
+        verdict["reason"] = "not_an_api_key_format"
+        return verdict
+    active = [name for name in PROVIDER_ENV_VARS
+              if os.environ.get(name, "").strip()]
+    if active:
+        verdict["reason"] = "provider_env_vars_set"
+        verdict["provider_env_vars"] = active
+        return verdict
+    for token_name in (".credentials.json", "credentials.json"):
+        if (config_dir / token_name).is_file():
+            verdict["reason"] = "oauth_token_file_in_config_dir"
+            return verdict
+    verdict["credential_mode"] = "anthropic_api_key"
+    if not tcp_reachable("api.anthropic.com"):
+        verdict["reason"] = "api_anthropic_unreachable"
+        return verdict
+    try:
+        cli_path, cli_error = resolve_cli()
+    except (ImportError, OSError) as exc:
+        cli_path, cli_error = None, type(exc).__name__
+    if not cli_path:
+        verdict["reason"] = "claude_cli_unavailable"
+        verdict["cli_error_class"] = cli_error
+        return verdict
+    verdict["permitted"] = True
+    return verdict
+
+
+def options_env(private_home: Path, config_dir: Path, state: Path,
+                api_key: str = None) -> dict:
+    """Environment passed to the CLI subprocess via options.env. The SDK merges
+    this on top of the inherited process environment, so every personal-profile
+    and provider-redirecting variable is overridden explicitly (see #118: the
+    parent process environment reaches the CLI unless overridden here)."""
+    env = {
+        "HOME": str(private_home),
+        "USERPROFILE": str(private_home),
+        "APPDATA": str(state / "appdata"),
+        "LOCALAPPDATA": str(state / "localappdata"),
+        "CLAUDE_CONFIG_DIR": str(config_dir),
+        "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+        "DISABLE_TELEMETRY": "1",
+        "DISABLE_ERROR_REPORTING": "1",
+        "DISABLE_AUTOUPDATER": "1",
+    }
+    for name in PROVIDER_ENV_VARS:
+        env[name] = ""
+    if api_key is not None:
+        env["ANTHROPIC_API_KEY"] = api_key
+    return env
+
+
+def count_attempted_turn(summary: dict) -> None:
+    """Count a turn immediately before submitting it. The count is an upper
+    bound on billable model calls: a submitted turn may still be rejected
+    before generation, but every billable call must have been submitted."""
+    summary["model_calls"] = summary.get("model_calls", 0) + 1
+
+
+def redact_message(message) -> dict:
+    """Sanitized view of one SDK message. Never includes file contents, prompt
+    text, or result text; string lengths and key names only."""
+    kind = type(message).__name__
+    view = {"kind": kind}
+    if kind == "SystemMessage":
+        data = message.data or {}
+        view["subtype"] = message.subtype
+        if message.subtype == "init":
+            skills = data.get("skills") or []
+            names = [str(skill.get("name")) if isinstance(skill, dict)
+                     else str(skill) for skill in skills]
+            view["data_keys"] = sorted(data.keys())
+            view["session_id"] = data.get("session_id")
+            view["model"] = data.get("model")
+            view["skill_count"] = len(names)
+            view["skill_names"] = sorted(name for name in names
+                                         if name in FIXTURE_SKILL_NAMES)
+            view["unrecognized_skill_count"] = sum(
+                name not in FIXTURE_SKILL_NAMES for name in names)
+            view["slash_command_count"] = len(data.get("slash_commands") or [])
+            view["version"] = data.get("version")
+    elif kind == "AssistantMessage":
+        view["model"] = message.model
+        view["session_id"] = message.session_id
+        view["stop_reason"] = message.stop_reason
+        blocks = []
+        for block in (message.content or []):
+            bkind = type(block).__name__
+            entry = {"kind": bkind}
+            if bkind == "ToolUseBlock":
+                entry["id"] = block.id
+                entry["name"] = block.name
+                entry["input_keys"] = sorted((block.input or {}).keys())
+                if block.name == "Skill":
+                    # Attribute only known synthetic fixtures. Never print
+                    # arbitrary skill names or other argument values.
+                    entry["skill_args"] = {
+                        key: value for key, value in (block.input or {}).items()
+                        if isinstance(value, str)
+                        and value in FIXTURE_SKILL_NAMES}
+                    entry["unrecognized_skill_arg_count"] = sum(
+                        isinstance(value, str) and value not in FIXTURE_SKILL_NAMES
+                        for value in (block.input or {}).values())
+            elif bkind == "TextBlock":
+                entry["text_length"] = len(block.text or "")
+            elif bkind == "ToolResultBlock":
+                entry["tool_use_id"] = block.tool_use_id
+                entry["is_error"] = block.is_error
+            blocks.append(entry)
+        view["blocks"] = blocks
+        view["usage"] = message.usage
+    elif kind == "UserMessage":
+        blocks = []
+        content = message.content
+        if isinstance(content, list):
+            for block in content:
+                bkind = type(block).__name__
+                entry = {"kind": bkind}
+                if bkind == "ToolResultBlock":
+                    entry["tool_use_id"] = block.tool_use_id
+                    entry["is_error"] = block.is_error
+                    text = block.content if isinstance(block.content, str) else ""
+                    entry["content_length"] = len(text or "")
+                blocks.append(entry)
+        view["blocks"] = blocks
+    elif kind == "ResultMessage":
+        view.update({
+            "subtype": message.subtype,
+            "is_error": message.is_error,
+            "num_turns": message.num_turns,
+            "session_id": message.session_id,
+            "total_cost_usd": message.total_cost_usd,
+            "api_error_status": message.api_error_status,
+            "terminal_reason": message.terminal_reason,
+            "error_present": bool(message.errors),
+            "usage": message.usage,
+            "model_usage_models": sorted((message.model_usage or {}).keys())
+                                  if message.model_usage else [],
+        })
+    elif kind == "StreamEvent":
+        event = message.event or {}
+        view["event_type"] = event.get("type")
+        view["session_id"] = message.session_id
+    return view
+
+
+def collect_events(messages, marker: str = None) -> dict:
+    """Summarize a message list: tool calls, matching results, terminal state.
+    When marker is given, records whether it appeared in final result or
+    assistant text without printing that text."""
+    from claude_agent_sdk.types import TextBlock
+
+    tool_calls = {}
+    call_details = {}
+    tool_results = []
+    tool_result_errors = {}
+    init_view = None
+    result_view = None
+    marker_returned = False
+    redacted = []
+    for message in messages:
+        view = redact_message(message)
+        redacted.append(view)
+        if view["kind"] == "AssistantMessage":
+            for block in (message.content or []):
+                if isinstance(block, TextBlock) and marker and marker in (block.text or ""):
+                    marker_returned = True
+            for block in view["blocks"]:
+                if block["kind"] == "ToolUseBlock":
+                    tool_calls[block["id"]] = block["name"]
+                    call_details[block["id"]] = {
+                        "id": block["id"], "name": block["name"],
+                        "skill_args": block.get("skill_args"),
+                    }
+        elif view["kind"] == "UserMessage":
+            for block in view["blocks"]:
+                if block["kind"] == "ToolResultBlock":
+                    tool_results.append(block["tool_use_id"])
+                    tool_result_errors[block["tool_use_id"]] = block.get("is_error")
+        elif view["kind"] == "SystemMessage" and view.get("subtype") == "init":
+            init_view = view
+        elif view["kind"] == "ResultMessage":
+            result_view = view
+            if marker and isinstance(message.result, str) and marker in message.result:
+                marker_returned = True
+    calls = []
+    for call_id, detail in call_details.items():
+        calls.append({**detail,
+                      "result_seen": call_id in tool_result_errors,
+                      "is_error": tool_result_errors.get(call_id)})
+    return {
+        "message_count": len(redacted),
+        "tool_calls": calls,
+        "events": redacted,
+        "init": init_view,
+        "result": result_view,
+        "tool_call_ids": sorted(tool_calls),
+        "tool_call_names": sorted(set(tool_calls.values())),
+        "tool_result_ids": sorted(tool_results),
+        "tool_results_matched": sorted(set(tool_calls) & set(tool_results)),
+        "tool_result_errors": tool_result_errors,
+        "tool_call_and_result_observed": bool(tool_calls) and bool(set(tool_calls) & set(tool_results)),
+        "marker_returned": marker_returned if marker else None,
+    }
+
+
+def skill_attempt(collected: dict, skill_name: str) -> dict:
+    """Classify Skill tool use for one skill as not_attempted,
+    attempted_refused, attempted_allowed, or attempted_no_result. Only the
+    Skill call's own result counts; errors from other tools are ignored. When
+    no Skill call names the skill, any Skill call is used and flagged."""
+    skill_calls = [c for c in collected.get("tool_calls") or [] if c["name"] == "Skill"]
+    named = [c for c in skill_calls
+             if skill_name in (c.get("skill_args") or {}).values()]
+    considered = named or skill_calls
+    report = {"skill": skill_name, "skill_call_count": len(skill_calls),
+              "attributed_by_name": bool(named)}
+    if not considered:
+        report["state"] = "not_attempted"
+    elif any(c["result_seen"] and c["is_error"] for c in considered):
+        report["state"] = "attempted_refused"
+    elif any(c["result_seen"] and not c["is_error"] for c in considered):
+        report["state"] = "attempted_allowed"
+    else:
+        report["state"] = "attempted_no_result"
+    return report
+
+
+def tool_succeeded(collected: dict, tool_name: str) -> bool:
+    """True when a call to tool_name produced a non-error result."""
+    return any(c["name"] == tool_name and c["result_seen"] and not c["is_error"]
+               for c in collected.get("tool_calls") or [])
