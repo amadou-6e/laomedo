@@ -36,25 +36,31 @@ def policy_ref() -> dict:
 
 def inventory(root: Path) -> dict[str, bytes]:
     """Reject links and special files; never read through a symlink."""
-    is_junction = getattr(root, "is_junction", lambda: False)
-    if root.is_symlink() or is_junction() or not root.is_dir():
-        raise ValueError("invalid_tree_root")
+    try:
+        is_junction = getattr(root, "is_junction", lambda: False)
+        if root.is_symlink() or is_junction() or not root.is_dir():
+            raise ValueError("invalid_tree_root")
+    except OSError as exc:
+        raise ValueError("unreadable_tree_root") from exc
     files = {}
     allowed_dirs = {str(PurePosixPath(path).parent) for path in POLICY["allowed_paths"]}
     for parent, dirs, names in os.walk(root, followlinks=False):
         for name in sorted(dirs + names):
             path = Path(parent) / name
-            junction = getattr(path, "is_junction", lambda: False)
-            if path.is_symlink() or junction():
-                raise ValueError("link_or_junction_in_tree")
-            relative = path.relative_to(root).as_posix()
-            if path.is_dir():
-                if relative not in allowed_dirs:
-                    raise ValueError("unapproved_directory")
-                continue
-            if not path.is_file():
-                raise ValueError("special_file_in_tree")
-            files[relative] = path.read_bytes()
+            try:
+                junction = getattr(path, "is_junction", lambda: False)
+                if path.is_symlink() or junction():
+                    raise ValueError("link_or_junction_in_tree")
+                relative = path.relative_to(root).as_posix()
+                if path.is_dir():
+                    if relative not in allowed_dirs:
+                        raise ValueError("unapproved_directory")
+                    continue
+                if not path.is_file():
+                    raise ValueError("special_file_in_tree")
+                files[relative] = path.read_bytes()
+            except OSError as exc:
+                raise ValueError("unreadable_entry_in_tree") from exc
     return files
 
 
