@@ -159,11 +159,18 @@ def main() -> None:
     parser.add_argument("--state-dir", type=Path, required=True,
                         help="existing separate empty #122 private root outside Git")
     parser.add_argument("--run", action="store_true")
+    parser.add_argument("--windows-mode", choices=("default", "elevated"),
+                        default="default")
+    parser.add_argument("--first-only", action="store_true",
+                        help="stop after the first submitted edit turn")
     args = parser.parse_args()
     summary = {"issue": 122, "run_id": str(uuid4()),
                "policy_ref": policy_ref(), "model_calls": 0,
                "credential_mode": "chatgpt_handoff",
-               "enforcement_scope": "Codex sandbox requested; post-edit validation verified separately"}
+               "enforcement_scope": "Codex sandbox requested; post-edit validation verified separately",
+               "windows_mode": args.windows_mode}
+    startup_args = (["-c", 'windows.sandbox="elevated"']
+                    if args.windows_mode == "elevated" else [])
     try:
         if args.profile_dir.is_symlink() or args.state_dir.is_symlink():
             raise ValueError("private_root_symlink")
@@ -191,7 +198,8 @@ def main() -> None:
         if not gate.get("permitted"):
             summary["blocked"] = "credential_gate"
             return
-        server = AppServer(codex, project, env, state)
+        server = AppServer(codex, project, env, state,
+                           startup_args=startup_args)
         try:
             ok, _ = server.initialize()
             if not ok:
@@ -238,7 +246,8 @@ def main() -> None:
         base_hash = tree_hash(inventory(canonical))
         summary["base_ref"] = {"revision_id": "1", "tree_hash": base_hash}
         before_personal = hash_personal_roots()
-        server = AppServer(codex, project, env, state)
+        server = AppServer(codex, project, env, state,
+                           startup_args=startup_args)
         try:
             ok, _ = server.initialize()
             if not ok:
@@ -270,6 +279,9 @@ def main() -> None:
             summary["server_after_first"] = server.close()
         summary["model_calls"] = 1
         summary["after_first"] = validate_draft(canonical, project, base_hash)
+        if args.first_only:
+            summary["resume_skipped"] = "first_only_diagnostic"
+            return
         if first["status"] != "completed" or summary["after_first"]["violations"]:
             summary["resume_skipped"] = "first_edit_not_valid"
             return
@@ -292,7 +304,8 @@ def main() -> None:
         if not summary["restored_post_run_hash_matches"]:
             summary["resume_skipped"] = "snapshot_restore_mismatch"
             return
-        server = AppServer(codex, project, env, state)
+        server = AppServer(codex, project, env, state,
+                           startup_args=startup_args)
         try:
             ok, _ = server.initialize()
             if not ok:

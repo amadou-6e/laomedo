@@ -53,12 +53,12 @@ and cannot be attributed. No agent-edit resume was attempted because there was
 no valid first edit. The sanitized facts and API-equivalent estimate are in
 `observations.json`; raw traces and the credential remain outside Git.
 
-The current runner is a **no-go for automated skill editing**. Post-edit
-validation works on synthetic changes, but the model-backed edit and the
-integrated runner write boundary are not established. The remaining four #122 turns
-should be reserved for a revised runner with a verified effective write grant
-and observable tool calls. The ChatGPT run has no direct API bill; the estimate
-is API-equivalent only, using the pinned #120 Luna rate assumptions.
+The first two runs were a **no-go for automated skill editing**. Post-edit
+validation worked on synthetic changes, but neither model-backed turn edited
+the draft or emitted a tool item. A later follow-up found a working agent tool
+path, described below. The ChatGPT runs have no direct API bill; the recorded
+estimate for the first two turns is API-equivalent only, using the pinned #120
+Luna rate assumptions.
 
 ### Credential-free native Windows boundary check
 
@@ -86,6 +86,40 @@ moved out of the Git worktree into the ignored `probe-artifacts.local/` folder
 at the AGENTVIZ workspace root. Do not open or publish its `.sandbox-secrets`
 content. An administrator cleanup path remains to be tested.
 
+### Follow-up on 2026-09-30: agent edit and failed draft inventory
+
+One additional authorized turn used Codex CLI 0.159.0, a per-process
+`windows.sandbox="elevated"` override, and the existing private ChatGPT profile.
+It ran outside the calling tool's restricted context. This combination returned
+`workspaceWrite` at `thread/start`, and the turn trace contained completed
+command and file-change items. The agent read `SKILL.md`, appended the requested
+example, and read it again. The canonical skill stayed unchanged. This was an
+agent edit, not just a direct `command/exec` canary. Three of the six #122
+model turns are now used; three remain. Resume was intentionally skipped.
+
+The draft was not promotion eligible. `validate_draft` reported `skill_missing`
+and `unapproved_directory` because its inventory rejects the whole draft tree
+when it finds an unapproved path. The file itself was still present and contained
+the requested change. PowerShell had also written a literal
+`%SystemDrive%/ProgramData/Microsoft/Windows/Caches/` tree into the draft. A
+clean copy containing only the edited `SKILL.md` passed structural validation,
+produced a patch, and passed the fixed case. The original run directory was not
+altered for that check.
+
+A separate credential-free PowerShell read reproduced the cache tree when the
+runner's constructed environment omitted `SystemDrive`; supplying the drive
+from `SystemRoot` prevented it. This identifies the missing environment variable
+as the cause of this incidental draft write. No persistent configuration or
+shared runner environment has been changed yet. The next candidate is to add
+`SystemDrive` to the constructed private environment, verify that no system
+cache lands in the draft, then spend one remaining turn on a clean edit and
+resume only if validation passes. The earlier shell and patch denials remain
+traceable to the original permission path; the successful follow-up changed
+the CLI version, Windows sandbox mode, and calling-tool context together, so
+it does not isolate which one resolved each denial.
+The diagnostic left another protected scratch directory under the ignored
+AGENTVIZ `probe-artifacts.local/` root; ordinary cleanup may be denied.
+
 ## Reproduction
 
 From the Laomedo repository root:
@@ -105,11 +139,11 @@ $privateProfile = Join-Path $env:LOCALAPPDATA 'Laomedo\feasibility-120'
 $issueState = Join-Path $privateProfile 'issue-122'
 $codexBinary = (Get-Command codex).Source
 python experiments/feasibility/122/probe_codex_edit.py --codex $codexBinary --profile-dir $privateProfile --state-dir $issueState
-# Only after the effective write grant is fixed and reviewed:
-python experiments/feasibility/122/probe_codex_edit.py --codex $codexBinary --profile-dir $privateProfile --state-dir $issueState --run
+# Only after the environment fix is reviewed and the binary version is checked:
+python experiments/feasibility/122/probe_codex_edit.py --codex $codexBinary --profile-dir $privateProfile --state-dir $issueState --windows-mode elevated --first-only --run
 ```
 
-The two submitted turns already counted in the private ledger. The probe
+The three submitted turns already counted in the private ledger. The probe
 never prints credential content or raw model text. The profile must remain
 persistent across runs because its own refresh may invalidate the interactive
 login, as documented in #120. Production authentication belongs to #129.
@@ -126,3 +160,10 @@ error excerpts from these synthetic commands. Elevated mode may retain a
 protected scratch directory if Windows denies cleanup. Run it with
 `--windows-mode elevated` and an explicit Codex
 binary path after reviewing that boundary and the local sandbox setup.
+
+`probe_windows_env.py` reproduces the PowerShell cache side effect with and
+without `SystemDrive`, using no credential or model turn. It uses disposable
+scratch outside Git and may retain protected sandbox setup state. Run it with
+the same explicit Codex binary path. `verify_clean_skill.py` takes one private
+run directory and validates a temporary copy containing only that run's edited
+`SKILL.md`; it does not alter the original run.

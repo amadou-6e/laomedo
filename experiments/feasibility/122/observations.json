@@ -4,11 +4,11 @@
   "codex_cli": "0.155.0-alpha.16.3",
   "provider": "Codex",
   "credential_mode": "private_chatgpt_handoff_reused_from_120",
-  "submitted_turns": 2,
+  "submitted_turns": 3,
   "turn_cap": 6,
   "actual_api_spend_usd": null,
-  "api_equivalent_estimate_usd": 0.00546944,
-  "estimate_basis": "GPT-6 Luna Standard short-context API rates recorded in #120; final cumulative counters per fresh thread; no cache writes reported",
+  "api_equivalent_estimate_usd_first_two_turns": 0.00546944,
+  "estimate_basis": "The recorded estimate covers only the first two turns, using GPT-6 Luna Standard short-context API rates recorded in #120; the third turn has not been priced here. This is not an actual ChatGPT bill.",
   "runs": [
     {
       "run_id": "b040771b-814d-44bf-bbc1-73e948b7a2a3",
@@ -57,8 +57,44 @@
       },
       "personal_skill_and_auth_hashes_unchanged": true,
       "personal_session_hash_unchanged": false
+    },
+    {
+      "run_id": "aecb7e9f-61d4-4d50-8b8b-b6408672b3d5",
+      "native_thread_id": "01a0f299-da8a-7d70-9117-66ff5b9183c6",
+      "native_turn_id": "01a0f299-dad5-70c0-8aee-27b5ef4e2d0a",
+      "codex_cli": "0.159.0",
+      "requested_model": "gpt-6-luna",
+      "requested_effort": "low",
+      "windows_sandbox_override": "elevated",
+      "called_outside_outer_tool_sandbox": true,
+      "effective_thread_sandbox": "workspaceWrite",
+      "recorded_turn_sandbox": "workspace-write",
+      "turn_completed": true,
+      "completed_command_items": 2,
+      "completed_file_change_items": 1,
+      "draft_skill_contains_requested_example": true,
+      "canonical_skill_unchanged": true,
+      "unexpected_draft_directory": "%SystemDrive%/ProgramData/Microsoft/Windows/Caches",
+      "validation_violations": ["skill_missing", "unapproved_directory"],
+      "clean_skill_only_copy_validation_violations": [],
+      "clean_skill_only_copy_fixed_case_passed": true,
+      "resume_attempted": false,
+      "final_cumulative_usage": {
+        "input_tokens": 58045,
+        "cached_input_tokens": 50176,
+        "cache_write_tokens": 0,
+        "output_tokens": 457
+      }
     }
   ],
+  "windows_environment_diagnostic": {
+    "model_calls": 0,
+    "credential_used": false,
+    "command": "synthetic PowerShell read under explicit elevated Windows sandbox",
+    "literal_systemdrive_cache_created_without_systemdrive": true,
+    "literal_systemdrive_cache_created_with_systemdrive": false,
+    "runner_construct_env_currently_omits_systemdrive": true
+  },
   "credential_free_permission_comparison": {
     "versions": ["0.155.0-alpha.16.3", "0.159.0"],
     "thread_start_returned": "readOnly",
@@ -91,5 +127,5 @@
     },
     "protected_codex_setup_state_retained_outside_git": true
   },
-  "interpretation": "The second private turn context recorded workspace-write, but no agent tool call or edit occurred. Neither run demonstrated an agent edit or resume. A later credential-free direct-command probe demonstrated the draft/store filesystem boundary only with explicit elevated Windows sandbox mode outside the calling tool sandbox; it did not test an agent edit or network isolation. Personal session changes are confounded by concurrent IDE activity. Raw app-server streams remain private."
+  "interpretation": "The first two turns had no agent tool item or edit. The third turn, using Codex CLI 0.159.0 and explicit elevated Windows sandbox outside the calling tool sandbox, did edit the draft through agent tools. The draft was ineligible because the clean runner environment omitted SystemDrive, allowing PowerShell to write a literal %SystemDrive% cache directory inside the draft. A credential-free comparison reproduced and prevented that artifact by supplying SystemDrive. The original run was retained; a clean copy of the edited SKILL.md alone passed validation and the fixed case. Resume and agent-originated forbidden writes remain untested. Raw app-server streams remain private."
 }
