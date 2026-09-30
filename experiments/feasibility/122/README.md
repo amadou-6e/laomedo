@@ -98,6 +98,42 @@ moved out of the Laomedo worktree into the ignored `probe-artifacts.local/` fold
 at the AGENTVIZ workspace root. Do not open or publish its `.sandbox-secrets`
 content. An administrator cleanup path remains to be tested.
 
+An explicit unelevated retest with CLI 0.159.0 first failed inside the calling
+tool sandbox with `CreateRestrictedToken failed: 87`, before any synthetic
+command ran. Outside that outer sandbox, Codex reported `unelevated` in
+`config/read`. The read-only and sibling-store writes were denied, but the
+allowed draft write was also denied with `Access is denied.` This reproduces
+the earlier unusable filesystem result without a model turn or credential. A
+second run with the same executable and a disposable AppData draft produced
+the same three denials, so the result is not specific to the AGENTVIZ scratch
+location. The successful loopback `curl` command below shows command execution
+itself works; the observed blocker is creating the allowed file. An upstream
+[Windows report](https://github.com/openai/codex/issues/34179) describes a
+similar unelevated write failure, but does not establish the cause here.
+
+The direct CLI boundary probe `probe_ide_profile_boundary.py` used the IDE's
+`codex-cli 0.155.0-alpha.16.3` binary (SHA-256
+`589f2546cc1e86703da326b00741f8b7a58fd182a1a90499faa0beebf22a24e2`),
+the existing persistent private `CODEX_HOME`, and an invocation-only named
+permission profile. Its workspace root was a disposable draft, with a sibling
+store outside that root. After a probe correction to use PowerShell's
+per-process `RemoteSigned` setting and a host-created draft file, the command
+edited and read back the allowed file, while the sibling write returned
+`UnauthorizedAccessException`. Host verification confirmed the edited content
+and unchanged sibling sentinel. No model turn, credential copy, or persistent
+Codex configuration change was involved. This is a direct-command boundary
+result, not an agent edit or proof of restricted reads.
+
+Pinning the IDE binary did not eliminate repeated elevated sandbox setup. The
+private sandbox log reported `sandbox users missing or incompatible with marker
+version` and ran full user provisioning on successive probe invocations. A
+write-root refresh also ran for each disposable draft. The private marker was
+present, version 5, and its ACL granted the Windows user Full Control, so a
+missing or unreadable marker is not established as the cause. No further
+sandbox runs were made to diagnose the mismatch. The result is consistent with
+the [cross-runtime state issue](https://github.com/openai/codex/issues/36865),
+but that report does not identify the exact cause on this machine.
+
 ### Follow-up on 2026-09-30: agent edit and failed draft inventory
 
 One additional authorized turn used Codex CLI 0.159.0, a per-process
@@ -193,6 +229,9 @@ error excerpts from these synthetic commands. Elevated mode may retain a
 protected scratch directory if Windows denies cleanup. Run it with
 `--windows-mode elevated` and an explicit Codex
 binary path after reviewing that boundary and the local sandbox setup.
+`probe_ide_profile_boundary.py` tests the IDE binary with a named profile and
+the existing private Codex home. It may trigger Windows sandbox provisioning;
+do not treat its `approval_policy` or profile settings as a way to suppress UAC.
 
 `probe_windows_env.py` reproduces the PowerShell cache side effect with and
 without `SystemDrive`, using no credential or model turn. It uses disposable
@@ -250,6 +289,15 @@ establish whether external Internet egress is blocked. A fresh private
 profile also stalled before its first command. Do not treat `networkAccess:
 false` as a verified boundary on this host.
 
+A separate, credential-free unelevated run with CLI 0.159.0 also reached the
+loopback fixture with `networkAccess: false`. Its enabled positive control
+reached the same fixture. This tests loopback only; it does not establish
+external egress behavior. The probe now requires `--windows-mode` explicitly,
+so a later run cannot enter elevated setup by omission.
+The user elected to defer network-isolation work for the local prototype. This
+does not fix the unelevated allowed-draft-write failure or establish a
+production confinement boundary.
+
 The failed first preflight also showed that `TEMP` and `TMP` must not point to
 the whole issue state. That root contained the synthetic canonical store in
 the earlier edit probe, so unchanged canonical content was an observation,
@@ -266,3 +314,106 @@ Exact-path recursive cleanup was
 attempted, but Windows denied access to their `sandbox_users.json` setup files
 even from the elevated tool context. They require an administrator cleanup
 route; no protected file contents were opened or published.
+
+### Container route: credential-free filesystem proof
+
+On 2026-09-30, Docker Desktop's Linux engine built
+`container/Dockerfile` with Codex CLI 0.159.2 and Bubblewrap. The base image
+resolved to `node:22-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c`.
+No Codex login, credential, model call, or native Windows elevated sandbox was
+used. Neither probe changes the Docker daemon or the user's Codex settings.
+
+`probe_container_mount_boundary.py` ran as non-root UID 65532 with no network,
+all capabilities dropped, no-new-privileges, a read-only container root, and
+only a disposable draft mounted writable. It edited the draft and was denied a
+write to a canonical read-only mount. Host-side checks found the expected draft
+edit and unchanged canonical sentinel.
+
+`probe_container_codex_boundary.py` then exercised Codex's Linux command
+sandbox as UID 10001, with no network, all capabilities dropped, and
+no-new-privileges. A separate synthetic store was deliberately mounted
+**writable** for this test: a command outside Codex wrote its control file,
+while `codex sandbox -P container-test -C /draft` edited the draft but received
+`Read-only file system` when it tried to overwrite the store sentinel. The
+canonical read-only mount also denied a write. Host-side checks found the
+draft edit, the positive-control file, and unchanged store and canonical
+sentinels. The probe's own configuration grants write access only to the
+workspace root and is copied into a disposable, container-only `CODEX_HOME`.
+It explicitly denies reads of a synthetic credential file in that home. A
+command outside Codex read the fake marker, while the same read through Codex's
+sandbox returned `Permission denied`. This exercises the documented
+[permission-profile deny rule](https://learn.chatgpt.com/docs/permissions)
+without touching any real login.
+An initial attempt with `CODEX_HOME` under `/tmp` failed before commands ran
+because Codex refused to create its Linux helper there; placing it under
+`/home/runner/.codex` resolved that startup failure.
+
+Reproduce without credentials or model calls from the Laomedo root:
+
+```powershell
+docker build --tag laomedo-codex-boundary:0.159.2 experiments/feasibility/122/container
+python experiments/feasibility/122/probe_container_mount_boundary.py
+python experiments/feasibility/122/probe_container_codex_boundary.py
+```
+
+The tested filesystem result supports a container-based runner prototype on
+this machine without Windows sandbox provisioning prompts. It does not yet
+establish an agent-originated denial, a persistent app-server session, or a
+safe authentication flow. The fake-credential result is a direct-command check
+of one exact deny path, not a complete secrets audit. The #122 model-turn
+ledger remains 7/7; these were
+credential-free direct-command probes. The synthetic writable store belongs
+only to the diagnostic. A real runner should expose the canonical store to
+the container read-only or not mount it at all, and use a distinct private
+credential volume that agent commands cannot read. Network isolation remains
+deferred for the local prototype.
+
+### Container route: isolated login and two model turns
+
+The user then authorized a Docker-route retry. The original #122 private
+ledger was preserved at 7/7. A separate private `issue-122-docker` ledger was
+started outside Git and now records **2/2** submitted turns. The counters were
+read independently after both runs. No Windows Codex sandbox was launched.
+
+Docker received one copy of the existing isolated #120 ChatGPT login in the
+named `laomedo-122-docker-auth` volume. The personal Codex profile was not
+mounted. The first volume initialization attempt failed before copying because
+the volume was root-owned; a one-time provisioning container then copied and
+verified the file without printing it. The runner used that persistent volume
+on both turns. This is a temporary feasibility handoff, not the production
+authentication design. A refresh in the Docker copy could invalidate another
+copy of the same login; do not use both runners concurrently. The volume also
+contains private raw session data and must never be exported or committed.
+The Docker login file still matched the isolated #120 source byte-for-byte
+after both turns; this does not remove the future refresh-token rotation risk.
+
+`container/runner-config.toml` selects a named permission profile that writes
+the draft, denies reads of `/home/runner/.codex/auth.json`, and requests no
+command network access. Docker itself used bridge networking so the controller
+could reach the model; the agent's network boundary was **not tested**. The
+app-server's direct-command preflight wrote a draft canary, denied a write to
+the synthetic store, and denied a read of the login file. The store was
+deliberately mounted writable as a diagnostic, so the denial came from Codex's
+inner Linux sandbox. Neither denied command printed credential content.
+
+Turn 1 used `gpt-6-luna` at low effort and completed. The agent's command
+events show it edited and read `SKILL.md`; the draft gained the requested
+example and contained no extra file. Final validation found only `SKILL.md`
+changed, no structural violations, and a passing fixed case. The canonical
+skill and synthetic store were unchanged. The agent did not make the requested
+forbidden-write call, so
+the agent-originated store boundary was not established. Turn 2 restarted the
+container/app-server, resumed the **same native thread** using the persistent
+volume, and completed. Its trace contains no command event; the agent message
+indicates a refusal, and the draft and store remained unchanged. This confirms
+persistent thread resume but still does not prove an agent-originated denied
+write. The absence of a write is not a sandbox denial.
+
+The new scripts are `probe_container_agent_edit.py`,
+`probe_container_agent_resume.py`, and `inspect_container_agent_trace.py`.
+They write raw traces only into the private state directory and print
+sanitized summaries. Their ledger is exhausted; rerunning them cannot submit
+another model turn. The result is a **go for a local container-based edit and
+resume prototype**, with direct-command write and credential-read boundaries
+observed. Agent-originated denial, full credential isolation, and network
+isolation remain open before an untrusted or multi-user runner.

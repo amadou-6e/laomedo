@@ -1,0 +1,10 @@
+default_permissions = "container-edit"
+approval_policy = "never"
+
+[permissions.container-edit.filesystem]
+":root" = "read"
+":workspace_roots" = "write"
+"/home/runner/.codex/auth.json" = "deny"
+
+[permissions.container-edit.network]
+enabled = false

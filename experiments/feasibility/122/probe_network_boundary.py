@@ -88,7 +88,11 @@ def main() -> None:
     parser.add_argument("--codex", required=True, type=Path)
     parser.add_argument("--profile-dir", type=Path)
     parser.add_argument("--state-dir", type=Path)
-    parser.add_argument("--identity-only", action="store_true")
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument("--identity-only", action="store_true")
+    mode_group.add_argument("--loopback-only", action="store_true")
+    parser.add_argument("--windows-mode", choices=("elevated", "unelevated"),
+                        required=True)
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
     if bool(args.profile_dir) != bool(args.state_dir):
@@ -118,7 +122,8 @@ def main() -> None:
     report = {"model_calls": 0, "credential_used": False,
               "config_file_changed": False,
               "tested_endpoint": "local_loopback_fixture",
-              "reused_existing_private_profile": private}
+              "reused_existing_private_profile": private,
+              "requested_windows_mode": args.windows_mode}
     with tempfile.TemporaryDirectory(prefix="laomedo-122-network-", dir=parent,
                                      ignore_cleanup_errors=True) as scratch:
         state = Path(scratch)
@@ -133,21 +138,26 @@ def main() -> None:
         env["TEMP"] = env["TMP"] = str(environment_state / "tmp")
         url = f"http://127.0.0.1:{fixture.server_port}/fixture"
         server = AppServer(codex, draft, env, environment_state,
-                           startup_args=["-c", 'windows.sandbox="elevated"'])
+                           startup_args=["-c", f'windows.sandbox="{args.windows_mode}"'])
         try:
             ok, _ = server.initialize()
             report["initialized"] = ok
             if ok:
+                config = server.send("config/read", {}, timeout=20)
+                settings = (config.get("result") or {}).get("config") or {}
+                report["configured_windows_sandbox"] = (
+                    (settings.get("windows") or {}).get("sandbox"))
                 if not args.identity_only:
                     report["phase"] = "network_enabled"
                     report["network_enabled"] = execute(server, env, draft, url, True)
                     report["phase"] = "network_disabled"
                     report["network_disabled"] = execute(server, env, draft, url, False)
-                report["phase"] = "identity_enabled"
-                report["identity_enabled"] = identity(server, env, draft, True)
-                report["phase"] = "identity_disabled"
-                report["identity_disabled"] = identity(server, env, draft, False)
-                if not args.identity_only:
+                if not args.loopback_only:
+                    report["phase"] = "identity_enabled"
+                    report["identity_enabled"] = identity(server, env, draft, True)
+                    report["phase"] = "identity_disabled"
+                    report["identity_disabled"] = identity(server, env, draft, False)
+                if not args.identity_only and not args.loopback_only:
                     report["phase"] = "external_enabled"
                     report["external_enabled"] = external(server, env, draft, True)
                     report["phase"] = "external_disabled"
@@ -159,6 +169,10 @@ def main() -> None:
                         not report["network_disabled"]["server_hit"] and
                         report["external_enabled"]["exit_code"] == 0 and
                         report["external_disabled"]["exit_code"] != 0)
+                elif args.loopback_only:
+                    report["loopback_blocked_when_disabled"] = (
+                        not report["network_disabled"]["fixture_response_seen"] and
+                        not report["network_disabled"]["server_hit"])
                 report["phase"] = "complete"
         except Exception as exc:
             report["error_class"] = type(exc).__name__
