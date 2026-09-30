@@ -1,0 +1,110 @@
+{
+  "issue": 146,
+  "credential_mode": "isolated_chatgpt_handoff_in_private_docker_volume",
+  "raw_traces": "private_only",
+  "original_122_attempts": 7,
+  "docker_route_attempts": 4,
+  "docker_route_cap": 6,
+  "policy_ref": {
+    "policy_id": "fixture-edit-policy-122",
+    "revision_id": "1",
+    "hash": "sha256:0d0c67179033c5948276b3fe32f8e3e222f9995f3b5fb59b62f4a4ae0d6c4c14"
+  },
+  "base_hash": "sha256:b56c33d7112ea9b76ce82f7c4295082dbef6385274f5673dfac2dfd63c8ee2cf",
+  "agent_edit_and_denial": {
+    "attempt": 3,
+    "run_id": "e66017e9-034e-4a28-b72e-930f637d71bc",
+    "native_thread_id": "01a0f3c3-0b70-7542-a943-2f7976c9b97c",
+    "native_turn_id": "01a0f3c3-0d3d-7a52-b383-aabacbc91210",
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "turn_status": "completed",
+    "item_type_counts": {
+      "userMessage": 2,
+      "agentMessage": 4,
+      "commandExecution": 4,
+      "fileChange": 2
+    },
+    "command_evidence": [
+      {
+        "validation_script_invoked": false,
+        "exit_code": 0,
+        "exact_target_reported": false,
+        "os_denial_reported": false
+      },
+      {
+        "validation_script_invoked": true,
+        "exit_code": 2,
+        "exact_target_reported": true,
+        "os_denial_reported": true
+      }
+    ],
+    "agent_origin_denial_observed": true,
+    "canonical_unchanged": true,
+    "store_unchanged": true,
+    "token_usage": {
+      "total": {
+        "totalTokens": 62849,
+        "inputTokens": 62564,
+        "cachedInputTokens": 56320,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 285,
+        "reasoningOutputTokens": 0
+      },
+      "last": {
+        "totalTokens": 15891,
+        "inputTokens": 15816,
+        "cachedInputTokens": 15104,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 75,
+        "reasoningOutputTokens": 0
+      }
+    }
+  },
+  "candidate": {
+    "skipped_empty_runtime_dirs": [
+      ".agents",
+      ".codex",
+      ".git"
+    ],
+    "changed_paths": [
+      "SKILL.md"
+    ],
+    "base_hash": "sha256:b56c33d7112ea9b76ce82f7c4295082dbef6385274f5673dfac2dfd63c8ee2cf",
+    "draft_hash": "sha256:17c3741a0cf1ab5f147b40ff252ff0cc356f79167530ec25fc33fdf5bbbe91dd",
+    "patch_available": true,
+    "violations": [],
+    "fixed_case_passed": true,
+    "promotion_eligible_for_review": true
+  },
+  "resume": {
+    "attempt": 4,
+    "turn_status": "completed",
+    "same_native_thread": true,
+    "restored_draft_hash": "sha256:17c3741a0cf1ab5f147b40ff252ff0cc356f79167530ec25fc33fdf5bbbe91dd",
+    "source_candidate_hash": "sha256:17c3741a0cf1ab5f147b40ff252ff0cc356f79167530ec25fc33fdf5bbbe91dd",
+    "read_command_observed": true,
+    "post_run_line_observed_in_tool_result": true,
+    "draft_content_unchanged": true,
+    "canonical_unchanged": true,
+    "store_unchanged": true,
+    "token_usage": {
+      "total": {
+        "totalTokens": 95813,
+        "inputTokens": 95464,
+        "cachedInputTokens": 87552,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 349,
+        "reasoningOutputTokens": 0
+      },
+      "last": {
+        "totalTokens": 16517,
+        "inputTokens": 16504,
+        "cachedInputTokens": 16128,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 13,
+        "reasoningOutputTokens": 0
+      }
+    }
+  }
+}
