@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "skill_id": "html-to-drawio",
+  "files": [
+    "SKILL.md",
+    "scripts/verify_parity.py",
+    "scripts/run_with_parity.py",
+    "scripts/html_to_drawio.py",
+    "scripts/export_html_png.py",
+    "scripts/build_token_sparse_refs.py",
+    "references/raw/mxgraph-mxgraphmodel.html",
+    "references/raw/mxgraph-mxconstants.html",
+    "references/raw/mxgraph-mxcell.html",
+    "references/raw/drawio-libs-readme.md",
+    "references/raw/drawio-export-to-xml.html",
+    "references/raw/drawio-diagram-source-edit.html",
+    "references/drawio-xml-token-sparse.md",
+    "references/drawio-xml-token-sparse.json"
+  ],
+  "items": [
+    {
+      "id": "usage-example",
+      "kind": "example",
+      "source": {"path": "SKILL.md", "heading": "## Usage"},
+      "requires": ["scripts/run_with_parity.py", "scripts/html_to_drawio.py", "scripts/verify_parity.py"]
+    },
+    {
+      "id": "required-references",
+      "kind": "rule",
+      "source": {"path": "SKILL.md", "heading": "## Required References Before Any Fix"},
+      "requires": [
+        "references/drawio-xml-token-sparse.md",
+        "references/drawio-xml-token-sparse.json",
+        "references/raw/mxgraph-mxgraphmodel.html",
+        "references/raw/mxgraph-mxconstants.html",
+        "references/raw/mxgraph-mxcell.html",
+        "references/raw/drawio-export-to-xml.html",
+        "references/raw/drawio-diagram-source-edit.html"
+      ]
+    }
+  ]
+}

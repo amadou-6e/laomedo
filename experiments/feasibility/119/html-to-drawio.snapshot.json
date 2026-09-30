@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "skill_id": "html-to-drawio",
+  "revision_id": "sha256:9446eda3403652bd5223a8690b9345ff56348224257ab41db49b3022883816d6",
+  "tree_hash": "sha256:9446eda3403652bd5223a8690b9345ff56348224257ab41db49b3022883816d6",
+  "file_hashes": {
+    "SKILL.md": "sha256:34160f6cd0f8a6c5605f2218ad8e91a3a9bb68f4e17e8525b7988e610888e192",
+    "references/drawio-xml-token-sparse.json": "sha256:9059f16b9ae7bb8b27ff5fbb542f05320f348b6faee828f65922800b3a6785fe",
+    "references/drawio-xml-token-sparse.md": "sha256:cc62fbed90f96a9ea7deb78a23abd291a496e6a3c4580e6e5f0fa030c4baaaaf",
+    "references/raw/drawio-diagram-source-edit.html": "sha256:e7025fb1983c82757f1d7a7af66a7ec2eb23edea731a0ef4552193036e4be9b0",
+    "references/raw/drawio-export-to-xml.html": "sha256:6e369f3075589358249d290be80a7fe31b968b6c1a243d7adc9af67e9a749654",
+    "references/raw/drawio-libs-readme.md": "sha256:45412809ff06ecf122ecf0c1f76a20b1e40d5d2903de0e8b66f6aeb9b0a181f7",
+    "references/raw/mxgraph-mxcell.html": "sha256:1bc71b23abefc684c3704d3f529feb7abac1b913c6ec16769dfb07dae4c2f221",
+    "references/raw/mxgraph-mxconstants.html": "sha256:aaf235b2c7fe93664172fd8e2f18bf6688d90a614e0fcb63a7b746ac1c66ca9b",
+    "references/raw/mxgraph-mxgraphmodel.html": "sha256:a16d3d64222c476b54fba594f6e1b743b904ae60a3aecbb5ee32d3559fbdbeba",
+    "scripts/build_token_sparse_refs.py": "sha256:1bda5f73741d7180e23d1c54fd7460b8e69566cd14a483f3673479c3948a3e9d",
+    "scripts/export_html_png.py": "sha256:82bf653dbf36b3b03f6601319f854b2e31db18b569dc99009a56894873d4dae3",
+    "scripts/html_to_drawio.py": "sha256:e23828341aa4708c8089f73972b281680907127203b64ca3af5555ff1d7cc81c",
+    "scripts/run_with_parity.py": "sha256:2e4c602c18b5c70353daaa1b5317fe9c24b4c151ee4bfeed319fdc03ac270fd6",
+    "scripts/verify_parity.py": "sha256:eff2975c5f7c2ef6f174e7346cf116f538c900997614b7b230938313bf429e04"
+  },
+  "items": [
+    {
+      "id": "usage-example",
+      "kind": "example",
+      "source": {
+        "path": "SKILL.md",
+        "heading": "## Usage"
+      },
+      "content_hash": "sha256:e84f144e4efb6f43ab470c0e9b96c0b9a88130e13369630c7dad85633dd5b0e8"
+    },
+    {
+      "id": "required-references",
+      "kind": "rule",
+      "source": {
+        "path": "SKILL.md",
+        "heading": "## Required References Before Any Fix"
+      },
+      "content_hash": "sha256:4f0b92cf0f284d747691f2d3323494899c0315b03188ab6b091ca232901651f6"
+    }
+  ],
+  "selection": {
+    "item_ids": [
+      "usage-example"
+    ],
+    "dependency_files": [
+      "SKILL.md",
+      "scripts/html_to_drawio.py",
+      "scripts/run_with_parity.py",
+      "scripts/verify_parity.py"
+    ],
+    "delivery_mode": "direct_context_required",
+    "reason": "Native loading of SKILL.md exposes all its sections, not only the selected item."
+  }
+}

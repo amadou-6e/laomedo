@@ -100,6 +100,11 @@ fails with `CLINotFoundError` before any authentication or model call.
 Personal roots were unchanged. The two credentialed probes have not been
 executed; they require a native `claude.exe` install and a dedicated key.
 
+This is a no-go for the proposed local Claude MVP on current evidence. The
+five model-backed pass conditions remain unknown rather than failed; the
+required runtime and credential were unavailable, so no model turn was
+submitted under #121.
+
 ## Model and effort support
 
 Per the model configuration reference, effort support is model-specific:
