@@ -1,0 +1,31 @@
+{
+  "source": "codex_rollout_response_item",
+  "redaction": "whitelist_only_ids_and_types_no_content",
+  "native_session_id": "01a0f3c3-0b70-7542-a943-2f7976c9b97c",
+  "pairs": [
+    {
+      "call": {
+        "item_type": "custom_tool_call",
+        "item_id": "ctc_0799b17bd060e5d2016abd610e011487d2ac1d088a3636aec6",
+        "call_id": "call_ZVqrj7mWosCP0wXsBXx6H05V"
+      },
+      "result": {
+        "item_type": "custom_tool_call_output",
+        "item_id": "ctco_01a0f3c3-1f14-7c91-a983-ed8fc0d49842",
+        "call_id": "call_ZVqrj7mWosCP0wXsBXx6H05V"
+      }
+    },
+    {
+      "call": {
+        "item_type": "custom_tool_call",
+        "item_id": "ctc_0799b17bd060e5d2016abd61100d7887d2a947bad1c8672168",
+        "call_id": "call_sWJjg68QsqoXQkQjaS6uodwC"
+      },
+      "result": {
+        "item_type": "custom_tool_call_output",
+        "item_id": "ctco_01a0f3c3-286c-77a3-99f6-bec86a8e9958",
+        "call_id": "call_sWJjg68QsqoXQkQjaS6uodwC"
+      }
+    }
+  ]
+}
