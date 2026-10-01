@@ -120,6 +120,36 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
                          ["attempted_turns"], 3)
 
+    def test_multiple_skills_materialize_and_resume_as_one_bound_snapshot(self):
+        second = self.runner.store.import_skill("second", self.skill_source)
+        request = self.request()
+        first_ref = request.pop("skill_ref")
+        request["skill_refs"] = [first_ref, {"skill_id": "second",
+            "revision_id": second["revision_id"], "tree_hash": second["tree_hash"]}]
+        result = self.runner.start(request)
+        self.assertEqual([s["skill_id"] for s in result["skills"]], ["sample", "second"])
+        self.assertIsNone(result["skill"])
+        for name in ("sample", "second"):
+            self.assertTrue((self.runner._run_dir(result["run_id"]) /
+                             "post-run/.agents/skills" / name / "SKILL.md").is_file())
+        resumed = self.runner.resume(result["run_id"], "continue",
+            expected_post_run_hash=result["post_run_hash"],
+            expected_thread_id=result["thread_id"], model="test-model", effort="low")
+        self.assertEqual(resumed["skills"], result["skills"])
+
+    def test_multiple_skill_failure_cleans_partial_materialization_without_dispatch(self):
+        request = self.request()
+        ref = request.pop("skill_ref")
+        before = len(FakeServer.calls)
+        request["skill_refs"] = [ref, {**ref, "skill_id": "missing"}]
+        with self.assertRaises(Exception):
+            self.runner.start(request)
+        self.assertEqual(len(FakeServer.calls), before)
+        self.assertEqual(list((self.runner.state / "runs").iterdir()), [])
+        request["skill_refs"] = [ref, ref]
+        with self.assertRaisesRegex(RunnerError, "duplicate_skill_id"):
+            self.runner.start(request)
+
     def test_default_turn_cap_denies_model_submission(self):
         stopped = LocalRunner(self.runner.state, self.runner.store.root, self.source,
                               transport=FakeServer, check_docker=False)

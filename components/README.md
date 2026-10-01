@@ -60,3 +60,13 @@ with a known run ID remains available in this node.
 
 Reference: [Langflow custom components](https://docs.langflow.org/components-custom-components).
 Newer documentation features must be checked against the installed 1.12.3 runtime.
+# Multiple skills
+
+Connect several Laomedo Skill outputs to the agent's Skill References list port.
+Each reference pins one whole immutable bundle. Up to sixteen distinct IDs are
+supported; repeated IDs and mixed multi-reference/inline selections fail before
+dispatch. The runner materializes all bundles before a turn and records each in
+`skills`. Resume retains the original set. Availability is reported as offered,
+not proof that the model used every skill. Existing single-reference flows remain
+compatible. Two-node graph wiring and runner restart/resume are covered by
+credential-free tests; a multi-skill model-backed turn has not yet been run.
