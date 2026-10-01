@@ -7,7 +7,7 @@ import threading
 import unittest
 from urllib import request as http_request, error as http_error
 
-from laomedo.local_runner import LocalRunner, RunnerError, _hash_tree, serve
+from laomedo.local_runner import AppServer, LocalRunner, RunnerError, _hash_tree, serve
 from laomedo.skill_store import SkillStore, tree_hash
 
 
@@ -313,6 +313,13 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertNotIn("auth.json", serialized)
         self.assertNotIn("C:\\Users\\", serialized)
         self.assertNotIn("X-Bridge-Key", serialized)
+
+    def test_completion_queued_before_turn_start_response_is_observed(self):
+        server = AppServer.__new__(AppServer)
+        server.events = [{"method": "turn/completed", "params": {"turn": {
+            "id": "fast-turn", "status": "completed"}}}]
+        status, error = server.wait_turn("fast-turn", .1, threading.Event())
+        self.assertEqual((status, error), ("completed", None))
 
 
 if __name__ == "__main__":

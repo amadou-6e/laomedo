@@ -168,7 +168,14 @@ class AppServer:
 
     def wait_turn(self, turn_id: str, timeout: float, cancelled: threading.Event) -> tuple[str, str | None]:
         deadline = time.monotonic() + timeout
+        cursor = 0
         while time.monotonic() < deadline:
+            for event in self.events[cursor:]:
+                if event.get("method") == "turn/completed":
+                    turn = event.get("params", {}).get("turn") or {}
+                    if turn.get("id") == turn_id:
+                        return turn.get("status") or "unknown", None
+            cursor = len(self.events)
             if cancelled.is_set():
                 return "cancelled", None
             try:
@@ -178,10 +185,6 @@ class AppServer:
                     return "failed", "app_server_exited"
                 continue
             self.events.append(msg)
-            if msg.get("method") == "turn/completed":
-                turn = msg.get("params", {}).get("turn") or {}
-                if turn.get("id") == turn_id:
-                    return turn.get("status") or "unknown", None
         return "timeout", "turn_timeout"
 
     def close(self) -> None:
