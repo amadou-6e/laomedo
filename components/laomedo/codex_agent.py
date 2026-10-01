@@ -167,6 +167,7 @@ class LaomedoCodexAgent(Component):
         skill = result.get("skill") or {}
         skills = result.get("skills") or ([skill] if skill else [])
         return {"answer": result.get("answer"), "run_id": result["run_id"],
+            "provider": result.get("provider", "codex"),
             "thread_id": result.get("thread_id"), "status": result.get("status"),
             "post_run_hash": result.get("post_run_hash"),
             "model": result.get("requested_model"), "effort": result.get("requested_effort"),
@@ -175,7 +176,8 @@ class LaomedoCodexAgent(Component):
             "skills": skills,
             "artifact_ref": result.get("output_ref"), "trace_ref": result.get("raw_event_ref"),
             "error_category": result.get("error_category"),
-            "cancel_requested": result.get("cancel_requested", False), "usage": "unknown"}
+            "cancel_requested": result.get("cancel_requested", False),
+            "usage": result.get("usage") if isinstance(result.get("usage"), dict) else "unknown"}
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
