@@ -9,6 +9,12 @@ Codex CLI `0.159.2`, the existing `laomedo-122-docker-auth` volume, and
 `a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4`.
 The Docker grant and mounts have not changed. No credential is in this example.
 
+The [2026-10-01 evidence](pilot-evidence.md) records a successful real run
+through the imported Langflow flow, native thread resume after runner restart,
+fresh-run independence, missing-snapshot rejection, and cancellation. The
+authorized ledger reached 4/4. AGENTVIZ inspection is deferred. Resume was
+tested through the runner API; this saved Langflow component starts fresh runs.
+
 The skill is pinned to revision
 `sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8`.
 The source workspace contains only `fixture.txt`. A fresh run copies it to a
@@ -40,7 +46,7 @@ model/effort options without submitting a turn. The runner defaults to a
 **zero-turn cap**. Start it only with an explicitly authorized turn cap:
 
 ```powershell
-python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source --max-model-turns 3
+python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source --max-model-turns 4
 ```
 
 The cap lives in `turn-ledger.json` outside Git. Reservations occur before
@@ -113,14 +119,44 @@ The helper reads an optional `LANGFLOW_API_KEY` from the process environment
 and never writes that key to the flow or report. The run API response is kept
 private because it can include the task and answer.
 
+Langflow 1.12.3 requires authentication for flow creation and an API key for the
+run endpoint, including when the disposable server uses `LANGFLOW_AUTO_LOGIN=true`.
+Create a key in the local Langflow server and supply it through
+`LANGFLOW_API_KEY` when using the helper. This key authenticates to Langflow;
+Codex continues to use the existing private Docker login. The observed test
+used `/api/v1/auto_login` and `/api/v1/api_key/` with tokens held in memory.
+
+To reproduce the model checks with a newly authorized budget:
+
+1. Import the saved flow and invoke it with the first-run task above. Confirm
+   the real trace contains completed command events and that the private
+   workspace contains `pilot-marker.txt` with `FIRST-RUN`.
+2. Read `GET /v1/runs/{run_id}`, restart the host runner with the same private
+   state and cumulative cap, and post to `/v1/runs/{run_id}/resume` with that
+   record's `expected_post_run_hash`, `expected_thread_id`, model and effort.
+   Ask the agent to read the marker without changing files. Confirm the same
+   native thread and unchanged snapshot hash.
+3. Invoke the saved Langflow flow again, asking it to test for the marker and
+   read the fixture without writing files. Verify a new thread and absent marker.
+4. Invoke the flow with a shell task that reads the fixture and sleeps for 60
+   seconds. After observing the command's native start event, post to
+   `/v1/runs/{run_id}/cancel`. Check the retained partial events and Langflow's
+   error containing that run ID and `cancelled`.
+
+The missing-snapshot check temporarily holds the completed run's `post-run`
+directory, attempts a resume with its original binding, then restores the
+directory. It must return `post_run_snapshot_mismatch` before reserving a turn.
+Once the ledger is exhausted, a new request must return
+`model_turn_cap_reached` without issuing a native thread or changing the ledger.
+
 ## Credential-free checks
 
 ```powershell
 python -m unittest discover -s tests -p 'test_*.py' -q
 ```
 
-These tests cover exact materialization, workspace separation, snapshot
+These credential-free tests cover exact materialization, workspace separation, snapshot
 integrity, restart/resume binding, HTTP result and failure behavior, and the
 persistent turn cap with a fake app-server. They do not establish a successful
-model-backed Langflow run or a broader security boundary. Private raw events
+model-backed Langflow run by themselves or a broader security boundary. Private raw events
 remain under the runner state directory and are never committed.
