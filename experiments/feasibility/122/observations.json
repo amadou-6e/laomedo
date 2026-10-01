@@ -1,14 +1,20 @@
 {
   "issue": 122,
-  "observed_on": "2026-09-29",
-  "codex_cli": "0.155.0-alpha.16.3",
+  "observed_on": "2026-09-29 to 2026-09-30",
+  "initial_codex_cli": "0.155.0-alpha.16.3",
   "provider": "Codex",
   "credential_mode": "private_chatgpt_handoff_reused_from_120",
-  "submitted_turns": 2,
-  "turn_cap": 6,
+  "submitted_turns": 7,
+  "turn_cap": 7,
+  "turn_cap_basis": "The original issue authorized six turns. The user explicitly authorized one supplemental retry after turn 6 timed out. The existing ledger was retained and the cap increased to seven. Turn 7 was submitted and completed; the cap is exhausted again.",
   "actual_api_spend_usd": null,
-  "api_equivalent_estimate_usd": 0.00546944,
-  "estimate_basis": "GPT-6 Luna Standard short-context API rates recorded in #120; final cumulative counters per fresh thread; no cache writes reported",
+  "api_equivalent_estimate_usd_first_two_turns": 0.00546944,
+  "api_equivalent_estimate_usd_all_five_turns": 0.00857218,
+  "api_equivalent_estimate_usd_sixth_turn_observed_lower_bound": 0.00185918,
+  "api_equivalent_estimate_usd_all_six_observed_lower_bound": 0.01043136,
+  "api_equivalent_estimate_usd_seventh_turn": 0.00094796,
+  "api_equivalent_estimate_usd_all_seven_observed_lower_bound": 0.01137932,
+  "estimate_basis": "GPT-6 Luna Standard short-context API-equivalent rates: USD 0.10 per million uncached input, 0.01 cached input, and 0.50 output. Zero cache-write tokens were reported. Resume usage is the final cumulative thread total minus the first turn total. No request exceeded 272K input. This assumes Standard processing and is not an actual ChatGPT bill.",
   "runs": [
     {
       "run_id": "b040771b-814d-44bf-bbc1-73e948b7a2a3",
@@ -57,13 +63,214 @@
       },
       "personal_skill_and_auth_hashes_unchanged": true,
       "personal_session_hash_unchanged": false
+    },
+    {
+      "run_id": "aecb7e9f-61d4-4d50-8b8b-b6408672b3d5",
+      "native_thread_id": "01a0f299-da8a-7d70-9117-66ff5b9183c6",
+      "native_turn_id": "01a0f299-dad5-70c0-8aee-27b5ef4e2d0a",
+      "codex_cli": "0.159.0",
+      "requested_model": "gpt-6-luna",
+      "requested_effort": "low",
+      "windows_sandbox_override": "elevated",
+      "called_outside_outer_tool_sandbox": true,
+      "effective_thread_sandbox": "workspaceWrite",
+      "recorded_turn_sandbox": "workspace-write",
+      "turn_completed": true,
+      "completed_command_items": 2,
+      "completed_file_change_items": 1,
+      "draft_skill_contains_requested_example": true,
+      "canonical_skill_unchanged": true,
+      "unexpected_draft_directory": "%SystemDrive%/ProgramData/Microsoft/Windows/Caches",
+      "validation_violations": ["skill_missing", "unapproved_directory"],
+      "clean_skill_only_copy_validation_violations": [],
+      "clean_skill_only_copy_fixed_case_passed": true,
+      "resume_attempted": false,
+      "final_cumulative_usage": {
+        "input_tokens": 58045,
+        "cached_input_tokens": 50176,
+        "cache_write_tokens": 0,
+        "output_tokens": 457
+      }
+    },
+    {
+      "run_id": "6992de82-1f09-471a-a027-8bee6e07c021",
+      "native_thread_id": "01a0f2b9-3a2a-76c3-8a6e-428ee9674ee7",
+      "codex_cli": "0.159.0",
+      "requested_model": "gpt-6-luna",
+      "requested_effort": "low",
+      "windows_sandbox_override": "elevated",
+      "called_outside_outer_tool_sandbox": true,
+      "effective_thread_sandbox": "workspaceWrite",
+      "canonical_skill_unchanged": true,
+      "draft_file_count_after_resume": 1,
+      "changed_paths_after_resume": ["SKILL.md"],
+      "final_draft_hash": "sha256:fb24178da9a8a24d09d7b607bc0f6a64741bedc73ecab860d7a4993eb83df4e3",
+      "first_turn": {
+        "attempted_turn_number": 4,
+        "native_turn_id": "01a0f2b9-3a7b-7a72-a3b4-5a81d4138f74",
+        "status": "completed",
+        "completed_command_items": 1,
+        "completed_file_change_items": 1,
+        "validation_violations": [],
+        "fixed_case_passed": true,
+        "first_example_present_in_snapshot": true,
+        "final_cumulative_usage": {
+          "input_tokens": 42960,
+          "cached_input_tokens": 39168,
+          "cache_write_tokens": 0,
+          "output_tokens": 223
+        }
+      },
+      "resume": {
+        "attempted_turn_number": 5,
+        "native_turn_id": "01a0f2b9-5edb-7e91-b3d7-a4355a8a1468",
+        "status": "completed",
+        "same_native_thread": true,
+        "missing_snapshot_refused_before_change": true,
+        "restored_post_run_hash_matches": true,
+        "completed_command_items": 1,
+        "completed_file_change_items": 1,
+        "first_example_retained": true,
+        "second_example_added": true,
+        "validation_violations": [],
+        "fixed_case_passed": true,
+        "final_cumulative_usage": {
+          "input_tokens": 86943,
+          "cached_input_tokens": 81408,
+          "cache_write_tokens": 0,
+          "output_tokens": 436
+        }
+      },
+      "promotion_eligible": true,
+      "promotion_performed": false
     }
   ],
+  "windows_environment_diagnostic": {
+    "model_calls": 0,
+    "credential_used": false,
+    "command": "synthetic PowerShell read under explicit elevated Windows sandbox",
+    "literal_systemdrive_cache_created_without_systemdrive": true,
+    "literal_systemdrive_cache_created_with_systemdrive": false,
+    "runner_construct_env_omitted_systemdrive_before_fix": true,
+    "runner_construct_env_now_supplies_systemdrive": true
+  },
   "credential_free_permission_comparison": {
     "versions": ["0.155.0-alpha.16.3", "0.159.0"],
     "thread_start_returned": "readOnly",
     "command_exec_workspace_write_canary": true,
     "model_calls": 0
   },
-  "interpretation": "The second private turn context recorded workspace-write, but no agent tool call or edit occurred. Neither run demonstrated an agent edit or resume. Personal session changes are confounded by concurrent IDE activity. Raw app-server streams remain private."
+  "native_write_boundary_probe": {
+    "codex_cli": "0.159.0",
+    "model_calls": 0,
+    "credential_used": false,
+    "configuration_file_changed": false,
+    "sandbox_setup_requested": false,
+    "network_access_enabled_for_synthetic_echo_only": true,
+    "default_without_windows_mode": {
+      "read_only_write_succeeded": true,
+      "draft_write_succeeded": true,
+      "sibling_store_write_succeeded": true
+    },
+    "explicit_unelevated_outside_tool_sandbox": {
+      "read_only_write_succeeded": false,
+      "draft_write_succeeded": false,
+      "sibling_store_write_succeeded": false,
+      "failure": "Access is denied for every attempted write"
+    },
+    "explicit_elevated_outside_tool_sandbox": {
+      "read_only_write_succeeded": false,
+      "draft_write_succeeded": true,
+      "sibling_store_write_succeeded": false,
+      "protected_store_file_unchanged": true
+    },
+    "protected_codex_setup_state_retained_outside_git": true
+  },
+  "network_boundary_probe": {
+    "model_calls": 0,
+    "credential_used": false,
+    "fixture": "local_loopback_http",
+    "enabled_command_result": "timeout",
+    "disabled_command_attempted": false,
+    "network_isolation_result": "inconclusive_initial_timeout; later_completed_loopback_probe_reached_fixture_with_network_disabled",
+    "later_completed_loopback_probe": {
+      "reused_existing_private_profile": true,
+      "network_enabled_reached_fixture": true,
+      "network_disabled_reached_fixture": true,
+      "both_command_exit_codes": 0,
+      "model_calls": 0
+    },
+    "identity_and_external_egress_checks": "stalled_during_sandbox_setup_before_command_result",
+    "interpretation_limit": "The documented boolean networkAccess field was used. Local loopback was reachable with false in one completed run. The selected sandbox identity and external egress remain unverified."
+  },
+  "supplemental_turn_7": {
+    "native_thread_id": "01a0f312-a3ec-7e30-b2a6-76209938ccdf",
+    "native_turn_id": "01a0f312-a48c-7891-8d67-bb063e1a7b2d",
+    "requested_model": "gpt-6-luna",
+    "requested_effort": "low",
+    "effective_thread_sandbox": "workspaceWrite",
+    "recorded_turn_sandbox": "workspace-write",
+    "approval_policy": "never",
+    "direct_allowed_draft_write": true,
+    "direct_forbidden_outside_store_write_denied": true,
+    "agent_turn_completed": true,
+    "completed_command_items": 1,
+    "agent_command_targeted_exact_outside_store_file": true,
+    "agent_command_exit_code": 1,
+    "agent_command_error_class": "UnauthorizedAccessException",
+    "forbidden_target_absent": true,
+    "synthetic_sentinel_unchanged": true,
+    "synthetic_outside_store_cleaned_up": true,
+    "final_cumulative_usage": {
+      "input_tokens": 32902,
+      "cached_input_tokens": 27136,
+      "cache_write_tokens": 0,
+      "output_tokens": 200
+    }
+  },
+  "supplemental_preflight_correction": {
+    "first_forbidden_store_was_inside_runner_temp_root": true,
+    "first_direct_forbidden_write_succeeded": true,
+    "model_turn_reserved_for_bad_fixture": false,
+    "corrected_store_outside_runner_state": true,
+    "corrected_direct_forbidden_write_denied": true
+  },
+  "canonical_store_boundary": {
+    "historical_temp_was_issue_state_root": true,
+    "canonical_fixture_was_nested_under_issue_state": true,
+    "canonical_content_observed_unchanged": true,
+    "historical_os_write_denial_proven": false,
+    "runner_now_uses_dedicated_state_tmp": true,
+    "direct_canonical_write_check_with_narrow_temp": "inconclusive_sandbox_setup_timeout",
+    "production_requirement": "canonical store outside all agent writable roots with write-denial canary"
+  },
+  "forbidden_agent_write_probe": {
+    "native_thread_id": "01a0f2df-fb24-7083-ab75-d76868a5d69c",
+    "native_turn_id": "01a0f2df-fb67-7db1-b0b7-be0b3540dab6",
+    "attempted_turn_number": 6,
+    "requested_model": "gpt-6-luna",
+    "requested_effort": "low",
+    "effective_thread_sandbox": "workspaceWrite",
+    "recorded_turn_sandbox": "workspace-write",
+    "turn_result": "timeout_after_120_seconds",
+    "agent_message_observed": true,
+    "command_or_file_change_items_observed": 0,
+    "forbidden_target_absent": true,
+    "synthetic_sentinel_unchanged": true,
+    "agent_write_denial_proven": false,
+    "last_observed_cumulative_usage": {
+      "input_tokens": 102571,
+      "cached_input_tokens": 95488,
+      "cache_write_tokens": 0,
+      "output_tokens": 392
+    },
+    "usage_is_partial_due_to_timeout": true
+  },
+  "protected_scratch_cleanup": {
+    "exact_directories_attempted": 3,
+    "directories_removed": 0,
+    "result": "access_denied_on_sandbox_users_json",
+    "requires_administrator_cleanup": true
+  },
+  "interpretation": "The first two turns had no agent tool item or edit. The third edited SKILL.md but was ineligible because missing SystemDrive caused a PowerShell cache directory inside the draft. Adding SystemDrive to the constructed private environment removed that incidental path. The fourth turn produced a valid agent edit, and the fifth resumed the same native thread from the frozen post-run draft, retained its first example, and added the second. The canonical skill stayed unchanged and no promotion occurred. The sixth turn timed out without a command or file-change item. The user-authorized seventh turn completed and its command item shows an exact forbidden outside-store PowerShell write denied with exit code 1; the target stayed absent and sentinel unchanged. A credential-free completed loopback probe reached its fixture under both networkAccess true and false. Sandbox identity and external egress remain unverified because follow-up checks stalled during setup. Raw app-server streams remain private."
 }

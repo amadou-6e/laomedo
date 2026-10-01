@@ -1,0 +1,23 @@
+{
+  "model_calls": 0,
+  "docker_network": "bridge",
+  "runner_permission_profile": "container-edit",
+  "initialized": true,
+  "command_response": true,
+  "exit_code": 1,
+  "command_started": true,
+  "connection_succeeded": false,
+  "deny_class": "EAI_AGAIN",
+  "result_keys": [
+    "exitCode",
+    "stderr",
+    "stdout"
+  ],
+  "boundary_passed": true,
+  "server_status": {
+    "authentication": false,
+    "network": false,
+    "sandbox": false,
+    "nonempty": false
+  }
+}

@@ -1,0 +1,9 @@
+default_permissions = "container-test"
+approval_policy = "never"
+
+[permissions.container-test.filesystem]
+":root" = "read"
+":workspace_roots" = "write"
+
+[permissions.container-test.network]
+enabled = false

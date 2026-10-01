@@ -41,12 +41,18 @@ class DraftGuardTests(unittest.TestCase):
             (draft / "SKILL.md").write_text(BASE_SKILL, encoding="utf-8")
             before = tree_hash(inventory(draft))
             with self.assertRaises(ValueError):
-                restore(root / "missing", draft, before)
+                restore(root / "missing", draft, before, root)
             self.assertEqual(tree_hash(inventory(draft)), before)
             frozen = root / "snapshot"
             snapshot(draft, frozen)
             (draft / "SKILL.md").write_text("drift", encoding="utf-8")
-            self.assertEqual(restore(frozen, draft, before), before)
+            narrow_root = root / "narrow"
+            narrow_root.mkdir()
+            with self.assertRaisesRegex(ValueError, "restore_path_outside_run_root"):
+                restore(frozen, draft, before, narrow_root)
+            self.assertEqual((draft / "SKILL.md").read_text(encoding="utf-8"),
+                             "drift")
+            self.assertEqual(restore(frozen, draft, before, root), before)
 
     def test_issue_turn_ledger_counts_failed_attempts(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -55,6 +61,29 @@ class DraftGuardTests(unittest.TestCase):
             self.assertEqual(reserve_turn(state, limit=2), 2)
             with self.assertRaisesRegex(ValueError, "issue_122_turn_cap_reached"):
                 reserve_turn(state, limit=2)
+
+    def test_supplemental_turn_uses_existing_ledger(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            (state / "turn-budget-122.json").write_text(
+                '{"attempted_turns": 6}\n', encoding="utf-8")
+            self.assertEqual(reserve_turn(state), 7)
+            with self.assertRaisesRegex(ValueError, "issue_122_turn_cap_reached"):
+                reserve_turn(state)
+
+    def test_agent_denial_requires_exact_target_and_failed_command(self):
+        from probe_agent_forbidden_write import denied_command_items
+        target = Path(r"C:\fixture\forbidden\agent-marker.txt")
+        denied = {"method": "item/completed", "params": {"item": {
+            "type": "commandExecution", "status": "failed", "exitCode": 1,
+            "command": r"Set-Content C:\\fixture\\forbidden\\agent-marker.txt",
+            "aggregatedOutput": "Access is denied"}}}
+        unrelated = {"method": "item/completed", "params": {"item": {
+            "type": "commandExecution", "status": "failed", "exitCode": 1,
+            "command": r"Set-Content C:\fixture\other.txt",
+            "aggregatedOutput": "Access is denied"}}}
+        self.assertEqual(len(denied_command_items([denied, unrelated], target)), 1)
+        self.assertEqual(denied_command_items([unrelated], target), [])
 
     def test_symlink_in_inventory_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -12,6 +12,7 @@ No protocol behavior is assumed beyond the documented app-server reference.
 
 import hashlib
 import json
+import ntpath
 import os
 import queue
 from pathlib import Path
@@ -243,6 +244,9 @@ def inside_git_tree(path: Path) -> bool:
 
 def construct_env(private_home: Path, codex_home: Path, state: Path, codex_parent: Path):
     system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    system_drive = ntpath.splitdrive(system_root)[0]
+    if not system_drive:
+        raise ValueError("system_root_missing_drive")
     return {
         "HOME": str(private_home),
         "USERPROFILE": str(private_home),
@@ -254,6 +258,7 @@ def construct_env(private_home: Path, codex_home: Path, state: Path, codex_paren
         "TEMP": str(state),
         "TMP": str(state),
         "SystemRoot": system_root,
+        "SystemDrive": system_drive,
         "WINDIR": system_root,
         "PATH": os.pathsep.join([str(codex_parent), str(Path(system_root) / "System32")]),
     }
@@ -375,7 +380,8 @@ class AppServer:
     server-initiated requests (method and id).
     """
 
-    def __init__(self, codex: Path, cwd: Path, env: dict, state: Path):
+    def __init__(self, codex: Path, cwd: Path, env: dict, state: Path,
+                 startup_args=()):
         self.state = state
         log_id = str(time.time_ns())
         self.error_log_path = state / f"app-server-{log_id}.stderr.log"
@@ -383,7 +389,7 @@ class AppServer:
         self.error_log = self.error_log_path.open("w", encoding="utf-8")
         self.event_log = self.event_log_path.open("w", encoding="utf-8")
         self.process = subprocess.Popen(
-            [str(codex), "app-server", "--stdio"], cwd=cwd, env=env,
+            [str(codex), *startup_args, "app-server", "--stdio"], cwd=cwd, env=env,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.error_log,
             text=True, encoding="utf-8",
         )

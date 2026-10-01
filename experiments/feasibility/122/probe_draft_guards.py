@@ -36,25 +36,31 @@ def policy_ref() -> dict:
 
 def inventory(root: Path) -> dict[str, bytes]:
     """Reject links and special files; never read through a symlink."""
-    is_junction = getattr(root, "is_junction", lambda: False)
-    if root.is_symlink() or is_junction() or not root.is_dir():
-        raise ValueError("invalid_tree_root")
+    try:
+        is_junction = getattr(root, "is_junction", lambda: False)
+        if root.is_symlink() or is_junction() or not root.is_dir():
+            raise ValueError("invalid_tree_root")
+    except OSError as exc:
+        raise ValueError("unreadable_tree_root") from exc
     files = {}
     allowed_dirs = {str(PurePosixPath(path).parent) for path in POLICY["allowed_paths"]}
     for parent, dirs, names in os.walk(root, followlinks=False):
         for name in sorted(dirs + names):
             path = Path(parent) / name
-            junction = getattr(path, "is_junction", lambda: False)
-            if path.is_symlink() or junction():
-                raise ValueError("link_or_junction_in_tree")
-            relative = path.relative_to(root).as_posix()
-            if path.is_dir():
-                if relative not in allowed_dirs:
-                    raise ValueError("unapproved_directory")
-                continue
-            if not path.is_file():
-                raise ValueError("special_file_in_tree")
-            files[relative] = path.read_bytes()
+            try:
+                junction = getattr(path, "is_junction", lambda: False)
+                if path.is_symlink() or junction():
+                    raise ValueError("link_or_junction_in_tree")
+                relative = path.relative_to(root).as_posix()
+                if path.is_dir():
+                    if relative not in allowed_dirs:
+                        raise ValueError("unapproved_directory")
+                    continue
+                if not path.is_file():
+                    raise ValueError("special_file_in_tree")
+                files[relative] = path.read_bytes()
+            except OSError as exc:
+                raise ValueError("unreadable_entry_in_tree") from exc
     return files
 
 
@@ -140,13 +146,19 @@ def snapshot(root: Path, destination: Path) -> str:
     return tree_hash(original)
 
 
-def restore(snapshot_dir: Path, draft_dir: Path, expected_hash: str) -> str:
+def restore(snapshot_dir: Path, draft_dir: Path, expected_hash: str,
+            allowed_root: Path) -> str:
     if not snapshot_dir.is_dir() or tree_hash(inventory(snapshot_dir)) != expected_hash:
         raise ValueError("post_run_snapshot_unavailable")
     inventory(draft_dir)
-    # Validate before touching the draft. Paths are owned by this disposable
-    # probe; a production runner must also confine them with an OS boundary.
-    if draft_dir.resolve() == snapshot_dir.resolve():
+    root = allowed_root.resolve(strict=True)
+    draft = draft_dir.resolve(strict=True)
+    frozen = snapshot_dir.resolve(strict=True)
+    if (draft == root or frozen == root or
+            not draft.is_relative_to(root) or
+            not frozen.is_relative_to(root)):
+        raise ValueError("restore_path_outside_run_root")
+    if draft == frozen:
         raise ValueError("snapshot_equals_draft")
     shutil.rmtree(draft_dir)
     shutil.copytree(snapshot_dir, draft_dir)
@@ -249,11 +261,11 @@ def run_cases() -> dict:
         (draft / "SKILL.md").write_text(BASE_SKILL + "Drift line.\n", encoding="utf-8")
         before_missing = tree_hash(inventory(draft))
         try:
-            restore(resume_home / "missing", draft, post_run_hash)
+            restore(resume_home / "missing", draft, post_run_hash, resume_home)
             missing_refused = False
         except ValueError:
             missing_refused = tree_hash(inventory(draft)) == before_missing
-        restored_hash = restore(frozen, draft, post_run_hash)
+        restored_hash = restore(frozen, draft, post_run_hash, resume_home)
         results["resume"] = {"missing_snapshot_refused_before_change": missing_refused,
                              "restored_last_post_run_hash": restored_hash == post_run_hash,
                              "post_run_content_visible": "Post-run line." in

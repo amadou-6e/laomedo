@@ -1,0 +1,93 @@
+{
+  "issue": 146,
+  "model_calls": 0,
+  "credential_used": false,
+  "policy_ref": {
+    "policy_id": "fixture-edit-policy-122",
+    "revision_id": "1",
+    "hash": "sha256:0d0c67179033c5948276b3fe32f8e3e222f9995f3b5fb59b62f4a4ae0d6c4c14"
+  },
+  "image": "laomedo-codex-boundary:0.159.2",
+  "store_positive_control": {
+    "exit_code": 0,
+    "permission_denied": false,
+    "timeout": false,
+    "error_excerpt": ""
+  },
+  "allowed_edit": {
+    "exit_code": 0,
+    "permission_denied": false,
+    "timeout": false,
+    "error_excerpt": ""
+  },
+  "allowed_result": {
+    "changed_paths": [
+      "SKILL.md"
+    ],
+    "violations": [],
+    "patch_available": true,
+    "fixed_case_passed": true,
+    "draft_hash_differs": true
+  },
+  "store_forbidden": {
+    "exit_code": 2,
+    "permission_denied": true,
+    "timeout": false,
+    "error_excerpt": "sh: 1: cannot create /store/sentinel.txt: Read-only file system\n"
+  },
+  "canonical_forbidden": {
+    "exit_code": 2,
+    "permission_denied": true,
+    "timeout": false,
+    "error_excerpt": "sh: 1: cannot create /canonical/SKILL.md: Read-only file system\n"
+  },
+  "traversal_forbidden": {
+    "exit_code": 2,
+    "permission_denied": true,
+    "timeout": false,
+    "error_excerpt": "sh: 1: cannot create /draft/../store/sentinel.txt: Read-only file system\n"
+  },
+  "symlink_create": {
+    "exit_code": 0,
+    "permission_denied": false,
+    "timeout": false,
+    "error_excerpt": ""
+  },
+  "symlink_created": true,
+  "symlink_forbidden": {
+    "exit_code": 2,
+    "permission_denied": true,
+    "timeout": false,
+    "error_excerpt": "sh: 1: cannot create /draft/escape-link: Read-only file system\n"
+  },
+  "symlink_rejected_by_inventory": true,
+  "symlink_removed": true,
+  "script_write": {
+    "exit_code": 0,
+    "permission_denied": false,
+    "timeout": false,
+    "error_excerpt": ""
+  },
+  "script_rejected_by_policy": true,
+  "partial_failure": {
+    "exit_code": 2,
+    "permission_denied": true,
+    "timeout": false,
+    "error_excerpt": "sh: 3: cannot create /store/sentinel.txt: Read-only file system\n"
+  },
+  "partial_draft_changed": true,
+  "partial_ineligible": true,
+  "timeout_case": {
+    "exit_code": 124,
+    "permission_denied": false,
+    "timeout": true,
+    "error_excerpt": ""
+  },
+  "timeout_partial_present": true,
+  "timeout_ineligible": true,
+  "missing_snapshot_refused": true,
+  "corrupt_snapshot_refused": true,
+  "concurrent_base_refused": true,
+  "store_sentinel_unchanged": true,
+  "all_required_checks_passed": true
+}

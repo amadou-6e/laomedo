@@ -57,8 +57,9 @@ checks occur after filesystem changes, so they cannot prevent a process with
 write access to the canonical files from damaging them. An untrusted agent
 needs an independently enforced write boundary for only its draft workspace,
 with the store protected from its OS identity. Freeze only after that process
-ends. The #122 spike did not yet produce
-a successful agent edit. Rule/example item manifests and selected-subset
+ends. The later #122 and #146 spikes produced bounded agent edits under tested
+sandboxes; this store remains a separate deterministic review layer.
+Rule/example item manifests and selected-subset
 materialization remain separate work; `read_file` returns exact revision bytes
 and provenance but does not claim that an agent consumed them.
 

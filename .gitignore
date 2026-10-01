@@ -1,4 +1,5 @@
 # Scratch directories created by feasibility probes
 experiments/feasibility/*/_scratch_*/
-# Python bytecode
+# Python bytecode and virtual environments
 __pycache__/
+.venv/
