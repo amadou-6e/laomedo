@@ -1,6 +1,6 @@
 # Local Langflow skill-agent pilot
 
-This example covers Laomedo issues #8 through #10. The runner is a local,
+This example covers Laomedo issues #8 through #11. The runner is a local,
 single-user prototype. It reuses the Docker boundary from the #146 proof:
 `laomedo-codex-boundary:0.159.2` at image ID
 `sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239`,
@@ -56,6 +56,20 @@ The resume body needs `task`, `expected_post_run_hash`, `expected_thread_id`,
 not private filesystem paths. Failed and timed-out requests return HTTP 502
 with a run ID and error category. The status endpoint remains queryable.
 
+After a completed run, export only its matching native Codex rollout for local
+AGENTVIZ inspection:
+
+```powershell
+python -m laomedo.rollout_export --state $state --run-id '<run-id>'
+```
+
+This reads the existing Docker volume read-only, matches the native thread ID
+under its `sessions` directory, and writes one JSONL file beneath the private
+run directory. It never copies `auth.json`. Use the existing
+`experiments/feasibility/123/probe_agentviz_import.mjs` against that private
+file and a local AGENTVIZ parser bundle. Review its structural counts and
+call/result IDs before sharing any report; do not commit the rollout.
+
 ## Langflow handoff
 
 `pilot-flow.json` was generated from Langflow 1.12.3's own component schemas
@@ -83,8 +97,9 @@ The Langflow container must reach the host runner through
 `http://host.docker.internal:8765`; Docker Desktop connectivity was checked
 with a one-file loopback fixture. Trigger the imported flow in the UI or via
 `POST /api/v1/run/{flow_id}` with an `input_value` task. The imported flow ID
-may differ from the export ID. The end-to-end pilot should distinguish observed
-events from inferred skill use and unknown usage.
+may differ from the export ID. An end-to-end evidence matrix belongs in
+`pilot-evidence.md`; it must distinguish observed events from inferred skill
+use and unknown usage.
 
 The bundled API helper imports without submitting a model turn. Its `run`
 operation does submit one and requires a private report path outside Git:
