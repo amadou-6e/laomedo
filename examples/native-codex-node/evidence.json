@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-01",
+  "pins": {
+    "implementation": "6596dddf4e532ba2e24b155f6c913ffffa953a1c",
+    "skill_sha256": "2e5f447fd8479ce1d3423886e74536c6f4d01cbe39ae45cbb4d59137d91fdef2",
+    "flow_sha256": "e4f86c2bf05d1be7235946e97a9cdc8d1efc916757ae5b4b7e4f3118682b6558",
+    "permission_sha256": "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4",
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "approved_cap": 4
+  },
+  "ledger": {
+    "attempted_turns": 4,
+    "max_authorized_turns": 4
+  },
+  "catalog": {
+    "http": 200,
+    "native_node_present": true
+  },
+  "preflight": {
+    "mutable_skill_http": 500,
+    "incomplete_resume_http": 500,
+    "ledger_unchanged": true
+  },
+  "first": {
+    "run_id": "496719d1-2be6-4353-9ef3-643bdd74562f",
+    "thread_id": "01a0f881-dbdd-7a83-a6a5-03b56d2bcb41",
+    "status": "completed",
+    "post_run_hash": "sha256:11fa821f62d85f98a23751be5a41de6c81ee88358bb44f6f8f968e25fd9d9276",
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "observed_command_results": 4
+  },
+  "resume": {
+    "run_id": "496719d1-2be6-4353-9ef3-643bdd74562f",
+    "thread_id": "01a0f881-dbdd-7a83-a6a5-03b56d2bcb41",
+    "status": "completed",
+    "post_run_hash": "sha256:a1076cd86e9260e3fa33a94717b7ff5e52a39b81d3a8d2883418b28cad8773cf",
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "same_thread": true,
+    "requested_input_snapshot": "sha256:11fa821f62d85f98a23751be5a41de6c81ee88358bb44f6f8f968e25fd9d9276",
+    "post_snapshot_unchanged": false
+  },
+  "independent_fresh": {
+    "run_id": "16f0e599-1705-4476-96a5-ed3abf50ac80",
+    "thread_id": "01a0f886-5a99-7843-93e2-68f41d40bce9",
+    "status": "completed",
+    "post_run_hash": "sha256:52f55d55e07b1b47cc283fa618516acb6cb1905c3c20c5424d7279233bf7ccb2",
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "observed_command_results": 1,
+    "marker_check_answer_observed": false
+  },
+  "postchecks": {
+    "missing_snapshot_http": 500,
+    "cap_http": 500,
+    "ledger_unchanged": true
+  },
+  "cancel_attempt": {
+    "run_id": "c90ba2b9-d9c6-4b4f-82f5-46ac805979ca",
+    "thread_id": "01a0f888-8437-7e73-b7ab-c99edddcf9a0",
+    "native_turn_status": "completed",
+    "commands_started": 1,
+    "commands_completed": 0,
+    "native_cancellation_verified": false,
+    "follow_up": "https://github.com/amadou-6e/laomedo/issues/24"
+  },
+  "raw_evidence": "Private runner records and JSONL retained outside Git; not exported."
+}

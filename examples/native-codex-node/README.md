@@ -27,9 +27,15 @@ not silently create a new run. Status and cancel use only the prior run ID.
 
 ## Prospective #21 acceptance
 
-No real model turn has been run for this component yet. Existing pilot evidence
-does not establish this node's installed-server execution. Freeze implementation,
-spec, image, skill and permissions pins before a separately authorized run.
+Four authorized model turns have now been submitted through the installed server.
+See [sanitized evidence](evidence.json): catalog/round trip, fresh execution,
+restart/resume and independent host workspace checks passed; the third turn's
+fixture-path task failed and real cancellation remains inconclusive. The fourth
+turn completed while its command had no completion event. Preserve that result;
+an additional model turn requires explicit authorization, not an implicit retry.
+
+The following prospective sequence remains the reproduction plan. Freeze
+implementation, spec, image, skill and permissions pins before a new attempt.
 
 1. Verify the installed server catalog contains the category and component, then
    import/export/reimport the flow through its API.
@@ -55,3 +61,8 @@ servers or resets ledgers. Raw responses stay in the private native-node-21 stat
 outside Git; only sanitized summaries are suitable for publication. The cancel
 phase invokes the node's explicit cancel operation after an observed sleep command,
 using a known run ID from private runner records; it does not claim UI Stop support.
+The corrected command-start trigger is prepared but not model-retested yet.
+Windows trace reading requires UTF-8. Resume validates the input snapshot; its
+output hash may legitimately change, as it did when an empty .aws directory appeared.
+Track outstanding command semantics in
+[issue #24](https://github.com/amadou-6e/laomedo/issues/24).

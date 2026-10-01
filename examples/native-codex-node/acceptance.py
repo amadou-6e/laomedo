@@ -62,7 +62,7 @@ def records():
 
 def events(run_id):
     return [json.loads(line) for line in
-            (STATE / "runs" / run_id / "raw-events.jsonl").read_text().splitlines() if line]
+            (STATE / "runs" / run_id / "raw-events.jsonl").read_text(encoding="utf-8").splitlines() if line]
 
 
 def run_flow(task, *, operation="fresh", prior=None, extra=None):
@@ -85,9 +85,41 @@ def reference(record):
             "model": record["requested_model"], "effort": record["requested_effort"]}
 
 
+def verify_completed(phase, record):
+    assert record["status"] == "completed"
+    command_results = [e for e in events(record["run_id"]) if e.get("method") == "item/completed"
+                       and e.get("params", {}).get("item", {}).get("type") == "commandExecution"]
+    assert command_results, "no_observed_command_result"
+    workspace = STATE / "runs" / record["run_id"] / "workspace"
+    if phase == "first":
+        assert (workspace / "native-marker.txt").read_text().strip() == MARKER
+        save("first-reference", reference(record))
+    else:
+        assert not (workspace / "native-marker.txt").exists()
+        # Host state proves independent workspace contents; do not relabel a
+        # failed model task as a successful marker-check tool operation.
+    save(phase + "-summary", {**reference(record), "observed_command_results": len(command_results),
+                             "marker_check_answer_observed": "FRESH-MARKER-ABSENT" in record["answer"]})
+    print(phase + "_passed; run_id=" + record["run_id"])
+
+
+def verify_resume():
+    prior = json.loads((STATE / "first-reference.json").read_text())
+    assert json.loads((STATE / "resume-response.json").read_text())["http"] == 200
+    record = records()[prior["run_id"]]
+    assert record["status"] == "completed" and record["thread_id"] == prior["thread_id"]
+    assert MARKER in record["answer"] and len(record["turns"]) == 2
+    # The runner validates the requested prior hash before execution. A resumed
+    # turn may create a new snapshot, even when its task asks only for reads.
+    save("resume-summary", {**reference(record), "same_thread": True,
+                           "requested_input_snapshot": prior["post_run_hash"],
+                           "post_snapshot_unchanged": record["post_run_hash"] == prior["post_run_hash"]})
+    print("resume_through_imported_node_passed")
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("phase", choices=["prepare", "preflight", "first", "resume", "fresh", "cancel", "inspect"])
+    parser.add_argument("phase", choices=["prepare", "preflight", "first", "verify-first", "resume", "verify-resume", "fresh", "verify-fresh", "cancel", "postchecks", "inspect"])
     parser.add_argument("--approved-model-turn", action="store_true")
     args = parser.parse_args()
     if args.phase in {"first", "resume", "fresh", "cancel"} and not args.approved_model_turn:
@@ -146,39 +178,36 @@ def main():
         added = set(after) - before
         assert len(added) == 1, "unexpected_dispatch_count"
         record = after[added.pop()]
-        assert record["status"] == "completed"
-        command_results = [e for e in events(record["run_id"]) if e.get("method") == "item/completed"
-                           and e.get("params", {}).get("item", {}).get("type") == "commandExecution"]
-        assert command_results, "no_observed_command_result"
-        workspace = STATE / "runs" / record["run_id"] / "workspace"
-        if args.phase == "first":
-            assert (workspace / "native-marker.txt").read_text().strip() == MARKER
-            save("first-reference", reference(record))
-        else:
-            assert not (workspace / "native-marker.txt").exists()
-            assert "FRESH-MARKER-ABSENT" in record["answer"]
-        save(args.phase + "-summary", {**reference(record), "observed_command_results": len(command_results)})
-        print(args.phase + "_passed; run_id=" + record["run_id"])
+        verify_completed(args.phase, record)
+    elif args.phase == "verify-first":
+        current = records()
+        assert len(current) == 1, "verify-first requires exactly the first existing run"
+        assert json.loads((STATE / "first-response.json").read_text())["http"] == 200
+        verify_completed("first", next(iter(current.values())))
+    elif args.phase == "verify-fresh":
+        current = [r for r in records().values() if r.get("attempt_number") == 3]
+        assert len(current) == 1
+        verify_completed("fresh", current[0])
     elif args.phase == "resume":
         prior = json.loads((STATE / "first-reference.json").read_text())
         response = run_flow("Read native-marker.txt and fixture.txt with shell tools. Report the "
                             "exact marker and amber count. Do not modify files.", operation="resume", prior=prior)
         save("resume-response", response)
-        assert response["http"] == 200, "resume_failed"
-        record = records()[prior["run_id"]]
-        assert record["status"] == "completed" and record["thread_id"] == prior["thread_id"]
-        assert record["post_run_hash"] == prior["post_run_hash"] and MARKER in record["answer"]
-        assert len(record["turns"]) == 2
-        save("resume-summary", {**reference(record), "same_thread": True, "same_snapshot": True})
-        print("resume_through_imported_node_passed")
+        verify_resume()
+    elif args.phase == "verify-resume":
+        verify_resume()
     elif args.phase == "cancel":
         before = set(records())
         responses = []
         failures = []
         def invoke():
             try:
-                responses.append(run_flow("Read fixture.txt, print INTERRUPT-READY, sleep 60 seconds, "
-                                          "then print INTERRUPT-END using one shell command. Do not modify files."))
+                responses.append(run_flow("The current workspace is /draft, not the skill folder. "
+                    "Run exactly one shell command: cat /draft/fixture.txt; "
+                    "if [ -e /draft/native-marker.txt ]; then echo NATIVE-MARKER-PRESENT; "
+                    "else echo FRESH-MARKER-ABSENT; fi; echo INTERRUPT-READY; sleep 60; "
+                    "echo INTERRUPT-END. Do not change any files. Do not send a final answer "
+                    "until the shell command finishes; poll the running command if necessary."))
             except Exception as exc:
                 failures.append(type(exc).__name__)
         worker = threading.Thread(target=invoke)
@@ -191,9 +220,10 @@ def main():
                     observed = events(candidate)
                 except FileNotFoundError:
                     continue
-                if any(e.get("method") == "item/started" and
+                started = any(e.get("method") == "item/started" and
                        e.get("params", {}).get("item", {}).get("type") == "commandExecution" and
-                       "sleep" in e["params"]["item"].get("command", "") for e in observed):
+                       "sleep" in e["params"]["item"].get("command", "") for e in observed)
+                if started:
                     run_id = candidate
                     break
             if run_id:
@@ -210,6 +240,32 @@ def main():
         save("cancel-summary", {"run_id": run_id, "status": record["status"],
                                "partial_events": len(events(run_id)), "cancel_node_http": cancel["http"]})
         print("explicit_cancel_through_node_passed")
+    elif args.phase == "postchecks":
+        prior = json.loads((STATE / "first-reference.json").read_text())
+        record = records()[prior["run_id"]]
+        snapshot = STATE / "runs" / prior["run_id"] / "post-run"
+        held = snapshot.with_name("post-run-held-acceptance")
+        ledger = STATE / "turn-ledger.json"
+        before = ledger.read_bytes()
+        assert snapshot.is_dir() and not held.exists()
+        snapshot.rename(held)
+        try:
+            missing = run_flow("Missing snapshot must reject before dispatch", operation="resume",
+                               prior=reference(record))
+        finally:
+            held.rename(snapshot)
+        assert missing["http"] != 200
+        assert "post_run_snapshot_mismatch" in json.dumps(missing["body"])
+        assert ledger.read_bytes() == before
+        # Only run this phase after the authorized cap is consumed.
+        counts = json.loads(before)
+        assert counts["attempted_turns"] == counts["max_authorized_turns"]
+        cap = run_flow("The exhausted ledger must reject before a model turn")
+        assert cap["http"] != 200 and "model_turn_cap_reached" in json.dumps(cap["body"])
+        assert ledger.read_bytes() == before
+        save("postchecks", {"missing_snapshot_http": missing["http"], "cap_http": cap["http"],
+                            "ledger_unchanged": True})
+        print("missing_snapshot_and_cap_rejected_without_new_turn")
     else:
         ledger = json.loads((STATE / "turn-ledger.json").read_text())
         print(json.dumps({"ledger": ledger, "runs": [{k: r.get(k) for k in
