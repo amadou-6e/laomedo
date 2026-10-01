@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path, PurePosixPath
 import subprocess
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from .local_runner import IMAGE, VOLUME, RunnerError, _id, _private, _read
 
@@ -42,7 +43,9 @@ def export_rollout(state: Path, run_id: str, *, docker_run=subprocess.run) -> Pa
     for line in content.splitlines():
         json.loads(line)
     output = run_dir / "native-rollout.jsonl"
-    output.write_bytes(content)
+    pending = run_dir / ("native-rollout.pending-" + uuid4().hex)
+    pending.write_bytes(content)
+    os.replace(pending, output)
     return output
 
 

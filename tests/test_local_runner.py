@@ -217,6 +217,20 @@ class LocalRunnerTests(unittest.TestCase):
                          f"laomedo:run:{result['run_id']}:events")
         self.assertNotIn(str(self.root), json.dumps(status))
 
+    def test_http_rejects_simple_cross_origin_content_type(self):
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(2)))
+        req = http_request.Request(f"http://127.0.0.1:{server.server_port}/v1/runs",
+                                   data=json.dumps(self.request()).encode(),
+                                   headers={"Content-Type": "text/plain"})
+        with self.assertRaises(http_error.HTTPError) as caught:
+            http_request.urlopen(req)
+        self.assertEqual(caught.exception.code, 400)
+        self.assertEqual(json.load(caught.exception)["error_category"],
+                         "json_content_type_required")
+
     def test_http_failure_preserves_run_id_and_partial_events(self):
         class TimedOut(FakeServer):
             def wait_turn(self, turn_id, timeout, cancelled):
@@ -274,7 +288,8 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertTrue(started.wait(2))
         run_dir = next((self.runner.state / "runs").iterdir())
         req = http_request.Request(base + "/" + run_dir.name + "/cancel",
-                                   data=b"{}", method="POST")
+                                   data=b"{}", method="POST",
+                                   headers={"Content-Type": "application/json"})
         with http_request.urlopen(req) as response:
             self.assertEqual(response.status, 202)
             self.assertTrue(json.load(response)["cancel_requested"])

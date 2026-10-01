@@ -45,8 +45,9 @@ python -m laomedo.local_runner --state $state --skill-store $store --source-work
 
 The cap lives in `turn-ledger.json` outside Git. Reservations occur before
 `turn/start` and persist across runner restarts. Timeouts and rejected turn
-submissions count. The HTTP API binds to `127.0.0.1:8765` only. Its endpoints
-are `POST /v1/runs`, `GET /v1/runs/{run_id}`,
+submissions count. The HTTP API binds to `127.0.0.1:8765` only. Write requests
+require `Content-Type: application/json`. The endpoints are `POST /v1/runs`,
+`GET /v1/runs/{run_id}`,
 `POST /v1/runs/{run_id}/cancel`, and `POST /v1/runs/{run_id}/resume`.
 An accepted cancellation returns HTTP 202; the original run request returns
 HTTP 502 with status `cancelled` and its retained partial events.

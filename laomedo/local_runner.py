@@ -382,6 +382,7 @@ class LocalRunner:
             (store_mount / "sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
             skill = self._materialize(workspace, request.get("skill_ref"))
             effective_hash = _hash_tree(workspace)
+            (run_dir / "raw-events.jsonl").touch()
             record = {"schema_version": 1, "run_id": run_id, "status": "prepared",
                       "error_category": None, "source_hash": source_hash,
                       "effective_hash": effective_hash, "post_run_hash": None,
@@ -527,6 +528,8 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
             self.wfile.write(data)
 
         def _body(self):
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                raise RunnerError("json_content_type_required")
             length = int(self.headers.get("Content-Length", "0"))
             if length < 1 or length > MAX_BODY:
                 raise RunnerError("invalid_body_size")
