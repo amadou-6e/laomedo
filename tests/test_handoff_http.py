@@ -38,3 +38,26 @@ class HttpTests(unittest.TestCase):
         with self.assertRaises(HandoffError):
             RunnerAdapter({"codex": "http://example.com"})
         self.assertFalse(RunnerAdapter({}).cancel("unknown")["cancel_acknowledged"])
+
+    def test_same_provider_resume_binds_thread_snapshot_model_and_skills(self):
+        skill = {"skill_id": "fixture", "revision_id": "sha256:" + "a" * 64}
+        origin = {"provider": "codex", "status": "completed", "run_id": "source",
+                  "thread_id": "thread", "post_run_hash": "sha256:" + "b" * 64,
+                  "model": "model", "effort": "low", "skills": [skill]}
+        target = {"provider": "codex", "model": "model", "effort": "low"}
+        item = envelope(origin, target, "continue", skills=[skill], operation="resume")
+        def respond(req, timeout):
+            self.assertTrue(req.full_url.endswith("/source/resume"))
+            payload = json.loads(req.data)
+            self.assertEqual(payload["expected_thread_id"], "thread")
+            self.assertEqual(payload["expected_post_run_hash"], origin["post_run_hash"])
+            self.assertNotIn("skill_refs", payload)
+            return Response(json.dumps({"run_id": "source", "status": "completed"}).encode())
+        adapter = RunnerAdapter({"codex": "http://localhost:8765"})
+        with patch("laomedo.handoff_http.urlopen", side_effect=respond):
+            adapter.dispatch(item, deadline=time.monotonic() + 10, cancelled=threading.Event())
+        with self.assertRaisesRegex(HandoffError, "skill_binding"):
+            envelope(origin, target, "continue", skills=[{**skill, "skill_id": "different"}], operation="resume")
+        with self.assertRaisesRegex(HandoffError, "model_effort"):
+            adapter.dispatch({**item, "target": {**target, "model": "different"}},
+                             deadline=time.monotonic() + 10, cancelled=threading.Event())

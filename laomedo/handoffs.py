@@ -49,6 +49,11 @@ def envelope(source, target, task, *, skills, execution_id=None, step=0,
                              "tree_hash": skill["revision_id"]})
     if len({skill["skill_id"] for skill in clean_skills}) != len(clean_skills):
         raise HandoffError("duplicate_skill_id")
+    if operation == "resume":
+        prior_skills = source.get("skills")
+        if not isinstance(prior_skills, list) or [(s.get("skill_id"), s.get("revision_id")) for s in prior_skills] != [
+                (s["skill_id"], s["revision_id"]) for s in clean_skills]:
+            raise HandoffError("resume_skill_binding_mismatch")
     return {"schema_version": 1, "execution_id": execution_id or str(uuid4()),
             "step": step, "source": None if source is None else {
                 "provider": source.get("provider"), "run_id": source.get("run_id")},
