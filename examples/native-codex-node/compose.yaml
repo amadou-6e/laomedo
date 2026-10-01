@@ -1,0 +1,15 @@
+# Draft local acceptance server. Start only after operator configuration approval.
+services:
+  langflow:
+    image: langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0
+    container_name: laomedo-langflow-native-test
+    ports:
+      - "127.0.0.1:7862:7860"
+    environment:
+      LANGFLOW_COMPONENTS_PATH: /app/custom_components
+      LANGFLOW_AUTO_LOGIN: "true"
+    volumes:
+      - ../../components:/app/custom_components:ro
+      - native-langflow-data:/app/langflow
+volumes:
+  native-langflow-data:

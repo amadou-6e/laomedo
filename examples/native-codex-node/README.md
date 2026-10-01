@@ -6,6 +6,10 @@ branches share a single runner invocation. It pins the existing synthetic whole
 skill fixture from `../skill-agent-pilot/skill/`; it contains no credential.
 
 Install the component using [the component guide](../../components/README.md).
+`compose.yaml` is the reviewable acceptance-server draft: localhost:7862,
+read-only component mount, a separate data volume, and local auto-login enabled.
+It leaves the existing localhost:7861 deployment alone. Start it only after
+operator approval of that configuration.
 Run `build_flow.py` inside the pinned Langflow 1.12.3 image with this repo available;
 it validates directory discovery, rebuilds the component schema, and constructs
 the four-vertex graph without a model call.
