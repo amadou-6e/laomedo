@@ -1,10 +1,14 @@
 """Explicit, bounded provider-neutral orchestration. No credentials or model SDKs."""
 from copy import deepcopy
 import hashlib
+import json
+import os
+from pathlib import Path
 import re
 import threading
 import time
 from uuid import uuid4
+from .artifacts import selections
 
 
 class HandoffError(ValueError):
@@ -29,10 +33,9 @@ def envelope(source, target, task, *, skills, execution_id=None, step=0,
     if operation == "resume" and not all(source.get(k) for k in
                                          ("thread_id", "post_run_hash", "run_id")):
         raise HandoffError("resume_bindings_required")
-    selected = deepcopy(artifacts or [])
-    if selected:
-        # Existing runners have no audited selected-file import interface.
-        raise HandoffError("artifact_transfer_not_supported")
+    selected = selections(artifacts or [])
+    if operation == "resume" and selected:
+        raise HandoffError("resume_artifact_import_forbidden")
     if not isinstance(skills, list) or not 1 <= len(skills) <= 16:
         raise HandoffError("pinned_skills_required")
     clean_skills = []
@@ -59,11 +62,11 @@ def envelope(source, target, task, *, skills, execution_id=None, step=0,
 class BoundedController:
     """An adapter must honor deadline/cancellation; no automatic retries.
 
-    State is in-memory. Retain result for inspection but do not claim durable
-    exactly-once execution across process restart or reconnect.
+    Optional private state persists reservations before dispatch. Recovery exposes
+    uncertain transitions without replay; no exactly-once restart claim.
     """
     def __init__(self, adapter, *, max_iterations, turn_budget, timeout_seconds,
-                 clock=time.monotonic):
+                 clock=time.monotonic, state_dir=None):
         if any(type(v) is not int or v <= 0 for v in (max_iterations, turn_budget)):
             raise HandoffError("positive_iteration_and_turn_limits_required")
         if not 0 < timeout_seconds <= 86400:
@@ -78,6 +81,15 @@ class BoundedController:
         self.execution_id = str(uuid4())
         self.started = False
         self.cancel_evidence = None
+        self.stop_reason = None
+        self.state_dir = None
+        if state_dir is not None:
+            root = Path(state_dir).resolve()
+            if any((parent / ".git").exists() for parent in (root, *root.parents)):
+                raise HandoffError("controller_state_must_be_outside_git")
+            root.mkdir(parents=True, exist_ok=True)
+            self.state_dir = root
+            self._persist("prepared")
 
     def cancel(self):
         self.cancelled.set()
@@ -86,8 +98,9 @@ class BoundedController:
         except Exception as exc:
             self.cancel_evidence = {"cancel_acknowledged": False,
                                     "error_type": type(exc).__name__}
+        self._persist(self.stop_reason or "cancel_requested")
 
-    def run(self, targets, task, skills, *, success, loop=False):
+    def run(self, targets, task, skills, *, success, loop=False, artifacts=None):
         if not self.lock.acquire(False):
             raise HandoffError("execution_busy")
         try:
@@ -104,12 +117,19 @@ class BoundedController:
                 if reason:
                     return self._finish(reason)
                 target = targets[step % len(targets)]
-                outgoing = envelope(previous, target, task, skills=skills,
-                                    execution_id=self.execution_id, step=step)
+                try:
+                    outgoing = envelope(previous, target, task, skills=skills,
+                                        execution_id=self.execution_id, step=step,
+                                        artifacts=(artifacts(previous) if callable(artifacts) else artifacts))
+                except Exception as exc:
+                    self.records.append({"step": step, "status": "handoff_rejected",
+                                         "error_type": type(exc).__name__, "run": None})
+                    return self._finish("handoff_rejected")
                 transition = {"handoff": outgoing, "status": "dispatching", "run": None}
                 self.records.append(transition)
                 # Reserve conservatively before submission, including uncertain sends.
                 self.submitted += 1
+                self._persist("dispatching")
                 try:
                     result = self.adapter.dispatch(outgoing, deadline=self.deadline,
                                                    cancelled=self.cancelled)
@@ -117,6 +137,7 @@ class BoundedController:
                     transition.update(status="uncertain", error_type=type(exc).__name__)
                     return self._finish("dispatch_uncertain")
                 transition.update(status=result.get("status"), run=deepcopy(result))
+                self._persist("running")
                 if self.cancelled.is_set():
                     return self._finish("cancelled")
                 if self.clock() >= self.deadline:
@@ -133,18 +154,43 @@ class BoundedController:
                 answer = result.get("answer")
                 if not isinstance(answer, str) or not answer.strip():
                     return self._finish("no_progress")
+                if not loop and step + 1 == len(targets):
+                    return self._finish("chain_completed")
                 fingerprint = hashlib.sha256(answer.encode()).hexdigest()
                 if fingerprint in seen:
                     return self._finish("no_progress")
                 seen.add(fingerprint)
                 previous, task = result, answer
-                if not loop and step + 1 == len(targets):
-                    return self._finish("chain_completed")
             return self._finish("iteration_limit")
         finally:
             self.lock.release()
 
     def _finish(self, reason):
-        return {"execution_id": self.execution_id, "stop_reason": reason,
+        self.stop_reason = reason
+        result = {"execution_id": self.execution_id, "stop_reason": reason,
                 "submitted_turns": self.submitted, "transitions": deepcopy(self.records),
                 "cancel_evidence": deepcopy(self.cancel_evidence)}
+        self._persist(reason)
+        return result
+
+    def _persist(self, status):
+        if self.state_dir is None:
+            return
+        path = self.state_dir / (self.execution_id + ".json")
+        pending = path.with_suffix(".pending-" + uuid4().hex)
+        value = {"execution_id": self.execution_id, "stop_reason": status,
+                 "submitted_turns": self.submitted, "transitions": deepcopy(self.records),
+                 "cancel_evidence": deepcopy(self.cancel_evidence),
+                 "limits": {"max_iterations": self.max_iterations, "turn_budget": self.turn_budget}}
+        pending.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+        os.replace(pending, path)
+
+    @staticmethod
+    def inspect(state_dir, execution_id):
+        from uuid import UUID
+        if str(UUID(execution_id)) != execution_id:
+            raise HandoffError("invalid_execution_id")
+        result = json.loads((Path(state_dir) / (execution_id + ".json")).read_text(encoding="utf-8"))
+        if result["stop_reason"] in {"dispatching", "running", "cancel_requested"}:
+            result["recovery_status"] = "interrupted_or_uncertain; never automatically replay"
+        return result

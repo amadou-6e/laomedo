@@ -2,6 +2,7 @@
 import json
 import time
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from .handoffs import HandoffError
@@ -36,12 +37,20 @@ class RunnerAdapter:
                         expected_thread_id=prior["thread_id"])
             self.active[handoff["execution_id"]] = (base, prior["run_id"])
         else:
+            self.active.pop(handoff["execution_id"], None)
             task["skill_refs"] = handoff["skill_refs"]
+            task["artifact_refs"] = handoff["artifacts"]
+            task["handoff"] = {key: handoff[key] for key in
+                               ("execution_id", "step", "source", "workspace_policy")}
             endpoint = base + "/v1/runs"
         request = Request(endpoint, data=json.dumps(task).encode(), method="POST",
                           headers={"Content-Type": "application/json"})
-        with urlopen(request, timeout=max(.001, deadline - time.monotonic())) as response:
-            raw = json.load(response)
+        try:
+            with urlopen(request, timeout=max(.001, deadline - time.monotonic())) as response:
+                raw = json.load(response)
+        except HTTPError as exc:
+            with exc:
+                raw = json.load(exc)
         if not isinstance(raw, dict) or not raw.get("run_id"):
             raise HandoffError("invalid_runner_response")
         self.active[handoff["execution_id"]] = (base, raw["run_id"])
@@ -62,3 +71,13 @@ class RunnerAdapter:
                       headers={"Content-Type": "application/json"})
         with urlopen(req, timeout=10) as response:
             return json.load(response)
+
+    def select_artifacts(self, source, paths):
+        if source is None or not paths:
+            return []
+        endpoint = self.endpoints[source["provider"]] + "/v1/runs/" + source["run_id"] + "/artifacts"
+        req = Request(endpoint, data=json.dumps({"paths": paths}).encode(), method="POST",
+                      headers={"Content-Type": "application/json"})
+        with urlopen(req, timeout=10) as response:
+            result = json.load(response)
+        return result["artifact_refs"]

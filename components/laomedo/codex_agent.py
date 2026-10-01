@@ -23,6 +23,7 @@ class LaomedoCodexAgent(Component):
         DropdownInput(name="operation", display_name="Operation",
                       options=["fresh", "resume", "status", "cancel"], value="fresh"),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
+        DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
         StrInput(name="skill_id", display_name="Skill ID", advanced=True),
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True),
         StrInput(name="model", display_name="Model", value="gpt-6-luna"),
@@ -45,6 +46,21 @@ class LaomedoCodexAgent(Component):
         self._dispatch_task = None
 
     def _prepare(self):
+        endpoint, payload, method = self._prepare_request()
+        provenance = getattr(self, "handoff_reference", None)
+        if provenance not in (None, "", []):
+            if self.operation != "fresh":
+                raise ValueError("handoff_requires_fresh_operation")
+            selected = getattr(provenance, "data", provenance)
+            if not isinstance(selected, dict) or set(selected) != {
+                    "execution_id", "step", "source", "workspace_policy", "artifact_refs"}:
+                raise ValueError("invalid_handoff_reference")
+            payload["handoff"] = {key: selected[key] for key in
+                                  ("execution_id", "step", "source", "workspace_policy")}
+            payload["artifact_refs"] = selected["artifact_refs"]
+        return endpoint, payload, method
+
+    def _prepare_request(self):
         base = str(self.runner_url).rstrip("/")
         parsed = urlsplit(base)
         if (parsed.scheme != "http" or parsed.hostname not in
@@ -167,6 +183,8 @@ class LaomedoCodexAgent(Component):
         skill = result.get("skill") or {}
         skills = result.get("skills") or ([skill] if skill else [])
         return {"answer": result.get("answer"), "run_id": result["run_id"],
+            "provider": result.get("provider", "codex"),
+            "handoff": result.get("handoff"), "imported_artifacts": result.get("imported_artifacts", []),
             "thread_id": result.get("thread_id"), "status": result.get("status"),
             "post_run_hash": result.get("post_run_hash"),
             "model": result.get("requested_model"), "effort": result.get("requested_effort"),

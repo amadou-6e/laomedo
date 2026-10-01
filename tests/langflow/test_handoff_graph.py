@@ -23,15 +23,19 @@ class Response(io.BytesIO):
 class GraphTests(unittest.IsolatedAsyncioTestCase):
     async def test_chain_passes_selected_answer_once(self):
         payloads = []
+        flow = builder.build()
+        self.assertEqual(len({edge["id"] for edge in flow["data"]["edges"]}), len(flow["data"]["edges"]))
         def respond(req, **kwargs):
             payloads.append(json.loads(req.data))
             return Response(json.dumps({"run_id": str(len(payloads)), "status": "completed",
                 "answer": "SELECTED" if len(payloads) == 1 else "DONE"}).encode())
         with patch("urllib.request.urlopen", side_effect=respond):
-            await Graph.from_payload(builder.build()).arun(inputs=[{"input_value": "FIRST"}], types=["chat"])
+            await Graph.from_payload(flow).arun(inputs=[{"input_value": "FIRST"}], types=["chat"])
         self.assertEqual(len(payloads), 2)
         self.assertEqual(payloads[1]["task"], "SELECTED")
         self.assertNotIn("thread_id", payloads[1])
+        self.assertIn("handoff", payloads[1])
+        self.assertEqual(payloads[1]["handoff"]["source"]["run_id"], "1")
 
     async def test_failed_first_does_not_dispatch_second(self):
         def respond(*args, **kwargs):

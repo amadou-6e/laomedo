@@ -1,0 +1,18 @@
+# Deployment draft. Applying this service configuration requires explicit approval.
+services:
+  langflow-handoffs:
+    image: langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0
+    ports:
+      - "127.0.0.1:7863:7860"
+    environment:
+      LANGFLOW_COMPONENTS_PATH: /app/custom_components
+      PYTHONPATH: /app/laomedo-runtime
+      LANGFLOW_AUTO_LOGIN: "true"
+    volumes:
+      - ../../components:/app/custom_components:ro
+      - ../../laomedo:/app/laomedo-runtime/laomedo:ro
+      - handoff-langflow-data:/app/langflow
+      - handoff-execution-state:/app/laomedo-state
+volumes:
+  handoff-langflow-data:
+  handoff-execution-state:

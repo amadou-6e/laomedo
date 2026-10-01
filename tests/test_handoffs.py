@@ -88,10 +88,21 @@ class HandoffTests(unittest.TestCase):
         origin = {"provider": "codex", "run_id": "a", "status": "completed", "auth": "secret"}
         with self.assertRaisesRegex(HandoffError, "foreign"):
             envelope(origin, {"provider": "opencode"}, "task", skills=SKILLS, operation="resume")
-        with self.assertRaisesRegex(HandoffError, "artifact_transfer"):
+        with self.assertRaises(ValueError):
             envelope(origin, TARGET, "task", skills=SKILLS, artifacts=["auth.json"])
         result = envelope(origin, TARGET, "task", skills=SKILLS)
         self.assertNotIn("secret", str(result))
+
+    def test_durable_completion_and_uncertain_reservation_survive_restart(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as root:
+            c = BoundedController(Adapter([TimeoutError()]), max_iterations=2,
+                                  turn_budget=2, timeout_seconds=10, state_dir=root)
+            result = self.run_chain(c)
+            stored = BoundedController.inspect(root, c.execution_id)
+            self.assertEqual(stored["submitted_turns"], 1)
+            self.assertEqual(stored["stop_reason"], "dispatch_uncertain")
+            self.assertEqual(stored["transitions"], result["transitions"])
 
 
 if __name__ == "__main__":

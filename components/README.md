@@ -70,3 +70,18 @@ dispatch. The runner materializes all bundles before a turn and records each in
 not proof that the model used every skill. Existing single-reference flows remain
 compatible. Two-node graph wiring and runner restart/resume are covered by
 credential-free tests; a multi-skill model-backed turn has not yet been run.
+
+## Explicit handoffs and bounded loops
+
+`LaomedoHandoff` selects a completed origin answer/task and outputs provenance.
+Connect both Task and Provenance to the next agent, and connect its Skill inputs
+independently. Each fresh agent has its own workspace and native thread. Provenance
+and selected artifact manifests persist in the downstream runner record.
+
+`LaomedoBoundedController` implements bounded scheduling without cyclic visual
+edges, persists turn reservations and partial outcomes, and exposes exact stop
+reason/cancellation evidence. It requires the Laomedo runtime package on Langflow's
+Python path and private execution storage. The separate deployment configuration
+in [agent-handoffs](../examples/agent-handoffs/README.md) remains a draft.
+Tests cover real graph builds with synthetic HTTP; the example also records one
+successful real two-agent chain at exactly two authorized submitted turns.

@@ -1,7 +1,6 @@
 {
-  "id": "ff9a1b5d-9e91-5779-b744-ffa9929c6fe1",
-  "name": "Laomedo Skill and Codex Agent",
-  "description": "Fresh/resume Codex custom component with shared answer/run outputs.",
+  "name": "Laomedo bounded agent loop",
+  "description": "Explicit bounded controller; no cyclic visual edges.",
   "last_tested_version": "1.12.3",
   "flow_type": "workflow",
   "access_type": "PRIVATE",
@@ -400,81 +399,29 @@
         }
       },
       {
-        "id": "LaomedoCodexAgent-native",
+        "id": "LaomedoBoundedController-loop",
         "type": "genericNode",
         "position": {
-          "x": 420,
+          "x": 400,
           "y": 100
         },
         "data": {
-          "id": "LaomedoCodexAgent-native",
-          "type": "LaomedoCodexAgent",
+          "id": "LaomedoBoundedController-loop",
+          "type": "LaomedoBoundedController",
           "node": {
             "template": {
               "_type": "Component",
-              "handoff_reference": {
-                "tool_mode": false,
-                "trace_as_metadata": true,
-                "list": false,
-                "list_add_label": "Add More",
-                "trace_as_input": true,
-                "override_skip": false,
-                "required": false,
-                "placeholder": "",
-                "show": true,
-                "name": "handoff_reference",
-                "value": "",
-                "display_name": "Handoff Provenance",
-                "advanced": true,
-                "api_editable": false,
-                "input_types": [
-                  "Data",
-                  "JSON"
-                ],
-                "dynamic": false,
-                "info": "",
-                "title_case": false,
-                "track_in_telemetry": false,
-                "type": "other",
-                "_input_type": "JSONInput"
-              },
-              "run_reference": {
-                "tool_mode": false,
-                "trace_as_metadata": true,
-                "list": false,
-                "list_add_label": "Add More",
-                "trace_as_input": true,
-                "override_skip": false,
-                "required": false,
-                "placeholder": "",
-                "show": true,
-                "name": "run_reference",
-                "value": "",
-                "display_name": "Prior Run",
-                "advanced": true,
-                "api_editable": false,
-                "input_types": [
-                  "Data",
-                  "JSON"
-                ],
-                "dynamic": false,
-                "info": "",
-                "title_case": false,
-                "track_in_telemetry": false,
-                "type": "other",
-                "_input_type": "JSONInput"
-              },
-              "skill_reference": {
+              "skills": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "list": true,
                 "list_add_label": "Add More",
                 "trace_as_input": true,
                 "override_skip": false,
-                "required": false,
+                "required": true,
                 "placeholder": "",
                 "show": true,
-                "name": "skill_reference",
+                "name": "skills",
                 "value": "",
                 "display_name": "Skill References",
                 "advanced": false,
@@ -490,6 +437,28 @@
                 "type": "other",
                 "_input_type": "JSONInput"
               },
+              "artifact_paths_json": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "artifact_paths_json",
+                "value": "[]",
+                "display_name": "Selected Artifact Paths JSON",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
               "code": {
                 "type": "code",
                 "required": true,
@@ -497,7 +466,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"Langflow 1.12.3 custom component for the private local Codex runner.\"\"\"\n\nimport asyncio\nimport json\nimport re\nfrom urllib import error, request\nfrom urllib.parse import urlsplit\nfrom uuid import UUID\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput\nfrom lfx.schema import Data, Message\n\n\nclass LaomedoCodexAgent(Component):\n    display_name = \"Laomedo Codex Agent\"\n    description = \"Run or resume a pinned-skill Codex session through the local Docker runner.\"\n    icon = \"Bot\"\n    name = \"LaomedoCodexAgent\"\n\n    inputs = [\n        MessageTextInput(name=\"task\", display_name=\"Task\"),\n        DropdownInput(name=\"operation\", display_name=\"Operation\",\n                      options=[\"fresh\", \"resume\", \"status\", \"cancel\"], value=\"fresh\"),\n        DataInput(name=\"skill_reference\", display_name=\"Skill References\", is_list=True),\n        DataInput(name=\"handoff_reference\", display_name=\"Handoff Provenance\", advanced=True),\n        StrInput(name=\"skill_id\", display_name=\"Skill ID\", advanced=True),\n        StrInput(name=\"revision_id\", display_name=\"Skill Revision\", advanced=True),\n        StrInput(name=\"model\", display_name=\"Model\", value=\"gpt-6-luna\"),\n        StrInput(name=\"effort\", display_name=\"Reasoning Effort\", value=\"low\"),\n        DataInput(name=\"run_reference\", display_name=\"Prior Run\", advanced=True),\n        StrInput(name=\"run_reference_json\", display_name=\"Prior Run JSON\", advanced=True,\n                 info=\"For API/manual resume when no Data port is connected.\"),\n        StrInput(name=\"runner_url\", display_name=\"Runner URL\", advanced=True,\n                 value=\"http://host.docker.internal:8765\"),\n        IntInput(name=\"timeout_seconds\", display_name=\"HTTP Timeout\", value=210,\n                 advanced=True),\n    ]\n    outputs = [\n        Output(name=\"answer\", display_name=\"Answer\", method=\"answer_output\", group_outputs=True),\n        Output(name=\"run\", display_name=\"Run Reference\", method=\"run_output\", group_outputs=True),\n    ]\n\n    def _pre_run_setup(self):\n        # Langflow invokes this once per build. Both output methods share dispatch.\n        self._dispatch_task = None\n\n    def _prepare(self):\n        endpoint, payload, method = self._prepare_request()\n        provenance = getattr(self, \"handoff_reference\", None)\n        if provenance not in (None, \"\", []):\n            if self.operation != \"fresh\":\n                raise ValueError(\"handoff_requires_fresh_operation\")\n            selected = getattr(provenance, \"data\", provenance)\n            if not isinstance(selected, dict) or set(selected) != {\n                    \"execution_id\", \"step\", \"source\", \"workspace_policy\", \"artifact_refs\"}:\n                raise ValueError(\"invalid_handoff_reference\")\n            payload[\"handoff\"] = {key: selected[key] for key in\n                                  (\"execution_id\", \"step\", \"source\", \"workspace_policy\")}\n            payload[\"artifact_refs\"] = selected[\"artifact_refs\"]\n        return endpoint, payload, method\n\n    def _prepare_request(self):\n        base = str(self.runner_url).rstrip(\"/\")\n        parsed = urlsplit(base)\n        if (parsed.scheme != \"http\" or parsed.hostname not in\n                {\"127.0.0.1\", \"localhost\", \"::1\", \"host.docker.internal\"} or\n                parsed.username or parsed.password or parsed.path or\n                parsed.query or parsed.fragment):\n            raise ValueError(\"local_runner_url_required\")\n        if not 1 <= int(self.timeout_seconds) <= 240:\n            raise ValueError(\"timeout_must_be_1_to_240_seconds\")\n        operation = str(self.operation)\n        if operation not in {\"fresh\", \"resume\", \"status\", \"cancel\"}:\n            raise ValueError(\"invalid_operation\")\n        task = str(getattr(self.task, \"text\", self.task) or \"\")\n        if operation in {\"fresh\", \"resume\"} and not task.strip():\n            raise ValueError(\"task_required\")\n        model, effort = str(self.model), str(self.effort)\n        if operation in {\"fresh\", \"resume\"} and (not model.strip() or not effort.strip()):\n            raise ValueError(\"model_and_effort_required\")\n        if operation == \"fresh\":\n            connected = getattr(self, \"skill_reference\", None)\n            if connected in (None, \"\", []):\n                connected = None\n            if connected is not None:\n                refs = connected if isinstance(connected, list) else [connected]\n                refs = [getattr(ref, \"data\", ref) for ref in refs]\n                if not 1 <= len(refs) <= 16:\n                    raise ValueError(\"one_to_sixteen_skills_required\")\n                seen = set()\n                for ref in refs:\n                    if (not isinstance(ref, dict) or\n                            not isinstance(ref.get(\"skill_id\"), str) or\n                            not re.fullmatch(r\"[a-z0-9][a-z0-9_-]{0,63}\", ref[\"skill_id\"]) or\n                            not isinstance(ref.get(\"revision_id\"), str) or\n                            not re.fullmatch(r\"sha256:[0-9a-f]{64}\", ref[\"revision_id\"]) or\n                            ref.get(\"tree_hash\") != ref[\"revision_id\"]):\n                        raise ValueError(\"invalid_skill_reference\")\n                    if ref[\"skill_id\"] in seen:\n                        raise ValueError(\"duplicate_skill_id\")\n                    seen.add(ref[\"skill_id\"])\n                if len(refs) > 1:\n                    if getattr(self, \"skill_id\", \"\") or getattr(self, \"revision_id\", \"\"):\n                        raise ValueError(\"conflicting_skill_inputs\")\n                    return base + \"/v1/runs\", {\"task\": task, \"model\": model,\n                        \"effort\": effort, \"skill_refs\": refs}, \"POST\"\n                connected = refs[0]\n            revision = str(getattr(self, \"revision_id\", \"\") or \"\")\n            skill_id = str(getattr(self, \"skill_id\", \"\") or \"\")\n            if connected is not None:\n                if not isinstance(connected, dict):\n                    raise ValueError(\"invalid_skill_reference\")\n                selected_id = connected.get(\"skill_id\")\n                selected_revision = connected.get(\"revision_id\")\n                if (not isinstance(selected_id, str) or\n                        not re.fullmatch(r\"[a-z0-9][a-z0-9_-]{0,63}\", selected_id) or\n                        not isinstance(selected_revision, str) or\n                        not re.fullmatch(r\"sha256:[0-9a-f]{64}\", selected_revision) or\n                        connected.get(\"tree_hash\") != selected_revision):\n                    raise ValueError(\"invalid_skill_reference\")\n                if (skill_id and skill_id != selected_id) or (revision and revision != selected_revision):\n                    raise ValueError(\"conflicting_skill_inputs\")\n                skill_id, revision = selected_id, selected_revision\n            if not skill_id.strip() or not re.fullmatch(r\"sha256:[0-9a-f]{64}\", revision):\n                raise ValueError(\"pinned_skill_required\")\n            return base + \"/v1/runs\", {\"task\": task, \"model\": model, \"effort\": effort,\n                \"skill_ref\": {\"skill_id\": skill_id,\n                              \"revision_id\": revision, \"tree_hash\": revision}}, \"POST\"\n        prior = getattr(self.run_reference, \"data\", self.run_reference)\n        if prior is None and getattr(self, \"run_reference_json\", None):\n            try:\n                prior = json.loads(self.run_reference_json)\n            except (ValueError, TypeError):\n                raise ValueError(\"invalid_prior_run_json\") from None\n        if not isinstance(prior, dict):\n            raise ValueError(\"prior_run_required\")\n        run_id = str(prior.get(\"run_id\", \"\"))\n        try:\n            if str(UUID(run_id)) != run_id:\n                raise ValueError()\n        except ValueError:\n            raise ValueError(\"invalid_run_id\") from None\n        endpoint = base + \"/v1/runs/\" + run_id\n        if operation == \"status\":\n            return endpoint, None, \"GET\"\n        if operation == \"cancel\":\n            return endpoint + \"/cancel\", {}, \"POST\"\n        snapshot, thread = prior.get(\"post_run_hash\"), prior.get(\"thread_id\")\n        if (prior.get(\"status\") != \"completed\" or not isinstance(snapshot, str) or\n                not re.fullmatch(r\"sha256:[0-9a-f]{64}\", snapshot) or not thread):\n            raise ValueError(\"completed_snapshot_and_thread_required\")\n        if prior.get(\"model\") != model or prior.get(\"effort\") != effort:\n            raise ValueError(\"resume_model_effort_mismatch\")\n        return endpoint + \"/resume\", {\"task\": task, \"model\": model, \"effort\": effort,\n            \"expected_post_run_hash\": snapshot, \"expected_thread_id\": thread}, \"POST\"\n\n    def _http(self, endpoint, payload, method):\n        req = request.Request(endpoint,\n            data=None if payload is None else json.dumps(payload).encode(),\n            headers={\"Content-Type\": \"application/json\"}, method=method)\n        try:\n            with request.urlopen(req, timeout=int(self.timeout_seconds)) as response:\n                result = json.load(response)\n        except error.HTTPError as exc:\n            try:\n                result = json.load(exc)\n            except (ValueError, TypeError):\n                raise RuntimeError(\"runner_invalid_error_response\") from None\n            if not isinstance(result, dict):\n                raise RuntimeError(\"runner_invalid_error_response\")\n            raise RuntimeError(\"Laomedo run \" + str(result.get(\"run_id\") or \"unknown\") +\n                \" failed: \" + str(result.get(\"error_category\") or result.get(\"status\") or \"unknown\")) from None\n        except (error.URLError, TimeoutError, OSError):\n            raise RuntimeError(\"runner_transport_failed; remote execution may still be active\") from None\n        except (ValueError, TypeError):\n            raise RuntimeError(\"runner_invalid_response\") from None\n        if not isinstance(result, dict) or not result.get(\"run_id\"):\n            raise RuntimeError(\"runner_invalid_response\")\n        if self.operation in {\"fresh\", \"resume\"} and result.get(\"status\") != \"completed\":\n            raise RuntimeError(f\"Laomedo run {result['run_id']} failed: \"\n                               f\"{result.get('error_category') or result.get('status') or 'unknown'}\")\n        skill = result.get(\"skill\") or {}\n        skills = result.get(\"skills\") or ([skill] if skill else [])\n        return {\"answer\": result.get(\"answer\"), \"run_id\": result[\"run_id\"],\n            \"provider\": result.get(\"provider\", \"codex\"),\n            \"handoff\": result.get(\"handoff\"), \"imported_artifacts\": result.get(\"imported_artifacts\", []),\n            \"thread_id\": result.get(\"thread_id\"), \"status\": result.get(\"status\"),\n            \"post_run_hash\": result.get(\"post_run_hash\"),\n            \"model\": result.get(\"requested_model\"), \"effort\": result.get(\"requested_effort\"),\n            \"skill_revision\": skill.get(\"revision_id\"),\n            \"skill_use_evidence\": skill.get(\"use_evidence\", \"unknown\"),\n            \"skills\": skills,\n            \"artifact_ref\": result.get(\"output_ref\"), \"trace_ref\": result.get(\"raw_event_ref\"),\n            \"error_category\": result.get(\"error_category\"),\n            \"cancel_requested\": result.get(\"cancel_requested\", False), \"usage\": \"unknown\"}\n\n    async def _result(self):\n        if getattr(self, \"_dispatch_task\", None) is None:\n            prepared = self._prepare()\n            self._dispatch_task = asyncio.create_task(asyncio.to_thread(self._http, *prepared))\n        # A cancelled Langflow request must not imply that the remote agent stopped.\n        result = await asyncio.shield(self._dispatch_task)\n        self.status = f\"Laomedo run {result['run_id']}: {result['status']}\"\n        return result\n\n    async def run_output(self) -> Data:\n        return Data(data=await self._result())\n\n    async def answer_output(self) -> Message:\n        result = await self._result()\n        return Message(text=result.get(\"answer\") or \"\")\n",
+                "value": "\"\"\"Native bounded chain/loop node; requires the Laomedo Python runtime package.\"\"\"\nimport asyncio\nimport json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput\nfrom lfx.schema import Data, Message\n\n\nclass LaomedoBoundedController(Component):\n    display_name = \"Laomedo Bounded Agent Controller\"\n    description = \"Explicit finite chains or bounded loops with durable execution records.\"\n    icon = \"Repeat\"\n    name = \"LaomedoBoundedController\"\n    inputs = [\n        MessageTextInput(name=\"task\", display_name=\"Initial Task\", required=True),\n        DataInput(name=\"skills\", display_name=\"Skill References\", is_list=True, required=True),\n        StrInput(name=\"targets_json\", display_name=\"Targets JSON\", required=True,\n                 value='[{\"provider\":\"codex\",\"model\":\"gpt-6-luna\",\"effort\":\"low\"}]'),\n        StrInput(name=\"endpoints_json\", display_name=\"Runner Endpoints JSON\", advanced=True,\n                 value='{\"codex\":\"http://host.docker.internal:8765\"}'),\n        DropdownInput(name=\"mode\", display_name=\"Mode\", options=[\"chain\", \"loop\"], value=\"chain\"),\n        StrInput(name=\"stop_answer\", display_name=\"Exact Success Answer\", required=True),\n        StrInput(name=\"artifact_paths_json\", display_name=\"Selected Artifact Paths JSON\", value=\"[]\", advanced=True),\n        IntInput(name=\"max_iterations\", display_name=\"Maximum Iterations\", value=2),\n        IntInput(name=\"turn_budget\", display_name=\"Aggregate Turn Budget\", value=2),\n        IntInput(name=\"deadline_seconds\", display_name=\"Deadline Seconds\", value=240),\n        StrInput(name=\"state_directory\", display_name=\"Private Execution State\", advanced=True,\n                 value=\"/app/laomedo-state\"),\n    ]\n    outputs = [Output(name=\"answer\", display_name=\"Last Answer\", method=\"answer_output\", group_outputs=True),\n               Output(name=\"execution\", display_name=\"Execution Evidence\", method=\"execution_output\", group_outputs=True)]\n\n    def _pre_run_setup(self):\n        self._dispatch_task = None\n        self._controller = None\n\n    async def _result(self):\n        if getattr(self, \"_dispatch_task\", None) is None:\n            from laomedo.handoffs import BoundedController\n            from laomedo.handoff_http import RunnerAdapter\n            targets = json.loads(self.targets_json)\n            if not isinstance(targets, list) or not 1 <= len(targets) <= 16:\n                raise ValueError(\"one_to_sixteen_targets_required\")\n            for target in targets:\n                if (not isinstance(target, dict) or target.get(\"provider\") not in {\"codex\", \"opencode\"} or\n                        set(target) - {\"provider\", \"agent\", \"model\", \"effort\"} or\n                        not all(isinstance(target.get(key), str) and target[key].strip()\n                                for key in (\"model\", \"effort\"))):\n                    raise ValueError(\"provider_model_effort_required\")\n            if not self.stop_answer or self.mode not in {\"chain\", \"loop\"}:\n                raise ValueError(\"explicit_stop_and_mode_required\")\n            skills = self.skills if isinstance(self.skills, list) else [self.skills]\n            skills = [getattr(skill, \"data\", skill) for skill in skills]\n            adapter = RunnerAdapter(json.loads(self.endpoints_json))\n            artifact_paths = json.loads(getattr(self, \"artifact_paths_json\", \"[]\"))\n            if not isinstance(artifact_paths, list) or not all(isinstance(path, str) for path in artifact_paths):\n                raise ValueError(\"artifact_path_list_required\")\n            self._controller = BoundedController(adapter,\n                max_iterations=int(self.max_iterations), turn_budget=int(self.turn_budget),\n                timeout_seconds=int(self.deadline_seconds), state_dir=self.state_directory)\n            task = str(getattr(self.task, \"text\", self.task) or \"\")\n            self._dispatch_task = asyncio.create_task(asyncio.to_thread(self._controller.run,\n                targets, task, skills, success=lambda run: run.get(\"answer\") == self.stop_answer,\n                loop=self.mode == \"loop\", artifacts=lambda source: adapter.select_artifacts(source, artifact_paths)))\n        try:\n            return await asyncio.shield(self._dispatch_task)\n        except asyncio.CancelledError:\n            if self._controller is not None:\n                await asyncio.to_thread(self._controller.cancel)\n            raise\n\n    async def execution_output(self) -> Data:\n        result = await self._result()\n        self.status = result[\"stop_reason\"]\n        return Data(data=result)\n\n    async def answer_output(self) -> Message:\n        result = await self._result()\n        transitions = result[\"transitions\"]\n        run = transitions[-1].get(\"run\") if transitions else None\n        return Message(text=(run or {}).get(\"answer\") or \"\")\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -509,7 +478,28 @@
                 "load_from_db": false,
                 "title_case": false
               },
-              "effort": {
+              "deadline_seconds": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "deadline_seconds",
+                "value": 240,
+                "display_name": "Deadline Seconds",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "endpoints_json": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "load_from_db": false,
@@ -519,10 +509,10 @@
                 "required": false,
                 "placeholder": "",
                 "show": true,
-                "name": "effort",
-                "value": "low",
-                "display_name": "Reasoning Effort",
-                "advanced": false,
+                "name": "endpoints_json",
+                "value": "{\"codex\":\"http://host.docker.internal:8765\"}",
+                "display_name": "Runner Endpoints JSON",
+                "advanced": true,
                 "api_editable": false,
                 "dynamic": false,
                 "info": "",
@@ -531,36 +521,33 @@
                 "type": "str",
                 "_input_type": "StrInput"
               },
-              "model": {
+              "max_iterations": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
-                "load_from_db": false,
                 "list": false,
                 "list_add_label": "Add More",
                 "override_skip": false,
                 "required": false,
                 "placeholder": "",
                 "show": true,
-                "name": "model",
-                "value": "gpt-6-luna",
-                "display_name": "Model",
+                "name": "max_iterations",
+                "value": 2,
+                "display_name": "Maximum Iterations",
                 "advanced": false,
                 "api_editable": false,
                 "dynamic": false,
                 "info": "",
                 "title_case": false,
-                "track_in_telemetry": false,
-                "type": "str",
-                "_input_type": "StrInput"
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
               },
-              "operation": {
+              "mode": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "options": [
-                  "fresh",
-                  "resume",
-                  "status",
-                  "cancel"
+                  "chain",
+                  "loop"
                 ],
                 "options_metadata": [],
                 "combobox": false,
@@ -570,9 +557,9 @@
                 "required": false,
                 "placeholder": "",
                 "show": true,
-                "name": "operation",
-                "value": "fresh",
-                "display_name": "Operation",
+                "name": "mode",
+                "value": "loop",
+                "display_name": "Mode",
                 "advanced": false,
                 "api_editable": false,
                 "dynamic": false,
@@ -583,7 +570,7 @@
                 "type": "str",
                 "_input_type": "DropdownInput"
               },
-              "revision_id": {
+              "state_directory": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "load_from_db": false,
@@ -593,9 +580,9 @@
                 "required": false,
                 "placeholder": "",
                 "show": true,
-                "name": "revision_id",
-                "value": "",
-                "display_name": "Skill Revision",
+                "name": "state_directory",
+                "value": "/app/laomedo-state",
+                "display_name": "Private Execution State",
                 "advanced": true,
                 "api_editable": false,
                 "dynamic": false,
@@ -605,42 +592,20 @@
                 "type": "str",
                 "_input_type": "StrInput"
               },
-              "run_reference_json": {
+              "stop_answer": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "load_from_db": false,
                 "list": false,
                 "list_add_label": "Add More",
                 "override_skip": false,
-                "required": false,
+                "required": true,
                 "placeholder": "",
                 "show": true,
-                "name": "run_reference_json",
-                "value": "",
-                "display_name": "Prior Run JSON",
-                "advanced": true,
-                "api_editable": false,
-                "dynamic": false,
-                "info": "For API/manual resume when no Data port is connected.",
-                "title_case": false,
-                "track_in_telemetry": false,
-                "type": "str",
-                "_input_type": "StrInput"
-              },
-              "runner_url": {
-                "tool_mode": false,
-                "trace_as_metadata": true,
-                "load_from_db": false,
-                "list": false,
-                "list_add_label": "Add More",
-                "override_skip": false,
-                "required": false,
-                "placeholder": "",
-                "show": true,
-                "name": "runner_url",
-                "value": "http://host.docker.internal:8765",
-                "display_name": "Runner URL",
-                "advanced": true,
+                "name": "stop_answer",
+                "value": "DONE",
+                "display_name": "Exact Success Answer",
+                "advanced": false,
                 "api_editable": false,
                 "dynamic": false,
                 "info": "",
@@ -649,20 +614,20 @@
                 "type": "str",
                 "_input_type": "StrInput"
               },
-              "skill_id": {
+              "targets_json": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "load_from_db": false,
                 "list": false,
                 "list_add_label": "Add More",
                 "override_skip": false,
-                "required": false,
+                "required": true,
                 "placeholder": "",
                 "show": true,
-                "name": "skill_id",
-                "value": "",
-                "display_name": "Skill ID",
-                "advanced": true,
+                "name": "targets_json",
+                "value": "[{\"provider\":\"codex\",\"model\":\"gpt-6-luna\",\"effort\":\"low\"}]",
+                "display_name": "Targets JSON",
+                "advanced": false,
                 "api_editable": false,
                 "dynamic": false,
                 "info": "",
@@ -679,12 +644,12 @@
                 "list": false,
                 "list_add_label": "Add More",
                 "override_skip": false,
-                "required": false,
+                "required": true,
                 "placeholder": "",
                 "show": true,
                 "name": "task",
                 "value": "",
-                "display_name": "Task",
+                "display_name": "Initial Task",
                 "advanced": false,
                 "api_editable": false,
                 "input_types": [
@@ -697,7 +662,7 @@
                 "type": "str",
                 "_input_type": "MessageTextInput"
               },
-              "timeout_seconds": {
+              "turn_budget": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
                 "list": false,
@@ -706,10 +671,10 @@
                 "required": false,
                 "placeholder": "",
                 "show": true,
-                "name": "timeout_seconds",
-                "value": 210,
-                "display_name": "HTTP Timeout",
-                "advanced": true,
+                "name": "turn_budget",
+                "value": 2,
+                "display_name": "Aggregate Turn Budget",
+                "advanced": false,
                 "api_editable": false,
                 "dynamic": false,
                 "info": "",
@@ -719,13 +684,13 @@
                 "_input_type": "IntInput"
               }
             },
-            "description": "Run or resume a pinned-skill Codex session through the local Docker runner.",
-            "icon": "Bot",
+            "description": "Explicit finite chains or bounded loops with durable execution records.",
+            "icon": "Repeat",
             "base_classes": [
               "JSON",
               "Message"
             ],
-            "display_name": "Laomedo Codex Agent",
+            "display_name": "Laomedo Bounded Agent Controller",
             "documentation": "",
             "minimized": false,
             "custom_fields": {},
@@ -740,7 +705,7 @@
                 ],
                 "selected": "Message",
                 "name": "answer",
-                "display_name": "Answer",
+                "display_name": "Last Answer",
                 "method": "answer_output",
                 "value": "__UNDEFINED__",
                 "cache": true,
@@ -753,9 +718,9 @@
                   "JSON"
                 ],
                 "selected": "JSON",
-                "name": "run",
-                "display_name": "Run Reference",
-                "method": "run_output",
+                "name": "execution",
+                "display_name": "Execution Evidence",
+                "method": "execution_output",
                 "value": "__UNDEFINED__",
                 "cache": true,
                 "allows_loop": false,
@@ -765,37 +730,40 @@
             ],
             "field_order": [
               "task",
-              "operation",
-              "skill_reference",
-              "handoff_reference",
-              "skill_id",
-              "revision_id",
-              "model",
-              "effort",
-              "run_reference",
-              "run_reference_json",
-              "runner_url",
-              "timeout_seconds"
+              "skills",
+              "targets_json",
+              "endpoints_json",
+              "mode",
+              "stop_answer",
+              "artifact_paths_json",
+              "max_iterations",
+              "turn_budget",
+              "deadline_seconds",
+              "state_directory"
             ],
             "beta": false,
             "legacy": false,
             "edited": false,
             "metadata": {
-              "module": "custom_components.laomedo_codex_agent",
-              "code_hash": "d77a87b409b4",
+              "module": "custom_components.laomedo_bounded_agent_controller",
+              "code_hash": "83964c76c951",
               "dependencies": {
-                "total_dependencies": 1,
+                "total_dependencies": 2,
                 "dependencies": [
                   {
                     "name": "lfx",
                     "version": "1.12.3"
+                  },
+                  {
+                    "name": "laomedo",
+                    "version": null
                   }
                 ]
               }
             },
             "tool_mode": false
           },
-          "selected_output": "answer"
+          "selected_output": "execution"
         }
       },
       {
@@ -1079,7 +1047,7 @@
       },
       {
         "data": {
-          "id": "ChatOutput-run-reference",
+          "id": "ChatOutput-loop-answer",
           "node": {
             "base_classes": [
               "Message"
@@ -1340,14 +1308,14 @@
           "type": "ChatOutput"
         },
         "dragging": false,
-        "id": "ChatOutput-run-reference",
+        "id": "ChatOutput-loop-answer",
         "measured": {
           "height": 234,
           "width": 320
         },
         "position": {
-          "x": 850,
-          "y": 400
+          "x": 800,
+          "y": 350
         },
         "positionAbsolute": {
           "x": 1444.936881624563,
@@ -1359,11 +1327,11 @@
     ],
     "edges": [
       {
-        "id": "ChatInput-laomedo-message-LaomedoCodexAgent-native-task",
+        "id": "ChatInput-laomedo-message-LaomedoBoundedController-loop-task",
         "source": "ChatInput-laomedo",
-        "target": "LaomedoCodexAgent-native",
+        "target": "LaomedoBoundedController-loop",
         "sourceHandle": "{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-laomedo\", \"name\": \"message\", \"output_types\": [\"Message\"]}",
-        "targetHandle": "{\"fieldName\": \"task\", \"id\": \"LaomedoCodexAgent-native\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "targetHandle": "{\"fieldName\": \"task\", \"id\": \"LaomedoBoundedController-loop\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "ChatInput",
@@ -1375,7 +1343,7 @@
           },
           "targetHandle": {
             "fieldName": "task",
-            "id": "LaomedoCodexAgent-native",
+            "id": "LaomedoBoundedController-loop",
             "inputTypes": [
               "Message"
             ],
@@ -1384,11 +1352,11 @@
         }
       },
       {
-        "id": "LaomedoSkill-native-skill-LaomedoCodexAgent-native-skill_reference",
+        "id": "LaomedoSkill-native-skill-LaomedoBoundedController-loop-skills",
         "source": "LaomedoSkill-native",
-        "target": "LaomedoCodexAgent-native",
+        "target": "LaomedoBoundedController-loop",
         "sourceHandle": "{\"dataType\": \"LaomedoSkill\", \"id\": \"LaomedoSkill-native\", \"name\": \"skill\", \"output_types\": [\"JSON\"]}",
-        "targetHandle": "{\"fieldName\": \"skill_reference\", \"id\": \"LaomedoCodexAgent-native\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "targetHandle": "{\"fieldName\": \"skills\", \"id\": \"LaomedoBoundedController-loop\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
         "data": {
           "sourceHandle": {
             "dataType": "LaomedoSkill",
@@ -1399,8 +1367,8 @@
             ]
           },
           "targetHandle": {
-            "fieldName": "skill_reference",
-            "id": "LaomedoCodexAgent-native",
+            "fieldName": "skills",
+            "id": "LaomedoBoundedController-loop",
             "inputTypes": [
               "Data",
               "JSON"
@@ -1410,18 +1378,18 @@
         }
       },
       {
-        "id": "LaomedoCodexAgent-native-answer-ChatOutput-laomedo-input_value",
-        "source": "LaomedoCodexAgent-native",
+        "id": "LaomedoBoundedController-loop-execution-ChatOutput-laomedo-input_value",
+        "source": "LaomedoBoundedController-loop",
         "target": "ChatOutput-laomedo",
-        "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"LaomedoCodexAgent-native\", \"name\": \"answer\", \"output_types\": [\"Message\"]}",
+        "sourceHandle": "{\"dataType\": \"LaomedoBoundedController\", \"id\": \"LaomedoBoundedController-loop\", \"name\": \"execution\", \"output_types\": [\"JSON\"]}",
         "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-laomedo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
-            "dataType": "LaomedoCodexAgent",
-            "id": "LaomedoCodexAgent-native",
-            "name": "answer",
+            "dataType": "LaomedoBoundedController",
+            "id": "LaomedoBoundedController-loop",
+            "name": "execution",
             "output_types": [
-              "Message"
+              "JSON"
             ]
           },
           "targetHandle": {
@@ -1439,23 +1407,23 @@
         }
       },
       {
-        "id": "LaomedoCodexAgent-native-run-ChatOutput-run-reference-input_value",
-        "source": "LaomedoCodexAgent-native",
-        "target": "ChatOutput-run-reference",
-        "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"LaomedoCodexAgent-native\", \"name\": \"run\", \"output_types\": [\"JSON\"]}",
-        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-run-reference\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"str\"}",
+        "id": "LaomedoBoundedController-loop-answer-ChatOutput-loop-answer-input_value",
+        "source": "LaomedoBoundedController-loop",
+        "target": "ChatOutput-loop-answer",
+        "sourceHandle": "{\"dataType\": \"LaomedoBoundedController\", \"id\": \"LaomedoBoundedController-loop\", \"name\": \"answer\", \"output_types\": [\"Message\"]}",
+        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-loop-answer\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
-            "dataType": "LaomedoCodexAgent",
-            "id": "LaomedoCodexAgent-native",
-            "name": "run",
+            "dataType": "LaomedoBoundedController",
+            "id": "LaomedoBoundedController-loop",
+            "name": "answer",
             "output_types": [
-              "JSON"
+              "Message"
             ]
           },
           "targetHandle": {
             "fieldName": "input_value",
-            "id": "ChatOutput-run-reference",
+            "id": "ChatOutput-loop-answer",
             "inputTypes": [
               "Data",
               "JSON",

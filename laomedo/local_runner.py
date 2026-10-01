@@ -17,6 +17,7 @@ import time
 from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
+from .artifacts import ArtifactError, import_selected, relative_path, selections
 
 
 IMAGE = "laomedo-codex-boundary:0.159.2"
@@ -383,6 +384,7 @@ class LocalRunner:
                 raise RunnerError("duplicate_skill_id")
             seen.add(ref["skill_id"])
         source = self.source
+        handoff = self._handoff(request.get("handoff"))
         run_id = str(uuid4())
         run_dir = self._run_dir(run_id)
         run_dir.mkdir()
@@ -396,6 +398,8 @@ class LocalRunner:
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
             skills = [self._materialize(workspace, ref) for ref in refs]
+            artifacts = import_selected(request.get("artifact_refs", []), workspace,
+                                        self._artifact_source, _hash_tree)
             effective_hash = _hash_tree(workspace)
             (run_dir / "raw-events.jsonl").touch()
             record = {"schema_version": 1, "run_id": run_id, "status": "prepared",
@@ -404,6 +408,8 @@ class LocalRunner:
                       "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                       "skill": skills[0] if len(skills) == 1 else None,
                       "skills": skills,
+                      "provider": getattr(self, "provider", "codex"),
+                      "handoff": handoff, "imported_artifacts": artifacts,
                       "requested_model": model, "requested_effort": effort,
                       "effective_model": None, "effective_effort": None,
                       "profile": VOLUME, "image": IMAGE, "image_id": IMAGE_ID,
@@ -416,6 +422,47 @@ class LocalRunner:
             shutil.rmtree(run_dir)
             raise
         return self._execute(run_id, task, resume=False)
+
+    def _artifact_source(self, provider, run_id):
+        if provider != getattr(self, "provider", "codex"):
+            raise ArtifactError("foreign_artifact_store_required")
+        return self._run_dir(run_id) / "post-run", self.status(run_id)
+
+    def select_artifacts(self, run_id, paths):
+        if not isinstance(paths, list) or len(paths) > 32:
+            raise ArtifactError("invalid_artifact_selection")
+        record = self.status(run_id)
+        snapshot = self._run_dir(run_id) / "post-run"
+        if record.get("status") != "completed" or _hash_tree(snapshot) != record.get("post_run_hash"):
+            raise ArtifactError("artifact_snapshot_mismatch")
+        result = []
+        for path in paths:
+            path = relative_path(path)
+            source = snapshot / path
+            if not source.is_file() or source.stat().st_size > 1024 * 1024:
+                raise ArtifactError("artifact_file_missing_or_too_large")
+            result.append({"provider": getattr(self, "provider", "codex"), "run_id": run_id,
+                "snapshot_hash": record["post_run_hash"], "path": path,
+                "content_hash": "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest(),
+                "destination": "handoff/" + path})
+        if _hash_tree(snapshot) != record["post_run_hash"]:
+            raise ArtifactError("artifact_source_changed_during_selection")
+        return selections(result)
+
+    def _handoff(self, value):
+        if value is None:
+            return None
+        if not isinstance(value, dict) or set(value) != {"execution_id", "step", "source", "workspace_policy"}:
+            raise RunnerError("invalid_handoff_provenance")
+        _id(value["execution_id"])
+        if type(value["step"]) is not int or value["step"] < 0 or value["workspace_policy"] != "independent":
+            raise RunnerError("invalid_handoff_provenance")
+        origin = value["source"]
+        if origin is not None:
+            if not isinstance(origin, dict) or set(origin) != {"provider", "run_id"} or origin["provider"] not in {"codex", "opencode"}:
+                raise RunnerError("invalid_handoff_origin")
+            _id(origin["run_id"])
+        return json.loads(json.dumps(value))
 
     def resume(self, run_id: str, task: str, *, expected_post_run_hash: str,
                expected_thread_id: str, model: str, effort: str) -> dict:
@@ -573,12 +620,14 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                         model=body["model"], effort=body["effort"])
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel":
                     result = runner.cancel(parts[2])
+                elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "artifacts":
+                    result = {"status": "completed", "artifact_refs": runner.select_artifacts(parts[2], body["paths"])}
                 else:
                     raise RunnerError("unknown_endpoint")
                 code = (202 if result.get("cancel_requested") else
                         200 if result["status"] == "completed" else 502)
                 self._reply(code, result)
-            except (RunnerError, SkillStoreError, KeyError, ValueError, OSError) as exc:
+            except (RunnerError, SkillStoreError, ArtifactError, KeyError, ValueError, OSError) as exc:
                 self._reply(400, {"status": "failed", "error_category": str(exc)})
 
     return ThreadingHTTPServer((host, port), Handler)
