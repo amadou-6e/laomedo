@@ -1360,24 +1360,25 @@
         "id": "LaomedoSkill-native-LaomedoCodexAgent-native",
         "source": "LaomedoSkill-native",
         "target": "LaomedoCodexAgent-native",
-        "sourceHandle": "{\"dataType\": \"LaomedoSkill\", \"id\": \"LaomedoSkill-native\", \"name\": \"skill\", \"output_types\": [\"Data\"]}",
-        "targetHandle": "{\"fieldName\": \"skill_reference\", \"id\": \"LaomedoCodexAgent-native\", \"inputTypes\": [\"Data\"], \"type\": \"str\"}",
+        "sourceHandle": "{\"dataType\": \"LaomedoSkill\", \"id\": \"LaomedoSkill-native\", \"name\": \"skill\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"skill_reference\", \"id\": \"LaomedoCodexAgent-native\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
         "data": {
           "sourceHandle": {
             "dataType": "LaomedoSkill",
             "id": "LaomedoSkill-native",
             "name": "skill",
             "output_types": [
-              "Data"
+              "JSON"
             ]
           },
           "targetHandle": {
             "fieldName": "skill_reference",
             "id": "LaomedoCodexAgent-native",
             "inputTypes": [
-              "Data"
+              "Data",
+              "JSON"
             ],
-            "type": "str"
+            "type": "other"
           }
         }
       },
@@ -1386,7 +1387,7 @@
         "source": "LaomedoCodexAgent-native",
         "target": "ChatOutput-laomedo",
         "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"LaomedoCodexAgent-native\", \"name\": \"answer\", \"output_types\": [\"Message\"]}",
-        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-laomedo\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-laomedo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "LaomedoCodexAgent",
@@ -1400,6 +1401,10 @@
             "fieldName": "input_value",
             "id": "ChatOutput-laomedo",
             "inputTypes": [
+              "Data",
+              "JSON",
+              "DataFrame",
+              "Table",
               "Message"
             ],
             "type": "str"
@@ -1410,15 +1415,15 @@
         "id": "LaomedoCodexAgent-native-ChatOutput-run-reference",
         "source": "LaomedoCodexAgent-native",
         "target": "ChatOutput-run-reference",
-        "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"LaomedoCodexAgent-native\", \"name\": \"run\", \"output_types\": [\"Data\"]}",
-        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-run-reference\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"str\"}",
+        "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"LaomedoCodexAgent-native\", \"name\": \"run\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-run-reference\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "LaomedoCodexAgent",
             "id": "LaomedoCodexAgent-native",
             "name": "run",
             "output_types": [
-              "Data"
+              "JSON"
             ]
           },
           "targetHandle": {
@@ -1426,7 +1431,10 @@
             "id": "ChatOutput-run-reference",
             "inputTypes": [
               "Data",
-              "JSON"
+              "JSON",
+              "DataFrame",
+              "Table",
+              "Message"
             ],
             "type": "str"
           }

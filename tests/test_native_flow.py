@@ -8,6 +8,22 @@ from laomedo.skill_store import tree_hash
 
 
 class NativeFlowTests(unittest.TestCase):
+    def test_connection_handles_match_serialized_port_schemas(self):
+        root = Path(__file__).resolve().parents[1]
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        nodes = {node["id"]: node for node in flow["data"]["nodes"]}
+        for edge in flow["data"]["edges"]:
+            source = json.loads(edge["sourceHandle"])
+            target = json.loads(edge["targetHandle"])
+            output = next(item for item in nodes[edge["source"]]["data"]["node"]["outputs"]
+                          if item["name"] == source["name"])
+            field = nodes[edge["target"]]["data"]["node"]["template"][target["fieldName"]]
+            self.assertEqual(source["output_types"], output["types"])
+            self.assertEqual(target["inputTypes"], field.get("input_types", []))
+            self.assertEqual(target["type"], field["type"])
+            self.assertEqual(source, edge["data"]["sourceHandle"])
+            self.assertEqual(target, edge["data"]["targetHandle"])
+
     def test_native_flow_pins_whole_skill_and_both_output_branches(self):
         root = Path(__file__).resolve().parents[1]
         flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())

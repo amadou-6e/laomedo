@@ -14,11 +14,14 @@ from lfx.graph.graph.base import Graph
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def edge(source, name, types, target, field, input_types):
+def edge(source, name, target, field):
+    output = next(item for item in source["data"]["node"]["outputs"]
+                  if item["name"] == name)
+    input_field = target["data"]["node"]["template"][field]
     outgoing = {"dataType": source["data"]["type"], "id": source["id"],
-                "name": name, "output_types": types}
+                "name": name, "output_types": output["types"]}
     incoming = {"fieldName": field, "id": target["id"],
-                "inputTypes": input_types, "type": "str"}
+                "inputTypes": input_field.get("input_types", []), "type": input_field["type"]}
     return {"id": source["id"] + "-" + target["id"], "source": source["id"],
             "target": target["id"], "sourceHandle": json.dumps(outgoing),
             "targetHandle": json.dumps(incoming),
@@ -62,10 +65,10 @@ def main():
             "last_tested_version": "1.12.3", "flow_type": "workflow", "access_type": "PRIVATE",
             "data": {"nodes": [chat_input, skill, agent, chat_output, run_output],
                      "edges": [
-                         edge(chat_input, "message", ["Message"], agent, "task", ["Message"]),
-                         edge(skill, "skill", ["Data"], agent, "skill_reference", ["Data"]),
-                         edge(agent, "answer", ["Message"], chat_output, "input_value", ["Message"]),
-                         edge(agent, "run", ["Data"], run_output, "input_value", ["Data", "JSON"]),
+                         edge(chat_input, "message", agent, "task"),
+                         edge(skill, "skill", agent, "skill_reference"),
+                         edge(agent, "answer", chat_output, "input_value"),
+                         edge(agent, "run", run_output, "input_value"),
                      ], "viewport": {"x": 0, "y": 0, "zoom": 1}}}
     graph = Graph.from_payload(flow)
     assert len(graph.vertices) == 5
