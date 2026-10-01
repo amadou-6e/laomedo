@@ -46,3 +46,12 @@ timeouts consume turns. Credential-free rejection tests run first. Never reset
 the historical pilot ledger or make another auth copy. A test that does not fit
 the approved cap remains unverified. UI Stop propagation is deferred to
 [issue #22](https://github.com/amadou-6e/laomedo/issues/22).
+
+The `acceptance.py` harness uses the approved localhost:7862 server and localhost:8766
+runner. Run prepare (installed catalog and flow round trip) and preflight first.
+Then explicitly run first, resume after restarting the runner, fresh, and cancel,
+each with `--approved-model-turn` only after bounded authorization. It never starts
+servers or resets ledgers. Raw responses stay in the private native-node-21 state
+outside Git; only sanitized summaries are suitable for publication. The cancel
+phase invokes the node's explicit cancel operation after an observed sleep command,
+using a known run ID from private runner records; it does not claim UI Stop support.
