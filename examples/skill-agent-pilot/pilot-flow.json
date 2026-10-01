@@ -1,7 +1,8 @@
 {
   "id": "93c0490d-1b47-5993-a381-30ffe0adf061",
-  "name": "Laomedo pinned-skill Codex pilot",
+  "name": "Laomedo pinned-skill Codex pilot v1",
   "description": "Local single-user Codex run with a pinned whole-skill revision.",
+  "last_tested_version": "1.12.3",
   "flow_type": "workflow",
   "access_type": "PRIVATE",
   "data": {

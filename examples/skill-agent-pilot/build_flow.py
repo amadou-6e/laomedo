@@ -61,8 +61,9 @@ def main():
               "data": {"id": "LaomedoRunner-laomedo", "type": "LaomedoRunner",
                        "node": definition, "selected_output": "result"}}
     flow = {"id": str(uuid5(NAMESPACE_URL, "laomedo-skill-agent-pilot-v1")),
-            "name": "Laomedo pinned-skill Codex pilot",
+            "name": "Laomedo pinned-skill Codex pilot v1",
             "description": "Local single-user Codex run with a pinned whole-skill revision.",
+            "last_tested_version": "1.12.3",
             "flow_type": "workflow", "access_type": "PRIVATE",
             "data": {"nodes": [chat_input, custom, chat_output],
                      "edges": [
