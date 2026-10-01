@@ -1,0 +1,1 @@
+The sample color is amber. The sample count is 3.
