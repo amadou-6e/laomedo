@@ -10,8 +10,8 @@
     "approved_cap": 4
   },
   "ledger": {
-    "attempted_turns": 4,
-    "max_authorized_turns": 4
+    "attempted_turns": 6,
+    "max_authorized_turns": 6
   },
   "catalog": {
     "http": 200,
@@ -43,14 +43,15 @@
     "post_snapshot_unchanged": false
   },
   "independent_fresh": {
-    "run_id": "16f0e599-1705-4476-96a5-ed3abf50ac80",
-    "thread_id": "01a0f886-5a99-7843-93e2-68f41d40bce9",
+    "run_id": "924e738a-db92-40cf-a14b-dd0ca8779ef3",
+    "thread_id": "01a0f8eb-7441-7460-9def-3be5ad469978",
     "status": "completed",
     "post_run_hash": "sha256:52f55d55e07b1b47cc283fa618516acb6cb1905c3c20c5424d7279233bf7ccb2",
     "model": "gpt-6-luna",
     "effort": "low",
     "observed_command_results": 1,
-    "marker_check_answer_observed": false
+    "marker_check_answer_observed": true,
+    "marker_check_tool_observed": true
   },
   "postchecks": {
     "missing_snapshot_http": 500,
@@ -66,5 +67,30 @@
     "native_cancellation_verified": false,
     "follow_up": "https://github.com/amadou-6e/laomedo/issues/24"
   },
-  "raw_evidence": "Private runner records and JSONL retained outside Git; not exported."
+  "raw_evidence": "Private runner records and JSONL retained outside Git; not exported.",
+  "authorization_extension": {
+    "additional_turns": 2,
+    "approved_cap": 6,
+    "previous_submissions_retained": 4
+  },
+  "independent_fresh_original": {
+    "run_id": "16f0e599-1705-4476-96a5-ed3abf50ac80",
+    "thread_id": "01a0f886-5a99-7843-93e2-68f41d40bce9",
+    "status": "completed",
+    "post_run_hash": "sha256:52f55d55e07b1b47cc283fa618516acb6cb1905c3c20c5424d7279233bf7ccb2",
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "observed_command_results": 1,
+    "marker_check_answer_observed": false,
+    "marker_check_tool_observed": false
+  },
+  "explicit_cancel": {
+    "run_id": "ba0b596e-179e-4993-9d5b-5f395a23a70d",
+    "status": "cancelled",
+    "partial_events": 33,
+    "cancel_node_http": 200,
+    "langflow_interrupted_run_http": 500,
+    "mechanism": "Runner cancellation flag and app-server transport teardown; no native interrupt acknowledgement claimed.",
+    "active_codex_containers_after_acceptance": 0
+  }
 }

@@ -98,8 +98,12 @@ def verify_completed(phase, record):
         assert not (workspace / "native-marker.txt").exists()
         # Host state proves independent workspace contents; do not relabel a
         # failed model task as a successful marker-check tool operation.
-    save(phase + "-summary", {**reference(record), "observed_command_results": len(command_results),
-                             "marker_check_answer_observed": "FRESH-MARKER-ABSENT" in record["answer"]})
+    summary = {**reference(record), "observed_command_results": len(command_results),
+               "marker_check_answer_observed": "FRESH-MARKER-ABSENT" in record["answer"],
+               "marker_check_tool_observed": any("FRESH-MARKER-ABSENT" in
+                   e["params"]["item"].get("aggregatedOutput", "") for e in command_results)}
+    save(phase + "-turn-" + str(record["attempt_number"]) + "-summary", summary)
+    save(phase + "-summary", summary)
     print(phase + "_passed; run_id=" + record["run_id"])
 
 
@@ -168,8 +172,9 @@ def main():
                 "Count amber occurrences. Write native-marker.txt containing " + MARKER +
                 " and read it back. Report the marker and count. Do not change any other files."
                 if args.phase == "first" else
-                "Read the laomedo-pilot SKILL.md and fixture.txt with shell tools. "
-                "Test whether native-marker.txt exists using a shell command. Report "
+                "Read /draft/.agents/skills/laomedo-pilot/SKILL.md and /draft/fixture.txt "
+                "with shell tools. The fixture is in /draft, not the skill directory. "
+                "Test whether /draft/native-marker.txt exists using a shell command. Report "
                 "FRESH-MARKER-ABSENT if absent; do not create any files.")
         response = run_flow(task)
         save(args.phase + "-response", response)

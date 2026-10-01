@@ -27,12 +27,12 @@ not silently create a new run. Status and cancel use only the prior run ID.
 
 ## Prospective #21 acceptance
 
-Four authorized model turns have now been submitted through the installed server.
+Six authorized model turns have now been submitted through the installed server.
 See [sanitized evidence](evidence.json): catalog/round trip, fresh execution,
-restart/resume and independent host workspace checks passed; the third turn's
-fixture-path task failed and real cancellation remains inconclusive. The fourth
-turn completed while its command had no completion event. Preserve that result;
-an additional model turn requires explicit authorization, not an implicit retry.
+restart/resume, independent fresh tool/host checks and explicit cancellation passed.
+The failed third task and inconclusive fourth cancellation attempt remain recorded.
+The user extended the cap from four to six without resetting the ledger. It is now
+6/6; another model turn requires new authorization, not an implicit retry.
 
 The following prospective sequence remains the reproduction plan. Freeze
 implementation, spec, image, skill and permissions pins before a new attempt.
@@ -47,7 +47,7 @@ implementation, spec, image, skill and permissions pins before a new attempt.
 5. If the approved cap permits, run an interruptible tool task and cancel using a
    known runner ID; verify terminal cancellation and retained partial events.
 
-Use a separate ledger with at most four submitted turns only after approval;
+Use a separate ledger with an explicitly approved submitted-turn cap;
 timeouts consume turns. Credential-free rejection tests run first. Never reset
 the historical pilot ledger or make another auth copy. A test that does not fit
 the approved cap remains unverified. UI Stop propagation is deferred to
@@ -61,7 +61,11 @@ servers or resets ledgers. Raw responses stay in the private native-node-21 stat
 outside Git; only sanitized summaries are suitable for publication. The cancel
 phase invokes the node's explicit cancel operation after an observed sleep command,
 using a known run ID from private runner records; it does not claim UI Stop support.
-The corrected command-start trigger is prepared but not model-retested yet.
+The corrected command-start trigger passed in turn five. Explicit cancellation
+uses the runner's flag and app-server transport teardown; no native interrupt
+acknowledgement or tool completion is inferred. Thirty-three partial events remain,
+the interrupted Langflow run returns HTTP 500, and no Codex containers remained
+after the acceptance sequence. UI Stop propagation is still separate follow-up.
 Windows trace reading requires UTF-8. Resume validates the input snapshot; its
 output hash may legitimately change, as it did when an empty .aws directory appeared.
 Track outstanding command semantics in
