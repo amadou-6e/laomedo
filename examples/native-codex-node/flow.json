@@ -1,6 +1,6 @@
 {
   "id": "ff9a1b5d-9e91-5779-b744-ffa9929c6fe1",
-  "name": "Laomedo native Codex Agent v1",
+  "name": "Laomedo Skill and Codex Agent",
   "description": "Fresh/resume Codex custom component with shared answer/run outputs.",
   "last_tested_version": "1.12.3",
   "flow_type": "workflow",
@@ -269,6 +269,137 @@
         "type": "genericNode"
       },
       {
+        "id": "LaomedoSkill-native",
+        "type": "genericNode",
+        "position": {
+          "x": 0,
+          "y": 420
+        },
+        "data": {
+          "id": "LaomedoSkill-native",
+          "type": "LaomedoSkill",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Pinned whole-skill reference for the existing runner registry.\"\"\"\n\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import Output, StrInput\nfrom lfx.schema import Data\n\n\nclass LaomedoSkill(Component):\n    display_name = \"Laomedo Skill\"\n    description = \"Pass an immutable whole-skill revision to a Laomedo Codex Agent.\"\n    icon = \"BookOpen\"\n    name = \"LaomedoSkill\"\n    inputs = [\n        StrInput(name=\"skill_id\", display_name=\"Skill ID\", required=True),\n        StrInput(name=\"revision_id\", display_name=\"Skill Revision\", required=True,\n                 info=\"Exact sha256 revision in the runner's skill store.\"),\n    ]\n    outputs = [Output(name=\"skill\", display_name=\"Skill Reference\", method=\"skill_output\")]\n\n    def skill_output(self) -> Data:\n        skill_id, revision = str(self.skill_id), str(self.revision_id)\n        if not re.fullmatch(r\"[a-z0-9][a-z0-9_-]{0,63}\", skill_id):\n            raise ValueError(\"invalid_skill_id\")\n        if not re.fullmatch(r\"sha256:[0-9a-f]{64}\", revision):\n            raise ValueError(\"immutable_skill_revision_required\")\n        self.status = f\"{skill_id} at {revision}\"\n        return Data(data={\"skill_id\": skill_id, \"revision_id\": revision, \"tree_hash\": revision})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "revision_id": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "revision_id",
+                "value": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+                "display_name": "Skill Revision",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Exact sha256 revision in the runner's skill store.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "skill_id": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "skill_id",
+                "value": "laomedo-pilot",
+                "display_name": "Skill ID",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "description": "Pass an immutable whole-skill revision to a Laomedo Codex Agent.",
+            "icon": "BookOpen",
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Laomedo Skill",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "skill",
+                "display_name": "Skill Reference",
+                "method": "skill_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "skill_id",
+              "revision_id"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.laomedo_skill",
+              "code_hash": "29bc93daa8ac",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          },
+          "selected_output": "skill"
+        }
+      },
+      {
         "id": "LaomedoCodexAgent-native",
         "type": "genericNode",
         "position": {
@@ -307,6 +438,32 @@
                 "type": "other",
                 "_input_type": "JSONInput"
               },
+              "skill_reference": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "skill_reference",
+                "value": "",
+                "display_name": "Skill Reference",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
               "code": {
                 "type": "code",
                 "required": true,
@@ -314,7 +471,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"Langflow 1.12.3 custom component for the private local Codex runner.\"\"\"\n\nimport asyncio\nimport json\nimport re\nfrom urllib import error, request\nfrom urllib.parse import urlsplit\nfrom uuid import UUID\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput\nfrom lfx.schema import Data, Message\n\n\nclass LaomedoCodexAgent(Component):\n    display_name = \"Laomedo Codex Agent\"\n    description = \"Run or resume a pinned-skill Codex session through the local Docker runner.\"\n    icon = \"Bot\"\n    name = \"LaomedoCodexAgent\"\n\n    inputs = [\n        MessageTextInput(name=\"task\", display_name=\"Task\"),\n        DropdownInput(name=\"operation\", display_name=\"Operation\",\n                      options=[\"fresh\", \"resume\", \"status\", \"cancel\"], value=\"fresh\"),\n        StrInput(name=\"skill_id\", display_name=\"Skill ID\"),\n        StrInput(name=\"revision_id\", display_name=\"Skill Revision\"),\n        StrInput(name=\"model\", display_name=\"Model\", value=\"gpt-6-luna\"),\n        StrInput(name=\"effort\", display_name=\"Reasoning Effort\", value=\"low\"),\n        DataInput(name=\"run_reference\", display_name=\"Prior Run\", advanced=True),\n        StrInput(name=\"run_reference_json\", display_name=\"Prior Run JSON\", advanced=True,\n                 info=\"For API/manual resume when no Data port is connected.\"),\n        StrInput(name=\"runner_url\", display_name=\"Runner URL\", advanced=True,\n                 value=\"http://host.docker.internal:8765\"),\n        IntInput(name=\"timeout_seconds\", display_name=\"HTTP Timeout\", value=210,\n                 advanced=True),\n    ]\n    outputs = [\n        Output(name=\"answer\", display_name=\"Answer\", method=\"answer_output\", group_outputs=True),\n        Output(name=\"run\", display_name=\"Run Reference\", method=\"run_output\", group_outputs=True),\n    ]\n\n    def _pre_run_setup(self):\n        # Langflow invokes this once per build. Both output methods share dispatch.\n        self._dispatch_task = None\n\n    def _prepare(self):\n        base = str(self.runner_url).rstrip(\"/\")\n        parsed = urlsplit(base)\n        if (parsed.scheme != \"http\" or parsed.hostname not in\n                {\"127.0.0.1\", \"localhost\", \"::1\", \"host.docker.internal\"} or\n                parsed.username or parsed.password or parsed.path or\n                parsed.query or parsed.fragment):\n            raise ValueError(\"local_runner_url_required\")\n        if not 1 <= int(self.timeout_seconds) <= 240:\n            raise ValueError(\"timeout_must_be_1_to_240_seconds\")\n        operation = str(self.operation)\n        if operation not in {\"fresh\", \"resume\", \"status\", \"cancel\"}:\n            raise ValueError(\"invalid_operation\")\n        task = str(getattr(self.task, \"text\", self.task) or \"\")\n        if operation in {\"fresh\", \"resume\"} and not task.strip():\n            raise ValueError(\"task_required\")\n        model, effort = str(self.model), str(self.effort)\n        if operation in {\"fresh\", \"resume\"} and (not model.strip() or not effort.strip()):\n            raise ValueError(\"model_and_effort_required\")\n        if operation == \"fresh\":\n            revision = str(self.revision_id)\n            if not str(self.skill_id).strip() or not re.fullmatch(r\"sha256:[0-9a-f]{64}\", revision):\n                raise ValueError(\"pinned_skill_required\")\n            return base + \"/v1/runs\", {\"task\": task, \"model\": model, \"effort\": effort,\n                \"skill_ref\": {\"skill_id\": str(self.skill_id),\n                              \"revision_id\": revision, \"tree_hash\": revision}}, \"POST\"\n        prior = getattr(self.run_reference, \"data\", self.run_reference)\n        if prior is None and getattr(self, \"run_reference_json\", None):\n            try:\n                prior = json.loads(self.run_reference_json)\n            except (ValueError, TypeError):\n                raise ValueError(\"invalid_prior_run_json\") from None\n        if not isinstance(prior, dict):\n            raise ValueError(\"prior_run_required\")\n        run_id = str(prior.get(\"run_id\", \"\"))\n        try:\n            if str(UUID(run_id)) != run_id:\n                raise ValueError()\n        except ValueError:\n            raise ValueError(\"invalid_run_id\") from None\n        endpoint = base + \"/v1/runs/\" + run_id\n        if operation == \"status\":\n            return endpoint, None, \"GET\"\n        if operation == \"cancel\":\n            return endpoint + \"/cancel\", {}, \"POST\"\n        snapshot, thread = prior.get(\"post_run_hash\"), prior.get(\"thread_id\")\n        if (prior.get(\"status\") != \"completed\" or not isinstance(snapshot, str) or\n                not re.fullmatch(r\"sha256:[0-9a-f]{64}\", snapshot) or not thread):\n            raise ValueError(\"completed_snapshot_and_thread_required\")\n        if prior.get(\"model\") != model or prior.get(\"effort\") != effort:\n            raise ValueError(\"resume_model_effort_mismatch\")\n        return endpoint + \"/resume\", {\"task\": task, \"model\": model, \"effort\": effort,\n            \"expected_post_run_hash\": snapshot, \"expected_thread_id\": thread}, \"POST\"\n\n    def _http(self, endpoint, payload, method):\n        req = request.Request(endpoint,\n            data=None if payload is None else json.dumps(payload).encode(),\n            headers={\"Content-Type\": \"application/json\"}, method=method)\n        try:\n            with request.urlopen(req, timeout=int(self.timeout_seconds)) as response:\n                result = json.load(response)\n        except error.HTTPError as exc:\n            try:\n                result = json.load(exc)\n            except (ValueError, TypeError):\n                raise RuntimeError(\"runner_invalid_error_response\") from None\n            if not isinstance(result, dict):\n                raise RuntimeError(\"runner_invalid_error_response\")\n            raise RuntimeError(\"Laomedo run \" + str(result.get(\"run_id\") or \"unknown\") +\n                \" failed: \" + str(result.get(\"error_category\") or result.get(\"status\") or \"unknown\")) from None\n        except (error.URLError, TimeoutError, OSError):\n            raise RuntimeError(\"runner_transport_failed; remote execution may still be active\") from None\n        except (ValueError, TypeError):\n            raise RuntimeError(\"runner_invalid_response\") from None\n        if not isinstance(result, dict) or not result.get(\"run_id\"):\n            raise RuntimeError(\"runner_invalid_response\")\n        if self.operation in {\"fresh\", \"resume\"} and result.get(\"status\") != \"completed\":\n            raise RuntimeError(f\"Laomedo run {result['run_id']} failed: \"\n                               f\"{result.get('error_category') or result.get('status') or 'unknown'}\")\n        skill = result.get(\"skill\") or {}\n        return {\"answer\": result.get(\"answer\"), \"run_id\": result[\"run_id\"],\n            \"thread_id\": result.get(\"thread_id\"), \"status\": result.get(\"status\"),\n            \"post_run_hash\": result.get(\"post_run_hash\"),\n            \"model\": result.get(\"requested_model\"), \"effort\": result.get(\"requested_effort\"),\n            \"skill_revision\": skill.get(\"revision_id\"),\n            \"skill_use_evidence\": skill.get(\"use_evidence\", \"unknown\"),\n            \"artifact_ref\": result.get(\"output_ref\"), \"trace_ref\": result.get(\"raw_event_ref\"),\n            \"error_category\": result.get(\"error_category\"),\n            \"cancel_requested\": result.get(\"cancel_requested\", False), \"usage\": \"unknown\"}\n\n    async def _result(self):\n        if getattr(self, \"_dispatch_task\", None) is None:\n            prepared = self._prepare()\n            self._dispatch_task = asyncio.create_task(asyncio.to_thread(self._http, *prepared))\n        # A cancelled Langflow request must not imply that the remote agent stopped.\n        result = await asyncio.shield(self._dispatch_task)\n        self.status = f\"Laomedo run {result['run_id']}: {result['status']}\"\n        return result\n\n    async def run_output(self) -> Data:\n        return Data(data=await self._result())\n\n    async def answer_output(self) -> Message:\n        result = await self._result()\n        return Message(text=result.get(\"answer\") or \"\")\n",
+                "value": "\"\"\"Langflow 1.12.3 custom component for the private local Codex runner.\"\"\"\n\nimport asyncio\nimport json\nimport re\nfrom urllib import error, request\nfrom urllib.parse import urlsplit\nfrom uuid import UUID\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput\nfrom lfx.schema import Data, Message\n\n\nclass LaomedoCodexAgent(Component):\n    display_name = \"Laomedo Codex Agent\"\n    description = \"Run or resume a pinned-skill Codex session through the local Docker runner.\"\n    icon = \"Bot\"\n    name = \"LaomedoCodexAgent\"\n\n    inputs = [\n        MessageTextInput(name=\"task\", display_name=\"Task\"),\n        DropdownInput(name=\"operation\", display_name=\"Operation\",\n                      options=[\"fresh\", \"resume\", \"status\", \"cancel\"], value=\"fresh\"),\n        DataInput(name=\"skill_reference\", display_name=\"Skill Reference\"),\n        StrInput(name=\"skill_id\", display_name=\"Skill ID\", advanced=True),\n        StrInput(name=\"revision_id\", display_name=\"Skill Revision\", advanced=True),\n        StrInput(name=\"model\", display_name=\"Model\", value=\"gpt-6-luna\"),\n        StrInput(name=\"effort\", display_name=\"Reasoning Effort\", value=\"low\"),\n        DataInput(name=\"run_reference\", display_name=\"Prior Run\", advanced=True),\n        StrInput(name=\"run_reference_json\", display_name=\"Prior Run JSON\", advanced=True,\n                 info=\"For API/manual resume when no Data port is connected.\"),\n        StrInput(name=\"runner_url\", display_name=\"Runner URL\", advanced=True,\n                 value=\"http://host.docker.internal:8765\"),\n        IntInput(name=\"timeout_seconds\", display_name=\"HTTP Timeout\", value=210,\n                 advanced=True),\n    ]\n    outputs = [\n        Output(name=\"answer\", display_name=\"Answer\", method=\"answer_output\", group_outputs=True),\n        Output(name=\"run\", display_name=\"Run Reference\", method=\"run_output\", group_outputs=True),\n    ]\n\n    def _pre_run_setup(self):\n        # Langflow invokes this once per build. Both output methods share dispatch.\n        self._dispatch_task = None\n\n    def _prepare(self):\n        base = str(self.runner_url).rstrip(\"/\")\n        parsed = urlsplit(base)\n        if (parsed.scheme != \"http\" or parsed.hostname not in\n                {\"127.0.0.1\", \"localhost\", \"::1\", \"host.docker.internal\"} or\n                parsed.username or parsed.password or parsed.path or\n                parsed.query or parsed.fragment):\n            raise ValueError(\"local_runner_url_required\")\n        if not 1 <= int(self.timeout_seconds) <= 240:\n            raise ValueError(\"timeout_must_be_1_to_240_seconds\")\n        operation = str(self.operation)\n        if operation not in {\"fresh\", \"resume\", \"status\", \"cancel\"}:\n            raise ValueError(\"invalid_operation\")\n        task = str(getattr(self.task, \"text\", self.task) or \"\")\n        if operation in {\"fresh\", \"resume\"} and not task.strip():\n            raise ValueError(\"task_required\")\n        model, effort = str(self.model), str(self.effort)\n        if operation in {\"fresh\", \"resume\"} and (not model.strip() or not effort.strip()):\n            raise ValueError(\"model_and_effort_required\")\n        if operation == \"fresh\":\n            connected = getattr(self, \"skill_reference\", None)\n            connected = getattr(connected, \"data\", connected)\n            if connected in (None, \"\", []):\n                connected = None\n            revision = str(getattr(self, \"revision_id\", \"\") or \"\")\n            skill_id = str(getattr(self, \"skill_id\", \"\") or \"\")\n            if connected is not None:\n                if not isinstance(connected, dict):\n                    raise ValueError(\"invalid_skill_reference\")\n                selected_id = connected.get(\"skill_id\")\n                selected_revision = connected.get(\"revision_id\")\n                if (not isinstance(selected_id, str) or\n                        not re.fullmatch(r\"[a-z0-9][a-z0-9_-]{0,63}\", selected_id) or\n                        not isinstance(selected_revision, str) or\n                        not re.fullmatch(r\"sha256:[0-9a-f]{64}\", selected_revision) or\n                        connected.get(\"tree_hash\") != selected_revision):\n                    raise ValueError(\"invalid_skill_reference\")\n                if (skill_id and skill_id != selected_id) or (revision and revision != selected_revision):\n                    raise ValueError(\"conflicting_skill_inputs\")\n                skill_id, revision = selected_id, selected_revision\n            if not skill_id.strip() or not re.fullmatch(r\"sha256:[0-9a-f]{64}\", revision):\n                raise ValueError(\"pinned_skill_required\")\n            return base + \"/v1/runs\", {\"task\": task, \"model\": model, \"effort\": effort,\n                \"skill_ref\": {\"skill_id\": skill_id,\n                              \"revision_id\": revision, \"tree_hash\": revision}}, \"POST\"\n        prior = getattr(self.run_reference, \"data\", self.run_reference)\n        if prior is None and getattr(self, \"run_reference_json\", None):\n            try:\n                prior = json.loads(self.run_reference_json)\n            except (ValueError, TypeError):\n                raise ValueError(\"invalid_prior_run_json\") from None\n        if not isinstance(prior, dict):\n            raise ValueError(\"prior_run_required\")\n        run_id = str(prior.get(\"run_id\", \"\"))\n        try:\n            if str(UUID(run_id)) != run_id:\n                raise ValueError()\n        except ValueError:\n            raise ValueError(\"invalid_run_id\") from None\n        endpoint = base + \"/v1/runs/\" + run_id\n        if operation == \"status\":\n            return endpoint, None, \"GET\"\n        if operation == \"cancel\":\n            return endpoint + \"/cancel\", {}, \"POST\"\n        snapshot, thread = prior.get(\"post_run_hash\"), prior.get(\"thread_id\")\n        if (prior.get(\"status\") != \"completed\" or not isinstance(snapshot, str) or\n                not re.fullmatch(r\"sha256:[0-9a-f]{64}\", snapshot) or not thread):\n            raise ValueError(\"completed_snapshot_and_thread_required\")\n        if prior.get(\"model\") != model or prior.get(\"effort\") != effort:\n            raise ValueError(\"resume_model_effort_mismatch\")\n        return endpoint + \"/resume\", {\"task\": task, \"model\": model, \"effort\": effort,\n            \"expected_post_run_hash\": snapshot, \"expected_thread_id\": thread}, \"POST\"\n\n    def _http(self, endpoint, payload, method):\n        req = request.Request(endpoint,\n            data=None if payload is None else json.dumps(payload).encode(),\n            headers={\"Content-Type\": \"application/json\"}, method=method)\n        try:\n            with request.urlopen(req, timeout=int(self.timeout_seconds)) as response:\n                result = json.load(response)\n        except error.HTTPError as exc:\n            try:\n                result = json.load(exc)\n            except (ValueError, TypeError):\n                raise RuntimeError(\"runner_invalid_error_response\") from None\n            if not isinstance(result, dict):\n                raise RuntimeError(\"runner_invalid_error_response\")\n            raise RuntimeError(\"Laomedo run \" + str(result.get(\"run_id\") or \"unknown\") +\n                \" failed: \" + str(result.get(\"error_category\") or result.get(\"status\") or \"unknown\")) from None\n        except (error.URLError, TimeoutError, OSError):\n            raise RuntimeError(\"runner_transport_failed; remote execution may still be active\") from None\n        except (ValueError, TypeError):\n            raise RuntimeError(\"runner_invalid_response\") from None\n        if not isinstance(result, dict) or not result.get(\"run_id\"):\n            raise RuntimeError(\"runner_invalid_response\")\n        if self.operation in {\"fresh\", \"resume\"} and result.get(\"status\") != \"completed\":\n            raise RuntimeError(f\"Laomedo run {result['run_id']} failed: \"\n                               f\"{result.get('error_category') or result.get('status') or 'unknown'}\")\n        skill = result.get(\"skill\") or {}\n        return {\"answer\": result.get(\"answer\"), \"run_id\": result[\"run_id\"],\n            \"thread_id\": result.get(\"thread_id\"), \"status\": result.get(\"status\"),\n            \"post_run_hash\": result.get(\"post_run_hash\"),\n            \"model\": result.get(\"requested_model\"), \"effort\": result.get(\"requested_effort\"),\n            \"skill_revision\": skill.get(\"revision_id\"),\n            \"skill_use_evidence\": skill.get(\"use_evidence\", \"unknown\"),\n            \"artifact_ref\": result.get(\"output_ref\"), \"trace_ref\": result.get(\"raw_event_ref\"),\n            \"error_category\": result.get(\"error_category\"),\n            \"cancel_requested\": result.get(\"cancel_requested\", False), \"usage\": \"unknown\"}\n\n    async def _result(self):\n        if getattr(self, \"_dispatch_task\", None) is None:\n            prepared = self._prepare()\n            self._dispatch_task = asyncio.create_task(asyncio.to_thread(self._http, *prepared))\n        # A cancelled Langflow request must not imply that the remote agent stopped.\n        result = await asyncio.shield(self._dispatch_task)\n        self.status = f\"Laomedo run {result['run_id']}: {result['status']}\"\n        return result\n\n    async def run_output(self) -> Data:\n        return Data(data=await self._result())\n\n    async def answer_output(self) -> Message:\n        result = await self._result()\n        return Message(text=result.get(\"answer\") or \"\")\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -411,9 +568,9 @@
                 "placeholder": "",
                 "show": true,
                 "name": "revision_id",
-                "value": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+                "value": "",
                 "display_name": "Skill Revision",
-                "advanced": false,
+                "advanced": true,
                 "api_editable": false,
                 "dynamic": false,
                 "info": "",
@@ -477,9 +634,9 @@
                 "placeholder": "",
                 "show": true,
                 "name": "skill_id",
-                "value": "laomedo-pilot",
+                "value": "",
                 "display_name": "Skill ID",
-                "advanced": false,
+                "advanced": true,
                 "api_editable": false,
                 "dynamic": false,
                 "info": "",
@@ -583,6 +740,7 @@
             "field_order": [
               "task",
               "operation",
+              "skill_reference",
               "skill_id",
               "revision_id",
               "model",
@@ -597,7 +755,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_codex_agent",
-              "code_hash": "a8872fd18d5e",
+              "code_hash": "8c3239ac97e2",
               "dependencies": {
                 "total_dependencies": 1,
                 "dependencies": [
@@ -1193,6 +1351,31 @@
             "id": "LaomedoCodexAgent-native",
             "inputTypes": [
               "Message"
+            ],
+            "type": "str"
+          }
+        }
+      },
+      {
+        "id": "LaomedoSkill-native-LaomedoCodexAgent-native",
+        "source": "LaomedoSkill-native",
+        "target": "LaomedoCodexAgent-native",
+        "sourceHandle": "{\"dataType\": \"LaomedoSkill\", \"id\": \"LaomedoSkill-native\", \"name\": \"skill\", \"output_types\": [\"Data\"]}",
+        "targetHandle": "{\"fieldName\": \"skill_reference\", \"id\": \"LaomedoCodexAgent-native\", \"inputTypes\": [\"Data\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "LaomedoSkill",
+            "id": "LaomedoSkill-native",
+            "name": "skill",
+            "output_types": [
+              "Data"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "skill_reference",
+            "id": "LaomedoCodexAgent-native",
+            "inputTypes": [
+              "Data"
             ],
             "type": "str"
           }

@@ -15,7 +15,10 @@ class NativeFlowTests(unittest.TestCase):
                      if n["data"]["type"] == "LaomedoCodexAgent")
         fields = agent["data"]["node"]["template"]
         fixture = (root / "examples/skill-agent-pilot/skill/SKILL.md").read_bytes()
-        self.assertEqual(fields["revision_id"]["value"], tree_hash({"SKILL.md": fixture}))
+        skill = next(n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoSkill")
+        self.assertEqual(skill["data"]["node"]["template"]["revision_id"]["value"],
+                         tree_hash({"SKILL.md": fixture}))
+        self.assertEqual(fields["revision_id"]["value"], "")
         self.assertEqual(fields["code"]["value"],
                          (root / "components/laomedo/codex_agent.py").read_text())
         names = {e["data"]["sourceHandle"]["name"] for e in flow["data"]["edges"]

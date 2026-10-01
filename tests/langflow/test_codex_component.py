@@ -15,6 +15,10 @@ spec = importlib.util.spec_from_file_location("codex_agent", MODULE_PATH)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
+skill_spec = importlib.util.spec_from_file_location("skill_component", MODULE_PATH.with_name("skill.py"))
+skill_module = importlib.util.module_from_spec(skill_spec)
+sys.modules[skill_spec.name] = skill_module
+skill_spec.loader.exec_module(skill_module)
 
 
 class Response(io.BytesIO):
@@ -49,6 +53,19 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_skill_node_validates_and_agent_consumes_reference(self):
+        skill = skill_module.LaomedoSkill()
+        skill.skill_id, skill.revision_id = "fixture", HASH
+        ref = skill.skill_output()
+        node = component(skill_id="", revision_id="", skill_reference=ref)
+        _url, payload, _method = node._prepare()
+        self.assertEqual(payload["skill_ref"], ref.data)
+        with self.assertRaisesRegex(ValueError, "conflicting_skill_inputs"):
+            component(skill_reference=ref, revision_id="sha256:" + "b" * 64)._prepare()
+        for skill_id, revision in [("../escape", HASH), ("fixture", "latest")]:
+            skill.skill_id, skill.revision_id = skill_id, revision
+            with self.assertRaises(ValueError):
+                skill.skill_output()
     async def test_saved_graph_both_branches_dispatch_once(self):
         from lfx.graph.graph.base import Graph
         root = Path(__file__).resolve().parents[2]

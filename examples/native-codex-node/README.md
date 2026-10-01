@@ -1,9 +1,18 @@
 # Native Codex node example
 
-`flow.json` connects Chat Input to the operator-installed Laomedo Codex Agent
+`flow.json` connects a separate Laomedo Skill node and Chat Input to the operator-installed Laomedo Codex Agent
 and both its Answer and Run Reference ports to separate Chat Outputs. Both
 branches share a single runner invocation. It pins the existing synthetic whole
 skill fixture from `../skill-agent-pilot/skill/`; it contains no credential.
+
+The five-node example is a follow-up to the original four-node acceptance flow.
+Historical six-turn evidence describes that original version. The connected Skill
+node has separate synthetic graph verification and a real seventh-turn result in
+[skill-node-evidence.json](skill-node-evidence.json). Historical evidence alone
+does not prove new wiring. `verify_skill_node.py --approved-model-turn` reproduces
+the installed-flow test using one separately authorized turn; it refuses dispatch
+without the flag. Private responses stay outside Git. The installed example uses
+runner port 8766; the exported runner URL is configurable.
 
 Install the component using [the component guide](../../components/README.md).
 `compose.yaml` is the reviewable acceptance-server draft: localhost:7862,
@@ -12,7 +21,7 @@ It leaves the existing localhost:7861 deployment alone. Start it only after
 operator approval of that configuration.
 Run `build_flow.py` inside the pinned Langflow 1.12.3 image with this repo available;
 it validates directory discovery, rebuilds the component schema, and constructs
-the four-vertex graph without a model call.
+the five-vertex graph without a model call.
 
 Import `flow.json` into an approved local acceptance server. Set advanced Runner
 URL if its runner uses a different loopback port. Trigger through the editor or

@@ -19,6 +19,13 @@ state into Langflow. The component needs only the loopback runner API.
 
 ## Inputs and outputs
 
+Connect Laomedo Skill's Skill Reference output to the agent's Skill Reference
+input. The Skill node takes an existing Skill ID and exact SHA-256 revision and
+emits a structured reference; it does not load credentials, expose host paths or
+claim that a revision exists. The runner resolves and verifies the immutable
+whole bundle before a model turn. Inline advanced skill fields remain compatible
+with older flows; conflicting wired and inline references fail explicitly.
+
 Fresh: supply task, immutable whole-skill ID/revision, model and effort.
 Resume: set operation to resume and supply the prior structured Run Reference;
 its completed status, thread, model/effort and exact post-run hash are required.

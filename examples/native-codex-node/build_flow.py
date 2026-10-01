@@ -33,6 +33,8 @@ def main():
     assert not entry["error"], entry["error"]
     assert catalog["menu"][0]["name"] == "laomedo"
     template, _ = build_custom_component_template(Component(_code=path.read_text()))
+    skill_path = ROOT / "components/laomedo/skill.py"
+    skill_template, _ = build_custom_component_template(Component(_code=skill_path.read_text()))
     old = json.loads((ROOT / "examples/skill-agent-pilot/pilot-flow.json").read_text())
     nodes = old["data"]["nodes"]
     chat_input = deepcopy(next(n for n in nodes if n["data"]["type"] == "ChatInput"))
@@ -40,6 +42,13 @@ def main():
     old_agent = next(n for n in nodes if n["data"]["type"] == "LaomedoRunner")
     for field in ["skill_id", "revision_id", "model", "effort"]:
         template["template"][field]["value"] = old_agent["data"]["node"]["template"][field]["value"]
+    for field in ["skill_id", "revision_id"]:
+        skill_template["template"][field]["value"] = template["template"][field]["value"]
+        template["template"][field]["value"] = ""
+    skill = {"id": "LaomedoSkill-native", "type": "genericNode",
+             "position": {"x": 0, "y": 420},
+             "data": {"id": "LaomedoSkill-native", "type": "LaomedoSkill",
+                      "node": skill_template, "selected_output": "skill"}}
     agent = {"id": "LaomedoCodexAgent-native", "type": "genericNode",
              "position": {"x": 420, "y": 100},
              "data": {"id": "LaomedoCodexAgent-native", "type": "LaomedoCodexAgent",
@@ -48,20 +57,21 @@ def main():
     run_output["id"] = run_output["data"]["id"] = "ChatOutput-run-reference"
     run_output["position"] = {"x": 850, "y": 400}
     flow = {"id": str(uuid5(NAMESPACE_URL, "laomedo-native-codex-node-v1")),
-            "name": "Laomedo native Codex Agent v1",
+            "name": "Laomedo Skill and Codex Agent",
             "description": "Fresh/resume Codex custom component with shared answer/run outputs.",
             "last_tested_version": "1.12.3", "flow_type": "workflow", "access_type": "PRIVATE",
-            "data": {"nodes": [chat_input, agent, chat_output, run_output],
+            "data": {"nodes": [chat_input, skill, agent, chat_output, run_output],
                      "edges": [
                          edge(chat_input, "message", ["Message"], agent, "task", ["Message"]),
+                         edge(skill, "skill", ["Data"], agent, "skill_reference", ["Data"]),
                          edge(agent, "answer", ["Message"], chat_output, "input_value", ["Message"]),
                          edge(agent, "run", ["Data"], run_output, "input_value", ["Data", "JSON"]),
                      ], "viewport": {"x": 0, "y": 0, "zoom": 1}}}
     graph = Graph.from_payload(flow)
-    assert len(graph.vertices) == 4
+    assert len(graph.vertices) == 5
     destination = Path(__file__).with_name("flow.json")
     destination.write_text(json.dumps(flow, indent=2) + "\n")
-    print("directory_discovery_and_four_vertex_graph_passed")
+    print("directory_discovery_and_five_vertex_graph_passed")
 
 
 if __name__ == "__main__":
