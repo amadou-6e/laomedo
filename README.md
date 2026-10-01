@@ -1,6 +1,12 @@
 # laomedo
 Design, inspect, and experiment with Codex and Claude Code agent workflows
 
+The [Work Graph foundation](docs/work-graph.md) imports GitHub work and native
+blocker relationships using an existing `gh` login. It stores verified,
+immutable snapshots and inspects filtered projections with dependency
+readiness calculated from the full graph. This slice provides a Python
+service and CLI; the graph UI and agent dispatch are subsequent slices.
+
 The [issue 119 feasibility experiments](experiments/feasibility/119/README.md)
 cover no-model Codex skill discovery, a manifest pilot, and a bounded
 credential-backed skill turn. Discovery and manifest checks use disposable

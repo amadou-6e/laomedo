@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laomedo"
+version = "0.1.0"
+description = "Design, inspect, and execute agent workflows"
+requires-python = ">=3.10"
+
+[project.scripts]
+laomedo-work-graph = "laomedo.work_graph.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

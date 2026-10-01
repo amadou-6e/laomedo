@@ -1,0 +1,43 @@
+[
+  {
+    "data": {
+      "repository": {
+        "nameWithOwner": "example/work",
+        "issues": {
+          "totalCount": 3,
+          "pageInfo": {"hasNextPage": false, "endCursor": null},
+          "nodes": [
+            {
+              "id": "I_1", "number": 1, "url": "https://github.com/example/work/issues/1",
+              "title": "Define the input contract", "body": "A synthetic completed prerequisite.",
+              "state": "CLOSED", "updatedAt": "2026-10-01T07:00:00Z",
+              "labels": {"totalCount": 1, "nodes": [{"name": "contract"}]},
+              "blockedBy": {"totalCount": 0, "nodes": []},
+              "blocking": {"totalCount": 1, "nodes": [
+                {"id": "I_2", "url": "https://github.com/example/work/issues/2", "repository": {"nameWithOwner": "example/work"}}
+              ]}
+            },
+            {
+              "id": "I_2", "number": 2, "url": "https://github.com/example/work/issues/2",
+              "title": "Build the adapter", "body": "A synthetic dependent work item.",
+              "state": "OPEN", "updatedAt": "2026-10-01T07:00:00Z",
+              "labels": {"totalCount": 1, "nodes": [{"name": "adapter"}]},
+              "blockedBy": {"totalCount": 1, "nodes": [
+                {"id": "I_1", "url": "https://github.com/example/work/issues/1", "repository": {"nameWithOwner": "example/work"}}
+              ]},
+              "blocking": {"totalCount": 0, "nodes": []}
+            },
+            {
+              "id": "I_3", "number": 3, "url": "https://github.com/example/work/issues/3",
+              "title": "Write standalone notes", "body": "A synthetic isolated match.",
+              "state": "OPEN", "updatedAt": "2026-10-01T07:00:00Z",
+              "labels": {"totalCount": 1, "nodes": [{"name": "notes"}]},
+              "blockedBy": {"totalCount": 0, "nodes": []},
+              "blocking": {"totalCount": 0, "nodes": []}
+            }
+          ]
+        }
+      }
+    }
+  }
+]
