@@ -22,7 +22,7 @@ def edge(source, name, target, field):
                 "name": name, "output_types": output["types"]}
     incoming = {"fieldName": field, "id": target["id"],
                 "inputTypes": input_field.get("input_types", []), "type": input_field["type"]}
-    return {"id": source["id"] + "-" + target["id"], "source": source["id"],
+    return {"id": source["id"] + "-" + name + "-" + target["id"] + "-" + field, "source": source["id"],
             "target": target["id"], "sourceHandle": json.dumps(outgoing),
             "targetHandle": json.dumps(incoming),
             "data": {"sourceHandle": outgoing, "targetHandle": incoming}}

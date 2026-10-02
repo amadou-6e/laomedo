@@ -115,3 +115,11 @@ thread ID and exact last post-run hash; a missing or altered snapshot fails
 before dispatch. Raw app-server events, session state, and snapshots stay
 outside Git. Python 3.10+ and only the standard library are required for the
 runner; Docker and the existing private volume are required for a real turn.
+
+Fresh requests may include validated `handoff` provenance and explicit
+`artifact_refs`. References resolve completed, hash-bound snapshots owned by this
+runner, copy only selected ordinary files beneath `handoff/` in the new workspace,
+and persist the import manifest. `POST /v1/runs/<run-id>/artifacts` with `paths`
+returns pinned manifest references, never file contents or arbitrary host paths.
+Cross-provider files require a separate audited shared-store interface and fail
+closed today. See [handoff examples](../examples/agent-handoffs/README.md).
