@@ -8,6 +8,7 @@ when the runner reports a failed turn, so a failed agent is not a chat answer.
 import json
 import os
 from pathlib import Path
+import re
 from urllib import error, request
 
 from lfx.custom.custom_component.component import Component
@@ -45,8 +46,8 @@ class LaomedoRunner(Component):
             token = Path(token_file).read_text(encoding="utf-8").strip()
         except OSError:
             raise RuntimeError("Laomedo runner API token file is unavailable") from None
-        if not token:
-            raise RuntimeError("Laomedo runner API token file is empty")
+        if not re.fullmatch(r"[0-9a-f]{64}", token):
+            raise RuntimeError("Laomedo runner API token file is invalid")
         req = request.Request(endpoint, data=json.dumps(payload).encode("utf-8"),
                               headers={"Content-Type": "application/json",
                                        "Authorization": "Bearer " + token},
