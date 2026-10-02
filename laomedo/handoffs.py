@@ -65,7 +65,7 @@ def envelope(source, target, task, *, skills, execution_id=None, step=0,
 
 
 class BoundedController:
-    """An adapter must honor deadline/cancellation; no automatic retries.
+    """Bound dispatch attempts; remote execution may continue after timeout.
 
     Optional private state persists reservations before dispatch. Recovery exposes
     uncertain transitions without replay; no exactly-once restart claim.
@@ -81,6 +81,7 @@ class BoundedController:
         self.deadline = clock() + timeout_seconds
         self.cancelled = threading.Event()
         self.lock = threading.Lock()
+        self.state_lock = threading.RLock()
         self.records = []
         self.submitted = 0
         self.execution_id = str(uuid4())
@@ -99,11 +100,12 @@ class BoundedController:
     def cancel(self):
         self.cancelled.set()
         try:
-            self.cancel_evidence = self.adapter.cancel(self.execution_id)
+            evidence = self.adapter.cancel(self.execution_id)
         except Exception as exc:
-            self.cancel_evidence = {"cancel_acknowledged": False,
-                                    "error_type": type(exc).__name__}
-        self._persist(self.stop_reason or "cancel_requested")
+            evidence = {"cancel_acknowledged": False, "error_type": type(exc).__name__}
+        with self.state_lock:
+            self.cancel_evidence = evidence
+            self._persist(self.stop_reason or "cancel_requested")
 
     def run(self, targets, task, skills, *, success, loop=False, artifacts=None):
         if not self.lock.acquire(False):
@@ -127,22 +129,30 @@ class BoundedController:
                                         execution_id=self.execution_id, step=step,
                                         artifacts=(artifacts(previous) if callable(artifacts) else artifacts))
                 except Exception as exc:
-                    self.records.append({"step": step, "status": "handoff_rejected",
-                                         "error_type": type(exc).__name__, "run": None})
+                    with self.state_lock:
+                        self.records.append({"step": step, "status": "handoff_rejected",
+                                             "error_type": type(exc).__name__, "run": None})
                     return self._finish("handoff_rejected")
                 transition = {"handoff": outgoing, "status": "dispatching", "run": None}
-                self.records.append(transition)
-                # Reserve conservatively before submission, including uncertain sends.
-                self.submitted += 1
-                self._persist("dispatching")
+                with self.state_lock:
+                    self.records.append(transition)
+                    # Reserve conservatively before submission, including uncertain sends.
+                    self.submitted += 1
+                    self._persist("dispatching")
                 try:
                     result = self.adapter.dispatch(outgoing, deadline=self.deadline,
                                                    cancelled=self.cancelled)
                 except Exception as exc:
-                    transition.update(status="uncertain", error_type=type(exc).__name__)
+                    with self.state_lock:
+                        transition.update(status="uncertain", error_type=type(exc).__name__)
                     return self._finish("dispatch_uncertain")
-                transition.update(status=result.get("status"), run=deepcopy(result))
-                self._persist("running")
+                with self.state_lock:
+                    transition.update(status=result.get("status"), run=deepcopy(result))
+                    if result.get("status") == "rejected":
+                        self.submitted -= 1
+                    self._persist("running")
+                if result.get("status") == "rejected":
+                    return self._finish("dispatch_rejected")
                 if self.cancelled.is_set():
                     return self._finish("cancelled")
                 if self.clock() >= self.deadline:
@@ -152,7 +162,8 @@ class BoundedController:
                 try:
                     accepted = success(result)
                 except Exception as exc:
-                    transition["predicate_error_type"] = type(exc).__name__
+                    with self.state_lock:
+                        transition["predicate_error_type"] = type(exc).__name__
                     return self._finish("stop_predicate_failed")
                 if accepted:
                     return self._finish("success")
@@ -171,24 +182,26 @@ class BoundedController:
             self.lock.release()
 
     def _finish(self, reason):
-        self.stop_reason = reason
-        result = {"execution_id": self.execution_id, "stop_reason": reason,
-                "submitted_turns": self.submitted, "transitions": deepcopy(self.records),
-                "cancel_evidence": deepcopy(self.cancel_evidence)}
-        self._persist(reason)
-        return result
+        with self.state_lock:
+            self.stop_reason = reason
+            result = {"execution_id": self.execution_id, "stop_reason": reason,
+                    "submitted_turns": self.submitted, "transitions": deepcopy(self.records),
+                    "cancel_evidence": deepcopy(self.cancel_evidence)}
+            self._persist(reason)
+            return result
 
     def _persist(self, status):
-        if self.state_dir is None:
-            return
-        path = self.state_dir / (self.execution_id + ".json")
-        pending = path.with_suffix(".pending-" + uuid4().hex)
-        value = {"execution_id": self.execution_id, "stop_reason": status,
-                 "submitted_turns": self.submitted, "transitions": deepcopy(self.records),
-                 "cancel_evidence": deepcopy(self.cancel_evidence),
-                 "limits": {"max_iterations": self.max_iterations, "turn_budget": self.turn_budget}}
-        pending.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
-        os.replace(pending, path)
+        with self.state_lock:
+            if self.state_dir is None:
+                return
+            path = self.state_dir / (self.execution_id + ".json")
+            pending = path.with_suffix(".pending-" + uuid4().hex)
+            value = {"execution_id": self.execution_id, "stop_reason": status,
+                     "submitted_turns": self.submitted, "transitions": deepcopy(self.records),
+                     "cancel_evidence": deepcopy(self.cancel_evidence),
+                     "limits": {"max_iterations": self.max_iterations, "turn_budget": self.turn_budget}}
+            pending.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+            os.replace(pending, path)
 
     @staticmethod
     def inspect(state_dir, execution_id):

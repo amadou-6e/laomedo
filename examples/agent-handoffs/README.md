@@ -22,7 +22,9 @@ python tests/langflow/test_handoff_graph.py
 `laomedo.handoffs.BoundedController` schedules finite chains or bounded loops via
 `laomedo.handoff_http.RunnerAdapter`. Supply target provider/model/effort, pinned
 skills, positive iteration and turn budgets, deadline and explicit success predicate.
-It conservatively reserves each possible submitted turn and never retries uncertain
+It bounds dispatch attempts, but a timed-out fresh request may leave remote agent
+work running until the runner stops it. It conservatively reserves uncertain sends,
+does not charge a definite pre-run HTTP rejection, and never retries uncertain
 dispatch. Text output supplies the next task. Explicit artifact manifests import
 only selected files from completed, hash-bound snapshots into `handoff/` in the
 new independent workspace. Traversal, protected profile/credential paths, links,
@@ -40,8 +42,13 @@ uncertain dispatch. Fresh controllers always create a new execution ID.
 
 The component requires the Laomedo runtime package in the Langflow Python path.
 `compose.yaml` is a deployment draft with separate UI/state volumes and a read-only
-runtime package mount. It was not applied to the user's shared services. It does
-not mount credentials or change runner permissions.
+runtime package mount. It was not applied to the user's shared services. It mounts
+only a read-only runner API capability file supplied through
+`LAOMEDO_RUNNER_TOKEN_PATH`, not the Codex login. Auto-login is disabled; sign in
+to Langflow normally. For an OpenCode target, set
+`LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE` to a second mounted capability file. The
+token contents stay out of flows, logs and execution records. Runner permissions
+remain unchanged.
 
 Host tests and pinned-runtime synthetic graph tests cover independent stopping
 conditions, cancellation evidence, safe selected import and restart provenance.
@@ -63,5 +70,7 @@ The approval flag is not a substitute for user authorization. No retry is perfor
 On 2026-10-02 the user authorized two further turns and this harness passed in the
 pinned Langflow test container. Both iterations completed and the controller stopped
 on the exact success marker. See `live-loop-evidence.json`. The handoff runner's
-cumulative ledger is 4/4; original chain observations remain unchanged. Browser
+cumulative ledger is 4/4. The two additional turns extended the original 2/2
+approval to 4/4, with no further turns authorized. Original chain observations
+remain unchanged. Browser
 deployment and cross-provider acceptance remain separate checks.

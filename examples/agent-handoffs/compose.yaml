@@ -7,12 +7,14 @@ services:
     environment:
       LANGFLOW_COMPONENTS_PATH: /app/custom_components
       PYTHONPATH: /app/laomedo-runtime
-      LANGFLOW_AUTO_LOGIN: "true"
+      LANGFLOW_AUTO_LOGIN: "false"
+      LAOMEDO_RUNNER_TOKEN_FILE: /run/secrets/laomedo-runner-token
     volumes:
       - ../../components:/app/custom_components:ro
       - ../../laomedo:/app/laomedo-runtime/laomedo:ro
       - handoff-langflow-data:/app/langflow
       - handoff-execution-state:/app/laomedo-state
+      - ${LAOMEDO_RUNNER_TOKEN_PATH}:/run/secrets/laomedo-runner-token:ro
 volumes:
   handoff-langflow-data:
   handoff-execution-state:

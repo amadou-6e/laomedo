@@ -84,6 +84,17 @@ class HandoffTests(unittest.TestCase):
         self.assertEqual(result["submitted_turns"], 1)
         self.assertNotIn("private detail", str(result))
 
+    def test_definite_rejection_does_not_consume_turn_budget(self):
+        class Rejected(Adapter):
+            def dispatch(self, item, **kwargs):
+                return {"provider": "codex", "status": "rejected",
+                        "error_category": "invalid_skill"}
+        c = BoundedController(Rejected([]), max_iterations=2, turn_budget=1,
+                              timeout_seconds=10)
+        result = self.run_chain(c)
+        self.assertEqual(result["stop_reason"], "dispatch_rejected")
+        self.assertEqual(result["submitted_turns"], 0)
+
     def test_foreign_resume_and_artifacts_fail_closed(self):
         origin = {"provider": "codex", "run_id": "a", "status": "completed", "auth": "secret"}
         with self.assertRaisesRegex(HandoffError, "foreign"):
