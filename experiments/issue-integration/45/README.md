@@ -49,10 +49,13 @@ is `exp15-3338168cb0d748b29d1de1227117e69d`.
 The suppressed POST produced [issue #1](https://github.com/amadou-6e/laomedo-exp15-disposable/issues/1),
 GitHub ID `5682567402`. Acknowledged control [#2](https://github.com/amadou-6e/laomedo-exp15-disposable/issues/2)
 has ID `5682578548`; near-marker control [#3](https://github.com/amadou-6e/laomedo-exp15-disposable/issues/3)
-has ID `5682578820`. A subsequent raw search for the target marker returned
-both #1 and #2 (`total_count=2`, `incomplete_results=false`), illustrating
-why text-search hits require exact body-marker verification. There were zero
-duplicate POST attempts and no cleanup writes.
+has ID `5682578820`. The recorded `final_observation` (about one second after
+the controls were created) found only #1 (`search_total_count=1`). A later,
+manually run raw search for the target marker returned both #1 and #2
+(`total_count=2`, `incomplete_results=false`); that read was **not** saved in
+`evidence.json`. It illustrates why text-search hits require exact body-marker
+verification, but it is an unrecorded observation, not committed evidence.
+There were zero duplicate POST attempts and no cleanup writes.
 
 ## Assessment and limits
 
@@ -61,9 +64,19 @@ before posting; after an acknowledgement is lost, keep the attempt `unknown`,
 query/list by marker, require exactly one exact-body match before binding its
 issue ID, and do not automatically POST again after a negative or ambiguous
 lookup. More than one exact match is a failure requiring manual resolution.
+Persistent absence also ends in a user decision: this run had no rejected-POST
+control, so an attempt whose POST truly failed would otherwise stay `unknown`
+indefinitely.
 
-This run measures a *visibility interval* of >2.719 s and <=4.047 s from the
-POST process returning to a successful pair of queries. It does **not** prove
+The elapsed figures are approximate. They count from a `time.monotonic()`
+reading taken after the suppressed POST process returned (that instant is not
+persisted), and each figure is the *completion* time of a list-then-search
+pair, roughly 1.3–1.6 s apart, not the time a request was sent. The issue
+became visible to both queries roughly between the second and third pairs:
+the last negative list request was sent before 2.719 s, and the first positive
+pair completed by 4.047 s. A rerun should record absolute POST start/end times,
+per-request send/receive times, and the created issue's server `created_at`.
+This run does **not** prove
 a safe wait after which absence licenses a retry: only one suppressed attempt,
 one repository, one auth route, and one time period were sampled. The list and
 search calls ran sequentially, so individual endpoint visibility times are
