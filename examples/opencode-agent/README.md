@@ -56,12 +56,24 @@ delayed write; its live failed-status race was fixed afterward with a determinis
 regression. See `live-success-evidence.json`. A later authorized live retest
 returned `cancelled`, acknowledged native abort, removed the owned worker and
 left no delayed write. See `live-cancellation-retest.json`; the cumulative
-ledger is 11/14, with three turns unused. The saved Langflow flow's Runner URL
+ledger was 11/14 at that point. The saved Langflow flow's Runner URL
 was then updated to `http://host.docker.internal:8768` and read back with its
 six nodes and five edges intact. Successful model-backed flow calls before that
 update used a per-run port 8768 override. Network
 isolation, exhaustive credential-route auditing, fresh UI Stop and hosted or
 multi-user use remain outside the verified prototype.
+
+The saved flow was then run without node tweaks. Attempt 12 reached the runner,
+loaded both pinned skills and checked the private paths, but its worker command
+failed after the agent appended a period to the fixture filename. Attempt 13
+used the exact command and completed with worker exit zero, fixture amber/3,
+host-verified marker, both native skill loads and queryable runner status.
+The controller view contained only the pinned skills; worker path-presence
+checks denied the tested private locations. The selected provider key was absent
+from the saved/exported flow, tracked repositories and run results. See
+`saved-flow-proof-evidence.json` and `saved_flow_proof.py`. The ledger is 13/14;
+one authorized turn remains unused. These checks do not establish exhaustive
+isolation or fresh UI Stop.
 
 Credential-free tests:
 
