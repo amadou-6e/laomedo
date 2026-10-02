@@ -87,3 +87,10 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(result["status"], "rejected")
         self.assertEqual(result["error_category"], "invalid_skill")
         self.assertNotIn("run_id", result)
+
+        uncertain = HTTPError("http://localhost:8765/v1/runs", 502, "Gateway Error", {},
+                              io.BytesIO(b'{"error_category":"transport_closed"}'))
+        with patch("laomedo.handoff_http.urlopen", side_effect=uncertain):
+            with self.assertRaisesRegex(HandoffError, "invalid_runner_response"):
+                self.adapter().dispatch(item, deadline=time.monotonic() + 10,
+                                        cancelled=threading.Event())

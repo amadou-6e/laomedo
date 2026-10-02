@@ -73,7 +73,7 @@ class RunnerAdapter:
             status_code = exc.code
             with exc:
                 raw = json.load(exc)
-        if status_code is not None and isinstance(raw, dict) and not raw.get("run_id"):
+        if status_code in {400, 401, 403, 404, 422} and isinstance(raw, dict) and not raw.get("run_id"):
             return {"provider": provider, "status": "rejected",
                     "error_category": raw.get("error_category", "runner_rejected")}
         if not isinstance(raw, dict) or not raw.get("run_id"):
