@@ -1,0 +1,208 @@
+{
+  "before_write": {
+    "exit_code": 11,
+    "acknowledged": false,
+    "rows_before_restart": [],
+    "counters_before_restart": {
+      "runs": 0,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "swept_run_ids": [],
+    "rows_after_restart": [],
+    "counters_after_restart": {
+      "runs": 0,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "stderr": ""
+  },
+  "after_write_before_ack": {
+    "exit_code": 12,
+    "acknowledged": false,
+    "rows_before_restart": [
+      {
+        "run_id": "75114ba8-3e10-4c8f-919d-c8755d596b20",
+        "trace_id": "518613b6-0ee4-449c-811a-370172f5be1a",
+        "graph_revision": "sha256:cfd353b84e5c83ee1d1950d7957220eaea277673e66fd1a3183e56e1c273face",
+        "component_revisions": "{\"Exp03Marker-exp03\":\"sha256:0b4888d552f5bc07ec2b91cd8a85a352d90e717dae20c6e69e450ff04de7843e\"}",
+        "resolved_config_ref": "sha256:e278370221c57389ef1d7e688e9a99315e0084517448a36c44595cd7700c160d",
+        "status": "reserved",
+        "dispatch_attempts": 0
+      }
+    ],
+    "counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "swept_run_ids": [
+      "75114ba8-3e10-4c8f-919d-c8755d596b20"
+    ],
+    "rows_after_restart": [
+      {
+        "run_id": "75114ba8-3e10-4c8f-919d-c8755d596b20",
+        "status": "crashed",
+        "evidence_complete": 0,
+        "terminal_reason": "backend_restart",
+        "dispatch_attempts": 0
+      }
+    ],
+    "counters_after_restart": {
+      "runs": 1,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "stderr": ""
+  },
+  "after_ack_before_dispatch": {
+    "exit_code": 13,
+    "acknowledged": true,
+    "rows_before_restart": [
+      {
+        "run_id": "9edf1b32-5adc-4d20-91ee-d57baeb9a84a",
+        "trace_id": "924f37d9-c448-4a06-9552-6b5bd9efeb9f",
+        "graph_revision": "sha256:cfd353b84e5c83ee1d1950d7957220eaea277673e66fd1a3183e56e1c273face",
+        "component_revisions": "{\"Exp03Marker-exp03\":\"sha256:0b4888d552f5bc07ec2b91cd8a85a352d90e717dae20c6e69e450ff04de7843e\"}",
+        "resolved_config_ref": "sha256:e278370221c57389ef1d7e688e9a99315e0084517448a36c44595cd7700c160d",
+        "status": "reserved",
+        "dispatch_attempts": 0
+      }
+    ],
+    "counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "swept_run_ids": [
+      "9edf1b32-5adc-4d20-91ee-d57baeb9a84a"
+    ],
+    "rows_after_restart": [
+      {
+        "run_id": "9edf1b32-5adc-4d20-91ee-d57baeb9a84a",
+        "status": "crashed",
+        "evidence_complete": 0,
+        "terminal_reason": "backend_restart",
+        "dispatch_attempts": 0
+      }
+    ],
+    "counters_after_restart": {
+      "runs": 1,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "stderr": ""
+  },
+  "after_attempt_before_callback": {
+    "exit_code": 14,
+    "acknowledged": true,
+    "rows_before_restart": [
+      {
+        "run_id": "79f835b4-38ad-4f84-a116-246930549d90",
+        "trace_id": "a738cd6d-c067-4d71-afba-fa8ec18f0601",
+        "graph_revision": "sha256:cfd353b84e5c83ee1d1950d7957220eaea277673e66fd1a3183e56e1c273face",
+        "component_revisions": "{\"Exp03Marker-exp03\":\"sha256:0b4888d552f5bc07ec2b91cd8a85a352d90e717dae20c6e69e450ff04de7843e\"}",
+        "resolved_config_ref": "sha256:e278370221c57389ef1d7e688e9a99315e0084517448a36c44595cd7700c160d",
+        "status": "dispatching",
+        "dispatch_attempts": 1
+      }
+    ],
+    "counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 0
+    },
+    "swept_run_ids": [
+      "79f835b4-38ad-4f84-a116-246930549d90"
+    ],
+    "rows_after_restart": [
+      {
+        "run_id": "79f835b4-38ad-4f84-a116-246930549d90",
+        "status": "crashed",
+        "evidence_complete": 0,
+        "terminal_reason": "backend_restart",
+        "dispatch_attempts": 1
+      }
+    ],
+    "counters_after_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 0
+    },
+    "stderr": ""
+  },
+  "after_callback_before_completion": {
+    "exit_code": 15,
+    "acknowledged": true,
+    "rows_before_restart": [
+      {
+        "run_id": "79850ee2-41de-4e9a-8cb3-c5f7e592d414",
+        "trace_id": "bfd21968-4a02-4ef4-8907-36de42a1e6a6",
+        "graph_revision": "sha256:cfd353b84e5c83ee1d1950d7957220eaea277673e66fd1a3183e56e1c273face",
+        "component_revisions": "{\"Exp03Marker-exp03\":\"sha256:0b4888d552f5bc07ec2b91cd8a85a352d90e717dae20c6e69e450ff04de7843e\"}",
+        "resolved_config_ref": "sha256:e278370221c57389ef1d7e688e9a99315e0084517448a36c44595cd7700c160d",
+        "status": "dispatching",
+        "dispatch_attempts": 1
+      }
+    ],
+    "counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 1
+    },
+    "swept_run_ids": [
+      "79850ee2-41de-4e9a-8cb3-c5f7e592d414"
+    ],
+    "rows_after_restart": [
+      {
+        "run_id": "79850ee2-41de-4e9a-8cb3-c5f7e592d414",
+        "status": "crashed",
+        "evidence_complete": 0,
+        "terminal_reason": "backend_restart",
+        "dispatch_attempts": 1
+      }
+    ],
+    "counters_after_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 1
+    },
+    "stderr": ""
+  },
+  "normal": {
+    "exit_code": 0,
+    "acknowledged": true,
+    "rows_before_restart": [
+      {
+        "run_id": "f6603953-efba-43c2-8251-3762555cd3f8",
+        "trace_id": "b55b0d1e-e92d-40c3-a1cb-247db2c45054",
+        "graph_revision": "sha256:cfd353b84e5c83ee1d1950d7957220eaea277673e66fd1a3183e56e1c273face",
+        "component_revisions": "{\"Exp03Marker-exp03\":\"sha256:0b4888d552f5bc07ec2b91cd8a85a352d90e717dae20c6e69e450ff04de7843e\"}",
+        "resolved_config_ref": "sha256:e278370221c57389ef1d7e688e9a99315e0084517448a36c44595cd7700c160d",
+        "status": "completed",
+        "dispatch_attempts": 1
+      }
+    ],
+    "counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 1
+    },
+    "swept_run_ids": [],
+    "rows_after_restart": [
+      {
+        "run_id": "f6603953-efba-43c2-8251-3762555cd3f8",
+        "status": "completed",
+        "evidence_complete": 1,
+        "terminal_reason": null,
+        "dispatch_attempts": 1
+      }
+    ],
+    "counters_after_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 1
+    },
+    "stderr": ""
+  }
+}
