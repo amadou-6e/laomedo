@@ -1,6 +1,13 @@
+import importlib.util
+from pathlib import Path
 import unittest
 
-from experiments.exp07.lease import GrantLease
+
+LEASE_PATH = Path(__file__).resolve().parents[1] / "experiments" / "exp07" / "lease.py"
+lease_spec = importlib.util.spec_from_file_location("exp07_lease", LEASE_PATH)
+lease_module = importlib.util.module_from_spec(lease_spec)
+lease_spec.loader.exec_module(lease_module)
+GrantLease = lease_module.GrantLease
 
 
 class GrantLeaseTests(unittest.TestCase):
