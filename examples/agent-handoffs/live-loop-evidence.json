@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-02",
+  "langflow_version": "1.12.3",
+  "execution_id": "a6ac76c7-d09b-4ad5-8442-4cd8f126e9d1",
+  "mode": "loop",
+  "stop_reason": "success",
+  "submitted_turns": 2,
+  "max_iterations": 2,
+  "turn_budget": 2,
+  "deadline_seconds": 480,
+  "final_marker": "LAOMEDO_LOOP_28_COMPLETE",
+  "distinct_native_threads": true,
+  "runner_ledger_before": {"attempted_turns": 2, "max_authorized_turns": 2},
+  "runner_ledger_after": {"attempted_turns": 4, "max_authorized_turns": 4},
+  "runs": [
+    {"run_id": "2ddea53d-602e-4f18-a3b8-7a7a785e0a9a", "thread_id": "01a0fb35-793c-79d1-abc6-70cb42af6755", "status": "completed", "post_run_hash": "sha256:52f55d55e07b1b47cc283fa618516acb6cb1905c3c20c5424d7279233bf7ccb2"},
+    {"run_id": "698d8dbc-8296-40aa-a733-1004b56fdb8e", "thread_id": "01a0fb35-8ae7-7952-8d47-259ac92909bb", "status": "completed", "post_run_hash": "sha256:be44314484d80e970c5a7162b3c748858f4dda7689c7ebe6e99c3e903eec0d45"}
+  ],
+  "boundary": "Actual Langflow graph execution in the pinned test container; separate browser deployment and cross-provider acceptance remain untested. Raw execution record and provider events remain private."
+}

@@ -59,3 +59,9 @@ the exact success marker. It checks two completed runs, distinct native threads 
 the durable success record. It requires a newly authorized runner cap; the previous
 four-turn allowance across #27/#28 has been consumed (two per provider ticket).
 The approval flag is not a substitute for user authorization. No retry is performed.
+
+On 2026-10-02 the user authorized two further turns and this harness passed in the
+pinned Langflow test container. Both iterations completed and the controller stopped
+on the exact success marker. See `live-loop-evidence.json`. The handoff runner's
+cumulative ledger is 4/4; original chain observations remain unchanged. Browser
+deployment and cross-provider acceptance remain separate checks.
