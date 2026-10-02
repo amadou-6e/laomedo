@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-02",
+  "langflow_version": "1.12.3",
+  "opencode_version": "1.18.33",
+  "saved_flow_runner_url": "http://host.docker.internal:8768",
+  "request_has_node_tweaks": false,
+  "attempt_12": {
+    "run_id": "a2f12a5b-42c1-4fa0-bdee-750121eca8fd",
+    "langflow_http": 200,
+    "run_status": "completed",
+    "both_pinned_skills_loaded_natively": true,
+    "path_presence_checks_reached_worker": true,
+    "worker_listed_only_pinned_skills": true,
+    "worker_exit_code": 1,
+    "limitation": "The agent appended a period to fixture.txt; the fixture read failed. This attempt is retained in the ledger."
+  },
+  "attempt_13": {
+    "run_id": "15b19d98-9e3e-40ca-8ab1-30fc4c911cd1",
+    "langflow_http": 200,
+    "run_status": "completed",
+    "runner_status_query_matches": true,
+    "both_pinned_skills_loaded_natively": true,
+    "controller_skill_view_exactly_pinned": true,
+    "worker_exact_command_exit_code": 0,
+    "private_path_presence_checks_passed": true,
+    "worker_listed_only_pinned_skills": true,
+    "fixture_result": "amber/3",
+    "workspace_marker_verified_by_host": true,
+    "selected_provider_key_absent_from_saved_flow": true,
+    "selected_provider_key_absent_from_export": true,
+    "selected_provider_key_absent_from_tracked_repositories": true,
+    "selected_provider_key_absent_from_run_results": true
+  },
+  "ledger_after": {
+    "attempted_turns": 13,
+    "max_authorized_turns": 14
+  },
+  "limit": "The tested path and exact selected provider key are covered. This does not establish exhaustive network isolation, all credential access routes, fresh UI Stop, or hosted/multi-user safety."
+}

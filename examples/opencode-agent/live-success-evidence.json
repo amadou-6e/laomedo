@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-02",
+  "langflow_version": "1.12.3",
+  "cli_version": "1.18.33",
+  "ledger_before": {
+    "attempted_turns": 6,
+    "max_authorized_turns": 6
+  },
+  "ledger_after": {
+    "attempted_turns": 10,
+    "max_authorized_turns": 10
+  },
+  "direct_cli": {
+    "attempt": 7,
+    "boundary": "Direct personal CLI login diagnostic; not isolated runner acceptance.",
+    "event_types": [
+      "step_finish",
+      "step_start",
+      "text"
+    ],
+    "exact_marker_observed": true,
+    "exit_code": 0,
+    "timed_out": false,
+    "tools_observed": 0
+  },
+  "fresh": {
+    "run_id": "fe0f3ede-6057-46a3-9b22-bb298fa16f9d",
+    "thread_id": "ses_f04a1b37cffewO58dW066lZirh",
+    "status": "completed",
+    "post_run_hash": "sha256:aee6d8601f81eeb0f97a901b0fdb6f94b70ed469e549c224217abced785213b2",
+    "attempt_number": 8,
+    "observed_tool_results": 3,
+    "langflow_http": 200,
+    "usage": {
+      "cache": {
+        "read": 1747,
+        "write": 264
+      },
+      "input": 3,
+      "output": 95,
+      "reasoning": 60,
+      "total": 2169
+    }
+  },
+  "resume": {
+    "run_id": "fe0f3ede-6057-46a3-9b22-bb298fa16f9d",
+    "thread_id": "ses_f04a1b37cffewO58dW066lZirh",
+    "status": "completed",
+    "post_run_hash": "sha256:aee6d8601f81eeb0f97a901b0fdb6f94b70ed469e549c224217abced785213b2",
+    "attempt_number": 9,
+    "observed_tool_results": 1,
+    "langflow_http": 200,
+    "usage": {
+      "cache": {
+        "read": 2209,
+        "write": 101
+      },
+      "input": 3,
+      "output": 52,
+      "reasoning": 25,
+      "total": 2390
+    }
+  },
+  "skills": [
+    {
+      "skill_id": "laomedo-pilot",
+      "revision_id": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+      "use_evidence": "native_skill_tool_completed"
+    },
+    {
+      "skill_id": "laomedo-result-format",
+      "revision_id": "sha256:6a926ec00d0892a955a9330d2f936d562ba6f4b951b61665e0b036beaf5e4ba1",
+      "use_evidence": "native_skill_tool_completed"
+    }
+  ],
+  "agent_originated_auth_path_denial": true,
+  "workspace_marker_verified_by_host": true,
+  "controller_credential_absent_from_worker_results": true,
+  "resume_after_runner_restart": true,
+  "cancellation": {
+    "cancel_acknowledged": true,
+    "fresh_marker_absent": true,
+    "late_file_absent": true,
+    "owned_workers_absent": true,
+    "request_finished": true,
+    "run_id": "2459fd29-7bf0-4e29-aed1-03a707ecfe66",
+    "status": "failed"
+  },
+  "cancellation_status_fix": "Live record remains failed; cancellation-race fix is covered by synthetic regression only.",
+  "limits": [
+    "Direct CLI uses personal account/session history; it is a login diagnostic, not isolated acceptance.",
+    "Network isolation and exhaustive credential access-route audit are not established.",
+    "Cancellation test calls runner directly; fresh UI Stop still lacks early identity.",
+    "No hosted or multi-user claim."
+  ]
+}
