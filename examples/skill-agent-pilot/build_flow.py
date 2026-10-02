@@ -4,6 +4,7 @@ Run this inside the pinned Langflow image with this directory mounted at /pilot.
 """
 
 from copy import deepcopy
+from importlib.metadata import version
 import json
 from pathlib import Path
 from uuid import uuid5, NAMESPACE_URL
@@ -30,6 +31,8 @@ def edge(source_id, source_type, source_name, output_types,
 
 
 def main():
+    if version("langflow") != "1.12.3" or not STARTER.is_file():
+        raise RuntimeError("pinned_langflow_1_12_3_required")
     starter = json.loads(STARTER.read_text(encoding="utf-8"))
     components = starter["data"]["nodes"]
     chat_input = deepcopy(next(n for n in components

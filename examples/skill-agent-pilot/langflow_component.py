@@ -6,6 +6,8 @@ when the runner reports a failed turn, so a failed agent is not a chat answer.
 """
 
 import json
+import os
+from pathlib import Path
 from urllib import error, request
 
 from lfx.custom.custom_component.component import Component
@@ -37,8 +39,17 @@ class LaomedoRunner(Component):
                           "tree_hash": str(self.revision_id)},
         }
         endpoint = "http://host.docker.internal:8765/v1/runs"
+        token_file = os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                                    "/run/secrets/laomedo-runner-token")
+        try:
+            token = Path(token_file).read_text(encoding="utf-8").strip()
+        except OSError:
+            raise RuntimeError("Laomedo runner API token file is unavailable") from None
+        if not token:
+            raise RuntimeError("Laomedo runner API token file is empty")
         req = request.Request(endpoint, data=json.dumps(payload).encode("utf-8"),
-                              headers={"Content-Type": "application/json"},
+                              headers={"Content-Type": "application/json",
+                                       "Authorization": "Bearer " + token},
                               method="POST")
         try:
             with request.urlopen(req, timeout=210) as response:
@@ -48,18 +59,25 @@ class LaomedoRunner(Component):
                 result = json.load(exc)
             except (ValueError, TypeError):
                 raise RuntimeError("Laomedo runner returned invalid error data") from exc
-        except error.URLError as exc:
-            raise RuntimeError("Laomedo runner connection failed") from exc
+        except (error.URLError, TimeoutError, OSError):
+            raise RuntimeError("Laomedo runner connection failed; run may still complete") from None
         if not isinstance(result, dict):
             raise RuntimeError("Laomedo runner returned invalid data")
         run_id = result.get("run_id")
         if result.get("status") != "completed":
             category = result.get("error_category") or result.get("status") or "unknown"
             raise RuntimeError(f"Laomedo run {run_id or 'unknown'} failed: {category}")
+        skill = result.get("skill")
+        if (not isinstance(run_id, str) or not run_id or
+                not isinstance(skill, dict) or
+                not isinstance(skill.get("revision_id"), str) or
+                not isinstance(skill.get("use_evidence"), str) or
+                not isinstance(result.get("raw_event_ref"), str)):
+            raise RuntimeError("Laomedo runner returned invalid completed data")
         data = {"answer": result.get("answer"), "run_id": run_id,
                 "thread_id": result.get("thread_id"), "status": result["status"],
-                "skill_revision": result["skill"]["revision_id"],
-                "skill_use_evidence": result["skill"]["use_evidence"],
+                "skill_revision": skill["revision_id"],
+                "skill_use_evidence": skill["use_evidence"],
                 "trace_ref": result["raw_event_ref"],
                 "usage": "unknown"}
         self.status = f"Laomedo run {run_id} completed"
