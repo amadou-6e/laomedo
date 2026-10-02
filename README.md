@@ -5,7 +5,12 @@ The [Work Graph foundation](docs/work-graph.md) imports GitHub work and native
 blocker relationships using an existing `gh` login. It stores verified,
 immutable snapshots and inspects filtered projections with dependency
 readiness calculated from the full graph. This slice provides a Python
-service and CLI; the graph UI and agent dispatch are subsequent slices.
+service and CLI; the graph UI is a subsequent slice.
+
+The [local Langflow skill-agent pilot](examples/skill-agent-pilot/README.md)
+builds a persistent single-user Codex runner on the existing Docker boundary,
+pins a whole-skill revision, and supplies a saved Langflow flow. Its default
+turn cap is zero until a bounded model-backed test is authorized.
 
 The [issue 119 feasibility experiments](experiments/feasibility/119/README.md)
 cover no-model Codex skill discovery, a manifest pilot, and a bounded
@@ -17,6 +22,11 @@ The [issue 120 runner isolation probes](experiments/feasibility/120/README.md)
 add no-model checks for model/effort dispatch and profile isolation, plus a
 bounded private ChatGPT handoff for thread resume and streamed events. The
 three-turn spike reported a no-go for the proposed local MVP on its evidence.
+
+The [issue 122 Skill Draft proof](experiments/feasibility/122/README.md)
+records versioned editing rules, deterministic draft guards, agent edits, and
+native resume. The [local skill core](laomedo/README.md) implements immutable
+revisions and human-reviewed draft promotion separately from agent execution.
 
 The [issue 121 Claude probes](experiments/feasibility/121/README.md) pin the
 Claude Agent SDK and guard isolation, settings, streaming, and resume tests.

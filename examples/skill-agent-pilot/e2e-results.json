@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-10-01",
+  "scope": "single-user local Langflow-to-Codex pilot",
+  "implementation_commit": "5e14c7a",
+  "model": "gpt-6-luna",
+  "effort": "low",
+  "skill_revision": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+  "source_hash": "sha256:e9e6bbdab178fc9c77363f40f6e58e2adc0bca0e387d83f37f07e74a7744ae7c",
+  "effective_hash": "sha256:52f55d55e07b1b47cc283fa618516acb6cb1905c3c20c5424d7279233bf7ccb2",
+  "flow_id": "bbd18f42-c260-4fab-b1f5-4b648ed9cdab",
+  "first_run": {
+    "run_id": "1e883f6b-7303-48bf-a12f-4bfdf7e628e4",
+    "thread_id": "01a0f6d0-b0ec-7262-956d-2489c5c08b65",
+    "turn_id": "01a0f6d0-b2ef-73d1-b73e-089e1e81e46e",
+    "input_hash": "sha256:7f0da88018bad462d06eafaf89d9d5c4e2063aac7dbd099feb9213b6d9e4b313",
+    "status": "completed",
+    "skill_read_command_id": "exec-01d993d6-8c9e-4721-b676-52044a34af2e",
+    "fixture_and_marker_command_id": "exec-c6086bc2-0af8-472f-9fa0-a2bc222c2397",
+    "command_start_completion_ids_match": true,
+    "command_exit_codes": [0, 0],
+    "host_marker": "FIRST-RUN",
+    "post_run_hash": "sha256:261d69654d8cdc22474391175d4bbe51571bab08195ad7f52c653617d128e370"
+  },
+  "resume": {
+    "route": "runner API after host runner process restart",
+    "turn_id": "01a0f6d2-1390-7f12-9018-a7e17fae3c59",
+    "input_hash": "sha256:400d22f362ba5d8cec35243918b6752ecfffc5e7bb0c401e0f6cdabd0007fc49",
+    "same_native_thread": true,
+    "snapshot_hash_unchanged": true,
+    "marker_read_command_id": "exec-c8b944bd-800a-4edd-8437-4fa85540450a",
+    "command_exit_code": 0,
+    "marker_readback": "FIRST-RUN"
+  },
+  "independent_run": {
+    "route": "saved Langflow flow",
+    "run_id": "a4094e7b-49be-4121-97e9-201bfa54678f",
+    "thread_id": "01a0f6d2-586f-7912-8f55-53a2e8cd0c7a",
+    "turn_id": "01a0f6d2-5995-7170-95f2-f02b05c38e13",
+    "input_hash": "sha256:9a91cc9815bd3580bcb2c5051086907a3a670d2a1c86645487cd6746dcda3cc7",
+    "status": "completed",
+    "prior_marker_present": false,
+    "command_exit_code": 0
+  },
+  "missing_snapshot": {
+    "http_status": 400,
+    "error_category": "post_run_snapshot_mismatch",
+    "ledger_unchanged": true,
+    "snapshot_restored": true
+  },
+  "interruption": {
+    "route": "saved Langflow flow plus runner cancel API",
+    "run_id": "3ada1e77-51b5-4589-a8cb-605769998f86",
+    "turn_id": "01a0f6d3-aaf2-74c3-b6a3-1261115a57d3",
+    "input_hash": "sha256:cfed2aeef81b72fcbf168d0ef27a76ce80a8266ae41500cdd68e08a7bc70161d",
+    "observed_command_start_id": "exec-083f88dc-6d8a-4f0d-ad10-647e0e11accb",
+    "status": "cancelled",
+    "partial_native_event_count": 39,
+    "langflow_http_status": 500,
+    "langflow_error_contains_run_id_and_cancelled": true
+  },
+  "turn_ledger": {
+    "attempted_turns": 4,
+    "max_authorized_turns": 4,
+    "exhausted_cap_http_status": 502,
+    "error_category": "model_turn_cap_reached",
+    "rejected_request_thread_id": null,
+    "ledger_unchanged_after_rejection": true
+  },
+  "deferred": ["AGENTVIZ rollout import"],
+  "unverified": ["browser UI interaction", "resume through a saved Langflow node", "process-crash interruption"],
+  "limitations": {
+    "skill_read_observed": true,
+    "component_skill_use_evidence": "offered",
+    "langflow_inner_usage": "unknown",
+    "chat_output_format": "JSON object rendered as text"
+  }
+}

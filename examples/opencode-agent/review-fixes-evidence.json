@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-02",
+  "reviewed_heads": {
+    "laomedo": "4b92295",
+    "specs": "f6833d8"
+  },
+  "review_fixes": {
+    "pinned_skills_rechecked_before_resume_and_after_turn": "synthetic tests passed; live mutation attack not repeated",
+    "cancel_before_dispatch": "synthetic tests passed; remaining dispatch race not proven absent",
+    "failed_controller_setup_closes_broker": "synthetic test passed",
+    "console_expiry_rechecked_before_turn_reservation": "synthetic tests passed",
+    "broker_concurrency_one": "synthetic test passed",
+    "duplicate_tool_call_ids": "synthetic deduplication test passed; prior observed runs had no duplicate IDs",
+    "auth_mount": "canary Docker smoke and private no-model provider preflight passed; session auth placeholder empty"
+  },
+  "saved_flow_attempt_14": {
+    "run_id": "64058844-daf1-41c8-8eda-b217c6dfcd30",
+    "langflow_http": 200,
+    "run_status": "completed",
+    "request_has_node_tweaks": false,
+    "both_pinned_skills_loaded_natively": true,
+    "controller_skill_view_exactly_pinned": true,
+    "worker_exact_command_exit_code": 0,
+    "worker_listed_only_pinned_skills": true,
+    "workspace_marker_verified_by_host": true,
+    "fixture_result": "amber/3",
+    "selected_provider_key_absent_from_saved_flow_export_tracked_repos_and_inspected_run_results": true
+  },
+  "ledger_after": {
+    "attempted_turns": 14,
+    "max_authorized_turns": 14
+  },
+  "verification": {
+    "host_unittest": "63 passed",
+    "canary_docker_smoke": "passed; zero model turns",
+    "no_model_provider_preflight": "passed; zero model turns"
+  },
+  "limit": "Bounded single-user local prototype only. Network isolation, exhaustive credential-route audit, atomic cancellation at dispatch, fresh UI Stop and hosted or multi-user safety remain unverified."
+}
