@@ -1,0 +1,262 @@
+{
+  "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "flow_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+  "graph_before_sha256": "cfd353b84e5c83ee1d1950d7957220eaea277673e66fd1a3183e56e1c273face",
+  "graph_after_sha256": "e753a310eebe0c5cd3c4f565c26d21fb89b645d647000b49dbb5041532696709",
+  "component_before_sha256": "0b4888d552f5bc07ec2b91cd8a85a352d90e717dae20c6e69e450ff04de7843e",
+  "component_after_sha256": "9accc1b961112303ed53206274d3c2fe8653e0129ef0e8accac88947cf6d5c53",
+  "pause_entered": true,
+  "run_finished": true,
+  "run": {
+    "response": {
+      "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+      "outputs": [
+        {
+          "inputs": {
+            "input_value": "TASK"
+          },
+          "outputs": [
+            {
+              "results": {
+                "message": {
+                  "text_key": "text",
+                  "data": {
+                    "timestamp": "2026-10-02 19:36:57.467086 UTC",
+                    "sender": "Machine",
+                    "sender_name": "AI",
+                    "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                    "context_id": "",
+                    "text": "TASK|BEFORE",
+                    "files": [],
+                    "error": false,
+                    "edit": false,
+                    "properties": {
+                      "text_color": null,
+                      "background_color": null,
+                      "edited": false,
+                      "source": {
+                        "id": "Exp03Marker-exp03",
+                        "display_name": "EXP-03 marker",
+                        "source": "EXP-03 marker"
+                      },
+                      "icon": null,
+                      "allow_markdown": false,
+                      "positive_feedback": null,
+                      "state": "complete",
+                      "targets": [],
+                      "usage": null,
+                      "build_duration": null
+                    },
+                    "category": "message",
+                    "content_blocks": [],
+                    "session_metadata": {
+                      "graph_run_id": "c5e6ae94-41df-4d83-84a9-afb050dce101"
+                    },
+                    "id": "f74d4b74-4c81-4538-a2ad-e39b3c38a208",
+                    "flow_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                    "run_id": "c5e6ae94-41df-4d83-84a9-afb050dce101",
+                    "duration": null
+                  },
+                  "default_value": "",
+                  "sender": "Machine",
+                  "sender_name": "AI",
+                  "files": [],
+                  "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                  "context_id": "",
+                  "run_id": "c5e6ae94-41df-4d83-84a9-afb050dce101",
+                  "timestamp": "2026-10-02 19:36:57.467086 UTC",
+                  "flow_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                  "error": false,
+                  "edit": false,
+                  "properties": {
+                    "text_color": null,
+                    "background_color": null,
+                    "edited": false,
+                    "source": {
+                      "id": "Exp03Marker-exp03",
+                      "display_name": "EXP-03 marker",
+                      "source": "EXP-03 marker"
+                    },
+                    "icon": null,
+                    "allow_markdown": false,
+                    "positive_feedback": null,
+                    "state": "complete",
+                    "targets": [],
+                    "usage": null,
+                    "build_duration": null
+                  },
+                  "category": "message",
+                  "content_blocks": [],
+                  "duration": null,
+                  "session_metadata": {
+                    "graph_run_id": "c5e6ae94-41df-4d83-84a9-afb050dce101"
+                  },
+                  "text": "TASK|BEFORE"
+                }
+              },
+              "artifacts": {
+                "message": "TASK|BEFORE",
+                "sender": "Machine",
+                "sender_name": "AI",
+                "files": [],
+                "type": "object"
+              },
+              "outputs": {
+                "message": {
+                  "message": "TASK|BEFORE",
+                  "type": "text"
+                }
+              },
+              "logs": {
+                "message": []
+              },
+              "messages": [
+                {
+                  "message": "TASK|BEFORE",
+                  "sender": "Machine",
+                  "sender_name": "AI",
+                  "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                  "stream_url": null,
+                  "component_id": "ChatOutput-exp03",
+                  "files": [],
+                  "type": "text"
+                }
+              ],
+              "timedelta": null,
+              "duration": null,
+              "component_display_name": "Chat Output",
+              "component_id": "ChatOutput-exp03",
+              "used_frozen_result": false,
+              "token_usage": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "next_run": {
+    "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+    "outputs": [
+      {
+        "inputs": {
+          "input_value": "TASK"
+        },
+        "outputs": [
+          {
+            "results": {
+              "message": {
+                "text_key": "text",
+                "data": {
+                  "timestamp": "2026-10-02 19:36:57.575655 UTC",
+                  "sender": "Machine",
+                  "sender_name": "AI",
+                  "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                  "context_id": "",
+                  "text": "TASK|EDITED-AFTER",
+                  "files": [],
+                  "error": false,
+                  "edit": false,
+                  "properties": {
+                    "text_color": null,
+                    "background_color": null,
+                    "edited": false,
+                    "source": {
+                      "id": "Exp03Marker-exp03",
+                      "display_name": "EXP-03 marker",
+                      "source": "EXP-03 marker"
+                    },
+                    "icon": null,
+                    "allow_markdown": false,
+                    "positive_feedback": null,
+                    "state": "complete",
+                    "targets": [],
+                    "usage": null,
+                    "build_duration": null
+                  },
+                  "category": "message",
+                  "content_blocks": [],
+                  "session_metadata": {
+                    "graph_run_id": "187c5190-ea90-49ad-a3b6-9208dd9154c3"
+                  },
+                  "id": "c55abe5b-cedb-4611-9233-e587f09b35f9",
+                  "flow_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                  "run_id": "187c5190-ea90-49ad-a3b6-9208dd9154c3",
+                  "duration": null
+                },
+                "default_value": "",
+                "sender": "Machine",
+                "sender_name": "AI",
+                "files": [],
+                "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                "context_id": "",
+                "run_id": "187c5190-ea90-49ad-a3b6-9208dd9154c3",
+                "timestamp": "2026-10-02 19:36:57.575655 UTC",
+                "flow_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                "error": false,
+                "edit": false,
+                "properties": {
+                  "text_color": null,
+                  "background_color": null,
+                  "edited": false,
+                  "source": {
+                    "id": "Exp03Marker-exp03",
+                    "display_name": "EXP-03 marker",
+                    "source": "EXP-03 marker"
+                  },
+                  "icon": null,
+                  "allow_markdown": false,
+                  "positive_feedback": null,
+                  "state": "complete",
+                  "targets": [],
+                  "usage": null,
+                  "build_duration": null
+                },
+                "category": "message",
+                "content_blocks": [],
+                "duration": null,
+                "session_metadata": {
+                  "graph_run_id": "187c5190-ea90-49ad-a3b6-9208dd9154c3"
+                },
+                "text": "TASK|EDITED-AFTER"
+              }
+            },
+            "artifacts": {
+              "message": "TASK|EDITED-AFTER",
+              "sender": "Machine",
+              "sender_name": "AI",
+              "files": [],
+              "type": "object"
+            },
+            "outputs": {
+              "message": {
+                "message": "TASK|EDITED-AFTER",
+                "type": "text"
+              }
+            },
+            "logs": {
+              "message": []
+            },
+            "messages": [
+              {
+                "message": "TASK|EDITED-AFTER",
+                "sender": "Machine",
+                "sender_name": "AI",
+                "session_id": "02797e7b-eb00-4dd9-a17b-6f1b252a928b",
+                "stream_url": null,
+                "component_id": "ChatOutput-exp03",
+                "files": [],
+                "type": "text"
+              }
+            ],
+            "timedelta": null,
+            "duration": null,
+            "component_display_name": "Chat Output",
+            "component_id": "ChatOutput-exp03",
+            "used_frozen_result": false,
+            "token_usage": null
+          }
+        ]
+      }
+    ]
+  }
+}
