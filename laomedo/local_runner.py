@@ -419,6 +419,17 @@ class LocalRunner:
             destination.write_bytes(item["content"])
         if tree_hash(inventory(target)) != ref["tree_hash"]:
             raise RunnerError("materialized_skill_mismatch")
+        try:
+            skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            raise RunnerError("skill_frontmatter_name_required") from None
+        if not skill_text.startswith("---\n") or "\n---\n" not in skill_text[4:]:
+            raise RunnerError("skill_frontmatter_name_required")
+        frontmatter = skill_text[4:].split("\n---\n", 1)[0]
+        names = [line.split(":", 1)[1].strip().strip("\"'")
+                 for line in frontmatter.splitlines() if line.startswith("name:")]
+        if names != [ref["skill_id"]]:
+            raise RunnerError("skill_frontmatter_name_mismatch")
         return {"skill_id": ref["skill_id"], "revision_id": ref["revision_id"],
                 "tree_hash": ref["tree_hash"], "file_hashes": record["file_hashes"],
                 "delivery_mode": "project_discovery", "use_evidence": "offered"}
@@ -432,6 +443,18 @@ class LocalRunner:
         model, effort = request.get("model"), request.get("effort")
         if not all(isinstance(x, str) and x for x in (model, effort)):
             raise RunnerError("model_and_effort_required")
+        if "skill_refs" in request and "skill_ref" in request:
+            raise RunnerError("conflicting_skill_inputs")
+        refs = request.get("skill_refs", [request.get("skill_ref")])
+        if not isinstance(refs, list) or not 1 <= len(refs) <= 16:
+            raise RunnerError("one_to_sixteen_skills_required")
+        seen = set()
+        for ref in refs:
+            if not isinstance(ref, dict) or not isinstance(ref.get("skill_id"), str):
+                raise RunnerError("pinned_skill_ref_required")
+            if ref["skill_id"] in seen:
+                raise RunnerError("duplicate_skill_id")
+            seen.add(ref["skill_id"])
         source = self.source
         run_id = str(uuid4())
         run_dir = self._run_dir(run_id)
@@ -445,14 +468,15 @@ class LocalRunner:
                 raise RunnerError("source_changed_during_snapshot")
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
-            skill = self._materialize(workspace, request.get("skill_ref"))
+            skills = [self._materialize(workspace, ref) for ref in refs]
             effective_hash = _hash_tree(workspace)
             (run_dir / "raw-events.jsonl").touch()
             record = {"schema_version": 1, "run_id": run_id, "status": "prepared",
                       "error_category": None, "source_hash": source_hash,
                       "effective_hash": effective_hash, "post_run_hash": None,
                       "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
-                      "skill": skill,
+                      "skill": skills[0] if len(skills) == 1 else None,
+                      "skills": skills,
                       "requested_model": model, "requested_effort": effort,
                       "effective_model": None, "effective_effort": None,
                       "profile": VOLUME, "image": IMAGE, "image_id": IMAGE_ID,

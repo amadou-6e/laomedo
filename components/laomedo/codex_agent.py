@@ -24,8 +24,9 @@ class LaomedoCodexAgent(Component):
         MessageTextInput(name="task", display_name="Task"),
         DropdownInput(name="operation", display_name="Operation",
                       options=["fresh", "resume", "status", "cancel"], value="fresh"),
-        StrInput(name="skill_id", display_name="Skill ID"),
-        StrInput(name="revision_id", display_name="Skill Revision"),
+        DataInput(name="skill_reference", display_name="Skill References", is_list=True),
+        StrInput(name="skill_id", display_name="Skill ID", advanced=True),
+        StrInput(name="revision_id", display_name="Skill Revision", advanced=True),
         StrInput(name="model", display_name="Model", value="gpt-6-luna"),
         StrInput(name="effort", display_name="Reasoning Effort", value="low"),
         DataInput(name="run_reference", display_name="Prior Run", advanced=True),
@@ -65,11 +66,52 @@ class LaomedoCodexAgent(Component):
         if operation in {"fresh", "resume"} and (not model.strip() or not effort.strip()):
             raise ValueError("model_and_effort_required")
         if operation == "fresh":
-            revision = str(self.revision_id)
-            if not str(self.skill_id).strip() or not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
+            connected = getattr(self, "skill_reference", None)
+            if connected in (None, "", []):
+                connected = None
+            if connected is not None:
+                refs = connected if isinstance(connected, list) else [connected]
+                refs = [getattr(ref, "data", ref) for ref in refs]
+                if not 1 <= len(refs) <= 16:
+                    raise ValueError("one_to_sixteen_skills_required")
+                seen = set()
+                for ref in refs:
+                    if (not isinstance(ref, dict) or
+                            not isinstance(ref.get("skill_id"), str) or
+                            not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", ref["skill_id"]) or
+                            not isinstance(ref.get("revision_id"), str) or
+                            not re.fullmatch(r"sha256:[0-9a-f]{64}", ref["revision_id"]) or
+                            ref.get("tree_hash") != ref["revision_id"]):
+                        raise ValueError("invalid_skill_reference")
+                    if ref["skill_id"] in seen:
+                        raise ValueError("duplicate_skill_id")
+                    seen.add(ref["skill_id"])
+                if len(refs) > 1:
+                    if getattr(self, "skill_id", "") or getattr(self, "revision_id", ""):
+                        raise ValueError("conflicting_skill_inputs")
+                    return base + "/v1/runs", {"task": task, "model": model,
+                        "effort": effort, "skill_refs": refs}, "POST"
+                connected = refs[0]
+            revision = str(getattr(self, "revision_id", "") or "")
+            skill_id = str(getattr(self, "skill_id", "") or "")
+            if connected is not None:
+                if not isinstance(connected, dict):
+                    raise ValueError("invalid_skill_reference")
+                selected_id = connected.get("skill_id")
+                selected_revision = connected.get("revision_id")
+                if (not isinstance(selected_id, str) or
+                        not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", selected_id) or
+                        not isinstance(selected_revision, str) or
+                        not re.fullmatch(r"sha256:[0-9a-f]{64}", selected_revision) or
+                        connected.get("tree_hash") != selected_revision):
+                    raise ValueError("invalid_skill_reference")
+                if (skill_id and skill_id != selected_id) or (revision and revision != selected_revision):
+                    raise ValueError("conflicting_skill_inputs")
+                skill_id, revision = selected_id, selected_revision
+            if not skill_id.strip() or not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
                 raise ValueError("pinned_skill_required")
             return base + "/v1/runs", {"task": task, "model": model, "effort": effort,
-                "skill_ref": {"skill_id": str(self.skill_id),
+                "skill_ref": {"skill_id": skill_id,
                               "revision_id": revision, "tree_hash": revision}}, "POST"
         prior = getattr(self.run_reference, "data", self.run_reference)
         if prior is None and getattr(self, "run_reference_json", None):
@@ -136,12 +178,14 @@ class LaomedoCodexAgent(Component):
             raise RuntimeError(f"Laomedo run {result['run_id']} failed: "
                                f"{result.get('error_category') or result.get('status') or 'unknown'}")
         skill = result.get("skill") or {}
+        skills = result.get("skills") or ([skill] if skill else [])
         return {"answer": result.get("answer"), "run_id": result["run_id"],
             "thread_id": result.get("thread_id"), "status": result.get("status"),
             "post_run_hash": result.get("post_run_hash"),
             "model": result.get("requested_model"), "effort": result.get("requested_effort"),
             "skill_revision": skill.get("revision_id"),
             "skill_use_evidence": skill.get("use_evidence", "unknown"),
+            "skills": skills,
             "artifact_ref": result.get("output_ref"), "trace_ref": result.get("raw_event_ref"),
             "error_category": result.get("error_category"),
             "cancel_requested": result.get("cancel_requested", False), "usage": "unknown"}

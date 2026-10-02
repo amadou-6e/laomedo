@@ -2,8 +2,9 @@
 
 Operator-installed custom component for pinned Langflow 1.12.3. This wraps the
 existing local Docker Codex runner; it does not replace Langflow's built-in Agent
-or implement its tool interface. The historical `LaomedoRunner` embedded in
-`examples/skill-agent-pilot/pilot-flow.json` remains unchanged and compatible.
+or implement its tool interface. The `LaomedoRunner` embedded in
+`examples/skill-agent-pilot/pilot-flow.json` now uses the same private runner
+API token; its historical model-turn evidence predates that change.
 
 Mount this directory read-only into the Langflow container and configure
 `LANGFLOW_COMPONENTS_PATH=/app/custom_components`. The category package is
@@ -15,9 +16,21 @@ importing a flow. The runtime must have the existing local runner reachable at
 This is a proposed deployment configuration until the operator approves startup.
 Keep the existing server and its data volume separate from the acceptance server.
 Do not mount Codex credentials, native sessions, the Docker socket or private runner
-state into Langflow. The component needs only the loopback runner API.
+state into Langflow. Mount only the private `api-token` file read-only and set
+`LAOMEDO_RUNNER_TOKEN_FILE` to that path. The component needs the authenticated
+loopback runner API.
 
 ## Inputs and outputs
+
+Connect Laomedo Skill's Skill Reference output to the agent's Skill Reference
+input. The Skill node takes an existing Skill ID and exact SHA-256 revision and
+emits a structured reference; it does not load credentials, expose host paths or
+claim that a revision exists. The runner resolves and verifies the immutable
+whole bundle before a model turn. Inline advanced skill fields remain compatible
+with older flows; conflicting wired and inline references fail explicitly.
+When connecting a Skill node to an older saved flow, clear advanced Skill ID and
+Skill Revision values if they conflict. Each bundle's `SKILL.md` frontmatter
+`name` must equal its pinned skill ID to avoid ambiguous Codex discovery.
 
 Fresh: supply task, immutable whole-skill ID/revision, model and effort.
 Resume: set operation to resume and supply the prior structured Run Reference;
@@ -33,6 +46,8 @@ IDs, state, post-run hash, model/effort, skill revision/use evidence, artifact/t
 references, error category and unknown usage. Both outputs share one dispatch per
 component build. A new explicit build submits a new request; automatic retry is
 not implemented. Trace references are opaque identifiers, not raw transcripts.
+For multiple skills, the legacy `skill_revision` and `skill_use_evidence` fields
+are single-skill-only and may be empty; use the per-skill `skills` array.
 
 Invalid input fails before HTTP. Runner failures raise errors naming known run ID
 and category; transport timeouts cannot establish whether remote execution stopped.
@@ -53,3 +68,13 @@ with a known run ID remains available in this node.
 
 Reference: [Langflow custom components](https://docs.langflow.org/components-custom-components).
 Newer documentation features must be checked against the installed 1.12.3 runtime.
+# Multiple skills
+
+Connect several Laomedo Skill outputs to the agent's Skill References list port.
+Each reference pins one whole immutable bundle. Up to sixteen distinct IDs are
+supported; repeated IDs and mixed multi-reference/inline selections fail before
+dispatch. The runner materializes all bundles before a turn and records each in
+`skills`. Resume retains the original set. Availability is reported as offered,
+not proof that the model used every skill. Existing single-reference flows remain
+compatible. Two-node graph wiring and runner restart/resume are covered by
+credential-free tests; a multi-skill model-backed turn has not yet been run.

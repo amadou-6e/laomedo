@@ -1,6 +1,7 @@
 """Run inside the pinned Langflow image; all runner traffic is synthetic."""
 
 import asyncio
+from copy import deepcopy
 import importlib.util
 import io
 import json
@@ -17,6 +18,10 @@ spec = importlib.util.spec_from_file_location("codex_agent", MODULE_PATH)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
+skill_spec = importlib.util.spec_from_file_location("skill_component", MODULE_PATH.with_name("skill.py"))
+skill_module = importlib.util.module_from_spec(skill_spec)
+sys.modules[skill_spec.name] = skill_module
+skill_spec.loader.exec_module(skill_module)
 
 
 class Response(io.BytesIO):
@@ -60,6 +65,30 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         environment.start()
         self.addCleanup(environment.stop)
 
+    async def test_multiple_skill_inputs_and_repeated_ids(self):
+        refs = [module.Data(data={"skill_id": name, "revision_id": HASH, "tree_hash": HASH})
+                for name in ("first", "second")]
+        node = component(skill_reference=refs, skill_id="", revision_id="")
+        payload = node._prepare()[1]
+        self.assertEqual(payload["skill_refs"], [ref.data for ref in refs])
+        with self.assertRaisesRegex(ValueError, "duplicate_skill_id"):
+            component(skill_reference=[refs[0], refs[0]], skill_id="", revision_id="")._prepare()
+        with self.assertRaisesRegex(ValueError, "conflicting_skill_inputs"):
+            component(skill_reference=refs)._prepare()
+
+    async def test_skill_node_validates_and_agent_consumes_reference(self):
+        skill = skill_module.LaomedoSkill()
+        skill.skill_id, skill.revision_id = "fixture", HASH
+        ref = skill.skill_output()
+        node = component(skill_id="", revision_id="", skill_reference=ref)
+        _url, payload, _method = node._prepare()
+        self.assertEqual(payload["skill_ref"], ref.data)
+        with self.assertRaisesRegex(ValueError, "conflicting_skill_inputs"):
+            component(skill_reference=ref, revision_id="sha256:" + "b" * 64)._prepare()
+        for skill_id, revision in [("../escape", HASH), ("fixture", "latest")]:
+            skill.skill_id, skill.revision_id = skill_id, revision
+            with self.assertRaises(ValueError):
+                skill.skill_output()
     async def test_saved_graph_both_branches_dispatch_once(self):
         from lfx.graph.graph.base import Graph
         root = Path(__file__).resolve().parents[2]
@@ -90,6 +119,30 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(module.request, "urlopen", side_effect=respond) as http:
             await Graph.from_payload(flow).arun(inputs=[{"input_value": "Read marker"}],
                                                 types=["chat"])
+            self.assertEqual(http.call_count, 1)
+
+    async def test_two_connected_skill_nodes_dispatch_one_skill_list(self):
+        from lfx.graph.graph.base import Graph
+        root = Path(__file__).resolve().parents[2]
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        skill = next(n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoSkill")
+        second = deepcopy(skill)
+        second["id"] = second["data"]["id"] = "LaomedoSkill-second"
+        second["data"]["node"]["template"]["skill_id"]["value"] = "second"
+        flow["data"]["nodes"].append(second)
+        edge = deepcopy(next(e for e in flow["data"]["edges"] if e["source"] == skill["id"]))
+        edge["id"] += "-second"
+        edge["source"] = second["id"]
+        edge["data"]["sourceHandle"]["id"] = second["id"]
+        edge["sourceHandle"] = json.dumps(edge["data"]["sourceHandle"])
+        flow["data"]["edges"].append(edge)
+        def respond(req, timeout):
+            refs = json.loads(req.data)["skill_refs"]
+            self.assertEqual({r["skill_id"] for r in refs},
+                             {"second", skill["data"]["node"]["template"]["skill_id"]["value"]})
+            return Response(json.dumps(result()).encode())
+        with patch.object(module.request, "urlopen", side_effect=respond) as http:
+            await Graph.from_payload(flow).arun(inputs=[{"input_value": "Use both skills"}], types=["chat"])
             self.assertEqual(http.call_count, 1)
 
     async def test_both_outputs_submit_once_and_new_build_submits_again(self):
