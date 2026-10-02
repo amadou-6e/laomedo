@@ -34,13 +34,32 @@ class ExportTests(unittest.TestCase):
             if "find" in args:
                 path = f"/home/runner/.codex/sessions/2026/10/01/rollout-{self.thread}.jsonl\n"
                 return Result(path.encode())
-            return Result(b'{"type":"session_meta"}\n')
+            if "stat" in args:
+                return Result(str(len(payload)).encode())
+            return Result(payload)
 
+        payload = json.dumps({"type": "session_meta", "payload": {
+            "id": self.thread}}).encode() + b"\n"
         output = export_rollout(self.state, self.run_id, docker_run=docker)
-        self.assertEqual(output.read_bytes(), b'{"type":"session_meta"}\n')
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(output.read_bytes(), payload)
+        self.assertEqual(len(calls), 3)
+        self.assertIn("-links", calls[0])
+        self.assertIn("1", calls[0])
         self.assertIn("readonly", " ".join(calls[0]))
-        self.assertNotIn("auth.json", " ".join(calls[1]))
+        self.assertNotIn("auth.json", " ".join(calls[2]))
+
+    def test_rejects_wrong_session_meta_before_writing(self):
+        def docker(args, **kwargs):
+            if "find" in args:
+                return Result(f"/home/runner/.codex/sessions/rollout-{self.thread}.jsonl\n".encode())
+            if "stat" in args:
+                return Result(str(len(payload)).encode())
+            return Result(payload)
+
+        payload = b'{"type":"session_meta","payload":{"id":"other"}}\n'
+        with self.assertRaisesRegex(RunnerError, "native_rollout_identity_mismatch"):
+            export_rollout(self.state, self.run_id, docker_run=docker)
+        self.assertFalse((self.run_dir / "native-rollout.jsonl").exists())
 
     def test_refuses_path_outside_sessions(self):
         def docker(args, **kwargs):

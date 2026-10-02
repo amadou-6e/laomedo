@@ -25,14 +25,15 @@ events remain outside Git. A missing observation is not a pass.
 | Native Codex tool call with matching result | Turn 1's skill-read and fixture/marker commands have matching `item/started` and `item/completed` IDs, exit 0, and command output; host marker independently equals `FIRST-RUN` | Pass |
 | Native thread resume after runner/app-server restart | Turn 2 used `/resume` with the saved thread ID and snapshot hash after restarting the host runner; a new Docker app-server reopened the same thread and read the marker, with unchanged post-run hash | Pass through runner API; saved Langflow node currently starts fresh runs |
 | Fresh native run stays independent | Turn 3 ran through the same saved Langflow flow with a new native thread; tool output and host inspection both show no prior marker | Pass |
-| Interrupted Langflow run retains partial events and fails the flow | Turn 4 cancellation followed an observed `commandExecution` start; runner status became `cancelled`, 39 native events remained, and Langflow returned HTTP 500 containing the run ID and `failed: cancelled` | Pass for explicit cancellation; process-crash interruption not tested |
+| Interrupted Langflow run retains partial events and fails the flow | Historical turn 4 cancellation followed an observed `commandExecution` start; runner status became `cancelled`, 39 native events remained, and Langflow returned HTTP 500 containing the run ID and `failed: cancelled`. Container termination was not checked at cancellation time. The later runner revision sends `turn/interrupt` and forces named-container removal; a no-model Docker canary verified removal, but turn 4 was not replayed. | Status and partial events retained; historical turn termination unverified; process-crash interruption not tested |
 | Private rollout imports through AGENTVIZ | Deferred at the user's request | Deferred |
 | Skill was read or invoked | Turn 1 completed an explicit native read of `/draft/.agents/skills/laomedo-pilot/SKILL.md`, exit 0, with the fixture skill body in the result | Read observed; invocation/compliance not inferred; component still conservatively reports `offered` |
 | Codex inner token usage | The component does not extract inner native usage counters | Unknown in the Langflow result, not zero |
 
 The result is a **go for the tested single-user local Langflow-to-Codex path**.
 The first run, native restart/resume, fresh-run independence, missing-snapshot
-rejection, and cancellation were observed. AGENTVIZ remains deferred and the
+rejection, and cancellation status were observed. The historical cancelled
+turn's container termination is unknown. AGENTVIZ remains deferred and the
 browser UI was not exercised, so this does not satisfy every original check
 in issue #11. Resume was tested through the runner API, not through a saved
 Langflow resume node. The ledger is **4/4**; further model calls require new
