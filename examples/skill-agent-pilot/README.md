@@ -1,6 +1,6 @@
 # Local Langflow skill-agent pilot
 
-This example covers Laomedo issues #8 through #10. The runner is a local,
+This example covers Laomedo issues #8 through #11. The runner is a local,
 single-user prototype. It reuses the Docker boundary from the #146 proof:
 `laomedo-codex-boundary:0.159.2` at image ID
 `sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239`,
@@ -8,6 +8,15 @@ Codex CLI `0.159.2`, the existing `laomedo-122-docker-auth` volume, and
 `runner-config.toml` at SHA-256
 `a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4`.
 The Docker grant and mounts have not changed. No credential is in this example.
+
+The [2026-10-01 evidence](pilot-evidence.md) records a successful real run
+through the imported Langflow flow, native thread resume after runner restart,
+fresh-run independence, missing-snapshot rejection, and cancellation status.
+The historical cancelled turn did not verify that its container stopped. The
+current runner performs named-container cleanup; a no-model Docker probe
+verified teardown, but that historical model turn was not repeated. The
+authorized ledger reached 4/4. AGENTVIZ inspection is deferred. Resume was
+tested through the runner API; this saved Langflow component starts fresh runs.
 
 The skill is pinned to revision
 `sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8`.
@@ -40,7 +49,7 @@ model/effort options without submitting a turn. The runner defaults to a
 **zero-turn cap**. Start it only with an explicitly authorized turn cap:
 
 ```powershell
-python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source --max-model-turns 3
+python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source --max-model-turns 4
 ```
 
 The cap lives in `turn-ledger.json` outside Git. Reservations occur before
@@ -62,6 +71,20 @@ The resume body needs `task`, `expected_post_run_hash`, `expected_thread_id`,
 `model`, and `effort`. Results contain opaque output and raw-event references,
 not private filesystem paths. Failed and timed-out requests return HTTP 502
 with a run ID and error category. The status endpoint remains queryable.
+
+After a completed run, export only its matching native Codex rollout for local
+AGENTVIZ inspection:
+
+```powershell
+python -m laomedo.rollout_export --state $state --run-id '<run-id>'
+```
+
+This reads the existing Docker volume read-only, matches the native thread ID
+under its `sessions` directory, and writes one JSONL file beneath the private
+run directory. It never copies `auth.json`. Use the existing
+`experiments/feasibility/123/probe_agentviz_import.mjs` against that private
+file and a local AGENTVIZ parser bundle. Review its structural counts and
+call/result IDs before sharing any report; do not commit the rollout.
 
 ## Langflow handoff
 
@@ -95,8 +118,9 @@ Stopping a Langflow request or reaching the client timeout does not itself
 cancel a runner run; query its status or call the runner's cancel endpoint.
 Trigger the imported flow in the UI or via
 `POST /api/v1/run/{flow_id}` with an `input_value` task. The imported flow ID
-may differ from the export ID. The end-to-end pilot should distinguish observed
-events from inferred skill use and unknown usage.
+may differ from the export ID. An end-to-end evidence matrix belongs in
+`pilot-evidence.md`; it must distinguish observed events from inferred skill
+use and unknown usage.
 
 The bundled API helper imports without submitting a model turn. Its `run`
 operation does submit one and requires a private report path outside Git:
@@ -110,14 +134,44 @@ The helper reads an optional `LANGFLOW_API_KEY` from the process environment
 and never writes that key to the flow or report. The run API response is kept
 private because it can include the task and answer.
 
+Langflow 1.12.3 requires authentication for flow creation and an API key for the
+run endpoint, including when the disposable server uses `LANGFLOW_AUTO_LOGIN=true`.
+Create a key in the local Langflow server and supply it through
+`LANGFLOW_API_KEY` when using the helper. This key authenticates to Langflow;
+Codex continues to use the existing private Docker login. The observed test
+used `/api/v1/auto_login` and `/api/v1/api_key/` with tokens held in memory.
+
+To reproduce the model checks with a newly authorized budget:
+
+1. Import the saved flow and invoke it with the first-run task above. Confirm
+   the real trace contains completed command events and that the private
+   workspace contains `pilot-marker.txt` with `FIRST-RUN`.
+2. Read `GET /v1/runs/{run_id}`, restart the host runner with the same private
+   state and cumulative cap, and post to `/v1/runs/{run_id}/resume` with that
+   record's `expected_post_run_hash`, `expected_thread_id`, model and effort.
+   Ask the agent to read the marker without changing files. Confirm the same
+   native thread and unchanged snapshot hash.
+3. Invoke the saved Langflow flow again, asking it to test for the marker and
+   read the fixture without writing files. Verify a new thread and absent marker.
+4. Invoke the flow with a shell task that reads the fixture and sleeps for 60
+   seconds. After observing the command's native start event, post to
+   `/v1/runs/{run_id}/cancel`. Check the retained partial events and Langflow's
+   error containing that run ID and `cancelled`.
+
+The missing-snapshot check temporarily holds the completed run's `post-run`
+directory, attempts a resume with its original binding, then restores the
+directory. It must return `post_run_snapshot_mismatch` before reserving a turn.
+Once the ledger is exhausted, a new request must return
+`model_turn_cap_reached` without issuing a native thread or changing the ledger.
+
 ## Credential-free checks
 
 ```powershell
 python -m unittest discover -s tests -p 'test_*.py' -q
 ```
 
-These tests cover exact materialization, workspace separation, snapshot
+These credential-free tests cover exact materialization, workspace separation, snapshot
 integrity, restart/resume binding, HTTP result and failure behavior, and the
 persistent turn cap with a fake app-server. They do not establish a successful
-model-backed Langflow run or a broader security boundary. Private raw events
+model-backed Langflow run by themselves or a broader security boundary. Private raw events
 remain under the runner state directory and are never committed.
