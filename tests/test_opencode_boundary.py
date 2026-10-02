@@ -133,6 +133,7 @@ class BoundaryTests(unittest.TestCase):
 
     def test_worker_never_mounts_controller_profile_or_environment(self):
         args = worker_command("owned", Path("workspace"), Path("canonical"), Path("store"), "pwd")
+        self.assertEqual(args[args.index("--network") + 1], "none")
         self.assertNotIn("-e", args)
         self.assertNotIn("--privileged", args)
         self.assertIn("ALL", args)

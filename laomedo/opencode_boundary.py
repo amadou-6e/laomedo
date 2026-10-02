@@ -49,7 +49,7 @@ def check_auth_fresh(profile):
 
 
 def worker_command(name, workspace, canonical, store, command):
-    return ["docker", "run", "--rm", "--name", name, "--pull=never", "--network", "bridge",
+    return ["docker", "run", "--rm", "--name", name, "--pull=never", "--network", "none",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "128",
             "--memory", "1g", "--user", "10001:10001",
             "--mount", f"type=bind,source={workspace},target=/draft",

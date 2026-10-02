@@ -12,8 +12,10 @@ import acceptance as a
 
 def call(path, payload):
     try:
+        capability = (a.STATE / 'runs-state/api-token').read_text(encoding='utf-8').strip()
         with urlopen(Request('http://127.0.0.1:8768' + path,
-                data=json.dumps(payload).encode(), headers={'Content-Type':'application/json'}), timeout=180) as response:
+                data=json.dumps(payload).encode(), headers={'Content-Type':'application/json',
+                    'Authorization': 'Bearer ' + capability}), timeout=180) as response:
             return json.load(response)
     except HTTPError as error:
         return json.load(error)

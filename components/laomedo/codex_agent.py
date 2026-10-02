@@ -141,9 +141,12 @@ class LaomedoCodexAgent(Component):
         return endpoint + "/resume", {"task": task, "model": model, "effort": effort,
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
+    def _token_file_path(self):
+        return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                              "/run/secrets/laomedo-runner-token")
+
     def _http(self, endpoint, payload, method):
-        token_file = os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
-                                    "/run/secrets/laomedo-runner-token")
+        token_file = self._token_file_path()
         try:
             token = Path(token_file).read_text(encoding="utf-8").strip()
         except OSError:

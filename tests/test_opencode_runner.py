@@ -235,7 +235,10 @@ class OpenCodeTests(unittest.TestCase):
                 "parts": [{"type": "tool", "state": {"status": "running"}}]}, [])
 
     def test_multiple_skills_remain_pinned(self):
-        second = self.runner.store.import_skill("second", self.skill_source)
+        second_source = self.root / "second-source"
+        second_source.mkdir()
+        (second_source / "SKILL.md").write_text("---\nname: second\n---\nUse amber.\n")
+        second = self.runner.store.import_skill("second", second_source)
         refs = [self.payload["skill_ref"], {"skill_id": "second", "revision_id": second["revision_id"],
                                          "tree_hash": second["tree_hash"]}]
         payload = {key: value for key, value in self.payload.items() if key != "skill_ref"}

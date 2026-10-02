@@ -124,7 +124,9 @@ def main():
         raise RuntimeError("saved_flow_run_identity_ambiguous")
     run_id = next(iter(created))
     run = json.loads((records / run_id / "record.json").read_text())
-    with urlopen(Request("http://127.0.0.1:8768/v1/runs/" + run_id), timeout=10) as retrieved:
+    capability = (state / "runs-state/api-token").read_text(encoding="utf-8").strip()
+    with urlopen(Request("http://127.0.0.1:8768/v1/runs/" + run_id,
+                         headers={"Authorization": "Bearer " + capability}), timeout=10) as retrieved:
         status = json.load(retrieved)
     workers = [json.loads(line) for line in (records / run_id / "worker-events.jsonl").read_text().splitlines()]
     selected = [event for event in workers if event["command"] == COMMAND]

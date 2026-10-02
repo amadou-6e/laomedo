@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import json
+import os
 
 from laomedo.codex_agent import LaomedoCodexAgent as Component
 from lfx.io import StrInput
@@ -30,6 +31,10 @@ class LaomedoOpenCodeAgent(Component):
         if self.operation != "fresh" and isinstance(prior, dict) and prior.get("provider") != "opencode":
             raise ValueError("run_provider_mismatch")
         return super()._prepare()
+
+    def _token_file_path(self):
+        return os.environ.get("LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE",
+                              "/run/secrets/laomedo-opencode-runner-token")
 
     def _http(self, endpoint, payload, method):
         value = super()._http(endpoint, payload, method)

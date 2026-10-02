@@ -23,7 +23,11 @@ time. It binds to `0.0.0.0` for Docker Desktop bridge routing, so LAN exposure
 and network isolation remain outside the tested boundary. The controller mounts
 the private auth file read-only over its session auth path. The persistent
 session directory has only an empty mount placeholder, not a second plaintext
-credential copy. Workers receive no auth mount.
+credential copy. Workers receive no auth mount and use Docker `--network none`.
+The OpenCode controller still needs network for its model API and authenticated
+command broker. The runner API requires a separate persisted capability file under
+private state. For a Langflow component, mount it read-only and set
+`LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE` to its container path.
 
 The terminal login was located in the active Console account in `opencode.db`.
 `auth list` reports legacy provider credentials and did not describe that login.
