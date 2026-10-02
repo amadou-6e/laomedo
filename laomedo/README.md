@@ -70,3 +70,48 @@ the requested Python version; the core has no third-party dependencies:
 uv run --python 3.10 python -m unittest discover -s tests -p 'test_*.py' -v
 uv run --python 3.12 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+## Local pinned-skill Codex runner
+
+`local_runner.py` implements the single-user Docker route for issues #8 and
+#9. It uses the existing `laomedo-codex-boundary:0.159.2` image, private
+`laomedo-122-docker-auth` volume, and unchanged #146 permission file. The
+runner state and `SkillStore` must be outside Git. A host-configured source
+folder inside a Git working tree is copied for each fresh run. A request must
+name a skill ID, exact revision ID, and matching tree hash; `latest` is never
+resolved at dispatch. The full bundle is materialized under the copied
+workspace's `.agents/skills` path. The record labels the skill `offered` until
+a native read event proves more.
+
+Start with a credential-free preflight, which checks the real app-server,
+model/effort list, allowed workspace write, and denied canonical/store writes
+and auth-file read. From the repository root, after importing a synthetic
+skill into the private store:
+
+```powershell
+$private = Join-Path $env:LOCALAPPDATA 'Laomedo'
+python -m laomedo.local_runner --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
+```
+
+The HTTP runner binds only to `127.0.0.1:8765` and defaults to zero model
+turns. It also requires `Authorization: Bearer <token>` for every status and
+mutation request. The runner creates a random token once in its private state
+directory at `api-token`; clients read that file through an operator-controlled
+private mount or local environment. Do not put the token in a flow, URL, Git,
+agent workspace or command-worker container. Loopback binding alone does not
+block Docker Desktop containers from reaching `host.docker.internal`.
+
+Each Codex app-server container has a unique name. On cancellation or timeout,
+the runner sends `turn/interrupt`, forces removal of the owned container and
+checks that Docker can no longer inspect it. If teardown cannot be verified,
+the record fails with `container_termination_unverified` rather than claiming
+that remote work stopped. The no-model Docker teardown probe is
+`examples/skill-agent-pilot/probe_container_teardown.py`.
+
+An explicitly authorized `--max-model-turns` cap is stored in a private
+ledger before `turn/start`, counting failed and timed-out submissions. Start,
+status, cancel, and resume endpoints use `/v1/runs`. Resume needs the native
+thread ID and exact last post-run hash; a missing or altered snapshot fails
+before dispatch. Raw app-server events, session state, and snapshots stay
+outside Git. Python 3.10+ and only the standard library are required for the
+runner; Docker and the existing private volume are required for a real turn.
