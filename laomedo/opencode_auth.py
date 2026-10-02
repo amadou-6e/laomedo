@@ -22,7 +22,7 @@ class NoRedirect(HTTPRedirectHandler):
         raise ValueError("opencode_auth_redirect_rejected")
 
 
-def console_provider(database, *, fetch=None, include_routing=False):
+def console_provider(database, *, fetch=None, include_routing=False, include_expiry=False):
     """Return only the Go credential and organization routing header, never log them."""
     with closing(sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro", uri=True)) as db:
         db.row_factory = sqlite3.Row
@@ -48,7 +48,8 @@ def console_provider(database, *, fetch=None, include_routing=False):
     provider = remote.get("config", {}).get("provider", {}).get("opencode-go", {})
     options = provider.get("options", {})
     key = options.get("apiKey")
-    if key == "{env:OPENCODE_CONSOLE_TOKEN}":
+    token_bound = key == "{env:OPENCODE_CONSOLE_TOKEN}"
+    if token_bound:
         key = token
     key = credential(key)
     org = options.get("headers", {}).get("x-opencode-org-id")
@@ -78,5 +79,10 @@ def console_provider(database, *, fetch=None, include_routing=False):
                     raise ValueError("opencode_model_endpoint_not_allowed")
                 route["api"] = native["api"]
             models[name] = {"provider": route} if route else {}
-        return selected, org, {"api": api, "npm": provider["npm"], "models": models}
+        result = (selected, org, {"api": api, "npm": provider["npm"], "models": models})
+        return (*result, {"credential_mode": "console_token" if token_bound else "provider_key",
+                          "expires_at_ms": row["token_expiry"] if token_bound else None}) if include_expiry else result
+    if include_expiry:
+        return selected, org, {"credential_mode": "console_token" if token_bound else "provider_key",
+                               "expires_at_ms": row["token_expiry"] if token_bound else None}
     return selected, org

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -17,6 +18,34 @@ from uuid import uuid4
 
 from .local_runner import IMAGE as WORKER_IMAGE, IMAGE_ID as WORKER_IMAGE_ID, RunnerError, _json, _private
 from .opencode_runner import CLI_VERSION
+
+
+MIN_TOKEN_REMAINING_MS = 210000  # 180-second request timeout plus startup margin.
+
+
+def check_auth_fresh(profile):
+    path = Path(profile) / "auth-validity.json"
+    try:
+        validity = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RunnerError("opencode_auth_validity_required") from exc
+    if not isinstance(validity, dict):
+        raise RunnerError("opencode_auth_validity_invalid")
+    try:
+        key = json.loads((Path(profile) / "auth.json").read_text(encoding="utf-8"))["opencode-go"]["key"]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise RunnerError("opencode_private_auth_required") from exc
+    if (not isinstance(key, str) or
+            validity.get("credential_sha256") != hashlib.sha256(key.encode()).hexdigest()):
+        raise RunnerError("opencode_auth_validity_mismatch")
+    mode = validity.get("credential_mode")
+    if mode == "provider_key" and validity.get("expires_at_ms") is None:
+        return
+    expiry = validity.get("expires_at_ms")
+    if mode != "console_token" or not isinstance(expiry, int) or isinstance(expiry, bool):
+        raise RunnerError("opencode_auth_validity_invalid")
+    if expiry <= int(time.time() * 1000) + MIN_TOKEN_REMAINING_MS:
+        raise RunnerError("opencode_console_token_refresh_required")
 
 
 def worker_command(name, workspace, canonical, store, command):
@@ -36,6 +65,7 @@ class CommandBroker:
         self.token = secrets.token_hex(32)
         self.active = set()
         self.lock = threading.Lock()
+        self.capacity = threading.BoundedSemaphore(1)
         broker = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -71,8 +101,12 @@ class CommandBroker:
         # Docker bridge must reach this host listener. A random bearer capability
         # is mandatory, and only one run's immutable mounts are addressable.
         self.server = ThreadingHTTPServer(("0.0.0.0", 0), Handler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
+        try:
+            self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+            self.thread.start()
+        except Exception:
+            self.server.server_close()
+            raise
 
     def rpc(self, method, params):
         if method == "initialize":
@@ -93,22 +127,27 @@ class CommandBroker:
         return {"content": [{"type": "text", "text": json.dumps(result)}], "isError": result["exit_code"] != 0}
 
     def execute(self, command):
+        if not self.capacity.acquire(blocking=False):
+            return {"exit_code": 75, "stdout": "", "stderr": "worker_busy"}
         name = "laomedo-oc-worker-" + uuid4().hex
-        with self.lock:
-            self.active.add(name)
         try:
-            proc = subprocess.run(worker_command(name, self.workspace, self.canonical, self.store, command),
-                                  capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
-            value = {"exit_code": proc.returncode, "stdout": proc.stdout[:32768], "stderr": proc.stderr[:32768]}
-        except subprocess.TimeoutExpired:
-            value = {"exit_code": 124, "stdout": "", "stderr": "worker_timeout"}
-        finally:
-            subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=15)
             with self.lock:
-                self.active.discard(name)
-        with (self.evidence / "worker-events.jsonl").open("a", encoding="utf-8") as log:
-            log.write(json.dumps({"command": command, **value}) + "\n")
-        return value
+                self.active.add(name)
+            try:
+                proc = subprocess.run(worker_command(name, self.workspace, self.canonical, self.store, command),
+                                      capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+                value = {"exit_code": proc.returncode, "stdout": proc.stdout[:32768], "stderr": proc.stderr[:32768]}
+            except subprocess.TimeoutExpired:
+                value = {"exit_code": 124, "stdout": "", "stderr": "worker_timeout"}
+            finally:
+                subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=15)
+                with self.lock:
+                    self.active.discard(name)
+            with (self.evidence / "worker-events.jsonl").open("a", encoding="utf-8") as log:
+                log.write(json.dumps({"command": command, **value}) + "\n")
+            return value
+        finally:
+            self.capacity.release()
 
     def close(self):
         self.server.shutdown()
@@ -128,6 +167,7 @@ class IsolatedOpenCode:
         self.profile = _private(Path(profile))
         if not (self.profile / "auth.json").is_file():
             raise RunnerError("opencode_private_auth_required")
+        self.check_auth_fresh()
         identity_path = self.profile / "identity.json"
         if not identity_path.exists():
             _json(identity_path, {"profile_id": str(uuid4())})
@@ -145,46 +185,53 @@ class IsolatedOpenCode:
         view.mkdir()
         # No user project configs/custom tools are ever mounted in the controller.
         shutil.copytree(workspace / ".agents", view / ".agents")
-        self.broker = CommandBroker(workspace, evidence / "canonical", evidence / "store", evidence)
-        self.password = secrets.token_hex(32)
-        self.name = "laomedo-oc-controller-" + uuid4().hex
-        self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
-        permissions = {"*": "deny", "laomedo_exec": "allow", "skill": {"*": "deny"}}
-        for skill in (view / ".agents/skills").iterdir():
-            permissions["skill"][skill.name] = "allow"
-        config = {"$schema": "https://opencode.ai/config.json", "autoupdate": False, "share": "disabled",
-            "plugin": [], "mcp": {"laomedo": {"type": "remote", "url":
-                f"http://host.docker.internal:{self.broker.server.server_port}/mcp",
-                "headers": {"Authorization": "Bearer " + self.broker.token}, "oauth": False}},
-            "permission": permissions, "tools": {"*": False, "skill": True, "laomedo_exec": True}}
-        provider_options = self.profile / "provider-options.json"
-        if provider_options.exists():
-            supplied = json.loads(provider_options.read_text(encoding="utf-8"))
-            organization = supplied.get("provider", {}).get("opencode-go", {}).get("options", {}).get("headers", {}).get("x-opencode-org-id")
-            if not isinstance(organization, str) or not organization:
-                raise RunnerError("opencode_organization_context_invalid")
-            routing = supplied["provider"]["opencode-go"]
-            if (routing.get("api") != "https://opencode.ai/inference/go/openai/v1" or
-                    routing.get("npm") != "@ai-sdk/openai-compatible"):
-                raise RunnerError("opencode_console_provider_routing_not_allowed")
-            config["provider"] = {"opencode-go": {"api": routing["api"], "npm": routing["npm"],
-                "models": routing.get("models", {}),
-                "options": {"headers": {"x-opencode-org-id": organization}}}}
-        _json(root / "config.json", config)
-        self.profile.joinpath("sessions").mkdir(exist_ok=True)
+        self.broker = None
+        self.log = None
+        self.name = None
+        try:
+            self.broker = CommandBroker(workspace, evidence / "canonical", evidence / "store", evidence)
+            self.password = secrets.token_hex(32)
+            self.name = "laomedo-oc-controller-" + uuid4().hex
+            self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
+            permissions = {"*": "deny", "laomedo_exec": "allow", "skill": {"*": "deny"}}
+            for skill in (view / ".agents/skills").iterdir():
+                permissions["skill"][skill.name] = "allow"
+            config = {"$schema": "https://opencode.ai/config.json", "autoupdate": False, "share": "disabled",
+                "plugin": [], "mcp": {"laomedo": {"type": "remote", "url":
+                    f"http://host.docker.internal:{self.broker.server.server_port}/mcp",
+                    "headers": {"Authorization": "Bearer " + self.broker.token}, "oauth": False}},
+                "permission": permissions, "tools": {"*": False, "skill": True, "laomedo_exec": True}}
+            provider_options = self.profile / "provider-options.json"
+            if provider_options.exists():
+                supplied = json.loads(provider_options.read_text(encoding="utf-8"))
+                organization = supplied.get("provider", {}).get("opencode-go", {}).get("options", {}).get("headers", {}).get("x-opencode-org-id")
+                if not isinstance(organization, str) or not organization:
+                    raise RunnerError("opencode_organization_context_invalid")
+                routing = supplied["provider"]["opencode-go"]
+                if (routing.get("api") != "https://opencode.ai/inference/go/openai/v1" or
+                        routing.get("npm") != "@ai-sdk/openai-compatible"):
+                    raise RunnerError("opencode_console_provider_routing_not_allowed")
+                config["provider"] = {"opencode-go": {"api": routing["api"], "npm": routing["npm"],
+                    "models": routing.get("models", {}),
+                    "options": {"headers": {"x-opencode-org-id": organization}}}}
+            _json(root / "config.json", config)
+            self.profile.joinpath("sessions").mkdir(exist_ok=True)
+        except Exception:
+            self.close()
+            raise
         cmd = ["docker", "run", "-d", "--name", self.name, "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "128", "--memory", "1g",
             "--user", "10001:10001", "-p", "127.0.0.1::4096",
             "--mount", f"type=bind,source={view},target=/draft,readonly",
             "--mount", f"type=bind,source={root / 'config.json'},target=/controller-config.json,readonly",
-            "--mount", f"type=bind,source={self.profile / 'auth.json'},target=/controller-auth.json,readonly",
             "--mount", f"type=bind,source={self.profile / 'sessions'},target=/home/runner/.local/share/opencode",
+            "--mount", f"type=bind,source={self.profile / 'auth.json'},target=/home/runner/.local/share/opencode/auth.json,readonly",
             "-e", "OPENCODE_CONFIG=/controller-config.json", "-e", "OPENCODE_DISABLE_PROJECT_CONFIG=true",
             "-e", "OPENCODE_SERVER_PASSWORD=" + self.password, "-e", "HOME=/home/runner",
             "-e", "XDG_STATE_HOME=/tmp/opencode-state", "-e", "XDG_CACHE_HOME=/tmp/opencode-cache",
             "-e", "XDG_CONFIG_HOME=/tmp/opencode-config",
-            "--workdir", "/draft", image, "sh", "-c",
-            "cp /controller-auth.json /home/runner/.local/share/opencode/auth.json && exec opencode serve --pure --hostname 0.0.0.0 --port 4096"]
+            "--workdir", "/draft", image,
+            "opencode", "serve", "--pure", "--hostname", "0.0.0.0", "--port", "4096"]
         try:
             subprocess.run(cmd, check=True, capture_output=True, timeout=30)
             self.port = subprocess.run(["docker", "port", self.name, "4096/tcp"], check=True,
@@ -223,6 +270,19 @@ class IsolatedOpenCode:
         return value
 
     def close(self):
-        subprocess.run(["docker", "rm", "-f", self.name], capture_output=True, timeout=15)
-        self.broker.close()
-        self.log.close()
+        try:
+            if self.name is not None:
+                subprocess.run(["docker", "rm", "-f", self.name], capture_output=True, timeout=15)
+                self.name = None
+        finally:
+            try:
+                if self.broker is not None:
+                    self.broker.close()
+                    self.broker = None
+            finally:
+                if self.log is not None:
+                    self.log.close()
+                    self.log = None
+
+    def check_auth_fresh(self):
+        check_auth_fresh(self.profile)

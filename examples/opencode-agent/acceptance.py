@@ -1,6 +1,7 @@
 """Bounded private OpenCode Docker acceptance; stdout contains sanitized metadata only."""
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -37,7 +38,10 @@ def setup():
     secure(STATE)
     profile().mkdir(exist_ok=True)
     if not (profile() / "auth.json").exists():
-        _json(profile() / "auth.json", {"opencode-go": {"type": "api", "key": "CANARY-" + secrets.token_hex(24)}})
+        canary = "CANARY-" + secrets.token_hex(24)
+        _json(profile() / "auth.json", {"opencode-go": {"type": "api", "key": canary}})
+        _json(profile() / "auth-validity.json", {"credential_mode": "provider_key", "expires_at_ms": None,
+                                                 "credential_sha256": hashlib.sha256(canary.encode()).hexdigest()})
     source = STATE / "fixture-source"
     source.mkdir(exist_ok=True)
     (source / "fixture.txt").write_text("color: amber\ncount: 3\n", encoding="utf-8")
@@ -87,9 +91,12 @@ def auth():
     assert json.loads((STATE / "boundary-evidence.json").read_text())["status"] == "boundary_preflight_passed"
     # Capture resolved config in memory only. Copy exactly one provider key, never
     # the personal config/plugin/skill/session trees or API URLs/settings.
-    selected, organization, routing = console_provider(
-        Path(os.environ["USERPROFILE"]) / ".local/share/opencode/opencode.db", include_routing=True)
+    selected, organization, routing, validity = console_provider(
+        Path(os.environ["USERPROFILE"]) / ".local/share/opencode/opencode.db",
+        include_routing=True, include_expiry=True)
     _json(profile() / "auth.json", {"opencode-go": selected})
+    _json(profile() / "auth-validity.json", {**validity,
+        "credential_sha256": hashlib.sha256(selected["key"].encode()).hexdigest()})
     _json(profile() / "provider-options.json", {"provider": {"opencode-go": {
         **routing,
         "options": {"headers": {"x-opencode-org-id": organization}}}}})

@@ -75,7 +75,7 @@ def main():
 
     state = f.STATE
     ledger = json.loads((state / "runs-state/turn-ledger.json").read_text())
-    if ledger.get("attempted_turns") not in {11, 12} or ledger.get("max_authorized_turns") != 14:
+    if ledger.get("attempted_turns") not in {11, 12, 13} or ledger.get("max_authorized_turns") != 14:
         raise RuntimeError("unexpected_ledger_state")
     expected_attempt = ledger["attempted_turns"] + 1
     flow_id = json.loads((state / "flow-id.json").read_text())["flow_id"]

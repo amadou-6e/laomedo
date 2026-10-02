@@ -11,6 +11,7 @@ from urllib import request
 from urllib.parse import urlencode, urlsplit
 
 from .local_runner import LocalRunner, RunnerError, _copy_tree, _hash_tree, _json
+from .skill_store import SkillStoreError, inventory, tree_hash
 
 CLI_VERSION = "1.18.33"
 
@@ -65,14 +66,39 @@ def normalize_message(message, skills):
             if state.get("status") in {"pending", "running"}:
                 raise RunnerError("opencode_outstanding_tool")
             if part.get("tool") == "skill" and state.get("status") == "completed":
+                tool_input = state.get("input")
+                if not isinstance(tool_input, dict):
+                    tool_input = {}
                 for skill in skills:
-                    if state.get("input", {}).get("name") == skill["skill_id"]:
+                    if tool_input.get("name") == skill["skill_id"]:
                         skill["use_evidence"] = "native_skill_tool_completed"
     if not any(answer):
         raise RunnerError("completed_without_agent_message")
     return {"answer": "\n".join(answer), "native_turn_id": info.get("id"),
             "usage": info.get("tokens") if isinstance(info.get("tokens"), dict) else None,
             "tools": tools}
+
+
+def turn_parts(message, steps):
+    """Keep the latest state of each native tool call, including final-message parts."""
+    info = message.get("info") or {}
+    parts = []
+    if isinstance(steps, list) and info.get("parentID"):
+        for step in steps:
+            step_info = step.get("info") or {}
+            if step_info.get("role") == "assistant" and step_info.get("parentID") == info["parentID"]:
+                parts.extend(part for part in step.get("parts", []) if part.get("type") == "tool")
+    parts.extend(message.get("parts", []))
+    merged, positions = [], {}
+    for part in parts:
+        call_id = part.get("callID") if part.get("type") == "tool" else None
+        if call_id and call_id in positions:
+            merged[positions[call_id]] = part
+        else:
+            if call_id:
+                positions[call_id] = len(merged)
+            merged.append(part)
+    return merged
 
 
 class OpenCodeRunner(LocalRunner):
@@ -88,9 +114,12 @@ class OpenCodeRunner(LocalRunner):
         self.active_backends = {}
 
     def preflight(self):
+        if self.transport_factory is None:
+            return {"provider": "opencode", "cli_version": CLI_VERSION,
+                    "status": "blocked", "error_category": "opencode_isolated_transport_required",
+                    "submitted_turns": 0}
         return {"provider": "opencode", "cli_version": CLI_VERSION,
-                "status": "blocked", "error_category": "opencode_isolated_transport_required",
-                "submitted_turns": 0}
+                "status": "transport_configured", "submitted_turns": 0}
 
     def start(self, request):
         self._validate_provider(request.get("model"), request.get("effort"))
@@ -111,6 +140,31 @@ class OpenCodeRunner(LocalRunner):
             raise RunnerError("unsupported_opencode_skill_name")
         return super()._materialize(workspace, ref)
 
+    def _verify_pinned_skills(self, workspace, record):
+        skills = record.get("skills")
+        if not isinstance(skills, list) or not skills:
+            raise RunnerError("pinned_skill_record_invalid")
+        expected = {skill.get("skill_id"): skill.get("tree_hash") for skill in skills
+                    if isinstance(skill, dict)}
+        if (len(expected) != len(skills) or
+                any(not isinstance(name, str) or not isinstance(digest, str)
+                    for name, digest in expected.items())):
+            raise RunnerError("pinned_skill_record_invalid")
+        root = workspace / ".agents" / "skills"
+        try:
+            entries = list(root.iterdir())
+            if {entry.name for entry in entries} != set(expected) or len(entries) != len(expected):
+                raise RunnerError("pinned_skill_workspace_changed")
+            for skill in skills:
+                name, digest = skill["skill_id"], skill["tree_hash"]
+                if (skill.get("revision_id") != digest or
+                        self.store.revision(name, digest)["tree_hash"] != digest):
+                    raise RunnerError("pinned_skill_record_invalid")
+                if tree_hash(inventory(root / name)) != digest:
+                    raise RunnerError("pinned_skill_workspace_changed")
+        except (OSError, SkillStoreError) as exc:
+            raise RunnerError("pinned_skill_workspace_changed") from exc
+
     def resume(self, run_id, task, *, expected_post_run_hash, expected_thread_id, model, effort):
         self._validate_provider(model, effort)
         record = self.status(run_id)
@@ -125,19 +179,24 @@ class OpenCodeRunner(LocalRunner):
         if (_hash_tree(root / "canonical") != record["source_hash"] or
                 (root / "store/sentinel.txt").read_text(encoding="utf-8") != "STORE-ORIGINAL"):
             raise RunnerError("protected_mount_changed")
+        self._verify_pinned_skills(root / "workspace", record)
         return self._execute(run_id, task, resume=True)
 
     def _execute(self, run_id, task, *, resume):
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
-        root, record = self._run_dir(run_id), self.status(run_id)
-        flag, backend = threading.Event(), None
-        self.cancel_flags[run_id] = flag
-        record.update(provider="opencode", runtime_version=CLI_VERSION, profile=None,
-                      image=None, image_id=None, cli_version="opencode " + CLI_VERSION,
-                      config_sha256=None, status="running")
-        _json(root / "record.json", record)
+        root, record, flag, backend = None, None, None, None
         try:
+            root, record = self._run_dir(run_id), self.status(run_id)
+            flag = threading.Event()
+            self.cancel_flags[run_id] = flag
+            record.update(provider="opencode", runtime_version=CLI_VERSION, profile=None,
+                          image=None, image_id=None, cli_version="opencode " + CLI_VERSION,
+                          config_sha256=None, status="running")
+            _json(root / "record.json", record)
+            self._verify_pinned_skills(root / "workspace", record)
+            if flag.is_set():
+                raise RunnerError("opencode_cancelled_before_dispatch")
             backend = self.transport_factory(root / "workspace", root)
             self.active_backends[run_id] = backend
             identity = getattr(backend, "runtime_identity", {"provider": "opencode", "runtime_version": CLI_VERSION})
@@ -152,14 +211,23 @@ class OpenCodeRunner(LocalRunner):
             available = next((item for item in catalog.get("all", []) if item.get("id") == provider), {})
             if provider not in catalog.get("connected", []) or model not in available.get("models", {}):
                 raise RunnerError("opencode_model_not_connected")
+            if flag.is_set():
+                raise RunnerError("opencode_cancelled_before_dispatch")
             self._turn_available()
             if not resume:
                 session = backend.call("POST", "/session", {"title": "Laomedo private run"})
                 record["thread_id"] = session.get("id")
             if not re.fullmatch(r"ses_[a-zA-Z0-9]+", str(record.get("thread_id", ""))):
                 raise RunnerError("opencode_session_identity_invalid")
+            if flag.is_set():
+                raise RunnerError("opencode_cancelled_before_dispatch")
+            check_auth = getattr(backend, "check_auth_fresh", None)
+            if check_auth is not None:
+                check_auth()
             record["attempt_number"] = self._reserve_turn()
             _json(root / "record.json", record)
+            if flag.is_set():
+                raise RunnerError("opencode_cancelled_before_dispatch")
             message = backend.call("POST", "/session/" + record["thread_id"] + "/message",
                 {"model": {"providerID": provider, "modelID": model},
                  "parts": [{"type": "text", "text": task}]})
@@ -169,16 +237,13 @@ class OpenCodeRunner(LocalRunner):
                 raise RunnerError("opencode_response_identity_mismatch")
             steps = backend.call("GET", "/session/" + record["thread_id"] + "/message")
             observed = dict(message)
-            if isinstance(steps, list) and info.get("parentID"):
-                observed["parts"] = [part for step in steps
-                    if step.get("info", {}).get("role") == "assistant" and
-                    step.get("info", {}).get("parentID") == info["parentID"]
-                    for part in step.get("parts", []) if part.get("type") == "tool"] + message.get("parts", [])
+            observed["parts"] = turn_parts(message, steps)
             normalized = normalize_message(observed, record["skills"])
             record["skill"] = record["skills"][0] if len(record["skills"]) == 1 else None
             if flag.is_set():
                 record["status"] = "cancelled"
             else:
+                self._verify_pinned_skills(root / "workspace", record)
                 record.update(normalized, status="completed", effective_model=info["providerID"] + "/" + info["modelID"],
                               effective_effort=None)
                 pending = root / "post-run-pending"
@@ -194,25 +259,41 @@ class OpenCodeRunner(LocalRunner):
                     (root / "store/sentinel.txt").read_text(encoding="utf-8") != "STORE-ORIGINAL"):
                 raise RunnerError("protected_mount_changed")
         except Exception as exc:
+            if record is None:
+                raise
             record.update(status="cancelled" if flag.is_set() else "failed",
                           error_category=str(exc) if isinstance(exc, RunnerError) else type(exc).__name__)
         finally:
-            if backend:
-                backend.close()
-            _json(root / "record.json", record)
-            self.cancel_flags.pop(run_id, None)
-            self.active_backends.pop(run_id, None)
-            self.lock.release()
+            try:
+                if backend:
+                    backend.close()
+            except Exception:
+                if record is not None and record["status"] == "completed":
+                    record.update(status="failed", error_category="opencode_transport_cleanup_failed")
+            finally:
+                try:
+                    if record is not None:
+                        _json(root / "record.json", record)
+                finally:
+                    self.active_backends.pop(run_id, None)
+                    self.cancel_flags.pop(run_id, None)
+                    self.lock.release()
         return record
 
     def cancel(self, run_id):
         record = self.status(run_id)
         if record["status"] == "running":
+            flag = self.cancel_flags.get(run_id)
+            if flag is None:
+                current = self.status(run_id)
+                if current["status"] != "running":
+                    return current
+                raise RunnerError("run_not_active_in_this_process")
+            flag.set()
             backend = self.active_backends.get(run_id)
             if backend is None or not record.get("thread_id"):
-                raise RunnerError("opencode_cancel_not_dispatchable")
-            # Mark cancellation before abort unblocks the message request.
-            self.cancel_flags[run_id].set()
+                return {**record, "cancel_requested": True, "cancel_acknowledged": False,
+                        "termination_verified": False}
             acknowledged = backend.call("POST", "/session/" + record["thread_id"] + "/abort", {})
             if acknowledged is not True:
                 raise RunnerError("opencode_abort_not_acknowledged")

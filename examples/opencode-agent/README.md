@@ -18,8 +18,12 @@ from disposable command workers. Only native skill loading and the authenticated
 MCP command broker are enabled. Workers mount the task workspace and read-only
 canonical/store paths; no controller profile, credentials, environment or Docker
 socket is mounted. Controller runtime and worker image identities are checked.
-The broker is host-accessible with a random per-run bearer capability. Network
-isolation and complete native cancellation remain unverified.
+The broker uses a random per-run bearer capability and admits one command at a
+time. It binds to `0.0.0.0` for Docker Desktop bridge routing, so LAN exposure
+and network isolation remain outside the tested boundary. The controller mounts
+the private auth file read-only over its session auth path. The persistent
+session directory has only an empty mount placeholder, not a second plaintext
+credential copy. Workers receive no auth mount.
 
 The terminal login was located in the active Console account in `opencode.db`.
 `auth list` reports legacy provider credentials and did not describe that login.
@@ -28,16 +32,15 @@ The terminal login was located in the active Console account in `opencode.db`.
 organization metadata through a read-only connection, requests official account
 configuration with JSON headers, rejects redirects/untrusted origins/redactions,
 and copies only the selected Go credential and routing context to private state.
-No refresh token or personal profile is copied; expired tokens require the
-official client to refresh. The read-only database connection closes explicitly.
+No refresh token or personal profile is copied. A private validity record binds
+the selected key digest and Console expiry; the runner rejects an expired or
+near-expiry Console token before reserving a turn. The official client remains
+responsible for refresh. The read-only database connection closes explicitly.
 
-Two earlier submitted turns failed with provider HTTP 401 because the previous
-handoff copied a redacted value. No native tool results were produced. Their
-ledger remains 2/2 and is not reset. Corrected credential resolution succeeded
-without a new model call, but fresh/resume live acceptance awaits further approval.
-The boundary's direct command probes passed; agent-originated credential denial,
-native skill use, native cancellation and authenticated model completion remain
-unverified. This slice does not yet fulfill #27.
+The first two submitted turns failed with provider HTTP 401 because an earlier
+handoff copied a redacted value. No native tool results were produced. The
+failed turns remain in the cumulative ledger. Subsequent bounded tests below
+supersede those initial acceptance gaps without erasing the failure history.
 
 Four further turns on 2026-10-02 advanced the ledger to 6/6. Three returned HTTP
 401; the final request reached HTTP 400 with an unsupported-protocol error. No tool
@@ -71,9 +74,18 @@ host-verified marker, both native skill loads and queryable runner status.
 The controller view contained only the pinned skills; worker path-presence
 checks denied the tested private locations. The selected provider key was absent
 from the saved/exported flow, tracked repositories and run results. See
-`saved-flow-proof-evidence.json` and `saved_flow_proof.py`. The ledger is 13/14;
-one authorized turn remains unused. These checks do not establish exhaustive
-isolation or fresh UI Stop.
+`saved-flow-proof-evidence.json` and `saved_flow_proof.py`.
+
+The review fixes add exact pinned-skill revalidation before dispatch and after
+each completed turn, pre-dispatch cancellation checks, cleanup when controller
+setup fails, early Console expiry checks, bounded broker concurrency, and
+deduplication of tool parts by call ID. A canary-only Docker smoke test and a
+no-model provider preflight passed. Saved-flow attempt 14 then completed
+with the read-only auth mount and no node tweaks; both skills loaded and all
+bounded worker/credential checks passed. See `review-fixes-evidence.json`.
+The ledger is now 14/14. No further model turn is authorized. These checks do
+not establish exhaustive isolation, an atomic cancel/dispatch boundary, or
+fresh UI Stop.
 
 Credential-free tests:
 
