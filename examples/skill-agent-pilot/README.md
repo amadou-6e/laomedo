@@ -59,6 +59,8 @@ requires the private bearer token saved at `$state/api-token`. The Langflow
 container needs that file mounted read-only at
 `/run/secrets/laomedo-runner-token`; the token is read at call time and is not
 stored in the flow export. Never mount the token into an agent command worker.
+The token trusts the entire Langflow server process, including all installed
+custom components; any code running there can read the mounted file.
 Write requests require `Content-Type: application/json`. The endpoints are
 `POST /v1/runs`,
 `GET /v1/runs/{run_id}`,
