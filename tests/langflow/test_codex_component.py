@@ -5,8 +5,10 @@ from copy import deepcopy
 import importlib.util
 import io
 import json
+import os
 import sys
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 from urllib import error
@@ -54,6 +56,15 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        token = Path(temporary.name) / "api-token"
+        token.write_text("test-runner-token", encoding="utf-8")
+        environment = patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)})
+        environment.start()
+        self.addCleanup(environment.stop)
+
     async def test_multiple_skill_inputs_and_repeated_ids(self):
         refs = [module.Data(data={"skill_id": name, "revision_id": HASH, "tree_hash": HASH})
                 for name in ("first", "second")]
@@ -138,6 +149,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         node = component()
         def respond(req, timeout):
             self.assertEqual(json.loads(req.data)["skill_ref"]["tree_hash"], HASH)
+            self.assertEqual(req.get_header("Authorization"), "Bearer test-runner-token")
             return Response(json.dumps(result()).encode())
         with patch.object(module.request, "urlopen", side_effect=respond) as http:
             message, data = await asyncio.gather(node.answer_output(), node.run_output())
@@ -201,6 +213,20 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             with patch.object(module.request, "urlopen", side_effect=respond):
                 data = (await node.run_output()).data
                 self.assertEqual(data["status"], "running")
+
+    async def test_repeated_cancel_accepts_terminal_runner_record(self):
+        node = component(operation="cancel", run_reference={"run_id": RUN}, task="")
+        payload = json.dumps(result(status="cancelled", answer=None)).encode()
+        with patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                "http://localhost", 502, "terminal", {}, Response(payload))):
+            self.assertEqual((await node.run_output()).data["status"], "cancelled")
+
+    async def test_missing_runner_token_fails_before_request(self):
+        with patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": "missing-token-file"}):
+            with patch.object(module.request, "urlopen") as http:
+                with self.assertRaisesRegex(RuntimeError, "runner_api_token_file_unavailable"):
+                    await component().run_output()
+                http.assert_not_called()
 
 
 if __name__ == "__main__":

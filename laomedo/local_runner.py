@@ -9,6 +9,8 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
+import secrets
 import shutil
 import stat
 import subprocess
@@ -108,7 +110,8 @@ def _id(value: str) -> str:
 
 def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
-    return ["run", "--rm", "-i", "--pull=never", "--network", "bridge",
+    return ["run", "--rm", "-i", "--name", "laomedo-codex-" + uuid4().hex,
+            "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--pids-limit", "128", "--memory", "1g", "--user", "10001:10001",
             "--mount", f"type=volume,source={VOLUME},target=/home/runner/.codex",
@@ -125,11 +128,19 @@ class AppServer:
     def __init__(self, command: list[str], evidence: Path):
         self.events = []
         self.messages = queue.Queue()
+        self.container_name = command[command.index("--name") + 1]
+        self.active_thread_id = None
+        self.interrupt_acknowledged = False
         self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
         self.stderr = (evidence / "stderr.log").open("a", encoding="utf-8")
-        self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
-                                        stdout=subprocess.PIPE, stderr=self.stderr,
-                                        text=True, encoding="utf-8")
+        try:
+            self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
+                                            stdout=subprocess.PIPE, stderr=self.stderr,
+                                            text=True, encoding="utf-8")
+        except Exception:
+            self.log.close()
+            self.stderr.close()
+            raise
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
         self.seq = 0
@@ -177,7 +188,8 @@ class AppServer:
                         return turn.get("status") or "unknown", None
             cursor = len(self.events)
             if cancelled.is_set():
-                return "cancelled", None
+                self.interrupt(turn_id)
+                return "cancelled", "cancelled_by_user"
             try:
                 msg = self.messages.get(timeout=min(.25, deadline - time.monotonic()))
             except queue.Empty:
@@ -185,19 +197,55 @@ class AppServer:
                     return "failed", "app_server_exited"
                 continue
             self.events.append(msg)
+        self.interrupt(turn_id)
         return "timeout", "turn_timeout"
 
+    def interrupt(self, turn_id: str) -> None:
+        if not self.active_thread_id:
+            return
+        try:
+            response = self.request("turn/interrupt", {
+                "threadId": self.active_thread_id, "turnId": turn_id}, timeout=5)
+            self.interrupt_acknowledged = "result" in response and "error" not in response
+        except (RunnerError, OSError, ValueError):
+            # Forced container removal below remains the authoritative boundary.
+            self.interrupt_acknowledged = False
+
     def close(self) -> None:
-        if self.process.poll() is None:
-            self.process.terminate()
+        verified = False
+        try:
+            # Stop the owned container promptly, then repeat after the docker
+            # client exits to close the startup race before the first removal.
             try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
-        self.reader.join(timeout=5)
-        self.log.close()
-        self.stderr.close()
+                subprocess.run(["docker", "rm", "-f", self.container_name],
+                               capture_output=True, timeout=15)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+            if self.process.poll() is None:
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait()
+            try:
+                subprocess.run(["docker", "rm", "-f", self.container_name],
+                               capture_output=True, timeout=15)
+                probe = subprocess.run(["docker", "inspect", self.container_name],
+                                       capture_output=True, timeout=10)
+                stderr = probe.stderr or b""
+                if isinstance(stderr, str):
+                    stderr = stderr.encode()
+                verified = (probe.returncode != 0 and
+                            (b"No such object:" in stderr or b"No such container:" in stderr))
+            except (OSError, subprocess.TimeoutExpired):
+                verified = False
+        finally:
+            self.reader.join(timeout=5)
+            self.log.close()
+            self.stderr.close()
+        if not verified:
+            raise RunnerError("container_termination_unverified")
 
 
 def _answer(events: list[dict]) -> str | None:
@@ -222,6 +270,17 @@ class LocalRunner:
         if self.state == self.store.root or self.state.is_relative_to(self.store.root):
             raise RunnerError("state_overlaps_skill_store")
         self.state.mkdir(parents=True, exist_ok=True)
+        token_path = self.state / "api-token"
+        try:
+            fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            with os.fdopen(fd, "w", encoding="utf-8") as token_file:
+                token_file.write(secrets.token_hex(32))
+        self.api_token = token_path.read_text(encoding="utf-8")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.api_token):
+            raise RunnerError("invalid_runner_api_token")
         (self.state / "runs").mkdir(exist_ok=True)
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
@@ -446,12 +505,12 @@ class LocalRunner:
     def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
-        run_dir = self._run_dir(run_id)
-        record = self.status(run_id)
-        cancelled = threading.Event()
-        self.cancel_flags[run_id] = cancelled
-        server = None
+        run_dir, record, cancelled, server = None, None, None, None
         try:
+            run_dir = self._run_dir(run_id)
+            record = self.status(run_id)
+            cancelled = threading.Event()
+            self.cancel_flags[run_id] = cancelled
             record["status"] = "running"
             _json(run_dir / "record.json", record)
             server = self.transport(["docker", *_docker_prefix(
@@ -494,6 +553,7 @@ class LocalRunner:
             turn_id = ((sent.get("result") or {}).get("turn") or {}).get("id")
             if not turn_id:
                 raise RunnerError("turn_dispatch_rejected")
+            server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
             record["turns"].append({"turn_id": turn_id, "status": status,
                                     "error_category": error,
@@ -519,14 +579,24 @@ class LocalRunner:
                     "STORE-ORIGINAL"):
                 raise RunnerError("protected_mount_changed")
         except Exception as exc:
+            if record is None:
+                raise
             record["status"] = "failed"
             record["error_category"] = str(exc) if isinstance(exc, RunnerError) else type(exc).__name__
         finally:
-            if server is not None:
-                server.close()
-            _json(run_dir / "record.json", record)
-            self.cancel_flags.pop(run_id, None)
-            self.lock.release()
+            try:
+                if server is not None:
+                    server.close()
+            except Exception:
+                if record is not None:
+                    record.update(status="failed", error_category="container_termination_unverified")
+            finally:
+                try:
+                    if record is not None:
+                        _json(run_dir / "record.json", record)
+                finally:
+                    self.cancel_flags.pop(run_id, None)
+                    self.lock.release()
         return record
 
 
@@ -551,7 +621,16 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 raise RunnerError("invalid_body_size")
             return json.loads(self.rfile.read(length))
 
+        def _authorized(self):
+            supplied = self.headers.get("Authorization", "")
+            if not secrets.compare_digest(supplied, "Bearer " + runner.api_token):
+                self._reply(401, {"status": "failed", "error_category": "unauthorized"})
+                return False
+            return True
+
         def do_GET(self):
+            if not self._authorized():
+                return
             try:
                 parts = self.path.strip("/").split("/")
                 if len(parts) != 3 or parts[:2] != ["v1", "runs"]:
@@ -561,6 +640,8 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 self._reply(404, {"status": "failed", "error_category": str(exc)})
 
         def do_POST(self):
+            if not self._authorized():
+                return
             try:
                 parts = self.path.strip("/").split("/")
                 body = self._body()

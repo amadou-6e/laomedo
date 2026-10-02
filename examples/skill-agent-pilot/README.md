@@ -11,7 +11,10 @@ The Docker grant and mounts have not changed. No credential is in this example.
 
 The [2026-10-01 evidence](pilot-evidence.md) records a successful real run
 through the imported Langflow flow, native thread resume after runner restart,
-fresh-run independence, missing-snapshot rejection, and cancellation. The
+fresh-run independence, missing-snapshot rejection, and cancellation status.
+The historical cancelled turn did not verify that its container stopped. The
+current runner performs named-container cleanup; a no-model Docker probe
+verified teardown, but that historical model turn was not repeated. The
 authorized ledger reached 4/4. AGENTVIZ inspection is deferred. Resume was
 tested through the runner API; this saved Langflow component starts fresh runs.
 
@@ -51,8 +54,13 @@ python -m laomedo.local_runner --state $state --skill-store $store --source-work
 
 The cap lives in `turn-ledger.json` outside Git. Reservations occur before
 `turn/start` and persist across runner restarts. Timeouts and rejected turn
-submissions count. The HTTP API binds to `127.0.0.1:8765` only. Write requests
-require `Content-Type: application/json`. The endpoints are `POST /v1/runs`,
+submissions count. The HTTP API binds to `127.0.0.1:8765` only and every request
+requires the private bearer token saved at `$state/api-token`. The Langflow
+container needs that file mounted read-only at
+`/run/secrets/laomedo-runner-token`; the token is read at call time and is not
+stored in the flow export. Never mount the token into an agent command worker.
+Write requests require `Content-Type: application/json`. The endpoints are
+`POST /v1/runs`,
 `GET /v1/runs/{run_id}`,
 `POST /v1/runs/{run_id}/cancel`, and `POST /v1/runs/{run_id}/resume`.
 An accepted cancellation returns HTTP 202; the original run request returns
@@ -101,7 +109,12 @@ Import `pilot-flow.json` in Langflow's flow UI or
 [`/api/v1/flows/upload/`](https://docs.langflow.org/concepts-flows-import).
 The Langflow container must reach the host runner through
 `http://host.docker.internal:8765`; Docker Desktop connectivity was checked
-with a one-file loopback fixture. Trigger the imported flow in the UI or via
+with a one-file loopback fixture. On Linux, `host.docker.internal` needs an
+explicit host-gateway mapping, and a host listener bound only to `127.0.0.1`
+will not be reachable through that mapping. The tested route is Docker Desktop.
+Stopping a Langflow request or reaching the client timeout does not itself
+cancel a runner run; query its status or call the runner's cancel endpoint.
+Trigger the imported flow in the UI or via
 `POST /api/v1/run/{flow_id}` with an `input_value` task. The imported flow ID
 may differ from the export ID. An end-to-end evidence matrix belongs in
 `pilot-evidence.md`; it must distinguish observed events from inferred skill
