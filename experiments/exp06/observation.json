@@ -1,0 +1,69 @@
+{
+  "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "ui": {
+    "run_id": "7ac0381d-033d-4f6a-8b36-51d035abf700",
+    "at_client_close": {
+      "dispatch_attempts": 1,
+      "evidence_complete": 0,
+      "graph_revision": "sha256:4b1cfec6c79a430807fe07bc0d298c1645879d467a4e7161240dcc1aae1c9cb4",
+      "resolved_config_ref": "sha256:61b6ce78191707488a2e57863e171759f03ca863c1c3cd1f2563f90585cfc981",
+      "run_id": "7ac0381d-033d-4f6a-8b36-51d035abf700",
+      "status": "dispatching",
+      "terminal_reason": null,
+      "trace_id": "0b3adbd1-3233-42a1-b6dd-ba551dbe46c1"
+    },
+    "reopened_flow_id": "b15fcc3e-4f0b-4c1c-a1cb-3a1e2be3e12f",
+    "after_release": {
+      "dispatch_attempts": 1,
+      "evidence_complete": 1,
+      "graph_revision": "sha256:4b1cfec6c79a430807fe07bc0d298c1645879d467a4e7161240dcc1aae1c9cb4",
+      "resolved_config_ref": "sha256:61b6ce78191707488a2e57863e171759f03ca863c1c3cd1f2563f90585cfc981",
+      "run_id": "7ac0381d-033d-4f6a-8b36-51d035abf700",
+      "status": "completed",
+      "terminal_reason": null,
+      "trace_id": "0b3adbd1-3233-42a1-b6dd-ba551dbe46c1"
+    },
+    "client": {
+      "disconnect_error": "BrokenPipeError"
+    }
+  },
+  "backend_death": {
+    "run_id": "1b50b4bf-efdb-49a2-8516-7a470b7b81f4",
+    "before_kill": {
+      "dispatch_attempts": 1,
+      "evidence_complete": 0,
+      "graph_revision": "sha256:4b1cfec6c79a430807fe07bc0d298c1645879d467a4e7161240dcc1aae1c9cb4",
+      "resolved_config_ref": "sha256:83e796860a00f64b049cff892208da2fb7c2da7474a04d5d9f1b03cbdd63b12b",
+      "run_id": "1b50b4bf-efdb-49a2-8516-7a470b7b81f4",
+      "status": "dispatching",
+      "terminal_reason": null,
+      "trace_id": "7ad616f7-ad22-4c24-b008-6ee8b87188bf"
+    },
+    "container_before": "running",
+    "container_after": "exited",
+    "after_restart": {
+      "dispatch_attempts": 1,
+      "evidence_complete": 0,
+      "graph_revision": "sha256:4b1cfec6c79a430807fe07bc0d298c1645879d467a4e7161240dcc1aae1c9cb4",
+      "resolved_config_ref": "sha256:83e796860a00f64b049cff892208da2fb7c2da7474a04d5d9f1b03cbdd63b12b",
+      "run_id": "1b50b4bf-efdb-49a2-8516-7a470b7b81f4",
+      "status": "crashed",
+      "terminal_reason": "backend_restart",
+      "trace_id": "7ad616f7-ad22-4c24-b008-6ee8b87188bf"
+    },
+    "ui_run_after_restart": {
+      "dispatch_attempts": 1,
+      "evidence_complete": 1,
+      "graph_revision": "sha256:4b1cfec6c79a430807fe07bc0d298c1645879d467a4e7161240dcc1aae1c9cb4",
+      "resolved_config_ref": "sha256:61b6ce78191707488a2e57863e171759f03ca863c1c3cd1f2563f90585cfc981",
+      "run_id": "7ac0381d-033d-4f6a-8b36-51d035abf700",
+      "status": "completed",
+      "terminal_reason": null,
+      "trace_id": "0b3adbd1-3233-42a1-b6dd-ba551dbe46c1"
+    },
+    "client": {
+      "disconnect_error": "RemoteDisconnected"
+    },
+    "startup_swept_one": true
+  }
+}
