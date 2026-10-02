@@ -1,6 +1,11 @@
 # laomedo
 Design, inspect, and experiment with Codex and Claude Code agent workflows
 
+The [local Langflow skill-agent pilot](examples/skill-agent-pilot/README.md)
+builds a persistent single-user Codex runner on the existing Docker boundary,
+pins a whole-skill revision, and supplies a saved Langflow flow. Its default
+turn cap is zero until a bounded model-backed test is authorized.
+
 The [issue 119 feasibility experiments](experiments/feasibility/119/README.md)
 cover no-model Codex skill discovery, a manifest pilot, and a bounded
 credential-backed skill turn. Discovery and manifest checks use disposable
