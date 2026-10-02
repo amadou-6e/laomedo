@@ -4,12 +4,27 @@ from pathlib import Path
 import json
 import tempfile
 import unittest
+import threading
+from unittest.mock import Mock, patch
 from urllib import error, request
 
 from laomedo.opencode_boundary import CommandBroker, worker_command
 
 
 class BoundaryTests(unittest.TestCase):
+    def test_workers_stop_before_request_handlers_are_joined(self):
+        broker = CommandBroker.__new__(CommandBroker)
+        broker.lock = threading.Lock()
+        broker.active = {'owned-worker'}
+        calls = []
+        broker.server = Mock()
+        broker.server.shutdown.side_effect = lambda: calls.append('shutdown')
+        broker.server.server_close.side_effect = lambda: calls.append('join-handlers')
+        broker.thread = Mock()
+        with patch('laomedo.opencode_boundary.subprocess.run', side_effect=lambda *_a, **_k: calls.append('stop-worker')):
+            broker.close()
+        self.assertEqual(calls, ['shutdown', 'stop-worker', 'join-handlers'])
+
     def test_worker_never_mounts_controller_profile_or_environment(self):
         args = worker_command("owned", Path("workspace"), Path("canonical"), Path("store"), "pwd")
         self.assertNotIn("-e", args)

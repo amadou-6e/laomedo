@@ -194,7 +194,8 @@ class OpenCodeRunner(LocalRunner):
                     (root / "store/sentinel.txt").read_text(encoding="utf-8") != "STORE-ORIGINAL"):
                 raise RunnerError("protected_mount_changed")
         except Exception as exc:
-            record.update(status="failed", error_category=str(exc) if isinstance(exc, RunnerError) else type(exc).__name__)
+            record.update(status="cancelled" if flag.is_set() else "failed",
+                          error_category=str(exc) if isinstance(exc, RunnerError) else type(exc).__name__)
         finally:
             if backend:
                 backend.close()
@@ -210,10 +211,11 @@ class OpenCodeRunner(LocalRunner):
             backend = self.active_backends.get(run_id)
             if backend is None or not record.get("thread_id"):
                 raise RunnerError("opencode_cancel_not_dispatchable")
+            # Mark cancellation before abort unblocks the message request.
+            self.cancel_flags[run_id].set()
             acknowledged = backend.call("POST", "/session/" + record["thread_id"] + "/abort", {})
             if acknowledged is not True:
                 raise RunnerError("opencode_abort_not_acknowledged")
-            self.cancel_flags[run_id].set()
             # An acknowledgement is not proof that a native child command terminated.
             return {**record, "cancel_requested": True, "cancel_acknowledged": True,
                     "termination_verified": False}

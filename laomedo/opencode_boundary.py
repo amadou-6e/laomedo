@@ -112,11 +112,12 @@ class CommandBroker:
 
     def close(self):
         self.server.shutdown()
-        self.server.server_close()
         with self.lock:
             names = list(self.active)
         for name in names:
             subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=15)
+        # Stop owned command workers before joining request-handler threads.
+        self.server.server_close()
         self.thread.join(timeout=5)
 
 

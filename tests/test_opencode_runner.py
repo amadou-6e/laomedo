@@ -1,6 +1,7 @@
 """No credentials or model requests: verify OpenCode protocol and persistence."""
 
 import unittest
+import threading
 
 import test_local_runner as fixtures
 from laomedo.opencode_runner import OpenCodeRunner, RunnerError, normalize_message
@@ -38,6 +39,35 @@ class Backend:
 
 
 class OpenCodeTests(unittest.TestCase):
+    def test_native_abort_unblocking_incomplete_response_preserves_cancelled_status(self):
+        entered, released = threading.Event(), threading.Event()
+        class AbortedBackend(Backend):
+            def call(self, method, path, payload=None):
+                if path.endswith('/abort'):
+                    released.set()
+                    return True
+                if path.endswith('/message') and method == 'POST':
+                    entered.set()
+                    if not released.wait(3):
+                        raise TimeoutError()
+                    return {'info': {}, 'parts': []}
+                return super().call(method, path, payload)
+        self.runner.transport_factory = AbortedBackend
+        result = {}
+        thread = threading.Thread(target=lambda: result.update(self.runner.start(self.payload)))
+        thread.start()
+        try:
+            self.assertTrue(entered.wait(3))
+            run_id = next(iter(self.runner.cancel_flags))
+            ack = self.runner.cancel(run_id)
+            self.assertTrue(ack['cancel_acknowledged'])
+        finally:
+            released.set()
+            thread.join(4)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(result['status'], 'cancelled')
+        self.assertEqual(self.runner.status(result['run_id'])['status'], 'cancelled')
+
     def setUp(self):
         # Reuse only the fixture setup, not the Codex provider test cases.
         fixtures.LocalRunnerTests.setUp(self)

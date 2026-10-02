@@ -47,6 +47,16 @@ legacy catalog overrides. Runtime preflight confirms Luna uses the Console endpo
 and `@ai-sdk/openai`, but inference with that final correction remains untested.
 See `live-evidence.json`. Runner port 8768 avoids the handoff runner on 8767.
 
+Four subsequently authorized turns advanced the ledger to 10/10. Direct terminal
+CLI returned the exact diagnostic marker with tools denied. Real imported Langflow
+fresh/resume completed, loaded both skills natively and preserved the session
+through a runner restart. Host marker readback and worker credential-path denial
+were verified. A separate native abort test observed worker disappearance and no
+delayed write; its live failed-status race was fixed afterward with a deterministic
+regression. See `live-success-evidence.json`. That status correction is not
+live-tested. No model turns remain. Network isolation, exhaustive credential-route
+auditing and hosted/multi-user use remain outside the verified prototype.
+
 Credential-free tests:
 
 ```powershell
