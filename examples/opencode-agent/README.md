@@ -53,9 +53,13 @@ fresh/resume completed, loaded both skills natively and preserved the session
 through a runner restart. Host marker readback and worker credential-path denial
 were verified. A separate native abort test observed worker disappearance and no
 delayed write; its live failed-status race was fixed afterward with a deterministic
-regression. See `live-success-evidence.json`. That status correction is not
-live-tested. No model turns remain. Network isolation, exhaustive credential-route
-auditing and hosted/multi-user use remain outside the verified prototype.
+regression. See `live-success-evidence.json`. A later authorized live retest
+returned `cancelled`, acknowledged native abort, removed the owned worker and
+left no delayed write. See `live-cancellation-retest.json`; the cumulative
+ledger is 11/14, with three turns unused. The saved Langflow flow still points
+to port 8767; successful flow calls used a per-run port 8768 override. Network
+isolation, exhaustive credential-route auditing, fresh UI Stop and hosted or
+multi-user use remain outside the verified prototype.
 
 Credential-free tests:
 
