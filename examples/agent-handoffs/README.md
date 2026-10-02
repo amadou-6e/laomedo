@@ -51,3 +51,11 @@ record for actual submitted turns and results. Shared sequential workspaces rema
 unsupported; the default independent policy is enforced. Fresh
 POST cannot expose remote run ID early, so cancellation/timeout is not proof the
 remote agent stopped (Laomedo #22). Existing permissions and ledgers stay unchanged.
+
+`live_loop.py --approved-two-turns --runner-url <local-runner-url>
+--state-directory <private-directory>` executes the real bounded-controller graph.
+Its first iteration returns instructions for its second, and the second must return
+the exact success marker. It checks two completed runs, distinct native threads and
+the durable success record. It requires a newly authorized runner cap; the previous
+four-turn allowance across #27/#28 has been consumed (two per provider ticket).
+The approval flag is not a substitute for user authorization. No retry is performed.
