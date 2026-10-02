@@ -7,7 +7,7 @@
     "permission_sha256": "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4",
     "model": "gpt-6-luna",
     "effort": "low",
-    "approved_cap": 4
+    "initial_approved_cap": 4
   },
   "ledger": {
     "attempted_turns": 6,
@@ -90,7 +90,8 @@
     "partial_events": 33,
     "cancel_node_http": 200,
     "langflow_interrupted_run_http": 500,
-    "mechanism": "Runner cancellation flag and app-server transport teardown; no native interrupt acknowledgement claimed.",
+    "mechanism": "Historical runner cancellation flag and app-server client teardown; native interrupt and immediate container termination were not verified.",
+    "immediate_container_termination_verified": false,
     "active_codex_containers_after_acceptance": 0
   }
 }

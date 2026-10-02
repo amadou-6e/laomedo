@@ -7,9 +7,11 @@ services:
       - "127.0.0.1:7862:7860"
     environment:
       LANGFLOW_COMPONENTS_PATH: /app/custom_components
-      LANGFLOW_AUTO_LOGIN: "true"
+      LANGFLOW_AUTO_LOGIN: "false"
+      LAOMEDO_RUNNER_TOKEN_FILE: /run/secrets/laomedo-runner-token
     volumes:
       - ../../components:/app/custom_components:ro
+      - ${LAOMEDO_RUNNER_TOKEN_PATH:?Set the private runner api-token path}:/run/secrets/laomedo-runner-token:ro
       - native-langflow-data:/app/langflow
 volumes:
   native-langflow-data:
