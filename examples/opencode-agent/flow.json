@@ -470,7 +470,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"OpenCode ports reuse the Codex client lifecycle; install the whole category.\"\"\"\n\nfrom copy import deepcopy\nimport json\n\nfrom laomedo.codex_agent import LaomedoCodexAgent as Component\nfrom lfx.io import StrInput\n\n\nclass LaomedoOpenCodeAgent(Component):\n    display_name = \"Laomedo OpenCode Agent\"\n    description = \"Experimental private OpenCode adapter; isolated deployment remains required.\"\n    name = \"LaomedoOpenCodeAgent\"\n    inputs = [deepcopy(item) for item in Component.inputs if item.name not in\n              {\"model\", \"effort\", \"runner_url\"}] + [\n        StrInput(name=\"model\", display_name=\"Provider/Model\", required=True),\n        StrInput(name=\"effort\", display_name=\"Variant\", value=\"default\",\n                 info=\"Only default is currently verified; other variants fail explicitly.\"),\n        StrInput(name=\"runner_url\", display_name=\"Runner URL\", advanced=True,\n                 value=\"http://host.docker.internal:8767\"),\n    ]\n\n    def _prepare(self):\n        if self.operation in {\"fresh\", \"resume\"} and str(self.effort) != \"default\":\n            raise ValueError(\"unsupported_opencode_effort\")\n        prior = getattr(self, \"run_reference\", None)\n        prior = getattr(prior, \"data\", prior)\n        if prior is None and getattr(self, \"run_reference_json\", \"\"):\n            prior = json.loads(self.run_reference_json)\n        if self.operation != \"fresh\" and isinstance(prior, dict) and prior.get(\"provider\") != \"opencode\":\n            raise ValueError(\"run_provider_mismatch\")\n        return super()._prepare()\n\n    def _http(self, endpoint, payload, method):\n        value = super()._http(endpoint, payload, method)\n        if value.get(\"provider\") != \"opencode\":\n            raise RuntimeError(\"runner_provider_mismatch\")\n        return value\n",
+                "value": "\"\"\"OpenCode ports reuse the Codex client lifecycle; install the whole category.\"\"\"\n\nfrom copy import deepcopy\nimport json\n\nfrom laomedo.codex_agent import LaomedoCodexAgent as Component\nfrom lfx.io import StrInput\n\n\nclass LaomedoOpenCodeAgent(Component):\n    display_name = \"Laomedo OpenCode Agent\"\n    description = \"Experimental private OpenCode adapter; isolated deployment remains required.\"\n    name = \"LaomedoOpenCodeAgent\"\n    inputs = [deepcopy(item) for item in Component.inputs if item.name not in\n              {\"model\", \"effort\", \"runner_url\"}] + [\n        StrInput(name=\"model\", display_name=\"Provider/Model\", required=True),\n        StrInput(name=\"effort\", display_name=\"Variant\", value=\"default\",\n                 info=\"Only default is currently verified; other variants fail explicitly.\"),\n        StrInput(name=\"runner_url\", display_name=\"Runner URL\", advanced=True,\n                 value=\"http://host.docker.internal:8768\"),\n    ]\n\n    def _prepare(self):\n        if self.operation in {\"fresh\", \"resume\"} and str(self.effort) != \"default\":\n            raise ValueError(\"unsupported_opencode_effort\")\n        prior = getattr(self, \"run_reference\", None)\n        prior = getattr(prior, \"data\", prior)\n        if prior is None and getattr(self, \"run_reference_json\", \"\"):\n            prior = json.loads(self.run_reference_json)\n        if self.operation != \"fresh\" and isinstance(prior, dict) and prior.get(\"provider\") != \"opencode\":\n            raise ValueError(\"run_provider_mismatch\")\n        return super()._prepare()\n\n    def _http(self, endpoint, payload, method):\n        value = super()._http(endpoint, payload, method)\n        if value.get(\"provider\") != \"opencode\":\n            raise RuntimeError(\"runner_provider_mismatch\")\n        return value\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -611,7 +611,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "runner_url",
-                "value": "http://host.docker.internal:8767",
+                "value": "http://host.docker.internal:8768",
                 "display_name": "Runner URL",
                 "advanced": true,
                 "api_editable": false,
@@ -754,7 +754,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_opencode_agent",
-              "code_hash": "fbf03c10daf2",
+              "code_hash": "0c588a585083",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [

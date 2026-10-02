@@ -87,10 +87,11 @@ def auth():
     assert json.loads((STATE / "boundary-evidence.json").read_text())["status"] == "boundary_preflight_passed"
     # Capture resolved config in memory only. Copy exactly one provider key, never
     # the personal config/plugin/skill/session trees or API URLs/settings.
-    selected, organization = console_provider(
-        Path(os.environ["USERPROFILE"]) / ".local/share/opencode/opencode.db")
+    selected, organization, routing = console_provider(
+        Path(os.environ["USERPROFILE"]) / ".local/share/opencode/opencode.db", include_routing=True)
     _json(profile() / "auth.json", {"opencode-go": selected})
     _json(profile() / "provider-options.json", {"provider": {"opencode-go": {
+        **routing,
         "options": {"headers": {"x-opencode-org-id": organization}}}}})
     _json(STATE / "auth-handoff.json", {"provider": "opencode-go", "mode": "api", "copied_provider_count": 1,
                                        "routing_header_names": ["x-opencode-org-id"]})
@@ -101,7 +102,7 @@ def factory(workspace, evidence):
     return IsolatedOpenCode(workspace, evidence, profile=profile(), image=IMAGE, image_id=IMAGE_ID)
 
 
-def runner():
+def runner(max_model_turns=2):
     store = SkillStore(STATE / "skills")
     def pin(name, source):
         try:
@@ -118,7 +119,7 @@ def runner():
     refs = [ref, {key: second[key] for key in ("skill_id", "revision_id", "tree_hash")}]
     _json(STATE / "skill-references.json", {"skills": refs})
     obj = OpenCodeRunner(STATE / "runs-state", store.root, ROOT / "examples/skill-agent-pilot/source",
-                         transport_factory=factory, max_model_turns=2)
+                         transport_factory=factory, max_model_turns=max_model_turns)
     return obj, ref
 
 
@@ -126,6 +127,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("phase", choices=["setup", "auth", "serve", "fresh", "resume"])
     parser.add_argument("--approved-model-turn", action="store_true")
+    parser.add_argument("--max-model-turns", type=int, default=2)
+    parser.add_argument("--port", type=int, default=8768)
     args = parser.parse_args()
     if args.phase == "setup":
         setup()
@@ -133,12 +136,12 @@ def main():
         auth()
     elif args.phase == "serve":
         from laomedo.local_runner import serve
-        obj, _ = runner()
-        serve(obj, port=8767).serve_forever()
+        obj, _ = runner(args.max_model_turns)
+        serve(obj, port=args.port).serve_forever()
     else:
         if not args.approved_model_turn:
             parser.error("explicit approval marker required")
-        obj, ref = runner()
+        obj, ref = runner(args.max_model_turns)
         if args.phase == "fresh":
             value = obj.start({"task": "Load the laomedo-pilot skill using the native skill tool. Then use laomedo_exec to read /draft/fixture.txt and report its color and count. Use only the available tools.",
                                "model": "opencode-go/gpt-6-luna", "effort": "default", "skill_ref": ref})

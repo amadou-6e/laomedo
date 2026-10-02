@@ -17,7 +17,7 @@ class LaomedoOpenCodeAgent(Component):
         StrInput(name="effort", display_name="Variant", value="default",
                  info="Only default is currently verified; other variants fail explicitly."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
-                 value="http://host.docker.internal:8767"),
+                 value="http://host.docker.internal:8768"),
     ]
 
     def _prepare(self):

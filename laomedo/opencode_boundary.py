@@ -162,7 +162,13 @@ class IsolatedOpenCode:
             organization = supplied.get("provider", {}).get("opencode-go", {}).get("options", {}).get("headers", {}).get("x-opencode-org-id")
             if not isinstance(organization, str) or not organization:
                 raise RunnerError("opencode_organization_context_invalid")
-            config["provider"] = {"opencode-go": {"options": {"headers": {"x-opencode-org-id": organization}}}}
+            routing = supplied["provider"]["opencode-go"]
+            if (routing.get("api") != "https://opencode.ai/inference/go/openai/v1" or
+                    routing.get("npm") != "@ai-sdk/openai-compatible"):
+                raise RunnerError("opencode_console_provider_routing_not_allowed")
+            config["provider"] = {"opencode-go": {"api": routing["api"], "npm": routing["npm"],
+                "models": routing.get("models", {}),
+                "options": {"headers": {"x-opencode-org-id": organization}}}}
         _json(root / "config.json", config)
         self.profile.joinpath("sessions").mkdir(exist_ok=True)
         cmd = ["docker", "run", "-d", "--name", self.name, "--pull=never", "--network", "bridge",

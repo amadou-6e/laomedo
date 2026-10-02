@@ -39,6 +39,14 @@ The boundary's direct command probes passed; agent-originated credential denial,
 native skill use, native cancellation and authenticated model completion remain
 unverified. This slice does not yet fulfill #27.
 
+Four further turns on 2026-10-02 advanced the ledger to 6/6. Three returned HTTP
+401; the final request reached HTTP 400 with an unsupported-protocol error. No tool
+result or completed snapshot was observed. The corrected provider configuration
+now preserves official Console inference routes and model-specific SDKs instead of
+legacy catalog overrides. Runtime preflight confirms Luna uses the Console endpoint
+and `@ai-sdk/openai`, but inference with that final correction remains untested.
+See `live-evidence.json`. Runner port 8768 avoids the handoff runner on 8767.
+
 Credential-free tests:
 
 ```powershell

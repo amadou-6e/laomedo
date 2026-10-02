@@ -29,13 +29,17 @@ class ConsoleAuthTests(unittest.TestCase):
             def fetch(url, headers):
                 self.assertEqual(url, "https://opencode.ai/console/api/config")
                 self.assertEqual(headers["Authorization"], "Bearer synthetic-access")
-                return {"config": {"provider": {"opencode-go": {"options": {
+                return {"config": {"provider": {"opencode-go": {
+                    "api": "https://opencode.ai/inference/go/openai/v1", "npm": "@ai-sdk/openai-compatible",
+                    "models": {"gpt-6-luna": {"provider": {"npm": "@ai-sdk/openai"}}}, "options": {
                     "apiKey": "{env:OPENCODE_CONSOLE_TOKEN}",
                     "headers": {"x-opencode-org-id": "synthetic-org"}}}}}}
             selected, org = console_provider(path, fetch=fetch)
             self.assertEqual(selected, {"type": "api", "key": "synthetic-access"})
             self.assertEqual(org, "synthetic-org")
             self.assertEqual(path.read_bytes(), before)
+            _, _, routing = console_provider(path, fetch=fetch, include_routing=True)
+            self.assertEqual(routing["models"]["gpt-6-luna"]["provider"]["npm"], "@ai-sdk/openai")
             with closing(sqlite3.connect(path)) as db:
                 db.execute("update account set url='https://untrusted.invalid'")
                 db.commit()

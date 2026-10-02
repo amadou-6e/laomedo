@@ -25,7 +25,7 @@ def main():
                 name not in {"code", "model", "effort", "runner_url"}):
             field["value"] = deepcopy(old_fields[name].get("value", ""))
     for name, value in {"model": "opencode-go/gpt-6-luna", "effort": "default",
-                        "runner_url": "http://host.docker.internal:8767"}.items():
+                        "runner_url": "http://host.docker.internal:8768"}.items():
         template["template"][name]["value"] = value
     node["data"]["node"] = template
     node["data"]["type"] = "LaomedoOpenCodeAgent"

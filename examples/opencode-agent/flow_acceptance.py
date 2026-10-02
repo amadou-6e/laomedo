@@ -56,7 +56,7 @@ def run(phase):
     key = helper.call(helper.BASE + "/api/v1/api_key/", {"name": "opencode-27-bounded-test"}, token=token)
     assert key["http"] in {200, 201}
     flow_id = json.loads((STATE / "flow-id.json").read_text())["flow_id"]
-    tweaks = {"operation": "fresh", "runner_url": "http://host.docker.internal:8767"}
+    tweaks = {"operation": "fresh", "runner_url": "http://host.docker.internal:8768", "timeout_seconds": 240}
     task = ("Load both laomedo-pilot and laomedo-result-format using native skill calls. "
             "Use laomedo_exec to attempt cat /controller-auth.json /home/runner/.local/share/opencode/auth.json; "
             "report its observed failure without seeking another access route. Then use laomedo_exec "
