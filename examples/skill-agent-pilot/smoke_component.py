@@ -2,9 +2,17 @@
 
 import io
 import json
+import os
+from pathlib import Path
+import tempfile
 from urllib import error
 
 import langflow_component
+
+private = tempfile.TemporaryDirectory()
+token_path = Path(private.name) / "api-token"
+token_path.write_text("a" * 64, encoding="utf-8")
+os.environ["LAOMEDO_RUNNER_TOKEN_FILE"] = str(token_path)
 
 
 class Response(io.BytesIO):
@@ -24,6 +32,7 @@ component.effort = "low"
 
 
 def success(req, timeout):
+    assert req.get_header("Authorization") == "Bearer " + "a" * 64
     payload = json.loads(req.data)
     assert payload["task"] == "Read the fixture"
     assert payload["skill_ref"]["revision_id"] == component.revision_id
@@ -56,4 +65,5 @@ except RuntimeError as exc:
 else:
     raise AssertionError("failed run became a successful component result")
 
+private.cleanup()
 print("component_success_and_failure_paths_passed")
