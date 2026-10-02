@@ -13,6 +13,9 @@ does not prove new wiring. `verify_skill_node.py --approved-model-turn` reproduc
 the installed-flow test using one separately authorized turn; it refuses dispatch
 without the flag. Private responses stay outside Git. The installed example uses
 runner port 8766; the exported runner URL is configurable.
+The seventh-turn evidence shows that the wired reference reached the runner and
+the run completed with one native command result. It does not show a read of the
+skill body or compliance with its instructions; skill use remains `offered`.
 
 Install the component using [the component guide](../../components/README.md).
 `compose.yaml` is the reviewable acceptance-server draft: localhost:7862,

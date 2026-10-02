@@ -416,6 +416,17 @@ class LocalRunner:
             destination.write_bytes(item["content"])
         if tree_hash(inventory(target)) != ref["tree_hash"]:
             raise RunnerError("materialized_skill_mismatch")
+        try:
+            skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            raise RunnerError("skill_frontmatter_name_required") from None
+        if not skill_text.startswith("---\n") or "\n---\n" not in skill_text[4:]:
+            raise RunnerError("skill_frontmatter_name_required")
+        frontmatter = skill_text[4:].split("\n---\n", 1)[0]
+        names = [line.split(":", 1)[1].strip().strip("\"'")
+                 for line in frontmatter.splitlines() if line.startswith("name:")]
+        if names != [ref["skill_id"]]:
+            raise RunnerError("skill_frontmatter_name_mismatch")
         return {"skill_id": ref["skill_id"], "revision_id": ref["revision_id"],
                 "tree_hash": ref["tree_hash"], "file_hashes": record["file_hashes"],
                 "delivery_mode": "project_discovery", "use_evidence": "offered"}

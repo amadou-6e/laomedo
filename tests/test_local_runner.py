@@ -128,7 +128,10 @@ class LocalRunnerTests(unittest.TestCase):
                          ["attempted_turns"], 3)
 
     def test_multiple_skills_materialize_and_resume_as_one_bound_snapshot(self):
-        second = self.runner.store.import_skill("second", self.skill_source)
+        second_source = self.root / "second-skill-source"
+        second_source.mkdir()
+        (second_source / "SKILL.md").write_text("---\nname: second\n---\nUse amber.\n")
+        second = self.runner.store.import_skill("second", second_source)
         request = self.request()
         first_ref = request.pop("skill_ref")
         request["skill_refs"] = [first_ref, {"skill_id": "second",
@@ -143,6 +146,16 @@ class LocalRunnerTests(unittest.TestCase):
             expected_post_run_hash=result["post_run_hash"],
             expected_thread_id=result["thread_id"], model="test-model", effort="low")
         self.assertEqual(resumed["skills"], result["skills"])
+
+    def test_frontmatter_name_collision_fails_before_dispatch(self):
+        duplicate = self.runner.store.import_skill("other-id", self.skill_source)
+        request = self.request()
+        request["skill_ref"] = {"skill_id": "other-id",
+            "revision_id": duplicate["revision_id"], "tree_hash": duplicate["tree_hash"]}
+        before = len(FakeServer.calls)
+        with self.assertRaisesRegex(RunnerError, "skill_frontmatter_name_mismatch"):
+            self.runner.start(request)
+        self.assertEqual(len(FakeServer.calls), before)
 
     def test_multiple_skill_failure_cleans_partial_materialization_without_dispatch(self):
         request = self.request()
