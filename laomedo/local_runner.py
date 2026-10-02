@@ -27,6 +27,7 @@ CLI_VERSION = "codex-cli 0.159.2"
 VOLUME = "laomedo-122-docker-auth"
 CONFIG = Path(__file__).resolve().parents[1] / "experiments/feasibility/122/container/runner-config.toml"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
+CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 MAX_BODY = 64 * 1024
 
 
@@ -294,7 +295,9 @@ class LocalRunner:
         self.max_model_turns = max_model_turns
         self.lock = threading.Lock()
         self.cancel_flags = {}
-        if hashlib.sha256(CONFIG.read_bytes()).hexdigest() != CONFIG_SHA256:
+        # The checked-in policy is LF on Linux and CRLF in Windows worktrees.
+        # Accept only these two reviewed byte representations of the same policy.
+        if hashlib.sha256(CONFIG.read_bytes()).hexdigest() not in {CONFIG_SHA256, CONFIG_LF_SHA256}:
             raise RunnerError("permission_config_changed")
         if check_docker:
             found = subprocess.run(["docker", "image", "inspect", IMAGE,
