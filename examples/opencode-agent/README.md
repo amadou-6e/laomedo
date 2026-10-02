@@ -56,8 +56,10 @@ delayed write; its live failed-status race was fixed afterward with a determinis
 regression. See `live-success-evidence.json`. A later authorized live retest
 returned `cancelled`, acknowledged native abort, removed the owned worker and
 left no delayed write. See `live-cancellation-retest.json`; the cumulative
-ledger is 11/14, with three turns unused. The saved Langflow flow still points
-to port 8767; successful flow calls used a per-run port 8768 override. Network
+ledger is 11/14, with three turns unused. The saved Langflow flow's Runner URL
+was then updated to `http://host.docker.internal:8768` and read back with its
+six nodes and five edges intact. Successful model-backed flow calls before that
+update used a per-run port 8768 override. Network
 isolation, exhaustive credential-route auditing, fresh UI Stop and hosted or
 multi-user use remain outside the verified prototype.
 
