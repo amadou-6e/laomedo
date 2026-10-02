@@ -1,0 +1,137 @@
+{
+  "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "selected_policy": "independent_supervisor_plus_startup_sweep",
+  "max_exposure_seconds": 60,
+  "run_id": "7bee948f-df1a-4e17-aec2-f38e74707710",
+  "kill_requested_ns": 1790973488246122200,
+  "supervisor": {
+    "detected_ns": 1790973488845076100,
+    "revoked": true,
+    "kill_returncode": 0,
+    "worker_state": "exited"
+  },
+  "worker_state": "exited",
+  "worker_stop_observed_ns": 1790973489453599900,
+  "grant_expiry_ns": 1790973548299573377,
+  "grant_end_ns": 1790973488845792622,
+  "grant_exposure_ms_upper": 599.670422,
+  "orphan_lifetime_ms_upper": 1207.4777,
+  "accepted_writes_after_kill": [
+    {
+      "at_ns": 1790973488309927866,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488513529527,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488717525699,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    }
+  ],
+  "post_death_grant_status": 403,
+  "canary_events": [
+    {
+      "at_ns": 1790973487089916202,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973487293514306,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973487496574096,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973487700268537,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973487798030925,
+      "action": "renew",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973487903886058,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488053346330,
+      "action": "renew",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488107744144,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488299573377,
+      "action": "renew",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488309927866,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488513529527,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488717525699,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973488845792622,
+      "action": "revoke",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1790973489454620141,
+      "action": "write",
+      "accepted": false,
+      "reason": "revoked"
+    }
+  ],
+  "startup_swept_one": true,
+  "run_after_restart": {
+    "dispatch_attempts": 1,
+    "evidence_complete": 0,
+    "graph_revision": "sha256:27fbb7ad3cd6c704fd6ee84b3e82ba90e5ea890be2d54fe2af22531a4385fa61",
+    "resolved_config_ref": "sha256:69641d1ff512cc205b5ec38258155ba7d1cef7e802e9b8a4737acd8752cac435",
+    "run_id": "7bee948f-df1a-4e17-aec2-f38e74707710",
+    "status": "crashed",
+    "terminal_reason": "backend_restart",
+    "trace_id": "bc52eb92-ef49-4b8f-b332-8e859b9e2986"
+  }
+}
