@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-02",
+  "purpose": "Live retest of cancellation status after the abort race fix",
+  "runner_port": 8768,
+  "runner_max_model_turns": 14,
+  "attempt_number": 11,
+  "run_id": "7f3d445d-e154-4e1f-8505-d57bd7cecab8",
+  "cancel_acknowledged": true,
+  "status": "cancelled",
+  "request_finished": true,
+  "owned_workers_absent": true,
+  "late_file_absent": true,
+  "fresh_marker_absent": true,
+  "ledger_after": {
+    "attempted_turns": 11,
+    "max_authorized_turns": 14
+  },
+  "limit": "Cancellation was called through the runner API. Fresh Langflow UI Stop and exhaustive worker/network isolation remain untested."
+}

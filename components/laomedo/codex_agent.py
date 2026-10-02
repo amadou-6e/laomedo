@@ -141,9 +141,12 @@ class LaomedoCodexAgent(Component):
         return endpoint + "/resume", {"task": task, "model": model, "effort": effort,
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
+    def _token_file_path(self):
+        return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                              "/run/secrets/laomedo-runner-token")
+
     def _http(self, endpoint, payload, method):
-        token_file = os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
-                                    "/run/secrets/laomedo-runner-token")
+        token_file = self._token_file_path()
         try:
             token = Path(token_file).read_text(encoding="utf-8").strip()
         except OSError:
@@ -180,6 +183,7 @@ class LaomedoCodexAgent(Component):
         skill = result.get("skill") or {}
         skills = result.get("skills") or ([skill] if skill else [])
         return {"answer": result.get("answer"), "run_id": result["run_id"],
+            "provider": result.get("provider", "codex"),
             "thread_id": result.get("thread_id"), "status": result.get("status"),
             "post_run_hash": result.get("post_run_hash"),
             "model": result.get("requested_model"), "effort": result.get("requested_effort"),
@@ -188,7 +192,8 @@ class LaomedoCodexAgent(Component):
             "skills": skills,
             "artifact_ref": result.get("output_ref"), "trace_ref": result.get("raw_event_ref"),
             "error_category": result.get("error_category"),
-            "cancel_requested": result.get("cancel_requested", False), "usage": "unknown"}
+            "cancel_requested": result.get("cancel_requested", False),
+            "usage": result.get("usage") if isinstance(result.get("usage"), dict) else "unknown"}
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
