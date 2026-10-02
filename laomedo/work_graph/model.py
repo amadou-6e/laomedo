@@ -4,7 +4,9 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
+import tempfile
 
 
 def _canonical(value: object) -> str:
@@ -96,12 +98,20 @@ class GraphSnapshot:
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / (self.snapshot_id.removeprefix("sha256:") + ".json")
         content = json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n"
+        fd, pending_name = tempfile.mkstemp(prefix=".snapshot-", suffix=".tmp", dir=directory)
+        pending = Path(pending_name)
         try:
-            with path.open("x", encoding="utf-8") as stream:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
                 stream.write(content)
-        except FileExistsError:
-            if path.read_text(encoding="utf-8") != content:
-                raise ValueError("Existing snapshot artifact differs")
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                os.link(pending, path)
+            except FileExistsError:
+                if path.read_text(encoding="utf-8") != content:
+                    raise ValueError("Existing snapshot artifact differs")
+        finally:
+            pending.unlink(missing_ok=True)
         return path
 
     def cycle_keys(self) -> frozenset[str]:

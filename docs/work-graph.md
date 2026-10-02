@@ -21,6 +21,9 @@ The command returns a JSON summary with `snapshot_id`, artifact path,
 prerequisite, its open dependent, and an isolated open item. Use the returned
 path to inspect the snapshot:
 
+The snapshot ID identifies one capture. Its digest includes `fetched_at`, so
+two fetches of unchanged repository content can still have different IDs.
+
 ```sh
 laomedo-work-graph inspect /path/to/private/snapshots/HASH.json --state open --label notes
 ```
