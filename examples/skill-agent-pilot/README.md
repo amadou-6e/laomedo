@@ -11,7 +11,10 @@ The Docker grant and mounts have not changed. No credential is in this example.
 
 The [2026-10-01 evidence](pilot-evidence.md) records a successful real run
 through the imported Langflow flow, native thread resume after runner restart,
-fresh-run independence, missing-snapshot rejection, and cancellation. The
+fresh-run independence, missing-snapshot rejection, and cancellation status.
+The historical cancelled turn did not verify that its container stopped. The
+current runner performs named-container cleanup; a no-model Docker probe
+verified teardown, but that historical model turn was not repeated. The
 authorized ledger reached 4/4. AGENTVIZ inspection is deferred. Resume was
 tested through the runner API; this saved Langflow component starts fresh runs.
 
