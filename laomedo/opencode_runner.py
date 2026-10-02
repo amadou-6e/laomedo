@@ -140,6 +140,10 @@ class OpenCodeRunner(LocalRunner):
         try:
             backend = self.transport_factory(root / "workspace", root)
             self.active_backends[run_id] = backend
+            identity = getattr(backend, "runtime_identity", {"provider": "opencode", "runtime_version": CLI_VERSION})
+            if resume and record.get("provider_runtime") != identity:
+                raise RunnerError("resume_provider_binding_mismatch")
+            record["provider_runtime"] = identity
             health = backend.call("GET", "/global/health")
             if health.get("version") != CLI_VERSION or not health.get("healthy"):
                 raise RunnerError("opencode_runtime_pin_mismatch")
@@ -163,7 +167,15 @@ class OpenCodeRunner(LocalRunner):
             if (info.get("sessionID") != record["thread_id"] or
                     info.get("providerID") != provider or info.get("modelID") != model):
                 raise RunnerError("opencode_response_identity_mismatch")
-            normalized = normalize_message(message, record["skills"])
+            steps = backend.call("GET", "/session/" + record["thread_id"] + "/message")
+            observed = dict(message)
+            if isinstance(steps, list) and info.get("parentID"):
+                observed["parts"] = [part for step in steps
+                    if step.get("info", {}).get("role") == "assistant" and
+                    step.get("info", {}).get("parentID") == info["parentID"]
+                    for part in step.get("parts", []) if part.get("type") == "tool"] + message.get("parts", [])
+            normalized = normalize_message(observed, record["skills"])
+            record["skill"] = record["skills"][0] if len(record["skills"]) == 1 else None
             if flag.is_set():
                 record["status"] = "cancelled"
             else:

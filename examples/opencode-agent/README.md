@@ -12,17 +12,32 @@ Runtime check: OpenCode 1.18.33, Langflow 1.12.3. Unsupported variants fail, rat
 than silently becoming the default. Provider/model is required explicitly. Skills
 have OpenCode's kebab-case names; shared registry names with underscores are rejected.
 
-Production transport is intentionally disabled. The existing Codex Docker profile
-must not be assumed to protect OpenCode credentials from its native shell tools.
-Do not mount the personal authentication file into a same-UID tools container.
-The HTTP transport is a protocol adapter for an independently provisioned private
-server, not an isolation implementation or an automatic authentication handoff.
+The default runner still requires explicit isolated transport configuration.
+`opencode_boundary.IsolatedOpenCode` separates a credential-bearing controller
+from disposable command workers. Only native skill loading and the authenticated
+MCP command broker are enabled. Workers mount the task workspace and read-only
+canonical/store paths; no controller profile, credentials, environment or Docker
+socket is mounted. Controller runtime and worker image identities are checked.
+The broker is host-accessible with a random per-run bearer capability. Network
+isolation and complete native cancellation remain unverified.
 
-No authenticated model call was made. The installed default auth store reports no
-credentials; the user's authenticated Go instance remains to be located. Image pin,
-actual skill discovery, native cancellation termination and live import/run acceptance
-remain incomplete. No new turn cap exists for this ticket; the old Codex ledger is
-unchanged. This slice is not merge-ready as fulfillment of #27.
+The terminal login was located in the active Console account in `opencode.db`.
+`auth list` reports legacy provider credentials and did not describe that login.
+`debug config` redacts credentials and must never be used as credential input.
+`opencode_auth.console_provider` reads only the active account/access-token and
+organization metadata through a read-only connection, requests official account
+configuration with JSON headers, rejects redirects/untrusted origins/redactions,
+and copies only the selected Go credential and routing context to private state.
+No refresh token or personal profile is copied; expired tokens require the
+official client to refresh. The read-only database connection closes explicitly.
+
+Two earlier submitted turns failed with provider HTTP 401 because the previous
+handoff copied a redacted value. No native tool results were produced. Their
+ledger remains 2/2 and is not reset. Corrected credential resolution succeeded
+without a new model call, but fresh/resume live acceptance awaits further approval.
+The boundary's direct command probes passed; agent-originated credential denial,
+native skill use, native cancellation and authenticated model completion remain
+unverified. This slice does not yet fulfill #27.
 
 Credential-free tests:
 
