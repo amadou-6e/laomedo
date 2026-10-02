@@ -3,6 +3,32 @@
 from pathlib import Path
 
 
+def validate_host_roots(roots):
+    """Refuse aliased, missing or overlapping fixture roots before create."""
+    required = {"checkout", "effective_skill", "canonical_skill", "host",
+                "runner_store", "credential_standin"}
+    errors = []
+    if set(roots) != required:
+        errors.append("root_set_mismatch")
+    resolved = {}
+    for role, value in roots.items():
+        path = Path(value)
+        if not path.is_dir():
+            errors.append("missing_root:" + role)
+            continue
+        canonical = path.resolve(strict=True)
+        if str(path.absolute()).casefold() != str(canonical).casefold():
+            errors.append("aliased_root:" + role)
+        resolved[role] = canonical
+    for left, first in resolved.items():
+        for right, second in resolved.items():
+            if left >= right:
+                continue
+            if first == second or first.is_relative_to(second) or second.is_relative_to(first):
+                errors.append("overlapping_roots:" + left + ":" + right)
+    return errors
+
+
 def _source(mount):
     if mount.get("Type") == "bind":
         return str(Path(mount.get("Source", "")).resolve()).casefold()

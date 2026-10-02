@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import tempfile
 import unittest
 
 
@@ -46,6 +47,18 @@ class PreflightTests(unittest.TestCase):
         self.assertIn("root_not_read_only", errors)
         self.assertIn("new_privileges_allowed", errors)
         self.assertIn("privileged_or_unknown", errors)
+
+    def test_fixture_roots_must_be_distinct(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            roots = {name: base / name for name in ("checkout", "effective_skill",
+                     "canonical_skill", "host", "runner_store", "credential_standin")}
+            for path in roots.values():
+                path.mkdir()
+            self.assertEqual(module.validate_host_roots(roots), [])
+            roots["canonical_skill"] = roots["checkout"]
+            self.assertTrue(any(error.startswith("overlapping_roots:") for error
+                                in module.validate_host_roots(roots)))
 
 
 if __name__ == "__main__":
