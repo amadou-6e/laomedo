@@ -14,3 +14,6 @@ laomedo-work-graph = "laomedo.work_graph.__main__:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["laomedo*"]
+
+[tool.setuptools.package-data]
+laomedo = ["runner-config.toml"]
