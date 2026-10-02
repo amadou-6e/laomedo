@@ -13,10 +13,21 @@ does not prove new wiring. `verify_skill_node.py --approved-model-turn` reproduc
 the installed-flow test using one separately authorized turn; it refuses dispatch
 without the flag. Private responses stay outside Git. The installed example uses
 runner port 8766; the exported runner URL is configurable.
+The seventh-turn evidence shows that the wired reference reached the runner and
+the run completed with one native command result. It does not show a read of the
+skill body or compliance with its instructions; skill use remains `offered`.
 
 Install the component using [the component guide](../../components/README.md).
 `compose.yaml` is the reviewable acceptance-server draft: localhost:7862,
-read-only component mount, a separate data volume, and local auto-login enabled.
+read-only component mount, a separate data volume, auto-login disabled, and a
+read-only mount of the runner's private `api-token` file. Set
+`LAOMEDO_RUNNER_TOKEN_PATH` to that file outside Git before starting Compose.
+The token is never stored in the flow or mounted into agent command workers.
+With auto-login disabled, provide a private `LANGFLOW_ACCESS_TOKEN` to the
+acceptance harness and optionally `LANGFLOW_API_KEY`; the harness keeps these
+in memory and outside Git. The earlier acceptance run used auto-login before
+this draft was tightened, so its historical evidence is not a test of the new
+login setting.
 It leaves the existing localhost:7861 deployment alone. Start it only after
 operator approval of that configuration.
 Run `build_flow.py` inside the pinned Langflow 1.12.3 image with this repo available;
@@ -38,7 +49,10 @@ not silently create a new run. Status and cancel use only the prior run ID.
 
 Six authorized model turns have now been submitted through the installed server.
 See [sanitized evidence](evidence.json): catalog/round trip, fresh execution,
-restart/resume, independent fresh tool/host checks and explicit cancellation passed.
+restart/resume, independent fresh tool/host checks and explicit cancellation
+status. The historical evidence did not verify container termination at the
+moment of cancellation. The revised runner now forces named-container removal;
+a separate no-model Docker probe verified this cleanup path.
 The failed third task and inconclusive fourth cancellation attempt remain recorded.
 The user extended the cap from four to six without resetting the ledger. It is now
 6/6; another model turn requires new authorization, not an implicit retry.
@@ -70,12 +84,16 @@ servers or resets ledgers. Raw responses stay in the private native-node-21 stat
 outside Git; only sanitized summaries are suitable for publication. The cancel
 phase invokes the node's explicit cancel operation after an observed sleep command,
 using a known run ID from private runner records; it does not claim UI Stop support.
-The corrected command-start trigger passed in turn five. Explicit cancellation
-uses the runner's flag and app-server transport teardown; no native interrupt
-acknowledgement or tool completion is inferred. Thirty-three partial events remain,
-the interrupted Langflow run returns HTTP 500, and no Codex containers remained
-after the acceptance sequence. UI Stop propagation is still separate follow-up.
+The corrected command-start trigger passed in turn five. The historical explicit
+cancellation used the runner's flag and app-server client teardown; native
+interrupt and immediate container termination were not verified. Thirty-three
+partial events remain, the interrupted Langflow run returned HTTP 500, and no
+Codex containers remained at the end of the acceptance sequence. The current
+runner sends `turn/interrupt` and checks named-container removal, but that model
+turn was not repeated. UI Stop propagation is still separate follow-up.
 Windows trace reading requires UTF-8. Resume validates the input snapshot; its
-output hash may legitimately change, as it did when an empty .aws directory appeared.
+output hash may legitimately change, as it did when an empty `.aws` directory
+appeared. The private trace's recorded command executions did not mention `.aws`;
+the exact creator is unknown, so this is not treated as an agent-requested edit.
 Track outstanding command semantics in
 [issue #24](https://github.com/amadou-6e/laomedo/issues/24).

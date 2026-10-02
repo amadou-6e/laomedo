@@ -27,7 +27,7 @@ def export_rollout(state: Path, run_id: str, *, docker_run=subprocess.run) -> Pa
     prefix = ["docker", "run", "--rm", "--pull=never", "--user", "10001:10001",
               "--mount", f"type=volume,source={VOLUME},target=/home/runner/.codex,readonly",
               IMAGE]
-    listing = docker_run([*prefix, "find", str(SESSIONS), "-type", "f",
+    listing = docker_run([*prefix, "find", str(SESSIONS), "-type", "f", "-links", "1",
                           "-name", f"*{thread_id}*.jsonl"], capture_output=True,
                          check=True, timeout=30)
     paths = listing.stdout.decode("utf-8").splitlines()
@@ -36,12 +36,25 @@ def export_rollout(state: Path, run_id: str, *, docker_run=subprocess.run) -> Pa
     path = PurePosixPath(paths[0])
     if not path.is_relative_to(SESSIONS) or ".." in path.parts:
         raise RunnerError("native_rollout_path_invalid")
+    size_raw = docker_run([*prefix, "stat", "-c", "%s", str(path)],
+                          capture_output=True, check=True, timeout=30).stdout
+    try:
+        size = int(size_raw.strip())
+    except ValueError:
+        raise RunnerError("native_rollout_size_invalid") from None
+    if not 0 < size <= 64 * 1024 * 1024:
+        raise RunnerError("native_rollout_size_invalid")
     content = docker_run([*prefix, "cat", str(path)], capture_output=True,
                          check=True, timeout=30).stdout
-    if len(content) > 64 * 1024 * 1024 or not content:
+    if len(content) != size:
         raise RunnerError("native_rollout_size_invalid")
-    for line in content.splitlines():
+    lines = content.splitlines()
+    for line in lines:
         json.loads(line)
+    first = json.loads(lines[0])
+    if (first.get("type") != "session_meta" or
+            (first.get("payload") or {}).get("id") != thread_id):
+        raise RunnerError("native_rollout_identity_mismatch")
     output = run_dir / "native-rollout.jsonl"
     pending = run_dir / ("native-rollout.pending-" + uuid4().hex)
     pending.write_bytes(content)

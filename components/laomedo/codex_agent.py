@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import os
+from pathlib import Path
 import re
 from urllib import error, request
 from urllib.parse import urlsplit
@@ -156,9 +158,18 @@ class LaomedoCodexAgent(Component):
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
     def _http(self, endpoint, payload, method):
+        token_file = os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                                    "/run/secrets/laomedo-runner-token")
+        try:
+            token = Path(token_file).read_text(encoding="utf-8").strip()
+        except OSError:
+            raise RuntimeError("runner_api_token_file_unavailable") from None
+        if not token:
+            raise RuntimeError("runner_api_token_file_empty")
         req = request.Request(endpoint,
             data=None if payload is None else json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"}, method=method)
+            headers={"Content-Type": "application/json",
+                     "Authorization": "Bearer " + token}, method=method)
         try:
             with request.urlopen(req, timeout=int(self.timeout_seconds)) as response:
                 result = json.load(response)
@@ -169,8 +180,10 @@ class LaomedoCodexAgent(Component):
                 raise RuntimeError("runner_invalid_error_response") from None
             if not isinstance(result, dict):
                 raise RuntimeError("runner_invalid_error_response")
-            raise RuntimeError("Laomedo run " + str(result.get("run_id") or "unknown") +
-                " failed: " + str(result.get("error_category") or result.get("status") or "unknown")) from None
+            if not (self.operation == "cancel" and result.get("run_id") and
+                    result.get("status") in {"completed", "cancelled", "failed", "timeout"}):
+                raise RuntimeError("Laomedo run " + str(result.get("run_id") or "unknown") +
+                    " failed: " + str(result.get("error_category") or result.get("status") or "unknown")) from None
         except (error.URLError, TimeoutError, OSError):
             raise RuntimeError("runner_transport_failed; remote execution may still be active") from None
         except (ValueError, TypeError):

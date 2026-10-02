@@ -94,7 +94,21 @@ python -m laomedo.local_runner --state (Join-Path $private 'pilot-runner') --ski
 ```
 
 The HTTP runner binds only to `127.0.0.1:8765` and defaults to zero model
-turns. An explicitly authorized `--max-model-turns` cap is stored in a private
+turns. It also requires `Authorization: Bearer <token>` for every status and
+mutation request. The runner creates a random token once in its private state
+directory at `api-token`; clients read that file through an operator-controlled
+private mount or local environment. Do not put the token in a flow, URL, Git,
+agent workspace or command-worker container. Loopback binding alone does not
+block Docker Desktop containers from reaching `host.docker.internal`.
+
+Each Codex app-server container has a unique name. On cancellation or timeout,
+the runner sends `turn/interrupt`, forces removal of the owned container and
+checks that Docker can no longer inspect it. If teardown cannot be verified,
+the record fails with `container_termination_unverified` rather than claiming
+that remote work stopped. The no-model Docker teardown probe is
+`examples/skill-agent-pilot/probe_container_teardown.py`.
+
+An explicitly authorized `--max-model-turns` cap is stored in a private
 ledger before `turn/start`, counting failed and timed-out submissions. Start,
 status, cancel, and resume endpoints use `/v1/runs`. Resume needs the native
 thread ID and exact last post-run hash; a missing or altered snapshot fails

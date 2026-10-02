@@ -1,10 +1,13 @@
 """Credential-free runner and pinned-skill contract tests."""
 
 from pathlib import Path
+import io
 import json
+import queue
 import tempfile
 import threading
 import unittest
+from unittest.mock import Mock, patch
 from urllib import request as http_request, error as http_error
 
 from laomedo.local_runner import AppServer, LocalRunner, RunnerError, _hash_tree, serve
@@ -91,6 +94,10 @@ class LocalRunnerTests(unittest.TestCase):
                               "revision_id": self.revision["revision_id"],
                               "tree_hash": self.revision["tree_hash"]}}
 
+    def auth_headers(self, *, content_type="application/json"):
+        return {"Authorization": "Bearer " + self.runner.api_token,
+                "Content-Type": content_type}
+
     def test_start_resume_and_fresh_workspace(self):
         first = self.runner.start(self.request())
         self.assertEqual(first["status"], "completed")
@@ -121,7 +128,10 @@ class LocalRunnerTests(unittest.TestCase):
                          ["attempted_turns"], 3)
 
     def test_multiple_skills_materialize_and_resume_as_one_bound_snapshot(self):
-        second = self.runner.store.import_skill("second", self.skill_source)
+        second_source = self.root / "second-skill-source"
+        second_source.mkdir()
+        (second_source / "SKILL.md").write_text("---\nname: second\n---\nUse amber.\n")
+        second = self.runner.store.import_skill("second", second_source)
         request = self.request()
         first_ref = request.pop("skill_ref")
         request["skill_refs"] = [first_ref, {"skill_id": "second",
@@ -136,6 +146,16 @@ class LocalRunnerTests(unittest.TestCase):
             expected_post_run_hash=result["post_run_hash"],
             expected_thread_id=result["thread_id"], model="test-model", effort="low")
         self.assertEqual(resumed["skills"], result["skills"])
+
+    def test_frontmatter_name_collision_fails_before_dispatch(self):
+        duplicate = self.runner.store.import_skill("other-id", self.skill_source)
+        request = self.request()
+        request["skill_ref"] = {"skill_id": "other-id",
+            "revision_id": duplicate["revision_id"], "tree_hash": duplicate["tree_hash"]}
+        before = len(FakeServer.calls)
+        with self.assertRaisesRegex(RunnerError, "skill_frontmatter_name_mismatch"):
+            self.runner.start(request)
+        self.assertEqual(len(FakeServer.calls), before)
 
     def test_multiple_skill_failure_cleans_partial_materialization_without_dispatch(self):
         request = self.request()
@@ -237,15 +257,87 @@ class LocalRunnerTests(unittest.TestCase):
         self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(2)))
         base = f"http://127.0.0.1:{server.server_port}/v1/runs"
         request = http_request.Request(base, data=json.dumps(self.request()).encode(),
-                                       headers={"Content-Type": "application/json"})
+                                       headers=self.auth_headers())
         with http_request.urlopen(request) as response:
             result = json.load(response)
-        with http_request.urlopen(base + "/" + result["run_id"]) as response:
+        with http_request.urlopen(http_request.Request(base + "/" + result["run_id"],
+                                                         headers=self.auth_headers())) as response:
             status = json.load(response)
         self.assertEqual(status["status"], "completed")
         self.assertEqual(status["raw_event_ref"],
                          f"laomedo:run:{result['run_id']}:events")
         self.assertNotIn(str(self.root), json.dumps(status))
+
+    def test_http_rejects_unauthenticated_worker_before_read_or_turn(self):
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(2)))
+        base = f"http://127.0.0.1:{server.server_port}/v1/runs"
+        for request in (http_request.Request(base + "/" + str(__import__("uuid").uuid4())),
+                        http_request.Request(base, data=json.dumps(self.request()).encode(),
+                                             headers={"Content-Type": "application/json"})):
+            with self.assertRaises(http_error.HTTPError) as caught:
+                http_request.urlopen(request)
+            self.assertEqual(caught.exception.code, 401)
+            self.assertEqual(json.load(caught.exception)["error_category"], "unauthorized")
+        self.assertEqual(list((self.runner.state / "runs").iterdir()), [])
+        self.assertFalse((self.runner.state / "turn-ledger.json").exists())
+
+    def test_api_token_persists_across_runner_restart(self):
+        again = LocalRunner(self.runner.state, self.runner.store.root, self.source,
+                            transport=FakeServer, check_docker=False, max_model_turns=6)
+        self.assertEqual(again.api_token, self.runner.api_token)
+        self.assertEqual(len(self.runner.api_token), 64)
+
+    def test_corrupt_record_does_not_hold_runner_lock(self):
+        completed = self.runner.start(self.request())
+        (self.runner._run_dir(completed["run_id"]) / "record.json").write_text("{")
+        with self.assertRaises(ValueError):
+            self.runner._execute(completed["run_id"], "retry", resume=True)
+        self.assertTrue(self.runner.lock.acquire(blocking=False))
+        self.runner.lock.release()
+
+    def test_app_server_interrupt_then_removes_named_container(self):
+        app = AppServer.__new__(AppServer)
+        app.container_name = "laomedo-codex-test"
+        app.active_thread_id = "thread-test"
+        app.interrupt_acknowledged = False
+        app.events = []
+        app.messages = queue.Queue()
+        app.request = Mock(return_value={"result": {}})
+        app.process = Mock()
+        app.process.poll.return_value = None
+        app.reader = Mock()
+        app.log = io.StringIO()
+        app.stderr = io.StringIO()
+        cancelled = threading.Event()
+        cancelled.set()
+        self.assertEqual(app.wait_turn("turn-test", 1, cancelled),
+                         ("cancelled", "cancelled_by_user"))
+        app.request.assert_called_once_with("turn/interrupt", {
+            "threadId": "thread-test", "turnId": "turn-test"}, timeout=5)
+        with patch("laomedo.local_runner.subprocess.run", side_effect=[
+                Mock(returncode=0), Mock(returncode=0),
+                Mock(returncode=1, stderr=b"Error: No such object: laomedo-codex-test")]) as docker:
+            app.close()
+        self.assertEqual(docker.call_args_list[0].args[0],
+                         ["docker", "rm", "-f", "laomedo-codex-test"])
+        self.assertEqual(docker.call_args_list[2].args[0],
+                         ["docker", "inspect", "laomedo-codex-test"])
+
+    def test_unverified_container_removal_fails_closed(self):
+        app = AppServer.__new__(AppServer)
+        app.container_name = "laomedo-codex-test"
+        app.process = Mock()
+        app.process.poll.return_value = None
+        app.reader = Mock()
+        app.log = io.StringIO()
+        app.stderr = io.StringIO()
+        with patch("laomedo.local_runner.subprocess.run", side_effect=[
+                Mock(returncode=1), Mock(returncode=1), Mock(returncode=0)]):
+            with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
+                app.close()
 
     def test_http_rejects_simple_cross_origin_content_type(self):
         server = serve(self.runner, port=0)
@@ -254,7 +346,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(2)))
         req = http_request.Request(f"http://127.0.0.1:{server.server_port}/v1/runs",
                                    data=json.dumps(self.request()).encode(),
-                                   headers={"Content-Type": "text/plain"})
+                                   headers=self.auth_headers(content_type="text/plain"))
         with self.assertRaises(http_error.HTTPError) as caught:
             http_request.urlopen(req)
         self.assertEqual(caught.exception.code, 400)
@@ -275,7 +367,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(2)))
         req = http_request.Request(f"http://127.0.0.1:{server.server_port}/v1/runs",
                                    data=json.dumps(self.request()).encode(),
-                                   headers={"Content-Type": "application/json"})
+                                   headers=self.auth_headers())
         with self.assertRaises(http_error.HTTPError) as caught:
             http_request.urlopen(req)
         self.assertEqual(caught.exception.code, 502)
@@ -307,7 +399,7 @@ class LocalRunnerTests(unittest.TestCase):
 
         def submit():
             req = http_request.Request(base, data=json.dumps(self.request()).encode(),
-                                       headers={"Content-Type": "application/json"})
+                                       headers=self.auth_headers())
             try:
                 http_request.urlopen(req)
             except http_error.HTTPError as exc:
@@ -319,7 +411,7 @@ class LocalRunnerTests(unittest.TestCase):
         run_dir = next((self.runner.state / "runs").iterdir())
         req = http_request.Request(base + "/" + run_dir.name + "/cancel",
                                    data=b"{}", method="POST",
-                                   headers={"Content-Type": "application/json"})
+                                   headers=self.auth_headers())
         with http_request.urlopen(req) as response:
             self.assertEqual(response.status, 202)
             self.assertTrue(json.load(response)["cancel_requested"])
