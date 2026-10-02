@@ -50,6 +50,9 @@ def call(url, payload=None, *, token=None, api_key=None):
 
 
 def login():
+    configured = os.environ.get("LANGFLOW_ACCESS_TOKEN")
+    if configured:
+        return configured
     response = call(BASE + "/api/v1/auto_login")
     assert response["http"] == 200, "local_login_failed"
     return response["body"]["access_token"]  # memory only
@@ -67,8 +70,11 @@ def events(run_id):
 
 def run_flow(task, *, operation="fresh", prior=None, extra=None):
     token = login()
-    key = call(BASE + "/api/v1/api_key/", {"name": "native-node-21-test"}, token=token)
-    assert key["http"] in {200, 201}, "local_api_key_failed"
+    api_key = os.environ.get("LANGFLOW_API_KEY")
+    if not api_key:
+        key = call(BASE + "/api/v1/api_key/", {"name": "native-node-21-test"}, token=token)
+        assert key["http"] in {200, 201}, "local_api_key_failed"
+        api_key = key["body"]["api_key"]
     flow_id = json.loads((STATE / "flow-id.json").read_text())["flow_id"]
     tweaks = {"operation": operation, "runner_url": "http://host.docker.internal:8766"}
     if prior:
@@ -76,7 +82,7 @@ def run_flow(task, *, operation="fresh", prior=None, extra=None):
     tweaks.update(extra or {})
     return call(BASE + "/api/v1/run/" + flow_id, {
         "input_value": task, "input_type": "chat", "output_type": "chat",
-        "tweaks": {NODE: tweaks}}, token=token, api_key=key["body"]["api_key"])
+        "tweaks": {NODE: tweaks}}, token=token, api_key=api_key)
 
 
 def reference(record):
