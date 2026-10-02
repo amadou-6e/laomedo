@@ -12,6 +12,11 @@ add no-model checks for model/effort dispatch and profile isolation, plus a
 bounded private ChatGPT handoff for thread resume and streamed events. The
 three-turn spike reported a no-go for the proposed local MVP on its evidence.
 
+The [issue 122 Skill Draft proof](experiments/feasibility/122/README.md)
+records versioned editing rules, deterministic draft guards, agent edits, and
+native resume. The [local skill core](laomedo/README.md) implements immutable
+revisions and human-reviewed draft promotion separately from agent execution.
+
 The [issue 121 Claude probes](experiments/feasibility/121/README.md) pin the
 Claude Agent SDK and guard isolation, settings, streaming, and resume tests.
 No Claude model call ran: the native CLI and dedicated credential were
