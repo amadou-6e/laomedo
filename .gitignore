@@ -3,3 +3,6 @@ experiments/feasibility/*/_scratch_*/
 # Python bytecode and virtual environments
 __pycache__/
 .venv/
+*.egg-info/
+build/
+dist/

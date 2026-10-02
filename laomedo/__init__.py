@@ -1,1 +1,1 @@
-"""Local Laomedo core primitives."""
+"""Laomedo workflow services and local core primitives."""

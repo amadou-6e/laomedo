@@ -1,6 +1,12 @@
 # laomedo
 Design, inspect, and experiment with Codex and Claude Code agent workflows
 
+The [Work Graph foundation](docs/work-graph.md) imports GitHub work and native
+blocker relationships using an existing `gh` login. It stores verified,
+immutable snapshots and inspects filtered projections with dependency
+readiness calculated from the full graph. This slice provides a Python
+service and CLI; the graph UI is a subsequent slice.
+
 The [local Langflow skill-agent pilot](examples/skill-agent-pilot/README.md)
 builds a persistent single-user Codex runner on the existing Docker boundary,
 pins a whole-skill revision, and supplies a saved Langflow flow. Its default
