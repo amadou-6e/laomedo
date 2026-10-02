@@ -1,0 +1,222 @@
+{
+  "api_version": "2022-11-28",
+  "completed_at": "2026-10-02T19:51:15.737701+00:00",
+  "created_controls": [
+    {
+      "id": 5682578548,
+      "kind": "acknowledged",
+      "marker": "exp15-control-3338168cb0d748b29d1de1227117e69d",
+      "number": 2
+    },
+    {
+      "id": 5682578820,
+      "kind": "near_collision",
+      "marker": "exp15-3338168cb0d748b29d1de1227117e69dx",
+      "number": 3
+    }
+  ],
+  "duplicate_post_attempts": 0,
+  "final_observation": {
+    "at": "2026-10-02T19:51:16.796697+00:00",
+    "list_matches": [
+      {
+        "id": 5682567402,
+        "number": 1
+      }
+    ],
+    "search_incomplete": false,
+    "search_matches": [
+      {
+        "id": 5682567402,
+        "number": 1
+      }
+    ],
+    "search_total_count": 1
+  },
+  "marker": "exp15-3338168cb0d748b29d1de1227117e69d",
+  "method": "response-suppressed POST then read-only list/search; no retry",
+  "observations": [
+    {
+      "at": "2026-10-02T19:50:13.304694+00:00",
+      "elapsed_seconds": 1.297,
+      "list_matches": [],
+      "search_incomplete": false,
+      "search_matches": [],
+      "search_total_count": 0
+    },
+    {
+      "at": "2026-10-02T19:50:14.735298+00:00",
+      "elapsed_seconds": 2.719,
+      "list_matches": [],
+      "search_incomplete": false,
+      "search_matches": [],
+      "search_total_count": 0
+    },
+    {
+      "at": "2026-10-02T19:50:16.064805+00:00",
+      "elapsed_seconds": 4.047,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:50:17.659280+00:00",
+      "elapsed_seconds": 5.641,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:50:18.654978+00:00",
+      "elapsed_seconds": 6.641,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:50:22.046261+00:00",
+      "elapsed_seconds": 10.031,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:50:26.037648+00:00",
+      "elapsed_seconds": 14.031,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:50:33.877991+00:00",
+      "elapsed_seconds": 21.86,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:50:42.942404+00:00",
+      "elapsed_seconds": 30.938,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:50:55.109583+00:00",
+      "elapsed_seconds": 43.094,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    },
+    {
+      "at": "2026-10-02T19:51:13.341894+00:00",
+      "elapsed_seconds": 61.328,
+      "list_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_incomplete": false,
+      "search_matches": [
+        {
+          "id": 5682567402,
+          "number": 1
+        }
+      ],
+      "search_total_count": 1
+    }
+  ],
+  "phase": "complete",
+  "repository": "amadou-6e/laomedo-exp15-disposable",
+  "run_id": "3338168cb0d748b29d1de1227117e69d",
+  "started_at": "2026-10-02T19:50:11.243683+00:00"
+}
