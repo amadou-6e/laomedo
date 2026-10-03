@@ -10,7 +10,7 @@ Run:
 
 ```text
 python experiments/exp05/probe.py
-python -m unittest tests.test_exp05_evidence
+python -m unittest experiments.exp05.test_evidence
 ```
 
 The probe kills a child process before invocation reservation, after
@@ -31,7 +31,8 @@ post-restart state. A startup sweep marks unfinished invocations and runs
 | After projection | Yes | Known | 1 / 1 | `crashed`, `partial` |
 | Normal control | Yes | Known | 1 / 1 | `completed`, `complete` |
 
-The event-flush row has no projection **before** restart; startup derives its
+The experiment tests run from the checkout, separately from CI's installed-wheel
+tests. The event-flush row has no projection **before** restart; startup derives its
 single projection from the committed raw receipt. Receipt sequence correlates
 raw and projected records, but it is not a producer-stable deduplication key.
 An absent source event ID remains absent. EXP-09 / issue #39 must select and test

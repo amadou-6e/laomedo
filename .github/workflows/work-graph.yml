@@ -17,4 +17,8 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           python -m unittest discover -s "$GITHUB_WORKSPACE/tests" -v
+      - name: Test synthetic EXP-05 probe in checkout
+        run: |
+          python -m unittest experiments.exp05.test_evidence -v
+          python experiments/exp05/probe.py
       - run: laomedo-work-graph import --repo example/work --file examples/work-graph/github-pages.json --output-dir "$RUNNER_TEMP/work-graph"
