@@ -1,0 +1,56 @@
+{
+  "model_turns": 0,
+  "stage_starts": 0,
+  "dispatch_attempts": 0,
+  "image_id": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
+  "docker_engine": "27.3.1",
+  "root_errors": [],
+  "effective_inspect": {
+    "Image": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
+    "Config.User": "10001:10001",
+    "HostConfig": {
+      "ReadonlyRootfs": true,
+      "CapDrop": [
+        "ALL"
+      ],
+      "CapAdd": null,
+      "SecurityOpt": [
+        "no-new-privileges"
+      ],
+      "PidMode": "",
+      "IpcMode": "private",
+      "UTSMode": "",
+      "UsernsMode": "",
+      "Devices": [],
+      "DeviceRequests": null,
+      "Tmpfs": {
+        "/tmp": "rw,nosuid,nodev,size=16m"
+      },
+      "NetworkMode": "laomedo-exp18-create-ed0f47f7b3e2",
+      "PidsLimit": 128,
+      "Memory": 1073741824,
+      "Privileged": false
+    },
+    "Mounts": [
+      {
+        "Destination": "/draft",
+        "Type": "bind",
+        "RW": true
+      },
+      {
+        "Destination": "/skills",
+        "Type": "bind",
+        "RW": false
+      }
+    ]
+  },
+  "correct_errors": [],
+  "writable_skill_errors": [
+    "mount_mismatch:/skills"
+  ],
+  "missing_seccomp_create_failed": true,
+  "missing_seccomp_container_absent": true,
+  "seccomp_error_class": "opening_seccomp_profile_failed",
+  "cleanup_complete": true,
+  "passed": true
+}
