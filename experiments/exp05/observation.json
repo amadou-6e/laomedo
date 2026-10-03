@@ -1,0 +1,351 @@
+{
+  "before_invocation_reserve": {
+    "exit_code": 11,
+    "stderr": "",
+    "run_counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "raw_count_before_restart": 0,
+    "projection_count_before_restart": 0,
+    "invocation_before_restart": [],
+    "swept_invocation_ids": [],
+    "swept_run_ids": [
+      "ed4a22d2-11c3-4a9f-a972-b5a44c2af884"
+    ],
+    "invocation_after_restart": [],
+    "raw_events_after_restart": [],
+    "projections_after_restart": [],
+    "run_after_restart": null
+  },
+  "after_invocation_reserve": {
+    "exit_code": 12,
+    "stderr": "",
+    "run_counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 0,
+      "synthetic_dispatches": 0
+    },
+    "raw_count_before_restart": 0,
+    "projection_count_before_restart": 0,
+    "invocation_before_restart": [
+      {
+        "invocation_id": "98217812-6b65-4361-ab3d-df5254b642a1",
+        "run_id": "9df515d4-41be-4df5-83fd-c539dfd5846c",
+        "trace_id": "db9b3f62-e3a8-48fa-a9e9-0dc416333e4d",
+        "stage_id": "synthetic-provider",
+        "native_session_id": null,
+        "status": "reserved",
+        "stream_state": "unknown"
+      }
+    ],
+    "swept_invocation_ids": [
+      "98217812-6b65-4361-ab3d-df5254b642a1"
+    ],
+    "swept_run_ids": [
+      "9df515d4-41be-4df5-83fd-c539dfd5846c"
+    ],
+    "invocation_after_restart": [
+      {
+        "invocation_id": "98217812-6b65-4361-ab3d-df5254b642a1",
+        "run_id": "9df515d4-41be-4df5-83fd-c539dfd5846c",
+        "trace_id": "db9b3f62-e3a8-48fa-a9e9-0dc416333e4d",
+        "stage_id": "synthetic-provider",
+        "native_session_id": null,
+        "status": "crashed",
+        "stream_state": "unknown"
+      }
+    ],
+    "raw_events_after_restart": [],
+    "projections_after_restart": [],
+    "run_after_restart": {
+      "run_id": "9df515d4-41be-4df5-83fd-c539dfd5846c",
+      "trace_id": "db9b3f62-e3a8-48fa-a9e9-0dc416333e4d",
+      "status": "crashed",
+      "evidence_complete": 0,
+      "dispatch_attempts": 0
+    }
+  },
+  "after_dispatch_before_native": {
+    "exit_code": 13,
+    "stderr": "",
+    "run_counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 0
+    },
+    "raw_count_before_restart": 0,
+    "projection_count_before_restart": 0,
+    "invocation_before_restart": [
+      {
+        "invocation_id": "a2ee15de-c58c-407f-ab28-7ec291d2a8b2",
+        "run_id": "34292adc-37a1-4176-b28f-680d122163a6",
+        "trace_id": "029edba2-5972-4d85-9469-d7449ca77a82",
+        "stage_id": "synthetic-provider",
+        "native_session_id": null,
+        "status": "reserved",
+        "stream_state": "unknown"
+      }
+    ],
+    "swept_invocation_ids": [
+      "a2ee15de-c58c-407f-ab28-7ec291d2a8b2"
+    ],
+    "swept_run_ids": [
+      "34292adc-37a1-4176-b28f-680d122163a6"
+    ],
+    "invocation_after_restart": [
+      {
+        "invocation_id": "a2ee15de-c58c-407f-ab28-7ec291d2a8b2",
+        "run_id": "34292adc-37a1-4176-b28f-680d122163a6",
+        "trace_id": "029edba2-5972-4d85-9469-d7449ca77a82",
+        "stage_id": "synthetic-provider",
+        "native_session_id": null,
+        "status": "crashed",
+        "stream_state": "unknown"
+      }
+    ],
+    "raw_events_after_restart": [],
+    "projections_after_restart": [],
+    "run_after_restart": {
+      "run_id": "34292adc-37a1-4176-b28f-680d122163a6",
+      "trace_id": "029edba2-5972-4d85-9469-d7449ca77a82",
+      "status": "crashed",
+      "evidence_complete": 0,
+      "dispatch_attempts": 1
+    }
+  },
+  "after_native_id": {
+    "exit_code": 14,
+    "stderr": "",
+    "run_counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 0
+    },
+    "raw_count_before_restart": 0,
+    "projection_count_before_restart": 0,
+    "invocation_before_restart": [
+      {
+        "invocation_id": "8a3f4ea4-8840-4efc-8cfd-c6624f66d28f",
+        "run_id": "d4af89cf-3c8a-4933-936a-2369002a64b2",
+        "trace_id": "1d3cfbbb-4153-424c-bc2c-a2882fc4bdcf",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "active",
+        "stream_state": "unknown"
+      }
+    ],
+    "swept_invocation_ids": [
+      "8a3f4ea4-8840-4efc-8cfd-c6624f66d28f"
+    ],
+    "swept_run_ids": [
+      "d4af89cf-3c8a-4933-936a-2369002a64b2"
+    ],
+    "invocation_after_restart": [
+      {
+        "invocation_id": "8a3f4ea4-8840-4efc-8cfd-c6624f66d28f",
+        "run_id": "d4af89cf-3c8a-4933-936a-2369002a64b2",
+        "trace_id": "1d3cfbbb-4153-424c-bc2c-a2882fc4bdcf",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "crashed",
+        "stream_state": "unknown"
+      }
+    ],
+    "raw_events_after_restart": [],
+    "projections_after_restart": [],
+    "run_after_restart": {
+      "run_id": "d4af89cf-3c8a-4933-936a-2369002a64b2",
+      "trace_id": "1d3cfbbb-4153-424c-bc2c-a2882fc4bdcf",
+      "status": "crashed",
+      "evidence_complete": 0,
+      "dispatch_attempts": 1
+    }
+  },
+  "after_event_flush": {
+    "exit_code": 15,
+    "stderr": "",
+    "run_counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 0
+    },
+    "raw_count_before_restart": 1,
+    "projection_count_before_restart": 0,
+    "invocation_before_restart": [
+      {
+        "invocation_id": "9eaaae93-6de3-4739-8a56-c3d111c6d360",
+        "run_id": "0871adbb-d530-4678-9209-77ca23e3b6a2",
+        "trace_id": "117f2ed3-12f1-4118-b2c3-1ad4652ac48e",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "active",
+        "stream_state": "partial"
+      }
+    ],
+    "swept_invocation_ids": [
+      "9eaaae93-6de3-4739-8a56-c3d111c6d360"
+    ],
+    "swept_run_ids": [
+      "0871adbb-d530-4678-9209-77ca23e3b6a2"
+    ],
+    "invocation_after_restart": [
+      {
+        "invocation_id": "9eaaae93-6de3-4739-8a56-c3d111c6d360",
+        "run_id": "0871adbb-d530-4678-9209-77ca23e3b6a2",
+        "trace_id": "117f2ed3-12f1-4118-b2c3-1ad4652ac48e",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "crashed",
+        "stream_state": "partial"
+      }
+    ],
+    "raw_events_after_restart": [
+      {
+        "receipt_sequence": 1,
+        "invocation_id": "9eaaae93-6de3-4739-8a56-c3d111c6d360",
+        "source_event_id": "synthetic-event-1",
+        "kind": "tool_call",
+        "payload_json": "{\"summary\":\"synthetic read\",\"tool\":\"fixture\"}"
+      }
+    ],
+    "projections_after_restart": [
+      {
+        "receipt_sequence": 1,
+        "invocation_id": "9eaaae93-6de3-4739-8a56-c3d111c6d360",
+        "kind": "tool_call",
+        "summary": "synthetic read"
+      }
+    ],
+    "run_after_restart": {
+      "run_id": "0871adbb-d530-4678-9209-77ca23e3b6a2",
+      "trace_id": "117f2ed3-12f1-4118-b2c3-1ad4652ac48e",
+      "status": "crashed",
+      "evidence_complete": 0,
+      "dispatch_attempts": 1
+    }
+  },
+  "after_projection": {
+    "exit_code": 16,
+    "stderr": "",
+    "run_counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 0
+    },
+    "raw_count_before_restart": 1,
+    "projection_count_before_restart": 1,
+    "invocation_before_restart": [
+      {
+        "invocation_id": "220479d9-8de8-401b-b0f6-af49fe0225f5",
+        "run_id": "fb9262a7-6385-49dc-a006-5ecff1b85d1e",
+        "trace_id": "c39ee4a0-3268-4ce4-9755-4a57b3cf881d",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "active",
+        "stream_state": "partial"
+      }
+    ],
+    "swept_invocation_ids": [
+      "220479d9-8de8-401b-b0f6-af49fe0225f5"
+    ],
+    "swept_run_ids": [
+      "fb9262a7-6385-49dc-a006-5ecff1b85d1e"
+    ],
+    "invocation_after_restart": [
+      {
+        "invocation_id": "220479d9-8de8-401b-b0f6-af49fe0225f5",
+        "run_id": "fb9262a7-6385-49dc-a006-5ecff1b85d1e",
+        "trace_id": "c39ee4a0-3268-4ce4-9755-4a57b3cf881d",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "crashed",
+        "stream_state": "partial"
+      }
+    ],
+    "raw_events_after_restart": [
+      {
+        "receipt_sequence": 1,
+        "invocation_id": "220479d9-8de8-401b-b0f6-af49fe0225f5",
+        "source_event_id": "synthetic-event-1",
+        "kind": "tool_call",
+        "payload_json": "{\"summary\":\"synthetic read\",\"tool\":\"fixture\"}"
+      }
+    ],
+    "projections_after_restart": [
+      {
+        "receipt_sequence": 1,
+        "invocation_id": "220479d9-8de8-401b-b0f6-af49fe0225f5",
+        "kind": "tool_call",
+        "summary": "synthetic read"
+      }
+    ],
+    "run_after_restart": {
+      "run_id": "fb9262a7-6385-49dc-a006-5ecff1b85d1e",
+      "trace_id": "c39ee4a0-3268-4ce4-9755-4a57b3cf881d",
+      "status": "crashed",
+      "evidence_complete": 0,
+      "dispatch_attempts": 1
+    }
+  },
+  "normal": {
+    "exit_code": 0,
+    "stderr": "",
+    "run_counters_before_restart": {
+      "runs": 1,
+      "dispatch_attempts": 1,
+      "synthetic_dispatches": 0
+    },
+    "raw_count_before_restart": 1,
+    "projection_count_before_restart": 1,
+    "invocation_before_restart": [
+      {
+        "invocation_id": "0d693c13-ee43-4a3a-96d0-1b31b1fda623",
+        "run_id": "75ef4a89-f40b-4e80-8c03-a37b45f66efd",
+        "trace_id": "7aa37831-2c00-432d-89df-8d1d7f2d8c8f",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "completed",
+        "stream_state": "complete"
+      }
+    ],
+    "swept_invocation_ids": [],
+    "swept_run_ids": [],
+    "invocation_after_restart": [
+      {
+        "invocation_id": "0d693c13-ee43-4a3a-96d0-1b31b1fda623",
+        "run_id": "75ef4a89-f40b-4e80-8c03-a37b45f66efd",
+        "trace_id": "7aa37831-2c00-432d-89df-8d1d7f2d8c8f",
+        "stage_id": "synthetic-provider",
+        "native_session_id": "synthetic-session-1",
+        "status": "completed",
+        "stream_state": "complete"
+      }
+    ],
+    "raw_events_after_restart": [
+      {
+        "receipt_sequence": 1,
+        "invocation_id": "0d693c13-ee43-4a3a-96d0-1b31b1fda623",
+        "source_event_id": "synthetic-event-1",
+        "kind": "tool_call",
+        "payload_json": "{\"summary\":\"synthetic read\",\"tool\":\"fixture\"}"
+      }
+    ],
+    "projections_after_restart": [
+      {
+        "receipt_sequence": 1,
+        "invocation_id": "0d693c13-ee43-4a3a-96d0-1b31b1fda623",
+        "kind": "tool_call",
+        "summary": "synthetic read"
+      }
+    ],
+    "run_after_restart": {
+      "run_id": "75ef4a89-f40b-4e80-8c03-a37b45f66efd",
+      "trace_id": "7aa37831-2c00-432d-89df-8d1d7f2d8c8f",
+      "status": "completed",
+      "evidence_complete": 1,
+      "dispatch_attempts": 1
+    }
+  }
+}
