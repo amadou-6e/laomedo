@@ -18,20 +18,19 @@ class PreflightTests(unittest.TestCase):
         self.source = str(Path(__file__).resolve())
         self.mounts = {"/skills": ("bind", self.source, False),
                        "/draft": ("bind", self.source, True)}
+        host = deepcopy(module.HOST_CONFIG_BASELINE)
+        host["NetworkMode"] = "exp18-private"
+        host["SecurityOpt"] = ["no-new-privileges:true"]
+        for mount in host["Mounts"]:
+            mount["Source"] = self.source
         self.inspect = {
             "Image": self.image_id,
-            "HostConfig": {"ReadonlyRootfs": True, "CapDrop": ["ALL"],
-                           "CapAdd": None,
-                           "SecurityOpt": ["no-new-privileges:true"],
-                           "PidMode": "", "IpcMode": "private", "UTSMode": "",
-                           "UsernsMode": "", "Devices": [], "DeviceRequests": None,
-                           "Tmpfs": self.tmpfs,
-                           "PidsLimit": 128, "Memory": 1024 ** 3,
-                           "NetworkMode": "exp18-private", "Privileged": False},
+            "HostConfig": host,
             "Config": {"User": "10001:10001"},
             "Mounts": [
                 {"Destination": target, "Type": "bind", "Source": self.source,
-                 "RW": writable} for target, (_, _, writable) in self.mounts.items()
+                 "RW": writable, "Propagation": "rprivate"}
+                for target, (_, _, writable) in self.mounts.items()
             ],
         }
 
@@ -43,7 +42,8 @@ class PreflightTests(unittest.TestCase):
     def test_writable_skill_mount_and_extra_mount_rejected(self):
         self.inspect["Mounts"][0]["RW"] = True
         self.inspect["Mounts"].append({"Destination": "/host", "Type": "bind",
-                                        "Source": self.source, "RW": False})
+                                        "Source": self.source, "RW": False,
+                                        "Propagation": "rprivate"})
         errors = self.validate()
         self.assertIn("mount_mismatch:/skills", errors)
         self.assertIn("mount_set_mismatch", errors)
@@ -71,9 +71,6 @@ class PreflightTests(unittest.TestCase):
              "security_options_mismatch"),
             ("apparmor_unconfined", "SecurityOpt",
              ["no-new-privileges:true", "apparmor=unconfined"],
-             "security_options_mismatch"),
-            ("systempaths_unconfined", "SecurityOpt",
-             ["no-new-privileges:true", "systempaths=unconfined"],
              "security_options_mismatch"),
             ("host_pid", "PidMode", "host", "pidmode_mismatch"),
             ("device", "Devices", [{"PathOnHost": "/dev/fuse"}],
@@ -107,6 +104,39 @@ class PreflightTests(unittest.TestCase):
         self.inspect = deepcopy(baseline)
         self.inspect["Mounts"].append({"Destination": "/data", "Type": "tmpfs"})
         self.assertIn("tmpfs_mount_set_mismatch", self.validate())
+
+    def test_systempaths_unconfined_real_inspect_shape_is_rejected(self):
+        # Docker records this downgrade by emptying both path lists, even when
+        # SecurityOpt contains no "systempaths" entry.
+        self.inspect["HostConfig"]["MaskedPaths"] = []
+        self.inspect["HostConfig"]["ReadonlyPaths"] = []
+        self.assertNotIn("systempaths=unconfined",
+                         self.inspect["HostConfig"]["SecurityOpt"])
+        errors = self.validate()
+        self.assertIn("masked_paths_mismatch", errors)
+        self.assertIn("readonly_paths_mismatch", errors)
+
+    def test_full_host_config_projection_rejects_unlisted_downgrades(self):
+        baseline = deepcopy(self.inspect)
+        cases = (
+            ("CgroupnsMode", "host"), ("GroupAdd", ["0"]),
+            ("Sysctls", {"net.ipv4.ip_forward": "1"}),
+            ("ExtraHosts", ["example:127.0.0.1"]),
+            ("Ulimits", [{"Name": "nofile", "Soft": 1024, "Hard": 1024}]),
+            ("OomKillDisable", True), ("MemorySwap", -1),
+            ("new_field", "unsafe"),
+        )
+        for field, value in cases:
+            with self.subTest(field=field):
+                self.inspect = deepcopy(baseline)
+                self.inspect["HostConfig"][field] = value
+                self.assertIn("hostconfig_mismatch:" + field, self.validate())
+        self.inspect = deepcopy(baseline)
+        self.inspect["HostConfig"]["ReadonlyPaths"] = []
+        self.assertIn("readonly_paths_mismatch", self.validate())
+        self.inspect = deepcopy(baseline)
+        self.inspect["Mounts"][0]["Propagation"] = "rshared"
+        self.assertIn("mount_mismatch:/skills", self.validate())
 
     def test_fixture_roots_must_be_distinct(self):
         with tempfile.TemporaryDirectory() as temp:

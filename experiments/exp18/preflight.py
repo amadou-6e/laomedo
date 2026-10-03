@@ -1,6 +1,11 @@
 """Check an E05 Docker create result against the reviewed grant before start."""
 
+import json
 from pathlib import Path
+
+
+HOST_CONFIG_BASELINE = json.loads(
+    Path(__file__).with_name("hostconfig-27.3.1.json").read_text(encoding="utf-8"))
 
 
 def validate_host_roots(roots):
@@ -35,6 +40,23 @@ def _source(mount):
     return mount.get("Name", "")
 
 
+def _host_config_projection(host, expected_mounts, network):
+    """Normalize only nonce-bearing values before full HostConfig comparison."""
+    projected = json.loads(json.dumps(host))
+    if projected.get("NetworkMode") == network:
+        projected["NetworkMode"] = "<e05-network>"
+    if projected.get("SecurityOpt") == ["no-new-privileges:true"]:
+        projected["SecurityOpt"] = ["no-new-privileges"]
+    for mount in projected.get("Mounts") or []:
+        target = mount.get("Target")
+        expected = expected_mounts.get(target)
+        if expected and mount.get("Type") == expected[0] and _source(mount) == (
+                str(Path(expected[1]).resolve()).casefold()
+                if expected[0] == "bind" else expected[1]):
+            mount["Source"] = "<mount:" + target + ">"
+    return projected
+
+
 def validate_inspect(inspected, expected_mounts, network, image_id, tmpfs):
     """Return fail-closed mismatch codes for one `docker inspect` object.
 
@@ -45,6 +67,10 @@ def validate_inspect(inspected, expected_mounts, network, image_id, tmpfs):
     errors = []
     host = inspected.get("HostConfig") or {}
     config = inspected.get("Config") or {}
+    projected = _host_config_projection(host, expected_mounts, network)
+    for field in sorted(set(projected) | set(HOST_CONFIG_BASELINE)):
+        if projected.get(field, object()) != HOST_CONFIG_BASELINE.get(field, object()):
+            errors.append("hostconfig_mismatch:" + field)
     if inspected.get("Image") != image_id:
         errors.append("image_id_mismatch")
     if host.get("ReadonlyRootfs") is not True:
@@ -64,6 +90,12 @@ def validate_inspect(inspected, expected_mounts, network, image_id, tmpfs):
         errors.append("devices_present")
     if host.get("DeviceRequests") not in (None, []):
         errors.append("device_requests_present")
+    if host.get("CgroupnsMode") != "private":
+        errors.append("cgroup_namespace_mismatch")
+    if host.get("MaskedPaths") != HOST_CONFIG_BASELINE["MaskedPaths"]:
+        errors.append("masked_paths_mismatch")
+    if host.get("ReadonlyPaths") != HOST_CONFIG_BASELINE["ReadonlyPaths"]:
+        errors.append("readonly_paths_mismatch")
     if host.get("Tmpfs") != tmpfs:
         errors.append("tmpfs_mismatch")
     if host.get("PidsLimit") != 128:
@@ -94,6 +126,7 @@ def validate_inspect(inspected, expected_mounts, network, image_id, tmpfs):
         expected_source = (str(Path(source).resolve()).casefold()
                            if kind == "bind" else source)
         if (mount.get("Type") != kind or _source(mount) != expected_source or
-                mount.get("RW") is not writable):
+                mount.get("RW") is not writable or
+                mount.get("Propagation") != "rprivate"):
             errors.append("mount_mismatch:" + target)
     return errors
