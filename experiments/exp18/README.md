@@ -16,12 +16,24 @@ an unavailable seccomp profile fails at `docker create`. The 2026-10-03
 observation passed with zero stage starts, dispatch attempts and model turns;
 named Docker resources were removed. See `create-only-observation.json`.
 
-`runner_probe_sidecar.py` contains the proposed fixed unauthenticated runner
-API request for a later internal-network stage check. Its route, status-only
+`runner_probe_sidecar.py` contains the fixed unauthenticated runner
+API request for the internal-network stage check. Its route, status-only
 response and rejection of stage-controlled paths or bodies are unit tested.
-The sidecar has not been deployed or connected to the runner.
+For the approved no-model steps 3-4, `Dockerfile.sidecar` builds it from a
+pinned local Python image. `probe_stage.py` verifies its pinned image ID,
+exactly two networks, zero mounts and published ports, read-only root, dropped
+capabilities, `no-new-privileges`, non-root user and fixed command before
+starting the stage. The sidecar then reaches a disposable local runner on port
+8767 with model turns disabled. `Dockerfile.canary` packages the EXP-07 grant
+canary from the same pinned base image.
 
-No E05 Docker stage or agent turn has been launched. Starting a stage in steps
-3-6 still requires review of the amended protocol and verifier. These
-create-only refusals do not establish a Docker write boundary or an
-agent-originated denial. They do not relax the current runner's permissions.
+The approved [direct no-model observation](stage-observation.json) records a
+stage that wrote its disposable checkout and scoped HTTP canary, read its
+effective skill, received `EROFS` on a skill write, found no protected marker
+in a complete bounded sweep, failed to reach host listeners directly, and
+cleaned up. The host snapshot hash rejected the stage-created symlink. Two
+earlier runs were inconclusive because the initial marker sweep skipped large
+image files; the final streaming sweep covered those files. No model turn or
+personal credential was used. This is a direct process-boundary result, not
+the agent-originated criterion or a production runner integration. The
+current runner's permissions remain unchanged.

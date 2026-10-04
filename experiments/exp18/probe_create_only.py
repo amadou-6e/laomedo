@@ -25,7 +25,8 @@ def docker(*args, check=True):
     return result
 
 
-def create_args(name, network, roots, *, skill_writable=False, seccomp=None):
+def create_args(name, network, roots, *, skill_writable=False, seccomp=None,
+                grant=None, command=None):
     skill_mount = (f"type=bind,source={roots['effective_skill']},target=/skills" +
                    ("" if skill_writable else ",readonly"))
     args = ["create", "--pull=never", "--name", name, "--network", network,
@@ -37,7 +38,9 @@ def create_args(name, network, roots, *, skill_writable=False, seccomp=None):
             "--mount", skill_mount]
     if seccomp is not None:
         args.extend(["--security-opt", "seccomp=" + str(seccomp)])
-    return args + [IMAGE, "sh", "-c", "true"]
+    if grant is not None:
+        args.extend(["--env", "CANARY_GRANT=" + grant])
+    return args + [IMAGE, *(command or ["sh", "-c", "true"])]
 
 
 def safe_projection(inspected):
