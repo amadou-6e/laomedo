@@ -137,7 +137,11 @@ def run_case(line_ending, root):
     force_clean_dry_run = git("clean", "-ndx", cwd=effective_workspace)
     if (not ignored_skill or protected_staged_paths or protected_clean_dry_run or
             ".agents/" not in force_clean_dry_run):
-        raise AssertionError("protected checkout Git behavior mismatched")
+        raise AssertionError(
+            "protected checkout Git behavior mismatched: "
+            + repr((ignored_skill, protected_staged_paths,
+                    protected_clean_dry_run, force_clean_dry_run))
+        )
 
     escaped_path_rejected = False
     try:
