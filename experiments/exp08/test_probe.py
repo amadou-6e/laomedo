@@ -25,9 +25,18 @@ class SkillMaterializationTests(unittest.TestCase):
             self.assertTrue(result["path_escape_rejected"])
             self.assertTrue(result["unsafe_id_rejected"])
             self.assertTrue(result["tampered_revision_refused_before_materialization"])
+            self.assertTrue(result["git_checkout_converted_lf_to_crlf"])
+            self.assertIn(".agents/skills/exp08-sample/SKILL.md",
+                          result["unprotected_add_all_paths"])
+            self.assertIn(".agents/", result["unprotected_clean_dry_run"])
+            self.assertIn(".agents/skills/", result["ignored_skill_rule"])
+            self.assertEqual(result["protected_add_all_paths"], "")
+            self.assertEqual(result["protected_clean_dry_run"], "")
+            self.assertIn(".agents/", result["force_clean_dry_run"])
             self.assertEqual(result["use_evidence"], "offered")
             self.assertEqual(result["native_discovery"], "unverified; no model call")
-            for field in ("git_status_before", "git_status_after_materialization",
+            for field in ("git_status_before", "git_status_effective_before",
+                          "git_status_after_materialization",
                           "git_status_after_edit", "git_status_after_cleanup"):
                 self.assertEqual(result[field], "")
 
