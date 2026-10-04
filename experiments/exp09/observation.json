@@ -11,6 +11,7 @@
         "receipt_sequence": 1,
         "source_event_id": "evt-1",
         "kind": "message",
+        "tool_call_id": null,
         "payload_sha256": "sha256:d7cb56b09364e3f008e22b3012dda906ce568cd0844a092b9e3abfcf5d996a38",
         "summary": "arrived",
         "action_uniqueness": "uncertain"
@@ -19,6 +20,7 @@
         "receipt_sequence": 2,
         "source_event_id": "evt-1",
         "kind": "message",
+        "tool_call_id": null,
         "payload_sha256": "sha256:d7cb56b09364e3f008e22b3012dda906ce568cd0844a092b9e3abfcf5d996a38",
         "summary": "arrived",
         "action_uniqueness": "uncertain"
@@ -35,6 +37,7 @@
         "receipt_sequence": 1,
         "source_event_id": "evt-2",
         "kind": "message",
+        "tool_call_id": null,
         "payload_sha256": "sha256:dc510e91fbc58d499e6a3c4ef69159ec8fb3cb5d6a273f8edab33afd02ae62ab",
         "summary": "first payload",
         "action_uniqueness": "uncertain"
@@ -43,6 +46,7 @@
         "receipt_sequence": 2,
         "source_event_id": "evt-2",
         "kind": "message",
+        "tool_call_id": null,
         "payload_sha256": "sha256:05d6328ee29976d0c9cc1f3fa30ba204e4e0af956554de7a5ae82e504aa0178f",
         "summary": "changed payload",
         "action_uniqueness": "uncertain"
@@ -59,6 +63,7 @@
         "receipt_sequence": 1,
         "source_event_id": null,
         "kind": "tool_result",
+        "tool_call_id": "call-1",
         "payload_sha256": "sha256:9fb2ef300ed3f49b5e03718d7b6c6c761a56d878afcc7548b813654a87adf9ad",
         "summary": "result first",
         "action_uniqueness": "uncertain"
@@ -67,6 +72,7 @@
         "receipt_sequence": 2,
         "source_event_id": null,
         "kind": "tool_call",
+        "tool_call_id": "call-1",
         "payload_sha256": "sha256:dfa93f8c6f499e09b26a403def3d3074d3b8406bfc2db106e82f8ff786bbf8fd",
         "summary": "call later",
         "action_uniqueness": "uncertain"
@@ -75,6 +81,7 @@
         "receipt_sequence": 3,
         "source_event_id": null,
         "kind": "tool_result",
+        "tool_call_id": "call-1",
         "payload_sha256": "sha256:9fb2ef300ed3f49b5e03718d7b6c6c761a56d878afcc7548b813654a87adf9ad",
         "summary": "result first",
         "action_uniqueness": "uncertain"
@@ -92,6 +99,7 @@
           "receipt_sequence": 1,
           "source_event_id": "shared",
           "kind": "tool_call",
+          "tool_call_id": "call-2",
           "payload_sha256": "sha256:aea32835d48e026f95457c6701c1f1bd734087ebb7edb56f404aa2487284c027",
           "summary": "start",
           "action_uniqueness": "uncertain"
@@ -108,6 +116,7 @@
           "receipt_sequence": 2,
           "source_event_id": "shared",
           "kind": "tool_result",
+          "tool_call_id": "call-2",
           "payload_sha256": "sha256:2a19fedc03dfd08d6b5b3d903db016e76554ef1d5090e7dec2663cef990cc602",
           "summary": "finish",
           "action_uniqueness": "uncertain"

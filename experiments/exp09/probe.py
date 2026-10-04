@@ -58,14 +58,18 @@ def _project(store: EvidenceStore, invocation: str) -> dict:
         raise AssertionError("raw receipt/projection mismatch")
     status = next(row["stream_state"] for row in snapshot["invocations"]
                   if row["invocation_id"] == invocation)
-    events = [{
-        "receipt_sequence": row["receipt_sequence"],
-        "source_event_id": row["source_event_id"],
-        "kind": row["kind"],
-        "payload_sha256": _digest(row["payload_json"]),
-        "summary": projected[row["receipt_sequence"]]["summary"],
-        "action_uniqueness": "uncertain",
-    } for row in raw]
+    events = []
+    for row in raw:
+        payload = json.loads(row["payload_json"])
+        events.append({
+            "receipt_sequence": row["receipt_sequence"],
+            "source_event_id": row["source_event_id"],
+            "kind": row["kind"],
+            "tool_call_id": payload.get("call_id"),
+            "payload_sha256": _digest(row["payload_json"]),
+            "summary": projected[row["receipt_sequence"]]["summary"],
+            "action_uniqueness": "uncertain",
+        })
     return {
         "delivery_count": len(events),
         "action_uniqueness": "uncertain",

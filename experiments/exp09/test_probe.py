@@ -42,10 +42,12 @@ class ReplayTests(unittest.TestCase):
                          ["tool_result", "tool_call", "tool_result"])
         self.assertEqual([event["receipt_sequence"] for event in case["events"]],
                          [1, 2, 3])
+        self.assertEqual([event["tool_call_id"] for event in case["events"]],
+                         ["call-1", "call-1", "call-1"])
         self.assertTrue(all(event["source_event_id"] is None and
                             event["action_uniqueness"] == "uncertain"
                             for event in case["events"]))
-        self.assertNotIn("linked_tool_call_ids", case)
+        self.assertTrue(all("linked_to" not in event for event in case["events"]))
 
     def test_same_source_id_in_distinct_invocations_is_not_collapsed(self):
         cases = self.cases["separate_invocations"]
@@ -57,6 +59,10 @@ class ReplayTests(unittest.TestCase):
                          cases["invocation_2"]["events"][0]["source_event_id"])
         self.assertEqual([cases[key]["events"][0]["kind"] for key in cases],
                          ["tool_call", "tool_result"])
+        self.assertEqual([cases[key]["events"][0]["tool_call_id"] for key in cases],
+                         ["call-2", "call-2"])
+        self.assertTrue(all("linked_to" not in case["events"][0]
+                            for case in cases.values()))
 
     def test_plain_run_does_not_rewrite_pinned_observation(self):
         pinned = Path(__file__).with_name("observation.json")
