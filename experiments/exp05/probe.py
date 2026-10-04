@@ -64,7 +64,7 @@ def child(phase, database):
     run_store.dispatch(run["run_id"], callback)
 
 
-def parent():
+def parent(output_path=None):
     observations = {}
     with TemporaryDirectory(prefix="laomedo-exp05-") as root:
         for phase in PHASES:
@@ -144,13 +144,21 @@ def parent():
         elif observation["run_counters_before_restart"]["runs"] != 1:
             raise AssertionError(f"{phase}: missing reserved run")
         assert (len(observation["swept_invocation_ids"]) == (0 if status == "completed" else invocations))
-    output = Path(__file__).with_name("observation.json")
-    output.write_text(json.dumps(observations, indent=2) + "\n", encoding="utf-8")
-    print(output)
+    if output_path is not None:
+        output = Path(output_path)
+        with output.open("w", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(observations, indent=2) + "\n")
+        print(output)
+    return observations
 
 
 if __name__ == "__main__":
     if len(sys.argv) == 4 and sys.argv[1] == "--child":
         child(sys.argv[2], sys.argv[3])
-    else:
+    elif sys.argv[1:] == ["--record"]:
+        parent(Path(__file__).with_name("observation.json"))
+    elif len(sys.argv) == 1:
         parent()
+        print("EXP-05: seven crash/control phases passed")
+    else:
+        raise SystemExit("usage: probe.py [--record]")

@@ -13,7 +13,9 @@ python experiments/exp05/probe.py
 python -m unittest experiments.exp05.test_evidence
 ```
 
-The probe kills a child process before invocation reservation, after
+The normal probe and unit test do not rewrite the committed evidence.
+`python experiments/exp05/probe.py --record` explicitly refreshes it, using
+LF bytes on every platform. The probe kills a child process before invocation reservation, after
 reservation, after dispatch but before native-ID receipt, after the native ID,
 after raw event flush, and after projection. A normal completion is the control.
 The sanitized [observation](observation.json) records each process exit, durable

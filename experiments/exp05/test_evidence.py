@@ -71,7 +71,9 @@ class EvidenceStoreTests(unittest.TestCase):
 
     def test_probe_checks_every_process_kill_boundary(self):
         self.assertEqual(len(PHASES), 7)
-        parent()
+        output = Path(self.temp.name) / "observation.json"
+        self.assertEqual(len(parent(output)), 7)
+        self.assertTrue(output.is_file())
 
 
 if __name__ == "__main__":

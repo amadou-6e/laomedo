@@ -12,7 +12,7 @@
     "invocation_before_restart": [],
     "swept_invocation_ids": [],
     "swept_run_ids": [
-      "a15afe32-f4ef-4c97-839e-24d4627b966a"
+      "4c7e280c-491f-4ab6-b060-251e4fe80696"
     ],
     "invocation_after_restart": [],
     "raw_events_after_restart": [],
@@ -31,9 +31,9 @@
     "projection_count_before_restart": 0,
     "invocation_before_restart": [
       {
-        "invocation_id": "16b8bcd9-35af-4a8e-973e-cbcedab24e81",
-        "run_id": "3466601d-1043-402b-b99e-fb0fc309ce9b",
-        "trace_id": "fee4e1f3-a170-43ba-9bdb-cd0446a565d4",
+        "invocation_id": "3b061867-1943-4278-8237-e13c15707178",
+        "run_id": "327105fd-fc28-47c5-8e93-3cf8a585bf31",
+        "trace_id": "706c7b23-fe30-4485-81db-18c9863b1908",
         "stage_id": "synthetic-provider",
         "native_session_id": null,
         "status": "reserved",
@@ -41,16 +41,16 @@
       }
     ],
     "swept_invocation_ids": [
-      "16b8bcd9-35af-4a8e-973e-cbcedab24e81"
+      "3b061867-1943-4278-8237-e13c15707178"
     ],
     "swept_run_ids": [
-      "3466601d-1043-402b-b99e-fb0fc309ce9b"
+      "327105fd-fc28-47c5-8e93-3cf8a585bf31"
     ],
     "invocation_after_restart": [
       {
-        "invocation_id": "16b8bcd9-35af-4a8e-973e-cbcedab24e81",
-        "run_id": "3466601d-1043-402b-b99e-fb0fc309ce9b",
-        "trace_id": "fee4e1f3-a170-43ba-9bdb-cd0446a565d4",
+        "invocation_id": "3b061867-1943-4278-8237-e13c15707178",
+        "run_id": "327105fd-fc28-47c5-8e93-3cf8a585bf31",
+        "trace_id": "706c7b23-fe30-4485-81db-18c9863b1908",
         "stage_id": "synthetic-provider",
         "native_session_id": null,
         "status": "crashed",
@@ -60,8 +60,8 @@
     "raw_events_after_restart": [],
     "projections_after_restart": [],
     "run_after_restart": {
-      "run_id": "3466601d-1043-402b-b99e-fb0fc309ce9b",
-      "trace_id": "fee4e1f3-a170-43ba-9bdb-cd0446a565d4",
+      "run_id": "327105fd-fc28-47c5-8e93-3cf8a585bf31",
+      "trace_id": "706c7b23-fe30-4485-81db-18c9863b1908",
       "status": "crashed",
       "evidence_complete": 0,
       "dispatch_attempts": 0
@@ -79,9 +79,9 @@
     "projection_count_before_restart": 0,
     "invocation_before_restart": [
       {
-        "invocation_id": "fa959134-f335-4946-a626-b393ac76dde4",
-        "run_id": "28416831-7b77-438c-9fbf-bfb672ce39f3",
-        "trace_id": "10a6e8ca-14aa-4572-aaf0-e249d402f8eb",
+        "invocation_id": "9b4d64f5-f0ca-4af0-952d-0200ec43b8b6",
+        "run_id": "d6f4b00b-70c9-465e-9927-12beced0382c",
+        "trace_id": "812f05f9-ad8e-4eef-802b-9c689f806e04",
         "stage_id": "synthetic-provider",
         "native_session_id": null,
         "status": "reserved",
@@ -89,16 +89,16 @@
       }
     ],
     "swept_invocation_ids": [
-      "fa959134-f335-4946-a626-b393ac76dde4"
+      "9b4d64f5-f0ca-4af0-952d-0200ec43b8b6"
     ],
     "swept_run_ids": [
-      "28416831-7b77-438c-9fbf-bfb672ce39f3"
+      "d6f4b00b-70c9-465e-9927-12beced0382c"
     ],
     "invocation_after_restart": [
       {
-        "invocation_id": "fa959134-f335-4946-a626-b393ac76dde4",
-        "run_id": "28416831-7b77-438c-9fbf-bfb672ce39f3",
-        "trace_id": "10a6e8ca-14aa-4572-aaf0-e249d402f8eb",
+        "invocation_id": "9b4d64f5-f0ca-4af0-952d-0200ec43b8b6",
+        "run_id": "d6f4b00b-70c9-465e-9927-12beced0382c",
+        "trace_id": "812f05f9-ad8e-4eef-802b-9c689f806e04",
         "stage_id": "synthetic-provider",
         "native_session_id": null,
         "status": "crashed",
@@ -108,8 +108,8 @@
     "raw_events_after_restart": [],
     "projections_after_restart": [],
     "run_after_restart": {
-      "run_id": "28416831-7b77-438c-9fbf-bfb672ce39f3",
-      "trace_id": "10a6e8ca-14aa-4572-aaf0-e249d402f8eb",
+      "run_id": "d6f4b00b-70c9-465e-9927-12beced0382c",
+      "trace_id": "812f05f9-ad8e-4eef-802b-9c689f806e04",
       "status": "crashed",
       "evidence_complete": 0,
       "dispatch_attempts": 1
@@ -127,9 +127,9 @@
     "projection_count_before_restart": 0,
     "invocation_before_restart": [
       {
-        "invocation_id": "3d4645aa-9049-4977-bbdf-20bf9d2452af",
-        "run_id": "7c9fa187-a89f-43a9-8ca5-e64751c21cec",
-        "trace_id": "1463e8c5-9c61-4c56-9a62-872963fbf3e2",
+        "invocation_id": "7660bbb9-4677-413c-843e-b816fca13486",
+        "run_id": "0ee4b4fb-7d5e-482c-9868-696e22ebc13a",
+        "trace_id": "fd1f8384-a956-43eb-82d2-48cb8741f988",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "active",
@@ -137,16 +137,16 @@
       }
     ],
     "swept_invocation_ids": [
-      "3d4645aa-9049-4977-bbdf-20bf9d2452af"
+      "7660bbb9-4677-413c-843e-b816fca13486"
     ],
     "swept_run_ids": [
-      "7c9fa187-a89f-43a9-8ca5-e64751c21cec"
+      "0ee4b4fb-7d5e-482c-9868-696e22ebc13a"
     ],
     "invocation_after_restart": [
       {
-        "invocation_id": "3d4645aa-9049-4977-bbdf-20bf9d2452af",
-        "run_id": "7c9fa187-a89f-43a9-8ca5-e64751c21cec",
-        "trace_id": "1463e8c5-9c61-4c56-9a62-872963fbf3e2",
+        "invocation_id": "7660bbb9-4677-413c-843e-b816fca13486",
+        "run_id": "0ee4b4fb-7d5e-482c-9868-696e22ebc13a",
+        "trace_id": "fd1f8384-a956-43eb-82d2-48cb8741f988",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "crashed",
@@ -156,8 +156,8 @@
     "raw_events_after_restart": [],
     "projections_after_restart": [],
     "run_after_restart": {
-      "run_id": "7c9fa187-a89f-43a9-8ca5-e64751c21cec",
-      "trace_id": "1463e8c5-9c61-4c56-9a62-872963fbf3e2",
+      "run_id": "0ee4b4fb-7d5e-482c-9868-696e22ebc13a",
+      "trace_id": "fd1f8384-a956-43eb-82d2-48cb8741f988",
       "status": "crashed",
       "evidence_complete": 0,
       "dispatch_attempts": 1
@@ -175,9 +175,9 @@
     "projection_count_before_restart": 0,
     "invocation_before_restart": [
       {
-        "invocation_id": "71ce303e-b175-4d19-8723-bf393d805d2f",
-        "run_id": "56f2d656-72e6-4891-86b9-b9c5ce6957ba",
-        "trace_id": "f4d21960-3f44-43fa-87dc-d95e93711490",
+        "invocation_id": "dc831270-1032-4f4a-bc4c-69faa32653fa",
+        "run_id": "4bcf2704-a74a-4542-8f22-9abd31a7ecad",
+        "trace_id": "2bbc6432-361b-40a5-81dc-650aeca0f11e",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "active",
@@ -185,16 +185,16 @@
       }
     ],
     "swept_invocation_ids": [
-      "71ce303e-b175-4d19-8723-bf393d805d2f"
+      "dc831270-1032-4f4a-bc4c-69faa32653fa"
     ],
     "swept_run_ids": [
-      "56f2d656-72e6-4891-86b9-b9c5ce6957ba"
+      "4bcf2704-a74a-4542-8f22-9abd31a7ecad"
     ],
     "invocation_after_restart": [
       {
-        "invocation_id": "71ce303e-b175-4d19-8723-bf393d805d2f",
-        "run_id": "56f2d656-72e6-4891-86b9-b9c5ce6957ba",
-        "trace_id": "f4d21960-3f44-43fa-87dc-d95e93711490",
+        "invocation_id": "dc831270-1032-4f4a-bc4c-69faa32653fa",
+        "run_id": "4bcf2704-a74a-4542-8f22-9abd31a7ecad",
+        "trace_id": "2bbc6432-361b-40a5-81dc-650aeca0f11e",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "crashed",
@@ -204,7 +204,7 @@
     "raw_events_after_restart": [
       {
         "receipt_sequence": 1,
-        "invocation_id": "71ce303e-b175-4d19-8723-bf393d805d2f",
+        "invocation_id": "dc831270-1032-4f4a-bc4c-69faa32653fa",
         "source_event_id": "synthetic-event-1",
         "kind": "tool_call",
         "payload_json": "{\"summary\":\"synthetic read\",\"tool\":\"fixture\"}"
@@ -213,14 +213,14 @@
     "projections_after_restart": [
       {
         "receipt_sequence": 1,
-        "invocation_id": "71ce303e-b175-4d19-8723-bf393d805d2f",
+        "invocation_id": "dc831270-1032-4f4a-bc4c-69faa32653fa",
         "kind": "tool_call",
         "summary": "synthetic read"
       }
     ],
     "run_after_restart": {
-      "run_id": "56f2d656-72e6-4891-86b9-b9c5ce6957ba",
-      "trace_id": "f4d21960-3f44-43fa-87dc-d95e93711490",
+      "run_id": "4bcf2704-a74a-4542-8f22-9abd31a7ecad",
+      "trace_id": "2bbc6432-361b-40a5-81dc-650aeca0f11e",
       "status": "crashed",
       "evidence_complete": 0,
       "dispatch_attempts": 1
@@ -238,9 +238,9 @@
     "projection_count_before_restart": 1,
     "invocation_before_restart": [
       {
-        "invocation_id": "f1c9c1ea-5aea-4f5d-9760-68dbd455c082",
-        "run_id": "17514a58-b842-47d0-be37-c664177a9645",
-        "trace_id": "2ea8ddf3-c599-4c0c-a829-9b23ea5c7614",
+        "invocation_id": "337997a3-ce77-4ca3-abf5-cfd82bb77a24",
+        "run_id": "542d08d8-1031-4866-aca5-ff5edf7bd069",
+        "trace_id": "147ca6d0-056d-4ef3-8847-a4172f20665e",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "active",
@@ -248,16 +248,16 @@
       }
     ],
     "swept_invocation_ids": [
-      "f1c9c1ea-5aea-4f5d-9760-68dbd455c082"
+      "337997a3-ce77-4ca3-abf5-cfd82bb77a24"
     ],
     "swept_run_ids": [
-      "17514a58-b842-47d0-be37-c664177a9645"
+      "542d08d8-1031-4866-aca5-ff5edf7bd069"
     ],
     "invocation_after_restart": [
       {
-        "invocation_id": "f1c9c1ea-5aea-4f5d-9760-68dbd455c082",
-        "run_id": "17514a58-b842-47d0-be37-c664177a9645",
-        "trace_id": "2ea8ddf3-c599-4c0c-a829-9b23ea5c7614",
+        "invocation_id": "337997a3-ce77-4ca3-abf5-cfd82bb77a24",
+        "run_id": "542d08d8-1031-4866-aca5-ff5edf7bd069",
+        "trace_id": "147ca6d0-056d-4ef3-8847-a4172f20665e",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "crashed",
@@ -267,7 +267,7 @@
     "raw_events_after_restart": [
       {
         "receipt_sequence": 1,
-        "invocation_id": "f1c9c1ea-5aea-4f5d-9760-68dbd455c082",
+        "invocation_id": "337997a3-ce77-4ca3-abf5-cfd82bb77a24",
         "source_event_id": "synthetic-event-1",
         "kind": "tool_call",
         "payload_json": "{\"summary\":\"synthetic read\",\"tool\":\"fixture\"}"
@@ -276,14 +276,14 @@
     "projections_after_restart": [
       {
         "receipt_sequence": 1,
-        "invocation_id": "f1c9c1ea-5aea-4f5d-9760-68dbd455c082",
+        "invocation_id": "337997a3-ce77-4ca3-abf5-cfd82bb77a24",
         "kind": "tool_call",
         "summary": "synthetic read"
       }
     ],
     "run_after_restart": {
-      "run_id": "17514a58-b842-47d0-be37-c664177a9645",
-      "trace_id": "2ea8ddf3-c599-4c0c-a829-9b23ea5c7614",
+      "run_id": "542d08d8-1031-4866-aca5-ff5edf7bd069",
+      "trace_id": "147ca6d0-056d-4ef3-8847-a4172f20665e",
       "status": "crashed",
       "evidence_complete": 0,
       "dispatch_attempts": 1
@@ -301,9 +301,9 @@
     "projection_count_before_restart": 1,
     "invocation_before_restart": [
       {
-        "invocation_id": "38350ef5-e427-440b-8ce3-19cea3302eec",
-        "run_id": "e802f769-ae2c-453e-b226-901b43444d74",
-        "trace_id": "7d4342c1-2562-4c9f-bd85-2a738565bbec",
+        "invocation_id": "3885c80a-9c2c-46e9-8a80-3d4507dc0787",
+        "run_id": "f41036d1-7bd7-48cc-a0d3-87c612e60331",
+        "trace_id": "bcab1cb4-c84f-4ca7-b30b-f686328690f8",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "completed",
@@ -314,9 +314,9 @@
     "swept_run_ids": [],
     "invocation_after_restart": [
       {
-        "invocation_id": "38350ef5-e427-440b-8ce3-19cea3302eec",
-        "run_id": "e802f769-ae2c-453e-b226-901b43444d74",
-        "trace_id": "7d4342c1-2562-4c9f-bd85-2a738565bbec",
+        "invocation_id": "3885c80a-9c2c-46e9-8a80-3d4507dc0787",
+        "run_id": "f41036d1-7bd7-48cc-a0d3-87c612e60331",
+        "trace_id": "bcab1cb4-c84f-4ca7-b30b-f686328690f8",
         "stage_id": "synthetic-provider",
         "native_session_id": "synthetic-session-1",
         "status": "completed",
@@ -326,7 +326,7 @@
     "raw_events_after_restart": [
       {
         "receipt_sequence": 1,
-        "invocation_id": "38350ef5-e427-440b-8ce3-19cea3302eec",
+        "invocation_id": "3885c80a-9c2c-46e9-8a80-3d4507dc0787",
         "source_event_id": "synthetic-event-1",
         "kind": "tool_call",
         "payload_json": "{\"summary\":\"synthetic read\",\"tool\":\"fixture\"}"
@@ -335,14 +335,14 @@
     "projections_after_restart": [
       {
         "receipt_sequence": 1,
-        "invocation_id": "38350ef5-e427-440b-8ce3-19cea3302eec",
+        "invocation_id": "3885c80a-9c2c-46e9-8a80-3d4507dc0787",
         "kind": "tool_call",
         "summary": "synthetic read"
       }
     ],
     "run_after_restart": {
-      "run_id": "e802f769-ae2c-453e-b226-901b43444d74",
-      "trace_id": "7d4342c1-2562-4c9f-bd85-2a738565bbec",
+      "run_id": "f41036d1-7bd7-48cc-a0d3-87c612e60331",
+      "trace_id": "bcab1cb4-c84f-4ca7-b30b-f686328690f8",
       "status": "completed",
       "evidence_complete": 1,
       "dispatch_attempts": 1
