@@ -25,4 +25,8 @@ jobs:
         run: |
           python -m unittest experiments.exp05.test_evidence -v
           python experiments/exp05/probe.py
+      - name: Test synthetic EXP-09 replay in checkout
+        run: |
+          python -m unittest experiments.exp09.test_probe -v
+          python -m experiments.exp09.probe
       - run: laomedo-work-graph import --repo example/work --file examples/work-graph/github-pages.json --output-dir "$RUNNER_TEMP/work-graph"
