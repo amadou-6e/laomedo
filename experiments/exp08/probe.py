@@ -44,6 +44,9 @@ def content_hash(checkout):
 def clone(repository, destination, root):
     git("-c", "core.autocrlf=true", "clone", "--no-hardlinks", "-q",
         str(repository), str(destination), cwd=root)
+    # The command-scoped setting affects checkout but is not persisted by clone.
+    # Keep add/status in the clone on the same conversion policy, including Linux.
+    git("config", "core.autocrlf", "true", cwd=destination)
     return destination
 
 
