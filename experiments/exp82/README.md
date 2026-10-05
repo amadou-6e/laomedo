@@ -74,6 +74,8 @@ existing read-only `gh` login. They import the no-model flow, fetch the saved
 export through the API, re-fetch the live GitHub graph at launch, and run the
 Docker worker. Neither probe uses a provider credential, model turn, GitHub
 write or production issue task. They print sanitized summaries only.
+The [sanitized isolated observation](isolated-observation.json) records all
+five probes against source commit `9638397`.
 
 The local CLI's typed work-key confirmation does not independently
 authenticate the operator. The zero-turn restriction and `--network none`
