@@ -58,6 +58,7 @@ class WorkflowRunStore:
                     status TEXT NOT NULL,
                     evidence_state TEXT NOT NULL,
                     effect_state TEXT NOT NULL,
+                    error_class TEXT,
                     native_job_id TEXT,
                     native_job_state TEXT NOT NULL,
                     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -165,7 +166,7 @@ class WorkflowRunStore:
             self._receipt(db, run_id, invocation_id, "dispatch_started", {})
 
     def record_timeout(self, run_id, invocation_id, *, http_status, detail):
-        """A 408 ends the caller wait, not the external effect."""
+        """A Langflow v2 server 408 ends its wait, not the external effect."""
         if (http_status != 408 or not isinstance(detail, dict) or
                 detail.get("code") != "EXECUTION_TIMEOUT"):
             raise LaunchError("not_a_verified_timeout")
@@ -174,24 +175,24 @@ class WorkflowRunStore:
             raise LaunchError("invalid_native_job_id")
         with self._database() as db:
             run_changed = db.execute("""UPDATE runs SET status='timed_out',
-                evidence_complete=0, terminal_reason='caller_timeout'
+                evidence_complete=0, terminal_reason='langflow_execution_timeout'
                 WHERE run_id=? AND status='dispatching'""", (run_id,)).rowcount
             invocation_changed = db.execute("""UPDATE workflow_invocations SET status='failed',
-                evidence_state='unknown', effect_state='unknown', native_job_id=?
+                error_class='timeout', native_job_id=?
                 WHERE run_id=? AND invocation_id=? AND status='running'""",
                 (job_id, run_id, invocation_id)).rowcount
             if run_changed != 1 or invocation_changed != 1:
                 raise LaunchError("timeout_not_dispatching")
-            self._receipt(db, run_id, invocation_id, "caller_timeout",
+            self._receipt(db, run_id, invocation_id, "langflow_execution_timeout",
                           {"http_status": 408, "detail_code": "EXECUTION_TIMEOUT",
-                           "native_job_id": job_id})
+                           "native_job_id": job_id, "timeout_layer": "langflow_server"})
 
     def record_job_status(self, run_id, invocation_id, *, http_status, detail):
         """Distinguish a failed native job from a failed status lookup."""
         if not isinstance(http_status, int) or not isinstance(detail, dict):
             raise LaunchError("invalid_native_status_response")
         with self._database() as db:
-            invocation = db.execute("""SELECT native_job_id FROM workflow_invocations
+            invocation = db.execute("""SELECT native_job_id,native_job_state FROM workflow_invocations
                 WHERE run_id=? AND invocation_id=? AND status='failed'""",
                 (run_id, invocation_id)).fetchone()
             if invocation is None or not invocation["native_job_id"]:
@@ -200,7 +201,9 @@ class WorkflowRunStore:
             reported_job_id = detail.get("job_id")
             if reported_job_id is not None and reported_job_id != invocation["native_job_id"]:
                 raise LaunchError("native_job_id_mismatch")
-            native_state = "failed" if http_status == 500 and code == "JOB_FAILED" else "unknown"
+            observed_state = "failed" if http_status == 500 and code == "JOB_FAILED" else "unknown"
+            native_state = ("failed" if invocation["native_job_state"] == "failed"
+                            else observed_state)
             db.execute("""UPDATE workflow_invocations SET native_job_state=?
                 WHERE run_id=? AND invocation_id=?""",
                 (native_state, run_id, invocation_id))
@@ -208,18 +211,21 @@ class WorkflowRunStore:
                           {"http_status": http_status,
                            "detail_code": code if isinstance(code, str) else None,
                            "native_job_id": invocation["native_job_id"],
+                           "observation_state": observed_state,
                            "native_job_state": native_state})
         return native_state
 
     def record_effect(self, run_id, invocation_id, *, source, source_ref, source_time=None):
-        """Attach each delivered effect receipt; no unique-action inference."""
+        """Attach effects after dispatch, including before timeout or after a crash."""
         if (not isinstance(source, str) or not source or
                 not isinstance(source_ref, str) or not source_ref):
             raise LaunchError("invalid_effect_source")
         with self._database() as db:
             changed = db.execute("""UPDATE workflow_invocations SET effect_state='observed',
                 evidence_state='partial' WHERE run_id=? AND invocation_id=?
-                AND status='failed'""", (run_id, invocation_id)).rowcount
+                AND status IN ('running','failed') AND EXISTS
+                (SELECT 1 FROM runs WHERE run_id=? AND dispatch_attempts=1)""",
+                (run_id, invocation_id, run_id)).rowcount
             if changed != 1:
                 raise LaunchError("effect_not_correlated")
             self._receipt(db, run_id, invocation_id, "external_effect_observed",
@@ -244,7 +250,7 @@ class WorkflowRunStore:
                 "invocation": dict(invocation), "receipts": receipts,
                 "event_count": len(receipts),
                 "last_received_sequence": receipts[-1]["sequence"] if receipts else None,
-                "stream_state": "partial" if receipts else "unknown",
+                "stream_state": "partial" if run["dispatch_attempts"] else "unknown",
                 "action_uniqueness": "uncertain"}
 
     def dispatch(self, run_id, callback):
@@ -289,7 +295,8 @@ class WorkflowRunStore:
             db.execute("""UPDATE runs SET status='crashed', evidence_complete=0,
                 terminal_reason='backend_restart'
                 WHERE status IN ('reserved','dispatching')""")
-            db.execute("""UPDATE workflow_invocations SET status='failed', evidence_state='unknown'
+            db.execute("""UPDATE workflow_invocations SET status='failed',
+                evidence_state=CASE WHEN effect_state='observed' THEN 'partial' ELSE 'unknown' END
                 WHERE run_id IN (SELECT run_id FROM runs WHERE status='crashed')
                 AND status IN ('reserved','running')""")
         return ids

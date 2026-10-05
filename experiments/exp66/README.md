@@ -25,3 +25,10 @@ real Codex worker can be cancelled. The runner and its effect were disposable;
 the container, named volume, temporary SQLite store and synthetic token were
 removed after capture. Real-agent behavior and the first-slice timeout gate
 remain open under [issue #22](https://github.com/amadou-6e/laomedo/issues/22).
+
+The live observation was captured with store revision `c4f5066`. Later
+review fixes to that store accept effects before the timeout and after a
+crash sweep, label the Langflow server timeout correctly, and preserve a
+known failed native job across a later lookup error. Those fixes are covered
+by deterministic store regression tests, **not** by a new live call; the
+prospective protocol's two-call cap is spent.

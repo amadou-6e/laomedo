@@ -49,8 +49,11 @@ class TimeoutTraceTests(unittest.TestCase):
         before = self.store.trace_snapshot(run_id)
         self.assertEqual(before["run_status"], "reserved")
         self.assertEqual(before["dispatch_attempts"], 0)
+        self.assertEqual(before["stream_state"], "unknown")
         self.store.begin_invocation(run_id, invocation_id)
         self.timeout(run_id, invocation_id)
+        self.assertEqual(self.store.get(run_id)["terminal_reason"],
+                         "langflow_execution_timeout")
         job_id = self.observed["caller"]["response"]["job_id"]
         polls = self.observed["status_snapshots"]
         effect = next(row for row in self.observed["runner_events"]
@@ -68,6 +71,7 @@ class TimeoutTraceTests(unittest.TestCase):
         prior_effect = self.store.trace_snapshot(run_id)
         self.assertEqual(prior_effect["run_status"], "timed_out")
         self.assertEqual(prior_effect["invocation"]["status"], "failed")
+        self.assertEqual(prior_effect["invocation"]["error_class"], "timeout")
         self.assertEqual(prior_effect["invocation"]["native_job_state"], "failed")
         self.assertEqual(prior_effect["invocation"]["effect_state"], "unknown")
         self.assertEqual(prior_effect["invocation"]["evidence_state"], "unknown")
@@ -92,9 +96,11 @@ class TimeoutTraceTests(unittest.TestCase):
         self.assertEqual(trace["action_uniqueness"], "uncertain")
         self.assertFalse(trace["evidence_complete"])
         self.assertEqual([r["kind"] for r in trace["receipts"]], [
-            "invocation_reserved", "dispatch_started", "caller_timeout",
+            "invocation_reserved", "dispatch_started", "langflow_execution_timeout",
             "native_job_observed", "native_job_observed",
             "external_effect_observed", "native_job_observed", "native_job_observed"])
+        self.assertEqual(trace["receipts"][2]["payload"]["timeout_layer"],
+                         "langflow_server")
         self.assertEqual(trace["event_count"], 8)
         self.assertEqual(trace["last_received_sequence"], trace["receipts"][-1]["sequence"])
         with self.assertRaisesRegex(LaunchError, "dispatch_not_reserved"):
@@ -126,6 +132,88 @@ class TimeoutTraceTests(unittest.TestCase):
                              for r in trace["receipts"]), 2)
         self.assertEqual(trace["action_uniqueness"], "uncertain")
         self.assertNotIn("unique_action_count", trace)
+
+    def test_effect_before_timeout_remains_attached_and_partial(self):
+        run, invocation_id = self.reserve()
+        run_id = run["run_id"]
+        with self.assertRaisesRegex(LaunchError, "effect_not_correlated"):
+            self.store.record_effect(run_id, invocation_id, source="synthetic-runner",
+                                     source_ref="early")
+        self.store.begin_invocation(run_id, invocation_id)
+        self.store.record_effect(run_id, invocation_id, source="synthetic-runner",
+                                 source_ref="early")
+        running = self.store.trace_snapshot(run_id)
+        self.assertEqual(running["invocation"]["status"], "running")
+        self.assertEqual(running["invocation"]["evidence_state"], "partial")
+        self.timeout(run_id, invocation_id)
+        reopened = WorkflowRunStore(self.path)
+        trace = reopened.trace_snapshot(run_id)
+        self.assertEqual(trace["invocation"]["status"], "failed")
+        self.assertEqual(trace["invocation"]["effect_state"], "observed")
+        self.assertEqual(trace["invocation"]["evidence_state"], "partial")
+        self.assertEqual([row["kind"] for row in trace["receipts"]], [
+            "invocation_reserved", "dispatch_started", "external_effect_observed",
+            "langflow_execution_timeout"])
+
+    def test_effect_after_crash_sweep_attaches_only_to_dispatched_run(self):
+        not_dispatched, not_dispatched_invocation = self.reserve()
+        dispatched, dispatched_invocation = self.reserve()
+        self.store.begin_invocation(dispatched["run_id"], dispatched_invocation)
+        self.assertEqual(set(self.store.sweep_crashed()),
+                         {not_dispatched["run_id"], dispatched["run_id"]})
+        with self.assertRaisesRegex(LaunchError, "effect_not_correlated"):
+            self.store.record_effect(not_dispatched["run_id"],
+                                     not_dispatched_invocation,
+                                     source="synthetic-runner", source_ref="late")
+        self.store.record_effect(dispatched["run_id"], dispatched_invocation,
+                                 source="synthetic-runner", source_ref="late")
+        reopened = WorkflowRunStore(self.path)
+        self.assertEqual(reopened.sweep_crashed(), [])
+        trace = reopened.trace_snapshot(dispatched["run_id"])
+        self.assertEqual(trace["run_status"], "crashed")
+        self.assertEqual(trace["dispatch_attempts"], 1)
+        self.assertEqual(trace["invocation"]["effect_state"], "observed")
+        self.assertEqual(trace["invocation"]["evidence_state"], "partial")
+        self.assertEqual(trace["stream_state"], "partial")
+        self.assertEqual(reopened.trace_snapshot(not_dispatched["run_id"])["stream_state"],
+                         "unknown")
+
+    def test_crash_sweep_keeps_effect_already_observed_while_running(self):
+        run, invocation_id = self.reserve()
+        run_id = run["run_id"]
+        self.store.begin_invocation(run_id, invocation_id)
+        self.store.record_effect(run_id, invocation_id,
+                                 source="synthetic-runner", source_ref="before-crash")
+        self.assertEqual(self.store.sweep_crashed(), [run_id])
+        trace = WorkflowRunStore(self.path).trace_snapshot(run_id)
+        self.assertEqual(trace["run_status"], "crashed")
+        self.assertEqual(trace["invocation"]["evidence_state"], "partial")
+        self.assertEqual(trace["invocation"]["effect_state"], "observed")
+        self.assertEqual(trace["receipts"][-1]["payload"]["source_ref"], "before-crash")
+
+    def test_later_lookup_error_does_not_downgrade_known_job_failure(self):
+        run, invocation_id = self.reserve()
+        run_id = run["run_id"]
+        self.store.begin_invocation(run_id, invocation_id)
+        self.timeout(run_id, invocation_id)
+        job_id = self.observed["caller"]["response"]["job_id"]
+        self.assertEqual(self.store.record_job_status(
+            run_id, invocation_id, http_status=500,
+            detail={"code": "JOB_FAILED", "job_id": job_id}), "failed")
+        self.assertEqual(self.store.record_job_status(
+            run_id, invocation_id, http_status=500,
+            detail={"code": "INTERNAL_SERVER_ERROR"}), "failed")
+        self.assertEqual(self.store.record_job_status(
+            run_id, invocation_id, http_status=0,
+            detail={"code": "TRANSPORT_ERROR"}), "failed")
+        trace = self.store.trace_snapshot(run_id)
+        self.assertEqual(trace["invocation"]["native_job_state"], "failed")
+        observations = [row["payload"] for row in trace["receipts"]
+                        if row["kind"] == "native_job_observed"]
+        self.assertEqual([row["observation_state"] for row in observations],
+                         ["failed", "unknown", "unknown"])
+        self.assertEqual([row["native_job_state"] for row in observations],
+                         ["failed", "failed", "failed"])
 
     def test_crash_before_or_after_dispatch_never_replays(self):
         first, first_invocation = self.reserve()
