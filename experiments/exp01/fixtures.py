@@ -41,6 +41,9 @@ def corpus():
     closed = node("P-101", 101, "CLOSED", blocking=(ref("P-909"),))
     dependent = node("P-909", 909, labels=("focus",), blocked_by=(ref("P-101"),))
     isolated = node("P-700", 700, labels=("focus",))
+    open_blocker = node("H-201", 201, blocking=(ref("H-202"),))
+    hidden_dependent = node("H-202", 202, labels=("focus",),
+                            blocked_by=(ref("H-201"),))
     cross = node("X-12", 12, body="Text says #blocks 13, but that is not a native edge.",
                  blocked_by=(ref("EXT-81", "other/private"),))
     incomplete = node("I-3", 3, labels=("focus",), label_count=2,
@@ -52,6 +55,7 @@ def corpus():
     return {
         "paged_closed_blocker": [page([closed], 3, more=True, cursor="next-1"),
                                  page([dependent, isolated], 3)],
+        "hidden_open_blocker": [page([open_blocker, hidden_dependent], 2)],
         "cross_repo_text": [page([cross], 1)],
         "incomplete_connections": [page([incomplete, None], 2)],
         "interrupted_page": [page([node("T-4", 4)], 2, more=True, cursor="next-2"),

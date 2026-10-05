@@ -3,7 +3,13 @@
     "complete": true, "warnings": [],
     "items": {"github:P-101": [101, "CLOSED", "closed"], "github:P-909": [909, "OPEN", "ready"], "github:P-700": [700, "OPEN", "ready"]},
     "edges": [["github:P-101", "github:P-909", "verify/exp01", "verify/exp01"]],
-    "open_focus": {"items": ["github:P-700", "github:P-909"], "edges": [], "context_edges": [["github:P-101", "github:P-909"]]}
+    "open_focus": {"items": {"github:P-700": "ready", "github:P-909": "ready"}, "edges": [], "context_edges": [["github:P-101", "github:P-909"]]}
+  },
+  "hidden_open_blocker": {
+    "complete": true, "warnings": [],
+    "items": {"github:H-201": [201, "OPEN", "ready"], "github:H-202": [202, "OPEN", "blocked"]},
+    "edges": [["github:H-201", "github:H-202", "verify/exp01", "verify/exp01"]],
+    "open_focus": {"items": {"github:H-202": "blocked"}, "edges": [], "context_edges": [["github:H-201", "github:H-202"]]}
   },
   "cross_repo_text": {
     "complete": true, "warnings": [],

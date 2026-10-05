@@ -85,7 +85,8 @@ def main():
             if projection is not None:
                 filtered = snapshot.project("open", ("focus",))
                 actual["open_focus"] = {
-                    "items": sorted(item["key"] for item in filtered["items"]),
+                    "items": {item["key"]: item["readiness"]
+                              for item in filtered["items"]},
                     "edges": sorted([edge["prerequisite"], edge["dependent"]]
                                     for edge in filtered["dependencies"]),
                     "context_edges": sorted([edge["prerequisite"], edge["dependent"]]
