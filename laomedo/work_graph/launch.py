@@ -163,3 +163,19 @@ def launch_github_work_stage(*, frozen, work_key, stage, store, grant_ref,
         grant_authority=grant_authority, resolved_config=resolved_config,
         choice=choice, override=override, inputs=inputs, types=types,
         outputs=outputs, now=now)
+
+
+def launch_github_saved_flow_stage(*, frozen, work_key, flow_id, fetch_export,
+                                   store, grant_ref, grant_authority,
+                                   resolved_config, choice=None, override=None,
+                                   inputs=None, types=None, outputs=None,
+                                   now=None):
+    """Build one saved-flow revision and pass it through the Work Graph gate."""
+    from laomedo.langflow_stage_adapter import FrozenLangflowStage
+
+    stage = FrozenLangflowStage.from_saved_flow(flow_id, fetch_export)
+    return launch_github_work_stage(frozen=frozen, work_key=work_key,
+        stage=stage, store=store, grant_ref=grant_ref,
+        grant_authority=grant_authority, resolved_config=resolved_config,
+        choice=choice, override=override, inputs=inputs, types=types,
+        outputs=outputs, now=now)
