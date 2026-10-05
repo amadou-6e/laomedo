@@ -2,7 +2,9 @@
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 from lfx.graph.graph.base import Graph
@@ -21,6 +23,15 @@ class Response(io.BytesIO):
 
 
 class GraphTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        token = Path(temporary.name) / "api-token"
+        token.write_text("synthetic-token", encoding="utf-8")
+        environment = patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)})
+        environment.start()
+        self.addCleanup(environment.stop)
+
     async def test_chain_passes_selected_answer_once(self):
         payloads = []
         flow = builder.build()

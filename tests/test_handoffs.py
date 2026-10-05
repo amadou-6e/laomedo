@@ -115,6 +115,42 @@ class HandoffTests(unittest.TestCase):
             self.assertEqual(stored["stop_reason"], "dispatch_uncertain")
             self.assertEqual(stored["transitions"], result["transitions"])
 
+    def test_early_ack_is_durable_while_dispatch_still_waits(self):
+        import tempfile
+        import threading
+        class Waiting(Adapter):
+            def __init__(self):
+                super().__init__([])
+                self.acknowledged = threading.Event()
+                self.release = threading.Event()
+
+            def dispatch(self, item, **kwargs):
+                kwargs["on_ack"]({"run_id": "early-id", "status": "running"})
+                self.acknowledged.set()
+                self.release.wait(3)
+                return {"provider": "codex", "run_id": "early-id",
+                        "status": "cancelled", "answer": None}
+
+        with tempfile.TemporaryDirectory() as root:
+            adapter = Waiting()
+            controller = BoundedController(adapter, max_iterations=1, turn_budget=1,
+                                           timeout_seconds=10, state_dir=root)
+            result = {}
+            worker = threading.Thread(target=lambda: result.update(
+                controller.run([TARGET], "task", SKILLS, success=lambda _: False)))
+            worker.start()
+            try:
+                self.assertTrue(adapter.acknowledged.wait(2))
+                stored = BoundedController.inspect(root, controller.execution_id)
+                self.assertEqual(stored["transitions"][0]["run"]["run_id"], "early-id")
+                self.assertEqual(stored["stop_reason"], "running")
+                controller.cancel()
+            finally:
+                adapter.release.set()
+                worker.join(3)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(result["stop_reason"], "cancelled")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,7 @@
 import json
 import os
 import time
+from uuid import UUID, uuid5
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -38,7 +39,7 @@ class RunnerAdapter:
             raise HandoffError("runner_token_invalid")
         return {"Content-Type": "application/json", "Authorization": "Bearer " + token}
 
-    def dispatch(self, handoff, *, deadline, cancelled):
+    def dispatch(self, handoff, *, deadline, cancelled, early_start=False, on_ack=None):
         if cancelled.is_set() or time.monotonic() >= deadline:
             raise HandoffError("dispatch_stopped")
         target = handoff["target"]
@@ -62,7 +63,12 @@ class RunnerAdapter:
             task["artifact_refs"] = handoff["artifacts"]
             task["handoff"] = {key: handoff[key] for key in
                                ("execution_id", "step", "source", "workspace_policy")}
-            endpoint = base + "/v1/runs"
+            if early_start and provider == "codex":
+                task["request_id"] = str(uuid5(UUID(handoff["execution_id"]),
+                                               str(handoff["step"])))
+                endpoint = base + "/v1/runs/async"
+            else:
+                endpoint = base + "/v1/runs"
         request = Request(endpoint, data=json.dumps(task).encode(), method="POST",
                           headers=headers)
         status_code = None
@@ -79,6 +85,26 @@ class RunnerAdapter:
         if not isinstance(raw, dict) or not raw.get("run_id"):
             raise HandoffError("invalid_runner_response")
         self.active[handoff["execution_id"]] = (base, raw["run_id"])
+        if early_start and provider == "codex" and handoff["operation"] == "fresh":
+            if callable(on_ack):
+                on_ack({"run_id": raw["run_id"], "status": raw.get("status")})
+            endpoint = base + "/v1/runs/" + raw["run_id"]
+            cancel_forwarded = False
+            while raw.get("status") in {"prepared", "running"}:
+                # Stop may have arrived before the early acknowledgement gave
+                # the controller an ID. Forward it once as soon as the ID exists.
+                if cancelled.is_set() and not cancel_forwarded:
+                    self.cancel(handoff["execution_id"])
+                    cancel_forwarded = True
+                if time.monotonic() >= deadline:
+                    raise HandoffError("runner_result_pending")
+                poll = Request(endpoint, headers=headers, method="GET")
+                with urlopen(poll, timeout=max(.001, min(5, deadline - time.monotonic()))) as response:
+                    raw = json.load(response)
+                if not isinstance(raw, dict) or raw.get("run_id") != self.active[handoff["execution_id"]][1]:
+                    raise HandoffError("runner_poll_identity_mismatch")
+                if raw.get("status") in {"prepared", "running"}:
+                    time.sleep(min(.05, max(0, deadline - time.monotonic())))
         # Deliberately omit profile, auth, host paths and raw transcript contents.
         return {"provider": provider, "run_id": raw["run_id"], "thread_id": raw.get("thread_id"),
                 "status": raw.get("status"), "answer": raw.get("answer"),
