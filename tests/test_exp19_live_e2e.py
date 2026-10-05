@@ -2,6 +2,8 @@
 
 from dataclasses import replace
 import gzip
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -16,6 +18,24 @@ except ModuleNotFoundError as error:
 
 @unittest.skipUnless(live_e2e is not None, "experiment source is not installed in the wheel")
 class LocalExp19Tests(unittest.TestCase):
+    def test_output_parent_is_materialized_and_frozen_before_dispatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "README.md").write_text("fixture", encoding="utf-8")
+            with patch.object(live_e2e, "SOURCE", source):
+                with self.assertRaisesRegex(ValueError, "output_parent_not_clean"):
+                    live_e2e._source_hash()
+                parent = source / Path(live_e2e.OUTPUT).parent
+                parent.mkdir(parents=True)
+                (parent / ".gitkeep").write_text("", encoding="utf-8")
+                frozen = live_e2e._source_hash()
+                self.assertEqual(live_e2e._source_hash({"source_workspace_hash": frozen}),
+                                 frozen)
+                (source / "README.md").write_text("changed", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError,
+                                            "source_workspace_changed_before_dispatch"):
+                    live_e2e._source_hash({"source_workspace_hash": frozen})
+
     def test_http_decodes_gzip_json_response(self):
         class Response:
             status = 200
