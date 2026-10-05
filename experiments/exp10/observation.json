@@ -9,21 +9,30 @@
     {
       "case": "control",
       "route": "v1",
-      "started_utc": "2026-10-05T09:53:07.923096+00:00",
-      "duration_seconds": 1.016,
+      "started_utc": "2026-10-05T10:13:32.812890+00:00",
+      "duration_seconds": 1.063,
       "kind": "response",
       "status": 200,
       "response": {
-        "session_id": "3bd46123-0fe1-4c43-9aab-a2d79b860e68",
-        "graph_run_id": "d4314025-c59c-4538-9b79-fd5d2b8f25d6",
+        "session_id": "11e84150-08f4-41b9-93ed-1d485561b198",
+        "graph_run_id": "1b874bbf-a3fc-48e6-b62f-b67b3aec85ea",
         "answer": "synthetic-effect"
       },
       "configured_component_timeout_seconds": 8,
       "configured_caller_timeout_seconds": 15,
       "runner_events": [
-        {"event": "entered", "utc": "2026-10-05T09:53:08.679660+00:00"},
-        {"event": "effect", "utc": "2026-10-05T09:53:08.881353+00:00"},
-        {"event": "response_written", "utc": "2026-10-05T09:53:08.883117+00:00"}
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:33.603808+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:33.805639+00:00"
+        },
+        {
+          "event": "response_written",
+          "utc": "2026-10-05T10:13:33.807288+00:00"
+        }
       ],
       "effect_observed": true,
       "effect_after_caller": false
@@ -31,16 +40,25 @@
     {
       "case": "client",
       "route": "v1",
-      "started_utc": "2026-10-05T09:53:09.053434+00:00",
-      "duration_seconds": 1.016,
+      "started_utc": "2026-10-05T10:13:33.973413+00:00",
+      "duration_seconds": 1.0,
       "kind": "client_error",
       "error_type": "TimeoutError",
       "configured_component_timeout_seconds": 8,
       "configured_caller_timeout_seconds": 1,
       "runner_events": [
-        {"event": "entered", "utc": "2026-10-05T09:53:09.162528+00:00"},
-        {"event": "effect", "utc": "2026-10-05T09:53:13.164028+00:00"},
-        {"event": "response_written", "utc": "2026-10-05T09:53:13.165789+00:00"}
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:34.075435+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:38.077254+00:00"
+        },
+        {
+          "event": "response_written",
+          "utc": "2026-10-05T10:13:38.078874+00:00"
+        }
       ],
       "effect_observed": true,
       "effect_after_caller": true
@@ -48,8 +66,8 @@
     {
       "case": "component",
       "route": "v1",
-      "started_utc": "2026-10-05T09:53:13.374109+00:00",
-      "duration_seconds": 5.375,
+      "started_utc": "2026-10-05T10:13:38.344152+00:00",
+      "duration_seconds": 5.282,
       "kind": "http_error",
       "status": 500,
       "response": {
@@ -58,9 +76,18 @@
       "configured_component_timeout_seconds": 2,
       "configured_caller_timeout_seconds": 15,
       "runner_events": [
-        {"event": "entered", "utc": "2026-10-05T09:53:13.492809+00:00"},
-        {"event": "effect", "utc": "2026-10-05T09:53:18.494388+00:00"},
-        {"event": "response_disconnected", "utc": "2026-10-05T09:53:18.496321+00:00"}
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:38.444186+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:43.446957+00:00"
+        },
+        {
+          "event": "response_disconnected",
+          "utc": "2026-10-05T10:13:43.448636+00:00"
+        }
       ],
       "effect_observed": true,
       "effect_after_caller": false
@@ -68,22 +95,31 @@
     {
       "case": "server",
       "route": "v2",
-      "started_utc": "2026-10-05T09:53:18.845840+00:00",
-      "duration_seconds": 3.032,
+      "started_utc": "2026-10-05T10:13:43.713155+00:00",
+      "duration_seconds": 3.031,
       "kind": "http_error",
       "status": 408,
       "response": {
         "message": "Workflow execution exceeded 3 seconds",
         "code": "EXECUTION_TIMEOUT",
-        "job_id": "12a52961-dbff-445c-a48d-9572dfe6b6d1",
+        "job_id": "10f0821d-8b90-4f43-9196-2ad534fc9cba",
         "timeout_seconds": 3
       },
       "configured_component_timeout_seconds": 8,
       "configured_caller_timeout_seconds": 15,
       "runner_events": [
-        {"event": "entered", "utc": "2026-10-05T09:53:18.966980+00:00"},
-        {"event": "effect", "utc": "2026-10-05T09:53:24.968529+00:00"},
-        {"event": "response_written", "utc": "2026-10-05T09:53:24.971230+00:00"}
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:43.815365+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:49.816900+00:00"
+        },
+        {
+          "event": "response_written",
+          "utc": "2026-10-05T10:13:49.819979+00:00"
+        }
       ],
       "effect_observed": true,
       "effect_after_caller": true
