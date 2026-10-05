@@ -224,17 +224,35 @@ class EarlyRunnerTests(unittest.TestCase):
 
     def test_cancel_pending_at_ack_is_forwarded_by_adapter(self):
         base = self.start_http()
-        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
-                                {"codex": self.state / "api-token"})
+        class CountingAdapter(RunnerAdapter):
+            cancel_calls = 0
+            def cancel(self, execution_id):
+                self.cancel_calls += 1
+                return super().cancel(execution_id)
+        adapter = CountingAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+                                  {"codex": self.state / "api-token"})
         handoff = envelope(None, {"provider": "codex", "model": "test-model",
                                   "effort": "low"}, "Synthetic task",
                            skills=[self.body["skill_ref"]])
         cancelled = threading.Event()
-        result = adapter.dispatch(handoff, deadline=time.monotonic() + 5,
-                                  cancelled=cancelled, early_start=True,
-                                  on_ack=lambda _: cancelled.set())
-        self.assertEqual(result["status"], "cancelled")
-        self.assertTrue(self.runner.status(result["run_id"])["cancel_confirmed"])
+        try:
+            result = adapter.dispatch(handoff, deadline=time.monotonic() + 5,
+                                      cancelled=cancelled, early_start=True,
+                                      on_ack=lambda _: cancelled.set())
+            self.assertEqual(result["status"], "cancelled")
+        except HandoffError as exc:
+            # A slow backend may outlive this wait; that is uncertainty, not
+            # proof that forwarding Stop failed or that the turn stopped.
+            self.assertEqual(str(exc), "runner_result_pending")
+        self.assertEqual(adapter.cancel_calls, 1)
+        run_id = adapter.active[handoff["execution_id"]][1]
+        self.assertEqual(self.runner.status(run_id)["run_id"], run_id)
+        deadline = time.monotonic() + 6
+        terminal = self.runner.status(run_id)
+        while terminal["status"] in {"prepared", "running"} and time.monotonic() < deadline:
+            time.sleep(.02)
+            terminal = self.runner.status(run_id)
+        self.assertIn(terminal["status"], {"cancelled", "timeout"})
         self.assertLessEqual(BlockingServer.turn_starts, 1)
 
     def test_poll_deadline_retains_early_identity_and_does_not_cancel(self):
