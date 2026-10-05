@@ -3,9 +3,11 @@
 import json
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 import threading
 import time
+import traceback
 import unittest
 from urllib import error as http_error, request as http_request
 from uuid import uuid4
@@ -252,7 +254,11 @@ class EarlyRunnerTests(unittest.TestCase):
         while terminal["status"] in {"prepared", "running"} and time.monotonic() < deadline:
             time.sleep(.02)
             terminal = self.runner.status(run_id)
-        self.assertIn(terminal["status"], {"cancelled", "timeout"})
+        worker_stacks = ["".join(traceback.format_stack(sys._current_frames()[thread.ident]))
+                         for thread in threading.enumerate()
+                         if thread.name == "_async_worker" and thread.ident in sys._current_frames()]
+        self.assertIn(terminal["status"], {"cancelled", "timeout"},
+                      f"record={terminal}; worker_stacks={worker_stacks}")
         self.assertLessEqual(BlockingServer.turn_starts, 1)
 
     def test_poll_deadline_retains_early_identity_and_does_not_cancel(self):
