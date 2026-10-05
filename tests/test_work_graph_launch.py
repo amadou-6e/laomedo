@@ -2,10 +2,11 @@
 
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
+import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
@@ -13,7 +14,7 @@ from unittest.mock import patch
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.__main__ import main as work_graph_main
-from laomedo.work_graph.launch import launch_github_work_stage, launch_work_stage, preflight
+from laomedo.work_graph.launch import launch_github_work_stage, launch_work_stage, preflight, relevant_content_digest
 from laomedo.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
 
 
@@ -60,6 +61,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
     def grant(self, ref, binding):
         return {"grant_id": ref, "operator_authorized": True,
             "work_key": WORK, "graph_snapshot_id": binding["selected_graph_snapshot_id"],
+            "content_digest": binding["selected_content_digest"],
             "runner": "langflow-local", "scope": "stage-launch",
             "expires_at": "2026-10-05T10:10:00+00:00",
             "limits": {"timeout_seconds": 60, "max_turns": 0}}
@@ -102,6 +104,8 @@ class WorkGraphLaunchTests(unittest.TestCase):
         self.assertEqual(pinned["selected_graph_snapshot_id"], self.frozen.snapshot_id)
         self.assertEqual(pinned["authorization_graph_snapshot_id"], changed.snapshot_id)
         self.assertEqual(refreshed["selected_graph_snapshot_id"], changed.snapshot_id)
+        self.assertEqual(refreshed["selected_content_digest"],
+                         relevant_content_digest(changed, WORK))
         self.assertNotEqual(pinned["input_digest"], refreshed["input_digest"])
 
     def test_new_hidden_blocker_and_unknown_or_cyclic_evidence_refuse(self):
@@ -136,7 +140,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
         valid = self.grant("synthetic-grant", preflight(self.frozen, self.frozen, WORK))
         for change, reason in (({"operator_authorized": False}, "operator_not_authorized"),
                                ({"work_key": "other"}, "grant_wrong_work"),
-                               ({"graph_snapshot_id": "wrong"}, "grant_wrong_graph"),
+                               ({"content_digest": "wrong"}, "grant_wrong_content"),
                                ({"runner": "other"}, "grant_wrong_runner"),
                                ({"scope": "read"}, "grant_wrong_scope"),
                                ({"limits": {}}, "grant_limits_invalid"),
@@ -221,16 +225,16 @@ class WorkGraphLaunchTests(unittest.TestCase):
         expiry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
         with self.assertRaisesRegex(LaunchError, "grant_issue_invalid"):
             authority.issue(work_key=WORK,
-                graph_snapshot_id=binding["selected_graph_snapshot_id"],
+                graph_snapshot=self.frozen,
                 expires_at=expiry,
                 timeout_seconds=30, max_turns=1)
         wrong_ref = authority.issue(work_key=WORK,
-            graph_snapshot_id="wrong-graph",
+            graph_snapshot=snapshot(self.corpus, "content_changed"),
             expires_at=expiry, timeout_seconds=30, max_turns=0)
         with self.assertRaisesRegex(LaunchError, "grant_binding_mismatch"):
             authority(wrong_ref, binding)
         ref = authority.issue(work_key=WORK,
-            graph_snapshot_id=binding["selected_graph_snapshot_id"],
+            graph_snapshot=self.frozen,
             expires_at=expiry,
             timeout_seconds=30, max_turns=0)
         with patch("laomedo.work_graph.grants._host_principal", return_value="other-user"):
@@ -248,6 +252,79 @@ class WorkGraphLaunchTests(unittest.TestCase):
         self.assertNotIn("operator_id", record["resolved_config"])
         with self.assertRaisesRegex(LaunchError, "grant_invalid"):
             authority(ref, binding)
+
+    def test_refreshed_grant_matches_reviewed_content_across_fetch_times(self):
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        authority = LocalGrantAuthority(Path(temporary.name) / "grants.sqlite")
+        reviewed = snapshot(self.corpus, "content_changed", "2026-10-05T10:01:00+00:00")
+        refetched = snapshot(self.corpus, "content_changed", "2026-10-05T10:02:00+00:00")
+        self.assertNotEqual(reviewed.snapshot_id, refetched.snapshot_id)
+        ref = authority.issue(work_key=WORK, graph_snapshot=reviewed,
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+            timeout_seconds=30, max_turns=0)
+        record, result = launch_work_stage(frozen=self.frozen,
+            source_fetch=lambda _repository: refetched, work_key=WORK,
+            stage=self.stage, store=self.store, grant_ref=ref,
+            grant_authority=authority, resolved_config={"provider": "fake"},
+            choice="refreshed")
+        self.assertEqual(result, "DONE")
+        trigger = json.loads(record["trigger_json"])
+        self.assertEqual(trigger["selected_graph_snapshot_id"], refetched.snapshot_id)
+        self.assertEqual(trigger["authorization_graph_snapshot_id"], refetched.snapshot_id)
+        self.assertEqual(trigger["work_snapshot"]["body_digest"],
+                         preflight(self.frozen, refetched, WORK, choice="refreshed")
+                         ["work_snapshot"]["body_digest"])
+        self.assertEqual(json.loads(record["resolved_config"])
+                         ["grant_reviewed_graph_snapshot_id"], reviewed.snapshot_id)
+        self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
+
+    def test_refreshed_content_mismatch_does_not_redeem_grant(self):
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        authority = LocalGrantAuthority(Path(temporary.name) / "grants.sqlite")
+        changed = snapshot(self.corpus, "content_changed", "2026-10-05T10:02:00+00:00")
+        ref = authority.issue(work_key=WORK, graph_snapshot=self.frozen,
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+            timeout_seconds=30, max_turns=0)
+        with self.assertRaisesRegex(LaunchError, "grant_binding_mismatch"):
+            launch_work_stage(frozen=self.frozen,
+                source_fetch=lambda _repository: changed, work_key=WORK,
+                stage=self.stage, store=self.store, grant_ref=ref,
+                grant_authority=authority, resolved_config={"provider": "fake"},
+                choice="refreshed")
+        self.assertEqual(self.store.counters()["runs"], 0)
+        self.assertEqual(self.stage.calls, 0)
+        record, result = launch_work_stage(frozen=self.frozen,
+            source_fetch=lambda _repository: changed, work_key=WORK,
+            stage=self.stage, store=self.store, grant_ref=ref,
+            grant_authority=authority, resolved_config={"provider": "fake"},
+            choice="pinned")
+        self.assertEqual(result, "DONE")
+        self.assertEqual(json.loads(record["trigger_json"])["source_choice"], "pinned")
+        self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
+
+    def test_legacy_snapshot_only_grant_cannot_redeem_after_migration(self):
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        path = Path(temporary.name) / "grants.sqlite"
+        with closing(sqlite3.connect(path)) as db, db:
+            db.execute("""CREATE TABLE grants (
+                grant_id TEXT PRIMARY KEY, work_key TEXT NOT NULL,
+                graph_snapshot_id TEXT NOT NULL, runner TEXT NOT NULL,
+                scope TEXT NOT NULL, expires_at TEXT NOT NULL,
+                timeout_seconds INTEGER NOT NULL, max_turns INTEGER NOT NULL,
+                operator_id TEXT NOT NULL, issued_at TEXT NOT NULL,
+                redeemed_at TEXT)""")
+        authority = LocalGrantAuthority(path)
+        ref = authority.issue(work_key=WORK, graph_snapshot=self.frozen,
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+            timeout_seconds=30, max_turns=0)
+        with closing(sqlite3.connect(path)) as db, db:
+            db.execute("UPDATE grants SET content_digest=NULL WHERE grant_id=?", (ref,))
+        with self.assertRaisesRegex(LaunchError, "grant_binding_mismatch"):
+            authority(ref, preflight(self.frozen, self.frozen, WORK))
+        self.assertEqual(self.store.counters()["runs"], 0)
 
     def test_issue_grant_cli_requires_exact_operator_confirmation(self):
         temporary = TemporaryDirectory()
@@ -271,6 +348,8 @@ class WorkGraphLaunchTests(unittest.TestCase):
             self.assertEqual(work_graph_main(argv), 0)
         issued = json.loads(output.getvalue())
         self.assertEqual(issued["graph_snapshot_id"], self.frozen.snapshot_id)
+        self.assertEqual(issued["content_digest"],
+                         relevant_content_digest(self.frozen, WORK))
         self.assertEqual(issued["max_turns"], 0)
         grant = LocalGrantAuthority(store_path)(issued["grant_ref"],
             preflight(self.frozen, self.frozen, WORK))

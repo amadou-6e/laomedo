@@ -27,7 +27,7 @@ def main():
         private = Path(directory)
         authority = LocalGrantAuthority(private / "grants.sqlite")
         grant_ref = authority.issue(work_key=work_key,
-            graph_snapshot_id=frozen.snapshot_id,
+            graph_snapshot=frozen,
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         store = WorkflowRunStore(private / "runs.sqlite3")
@@ -45,7 +45,7 @@ def main():
         except LaunchError as exc:
             replay_refused = str(exc) == "grant_invalid"
         bad_ref = authority.issue(work_key=work_key,
-            graph_snapshot_id=frozen.snapshot_id,
+            graph_snapshot=frozen,
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         mismatched = DockerLangflowStage(no_model_flow(), source_root=ROOT)
@@ -83,7 +83,7 @@ def main():
         if code["value"] == original_code:
             raise RuntimeError("protocol_spoof_fixture_not_modified")
         spoof_ref = authority.issue(work_key=work_key,
-            graph_snapshot_id=frozen.snapshot_id,
+            graph_snapshot=frozen,
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         spoof_store = WorkflowRunStore(private / "spoof.sqlite3")

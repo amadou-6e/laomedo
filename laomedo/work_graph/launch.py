@@ -100,6 +100,7 @@ def preflight(frozen: GraphSnapshot, current: GraphSnapshot, work_key: str,
                                      "graph_snapshot_id": bound.snapshot_id}),
             "selected_graph_snapshot_id": bound.snapshot_id,
             "authorization_graph_snapshot_id": current.snapshot_id,
+            "selected_content_digest": current_content if choice == "refreshed" else frozen_content,
             "frozen_content_digest": frozen_content,
             "authorization_content_digest": current_content,
             "source_choice": choice or "unchanged", "override": override}
@@ -124,8 +125,8 @@ def launch_work_stage(*, frozen, source_fetch, work_key, stage, store,
         raise LaunchError("operator_not_authorized")
     if grant.get("work_key") != work_key:
         raise LaunchError("grant_wrong_work")
-    if grant.get("graph_snapshot_id") != binding["selected_graph_snapshot_id"]:
-        raise LaunchError("grant_wrong_graph")
+    if grant.get("content_digest") != binding["selected_content_digest"]:
+        raise LaunchError("grant_wrong_content")
     if grant.get("runner") != "langflow-local":
         raise LaunchError("grant_wrong_runner")
     if grant.get("scope") != "stage-launch":
@@ -146,6 +147,7 @@ def launch_work_stage(*, frozen, source_fetch, work_key, stage, store,
         raise LaunchError("grant_expiry_invalid") from None
     config = dict(resolved_config)
     config["grant_ref"] = grant_ref
+    config["grant_reviewed_graph_snapshot_id"] = grant.get("graph_snapshot_id")
     config["effective_limits"] = limits
     return stage.execute(store, resolved_config=config,
                          trigger={"type": "selected-work", **binding},

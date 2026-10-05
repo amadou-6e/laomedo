@@ -185,7 +185,7 @@ class LangflowStageAdapterTests(unittest.TestCase):
         self.gate.write_text("released", encoding="utf-8")
         authority = LocalGrantAuthority(self.root / "private" / "grants.sqlite")
         ref = authority.issue(work_key="github:S-20",
-            graph_snapshot_id=frozen.snapshot_id,
+            graph_snapshot=frozen,
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=60, max_turns=0)
         arguments["grant_ref"] = ref

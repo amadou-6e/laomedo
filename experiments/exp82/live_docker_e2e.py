@@ -42,7 +42,7 @@ def main():
         private = Path(directory)
         authority = LocalGrantAuthority(private / "grants.sqlite")
         grant_ref = authority.issue(work_key=selected.key,
-            graph_snapshot_id=frozen.snapshot_id,
+            graph_snapshot=frozen,
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         store = WorkflowRunStore(private / "runs.sqlite3")

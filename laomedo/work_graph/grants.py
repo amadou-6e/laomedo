@@ -15,6 +15,8 @@ import subprocess
 from uuid import uuid4
 
 from laomedo.workflow_run_store import LaunchError
+from .launch import relevant_content_digest
+from .model import GraphSnapshot
 
 
 def _private_path(path):
@@ -60,8 +62,12 @@ class LocalGrantAuthority:
                 max_turns INTEGER NOT NULL,
                 operator_id TEXT NOT NULL,
                 issued_at TEXT NOT NULL,
-                redeemed_at TEXT
+                redeemed_at TEXT,
+                content_digest TEXT
             )""")
+            columns = {row[1] for row in db.execute("PRAGMA table_info(grants)")}
+            if "content_digest" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN content_digest TEXT")
         if not self.path.is_file():
             raise LaunchError("grant_store_unavailable")
         self.path.chmod(0o600)
@@ -71,11 +77,14 @@ class LocalGrantAuthority:
         db.row_factory = sqlite3.Row
         return db
 
-    def issue(self, *, work_key, graph_snapshot_id, expires_at,
+    def issue(self, *, work_key, graph_snapshot, expires_at,
               timeout_seconds, max_turns):
         """Record the authenticated host process principal, not a caller label."""
         if (not all(isinstance(value, str) and value.strip() for value in
-                    (work_key, graph_snapshot_id, expires_at)) or
+                    (work_key, expires_at)) or
+                not isinstance(graph_snapshot, GraphSnapshot) or
+                not graph_snapshot.source_complete or
+                work_key not in {item.key for item in graph_snapshot.items} or
                 type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 3600 or
                 type(max_turns) is not int or max_turns != 0):
             raise LaunchError("grant_issue_invalid")
@@ -87,12 +96,17 @@ class LocalGrantAuthority:
             raise LaunchError("grant_expired")
         grant_id = str(uuid4())
         operator_id = _host_principal()
+        content_digest = relevant_content_digest(graph_snapshot, work_key)
         with closing(self._connect()) as db, db:
-            db.execute("""INSERT INTO grants VALUES
-                (?, ?, ?, 'langflow-local', 'stage-launch', ?, ?, ?, ?, ?, NULL)""",
-                (grant_id, work_key, graph_snapshot_id, expires_at,
+            db.execute("""INSERT INTO grants
+                (grant_id, work_key, graph_snapshot_id, runner, scope,
+                 expires_at, timeout_seconds, max_turns, operator_id,
+                 issued_at, redeemed_at, content_digest)
+                VALUES (?, ?, ?, 'langflow-local', 'stage-launch',
+                        ?, ?, ?, ?, ?, NULL, ?)""",
+                (grant_id, work_key, graph_snapshot.snapshot_id, expires_at,
                  timeout_seconds, max_turns, operator_id,
-                 datetime.now(timezone.utc).isoformat()))
+                 datetime.now(timezone.utc).isoformat(), content_digest))
         return grant_id
 
     def __call__(self, grant_id, binding):
@@ -107,7 +121,8 @@ class LocalGrantAuthority:
             if row["operator_id"] != _host_principal():
                 raise LaunchError("grant_operator_mismatch")
             if (row["work_key"] != binding.get("work_snapshot", {}).get("key") or
-                    row["graph_snapshot_id"] != binding.get("selected_graph_snapshot_id")):
+                    not row["content_digest"] or
+                    row["content_digest"] != binding.get("selected_content_digest")):
                 raise LaunchError("grant_binding_mismatch")
             if datetime.fromisoformat(row["expires_at"]) <= datetime.now(timezone.utc):
                 raise LaunchError("grant_expired")
@@ -116,6 +131,7 @@ class LocalGrantAuthority:
         return {"grant_id": grant_id, "operator_authorized": True,
                 "work_key": row["work_key"],
                 "graph_snapshot_id": row["graph_snapshot_id"],
+                "content_digest": row["content_digest"],
                 "runner": row["runner"], "scope": row["scope"],
                 "expires_at": row["expires_at"],
                 "limits": {"timeout_seconds": row["timeout_seconds"],

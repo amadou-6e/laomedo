@@ -61,6 +61,7 @@ class DockerLangflowStage:
     def _command(self, name, flow_dir):
         package = self.source_root / "laomedo"
         return ["docker", "run", "--rm", "-i", "--name", name,
+                "--pull=never", "--user", "1000:1000",
                 "--network", "none", "--read-only", "--cap-drop", "ALL",
                 "--security-opt", "no-new-privileges", "--pids-limit", "128",
                 "--memory", "1g", "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m",

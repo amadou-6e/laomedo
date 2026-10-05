@@ -8,6 +8,7 @@ import sys
 
 from .github import fetch, import_pages
 from .grants import LocalGrantAuthority
+from .launch import relevant_content_digest
 from .local_launch import launch_local_saved_flow
 from .model import GraphSnapshot
 
@@ -59,18 +60,21 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("Grant expiry must be within 1 to 60 minutes")
             if not sys.stdin.isatty():
                 raise ValueError("Interactive host terminal required for grant confirmation")
-            confirmation = input(f"Type {args.work_key} to confirm a local zero-turn grant: ")
+            content_digest = relevant_content_digest(snapshot, args.work_key)
+            confirmation = input(
+                f"Selected content {content_digest}. Type {args.work_key} to confirm a local zero-turn grant: ")
             if confirmation != args.work_key:
                 raise ValueError("Operator confirmation did not match selected work")
             authority = LocalGrantAuthority(args.grant_store)
             expiry = (datetime.now(timezone.utc) + timedelta(
                 minutes=args.expires_in_minutes)).isoformat()
             ref = authority.issue(work_key=args.work_key,
-                graph_snapshot_id=snapshot.snapshot_id,
+                graph_snapshot=snapshot,
                 expires_at=expiry,
                 timeout_seconds=args.timeout_seconds, max_turns=args.max_turns)
             print(json.dumps({"grant_ref": ref, "work_key": args.work_key,
                 "graph_snapshot_id": snapshot.snapshot_id,
+                "content_digest": content_digest,
                 "expires_at": expiry, "timeout_seconds": args.timeout_seconds,
                 "max_turns": args.max_turns}))
         elif args.command == "inspect":

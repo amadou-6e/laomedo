@@ -29,10 +29,16 @@ immutable Work Graph snapshot and asks for the selected work key before it
 issues a grant. The CLI requires an interactive host terminal and refuses a
 piped confirmation. This still does not authenticate an operator beyond the
 local OS session. The
-grant binds that work key, snapshot ID,
+grant binds that work key, a digest of its selected work and transitive
+prerequisite content, the reviewed snapshot ID as evidence,
 `langflow-local` runner, `stage-launch` scope, expiry, and limits. Redemption
 is atomic, so replay refuses. The CLI prints only a grant reference and
 nonsecret binding fields. Keep the grant store outside every stage mount.
+For `--choice refreshed`, fetch and review a current snapshot, issue a grant
+from that snapshot, then launch with the original frozen snapshot and the
+new grant. Launch re-fetches the source; a new fetch timestamp is harmless,
+while changed relevant content refuses before the grant is consumed. Legacy
+grants issued before content binding cannot be redeemed after this update.
 
 For the current prototype, the issuer accepts only `--max-turns 0`. A
 credential-free pinned-runtime test combines the grant with a saved-flow
@@ -48,6 +54,11 @@ before the host reserves a run, then the host sends one execution command.
 The host kills the named container when the granted timeout expires and
 retains an `unknown` run with one dispatch attempt. The local CLI exposes
 `fetch`, `issue-grant` and `launch` for this zero-turn path.
+The worker's hash report shows that it loaded the export supplied by the host.
+It is not attestation of arbitrary Langflow component behavior; #96 owns that
+boundary. A grant is redeemed before the worker's hash check, so a failed
+check consumes the grant without reserving a run. #95 owns the approval and
+lost-response policy for a future model-backed path.
 
 In a private directory outside Git, the local sequence is:
 
@@ -61,6 +72,10 @@ laomedo-work-graph launch SNAPSHOT.json --work-key WORK_KEY --flow-id FLOW_ID --
 Use the snapshot path from `fetch`, the work key from `inspect`, and the grant
 reference from `issue-grant`. `launch` prints run and trace IDs plus status, not the flow output
 or API token.
+`launch` currently requires a disposable loopback Langflow instance with
+auto-login enabled. It obtains the local API token in memory from
+`/api/v1/auto_login` and does not accept a production token file. The earlier
+auto-login-disabled compose setup is not compatible with this prototype CLI.
 
 Credential-free probes:
 
@@ -96,4 +111,4 @@ restriction and `--network none`
 keep this route unsuitable for a real Codex agent. The stage protocol also
 has not been audited against sophisticated malicious component code. Do not
 claim hosted, multi-user or untrusted-flow safety from these
-tests; #82 retains those boundaries for review.
+tests; #95 and #96 own those trust boundaries.
