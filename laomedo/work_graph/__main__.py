@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import getpass
 import json
 from pathlib import Path
+import sys
 
 from .github import fetch, import_pages
 from .grants import LocalGrantAuthority
@@ -57,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("A complete snapshot containing the selected work is required")
             if not 1 <= args.expires_in_minutes <= 60:
                 raise ValueError("Grant expiry must be within 1 to 60 minutes")
+            if not sys.stdin.isatty():
+                raise ValueError("Interactive host terminal required for grant confirmation")
             confirmation = input(f"Type {args.work_key} to confirm a local zero-turn grant: ")
             if confirmation != args.work_key:
                 raise ValueError("Operator confirmation did not match selected work")

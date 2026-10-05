@@ -255,11 +255,16 @@ class WorkGraphLaunchTests(unittest.TestCase):
         argv = ["issue-grant", str(snapshot_path), "--work-key", WORK,
                 "--grant-store", str(store_path), "--timeout-seconds", "30",
                 "--max-turns", "0"]
-        with patch("builtins.input", return_value="wrong"), self.assertRaises(SystemExit):
+        with patch("sys.stdin") as stdin, self.assertRaises(SystemExit):
+            stdin.isatty.return_value = False
+            work_graph_main(argv)
+        with patch("sys.stdin") as stdin, patch("builtins.input", return_value="wrong"), self.assertRaises(SystemExit):
+            stdin.isatty.return_value = True
             work_graph_main(argv)
         self.assertFalse(store_path.exists())
         output = StringIO()
-        with patch("builtins.input", return_value=WORK), redirect_stdout(output):
+        with patch("sys.stdin") as stdin, patch("builtins.input", return_value=WORK), redirect_stdout(output):
+            stdin.isatty.return_value = True
             self.assertEqual(work_graph_main(argv), 0)
         issued = json.loads(output.getvalue())
         self.assertEqual(issued["graph_snapshot_id"], self.frozen.snapshot_id)

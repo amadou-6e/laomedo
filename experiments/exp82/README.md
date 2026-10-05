@@ -26,7 +26,9 @@ not evidence of a production grant authority or authorized real launch.
 The host-side `LocalGrantAuthority` stores one-use grant records in a SQLite
 file outside any Git checkout. `laomedo-work-graph issue-grant` reads an
 immutable Work Graph snapshot and asks for the selected work key before it
-issues a grant. This confirmation does not authenticate an operator. The
+issues a grant. The CLI requires an interactive host terminal and refuses a
+piped confirmation. This still does not authenticate an operator beyond the
+local OS session. The
 grant binds that work key, snapshot ID,
 `langflow-local` runner, `stage-launch` scope, expiry, and limits. Redemption
 is atomic, so replay refuses. The CLI prints only a grant reference and
