@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 from urllib import error, request
 from urllib.parse import urlsplit
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput
@@ -16,14 +16,16 @@ from lfx.schema import Data, Message
 
 class LaomedoCodexAgent(Component):
     display_name = "Laomedo Codex Agent"
-    description = "Run or resume a pinned-skill Codex session through the local Docker runner."
+    description = "Start, run, resume or cancel a pinned-skill Codex session through the local Docker runner."
     icon = "Bot"
     name = "LaomedoCodexAgent"
 
     inputs = [
         MessageTextInput(name="task", display_name="Task"),
         DropdownInput(name="operation", display_name="Operation",
-                      options=["fresh", "resume", "status", "cancel"], value="fresh"),
+                      options=["fresh", "start", "resume", "status", "cancel"], value="fresh"),
+        StrInput(name="request_id", display_name="Request ID", advanced=True,
+                 info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
         StrInput(name="skill_id", display_name="Skill ID", advanced=True),
@@ -46,12 +48,13 @@ class LaomedoCodexAgent(Component):
     def _pre_run_setup(self):
         # Langflow invokes this once per build. Both output methods share dispatch.
         self._dispatch_task = None
+        self._generated_request_id = None
 
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
         provenance = getattr(self, "handoff_reference", None)
         if provenance not in (None, "", []):
-            if self.operation != "fresh":
+            if self.operation not in {"fresh", "start"}:
                 raise ValueError("handoff_requires_fresh_operation")
             selected = getattr(provenance, "data", provenance)
             if not isinstance(selected, dict) or set(selected) != {
@@ -73,15 +76,29 @@ class LaomedoCodexAgent(Component):
         if not 1 <= int(self.timeout_seconds) <= 240:
             raise ValueError("timeout_must_be_1_to_240_seconds")
         operation = str(self.operation)
-        if operation not in {"fresh", "resume", "status", "cancel"}:
+        if operation not in {"fresh", "start", "resume", "status", "cancel"}:
             raise ValueError("invalid_operation")
         task = str(getattr(self.task, "text", self.task) or "")
-        if operation in {"fresh", "resume"} and not task.strip():
+        if operation in {"fresh", "start", "resume"} and not task.strip():
             raise ValueError("task_required")
         model, effort = str(self.model), str(self.effort)
-        if operation in {"fresh", "resume"} and (not model.strip() or not effort.strip()):
+        if operation in {"fresh", "start", "resume"} and (not model.strip() or not effort.strip()):
             raise ValueError("model_and_effort_required")
-        if operation == "fresh":
+        if operation in {"fresh", "start"}:
+            if operation == "start":
+                selected_request_id = str(getattr(self, "request_id", "") or "")
+                if not selected_request_id:
+                    selected_request_id = (getattr(self, "_generated_request_id", None)
+                                           or str(uuid4()))
+                    self._generated_request_id = selected_request_id
+                try:
+                    if str(UUID(selected_request_id)) != selected_request_id:
+                        raise ValueError()
+                except ValueError:
+                    raise ValueError("invalid_request_id") from None
+            else:
+                selected_request_id = None
+            endpoint = base + ("/v1/runs/async" if operation == "start" else "/v1/runs")
             connected = getattr(self, "skill_reference", None)
             if connected in (None, "", []):
                 connected = None
@@ -105,8 +122,11 @@ class LaomedoCodexAgent(Component):
                 if len(refs) > 1:
                     if getattr(self, "skill_id", "") or getattr(self, "revision_id", ""):
                         raise ValueError("conflicting_skill_inputs")
-                    return base + "/v1/runs", {"task": task, "model": model,
-                        "effort": effort, "skill_refs": refs}, "POST"
+                    payload = {"task": task, "model": model,
+                               "effort": effort, "skill_refs": refs}
+                    if selected_request_id:
+                        payload["request_id"] = selected_request_id
+                    return endpoint, payload, "POST"
                 connected = refs[0]
             revision = str(getattr(self, "revision_id", "") or "")
             skill_id = str(getattr(self, "skill_id", "") or "")
@@ -126,9 +146,12 @@ class LaomedoCodexAgent(Component):
                 skill_id, revision = selected_id, selected_revision
             if not skill_id.strip() or not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
                 raise ValueError("pinned_skill_required")
-            return base + "/v1/runs", {"task": task, "model": model, "effort": effort,
-                "skill_ref": {"skill_id": skill_id,
-                              "revision_id": revision, "tree_hash": revision}}, "POST"
+            payload = {"task": task, "model": model, "effort": effort,
+                       "skill_ref": {"skill_id": skill_id,
+                                     "revision_id": revision, "tree_hash": revision}}
+            if selected_request_id:
+                payload["request_id"] = selected_request_id
+            return endpoint, payload, "POST"
         prior = getattr(self.run_reference, "data", self.run_reference)
         if prior is None and getattr(self, "run_reference_json", None):
             try:
@@ -188,6 +211,10 @@ class LaomedoCodexAgent(Component):
                 raise RuntimeError("Laomedo run " + str(result.get("run_id") or "unknown") +
                     " failed: " + str(result.get("error_category") or result.get("status") or "unknown")) from None
         except (error.URLError, TimeoutError, OSError):
+            if self.operation == "start":
+                raise RuntimeError("runner_transport_failed; start outcome unknown; "
+                                   "retry only with request_id " +
+                                   str(payload.get("request_id"))) from None
             raise RuntimeError("runner_transport_failed; remote execution may still be active") from None
         except (ValueError, TypeError):
             raise RuntimeError("runner_invalid_response") from None
@@ -199,6 +226,7 @@ class LaomedoCodexAgent(Component):
         skill = result.get("skill") or {}
         skills = result.get("skills") or ([skill] if skill else [])
         return {"answer": result.get("answer"), "run_id": result["run_id"],
+            "request_id": result.get("client_request_id"),
             "provider": result.get("provider", "codex"),
             "handoff": result.get("handoff"), "imported_artifacts": result.get("imported_artifacts", []),
             "thread_id": result.get("thread_id"), "status": result.get("status"),

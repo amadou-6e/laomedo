@@ -161,6 +161,36 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             await node.run_output()
             self.assertEqual(http.call_count, 2)
 
+    async def test_nonblocking_start_exposes_early_id_and_stable_retry_key(self):
+        node = component(operation="start")
+        seen = []
+        def respond(req, timeout):
+            self.assertTrue(req.full_url.endswith("/v1/runs/async"))
+            payload = json.loads(req.data)
+            seen.append(payload["request_id"])
+            return Response(json.dumps(result(status="prepared", answer=None,
+                client_request_id=payload["request_id"])).encode())
+        with patch.object(module.request, "urlopen", side_effect=respond) as http:
+            early = (await node.run_output()).data
+            self.assertEqual(early["status"], "prepared")
+            self.assertEqual(early["run_id"], RUN)
+            self.assertEqual(early["request_id"], seen[0])
+            await node.answer_output()
+            self.assertEqual(http.call_count, 1)
+            node.request_id = seen[0]
+            node._pre_run_setup()
+            await node.run_output()
+            self.assertEqual(seen[0], seen[1])
+        with self.assertRaisesRegex(ValueError, "invalid_request_id"):
+            await component(operation="start", request_id="not-a-uuid").run_output()
+
+    async def test_uncertain_start_error_retains_retry_identity(self):
+        node = component(operation="start")
+        with patch.object(module.request, "urlopen", side_effect=TimeoutError()):
+            with self.assertRaisesRegex(RuntimeError, "retry only with request_id") as caught:
+                await node.run_output()
+        self.assertIn(node._generated_request_id, str(caught.exception))
+
     async def test_invalid_inputs_never_dispatch(self):
         cases = [{"revision_id": "latest"}, {"task": " "},
                  {"runner_url": "https://example.com"}, {"timeout_seconds": 0},

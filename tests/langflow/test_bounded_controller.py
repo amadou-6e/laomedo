@@ -1,6 +1,7 @@
 """Credential-free native controller tests in pinned Langflow."""
 import asyncio
 import importlib.util
+import importlib
 import json
 from pathlib import Path
 import sys
@@ -12,6 +13,7 @@ from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+handoff_http = importlib.import_module("laomedo.handoff_http")
 spec = importlib.util.spec_from_file_location("controller_component", ROOT / "components/laomedo/bounded_controller.py")
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
@@ -56,7 +58,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(expected=expected), tempfile.TemporaryDirectory() as state:
                 Adapter.answers, Adapter.calls = answers, []
                 Adapter.delay = 1.05 if expected == "deadline" else 0
-                with patch("laomedo.handoff_http.RunnerAdapter", Adapter):
+                with patch.object(handoff_http, "RunnerAdapter", Adapter):
                     await Graph.from_payload(self.flow(state, **fields)).arun(inputs=[{"input_value": "start"}], types=["chat"])
                 record = json.loads(next(Path(state).glob("*.json")).read_text())
                 self.assertEqual(record["stop_reason"], expected)
@@ -81,7 +83,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                 "max_iterations": 2, "turn_budget": 2, "deadline_seconds": 10, "state_directory": state}.items():
                 setattr(node, name, value)
             node._pre_run_setup()
-            with patch("laomedo.handoff_http.RunnerAdapter", Blocking):
+            with patch.object(handoff_http, "RunnerAdapter", Blocking):
                 task = asyncio.create_task(node.execution_output())
                 await asyncio.to_thread(entered.wait, 2)
                 task.cancel()

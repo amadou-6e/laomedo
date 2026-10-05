@@ -63,11 +63,31 @@ def _private(path: Path) -> Path:
 def _json(path: Path, value: dict) -> None:
     pending = path.with_name(path.name + ".pending-" + uuid4().hex)
     pending.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(pending, path)
+    try:
+        # Windows can deny replacement while a concurrent poll has the old
+        # record open. Keep the write atomic; only retry that transient lock.
+        for attempt in range(20):
+            try:
+                os.replace(pending, path)
+                break
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(.01)
+    finally:
+        pending.unlink(missing_ok=True)
 
 
 def _read(path: Path) -> dict:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    # A concurrent atomic replacement can briefly deny a Windows reader.
+    for attempt in range(5):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            break
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(.01)
     if not isinstance(value, dict):
         raise RunnerError("invalid_record")
     return value
@@ -334,7 +354,7 @@ class LocalRunner:
         (self.state / "runs").mkdir(exist_ok=True)
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
-            if record.get("status") == "running":
+            if record.get("status") in {"prepared", "running"}:
                 record["status"] = "interrupted"
                 record["error_category"] = "runner_restarted"
                 _json(record_path, record)
@@ -343,6 +363,8 @@ class LocalRunner:
             raise RunnerError("invalid_turn_cap")
         self.max_model_turns = max_model_turns
         self.lock = threading.Lock()
+        self.control_lock = threading.Lock()
+        self.request_lock = threading.Lock()
         self.cancel_flags = {}
         # The checked-in policy is LF on Linux and CRLF in Windows worktrees.
         # Accept only these two reviewed byte representations of the same policy.
@@ -437,14 +459,22 @@ class LocalRunner:
         return _read(self._run_dir(run_id) / "record.json")
 
     def cancel(self, run_id: str) -> dict:
-        record = self.status(run_id)
-        if record["status"] == "running":
-            flag = self.cancel_flags.get(run_id)
-            if flag is None:
-                raise RunnerError("run_not_active_in_this_process")
-            flag.set()
-            return {**record, "cancel_requested": True}
-        return record
+        with self.control_lock:
+            record = self.status(run_id)
+            if record["status"] == "prepared" and record.get("client_request_id"):
+                record.update(status="cancelled", error_category="cancelled_before_dispatch",
+                              cancel_requested=True, cancel_confirmed=True)
+                _json(self._run_dir(run_id) / "record.json", record)
+                return record
+            if record["status"] == "running":
+                flag = self.cancel_flags.get(run_id)
+                if flag is None:
+                    raise RunnerError("run_not_active_in_this_process")
+                flag.set()
+                record.update(cancel_requested=True, cancel_confirmed=False)
+                _json(self._run_dir(run_id) / "record.json", record)
+                return record
+            return record
 
     def _materialize(self, workspace: Path, ref: dict) -> dict:
         if not isinstance(ref, dict) or not all(ref.get(k) for k in
@@ -483,7 +513,8 @@ class LocalRunner:
                 "tree_hash": ref["tree_hash"], "file_hashes": record["file_hashes"],
                 "delivery_mode": "project_discovery", "use_evidence": "offered"}
 
-    def start(self, request: dict) -> dict:
+    def _prepare(self, request: dict, *, client_request_id=None,
+                 request_hash=None) -> dict:
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
         task = request.get("task")
@@ -537,12 +568,61 @@ class LocalRunner:
                       "cli_version": CLI_VERSION,
                       "config_sha256": CONFIG_SHA256, "thread_id": None,
                       "turns": [], "answer": None, "output_ref": None,
-                      "raw_event_ref": f"laomedo:run:{run_id}:events"}
+                      "raw_event_ref": f"laomedo:run:{run_id}:events",
+                      "client_request_id": client_request_id,
+                      "request_hash": request_hash,
+                      "cancel_requested": False, "cancel_confirmed": False}
             _json(run_dir / "record.json", record)
         except Exception:
             shutil.rmtree(run_dir)
             raise
-        return self._execute(run_id, task, resume=False)
+        return record
+
+    def start(self, request: dict) -> dict:
+        record = self._prepare(request)
+        return self._execute(record["run_id"], request["task"], resume=False)
+
+    def start_async(self, request: dict, *, response_gate=None) -> dict:
+        """Reserve one request identity, then run only after the HTTP reply."""
+        if not isinstance(request, dict):
+            raise RunnerError("invalid_request")
+        request_id = request.get("request_id")
+        try:
+            _id(request_id)
+        except (TypeError, ValueError, AttributeError):
+            raise RunnerError("invalid_request_id") from None
+        body = {key: value for key, value in request.items() if key != "request_id"}
+        request_hash = "sha256:" + hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False).encode("utf-8")).hexdigest()
+        with self.request_lock:
+            for record_path in (self.state / "runs").glob("*/record.json"):
+                prior = _read(record_path)
+                if prior.get("client_request_id") == request_id:
+                    if prior.get("request_hash") != request_hash:
+                        raise RunnerError("request_identity_conflict")
+                    return prior
+            record = self._prepare(body, client_request_id=request_id,
+                                   request_hash=request_hash)
+            gate = response_gate or threading.Event()
+            if response_gate is None:
+                gate.set()
+            worker = threading.Thread(target=self._async_worker,
+                                      args=(record["run_id"], body["task"], gate),
+                                      daemon=True)
+            worker.start()
+            return record
+
+    def _async_worker(self, run_id, task, gate):
+        gate.wait()
+        try:
+            self._execute(run_id, task, resume=False)
+        except RunnerError as exc:
+            with self.control_lock:
+                record = self.status(run_id)
+                if record["status"] == "prepared":
+                    record.update(status="failed", error_category=str(exc))
+                    _json(self._run_dir(run_id) / "record.json", record)
 
     def _artifact_source(self, provider, run_id):
         if provider != getattr(self, "provider", "codex"):
@@ -617,11 +697,17 @@ class LocalRunner:
         run_dir, record, cancelled, server = None, None, None, None
         try:
             run_dir = self._run_dir(run_id)
-            record = self.status(run_id)
-            cancelled = threading.Event()
-            self.cancel_flags[run_id] = cancelled
-            record["status"] = "running"
-            _json(run_dir / "record.json", record)
+            with self.control_lock:
+                record = self.status(run_id)
+                if record["status"] == "cancelled" and record.get("cancel_confirmed"):
+                    return record
+                if (not resume and record["status"] != "prepared") or (
+                        resume and record["status"] != "completed"):
+                    raise RunnerError("run_not_dispatchable")
+                cancelled = threading.Event()
+                self.cancel_flags[run_id] = cancelled
+                record["status"] = "running"
+                _json(run_dir / "record.json", record)
             server = self.transport(["docker", *_docker_prefix(
                 run_dir / "workspace", run_dir / "canonical", run_dir / "store")], run_dir)
             initialized = server.request("initialize", {"clientInfo": {
@@ -637,6 +723,10 @@ class LocalRunner:
                       for item in (choice or {}).get("supportedReasoningEfforts", [])}
             if choice is None or record["requested_effort"] not in levels:
                 raise RunnerError("unsupported_model_effort")
+            if cancelled.is_set():
+                record.update(status="cancelled", error_category="cancelled_before_turn",
+                              cancel_requested=True)
+                return record
             self._turn_available()
             method = "thread/resume" if resume else "thread/start"
             params = ({"threadId": record["thread_id"], "cwd": "/draft"} if resume else
@@ -653,9 +743,17 @@ class LocalRunner:
             record["effective_effort"] = (result.get("reasoningEffort") or
                                           thread.get("reasoningEffort"))
             _json(run_dir / "record.json", record)
+            if cancelled.is_set():
+                record.update(status="cancelled", error_category="cancelled_before_turn",
+                              cancel_requested=True)
+                return record
             attempt = self._reserve_turn()
             record["attempt_number"] = attempt
             _json(run_dir / "record.json", record)
+            if cancelled.is_set():
+                record.update(status="cancelled", error_category="cancelled_before_turn",
+                              cancel_requested=True)
+                return record
             sent = server.request("turn/start", {"threadId": native_id,
                 "model": record["requested_model"], "effort": record["requested_effort"],
                 "cwd": "/draft", "input": [{"type": "text", "text": task}]})
@@ -674,6 +772,8 @@ class LocalRunner:
                                     hashlib.sha256(task.encode()).hexdigest()})
             record["status"] = "completed" if status == "completed" else status
             record["error_category"] = error
+            if status == "cancelled":
+                record["cancel_requested"] = True
             record["native_error_summary"] = native_errors
             record["answer"] = _answer(server.events) if status == "completed" else None
             if status == "completed" and not record["answer"]:
@@ -695,21 +795,28 @@ class LocalRunner:
         except Exception as exc:
             if record is None:
                 raise
-            record["status"] = "failed"
-            record["error_category"] = str(exc) if isinstance(exc, RunnerError) else type(exc).__name__
+            if record["status"] not in {"interrupted", "cancelled"}:
+                record["status"] = "failed"
+                record["error_category"] = (str(exc) if isinstance(exc, RunnerError)
+                                            else type(exc).__name__)
         finally:
             try:
                 if server is not None:
                     server.close()
+                    if record is not None and record.get("status") == "cancelled":
+                        record["cancel_confirmed"] = True
             except Exception:
                 if record is not None:
                     record.update(status="failed", error_category="container_termination_unverified")
             finally:
                 try:
-                    if record is not None:
-                        _json(run_dir / "record.json", record)
+                    with self.control_lock:
+                        if record is not None:
+                            if cancelled is not None and cancelled.is_set():
+                                record["cancel_requested"] = True
+                            _json(run_dir / "record.json", record)
+                        self.cancel_flags.pop(run_id, None)
                 finally:
-                    self.cancel_flags.pop(run_id, None)
                     self.lock.release()
         return record
 
@@ -756,9 +863,17 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
         def do_POST(self):
             if not self._authorized():
                 return
+            response_gate = None
             try:
                 parts = self.path.strip("/").split("/")
                 body = self._body()
+                is_cancel_endpoint = (len(parts) == 4 and parts[:2] == ["v1", "runs"]
+                                      and parts[3] == "cancel")
+                if parts == ["v1", "runs", "async"]:
+                    response_gate = threading.Event()
+                    result = runner.start_async(body, response_gate=response_gate)
+                    self._reply(202, result)
+                    return
                 if parts == ["v1", "runs"]:
                     result = runner.start(body)
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume":
@@ -772,11 +887,17 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                     result = {"status": "completed", "artifact_refs": runner.select_artifacts(parts[2], body["paths"])}
                 else:
                     raise RunnerError("unknown_endpoint")
-                code = (202 if result.get("cancel_requested") else
-                        200 if result["status"] == "completed" else 502)
+                code = (202 if is_cancel_endpoint and result.get("cancel_requested") and
+                        not result.get("cancel_confirmed") else
+                        200 if result["status"] == "completed" or
+                        (is_cancel_endpoint and result["status"] == "cancelled") else 502)
                 self._reply(code, result)
             except (RunnerError, SkillStoreError, ArtifactError, KeyError, ValueError, OSError) as exc:
-                self._reply(400, {"status": "failed", "error_category": str(exc)})
+                self._reply(409 if str(exc) == "request_identity_conflict" else 400,
+                            {"status": "failed", "error_category": str(exc)})
+            finally:
+                if response_gate is not None:
+                    response_gate.set()
 
     return ThreadingHTTPServer((host, port), Handler)
 

@@ -140,8 +140,15 @@ class BoundedController:
                     self.submitted += 1
                     self._persist("dispatching")
                 try:
+                    def record_ack(ack):
+                        with self.state_lock:
+                            transition.update(status="runner_acknowledged", run={
+                                "provider": target["provider"], "run_id": ack["run_id"],
+                                "status": ack.get("status")})
+                            self._persist("running")
                     result = self.adapter.dispatch(outgoing, deadline=self.deadline,
-                                                   cancelled=self.cancelled)
+                                                   cancelled=self.cancelled,
+                                                   early_start=True, on_ack=record_ack)
                 except Exception as exc:
                     with self.state_lock:
                         transition.update(status="uncertain", error_type=type(exc).__name__)
