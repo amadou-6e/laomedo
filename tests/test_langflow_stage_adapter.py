@@ -1,6 +1,7 @@
 """Credential-free checks of the pinned Langflow launch graph boundary."""
 
 from copy import deepcopy
+from importlib.metadata import PackageNotFoundError, version
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,11 +17,20 @@ from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
 FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.json"
 
 
+def pinned_runtime_available():
+    try:
+        return version("langflow") == "1.12.3" and version("lfx") == "1.12.3"
+    except PackageNotFoundError:
+        return False
+
+
 def field(flow, node_id, name):
     return next(node for node in flow["data"]["nodes"] if node["id"] == node_id)[
         "data"]["node"]["template"][name]
 
 
+@unittest.skipUnless(pinned_runtime_available(),
+                     "requires the optional pinned Langflow 1.12.3 runtime")
 class LangflowStageAdapterTests(unittest.TestCase):
     def setUp(self):
         temporary = TemporaryDirectory()
