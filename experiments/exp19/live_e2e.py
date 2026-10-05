@@ -7,6 +7,7 @@ the run and publish phases require a private, explicit grant record.
 from __future__ import annotations
 
 import argparse
+import gzip
 from hashlib import sha256
 import json
 import os
@@ -153,7 +154,7 @@ def prepare(state: Path, store_path: Path) -> dict:
 def _http(method: str, url: str, payload: dict | None = None,
           *, token: str | None = None, api_key: str | None = None,
           timeout: int = 30) -> tuple[int, dict]:
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", "Accept-Encoding": "identity"}
     if payload is not None:
         headers["Content-Type"] = "application/json"
     if token:
@@ -162,12 +163,18 @@ def _http(method: str, url: str, payload: dict | None = None,
         headers["x-api-key"] = api_key
     req = request.Request(url, method=method, headers=headers,
                           data=_canonical(payload) if payload is not None else None)
+
+    def read_json(response):
+        body = response.read()
+        if response.headers.get("Content-Encoding", "").lower() == "gzip":
+            body = gzip.decompress(body)
+        return json.loads(body)
     try:
         with request.urlopen(req, timeout=timeout) as response:
-            return response.status, json.load(response)
+            return response.status, read_json(response)
     except error.HTTPError as failure:
         try:
-            body = json.load(failure)
+            body = read_json(failure)
         except (ValueError, TypeError):
             body = {}
         return failure.code, body

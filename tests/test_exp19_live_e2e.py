@@ -1,6 +1,7 @@
 """No-model refusal checks for the local EXP-19 run and publisher input."""
 
 from dataclasses import replace
+import gzip
 import unittest
 from unittest.mock import patch
 
@@ -15,6 +16,25 @@ except ModuleNotFoundError as error:
 
 @unittest.skipUnless(live_e2e is not None, "experiment source is not installed in the wheel")
 class LocalExp19Tests(unittest.TestCase):
+    def test_http_decodes_gzip_json_response(self):
+        class Response:
+            status = 200
+            headers = {"Content-Encoding": "gzip"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def read(self):
+                return gzip.compress(b'{"status":"ready"}')
+
+        with patch.object(live_e2e.request, "urlopen", return_value=Response()) as opened:
+            status, body = live_e2e._http("GET", "http://127.0.0.1/test")
+        self.assertEqual((status, body), (200, {"status": "ready"}))
+        self.assertEqual(opened.call_args.args[0].get_header("Accept-encoding"), "identity")
+
     def test_changed_issue_is_refused_before_dispatch(self):
         graph = _graph(_pages())
         item = next(item for item in graph.items if item.key == "github:I_2")
