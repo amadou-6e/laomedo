@@ -256,7 +256,12 @@ class EarlyRunnerTests(unittest.TestCase):
         worker.start()
         try:
             self.assertTrue(BlockingServer.entered.wait(3))
+            ack_deadline = time.monotonic() + 3
             snapshot = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+            while (snapshot["invocation"]["runner_run_id"] is None and
+                   time.monotonic() < ack_deadline):
+                time.sleep(.01)
+                snapshot = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
             binding = snapshot["invocation"]
             self.assertEqual(binding["runner_request_id"], binding["invocation_id"])
             self.assertEqual(binding["runner_run_id"],
