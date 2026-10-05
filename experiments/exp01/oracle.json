@@ -1,0 +1,40 @@
+{
+  "paged_closed_blocker": {
+    "complete": true, "warnings": [],
+    "items": {"github:P-101": [101, "CLOSED", "closed"], "github:P-909": [909, "OPEN", "ready"], "github:P-700": [700, "OPEN", "ready"]},
+    "edges": [["github:P-101", "github:P-909", "verify/exp01", "verify/exp01"]],
+    "open_focus": {"items": ["github:P-700", "github:P-909"], "edges": [], "context_edges": [["github:P-101", "github:P-909"]]}
+  },
+  "cross_repo_text": {
+    "complete": true, "warnings": [],
+    "items": {"github:X-12": [12, "OPEN", "unknown"]},
+    "edges": [["github:EXT-81", "github:X-12", "other/private", "verify/exp01"]]
+  },
+  "incomplete_connections": {
+    "complete": false,
+    "warnings": ["dependencies_incomplete", "item_count_mismatch", "labels_incomplete", "unavailable_dependency", "unavailable_item"],
+    "items": {"github:I-3": [3, "OPEN", "unknown"]},
+    "edges": [["github:EXT-3", "github:I-3", "other/private", "verify/exp01"]]
+  },
+  "interrupted_page": {
+    "complete": false,
+    "warnings": ["fetch_error", "item_count_mismatch", "pagination_incomplete", "unavailable_source"],
+    "items": {"github:T-4": [4, "OPEN", "unknown"]}, "edges": []
+  },
+  "unavailable_repository": {
+    "complete": false,
+    "warnings": ["item_count_mismatch", "pagination_incomplete", "unavailable_source"],
+    "items": {}, "edges": []
+  },
+  "cycles": {
+    "complete": true, "warnings": [],
+    "items": {"github:C-21": [21, "OPEN", "cyclic"], "github:C-22": [22, "OPEN", "cyclic"], "github:C-23": [23, "OPEN", "cyclic"], "github:C-24": [24, "OPEN", "blocked"], "github:C-25": [25, "OPEN", "ready"]},
+    "edges": [["github:C-21", "github:C-22", "verify/exp01", "verify/exp01"], ["github:C-22", "github:C-21", "verify/exp01", "verify/exp01"], ["github:C-22", "github:C-24", "verify/exp01", "verify/exp01"], ["github:C-23", "github:C-23", "verify/exp01", "verify/exp01"]]
+  },
+  "refresh_before": {
+    "complete": true, "warnings": [], "items": {"github:R-123": [123, "OPEN", "ready"]}, "edges": []
+  },
+  "refresh_after": {
+    "complete": true, "warnings": [], "items": {"github:R-123": [123, "CLOSED", "closed"]}, "edges": []
+  }
+}
