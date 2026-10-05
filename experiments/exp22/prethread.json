@@ -1,0 +1,9 @@
+{
+  "run_id": "81d50308-bc07-44f8-8bf1-57f37b91edc8",
+  "status": "cancelled",
+  "cancel_confirmed": true,
+  "thread_id": null,
+  "turns": [],
+  "ledger_after": 0,
+  "container": "not_created"
+}
