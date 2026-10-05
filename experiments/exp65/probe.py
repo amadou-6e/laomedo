@@ -56,7 +56,16 @@ def status_snapshot(job_id: str, target_offset: int, actual_offset: float) -> di
             detail = json.loads(raw)
             result["response_keys"] = sorted(detail.keys()) if isinstance(detail, dict) else []
             if isinstance(detail, dict):
-                result["detail_type"] = type(detail.get("detail")).__name__
+                body = detail.get("detail")
+                result["detail_type"] = type(body).__name__
+                if isinstance(body, dict):
+                    for key in ("code", "error", "message"):
+                        value = body.get(key)
+                        if isinstance(value, str):
+                            result["detail_" + key] = value[:300]
+                    if "error_detail" in body:
+                        result["error_detail_present"] = body["error_detail"] is not None
+                        result["error_detail_type"] = type(body["error_detail"]).__name__
         except ValueError:
             result["response_keys"] = []
         return result
