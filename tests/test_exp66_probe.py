@@ -9,6 +9,8 @@ import unittest
 
 
 OBSERVATION = Path(__file__).resolve().parents[1] / "experiments/exp66/observation.json"
+# This asserts the immutable pre-fix capture at 076030c. Its store emitted
+# caller_timeout; current store code emits langflow_execution_timeout instead.
 KINDS = ["invocation_reserved", "dispatch_started", "caller_timeout",
          "native_job_observed", "native_job_observed",
          "external_effect_observed", "native_job_observed", "native_job_observed"]
