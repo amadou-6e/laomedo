@@ -1,0 +1,27 @@
+{
+  "source_commit": "94b4f61",
+  "date": "2026-10-05",
+  "scope": "single-user zero-turn local grant and worker protocol",
+  "host_suite": {"tests": 169, "failures": 0, "optional_runtime_skips": 4},
+  "pinned_langflow_suite": {"tests": 15, "failures": 0},
+  "grant_checks": {
+    "host_os_principal_derived": true,
+    "caller_operator_label_removed": true,
+    "mismatched_principal_refused_before_redemption": true,
+    "replay_refused": true
+  },
+  "docker_grant_probe": {
+    "result": "pass",
+    "attestation_mismatch_refused": true,
+    "private_grant_not_mounted": true,
+    "spoofed_component_print_ignored": true,
+    "output_marker": true,
+    "dispatch_attempts_for_successful_run": 1
+  },
+  "model_turns": 0,
+  "limits": [
+    "An interactive host terminal confirms work selection, but same-principal host code can still call the issuer.",
+    "Redirecting component stdout blocks print-based protocol spoofing; lower-level file-descriptor writes are not proven contained.",
+    "This is a local zero-turn path, not hosted or multi-user operator authentication."
+  ]
+}

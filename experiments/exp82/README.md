@@ -78,10 +78,17 @@ Docker worker. Neither probe uses a provider credential, model turn, GitHub
 write or production issue task. They print sanitized summaries only.
 The [sanitized isolated observation](isolated-observation.json) records all
 five probes against source commit `9638397`.
+The [hardening observation](hardening-observation.json) records host-principal
+binding and a component print-spoof control at `94b4f61`, without publishing
+the host account identifier.
 
-The local CLI's typed work-key confirmation does not independently
-authenticate the operator. The zero-turn restriction and `--network none`
+The issuer derives the local OS principal rather than accepting an operator
+name from its caller, and the CLI requires a real terminal. This does not
+authenticate a human decision against another process running under the same
+host principal. The worker redirects ordinary component stdout away from its
+protocol, but raw file-descriptor writes remain untested. The zero-turn
+restriction and `--network none`
 keep this route unsuitable for a real Codex agent. The stage protocol also
-has not been audited against malicious component code that forges its stdout
-messages. Do not claim hosted, multi-user or untrusted-flow safety from these
+has not been audited against sophisticated malicious component code. Do not
+claim hosted, multi-user or untrusted-flow safety from these
 tests; #82 retains those boundaries for review.
