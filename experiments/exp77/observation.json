@@ -1,0 +1,21 @@
+{
+  "captured_at_utc": "2026-10-05T17:33:00Z",
+  "probe_source_commit": "8012fb8",
+  "adapter_source_commit": "784d004",
+  "langflow_image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "langflow_version": "1.12.3",
+  "lfx_version": "1.12.3",
+  "server": "disposable container, localhost-published API, auto-login token held only in process memory",
+  "scope": "synthetic saved-flow export and local in-process graph execution; zero model turns",
+  "api_route": "GET /api/v1/flows/{id}",
+  "old_output_marker": true,
+  "new_output_marker": true,
+  "graph_revisions_distinct": true,
+  "component_revisions_distinct": true,
+  "dispatch_attempts": 2,
+  "result": "pass",
+  "limits": [
+    "The probe checks a local adapter built from an authenticated saved-flow export, not the revision of a separate remote /run response.",
+    "No Work Graph freshness check or production grant authority was exercised."
+  ]
+}
