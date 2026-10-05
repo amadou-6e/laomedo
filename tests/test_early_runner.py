@@ -14,7 +14,7 @@ from laomedo.local_runner import LocalRunner, RunnerError, _json, serve
 from laomedo.handoff_http import RunnerAdapter
 from laomedo.handoffs import envelope
 from laomedo.skill_store import SkillStore
-from tests.test_local_runner import FakeServer
+from test_local_runner import FakeServer
 
 
 class BlockingServer(FakeServer):
