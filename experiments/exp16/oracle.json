@@ -1,0 +1,22 @@
+{
+  "ready_fresh": {"outcome": "completed", "calls": 1, "selection": "base", "choice": "unchanged", "override": false},
+  "stale_no_choice": {"outcome": "refused", "calls": 0, "reason": "stale_unacknowledged"},
+  "stale_pinned": {"outcome": "completed", "calls": 1, "selection": "base", "choice": "pinned", "override": false},
+  "stale_refreshed": {"outcome": "completed", "calls": 1, "selection": "content_changed", "choice": "refreshed", "override": false},
+  "opened_pinned": {"outcome": "refused", "calls": 0, "reason": "open_prerequisite"},
+  "opened_refreshed": {"outcome": "refused", "calls": 0, "reason": "open_prerequisite"},
+  "opened_override": {"outcome": "completed", "calls": 1, "selection": "opened_blocker", "choice": "refreshed", "override": true},
+  "override_missing_rationale": {"outcome": "refused", "calls": 0, "reason": "override_incomplete"},
+  "override_wrong_edge": {"outcome": "refused", "calls": 0, "reason": "override_wrong_edge"},
+  "hidden_open_blocker": {"outcome": "refused", "calls": 0, "reason": "open_prerequisite"},
+  "unresolved_override": {"outcome": "refused", "calls": 0, "reason": "prerequisite_unknown"},
+  "cycle_override": {"outcome": "refused", "calls": 0, "reason": "prerequisite_cyclic"},
+  "incomplete_source": {"outcome": "refused", "calls": 0, "reason": "source_incomplete"},
+  "grant_expired": {"outcome": "refused", "calls": 0, "reason": "grant_expired"},
+  "grant_wrong_work": {"outcome": "refused", "calls": 0, "reason": "grant_wrong_work"},
+  "grant_wrong_graph": {"outcome": "refused", "calls": 0, "reason": "grant_wrong_graph"},
+  "grant_wrong_runner": {"outcome": "refused", "calls": 0, "reason": "grant_wrong_runner"},
+  "grant_unauthorized": {"outcome": "refused", "calls": 0, "reason": "grant_unauthorized"},
+  "mock_runner_rejection": {"outcome": "failed", "calls": 1, "selection": "base", "choice": "unchanged", "override": false, "trace": "partial"},
+  "mock_runner_unknown": {"outcome": "unknown", "calls": 1, "selection": "base", "choice": "unchanged", "override": false, "trace": "partial"}
+}

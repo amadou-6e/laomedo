@@ -1,0 +1,22 @@
+{
+  "ready_fresh": {"current": "base"},
+  "stale_no_choice": {"current": "content_changed"},
+  "stale_pinned": {"current": "content_changed", "choice": "pinned"},
+  "stale_refreshed": {"current": "content_changed", "choice": "refreshed"},
+  "opened_pinned": {"current": "opened_blocker", "choice": "pinned"},
+  "opened_refreshed": {"current": "opened_blocker", "choice": "refreshed"},
+  "opened_override": {"current": "opened_blocker", "choice": "refreshed", "override": {"prerequisite": "github:C-10", "dependent": "github:S-20", "rationale": "Reviewed synthetic exception"}},
+  "override_missing_rationale": {"current": "opened_blocker", "choice": "refreshed", "override": {"prerequisite": "github:C-10", "dependent": "github:S-20", "rationale": ""}},
+  "override_wrong_edge": {"current": "opened_blocker", "choice": "refreshed", "override": {"prerequisite": "github:I-30", "dependent": "github:S-20", "rationale": "Wrong edge"}},
+  "hidden_open_blocker": {"current": "opened_blocker", "choice": "refreshed", "filter_label": "work"},
+  "unresolved_override": {"current": "unresolved_external", "choice": "refreshed", "override": {"prerequisite": "github:E-77", "dependent": "github:S-20", "rationale": "Not resolvable"}},
+  "cycle_override": {"current": "cycle", "choice": "refreshed", "override": {"prerequisite": "github:C-10", "dependent": "github:S-20", "rationale": "Cannot clear cycle"}},
+  "incomplete_source": {"current": "incomplete", "choice": "refreshed"},
+  "grant_expired": {"current": "base", "grant": "expired"},
+  "grant_wrong_work": {"current": "base", "grant": "wrong_work"},
+  "grant_wrong_graph": {"current": "base", "grant": "wrong_graph"},
+  "grant_wrong_runner": {"current": "base", "grant": "wrong_runner"},
+  "grant_unauthorized": {"current": "base", "grant": "unauthorized"},
+  "mock_runner_rejection": {"current": "base", "mock": "rejected"},
+  "mock_runner_unknown": {"current": "base", "mock": "unknown"}
+}
