@@ -20,3 +20,23 @@ Source content can change between fetches; `stale_unacknowledged` is a valid
 safe refusal, while unchanged content should report `source_choice=unchanged`
 even when fetch times make snapshot IDs differ. This is a read-only check,
 not evidence of a production grant authority or authorized real launch.
+
+## Local zero-turn grant check
+
+The host-side `LocalGrantAuthority` stores one-use grant records in a SQLite
+file outside any Git checkout. `laomedo-work-graph issue-grant` reads an
+immutable Work Graph snapshot and asks for the selected work key before it
+issues a grant. This confirmation does not authenticate an operator. The
+grant binds that work key, snapshot ID,
+`langflow-local` runner, `stage-launch` scope, expiry, and limits. Redemption
+is atomic, so replay refuses. The CLI prints only a grant reference and
+nonsecret binding fields. Keep the grant store outside every stage mount.
+
+For the current prototype, the issuer accepts only `--max-turns 0`. A
+credential-free pinned-runtime test combines the grant with a saved-flow
+stage and a synthetic GitHub source, then verifies one launch and replay
+refusal. The stage still runs in-process in this path, so the test does not
+establish an OS boundary around untrusted component code, hard timeout
+enforcement, or a live source plus saved-flow API launch. Do not use this
+grant path for a model-backed or untrusted flow. Those requirements remain
+open under #82.

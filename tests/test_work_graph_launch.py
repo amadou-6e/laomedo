@@ -1,7 +1,9 @@
 """Dispatch decisions from complete Work Graph evidence, never a filtered view."""
 
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,6 +11,8 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.work_graph.github import import_pages
+from laomedo.work_graph.grants import LocalGrantAuthority
+from laomedo.work_graph.__main__ import main as work_graph_main
 from laomedo.work_graph.launch import launch_github_work_stage, launch_work_stage, preflight
 from laomedo.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
 
@@ -206,6 +210,63 @@ class WorkGraphLaunchTests(unittest.TestCase):
         with patch("laomedo.work_graph.launch.preflight", return_value=allowed):
             self.launch(opened, choice="pinned")
         self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
+
+    def test_host_grant_is_bound_private_and_one_use(self):
+        with self.assertRaisesRegex(LaunchError, "grant_store_inside_git"):
+            LocalGrantAuthority(Path(__file__).resolve().parents[1] / ".tools.local" / "grants.sqlite")
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        authority = LocalGrantAuthority(Path(temporary.name) / "grants.sqlite")
+        binding = preflight(self.frozen, self.frozen, WORK)
+        expiry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        with self.assertRaisesRegex(LaunchError, "grant_issue_invalid"):
+            authority.issue(work_key=WORK,
+                graph_snapshot_id=binding["selected_graph_snapshot_id"],
+                operator_id="local-test-operator", expires_at=expiry,
+                timeout_seconds=30, max_turns=1)
+        wrong_ref = authority.issue(work_key=WORK,
+            graph_snapshot_id="wrong-graph", operator_id="local-test-operator",
+            expires_at=expiry, timeout_seconds=30, max_turns=0)
+        with self.assertRaisesRegex(LaunchError, "grant_binding_mismatch"):
+            authority(wrong_ref, binding)
+        ref = authority.issue(work_key=WORK,
+            graph_snapshot_id=binding["selected_graph_snapshot_id"],
+            operator_id="local-test-operator", expires_at=expiry,
+            timeout_seconds=30, max_turns=0)
+        record, result = launch_work_stage(frozen=self.frozen,
+            source_fetch=lambda _repository: self.frozen, work_key=WORK,
+            stage=self.stage, store=self.store, grant_ref=ref,
+            grant_authority=authority, resolved_config={"provider": "fake"})
+        self.assertEqual(result, "DONE")
+        config = json.loads(record["resolved_config"])
+        self.assertEqual(config["grant_ref"], ref)
+        self.assertEqual(config["effective_limits"],
+                         {"timeout_seconds": 30, "max_turns": 0})
+        self.assertNotIn("local-test-operator", record["resolved_config"])
+        with self.assertRaisesRegex(LaunchError, "grant_invalid"):
+            authority(ref, binding)
+
+    def test_issue_grant_cli_requires_exact_operator_confirmation(self):
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        snapshot_path = self.frozen.save(root / "snapshots")
+        store_path = root / "private" / "grants.sqlite"
+        argv = ["issue-grant", str(snapshot_path), "--work-key", WORK,
+                "--grant-store", str(store_path), "--timeout-seconds", "30",
+                "--max-turns", "0"]
+        with patch("builtins.input", return_value="wrong"), self.assertRaises(SystemExit):
+            work_graph_main(argv)
+        self.assertFalse(store_path.exists())
+        output = StringIO()
+        with patch("builtins.input", return_value=WORK), redirect_stdout(output):
+            self.assertEqual(work_graph_main(argv), 0)
+        issued = json.loads(output.getvalue())
+        self.assertEqual(issued["graph_snapshot_id"], self.frozen.snapshot_id)
+        self.assertEqual(issued["max_turns"], 0)
+        grant = LocalGrantAuthority(store_path)(issued["grant_ref"],
+            preflight(self.frozen, self.frozen, WORK))
+        self.assertTrue(grant["operator_authorized"])
 
 
 if __name__ == "__main__":
