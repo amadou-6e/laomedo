@@ -458,6 +458,27 @@ class LocalRunner:
     def status(self, run_id: str) -> dict:
         return _read(self._run_dir(run_id) / "record.json")
 
+    def lookup_request(self, request_id: str) -> dict:
+        """Find one durable async run without starting or changing it."""
+        try:
+            _id(request_id)
+        except (TypeError, ValueError, AttributeError):
+            raise RunnerError("invalid_request_id") from None
+        with self.request_lock:
+            matches = []
+            for record_path in (self.state / "runs").glob("*/record.json"):
+                record = _read(record_path)
+                if record.get("client_request_id") == request_id:
+                    matches.append(record)
+            if not matches:
+                raise RunnerError("request_not_found")
+            if len(matches) != 1:
+                raise RunnerError("request_identity_conflict")
+            record = matches[0]
+            return {key: record.get(key) for key in
+                    ("client_request_id", "request_hash", "run_id", "provider",
+                     "raw_event_ref", "status")}
+
     def cancel(self, run_id: str) -> dict:
         with self.control_lock:
             record = self.status(run_id)
@@ -854,11 +875,20 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 return
             try:
                 parts = self.path.strip("/").split("/")
-                if len(parts) != 3 or parts[:2] != ["v1", "runs"]:
+                if len(parts) != 3:
                     raise RunnerError("unknown_endpoint")
-                self._reply(200, runner.status(parts[2]))
+                if parts[:2] == ["v1", "runs"]:
+                    result = runner.status(parts[2])
+                elif parts[:2] == ["v1", "requests"]:
+                    result = runner.lookup_request(parts[2])
+                else:
+                    raise RunnerError("unknown_endpoint")
+                self._reply(200, result)
             except (RunnerError, ValueError, OSError) as exc:
-                self._reply(404, {"status": "failed", "error_category": str(exc)})
+                category = str(exc)
+                code = (409 if category == "request_identity_conflict" else
+                        400 if category == "invalid_request_id" else 404)
+                self._reply(code, {"status": "failed", "error_category": category})
 
         def do_POST(self):
             if not self._authorized():

@@ -15,7 +15,7 @@ from laomedo.local_runner import LocalRunner, RunnerError, _json, serve
 import laomedo.local_runner as runner_module
 from laomedo.handoff_http import RunnerAdapter
 from laomedo.runner_trace_bridge import RunnerTraceBridge
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
 from laomedo.handoffs import HandoffError, envelope
 from laomedo.skill_store import SkillStore
 from test_local_runner import FakeServer
@@ -286,6 +286,126 @@ class EarlyRunnerTests(unittest.TestCase):
             cancelled.set()
             adapter.cancel(handoff["execution_id"])
             worker.join(5)
+
+    def test_lost_ack_reconciles_by_get_without_second_start(self):
+        base = self.start_http()
+        class DroppedAckAdapter(RunnerAdapter):
+            def dispatch(self, handoff, **kwargs):
+                kwargs["on_ack"] = lambda _: None
+                return super().dispatch(handoff, **kwargs)
+        adapter = DroppedAckAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+                                    {"codex": self.state / "api-token"})
+        trace_path = Path(self.temp.name) / "lost-ack.sqlite3"
+        trace = WorkflowRunStore(trace_path)
+        run = trace.reserve(graph={"nodes": [{"id": "agent"}]},
+                            component_code={"agent": "synthetic"},
+                            resolved_config={"model": "test-model"},
+                            trigger={"type": "direct"})
+        handoff = envelope(None, {"provider": "codex", "model": "test-model",
+                                  "effort": "low"}, "Synthetic task",
+                           skills=[self.body["skill_ref"]])
+        bridge = RunnerTraceBridge(trace, adapter)
+        try:
+            with self.assertRaisesRegex(HandoffError, "runner_result_pending"):
+                bridge.dispatch(run["run_id"], "agent", handoff,
+                                deadline=time.monotonic() + .3,
+                                cancelled=threading.Event())
+            before = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+            invocation = before["invocation"]
+            self.assertEqual(before["run_status"], "incomplete")
+            self.assertIsNone(invocation["runner_run_id"])
+            self.assertTrue(BlockingServer.entered.wait(3))
+            self.assertEqual(BlockingServer.turn_starts, 1)
+            native_id = adapter.active[handoff["execution_id"]][1]
+            code, lookup = self.call(base.rsplit("/v1/runs", 1)[0] +
+                                     "/v1/requests/" + invocation["runner_request_id"],
+                                     method="GET")
+            self.assertEqual(code, 200)
+            self.assertEqual(lookup["run_id"], native_id)
+            self.assertNotIn("task", lookup)
+            self.assertNotIn("profile", lookup)
+            self.assertEqual(lookup["request_hash"], invocation["runner_request_hash"])
+            bridge = RunnerTraceBridge(WorkflowRunStore(trace_path), adapter)
+            found = bridge.reconcile(run["run_id"], invocation["invocation_id"],
+                                     handoff["execution_id"])
+            self.assertEqual(found["run_id"], native_id)
+            again = bridge.reconcile(run["run_id"], invocation["invocation_id"],
+                                     handoff["execution_id"])
+            self.assertEqual(again["run_id"], native_id)
+            self.assertEqual(BlockingServer.turn_starts, 1)
+            after = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+            self.assertEqual(after["invocation"]["runner_run_id"], native_id)
+            self.assertEqual(sum(r["kind"] == "runner_acknowledged"
+                                 for r in after["receipts"]), 1)
+            bridge.cancel(run["run_id"], invocation["invocation_id"],
+                          handoff["execution_id"])
+        finally:
+            adapter.cancel(handoff["execution_id"])
+
+    def test_binding_write_failure_can_reconcile_same_native_run(self):
+        base = self.start_http()
+        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+                                {"codex": self.state / "api-token"})
+        trace_path = Path(self.temp.name) / "binding-failure.sqlite3"
+        trace = WorkflowRunStore(trace_path)
+        run = trace.reserve(graph={"nodes": [{"id": "agent"}]},
+                            component_code={"agent": "synthetic"},
+                            resolved_config={"model": "test-model"},
+                            trigger={"type": "direct"})
+        handoff = envelope(None, {"provider": "codex", "model": "test-model",
+                                  "effort": "low"}, "Synthetic task",
+                           skills=[self.body["skill_ref"]])
+        bridge = RunnerTraceBridge(trace, adapter)
+        try:
+            with patch.object(trace, "bind_runner_ack",
+                              side_effect=LaunchError("injected_write_failure")):
+                with self.assertRaisesRegex(LaunchError, "injected_write_failure"):
+                    bridge.dispatch(run["run_id"], "agent", handoff,
+                                    deadline=time.monotonic() + 5,
+                                    cancelled=threading.Event())
+            before = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+            invocation = before["invocation"]
+            self.assertEqual(before["run_status"], "incomplete")
+            self.assertEqual(before["receipts"][-1]["payload"]["category"],
+                             "runner_binding_write_error")
+            self.assertIsNone(invocation["runner_run_id"])
+            native_id = adapter.active[handoff["execution_id"]][1]
+            bridge.reconcile(run["run_id"], invocation["invocation_id"],
+                             handoff["execution_id"])
+            self.assertEqual(WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+                             ["invocation"]["runner_run_id"], native_id)
+            self.assertTrue(BlockingServer.entered.wait(3))
+            self.assertEqual(BlockingServer.turn_starts, 1)
+            bridge.cancel(run["run_id"], invocation["invocation_id"],
+                          handoff["execution_id"])
+        finally:
+            adapter.cancel(handoff["execution_id"])
+
+    def test_request_lookup_is_read_only_and_rejects_ambiguous_identity(self):
+        base = self.start_http().rsplit("/v1/runs", 1)[0]
+        request_id = self.body["request_id"]
+        code, missing = self.call(base + "/v1/requests/" + request_id,
+                                  method="GET")
+        self.assertEqual((code, missing["error_category"]),
+                         (404, "request_not_found"))
+        self.assertEqual(BlockingServer.turn_starts, 0)
+        gate = threading.Event()
+        first = self.runner.start_async(self.body, response_gate=gate)
+        code, found = self.call(base + "/v1/requests/" + request_id,
+                                method="GET")
+        self.assertEqual((code, found["run_id"]), (200, first["run_id"]))
+        self.assertEqual(BlockingServer.turn_starts, 0)
+        body = {key: value for key, value in self.body.items()
+                if key != "request_id"}
+        self.runner._prepare(body, client_request_id=request_id,
+                             request_hash="sha256:synthetic-conflict")
+        code, conflict = self.call(base + "/v1/requests/" + request_id,
+                                   method="GET")
+        self.assertEqual((code, conflict["error_category"]),
+                         (409, "request_identity_conflict"))
+        self.assertEqual(BlockingServer.turn_starts, 0)
+        gate.set()
+        self.runner.cancel(first["run_id"])
 
     def test_cancel_pending_at_ack_is_forwarded_by_adapter(self):
         base = self.start_http()
