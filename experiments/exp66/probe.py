@@ -114,7 +114,8 @@ def main() -> dict:
             reopened = WorkflowRunStore(path)
             swept = reopened.sweep_crashed()
             trace_after = reopened.trace_snapshot(run_id)
-            runner = [{"event": row["event"], "utc": row["utc"]}
+            runner = [{"case": row["case"], "event": row["event"],
+                       "utc": row["utc"], "monotonic": row["monotonic"]}
                       for row in base.runner_events() if row.get("case") == "server"]
             report = {"config": {"image": base.IMAGE,
                                   "langflow_version": "1.12.3",
