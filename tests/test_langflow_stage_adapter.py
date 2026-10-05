@@ -11,6 +11,8 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.langflow_stage_adapter import FrozenLangflowStage
+from laomedo.work_graph.github import import_pages
+from laomedo.work_graph.launch import launch_work_stage
 from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
 
 
@@ -118,6 +120,38 @@ class LangflowStageAdapterTests(unittest.TestCase):
         self.assertNotEqual(second_record["graph_revision"], first_record["graph_revision"])
         self.assertEqual(fetched, ["selected-flow", "selected-flow"])
         self.assertEqual(self.store.counters()["dispatch_attempts"], 2)
+
+    def test_work_graph_gate_launches_the_checked_langflow_graph(self):
+        corpus = json.loads((FLOW.parents[0] / ".." / "exp16" / "corpus.json")
+                            .resolve().read_text(encoding="utf-8"))
+        frozen = import_pages("verify/exp16", corpus["base"],
+                              fetched_at="2026-10-05T10:00:00+00:00")
+        current = import_pages("verify/exp16", corpus["content_changed"],
+                               fetched_at="2026-10-05T10:01:00+00:00")
+        self.gate.write_text("released", encoding="utf-8")
+        stage = FrozenLangflowStage(self.flow)
+
+        def fixture_authority(ref, binding):
+            return {"grant_id": ref, "operator_authorized": True,
+                "work_key": "github:S-20",
+                "graph_snapshot_id": binding["selected_graph_snapshot_id"],
+                "runner": "langflow-local", "scope": "stage-launch",
+                "expires_at": "2026-10-05T10:10:00+00:00",
+                "limits": {"timeout_seconds": 60, "max_turns": 0}}
+
+        from datetime import datetime
+        record, result = launch_work_stage(frozen=frozen, current=current,
+            work_key="github:S-20", choice="pinned", stage=stage,
+            store=self.store, grant_ref="synthetic", grant_authority=fixture_authority,
+            resolved_config={"mode": "no-model"},
+            inputs=[{"input_value": "TASK"}], types=["chat"],
+            outputs=["ChatOutput-exp03"],
+            now=datetime.fromisoformat("2026-10-05T10:00:00+00:00"))
+        self.assertIn("TASK|BEFORE", str(result))
+        binding = json.loads(record["trigger_json"])
+        self.assertEqual(binding["selected_graph_snapshot_id"], frozen.snapshot_id)
+        self.assertEqual(binding["authorization_graph_snapshot_id"], current.snapshot_id)
+        self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
 
 
 if __name__ == "__main__":
