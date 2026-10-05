@@ -1,0 +1,129 @@
+{
+  "config": {
+    "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+    "langflow_version": "1.12.3",
+    "server_timeout_seconds": 3,
+    "container_status_at_start": "running"
+  },
+  "cases": [
+    {
+      "case": "control",
+      "route": "v1",
+      "started_utc": "2026-10-05T10:13:32.812890+00:00",
+      "duration_seconds": 1.063,
+      "kind": "response",
+      "status": 200,
+      "response": {
+        "session_id": "11e84150-08f4-41b9-93ed-1d485561b198",
+        "graph_run_id": "1b874bbf-a3fc-48e6-b62f-b67b3aec85ea",
+        "answer": "synthetic-effect"
+      },
+      "configured_component_timeout_seconds": 8,
+      "configured_caller_timeout_seconds": 15,
+      "runner_events": [
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:33.603808+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:33.805639+00:00"
+        },
+        {
+          "event": "response_written",
+          "utc": "2026-10-05T10:13:33.807288+00:00"
+        }
+      ],
+      "effect_observed": true,
+      "effect_after_caller": false
+    },
+    {
+      "case": "client",
+      "route": "v1",
+      "started_utc": "2026-10-05T10:13:33.973413+00:00",
+      "duration_seconds": 1.0,
+      "kind": "client_error",
+      "error_type": "TimeoutError",
+      "configured_component_timeout_seconds": 8,
+      "configured_caller_timeout_seconds": 1,
+      "runner_events": [
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:34.075435+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:38.077254+00:00"
+        },
+        {
+          "event": "response_written",
+          "utc": "2026-10-05T10:13:38.078874+00:00"
+        }
+      ],
+      "effect_observed": true,
+      "effect_after_caller": true
+    },
+    {
+      "case": "component",
+      "route": "v1",
+      "started_utc": "2026-10-05T10:13:38.344152+00:00",
+      "duration_seconds": 5.282,
+      "kind": "http_error",
+      "status": 500,
+      "response": {
+        "message": "Error running graph: Error building Component Laomedo Codex Agent: \n\nrunner_transport_failed; remote execution may still be active"
+      },
+      "configured_component_timeout_seconds": 2,
+      "configured_caller_timeout_seconds": 15,
+      "runner_events": [
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:38.444186+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:43.446957+00:00"
+        },
+        {
+          "event": "response_disconnected",
+          "utc": "2026-10-05T10:13:43.448636+00:00"
+        }
+      ],
+      "effect_observed": true,
+      "effect_after_caller": false
+    },
+    {
+      "case": "server",
+      "route": "v2",
+      "started_utc": "2026-10-05T10:13:43.713155+00:00",
+      "duration_seconds": 3.031,
+      "kind": "http_error",
+      "status": 408,
+      "response": {
+        "message": "Workflow execution exceeded 3 seconds",
+        "code": "EXECUTION_TIMEOUT",
+        "job_id": "10f0821d-8b90-4f43-9196-2ad534fc9cba",
+        "timeout_seconds": 3
+      },
+      "configured_component_timeout_seconds": 8,
+      "configured_caller_timeout_seconds": 15,
+      "runner_events": [
+        {
+          "event": "entered",
+          "utc": "2026-10-05T10:13:43.815365+00:00"
+        },
+        {
+          "event": "effect",
+          "utc": "2026-10-05T10:13:49.816900+00:00"
+        },
+        {
+          "event": "response_written",
+          "utc": "2026-10-05T10:13:49.819979+00:00"
+        }
+      ],
+      "effect_observed": true,
+      "effect_after_caller": true
+    }
+  ],
+  "container_status_at_end": "running"
+}
