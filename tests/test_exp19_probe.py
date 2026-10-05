@@ -4,9 +4,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from experiments.exp19.probe import run_cases
+try:
+    from experiments.exp19.probe import run_cases
+except ModuleNotFoundError as error:
+    if error.name != "experiments":
+        raise
+    run_cases = None
 
 
+@unittest.skipUnless(run_cases is not None, "experiment source is not installed in the wheel")
 class Exp19ProbeTests(unittest.TestCase):
     def test_ready_issue_retains_trace_and_local_candidate_binding(self):
         with tempfile.TemporaryDirectory() as directory:
