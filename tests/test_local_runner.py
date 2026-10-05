@@ -10,7 +10,8 @@ import unittest
 from unittest.mock import Mock, patch
 from urllib import request as http_request, error as http_error
 
-from laomedo.local_runner import AppServer, LocalRunner, RunnerError, _hash_tree, serve
+from laomedo.local_runner import (AppServer, LocalRunner, RunnerError,
+                                  _hash_tree, _native_error_summary, serve)
 from laomedo.skill_store import SkillStore
 
 
@@ -64,6 +65,44 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
+    def test_native_error_summary_only_exposes_schema_codes(self):
+        secret = "SECRET_LOGIN_TOKEN_and_https://private.example/path"
+        events = [
+            {"method": "error", "params": {"turnId": "wanted", "willRetry": True,
+                "error": {"message": secret, "additionalDetails": secret,
+                    "codexErrorInfo": {"httpConnectionFailed": {
+                        "httpStatusCode": 401, "url": secret}}}}},
+            {"method": "error", "params": {"turnId": "wanted", "willRetry": False,
+                "error": {"message": secret, "codexErrorInfo": secret}}},
+            {"method": "error", "params": {"turnId": "other", "error": {
+                "codexErrorInfo": "unauthorized", "message": secret}}},
+        ]
+        summary = _native_error_summary(events, "wanted")
+        self.assertEqual(summary, {"schema_version": 1, "error_events": 2,
+            "retry_events": 1, "categories": {"httpConnectionFailed": 1,
+            "unknown": 1}, "http_status_codes": [401],
+            "last_category": "unknown"})
+        self.assertNotIn(secret, json.dumps(summary))
+
+    def test_failed_native_turn_exposes_only_allowlisted_category(self):
+        class Failed(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                self.events.append({"method": "error", "params": {
+                    "turnId": turn_id, "willRetry": False, "error": {
+                        "codexErrorInfo": "unauthorized",
+                        "message": "SECRET_LOGIN_TOKEN_and_https://private.example/path"}}})
+                return "failed", None
+
+        self.runner.transport = Failed
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "codex_unauthorized")
+        self.assertEqual(result["native_error_summary"]["categories"],
+                         {"unauthorized": 1})
+        self.assertNotIn("SECRET_LOGIN_TOKEN", json.dumps(result))
+        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
+                         ["attempted_turns"], 1)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

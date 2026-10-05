@@ -30,6 +30,19 @@ CONFIG = Path(__file__).resolve().parent / "runner-config.toml"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 MAX_BODY = 64 * 1024
+NATIVE_ERROR_KINDS = frozenset({
+    "contextWindowExceeded", "sessionBudgetExceeded", "usageLimitExceeded",
+    "rateLimitExceeded", "flexUnavailable", "serverOverloaded", "cyberPolicy",
+    "misalignmentPolicyViolation", "tooManyDenials", "internalServerError",
+    "unauthorized", "badRequest", "threadRollbackFailed", "sandboxError",
+    "other", "httpConnectionFailed", "responseStreamConnectionFailed",
+    "responseStreamDisconnected", "responseTooManyFailedAttempts",
+    "activeTurnNotSteerable",
+})
+NATIVE_HTTP_ERROR_KINDS = frozenset({
+    "httpConnectionFailed", "responseStreamConnectionFailed",
+    "responseStreamDisconnected", "responseTooManyFailedAttempts",
+})
 
 
 class RunnerError(ValueError):
@@ -108,6 +121,41 @@ def _id(value: str) -> str:
     if str(UUID(value)) != value:
         raise RunnerError("invalid_run_id")
     return value
+
+
+def _native_error_summary(events: list[dict], turn_id: str) -> dict:
+    """Project app-server error events to a closed, nontextual diagnostic schema."""
+    counts = {}
+    statuses = set()
+    retry_events = 0
+    error_events = 0
+    last_kind = None
+    for event in events:
+        if event.get("method") != "error":
+            continue
+        params = event.get("params")
+        if not isinstance(params, dict) or params.get("turnId") != turn_id:
+            continue
+        error_events += 1
+        retry_events += params.get("willRetry") is True
+        error = params.get("error")
+        info = error.get("codexErrorInfo") if isinstance(error, dict) else None
+        kind = "unknown"
+        if isinstance(info, str) and info in NATIVE_ERROR_KINDS:
+            kind = info
+        elif isinstance(info, dict) and len(info) == 1:
+            candidate, details = next(iter(info.items()))
+            if candidate in NATIVE_ERROR_KINDS and isinstance(details, dict):
+                kind = candidate
+                if candidate in NATIVE_HTTP_ERROR_KINDS:
+                    status = details.get("httpStatusCode")
+                    if type(status) is int and 100 <= status <= 599:
+                        statuses.add(status)
+        counts[kind] = counts.get(kind, 0) + 1
+        last_kind = kind
+    return {"schema_version": 1, "error_events": error_events,
+            "retry_events": retry_events, "categories": counts,
+            "http_status_codes": sorted(statuses), "last_category": last_kind}
 
 
 def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path) -> list[str]:
@@ -616,12 +664,17 @@ class LocalRunner:
                 raise RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
+            native_errors = _native_error_summary(server.events, turn_id)
+            if status == "failed" and error is None and native_errors["last_category"]:
+                error = "codex_" + native_errors["last_category"]
             record["turns"].append({"turn_id": turn_id, "status": status,
                                     "error_category": error,
+                                    "native_error_summary": native_errors,
                                     "input_hash": "sha256:" +
                                     hashlib.sha256(task.encode()).hexdigest()})
             record["status"] = "completed" if status == "completed" else status
             record["error_category"] = error
+            record["native_error_summary"] = native_errors
             record["answer"] = _answer(server.events) if status == "completed" else None
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")

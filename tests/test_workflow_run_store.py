@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
+from laomedo.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
 
 
 FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.json"
@@ -54,6 +54,26 @@ class WorkflowRunStoreTests(unittest.TestCase):
         self.assertEqual(self.store.get(completed["run_id"])["status"], "completed")
         self.assertEqual(self.store.sweep_crashed(), [])
         self.assertEqual(self.store.counters()["synthetic_dispatches"], 1)
+
+    def test_lost_external_acknowledgement_stays_unknown_and_never_retries(self):
+        record = self.reserve(trigger={"type": "selected-issue"})
+        submitted = []
+
+        def lose_acknowledgement(run_id):
+            submitted.append(run_id)
+            raise ExternalOutcomeUnknown("transport_lost_after_send")
+
+        with self.assertRaises(ExternalOutcomeUnknown):
+            self.store.dispatch(record["run_id"], lose_acknowledgement)
+        saved = self.store.get(record["run_id"])
+        self.assertEqual(saved["status"], "unknown")
+        self.assertEqual(saved["terminal_reason"], "external_outcome_unknown")
+        self.assertEqual(saved["dispatch_attempts"], 1)
+        self.assertEqual(saved["evidence_complete"], 0)
+        self.assertEqual(self.store.sweep_crashed(), [])
+        with self.assertRaisesRegex(LaunchError, "dispatch_not_reserved"):
+            self.store.dispatch(record["run_id"], lose_acknowledgement)
+        self.assertEqual(submitted, [record["run_id"]])
 
 
 if __name__ == "__main__":

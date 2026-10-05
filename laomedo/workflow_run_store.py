@@ -23,6 +23,10 @@ class LaunchError(RuntimeError):
     pass
 
 
+class ExternalOutcomeUnknown(RuntimeError):
+    """A dispatched external call may have run, but its result is unconfirmed."""
+
+
 class WorkflowRunStore:
     """SQLite-backed launch identities; crash recovery never replays dispatch."""
 
@@ -265,6 +269,12 @@ class WorkflowRunStore:
                 raise LaunchError("dispatch_not_reserved")
         try:
             result = callback(run_id)
+        except ExternalOutcomeUnknown:
+            with self._database() as db:
+                db.execute("""UPDATE runs SET status='unknown', evidence_complete=0,
+                    terminal_reason='external_outcome_unknown'
+                    WHERE run_id=? AND status='dispatching'""", (run_id,))
+            raise
         except Exception:
             with self._database() as db:
                 db.execute("""UPDATE runs SET status='failed', terminal_reason='synthetic_error'

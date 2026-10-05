@@ -1,0 +1,18 @@
+# Draft disposable local server for the bounded EXP-19 test. Apply only after
+# review of the isolated auto-login setting and a separate model-turn grant.
+services:
+  langflow:
+    image: langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0
+    container_name: laomedo-langflow-exp19-local
+    ports:
+      - "127.0.0.1:7863:7860"
+    environment:
+      LANGFLOW_COMPONENTS_PATH: /app/custom_components
+      LANGFLOW_AUTO_LOGIN: "true"
+      LAOMEDO_RUNNER_TOKEN_FILE: /run/secrets/laomedo-runner-token
+    volumes:
+      - ../../components:/app/custom_components:ro
+      - ${LAOMEDO_EXP19_RUNNER_TOKEN_PATH:?Set the private EXP-19 runner API token path}:/run/secrets/laomedo-runner-token:ro
+      - exp19-langflow-data:/app/langflow
+volumes:
+  exp19-langflow-data:
