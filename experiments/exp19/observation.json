@@ -1,0 +1,70 @@
+{
+  "cases": {
+    "fake_agent_failure": {
+      "binding": null,
+      "component_revision": "sha256:30cd7e5126e476b90939900ab8e4b6b9779a8f311dfb21a6d5cbbd974bdecdc9",
+      "dispatch_attempts": 1,
+      "graph_snapshot_id": "sha256:9f16758508a72ed163d87b938e5a6ad5c492db5a205878501e55593f700b5424",
+      "input_digest": "sha256:b05e5a2b856c221d417a6bcaed7c645aac18b6268f36054212b0a4369feb7a6c",
+      "outcome": "failed",
+      "pr_candidate": null,
+      "projection_count": 1,
+      "receipt_count": 1,
+      "run_id": "4438c4c4-4917-4c32-91b7-6aea2758f375",
+      "stream_state": "partial",
+      "trace_id": "87ba1392-52fa-49b5-905a-256912f37584"
+    },
+    "incomplete_blockers": {
+      "dispatch_attempts": 0,
+      "outcome": "refused",
+      "pr_candidate": null,
+      "reason": "source_not_ready"
+    },
+    "opened_prerequisite": {
+      "dispatch_attempts": 0,
+      "outcome": "refused",
+      "pr_candidate": null,
+      "reason": "source_not_ready"
+    },
+    "ready_success": {
+      "binding": {
+        "component_revision": "sha256:30cd7e5126e476b90939900ab8e4b6b9779a8f311dfb21a6d5cbbd974bdecdc9",
+        "graph_snapshot_id": "sha256:9f16758508a72ed163d87b938e5a6ad5c492db5a205878501e55593f700b5424",
+        "input_digest": "sha256:b05e5a2b856c221d417a6bcaed7c645aac18b6268f36054212b0a4369feb7a6c",
+        "run_id": "78d2b738-679c-43c6-8fd0-aab739dfaaf2",
+        "source_updated_at": "2026-10-01T07:00:00Z",
+        "source_url": "https://github.com/example/work/issues/2",
+        "target_pr": null,
+        "trace_id": "7caa2763-63b1-415d-954c-ee36316e859b",
+        "work_key": "github:I_2"
+      },
+      "component_revision": "sha256:30cd7e5126e476b90939900ab8e4b6b9779a8f311dfb21a6d5cbbd974bdecdc9",
+      "dispatch_attempts": 1,
+      "graph_snapshot_id": "sha256:9f16758508a72ed163d87b938e5a6ad5c492db5a205878501e55593f700b5424",
+      "input_digest": "sha256:b05e5a2b856c221d417a6bcaed7c645aac18b6268f36054212b0a4369feb7a6c",
+      "outcome": "completed",
+      "pr_candidate": {
+        "branch": "exp19/78d2b738-679c-43c6-8fd0-aab739dfaaf2",
+        "commit": "61a47d71ff7c0bb50dfa2d3fc5eccc4eac78f8aa",
+        "remote_count": 0,
+        "target_pr": null
+      },
+      "projection_count": 2,
+      "receipt_count": 2,
+      "run_id": "78d2b738-679c-43c6-8fd0-aab739dfaaf2",
+      "stream_state": "complete",
+      "trace_id": "7caa2763-63b1-415d-954c-ee36316e859b"
+    },
+    "stale_source": {
+      "dispatch_attempts": 0,
+      "outcome": "refused",
+      "pr_candidate": null,
+      "reason": "source_snapshot_changed"
+    }
+  },
+  "fixture_digest": "sha256:2fa947fa24e868c2d487c4e805155000a37d9d8aa1fac4db090db03126630d13",
+  "flow_digest": "sha256:9670d89e0223c4e33ceea9d4460a105486f70d1d353dba5a741c5e8156b7a541",
+  "github_writes": 0,
+  "model_turns": 0,
+  "skill_digest": "sha256:12381c479ed0f553a138d618e2b4d377cb19e0401ed1adb151fd2f29ee452b3d"
+}
