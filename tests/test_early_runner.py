@@ -3,16 +3,16 @@
 import json
 from pathlib import Path
 import shutil
-import sys
 import tempfile
 import threading
 import time
-import traceback
 import unittest
+from unittest.mock import patch
 from urllib import error as http_error, request as http_request
 from uuid import uuid4
 
 from laomedo.local_runner import LocalRunner, RunnerError, _json, serve
+import laomedo.local_runner as runner_module
 from laomedo.handoff_http import RunnerAdapter
 from laomedo.handoffs import HandoffError, envelope
 from laomedo.skill_store import SkillStore
@@ -21,6 +21,7 @@ from test_local_runner import FakeServer
 
 class BlockingServer(FakeServer):
     entered = threading.Event()
+    closed = threading.Event()
     turn_starts = 0
 
     def request(self, method, params, timeout=30):
@@ -35,6 +36,10 @@ class BlockingServer(FakeServer):
         if not cancelled.wait(4):
             return "timeout", "synthetic_timeout"
         return "cancelled", "cancelled_by_user"
+
+    def close(self):
+        super().close()
+        type(self).closed.set()
 
 
 class EarlyRunnerTests(unittest.TestCase):
@@ -61,6 +66,7 @@ class EarlyRunnerTests(unittest.TestCase):
                                   transport=BlockingServer, check_docker=False,
                                   max_model_turns=2)
         BlockingServer.entered = threading.Event()
+        BlockingServer.closed = threading.Event()
         BlockingServer.turn_starts = 0
         self.body = {"request_id": str(uuid4()), "task": "Synthetic task",
                      "model": "test-model", "effort": "low",
@@ -254,11 +260,8 @@ class EarlyRunnerTests(unittest.TestCase):
         while terminal["status"] in {"prepared", "running"} and time.monotonic() < deadline:
             time.sleep(.02)
             terminal = self.runner.status(run_id)
-        worker_stacks = ["".join(traceback.format_stack(sys._current_frames()[thread.ident]))
-                         for thread in threading.enumerate()
-                         if thread.name == "_async_worker" and thread.ident in sys._current_frames()]
         self.assertIn(terminal["status"], {"cancelled", "timeout"},
-                      f"record={terminal}; worker_stacks={worker_stacks}")
+                      f"terminal status was {terminal['status']}")
         self.assertLessEqual(BlockingServer.turn_starts, 1)
 
     def test_poll_deadline_retains_early_identity_and_does_not_cancel(self):
@@ -291,6 +294,36 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertEqual(terminal["cancel_confirmed"],
                          terminal["status"] == "cancelled")
         self.assertLessEqual(BlockingServer.turn_starts, 1)
+
+    def test_late_cancel_cannot_overwrite_terminal_record_with_running(self):
+        run_id = self.runner.start_async(self.body)["run_id"]
+        self.assertTrue(BlockingServer.entered.wait(2))
+        write_paused, release = threading.Event(), threading.Event()
+        original_json = runner_module._json
+        result = {}
+        def delayed_json(path, value):
+            if (path.name == "record.json" and value.get("status") == "running"
+                    and value.get("cancel_requested") and not write_paused.is_set()):
+                write_paused.set()
+                release.wait(3)
+            return original_json(path, value)
+        def cancel():
+            result["cancel"] = self.runner.cancel(run_id)
+        with patch.object(runner_module, "_json", side_effect=delayed_json):
+            caller = threading.Thread(target=cancel)
+            caller.start()
+            try:
+                self.assertTrue(write_paused.wait(2))
+                # The worker has reached its final write while cancel still
+                # holds an older running record. Without the shared lock the
+                # late cancel write resurrects that stale running state.
+                self.assertTrue(BlockingServer.closed.wait(2))
+            finally:
+                release.set()
+                caller.join(3)
+        self.assertFalse(caller.is_alive())
+        self.assertTrue(result["cancel"]["cancel_requested"])
+        self.assertTrue(self.wait_status(run_id, "cancelled")["cancel_confirmed"])
 
 
 if __name__ == "__main__":

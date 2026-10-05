@@ -810,12 +810,13 @@ class LocalRunner:
                     record.update(status="failed", error_category="container_termination_unverified")
             finally:
                 try:
-                    if record is not None:
-                        if cancelled is not None and cancelled.is_set():
-                            record["cancel_requested"] = True
-                        _json(run_dir / "record.json", record)
+                    with self.control_lock:
+                        if record is not None:
+                            if cancelled is not None and cancelled.is_set():
+                                record["cancel_requested"] = True
+                            _json(run_dir / "record.json", record)
+                        self.cancel_flags.pop(run_id, None)
                 finally:
-                    self.cancel_flags.pop(run_id, None)
                     self.lock.release()
         return record
 

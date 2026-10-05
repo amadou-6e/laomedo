@@ -18,10 +18,13 @@ a Stop arriving before acknowledgement was forwarded after the ID appeared.
 A polling deadline left the early ID available and did not assert cancellation.
 A subsequent cancel races with the fake turn's own timeout; either terminal
 outcome is accepted only when its `cancel_confirmed` value matches the outcome.
+A separate controlled race pauses a cancel writer after it reads `running`,
+lets the worker reach finalization, then releases the writer. The final
+persisted record remains terminal rather than being overwritten as `running`.
 
 Verification commands and observations:
 
-- `python -m unittest discover -s tests -p test_*.py`: 153 passed.
+- `python -m unittest discover -s tests -p test_*.py`: 154 passed.
 - Pinned Langflow image `langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0`, offline, with `PYTHONPATH=/workspace`: the Codex component, bounded controller and handoff graph suites passed together (19 tests); the OpenCode component passed in its separate component-package process (3 tests).
 - The combined Langflow discovery command is not a supported single process:
   both the product and UI component trees use the `laomedo` package name.
