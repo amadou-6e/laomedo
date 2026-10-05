@@ -1,31 +1,31 @@
 {
   "caller": {
     "case": "server",
-    "duration_seconds": 3.047,
+    "duration_seconds": 3.015,
     "kind": "http_error",
     "response": {
       "code": "EXECUTION_TIMEOUT",
-      "job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+      "job_id": "643217ad-2298-4387-825f-5b62078a3fae",
       "message": "Workflow execution exceeded 3 seconds",
       "timeout_seconds": 3
     },
     "route": "v2",
-    "started_utc": "2026-10-05T11:57:08.052392+00:00",
+    "started_utc": "2026-10-05T12:00:31.000890+00:00",
     "status": 408
   },
   "clock_after": {
-    "container_utc": 1791201438.4234,
-    "estimated_offset_seconds": 0.03018,
-    "host_after_utc": 1791201438.43471,
-    "host_before_utc": 1791201438.35173,
-    "uncertainty_seconds": 0.04149
+    "container_utc": 1791201641.3282022,
+    "estimated_offset_seconds": 0.031757,
+    "host_after_utc": 1791201641.33875,
+    "host_before_utc": 1791201641.254141,
+    "uncertainty_seconds": 0.042304
   },
   "clock_before": {
-    "container_utc": 1791201427.9765868,
-    "estimated_offset_seconds": 0.029968,
-    "host_after_utc": 1791201427.98928,
-    "host_before_utc": 1791201427.903957,
-    "uncertainty_seconds": 0.042662
+    "container_utc": 1791201630.9338217,
+    "estimated_offset_seconds": 0.034664,
+    "host_after_utc": 1791201630.943984,
+    "host_before_utc": 1791201630.854331,
+    "uncertainty_seconds": 0.044827
   },
   "config": {
     "caller_timeout_seconds": 15,
@@ -45,16 +45,22 @@
   "restart_sweep_ids": [],
   "runner_events": [
     {
+      "case": "server",
       "event": "entered",
-      "utc": "2026-10-05T11:57:08.857504+00:00"
+      "monotonic": 194472.234522342,
+      "utc": "2026-10-05T12:00:31.711418+00:00"
     },
     {
+      "case": "server",
       "event": "effect",
-      "utc": "2026-10-05T11:57:14.859289+00:00"
+      "monotonic": 194478.236243411,
+      "utc": "2026-10-05T12:00:37.712274+00:00"
     },
     {
+      "case": "server",
       "event": "response_written",
-      "utc": "2026-10-05T11:57:14.862671+00:00"
+      "monotonic": 194478.23962602,
+      "utc": "2026-10-05T12:00:37.715669+00:00"
     }
   ],
   "status_snapshots": [
@@ -62,12 +68,12 @@
       "actual_offset_seconds": 0.078,
       "detail_code": "JOB_FAILED",
       "detail_error": "Job failed",
-      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_message": "Job 643217ad-2298-4387-825f-5b62078a3fae has failed execution.",
       "detail_type": "dict",
       "error_detail_present": false,
       "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T11:57:11.175271+00:00",
+      "observed_utc": "2026-10-05T12:00:34.094603+00:00",
       "response_keys": [
         "detail"
       ],
@@ -77,12 +83,12 @@
       "actual_offset_seconds": 1.063,
       "detail_code": "JOB_FAILED",
       "detail_error": "Job failed",
-      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_message": "Job 643217ad-2298-4387-825f-5b62078a3fae has failed execution.",
       "detail_type": "dict",
       "error_detail_present": false,
       "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T11:57:12.166802+00:00",
+      "observed_utc": "2026-10-05T12:00:35.087337+00:00",
       "response_keys": [
         "detail"
       ],
@@ -92,27 +98,27 @@
       "actual_offset_seconds": 4.063,
       "detail_code": "JOB_FAILED",
       "detail_error": "Job failed",
-      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_message": "Job 643217ad-2298-4387-825f-5b62078a3fae has failed execution.",
       "detail_type": "dict",
       "error_detail_present": false,
       "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T11:57:15.163024+00:00",
+      "observed_utc": "2026-10-05T12:00:38.086481+00:00",
       "response_keys": [
         "detail"
       ],
       "target_offset_seconds": 4
     },
     {
-      "actual_offset_seconds": 7.078,
+      "actual_offset_seconds": 7.063,
       "detail_code": "JOB_FAILED",
       "detail_error": "Job failed",
-      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_message": "Job 643217ad-2298-4387-825f-5b62078a3fae has failed execution.",
       "detail_type": "dict",
       "error_detail_present": false,
       "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T11:57:18.169255+00:00",
+      "observed_utc": "2026-10-05T12:00:41.083377+00:00",
       "response_keys": [
         "detail"
       ],
@@ -125,13 +131,13 @@
     "event_count": 8,
     "evidence_complete": false,
     "invocation": {
-      "created_at": "2026-10-05T11:57:08.041Z",
+      "created_at": "2026-10-05T12:00:30.991Z",
       "effect_state": "observed",
       "evidence_state": "partial",
-      "invocation_id": "6bc4c721-3040-471d-b78f-1c202ec737ee",
-      "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+      "invocation_id": "d6e15b7b-da9a-46d6-bb8c-88dba1075a05",
+      "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
       "native_job_state": "failed",
-      "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+      "run_id": "a9dbe355-2d33-4446-8a8e-adc442b6e37d",
       "stage_id": "LaomedoCodexAgent-native",
       "status": "failed"
     },
@@ -142,14 +148,14 @@
         "payload": {
           "stage_id": "LaomedoCodexAgent-native"
         },
-        "received_at": "2026-10-05T11:57:08.041Z",
+        "received_at": "2026-10-05T12:00:30.991Z",
         "sequence": 1,
         "source_time": null
       },
       {
         "kind": "dispatch_started",
         "payload": {},
-        "received_at": "2026-10-05T11:57:08.049Z",
+        "received_at": "2026-10-05T12:00:30.997Z",
         "sequence": 2,
         "source_time": null
       },
@@ -158,9 +164,9 @@
         "payload": {
           "detail_code": "EXECUTION_TIMEOUT",
           "http_status": 408,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc"
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae"
         },
-        "received_at": "2026-10-05T11:57:11.094Z",
+        "received_at": "2026-10-05T12:00:34.024Z",
         "sequence": 3,
         "source_time": null
       },
@@ -169,10 +175,10 @@
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:11.191Z",
+        "received_at": "2026-10-05T12:00:34.111Z",
         "sequence": 4,
         "source_time": null
       },
@@ -181,10 +187,10 @@
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:12.180Z",
+        "received_at": "2026-10-05T12:00:35.121Z",
         "sequence": 5,
         "source_time": null
       },
@@ -192,21 +198,21 @@
         "kind": "external_effect_observed",
         "payload": {
           "source": "exp66-synthetic-runner",
-          "source_ref": "sha256:6da1e6e3338deb906a2c1131ae7a6e9dbaad116d0534c5afcd4ebd182bf58739"
+          "source_ref": "sha256:1940e6a48d9c58a68e0487dfe1faa573ede14faba4c9d5f9f8c8e2fd1a17ada1"
         },
-        "received_at": "2026-10-05T11:57:15.159Z",
+        "received_at": "2026-10-05T12:00:38.082Z",
         "sequence": 6,
-        "source_time": "2026-10-05T11:57:14.859289+00:00"
+        "source_time": "2026-10-05T12:00:37.712274+00:00"
       },
       {
         "kind": "native_job_observed",
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:15.175Z",
+        "received_at": "2026-10-05T12:00:38.121Z",
         "sequence": 7,
         "source_time": null
       },
@@ -215,18 +221,18 @@
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:18.199Z",
+        "received_at": "2026-10-05T12:00:41.096Z",
         "sequence": 8,
         "source_time": null
       }
     ],
-    "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+    "run_id": "a9dbe355-2d33-4446-8a8e-adc442b6e37d",
     "run_status": "timed_out",
     "stream_state": "partial",
-    "trace_id": "58516e34-604e-482a-879c-2de12960aca9"
+    "trace_id": "a1b290c4-fc78-4e19-bf49-9a1d6c3777f2"
   },
   "trace_before_reopen": {
     "action_uniqueness": "uncertain",
@@ -234,13 +240,13 @@
     "event_count": 8,
     "evidence_complete": false,
     "invocation": {
-      "created_at": "2026-10-05T11:57:08.041Z",
+      "created_at": "2026-10-05T12:00:30.991Z",
       "effect_state": "observed",
       "evidence_state": "partial",
-      "invocation_id": "6bc4c721-3040-471d-b78f-1c202ec737ee",
-      "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+      "invocation_id": "d6e15b7b-da9a-46d6-bb8c-88dba1075a05",
+      "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
       "native_job_state": "failed",
-      "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+      "run_id": "a9dbe355-2d33-4446-8a8e-adc442b6e37d",
       "stage_id": "LaomedoCodexAgent-native",
       "status": "failed"
     },
@@ -251,14 +257,14 @@
         "payload": {
           "stage_id": "LaomedoCodexAgent-native"
         },
-        "received_at": "2026-10-05T11:57:08.041Z",
+        "received_at": "2026-10-05T12:00:30.991Z",
         "sequence": 1,
         "source_time": null
       },
       {
         "kind": "dispatch_started",
         "payload": {},
-        "received_at": "2026-10-05T11:57:08.049Z",
+        "received_at": "2026-10-05T12:00:30.997Z",
         "sequence": 2,
         "source_time": null
       },
@@ -267,9 +273,9 @@
         "payload": {
           "detail_code": "EXECUTION_TIMEOUT",
           "http_status": 408,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc"
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae"
         },
-        "received_at": "2026-10-05T11:57:11.094Z",
+        "received_at": "2026-10-05T12:00:34.024Z",
         "sequence": 3,
         "source_time": null
       },
@@ -278,10 +284,10 @@
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:11.191Z",
+        "received_at": "2026-10-05T12:00:34.111Z",
         "sequence": 4,
         "source_time": null
       },
@@ -290,10 +296,10 @@
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:12.180Z",
+        "received_at": "2026-10-05T12:00:35.121Z",
         "sequence": 5,
         "source_time": null
       },
@@ -301,21 +307,21 @@
         "kind": "external_effect_observed",
         "payload": {
           "source": "exp66-synthetic-runner",
-          "source_ref": "sha256:6da1e6e3338deb906a2c1131ae7a6e9dbaad116d0534c5afcd4ebd182bf58739"
+          "source_ref": "sha256:1940e6a48d9c58a68e0487dfe1faa573ede14faba4c9d5f9f8c8e2fd1a17ada1"
         },
-        "received_at": "2026-10-05T11:57:15.159Z",
+        "received_at": "2026-10-05T12:00:38.082Z",
         "sequence": 6,
-        "source_time": "2026-10-05T11:57:14.859289+00:00"
+        "source_time": "2026-10-05T12:00:37.712274+00:00"
       },
       {
         "kind": "native_job_observed",
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:15.175Z",
+        "received_at": "2026-10-05T12:00:38.121Z",
         "sequence": 7,
         "source_time": null
       },
@@ -324,17 +330,17 @@
         "payload": {
           "detail_code": "JOB_FAILED",
           "http_status": 500,
-          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_id": "643217ad-2298-4387-825f-5b62078a3fae",
           "native_job_state": "failed"
         },
-        "received_at": "2026-10-05T11:57:18.199Z",
+        "received_at": "2026-10-05T12:00:41.096Z",
         "sequence": 8,
         "source_time": null
       }
     ],
-    "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+    "run_id": "a9dbe355-2d33-4446-8a8e-adc442b6e37d",
     "run_status": "timed_out",
     "stream_state": "partial",
-    "trace_id": "58516e34-604e-482a-879c-2de12960aca9"
+    "trace_id": "a1b290c4-fc78-4e19-bf49-9a1d6c3777f2"
   }
 }
