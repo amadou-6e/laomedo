@@ -222,17 +222,20 @@ class WorkGraphLaunchTests(unittest.TestCase):
         with self.assertRaisesRegex(LaunchError, "grant_issue_invalid"):
             authority.issue(work_key=WORK,
                 graph_snapshot_id=binding["selected_graph_snapshot_id"],
-                operator_id="local-test-operator", expires_at=expiry,
+                expires_at=expiry,
                 timeout_seconds=30, max_turns=1)
         wrong_ref = authority.issue(work_key=WORK,
-            graph_snapshot_id="wrong-graph", operator_id="local-test-operator",
+            graph_snapshot_id="wrong-graph",
             expires_at=expiry, timeout_seconds=30, max_turns=0)
         with self.assertRaisesRegex(LaunchError, "grant_binding_mismatch"):
             authority(wrong_ref, binding)
         ref = authority.issue(work_key=WORK,
             graph_snapshot_id=binding["selected_graph_snapshot_id"],
-            operator_id="local-test-operator", expires_at=expiry,
+            expires_at=expiry,
             timeout_seconds=30, max_turns=0)
+        with patch("laomedo.work_graph.grants._host_principal", return_value="other-user"):
+            with self.assertRaisesRegex(LaunchError, "grant_operator_mismatch"):
+                authority(ref, binding)
         record, result = launch_work_stage(frozen=self.frozen,
             source_fetch=lambda _repository: self.frozen, work_key=WORK,
             stage=self.stage, store=self.store, grant_ref=ref,
@@ -242,7 +245,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
         self.assertEqual(config["grant_ref"], ref)
         self.assertEqual(config["effective_limits"],
                          {"timeout_seconds": 30, "max_turns": 0})
-        self.assertNotIn("local-test-operator", record["resolved_config"])
+        self.assertNotIn("operator_id", record["resolved_config"])
         with self.assertRaisesRegex(LaunchError, "grant_invalid"):
             authority(ref, binding)
 

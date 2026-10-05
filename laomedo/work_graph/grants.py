@@ -5,9 +5,13 @@ The issuer belongs to the host controller, never to a Langflow component.
 """
 
 from contextlib import closing
+import csv
 from datetime import datetime, timezone
+import os
 from pathlib import Path
+import re
 import sqlite3
+import subprocess
 from uuid import uuid4
 
 from laomedo.workflow_run_store import LaunchError
@@ -21,6 +25,21 @@ def _private_path(path):
     if any((parent / ".git").exists() for parent in (resolved.parent, *resolved.parent.parents)):
         raise LaunchError("grant_store_inside_git")
     return resolved
+
+
+def _host_principal():
+    if os.name != "nt":
+        return "uid:" + str(os.getuid())
+    try:
+        result = subprocess.run(["whoami", "/user", "/fo", "csv", "/nh"],
+            capture_output=True, text=True, encoding="utf-8", timeout=5)
+        rows = list(csv.reader(result.stdout.splitlines()))
+        sid = rows[0][-1] if result.returncode == 0 and len(rows) == 1 else ""
+    except (OSError, subprocess.TimeoutExpired, IndexError):
+        sid = ""
+    if not re.fullmatch(r"S-\d+(?:-\d+)+", sid):
+        raise LaunchError("host_operator_identity_unavailable")
+    return "sid:" + sid
 
 
 class LocalGrantAuthority:
@@ -52,11 +71,11 @@ class LocalGrantAuthority:
         db.row_factory = sqlite3.Row
         return db
 
-    def issue(self, *, work_key, graph_snapshot_id, operator_id, expires_at,
+    def issue(self, *, work_key, graph_snapshot_id, expires_at,
               timeout_seconds, max_turns):
-        """Record a host decision; caller must establish operator authority."""
+        """Record the authenticated host process principal, not a caller label."""
         if (not all(isinstance(value, str) and value.strip() for value in
-                    (work_key, graph_snapshot_id, operator_id, expires_at)) or
+                    (work_key, graph_snapshot_id, expires_at)) or
                 type(timeout_seconds) is not int or not 1 <= timeout_seconds <= 3600 or
                 type(max_turns) is not int or max_turns != 0):
             raise LaunchError("grant_issue_invalid")
@@ -67,6 +86,7 @@ class LocalGrantAuthority:
         if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc):
             raise LaunchError("grant_expired")
         grant_id = str(uuid4())
+        operator_id = _host_principal()
         with closing(self._connect()) as db, db:
             db.execute("""INSERT INTO grants VALUES
                 (?, ?, ?, 'langflow-local', 'stage-launch', ?, ?, ?, ?, ?, NULL)""",
@@ -84,6 +104,8 @@ class LocalGrantAuthority:
             row = db.execute("SELECT * FROM grants WHERE grant_id=?", (grant_id,)).fetchone()
             if row is None or row["redeemed_at"] is not None:
                 raise LaunchError("grant_invalid")
+            if row["operator_id"] != _host_principal():
+                raise LaunchError("grant_operator_mismatch")
             if (row["work_key"] != binding.get("work_snapshot", {}).get("key") or
                     row["graph_snapshot_id"] != binding.get("selected_graph_snapshot_id")):
                 raise LaunchError("grant_binding_mismatch")

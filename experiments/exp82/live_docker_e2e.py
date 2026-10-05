@@ -1,7 +1,6 @@
 """Zero-model local launch: live GitHub read, saved-flow API, Docker stage."""
 
 from datetime import datetime, timedelta, timezone
-import getpass
 import json
 import os
 from pathlib import Path
@@ -44,7 +43,6 @@ def main():
         authority = LocalGrantAuthority(private / "grants.sqlite")
         grant_ref = authority.issue(work_key=selected.key,
             graph_snapshot_id=frozen.snapshot_id,
-            operator_id=getpass.getuser(),
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         store = WorkflowRunStore(private / "runs.sqlite3")

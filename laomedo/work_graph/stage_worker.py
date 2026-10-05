@@ -5,6 +5,7 @@ grant store, GitHub login, Langflow API token, or provider credentials.
 """
 
 import asyncio
+from contextlib import redirect_stdout
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -23,7 +24,8 @@ def _emit(payload):
 def main():
     try:
         exported = json.loads(Path("/flow/flow.json").read_text(encoding="utf-8"))
-        stage = FrozenLangflowStage(exported)
+        with redirect_stdout(sys.stderr):
+            stage = FrozenLangflowStage(exported)
         graph_json = json.dumps(stage.graph_data, sort_keys=True,
                                 separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         _emit({"type": "ready", "graph_revision": "sha256:" + sha256(graph_json).hexdigest(),
@@ -31,8 +33,9 @@ def main():
         command = json.loads(sys.stdin.readline())
         if not isinstance(command, dict) or command.get("type") != "execute":
             raise ValueError("invalid_stage_command")
-        result = asyncio.run(stage.graph.arun(inputs=command.get("inputs"),
-            types=command.get("types"), outputs=command.get("outputs")))
+        with redirect_stdout(sys.stderr):
+            result = asyncio.run(stage.graph.arun(inputs=command.get("inputs"),
+                types=command.get("types"), outputs=command.get("outputs")))
         _emit({"type": "complete", "result": str(result)})
     except Exception as exc:
         _emit({"type": "failed", "category": type(exc).__name__})

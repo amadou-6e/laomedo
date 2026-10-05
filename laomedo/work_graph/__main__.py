@@ -2,7 +2,6 @@
 
 import argparse
 from datetime import datetime, timedelta, timezone
-import getpass
 import json
 from pathlib import Path
 import sys
@@ -68,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
                 minutes=args.expires_in_minutes)).isoformat()
             ref = authority.issue(work_key=args.work_key,
                 graph_snapshot_id=snapshot.snapshot_id,
-                operator_id=getpass.getuser(), expires_at=expiry,
+                expires_at=expiry,
                 timeout_seconds=args.timeout_seconds, max_turns=args.max_turns)
             print(json.dumps({"grant_ref": ref, "work_key": args.work_key,
                 "graph_snapshot_id": snapshot.snapshot_id,

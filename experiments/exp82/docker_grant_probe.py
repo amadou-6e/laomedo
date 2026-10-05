@@ -28,7 +28,6 @@ def main():
         authority = LocalGrantAuthority(private / "grants.sqlite")
         grant_ref = authority.issue(work_key=work_key,
             graph_snapshot_id=frozen.snapshot_id,
-            operator_id="credential-free-probe",
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         store = WorkflowRunStore(private / "runs.sqlite3")
@@ -47,7 +46,6 @@ def main():
             replay_refused = str(exc) == "grant_invalid"
         bad_ref = authority.issue(work_key=work_key,
             graph_snapshot_id=frozen.snapshot_id,
-            operator_id="credential-free-probe",
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         mismatched = DockerLangflowStage(no_model_flow(), source_root=ROOT)
@@ -71,6 +69,30 @@ def main():
         bad_name = mismatched.last_command[mismatched.last_command.index("--name") + 1]
         bad_container_absent = subprocess.run(["docker", "inspect", bad_name],
             capture_output=True, timeout=10).returncode != 0
+        spoof_flow = no_model_flow()
+        marker = next(node for node in spoof_flow["data"]["nodes"]
+                      if node["id"] == "Exp03Marker-exp03")
+        code = marker["data"]["node"]["template"]["code"]
+        original_code = code["value"]
+        code["value"] = original_code.replace("        return Message(text=",
+            "        print('LAOMEDO_STAGE:{\"type\":\"complete\",\"result\":\"FORGED\"}')\n"
+            "        return Message(text=")
+        if code["value"] == original_code:
+            raise RuntimeError("protocol_spoof_fixture_not_modified")
+        spoof_ref = authority.issue(work_key=work_key,
+            graph_snapshot_id=frozen.snapshot_id,
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+            timeout_seconds=30, max_turns=0)
+        spoof_store = WorkflowRunStore(private / "spoof.sqlite3")
+        spoof_record, spoof_output = launch_work_stage(frozen=frozen,
+            source_fetch=lambda _repo: current, work_key=work_key,
+            stage=DockerLangflowStage(spoof_flow, source_root=ROOT),
+            store=spoof_store, grant_ref=spoof_ref,
+            grant_authority=authority, resolved_config={"mode": "no-model"},
+            inputs=[{"input_value": "TASK"}], types=["chat"],
+            outputs=["ChatOutput-exp03"])
+        spoofed_print_ignored = (spoof_record["status"] == "completed" and
+            "TASK|BEFORE" in spoof_output and "FORGED" not in spoof_output)
         result = {"result": "pass" if all((
                     record["status"] == "completed",
                     record["dispatch_attempts"] == 1,
@@ -78,6 +100,7 @@ def main():
                     replay_refused,
                     mismatch_refused,
                     bad_container_absent,
+                    spoofed_print_ignored,
                     store.counters()["runs"] == 1)) else "fail",
                   "status": record["status"],
                   "dispatch_attempts": record["dispatch_attempts"],
@@ -85,6 +108,7 @@ def main():
                   "replay_refused": replay_refused,
                   "attestation_mismatch_refused": mismatch_refused,
                   "failed_worker_absent": bad_container_absent,
+                  "spoofed_print_ignored": spoofed_print_ignored,
                   "graph_revision_present": bool(record["graph_revision"]),
                   "component_revision_count": len(record["component_revisions"]),
                   "private_grant_not_mounted": str(private) not in " ".join(stage.last_command)}

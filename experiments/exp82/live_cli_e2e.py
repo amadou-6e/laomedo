@@ -1,7 +1,6 @@
 """Zero-model test of the installed Work Graph launch command."""
 
 from datetime import datetime, timedelta, timezone
-import getpass
 import json
 from pathlib import Path
 import subprocess
@@ -36,7 +35,7 @@ def main():
         grant_path, run_path = private / "grants.sqlite", private / "runs.sqlite3"
         authority = LocalGrantAuthority(grant_path)
         ref = authority.issue(work_key=selected.key,
-            graph_snapshot_id=frozen.snapshot_id, operator_id=getpass.getuser(),
+            graph_snapshot_id=frozen.snapshot_id,
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
             timeout_seconds=30, max_turns=0)
         command = [sys.executable, "-m", "laomedo.work_graph", "launch",
