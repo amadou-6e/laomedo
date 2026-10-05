@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from laomedo.local_runner import LocalRunner, RunnerError, _json, serve
 from laomedo.handoff_http import RunnerAdapter
-from laomedo.handoffs import envelope
+from laomedo.handoffs import HandoffError, envelope
 from laomedo.skill_store import SkillStore
 from test_local_runner import FakeServer
 
@@ -235,6 +235,28 @@ class EarlyRunnerTests(unittest.TestCase):
                                   on_ack=lambda _: cancelled.set())
         self.assertEqual(result["status"], "cancelled")
         self.assertTrue(self.runner.status(result["run_id"])["cancel_confirmed"])
+        self.assertLessEqual(BlockingServer.turn_starts, 1)
+
+    def test_poll_deadline_retains_early_identity_and_does_not_cancel(self):
+        base = self.start_http()
+        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+                                {"codex": self.state / "api-token"})
+        handoff = envelope(None, {"provider": "codex", "model": "test-model",
+                                  "effort": "low"}, "Synthetic task",
+                           skills=[self.body["skill_ref"]])
+        acknowledged = []
+        with self.assertRaisesRegex(HandoffError, "runner_result_pending"):
+            adapter.dispatch(handoff, deadline=time.monotonic() + .3,
+                             cancelled=threading.Event(), early_start=True,
+                             on_ack=acknowledged.append)
+        self.assertEqual(len(acknowledged), 1)
+        run_id = acknowledged[0]["run_id"]
+        self.assertEqual(adapter.active[handoff["execution_id"]][1], run_id)
+        self.assertIn(self.runner.status(run_id)["status"], {"prepared", "running"})
+        # Timing out the wait must not silently claim the remote turn stopped.
+        self.assertFalse(self.runner.status(run_id)["cancel_confirmed"])
+        adapter.cancel(handoff["execution_id"])
+        self.assertTrue(self.wait_status(run_id, "cancelled")["cancel_confirmed"])
         self.assertLessEqual(BlockingServer.turn_starts, 1)
 
 

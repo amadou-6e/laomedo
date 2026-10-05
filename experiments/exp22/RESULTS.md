@@ -15,10 +15,12 @@ The turn ledger held one attempt. A saved pending or active record appeared
 as `interrupted` after synthetic runner re-instantiation and was not replayed.
 The bounded controller persisted the early ID while dispatch still waited;
 a Stop arriving before acknowledgement was forwarded after the ID appeared.
+A polling deadline left the early ID available and did not assert cancellation
+until an explicit cancel and subsequent confirmed terminal record.
 
 Verification commands and observations:
 
-- `python -m unittest discover -s tests -p test_*.py`: 152 passed.
+- `python -m unittest discover -s tests -p test_*.py`: 153 passed.
 - Pinned Langflow image `langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0`, offline, with `PYTHONPATH=/workspace`: the Codex component, bounded controller and handoff graph suites passed together (19 tests); the OpenCode component passed in its separate component-package process (3 tests).
 - The combined Langflow discovery command is not a supported single process:
   both the product and UI component trees use the `laomedo` package name.

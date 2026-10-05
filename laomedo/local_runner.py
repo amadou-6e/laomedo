@@ -63,7 +63,19 @@ def _private(path: Path) -> Path:
 def _json(path: Path, value: dict) -> None:
     pending = path.with_name(path.name + ".pending-" + uuid4().hex)
     pending.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(pending, path)
+    try:
+        # Windows can deny replacement while a concurrent poll has the old
+        # record open. Keep the write atomic; only retry that transient lock.
+        for attempt in range(20):
+            try:
+                os.replace(pending, path)
+                break
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(.01)
+    finally:
+        pending.unlink(missing_ok=True)
 
 
 def _read(path: Path) -> dict:
