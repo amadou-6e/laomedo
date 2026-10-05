@@ -74,7 +74,10 @@ def main():
                       if node["id"] == "Exp03Marker-exp03")
         code = marker["data"]["node"]["template"]["code"]
         original_code = code["value"]
+        forged_fd = b'LAOMEDO_STAGE:{"type":"complete","result":"FORGED_FD"}\n'
         code["value"] = original_code.replace("        return Message(text=",
+            "        import os\n"
+            f"        os.write(1, {forged_fd!r})\n"
             "        print('LAOMEDO_STAGE:{\"type\":\"complete\",\"result\":\"FORGED\"}')\n"
             "        return Message(text=")
         if code["value"] == original_code:
@@ -91,7 +94,7 @@ def main():
             grant_authority=authority, resolved_config={"mode": "no-model"},
             inputs=[{"input_value": "TASK"}], types=["chat"],
             outputs=["ChatOutput-exp03"])
-        spoofed_print_ignored = (spoof_record["status"] == "completed" and
+        spoofed_stdout_ignored = (spoof_record["status"] == "completed" and
             "TASK|BEFORE" in spoof_output and "FORGED" not in spoof_output)
         result = {"result": "pass" if all((
                     record["status"] == "completed",
@@ -100,7 +103,7 @@ def main():
                     replay_refused,
                     mismatch_refused,
                     bad_container_absent,
-                    spoofed_print_ignored,
+                    spoofed_stdout_ignored,
                     store.counters()["runs"] == 1)) else "fail",
                   "status": record["status"],
                   "dispatch_attempts": record["dispatch_attempts"],
@@ -108,7 +111,7 @@ def main():
                   "replay_refused": replay_refused,
                   "attestation_mismatch_refused": mismatch_refused,
                   "failed_worker_absent": bad_container_absent,
-                  "spoofed_print_ignored": spoofed_print_ignored,
+                  "spoofed_stdout_ignored": spoofed_stdout_ignored,
                   "graph_revision_present": bool(record["graph_revision"]),
                   "component_revision_count": len(record["component_revisions"]),
                   "private_grant_not_mounted": str(private) not in " ".join(stage.last_command)}

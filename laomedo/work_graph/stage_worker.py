@@ -5,9 +5,10 @@ grant store, GitHub login, Langflow API token, or provider credentials.
 """
 
 import asyncio
-from contextlib import redirect_stdout
+from contextlib import contextmanager, redirect_stdout
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -17,6 +18,20 @@ from laomedo.langflow_stage_adapter import FrozenLangflowStage
 PREFIX = "LAOMEDO_STAGE:"
 
 
+@contextmanager
+def _component_output():
+    original = os.dup(1)
+    sink = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(sink, 1)
+        with redirect_stdout(sys.stderr):
+            yield
+    finally:
+        os.dup2(original, 1)
+        os.close(original)
+        os.close(sink)
+
+
 def _emit(payload):
     print(PREFIX + json.dumps(payload, sort_keys=True), flush=True)
 
@@ -24,7 +39,7 @@ def _emit(payload):
 def main():
     try:
         exported = json.loads(Path("/flow/flow.json").read_text(encoding="utf-8"))
-        with redirect_stdout(sys.stderr):
+        with _component_output():
             stage = FrozenLangflowStage(exported)
         graph_json = json.dumps(stage.graph_data, sort_keys=True,
                                 separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -33,7 +48,7 @@ def main():
         command = json.loads(sys.stdin.readline())
         if not isinstance(command, dict) or command.get("type") != "execute":
             raise ValueError("invalid_stage_command")
-        with redirect_stdout(sys.stderr):
+        with _component_output():
             result = asyncio.run(stage.graph.arun(inputs=command.get("inputs"),
                 types=command.get("types"), outputs=command.get("outputs")))
         _emit({"type": "complete", "result": str(result)})

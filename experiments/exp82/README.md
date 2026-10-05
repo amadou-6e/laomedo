@@ -86,7 +86,10 @@ The issuer derives the local OS principal rather than accepting an operator
 name from its caller, and the CLI requires a real terminal. This does not
 authenticate a human decision against another process running under the same
 host principal. The worker redirects ordinary component stdout away from its
-protocol, but raw file-descriptor writes remain untested. The zero-turn
+protocol. The later no-model control also forged a message with a raw write
+to stdout file descriptor 1; the worker discarded it. Code in the same
+process may still discover or manipulate other descriptors, which has not
+been audited. The zero-turn
 restriction and `--network none`
 keep this route unsuitable for a real Codex agent. The stage protocol also
 has not been audited against sophisticated malicious component code. Do not
