@@ -34,6 +34,10 @@ class Exp19ProbeTests(unittest.TestCase):
         self.assertEqual(success["pr_candidate"]["remote_count"], 0)
         self.assertIsNone(success["pr_candidate"]["target_pr"])
         self.assertEqual(len(success["pr_candidate"]["commit"]), 40)
+        self.assertEqual(success["binding"]["candidate_commit"],
+                         success["pr_candidate"]["commit"])
+        self.assertEqual(success["binding"]["candidate_branch"],
+                         success["pr_candidate"]["branch"])
         self.assertEqual(result["model_turns"], 0)
         self.assertEqual(result["github_writes"], 0)
 

@@ -135,6 +135,8 @@ def _case(root: Path, name: str, frozen_graph, current_graph,
         if agent_fails:
             raise RuntimeError("injected_fake_agent_failure")
         candidate = _local_candidate(path / "checkout", binding)
+        binding["candidate_commit"] = candidate["commit"]
+        binding["candidate_branch"] = candidate["branch"]
         evidence.append_raw_event(
             invocation, source_event_id="fake-2", kind="result",
             payload={"summary": "local Git commit created",
@@ -176,7 +178,8 @@ def _case(root: Path, name: str, frozen_graph, current_graph,
         assert candidate["branch"].endswith(run["run_id"])
         assert _git(path / "checkout", "rev-parse", "HEAD") == candidate["commit"]
         written = json.loads((path / "checkout" / "result.json").read_text(encoding="utf-8"))
-        assert written == binding
+        assert written == {key: value for key, value in binding.items()
+                           if key not in {"candidate_commit", "candidate_branch"}}
     return {"outcome": record["status"], "run_id": run["run_id"],
             "trace_id": run["trace_id"], "graph_snapshot_id": current_graph.snapshot_id,
             "input_digest": input_digest, "component_revision": binding["component_revision"],
