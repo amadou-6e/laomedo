@@ -35,14 +35,17 @@ def relevant_content_digest(graph: GraphSnapshot, work_key: str) -> str:
             continue
         seen.add(key)
         pending.extend(edge.prerequisite for edge in edges.get(key, ()))
-    relevant_edges = [edge for edge in graph.dependencies if edge.dependent in seen]
+    relevant_edges = sorted(
+        (asdict(edge) for edge in graph.dependencies if edge.dependent in seen),
+        key=lambda edge: json.dumps(edge, sort_keys=True, ensure_ascii=False),
+    )
     return _digest({"repository": graph.repository,
         "schema_version": graph.schema_version,
         "connector_version": graph.connector_version,
         "source_complete": graph.source_complete,
         "items": [asdict(items[key]) for key in sorted(seen) if key in items],
         "unresolved_keys": sorted(seen - items.keys()),
-        "edges": [asdict(edge) for edge in relevant_edges]})
+        "edges": relevant_edges})
 
 
 def preflight(frozen: GraphSnapshot, current: GraphSnapshot, work_key: str,

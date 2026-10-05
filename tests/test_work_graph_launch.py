@@ -1,5 +1,6 @@
 """Dispatch decisions from complete Work Graph evidence, never a filtered view."""
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -9,7 +10,7 @@ from unittest.mock import patch
 
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.launch import launch_github_work_stage, launch_work_stage, preflight
-from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
+from laomedo.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
 
 
 CORPUS = Path(__file__).resolve().parents[1] / "experiments" / "exp16" / "corpus.json"
@@ -23,15 +24,24 @@ def snapshot(corpus, name, fetched_at="2026-10-05T10:00:00+00:00"):
 
 
 class FakeStage:
-    def __init__(self):
+    def __init__(self, outcome="DONE"):
         self.calls = 0
+        self.outcome = outcome
+        self.run_id = None
 
     def execute(self, store, *, resolved_config, trigger, **_kwargs):
         self.calls += 1
         run = store.reserve(graph={"nodes": [{"id": "fake"}]},
                             component_code={"fake": "synthetic code"},
                             resolved_config=resolved_config, trigger=trigger)
-        return store.get(run["run_id"]), store.dispatch(run["run_id"], lambda _: "DONE")
+        self.run_id = run["run_id"]
+
+        def deliver(_run_id):
+            if isinstance(self.outcome, Exception):
+                raise self.outcome
+            return self.outcome
+
+        return store.get(self.run_id), store.dispatch(self.run_id, deliver)
 
 
 class WorkGraphLaunchTests(unittest.TestCase):
@@ -69,6 +79,14 @@ class WorkGraphLaunchTests(unittest.TestCase):
         self.assertEqual(result, "DONE")
         self.assertEqual(json.loads(record["trigger_json"])["source_choice"], "unchanged")
         self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
+
+    def test_reordered_edges_do_not_make_unchanged_content_stale(self):
+        refetched = snapshot(self.corpus, "base", "2026-10-05T10:01:00+00:00")
+        reordered = replace(refetched, dependencies=tuple(reversed(refetched.dependencies)))
+        decision = preflight(self.frozen, reordered, WORK)
+        self.assertEqual(decision["source_choice"], "unchanged")
+        self.assertEqual(decision["frozen_content_digest"],
+                         decision["authorization_content_digest"])
 
     def test_changed_source_requires_choice_and_pinned_records_both_graphs(self):
         changed = snapshot(self.corpus, "content_changed")
@@ -153,6 +171,41 @@ class WorkGraphLaunchTests(unittest.TestCase):
             fetch.assert_called_once_with(REPO)
         self.assertEqual(self.store.counters()["runs"], 0)
         self.assertEqual(self.stage.calls, 0)
+
+    def test_runner_rejection_and_unknown_timeout_keep_one_identity(self):
+        for outcome, expected_status in ((LaunchError("runner_rejected"), "failed"),
+                                         (ExternalOutcomeUnknown("timeout"), "unknown")):
+            with self.subTest(status=expected_status):
+                temporary = TemporaryDirectory()
+                self.addCleanup(temporary.cleanup)
+                store = WorkflowRunStore(Path(temporary.name) / "runs.sqlite3")
+                stage = FakeStage(outcome)
+                with self.assertRaises(type(outcome)):
+                    launch_work_stage(frozen=self.frozen,
+                        source_fetch=lambda _repository: self.frozen,
+                        work_key=WORK, stage=stage, store=store,
+                        grant_ref="synthetic-grant", grant_authority=self.grant,
+                        resolved_config={"provider": "fake"}, now=TIME)
+                saved = store.get(stage.run_id)
+                self.assertEqual(saved["status"], expected_status)
+                self.assertEqual(saved["dispatch_attempts"], 1)
+                self.assertTrue(saved["trace_id"])
+                self.assertEqual(json.loads(saved["trigger_json"])["work_snapshot"]["key"], WORK)
+                self.assertEqual(store.counters()["runs"], 1)
+                with self.assertRaisesRegex(LaunchError, "dispatch_not_reserved"):
+                    store.dispatch(stage.run_id, lambda _: "replayed")
+
+    def test_negative_control_detects_bypassed_preflight(self):
+        opened = snapshot(self.corpus, "opened_blocker")
+        with self.assertRaisesRegex(LaunchError, "open_prerequisite"):
+            self.launch(opened, choice="pinned")
+        self.assertEqual(self.store.counters()["runs"], 0)
+        # A deliberately bypassed gate dispatches this same blocked input.
+        from laomedo.work_graph.launch import preflight as real_preflight
+        allowed = real_preflight(self.frozen, self.frozen, WORK)
+        with patch("laomedo.work_graph.launch.preflight", return_value=allowed):
+            self.launch(opened, choice="pinned")
+        self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
 
 
 if __name__ == "__main__":
