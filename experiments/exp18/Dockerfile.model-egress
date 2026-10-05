@@ -1,5 +1,0 @@
-FROM python@sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84
-COPY exp18/model_egress_proxy.py /app/proxy.py
-USER 10001:10001
-ENV PYTHONDONTWRITEBYTECODE=1
-ENTRYPOINT ["python", "-B", "-u", "/app/proxy.py"]
