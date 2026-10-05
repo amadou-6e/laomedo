@@ -1,0 +1,477 @@
+{
+  "corpus_sha256": "019c59cec9d128179ec0f335db495ddeb12ab3fad72fef2fac6b23496f48797c",
+  "oracle_sha256": "1d6b1addd6513f961acbc219cdb3a28520c1387e1b241a10916f83000098c53e",
+  "installed_package_path": "<private-venv>/Lib/site-packages/laomedo/__init__.py",
+  "connector_version": "github-gh-v1",
+  "schema_version": 1,
+  "cases": {
+    "paged_closed_blocker": {
+      "passed": true,
+      "actual": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:P-101": [
+            101,
+            "CLOSED",
+            "closed"
+          ],
+          "github:P-700": [
+            700,
+            "OPEN",
+            "ready"
+          ],
+          "github:P-909": [
+            909,
+            "OPEN",
+            "ready"
+          ]
+        },
+        "edges": [
+          [
+            "github:P-101",
+            "github:P-909",
+            "verify/exp01",
+            "verify/exp01"
+          ]
+        ],
+        "source_fields_preserved": true,
+        "native_provenance_only": true,
+        "open_focus": {
+          "items": [
+            "github:P-700",
+            "github:P-909"
+          ],
+          "edges": [],
+          "context_edges": [
+            [
+              "github:P-101",
+              "github:P-909"
+            ]
+          ]
+        }
+      },
+      "expected": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:P-101": [
+            101,
+            "CLOSED",
+            "closed"
+          ],
+          "github:P-909": [
+            909,
+            "OPEN",
+            "ready"
+          ],
+          "github:P-700": [
+            700,
+            "OPEN",
+            "ready"
+          ]
+        },
+        "edges": [
+          [
+            "github:P-101",
+            "github:P-909",
+            "verify/exp01",
+            "verify/exp01"
+          ]
+        ],
+        "open_focus": {
+          "items": [
+            "github:P-700",
+            "github:P-909"
+          ],
+          "edges": [],
+          "context_edges": [
+            [
+              "github:P-101",
+              "github:P-909"
+            ]
+          ]
+        },
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "9d14e403a0955cf2eeab26a88105ef726789bde029a28bf1d69019494df1ddb0",
+      "snapshot_id": "sha256:3f43022caa8aef23d55a3b408ee813e917f3c2517482cf1917987907f5f9996a"
+    },
+    "cross_repo_text": {
+      "passed": true,
+      "actual": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:X-12": [
+            12,
+            "OPEN",
+            "unknown"
+          ]
+        },
+        "edges": [
+          [
+            "github:EXT-81",
+            "github:X-12",
+            "other/private",
+            "verify/exp01"
+          ]
+        ],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "expected": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:X-12": [
+            12,
+            "OPEN",
+            "unknown"
+          ]
+        },
+        "edges": [
+          [
+            "github:EXT-81",
+            "github:X-12",
+            "other/private",
+            "verify/exp01"
+          ]
+        ],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "17fb540731364fabeb77c4a5ff6f905ffabe734e20507d99687809ff63cc928a",
+      "snapshot_id": "sha256:3c5e120ef86375fa150a20275a6c7f79c72534a2c30b71bd54d7075c3a9ac362"
+    },
+    "incomplete_connections": {
+      "passed": true,
+      "actual": {
+        "complete": false,
+        "warnings": [
+          "dependencies_incomplete",
+          "item_count_mismatch",
+          "labels_incomplete",
+          "unavailable_dependency",
+          "unavailable_item"
+        ],
+        "items": {
+          "github:I-3": [
+            3,
+            "OPEN",
+            "unknown"
+          ]
+        },
+        "edges": [
+          [
+            "github:EXT-3",
+            "github:I-3",
+            "other/private",
+            "verify/exp01"
+          ]
+        ],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "expected": {
+        "complete": false,
+        "warnings": [
+          "dependencies_incomplete",
+          "item_count_mismatch",
+          "labels_incomplete",
+          "unavailable_dependency",
+          "unavailable_item"
+        ],
+        "items": {
+          "github:I-3": [
+            3,
+            "OPEN",
+            "unknown"
+          ]
+        },
+        "edges": [
+          [
+            "github:EXT-3",
+            "github:I-3",
+            "other/private",
+            "verify/exp01"
+          ]
+        ],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "0dc9ace2a932a30ecb148b288ede9fe2bde2b6c0f45f1003cb83be47aa3b2e9c",
+      "snapshot_id": "sha256:3d52aaa8638b4da460e96d042ad3d7fadcc9d48c678a3d19dfed0f1a77a06dc4"
+    },
+    "interrupted_page": {
+      "passed": true,
+      "actual": {
+        "complete": false,
+        "warnings": [
+          "fetch_error",
+          "item_count_mismatch",
+          "pagination_incomplete",
+          "unavailable_source"
+        ],
+        "items": {
+          "github:T-4": [
+            4,
+            "OPEN",
+            "unknown"
+          ]
+        },
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "expected": {
+        "complete": false,
+        "warnings": [
+          "fetch_error",
+          "item_count_mismatch",
+          "pagination_incomplete",
+          "unavailable_source"
+        ],
+        "items": {
+          "github:T-4": [
+            4,
+            "OPEN",
+            "unknown"
+          ]
+        },
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "15417e1577ff22dae2a8cf3afd9a518d51132e30ce99aa1b78dd7b49c701ac87",
+      "snapshot_id": "sha256:02780af475c7cebdf5aa921e55f97d472566782db265ea928848fdf52d203185"
+    },
+    "unavailable_repository": {
+      "passed": true,
+      "actual": {
+        "complete": false,
+        "warnings": [
+          "item_count_mismatch",
+          "pagination_incomplete",
+          "unavailable_source"
+        ],
+        "items": {},
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "expected": {
+        "complete": false,
+        "warnings": [
+          "item_count_mismatch",
+          "pagination_incomplete",
+          "unavailable_source"
+        ],
+        "items": {},
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "33ec6148ca4ae88393518fdd59057111341968bbaa72ac533e42e16c8bd9dd3a",
+      "snapshot_id": "sha256:7bb3e020927f227b3c64a908e3c5f40929f963d83333c3e1bcebf8d698fcbbc0"
+    },
+    "cycles": {
+      "passed": true,
+      "actual": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:C-21": [
+            21,
+            "OPEN",
+            "cyclic"
+          ],
+          "github:C-22": [
+            22,
+            "OPEN",
+            "cyclic"
+          ],
+          "github:C-23": [
+            23,
+            "OPEN",
+            "cyclic"
+          ],
+          "github:C-24": [
+            24,
+            "OPEN",
+            "blocked"
+          ],
+          "github:C-25": [
+            25,
+            "OPEN",
+            "ready"
+          ]
+        },
+        "edges": [
+          [
+            "github:C-21",
+            "github:C-22",
+            "verify/exp01",
+            "verify/exp01"
+          ],
+          [
+            "github:C-22",
+            "github:C-21",
+            "verify/exp01",
+            "verify/exp01"
+          ],
+          [
+            "github:C-22",
+            "github:C-24",
+            "verify/exp01",
+            "verify/exp01"
+          ],
+          [
+            "github:C-23",
+            "github:C-23",
+            "verify/exp01",
+            "verify/exp01"
+          ]
+        ],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "expected": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:C-21": [
+            21,
+            "OPEN",
+            "cyclic"
+          ],
+          "github:C-22": [
+            22,
+            "OPEN",
+            "cyclic"
+          ],
+          "github:C-23": [
+            23,
+            "OPEN",
+            "cyclic"
+          ],
+          "github:C-24": [
+            24,
+            "OPEN",
+            "blocked"
+          ],
+          "github:C-25": [
+            25,
+            "OPEN",
+            "ready"
+          ]
+        },
+        "edges": [
+          [
+            "github:C-21",
+            "github:C-22",
+            "verify/exp01",
+            "verify/exp01"
+          ],
+          [
+            "github:C-22",
+            "github:C-21",
+            "verify/exp01",
+            "verify/exp01"
+          ],
+          [
+            "github:C-22",
+            "github:C-24",
+            "verify/exp01",
+            "verify/exp01"
+          ],
+          [
+            "github:C-23",
+            "github:C-23",
+            "verify/exp01",
+            "verify/exp01"
+          ]
+        ],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "3f44da7c22f11516995dee31368efc57d45f25ce3a6834325139678e1cc295a1",
+      "snapshot_id": "sha256:d94372e728d525032dadec818789480636792b2fd8e593f47f6529a2813a74fc"
+    },
+    "refresh_before": {
+      "passed": true,
+      "actual": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:R-123": [
+            123,
+            "OPEN",
+            "ready"
+          ]
+        },
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "expected": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:R-123": [
+            123,
+            "OPEN",
+            "ready"
+          ]
+        },
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "93fe2fd708d571c391749f528537578d88247178bc689f7b70202730b360c235",
+      "snapshot_id": "sha256:bb35701b20ff5bb7961e47ab82d8a49ca963d53a26dec3625fd42dc522645914"
+    },
+    "refresh_after": {
+      "passed": true,
+      "actual": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:R-123": [
+            123,
+            "CLOSED",
+            "closed"
+          ]
+        },
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "expected": {
+        "complete": true,
+        "warnings": [],
+        "items": {
+          "github:R-123": [
+            123,
+            "CLOSED",
+            "closed"
+          ]
+        },
+        "edges": [],
+        "source_fields_preserved": true,
+        "native_provenance_only": true
+      },
+      "response_sha256": "016ede4dda9cc0688da3954ddceabd335231b4981760a83353805ecd8582dd40",
+      "snapshot_id": "sha256:223f8925b29a149d9a7f550e26191f0787c88e9d077dd55d92e9ca77eb4d4701"
+    }
+  },
+  "refresh": {
+    "passed": true,
+    "retained": true,
+    "tamper_rejected": true,
+    "before": "sha256:bb35701b20ff5bb7961e47ab82d8a49ca963d53a26dec3625fd42dc522645914",
+    "after": "sha256:223f8925b29a149d9a7f550e26191f0787c88e9d077dd55d92e9ca77eb4d4701"
+  },
+  "passed": true
+}

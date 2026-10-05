@@ -1,0 +1,605 @@
+{
+  "paged_closed_blocker": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": true,
+              "endCursor": "next-1"
+            },
+            "nodes": [
+              {
+                "id": "P-101",
+                "number": 101,
+                "url": "https://github.com/verify/exp01/issues/101",
+                "title": "Fixture P-101",
+                "body": "",
+                "state": "CLOSED",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "P-909",
+                      "url": "https://github.com/verify/exp01/issues/909",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "P-909",
+                "number": 909,
+                "url": "https://github.com/verify/exp01/issues/909",
+                "title": "Fixture P-909",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "focus"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "P-101",
+                      "url": "https://github.com/verify/exp01/issues/101",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "P-700",
+                "number": 700,
+                "url": "https://github.com/verify/exp01/issues/700",
+                "title": "Fixture P-700",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "focus"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "hidden_open_blocker": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 2,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "H-201",
+                "number": 201,
+                "url": "https://github.com/verify/exp01/issues/201",
+                "title": "Fixture H-201",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "H-202",
+                      "url": "https://github.com/verify/exp01/issues/202",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "H-202",
+                "number": 202,
+                "url": "https://github.com/verify/exp01/issues/202",
+                "title": "Fixture H-202",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "focus"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "H-201",
+                      "url": "https://github.com/verify/exp01/issues/201",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "cross_repo_text": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 1,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "X-12",
+                "number": 12,
+                "url": "https://github.com/verify/exp01/issues/12",
+                "title": "Fixture X-12",
+                "body": "Text says #blocks 13, but that is not a native edge.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "EXT-81",
+                      "url": "https://github.com/other/private/issues/81",
+                      "repository": {
+                        "nameWithOwner": "other/private"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "incomplete_connections": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 2,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "I-3",
+                "number": 3,
+                "url": "https://github.com/verify/exp01/issues/3",
+                "title": "Fixture I-3",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 2,
+                  "nodes": [
+                    {
+                      "name": "focus"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 3,
+                  "nodes": [
+                    null,
+                    {
+                      "id": "EXT-3",
+                      "url": "https://github.com/other/private/issues/3",
+                      "repository": {
+                        "nameWithOwner": "other/private"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              null
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "interrupted_page": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 2,
+            "pageInfo": {
+              "hasNextPage": true,
+              "endCursor": "next-2"
+            },
+            "nodes": [
+              {
+                "id": "T-4",
+                "number": 4,
+                "url": "https://github.com/verify/exp01/issues/4",
+                "title": "Fixture T-4",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "errors": [
+        {
+          "message": "synthetic interruption"
+        }
+      ]
+    }
+  ],
+  "unavailable_repository": [
+    {
+      "data": {
+        "repository": null
+      }
+    }
+  ],
+  "cycles": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 5,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "C-21",
+                "number": 21,
+                "url": "https://github.com/verify/exp01/issues/21",
+                "title": "Fixture C-21",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-22",
+                      "url": "https://github.com/verify/exp01/issues/22",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-22",
+                      "url": "https://github.com/verify/exp01/issues/22",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "C-22",
+                "number": 22,
+                "url": "https://github.com/verify/exp01/issues/22",
+                "title": "Fixture C-22",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-21",
+                      "url": "https://github.com/verify/exp01/issues/21",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-21",
+                      "url": "https://github.com/verify/exp01/issues/21",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "C-23",
+                "number": 23,
+                "url": "https://github.com/verify/exp01/issues/23",
+                "title": "Fixture C-23",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-23",
+                      "url": "https://github.com/verify/exp01/issues/23",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "C-24",
+                "number": 24,
+                "url": "https://github.com/verify/exp01/issues/24",
+                "title": "Fixture C-24",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-22",
+                      "url": "https://github.com/verify/exp01/issues/22",
+                      "repository": {
+                        "nameWithOwner": "verify/exp01"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "C-25",
+                "number": 25,
+                "url": "https://github.com/verify/exp01/issues/25",
+                "title": "Fixture C-25",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "refresh_before": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 1,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "R-123",
+                "number": 123,
+                "url": "https://github.com/verify/exp01/issues/123",
+                "title": "Fixture R-123",
+                "body": "",
+                "state": "OPEN",
+                "updatedAt": "2026-10-04T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "refresh_after": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp01",
+          "issues": {
+            "totalCount": 1,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "R-123",
+                "number": 123,
+                "url": "https://github.com/verify/exp01/issues/123",
+                "title": "Fixture R-123",
+                "body": "",
+                "state": "CLOSED",
+                "updatedAt": "2026-10-05T10:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
