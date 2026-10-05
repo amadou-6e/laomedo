@@ -84,6 +84,7 @@ async function main() {
       }
     });
     await page.goto(`${base}/flow/${created.id}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.getByTestId('playground-btn-flow-io').click({ timeout: 30000 });
     await page.getByTestId('input-chat-playground').waitFor({ timeout: 30000 });
     await page.getByTestId('input-chat-playground').fill(chosen.task);
     observation.send_clicked_utc = at();
