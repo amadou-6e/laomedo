@@ -1,31 +1,31 @@
 {
   "caller": {
     "case": "server",
-    "duration_seconds": 3.047,
+    "duration_seconds": 3.031,
     "kind": "http_error",
     "response": {
       "code": "EXECUTION_TIMEOUT",
-      "job_id": "70657ceb-7165-4882-9661-531e3c5bd5bd",
+      "job_id": "6f18170b-d6d0-4669-9525-b41b6d619407",
       "message": "Workflow execution exceeded 3 seconds",
       "timeout_seconds": 3
     },
     "route": "v2",
-    "started_utc": "2026-10-05T10:46:34.033842+00:00",
+    "started_utc": "2026-10-05T10:51:49.396376+00:00",
     "status": 408
   },
   "clock_after": {
-    "container_utc": 1791197204.2772567,
-    "estimated_offset_seconds": 0.038332,
-    "host_after_utc": 1791197204.287608,
-    "host_before_utc": 1791197204.190242,
-    "uncertainty_seconds": 0.048683
+    "container_utc": 1791197519.5864983,
+    "estimated_offset_seconds": 0.030971,
+    "host_after_utc": 1791197519.5976,
+    "host_before_utc": 1791197519.513455,
+    "uncertainty_seconds": 0.042073
   },
   "clock_before": {
-    "container_utc": 1791197193.9714372,
-    "estimated_offset_seconds": 0.030747,
-    "host_after_utc": 1791197193.982066,
-    "host_before_utc": 1791197193.899315,
-    "uncertainty_seconds": 0.041375
+    "container_utc": 1791197509.3546004,
+    "estimated_offset_seconds": 0.030645,
+    "host_after_utc": 1791197509.365855,
+    "host_before_utc": 1791197509.282055,
+    "uncertainty_seconds": 0.0419
   },
   "config": {
     "caller_timeout_seconds": 15,
@@ -43,33 +43,38 @@
     "server_timeout_seconds": 3
   },
   "container_status": "running",
-  "host_invocation_monotonic_elapsed_seconds": 3.047,
+  "host_invocation_monotonic_elapsed_seconds": 3.031,
   "runner_events": [
     {
       "case": "server",
-      "container_monotonic_seconds": 190035.125570982,
+      "container_monotonic_seconds": 190350.484321535,
       "event": "entered",
-      "utc": "2026-10-05T10:46:34.785317+00:00"
+      "utc": "2026-10-05T10:51:50.131591+00:00"
     },
     {
       "case": "server",
-      "container_monotonic_seconds": 190041.127241411,
+      "container_monotonic_seconds": 190356.486703091,
       "event": "effect",
-      "utc": "2026-10-05T10:46:40.786977+00:00"
+      "utc": "2026-10-05T10:51:56.133965+00:00"
     },
     {
       "case": "server",
-      "container_monotonic_seconds": 190041.128863531,
+      "container_monotonic_seconds": 190356.488337223,
       "event": "response_written",
-      "utc": "2026-10-05T10:46:40.788611+00:00"
+      "utc": "2026-10-05T10:51:56.135611+00:00"
     }
   ],
   "status_snapshots": [
     {
       "actual_offset_seconds": 0.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
       "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T10:46:37.077621+00:00",
+      "observed_utc": "2026-10-05T10:51:52.431635+00:00",
       "response_keys": [
         "detail"
       ],
@@ -77,19 +82,29 @@
     },
     {
       "actual_offset_seconds": 1.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
       "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T10:46:38.086418+00:00",
+      "observed_utc": "2026-10-05T10:51:53.427588+00:00",
       "response_keys": [
         "detail"
       ],
       "target_offset_seconds": 1
     },
     {
-      "actual_offset_seconds": 4.015,
+      "actual_offset_seconds": 4.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
       "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T10:46:41.092696+00:00",
+      "observed_utc": "2026-10-05T10:51:56.422119+00:00",
       "response_keys": [
         "detail"
       ],
@@ -97,9 +112,14 @@
     },
     {
       "actual_offset_seconds": 7.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
       "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
       "http_status": 500,
-      "observed_utc": "2026-10-05T10:46:44.089067+00:00",
+      "observed_utc": "2026-10-05T10:51:59.433379+00:00",
       "response_keys": [
         "detail"
       ],
