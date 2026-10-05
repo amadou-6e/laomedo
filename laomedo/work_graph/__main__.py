@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .github import fetch, import_pages
 from .grants import LocalGrantAuthority
+from .local_launch import launch_local_saved_flow
 from .model import GraphSnapshot
 
 
@@ -32,9 +33,25 @@ def main(argv: list[str] | None = None) -> int:
     issue.add_argument("--timeout-seconds", required=True, type=int)
     issue.add_argument("--max-turns", required=True, type=int)
     issue.add_argument("--expires-in-minutes", type=int, default=10)
+    launch = commands.add_parser("launch")
+    launch.add_argument("snapshot", type=Path)
+    launch.add_argument("--work-key", required=True)
+    launch.add_argument("--flow-id", required=True)
+    launch.add_argument("--langflow-base", required=True)
+    launch.add_argument("--grant-store", required=True, type=Path)
+    launch.add_argument("--grant-ref", required=True)
+    launch.add_argument("--run-store", required=True, type=Path)
+    launch.add_argument("--task", required=True)
+    launch.add_argument("--choice", choices=("pinned", "refreshed"))
     args = parser.parse_args(argv)
     try:
-        if args.command == "issue-grant":
+        if args.command == "launch":
+            print(json.dumps(launch_local_saved_flow(
+                snapshot_path=args.snapshot, work_key=args.work_key,
+                flow_id=args.flow_id, langflow_base=args.langflow_base,
+                grant_store=args.grant_store, grant_ref=args.grant_ref,
+                run_store=args.run_store, task=args.task, choice=args.choice)))
+        elif args.command == "issue-grant":
             snapshot = GraphSnapshot.from_dict(json.loads(args.snapshot.read_text(encoding="utf-8")))
             if not snapshot.source_complete or args.work_key not in {item.key for item in snapshot.items}:
                 raise ValueError("A complete snapshot containing the selected work is required")
