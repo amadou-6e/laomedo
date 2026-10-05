@@ -10,9 +10,9 @@
       "pr_candidate": null,
       "projection_count": 1,
       "receipt_count": 1,
-      "run_id": "4438c4c4-4917-4c32-91b7-6aea2758f375",
+      "run_id": "4b0282e1-1dde-4566-80b2-98a7799afe00",
       "stream_state": "partial",
-      "trace_id": "87ba1392-52fa-49b5-905a-256912f37584"
+      "trace_id": "ce3a8b10-6e91-4dfc-9160-452a237604f1"
     },
     "incomplete_blockers": {
       "dispatch_attempts": 0,
@@ -28,14 +28,16 @@
     },
     "ready_success": {
       "binding": {
+        "candidate_branch": "exp19/023574e1-3868-4246-9edf-2dd417b83326",
+        "candidate_commit": "a119e3da725aac78dd378bf22e9bd4a868006998",
         "component_revision": "sha256:30cd7e5126e476b90939900ab8e4b6b9779a8f311dfb21a6d5cbbd974bdecdc9",
         "graph_snapshot_id": "sha256:9f16758508a72ed163d87b938e5a6ad5c492db5a205878501e55593f700b5424",
         "input_digest": "sha256:b05e5a2b856c221d417a6bcaed7c645aac18b6268f36054212b0a4369feb7a6c",
-        "run_id": "78d2b738-679c-43c6-8fd0-aab739dfaaf2",
+        "run_id": "023574e1-3868-4246-9edf-2dd417b83326",
         "source_updated_at": "2026-10-01T07:00:00Z",
         "source_url": "https://github.com/example/work/issues/2",
         "target_pr": null,
-        "trace_id": "7caa2763-63b1-415d-954c-ee36316e859b",
+        "trace_id": "3df10b69-74a8-4fdc-b6ab-b6a98a3eb15e",
         "work_key": "github:I_2"
       },
       "component_revision": "sha256:30cd7e5126e476b90939900ab8e4b6b9779a8f311dfb21a6d5cbbd974bdecdc9",
@@ -44,16 +46,16 @@
       "input_digest": "sha256:b05e5a2b856c221d417a6bcaed7c645aac18b6268f36054212b0a4369feb7a6c",
       "outcome": "completed",
       "pr_candidate": {
-        "branch": "exp19/78d2b738-679c-43c6-8fd0-aab739dfaaf2",
-        "commit": "61a47d71ff7c0bb50dfa2d3fc5eccc4eac78f8aa",
+        "branch": "exp19/023574e1-3868-4246-9edf-2dd417b83326",
+        "commit": "a119e3da725aac78dd378bf22e9bd4a868006998",
         "remote_count": 0,
         "target_pr": null
       },
       "projection_count": 2,
       "receipt_count": 2,
-      "run_id": "78d2b738-679c-43c6-8fd0-aab739dfaaf2",
+      "run_id": "023574e1-3868-4246-9edf-2dd417b83326",
       "stream_state": "complete",
-      "trace_id": "7caa2763-63b1-415d-954c-ee36316e859b"
+      "trace_id": "3df10b69-74a8-4fdc-b6ab-b6a98a3eb15e"
     },
     "stale_source": {
       "dispatch_attempts": 0,
