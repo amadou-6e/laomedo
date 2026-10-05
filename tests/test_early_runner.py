@@ -14,6 +14,8 @@ from uuid import uuid4
 from laomedo.local_runner import LocalRunner, RunnerError, _json, serve
 import laomedo.local_runner as runner_module
 from laomedo.handoff_http import RunnerAdapter
+from laomedo.runner_trace_bridge import RunnerTraceBridge
+from laomedo.workflow_run_store import WorkflowRunStore
 from laomedo.handoffs import HandoffError, envelope
 from laomedo.skill_store import SkillStore
 from test_local_runner import FakeServer
@@ -229,6 +231,61 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertEqual(outcome["value"]["status"], "cancelled")
         self.assertTrue(self.runner.status(run_id)["cancel_confirmed"])
         self.assertEqual(BlockingServer.turn_starts, 1)
+
+    def test_trace_bridge_binds_real_local_http_ack_and_cancel(self):
+        base = self.start_http()
+        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+                                {"codex": self.state / "api-token"})
+        trace_path = Path(self.temp.name) / "trace.sqlite3"
+        trace = WorkflowRunStore(trace_path)
+        run = trace.reserve(graph={"nodes": [{"id": "agent"}]},
+                            component_code={"agent": "synthetic"},
+                            resolved_config={"model": "test-model"},
+                            trigger={"type": "direct"})
+        handoff = envelope(None, {"provider": "codex", "model": "test-model",
+                                  "effort": "low"}, "Synthetic task",
+                           skills=[self.body["skill_ref"]])
+        bridge = RunnerTraceBridge(trace, adapter)
+        cancelled = threading.Event()
+        outcome = {}
+        def submit():
+            outcome["value"] = bridge.dispatch(
+                run["run_id"], "agent", handoff,
+                deadline=time.monotonic() + 5, cancelled=cancelled)
+        worker = threading.Thread(target=submit)
+        worker.start()
+        try:
+            self.assertTrue(BlockingServer.entered.wait(3))
+            ack_deadline = time.monotonic() + 3
+            snapshot = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+            while (snapshot["invocation"]["runner_run_id"] is None and
+                   time.monotonic() < ack_deadline):
+                time.sleep(.01)
+                snapshot = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+            binding = snapshot["invocation"]
+            self.assertEqual(binding["runner_request_id"], binding["invocation_id"])
+            self.assertEqual(binding["runner_run_id"],
+                             adapter.active[handoff["execution_id"]][1])
+            self.assertEqual(self.runner.status(binding["runner_run_id"])
+                             ["client_request_id"], binding["runner_request_id"])
+            accepted = bridge.cancel(run["run_id"], binding["invocation_id"],
+                                     handoff["execution_id"])
+            self.assertTrue(accepted["cancel_requested"])
+            cancelled.set()
+            worker.join(5)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(outcome["value"][0], binding["invocation_id"])
+            reopened = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
+            kinds = [row["kind"] for row in reopened["receipts"]]
+            self.assertIn("runner_acknowledged", kinds)
+            self.assertIn("runner_cancel", kinds)
+            self.assertIn("runner_status", kinds)
+            self.assertEqual(reopened["dispatch_attempts"], 1)
+            self.assertEqual(BlockingServer.turn_starts, 1)
+        finally:
+            cancelled.set()
+            adapter.cancel(handoff["execution_id"])
+            worker.join(5)
 
     def test_cancel_pending_at_ack_is_forwarded_by_adapter(self):
         base = self.start_http()
