@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -14,6 +15,77 @@ from laomedo.workflow_run_store import WorkflowRunStore
 
 def _digest(payload_json: str) -> str:
     return "sha256:" + hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+
+
+def validate_delivery_projection(expected: list[dict], candidate: dict) -> None:
+    """Reject a projection that loses receipts or invents native uniqueness."""
+    events = candidate["events"]
+    if candidate["delivery_count"] != len(expected) or len(events) != len(expected):
+        raise AssertionError("delivery count differs from committed receipts")
+    identity = lambda event: (
+        event["receipt_sequence"], event["source_event_id"],
+        event["kind"], event["payload_sha256"],
+    )
+    if [identity(event) for event in events] != [identity(event) for event in expected]:
+        raise AssertionError("receipt order or content differs from committed receipts")
+    if (candidate["action_uniqueness"] != "uncertain" or
+            candidate["unique_action_count"] is not None or
+            any(event["action_uniqueness"] != "uncertain" for event in events)):
+        raise AssertionError("unverified source presented as unique actions")
+
+
+def _negative_controls(reconnect: dict, conflict: dict) -> dict:
+    """Exercise the same oracle against the historical source-ID projector."""
+    path = Path(__file__).parents[1] / "feasibility" / "123" / "project_trace.py"
+    spec = importlib.util.spec_from_file_location("exp09_historical_123", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("historical #123 projector unavailable")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    def envelopes(case: dict) -> list:
+        return [module.Envelope(
+            source="synthetic", source_event_id=event["source_event_id"],
+            source_time=None, kind=event["kind"],
+            payload_sha256=event["payload_sha256"].removeprefix("sha256:"),
+            tool_call_id=event["tool_call_id"],
+        ) for event in case["events"]]
+
+    replay_result = module.project("reconnect", envelopes(reconnect))
+    retained = [reconnect["events"][event["received_ordinal"]]
+                for event in replay_result["events"]]
+    lossy = {**reconnect, "delivery_count": len(retained), "events": retained}
+    try:
+        validate_delivery_projection(reconnect["events"], lossy)
+    except AssertionError as error:
+        replay_rejection = str(error)
+    else:
+        raise AssertionError("negative control unexpectedly passed replay oracle")
+
+    try:
+        module.project("conflict", envelopes(conflict))
+    except ValueError as error:
+        conflict_rejection = str(error)
+    else:
+        raise AssertionError("historical projector unexpectedly kept conflict")
+
+    asserted_unique = {
+        **reconnect, "action_uniqueness": "verified", "unique_action_count": 1,
+    }
+    try:
+        validate_delivery_projection(reconnect["events"], asserted_unique)
+    except AssertionError as error:
+        uniqueness_rejection = str(error)
+    else:
+        raise AssertionError("negative control unexpectedly passed uniqueness oracle")
+    return {
+        "historical_projector": "experiments/feasibility/123/project_trace.py",
+        "replay_retained": len(retained),
+        "replay_rejection": replay_rejection,
+        "conflict_rejection": conflict_rejection,
+        "fabricated_uniqueness_rejection": uniqueness_rejection,
+    }
 
 
 def _new_case(path: Path) -> tuple[EvidenceStore, str, str]:
@@ -70,13 +142,15 @@ def _project(store: EvidenceStore, invocation: str) -> dict:
             "summary": projected[row["receipt_sequence"]]["summary"],
             "action_uniqueness": "uncertain",
         })
-    return {
+    result = {
         "delivery_count": len(events),
         "action_uniqueness": "uncertain",
         "unique_action_count": None,
         "stream_state": status,
         "events": events,
     }
+    validate_delivery_projection(events, result)
+    return result
 
 
 def _read_twice(store: EvidenceStore, invocation: str) -> dict:
@@ -137,6 +211,7 @@ def run_cases(root: Path) -> dict:
         "conflicting_source_id": conflict,
         "keyless_reordered": keyless,
         "separate_invocations": separate,
+        "negative_controls": _negative_controls(reconnect, conflict),
     }
 
 

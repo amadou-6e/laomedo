@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from experiments.exp09.probe import main, run_cases
+from experiments.exp09.probe import main, run_cases, validate_delivery_projection
 
 
 class ReplayTests(unittest.TestCase):
@@ -69,6 +69,23 @@ class ReplayTests(unittest.TestCase):
         before = pinned.read_bytes()
         self.assertEqual(main(), json.loads(before))
         self.assertEqual(pinned.read_bytes(), before)
+
+    def test_negative_controls_are_rejected_by_the_acceptance_oracle(self):
+        control = self.cases["negative_controls"]
+        self.assertEqual(control["replay_retained"], 1)
+        self.assertIn("delivery count", control["replay_rejection"])
+        self.assertIn("different payload", control["conflict_rejection"])
+        self.assertIn("unverified source", control["fabricated_uniqueness_rejection"])
+
+        replay = self.cases["reconnect_replay"]
+        with self.assertRaisesRegex(AssertionError, "delivery count"):
+            validate_delivery_projection(replay["events"], {
+                **replay, "events": replay["events"][:1], "delivery_count": 1,
+            })
+        with self.assertRaisesRegex(AssertionError, "unverified source"):
+            validate_delivery_projection(replay["events"], {
+                **replay, "action_uniqueness": "verified", "unique_action_count": 1,
+            })
 
 
 if __name__ == "__main__":

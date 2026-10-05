@@ -123,5 +123,12 @@
         }
       ]
     }
+  },
+  "negative_controls": {
+    "historical_projector": "experiments/feasibility/123/project_trace.py",
+    "replay_retained": 1,
+    "replay_rejection": "delivery count differs from committed receipts",
+    "conflict_rejection": "source event ID reused with different payload",
+    "fabricated_uniqueness_rejection": "unverified source presented as unique actions"
   }
 }
