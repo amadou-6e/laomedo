@@ -8,7 +8,7 @@
   "opened_override": {"outcome": "completed", "calls": 1, "selection": "opened_blocker", "choice": "refreshed", "override": true},
   "override_missing_rationale": {"outcome": "refused", "calls": 0, "reason": "override_incomplete"},
   "override_wrong_edge": {"outcome": "refused", "calls": 0, "reason": "override_wrong_edge"},
-  "hidden_open_blocker": {"outcome": "refused", "calls": 0, "reason": "open_prerequisite"},
+  "hidden_open_blocker": {"outcome": "refused", "calls": 0, "reason": "open_prerequisite", "projection_readiness": "blocked", "context_edge": true},
   "unresolved_override": {"outcome": "refused", "calls": 0, "reason": "prerequisite_unknown"},
   "cycle_override": {"outcome": "refused", "calls": 0, "reason": "prerequisite_cyclic"},
   "incomplete_source": {"outcome": "refused", "calls": 0, "reason": "source_incomplete"},
