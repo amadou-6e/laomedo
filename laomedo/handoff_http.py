@@ -1,5 +1,6 @@
 """Local-only synchronous runner adapter; timeout outcomes are uncertain."""
 import json
+import hashlib
 import os
 import time
 from uuid import UUID, uuid5
@@ -39,8 +40,38 @@ class RunnerAdapter:
             raise HandoffError("runner_token_invalid")
         return {"Content-Type": "application/json", "Authorization": "Bearer " + token}
 
+    @staticmethod
+    def fresh_request(handoff, request_id):
+        """Produce the exact async POST body and runner-compatible digest."""
+        if handoff["operation"] != "fresh" or handoff["target"]["provider"] != "codex":
+            raise HandoffError("fresh_codex_request_required")
+        target = handoff["target"]
+        body = {"task": handoff["task"], "model": target["model"],
+                "effort": target["effort"], "skill_refs": handoff["skill_refs"],
+                "artifact_refs": handoff["artifacts"],
+                "handoff": {key: handoff[key] for key in
+                            ("execution_id", "step", "source", "workspace_policy")}}
+        digest = "sha256:" + hashlib.sha256(json.dumps(
+            body, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False).encode("utf-8")).hexdigest()
+        return {**body, "request_id": request_id}, digest
+
+    def lookup_request(self, provider, request_id):
+        """Authenticated read-only reconciliation, never a second POST."""
+        req = Request(self.endpoints[provider] + "/v1/requests/" + request_id,
+                      headers=self._headers(provider), method="GET")
+        try:
+            with urlopen(req, timeout=10) as response:
+                return json.load(response)
+        except HTTPError as exc:
+            if exc.code == 404:
+                return None
+            if exc.code == 409:
+                raise HandoffError("runner_request_conflict") from exc
+            raise
+
     def dispatch(self, handoff, *, deadline, cancelled, early_start=False, on_ack=None,
-                 runner_request_id=None):
+                 runner_request_id=None, expected_request_hash=None):
         if cancelled.is_set() or time.monotonic() >= deadline:
             raise HandoffError("dispatch_stopped")
         target = handoff["target"]
@@ -65,9 +96,13 @@ class RunnerAdapter:
             task["handoff"] = {key: handoff[key] for key in
                                ("execution_id", "step", "source", "workspace_policy")}
             if early_start and provider == "codex":
-                task["request_id"] = (runner_request_id or
-                                      str(uuid5(UUID(handoff["execution_id"]),
-                                                str(handoff["step"]))))
+                request_id = (runner_request_id or
+                              str(uuid5(UUID(handoff["execution_id"]),
+                                        str(handoff["step"]))))
+                task, actual_hash = self.fresh_request(handoff, request_id)
+                if (expected_request_hash is not None and
+                        actual_hash != expected_request_hash):
+                    raise HandoffError("runner_request_changed")
                 endpoint = base + "/v1/runs/async"
             else:
                 endpoint = base + "/v1/runs"
@@ -81,6 +116,8 @@ class RunnerAdapter:
             status_code = exc.code
             with exc:
                 raw = json.load(exc)
+        if status_code == 409:
+            raise HandoffError("runner_request_conflict")
         if status_code in {400, 401, 403, 404, 422} and isinstance(raw, dict) and not raw.get("run_id"):
             return {"provider": provider, "status": "rejected",
                     "error_category": raw.get("error_category", "runner_rejected")}

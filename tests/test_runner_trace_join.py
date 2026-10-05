@@ -113,6 +113,34 @@ class RunnerTraceJoinTests(unittest.TestCase):
         self.assertIsNone(trace["invocation"]["runner_run_id"])
         self.assertEqual(trace["receipts"][-1]["kind"], "runner_rejected")
 
+    def test_409_conflict_is_incomplete_and_visible_not_rejected(self):
+        run, invocation = self.reserve()
+        self.store.freeze_runner_request(run, invocation, "sha256:" + "a" * 64)
+        self.store.begin_invocation(run, invocation)
+        self.store.record_runner_failure(run, invocation,
+                                         category="runner_request_conflict")
+        trace = WorkflowRunStore(self.path).trace_snapshot(run)
+        self.assertEqual(trace["run_status"], "incomplete")
+        self.assertEqual(self.store.get(run)["terminal_reason"],
+                         "runner_request_conflict")
+        self.assertIsNone(trace["invocation"]["runner_run_id"])
+        self.assertEqual(trace["receipts"][-1]["payload"]["category"],
+                         "runner_request_conflict")
+
+    def test_post_ack_failure_appends_without_erasing_binding(self):
+        run, invocation = self.reserve()
+        self.store.freeze_runner_request(run, invocation, "sha256:" + "b" * 64)
+        self.store.begin_invocation(run, invocation)
+        native = str(uuid4())
+        self.bind(run, invocation, native)
+        self.store.record_runner_failure(run, invocation,
+                                         category="runner_transport_error")
+        trace = WorkflowRunStore(self.path).trace_snapshot(run)
+        self.assertEqual(trace["run_status"], "incomplete")
+        self.assertEqual(trace["invocation"]["runner_run_id"], native)
+        self.assertEqual(trace["receipts"][-1]["kind"], "runner_failure")
+        self.assertEqual(trace["dispatch_attempts"], 1)
+
     def test_existing_database_is_migrated_without_losing_receipts(self):
         legacy = Path(self.temp.name) / "legacy.sqlite3"
         db = sqlite3.connect(legacy)

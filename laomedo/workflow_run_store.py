@@ -67,6 +67,7 @@ class WorkflowRunStore:
                     native_job_id TEXT,
                     native_job_state TEXT NOT NULL,
                     runner_request_id TEXT,
+                    runner_request_hash TEXT,
                     runner_provider TEXT,
                     runner_run_id TEXT,
                     runner_raw_event_ref TEXT,
@@ -84,7 +85,8 @@ class WorkflowRunStore:
             """)
             # Preserve stores created before native runner correlation existed.
             columns = {row[1] for row in db.execute("PRAGMA table_info(workflow_invocations)")}
-            for column in ("runner_request_id", "runner_provider", "runner_run_id",
+            for column in ("runner_request_id", "runner_request_hash",
+                           "runner_provider", "runner_run_id",
                            "runner_raw_event_ref"):
                 if column not in columns:
                     db.execute(f"ALTER TABLE workflow_invocations ADD COLUMN {column} TEXT")
@@ -171,6 +173,22 @@ class WorkflowRunStore:
                           {"stage_id": stage_id, "runner_request_id": invocation_id})
         return invocation_id
 
+    def freeze_runner_request(self, run_id, invocation_id, request_hash):
+        """Commit the exact native POST-body digest before dispatch."""
+        if (not isinstance(request_hash, str) or len(request_hash) != 71 or
+                not request_hash.startswith("sha256:") or
+                any(c not in "0123456789abcdef" for c in request_hash[7:])):
+            raise LaunchError("invalid_runner_request_hash")
+        with self._database() as db:
+            changed = db.execute("""UPDATE workflow_invocations
+                SET runner_request_hash=? WHERE run_id=? AND invocation_id=?
+                AND status='reserved' AND runner_request_hash IS NULL""",
+                (request_hash, run_id, invocation_id)).rowcount
+            if changed != 1:
+                raise LaunchError("runner_request_not_reserved")
+            self._receipt(db, run_id, invocation_id, "runner_request_frozen",
+                          {"request_hash": request_hash})
+
     def bind_runner_ack(self, run_id, invocation_id, *, request_id, provider,
                         runner_run_id, raw_event_ref):
         """Persist one exact native acknowledgement without replaying dispatch."""
@@ -241,6 +259,31 @@ class WorkflowRunStore:
                 AND status='running'""", (run_id, invocation_id))
             self._receipt(db, run_id, invocation_id, "runner_result_pending",
                           {"native_execution_may_continue": True})
+
+    def record_runner_failure(self, run_id, invocation_id, *, category):
+        """Retain any post-dispatch uncertainty, including runner 409 conflicts."""
+        allowed = {"runner_request_conflict", "runner_ack_identity_mismatch",
+                   "runner_binding_conflict", "runner_binding_write_error",
+                   "runner_transport_error",
+                   "runner_dispatch_error", "runner_lookup_unknown",
+                   "runner_lookup_conflict", "runner_lookup_mismatch"}
+        if category not in allowed:
+            raise LaunchError("invalid_runner_failure_category")
+        with self._database() as db:
+            row = db.execute("""SELECT status,dispatch_attempts FROM runs WHERE run_id=?""",
+                             (run_id,)).fetchone()
+            invocation = db.execute("""SELECT 1 FROM workflow_invocations
+                WHERE run_id=? AND invocation_id=?""", (run_id, invocation_id)).fetchone()
+            if row is None or invocation is None or row["dispatch_attempts"] != 1:
+                raise LaunchError("runner_failure_without_dispatch")
+            if row["status"] == "dispatching":
+                db.execute("""UPDATE runs SET status='incomplete',evidence_complete=0,
+                    terminal_reason=? WHERE run_id=?""", (category, run_id))
+                db.execute("""UPDATE workflow_invocations SET status='failed',
+                    error_class='provider' WHERE run_id=? AND invocation_id=?
+                    AND status='running'""", (run_id, invocation_id))
+            self._receipt(db, run_id, invocation_id, "runner_failure",
+                          {"category": category, "native_execution_may_continue": True})
 
     def record_runner_rejection(self, run_id, invocation_id, *, category):
         """A complete client rejection has no runner identity to bind."""
