@@ -140,7 +140,8 @@ class LangflowStageAdapterTests(unittest.TestCase):
                 "limits": {"timeout_seconds": 60, "max_turns": 0}}
 
         from datetime import datetime
-        record, result = launch_work_stage(frozen=frozen, current=current,
+        record, result = launch_work_stage(frozen=frozen,
+            source_fetch=lambda _repository: current,
             work_key="github:S-20", choice="pinned", stage=stage,
             store=self.store, grant_ref="synthetic", grant_authority=fixture_authority,
             resolved_config={"mode": "no-model"},

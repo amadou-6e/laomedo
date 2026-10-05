@@ -5,9 +5,10 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from laomedo.work_graph.github import import_pages
-from laomedo.work_graph.launch import launch_work_stage, preflight
+from laomedo.work_graph.launch import launch_github_work_stage, launch_work_stage, preflight
 from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
 
 
@@ -50,7 +51,9 @@ class WorkGraphLaunchTests(unittest.TestCase):
             "limits": {"timeout_seconds": 60, "max_turns": 0}}
 
     def launch(self, current, **kwargs):
-        return launch_work_stage(frozen=self.frozen, current=current, work_key=WORK,
+        return launch_work_stage(frozen=self.frozen,
+            source_fetch=lambda repository: current if repository == REPO else None,
+            work_key=WORK,
             stage=self.stage, store=self.store, grant_ref="synthetic-grant",
             grant_authority=self.grant, resolved_config={"provider": "fake"},
             now=TIME, **kwargs)
@@ -119,16 +122,35 @@ class WorkGraphLaunchTests(unittest.TestCase):
             with self.subTest(change=change):
                 altered = {**valid, **change}
                 with self.assertRaisesRegex(LaunchError, reason):
-                    launch_work_stage(frozen=self.frozen, current=self.frozen,
+                    launch_work_stage(frozen=self.frozen,
+                        source_fetch=lambda _repository: self.frozen,
                         work_key=WORK, stage=self.stage, store=self.store,
                         grant_ref="synthetic-grant",
                         grant_authority=lambda _ref, _binding: altered,
                         resolved_config={"provider": "fake"}, now=TIME)
         with self.assertRaisesRegex(LaunchError, "grant_authority_required"):
-            launch_work_stage(frozen=self.frozen, current=self.frozen,
+            launch_work_stage(frozen=self.frozen,
+                source_fetch=lambda _repository: self.frozen,
                 work_key=WORK, stage=self.stage, store=self.store,
                 grant_ref="synthetic-grant", grant_authority=None,
                 resolved_config={"provider": "fake"}, now=TIME)
+        with self.assertRaisesRegex(LaunchError, "source_refresh_required"):
+            launch_work_stage(frozen=self.frozen, source_fetch=None,
+                work_key=WORK, stage=self.stage, store=self.store,
+                grant_ref="synthetic-grant", grant_authority=self.grant,
+                resolved_config={"provider": "fake"}, now=TIME)
+        self.assertEqual(self.store.counters()["runs"], 0)
+        self.assertEqual(self.stage.calls, 0)
+
+    def test_github_entrypoint_refreshes_before_any_reservation(self):
+        changed = snapshot(self.corpus, "content_changed")
+        with patch("laomedo.work_graph.github.fetch", return_value=changed) as fetch:
+            with self.assertRaisesRegex(LaunchError, "stale_unacknowledged"):
+                launch_github_work_stage(frozen=self.frozen, work_key=WORK,
+                    stage=self.stage, store=self.store, grant_ref="synthetic-grant",
+                    grant_authority=self.grant, resolved_config={"provider": "fake"},
+                    now=TIME)
+            fetch.assert_called_once_with(REPO)
         self.assertEqual(self.store.counters()["runs"], 0)
         self.assertEqual(self.stage.calls, 0)
 

@@ -102,11 +102,14 @@ def preflight(frozen: GraphSnapshot, current: GraphSnapshot, work_key: str,
             "source_choice": choice or "unchanged", "override": override}
 
 
-def launch_work_stage(*, frozen, current, work_key, stage, store,
+def launch_work_stage(*, frozen, source_fetch, work_key, stage, store,
                       grant_ref, grant_authority, resolved_config,
                       choice=None, override=None, inputs=None, types=None,
                       outputs=None, now=None):
-    """Require a host-provided grant authority before using the frozen stage."""
+    """Refresh source at launch, then require a host-provided grant authority."""
+    if not isinstance(frozen, GraphSnapshot) or not callable(source_fetch):
+        raise LaunchError("source_refresh_required")
+    current = source_fetch(frozen.repository)
     binding = preflight(frozen, current, work_key, choice=choice,
                         override=override)
     if not callable(grant_authority) or not isinstance(grant_ref, str) or not grant_ref:
@@ -144,3 +147,16 @@ def launch_work_stage(*, frozen, current, work_key, stage, store,
     return stage.execute(store, resolved_config=config,
                          trigger={"type": "selected-work", **binding},
                          inputs=inputs, types=types, outputs=outputs)
+
+
+def launch_github_work_stage(*, frozen, work_key, stage, store, grant_ref,
+                             grant_authority, resolved_config, choice=None,
+                             override=None, inputs=None, types=None,
+                             outputs=None, now=None):
+    """Use the production read-only GitHub connector for the final recheck."""
+    from .github import fetch
+    return launch_work_stage(frozen=frozen, source_fetch=fetch,
+        work_key=work_key, stage=stage, store=store, grant_ref=grant_ref,
+        grant_authority=grant_authority, resolved_config=resolved_config,
+        choice=choice, override=override, inputs=inputs, types=types,
+        outputs=outputs, now=now)
