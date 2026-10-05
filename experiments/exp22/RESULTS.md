@@ -15,8 +15,9 @@ The turn ledger held one attempt. A saved pending or active record appeared
 as `interrupted` after synthetic runner re-instantiation and was not replayed.
 The bounded controller persisted the early ID while dispatch still waited;
 a Stop arriving before acknowledgement was forwarded after the ID appeared.
-A polling deadline left the early ID available and did not assert cancellation
-until an explicit cancel and subsequent confirmed terminal record.
+A polling deadline left the early ID available and did not assert cancellation.
+A subsequent cancel races with the fake turn's own timeout; either terminal
+outcome is accepted only when its `cancel_confirmed` value matches the outcome.
 
 Verification commands and observations:
 

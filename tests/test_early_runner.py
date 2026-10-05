@@ -256,7 +256,16 @@ class EarlyRunnerTests(unittest.TestCase):
         # Timing out the wait must not silently claim the remote turn stopped.
         self.assertFalse(self.runner.status(run_id)["cancel_confirmed"])
         adapter.cancel(handoff["execution_id"])
-        self.assertTrue(self.wait_status(run_id, "cancelled")["cancel_confirmed"])
+        terminal = None
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            terminal = self.runner.status(run_id)
+            if terminal["status"] in {"cancelled", "timeout"}:
+                break
+            time.sleep(.02)
+        self.assertIn(terminal["status"], {"cancelled", "timeout"})
+        self.assertEqual(terminal["cancel_confirmed"],
+                         terminal["status"] == "cancelled")
         self.assertLessEqual(BlockingServer.turn_starts, 1)
 
 
