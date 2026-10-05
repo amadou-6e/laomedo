@@ -81,6 +81,8 @@ five probes against source commit `9638397`.
 The [hardening observation](hardening-observation.json) records host-principal
 binding and a component print-spoof control at `94b4f61`, without publishing
 the host account identifier.
+The [stdout file-descriptor observation](fd-observation.json) records the
+raw-write spoof control at `fc0ec6f`.
 
 The issuer derives the local OS principal rather than accepting an operator
 name from its caller, and the CLI requires a real terminal. This does not
