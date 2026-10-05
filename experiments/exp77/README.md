@@ -9,6 +9,8 @@ the probe edits the saved flow's marker and code through `PATCH`, resumes the
 first stage, then fetches and runs the changed export. It checks old/new
 outputs, graph and component revisions, and durable dispatch count.
 
+The [sanitized observation](observation.json) was recorded from committed
+probe revision `8012fb8` with the pinned image already cached locally.
 The probe requires the Laomedo checkout mounted read-only at `/repo`, with
 `PYTHONPATH=/repo`. Run `python /repo/experiments/exp77/api_probe.py` inside the
 disposable server container after `/health` responds. The script prints only a
