@@ -1,0 +1,340 @@
+{
+  "caller": {
+    "case": "server",
+    "duration_seconds": 3.047,
+    "kind": "http_error",
+    "response": {
+      "code": "EXECUTION_TIMEOUT",
+      "job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+      "message": "Workflow execution exceeded 3 seconds",
+      "timeout_seconds": 3
+    },
+    "route": "v2",
+    "started_utc": "2026-10-05T11:57:08.052392+00:00",
+    "status": 408
+  },
+  "clock_after": {
+    "container_utc": 1791201438.4234,
+    "estimated_offset_seconds": 0.03018,
+    "host_after_utc": 1791201438.43471,
+    "host_before_utc": 1791201438.35173,
+    "uncertainty_seconds": 0.04149
+  },
+  "clock_before": {
+    "container_utc": 1791201427.9765868,
+    "estimated_offset_seconds": 0.029968,
+    "host_after_utc": 1791201427.98928,
+    "host_before_utc": 1791201427.903957,
+    "uncertainty_seconds": 0.042662
+  },
+  "config": {
+    "caller_timeout_seconds": 15,
+    "component_timeout_seconds": 8,
+    "effective_server_timeout_seconds": 3,
+    "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+    "langflow_version": "1.12.3",
+    "poll_offsets_seconds": [
+      0,
+      1,
+      4,
+      7
+    ],
+    "runner_delay_seconds": 6
+  },
+  "container_status": "running",
+  "restart_sweep_ids": [],
+  "runner_events": [
+    {
+      "event": "entered",
+      "utc": "2026-10-05T11:57:08.857504+00:00"
+    },
+    {
+      "event": "effect",
+      "utc": "2026-10-05T11:57:14.859289+00:00"
+    },
+    {
+      "event": "response_written",
+      "utc": "2026-10-05T11:57:14.862671+00:00"
+    }
+  ],
+  "status_snapshots": [
+    {
+      "actual_offset_seconds": 0.078,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T11:57:11.175271+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 0
+    },
+    {
+      "actual_offset_seconds": 1.063,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T11:57:12.166802+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 1
+    },
+    {
+      "actual_offset_seconds": 4.063,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T11:57:15.163024+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 4
+    },
+    {
+      "actual_offset_seconds": 7.078,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 2c5e13af-2e44-4413-b041-5bba2f510fdc has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T11:57:18.169255+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 7
+    }
+  ],
+  "trace_after_reopen": {
+    "action_uniqueness": "uncertain",
+    "dispatch_attempts": 1,
+    "event_count": 8,
+    "evidence_complete": false,
+    "invocation": {
+      "created_at": "2026-10-05T11:57:08.041Z",
+      "effect_state": "observed",
+      "evidence_state": "partial",
+      "invocation_id": "6bc4c721-3040-471d-b78f-1c202ec737ee",
+      "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+      "native_job_state": "failed",
+      "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+      "stage_id": "LaomedoCodexAgent-native",
+      "status": "failed"
+    },
+    "last_received_sequence": 8,
+    "receipts": [
+      {
+        "kind": "invocation_reserved",
+        "payload": {
+          "stage_id": "LaomedoCodexAgent-native"
+        },
+        "received_at": "2026-10-05T11:57:08.041Z",
+        "sequence": 1,
+        "source_time": null
+      },
+      {
+        "kind": "dispatch_started",
+        "payload": {},
+        "received_at": "2026-10-05T11:57:08.049Z",
+        "sequence": 2,
+        "source_time": null
+      },
+      {
+        "kind": "caller_timeout",
+        "payload": {
+          "detail_code": "EXECUTION_TIMEOUT",
+          "http_status": 408,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc"
+        },
+        "received_at": "2026-10-05T11:57:11.094Z",
+        "sequence": 3,
+        "source_time": null
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:11.191Z",
+        "sequence": 4,
+        "source_time": null
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:12.180Z",
+        "sequence": 5,
+        "source_time": null
+      },
+      {
+        "kind": "external_effect_observed",
+        "payload": {
+          "source": "exp66-synthetic-runner",
+          "source_ref": "sha256:6da1e6e3338deb906a2c1131ae7a6e9dbaad116d0534c5afcd4ebd182bf58739"
+        },
+        "received_at": "2026-10-05T11:57:15.159Z",
+        "sequence": 6,
+        "source_time": "2026-10-05T11:57:14.859289+00:00"
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:15.175Z",
+        "sequence": 7,
+        "source_time": null
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:18.199Z",
+        "sequence": 8,
+        "source_time": null
+      }
+    ],
+    "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+    "run_status": "timed_out",
+    "stream_state": "partial",
+    "trace_id": "58516e34-604e-482a-879c-2de12960aca9"
+  },
+  "trace_before_reopen": {
+    "action_uniqueness": "uncertain",
+    "dispatch_attempts": 1,
+    "event_count": 8,
+    "evidence_complete": false,
+    "invocation": {
+      "created_at": "2026-10-05T11:57:08.041Z",
+      "effect_state": "observed",
+      "evidence_state": "partial",
+      "invocation_id": "6bc4c721-3040-471d-b78f-1c202ec737ee",
+      "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+      "native_job_state": "failed",
+      "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+      "stage_id": "LaomedoCodexAgent-native",
+      "status": "failed"
+    },
+    "last_received_sequence": 8,
+    "receipts": [
+      {
+        "kind": "invocation_reserved",
+        "payload": {
+          "stage_id": "LaomedoCodexAgent-native"
+        },
+        "received_at": "2026-10-05T11:57:08.041Z",
+        "sequence": 1,
+        "source_time": null
+      },
+      {
+        "kind": "dispatch_started",
+        "payload": {},
+        "received_at": "2026-10-05T11:57:08.049Z",
+        "sequence": 2,
+        "source_time": null
+      },
+      {
+        "kind": "caller_timeout",
+        "payload": {
+          "detail_code": "EXECUTION_TIMEOUT",
+          "http_status": 408,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc"
+        },
+        "received_at": "2026-10-05T11:57:11.094Z",
+        "sequence": 3,
+        "source_time": null
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:11.191Z",
+        "sequence": 4,
+        "source_time": null
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:12.180Z",
+        "sequence": 5,
+        "source_time": null
+      },
+      {
+        "kind": "external_effect_observed",
+        "payload": {
+          "source": "exp66-synthetic-runner",
+          "source_ref": "sha256:6da1e6e3338deb906a2c1131ae7a6e9dbaad116d0534c5afcd4ebd182bf58739"
+        },
+        "received_at": "2026-10-05T11:57:15.159Z",
+        "sequence": 6,
+        "source_time": "2026-10-05T11:57:14.859289+00:00"
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:15.175Z",
+        "sequence": 7,
+        "source_time": null
+      },
+      {
+        "kind": "native_job_observed",
+        "payload": {
+          "detail_code": "JOB_FAILED",
+          "http_status": 500,
+          "native_job_id": "2c5e13af-2e44-4413-b041-5bba2f510fdc",
+          "native_job_state": "failed"
+        },
+        "received_at": "2026-10-05T11:57:18.199Z",
+        "sequence": 8,
+        "source_time": null
+      }
+    ],
+    "run_id": "2c2a2e60-c597-4e56-97ea-c6c113aa8038",
+    "run_status": "timed_out",
+    "stream_state": "partial",
+    "trace_id": "58516e34-604e-482a-879c-2de12960aca9"
+  }
+}
