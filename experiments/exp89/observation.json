@@ -1,0 +1,51 @@
+{
+  "protocol_revision": "2d0c015",
+  "amendments": ["b8d529d", "fdb7829", "9bed9b7"],
+  "probe_revision": "9bed9b7",
+  "langflow_version": "1.12.3",
+  "runner_kind": "synthetic_loopback_http",
+  "model_turns": 0,
+  "setup_failure": {
+    "case": "B",
+    "reason": "playground_input_hidden_before_opening_panel",
+    "runner_posts": 0,
+    "counted_as_case": false
+  },
+  "cases": {
+    "B": {
+      "flow_id": "ac0dd02a-558d-4782-97fa-7a6fe0fd3369",
+      "runner_run_id": "ec0825f9-75a7-44f3-a562-cf19552af7b8",
+      "runner_post_utc": "2026-10-05T18:56:38.758404+00:00",
+      "synthetic_wait_start_utc": "2026-10-05T18:56:38.759471+00:00",
+      "stop_selector": "stop_building_button",
+      "stop_click_completed": false,
+      "stop_click_error": "Playwright timed out while trying to click the graph-canvas control behind the Playground",
+      "synthetic_effect_utc": "2026-10-05T18:56:44.760152+00:00",
+      "runner_cancels": 0,
+      "interpretation": "inconclusive_ui_stop_not_clicked"
+    },
+    "A": {
+      "flow_id": "ae95f3a1-556c-41dc-b60d-36e32f8548b6",
+      "runner_run_id": "9b78dca9-5bef-44ad-a4b4-861d791f00bc",
+      "runner_post_utc": "2026-10-05T18:57:34.624944+00:00",
+      "ack_held_utc": "2026-10-05T18:57:34.625481+00:00",
+      "stop_selector": "button-stop",
+      "stop_click_completed": true,
+      "stop_click_utc": "2026-10-05T18:57:34.916Z",
+      "ack_sent_utc": "2026-10-05T18:57:37.626656+00:00",
+      "runner_cancels_during_eight_second_window": 0,
+      "runner_state_after_window": "running",
+      "interpretation": "visible_stop_did_not_propagate_to_native_runner"
+    },
+    "CONTROL": {
+      "flow_id": "33784376-4f1e-4145-ae2d-4188feeb6f1f",
+      "runner_run_id": "f083a73d-46ef-4521-bd99-1edf8529ecd4",
+      "runner_post_utc": "2026-10-05T18:57:54.975974+00:00",
+      "synthetic_effect_utc": "2026-10-05T18:57:54.976501+00:00",
+      "runner_completed_utc": "2026-10-05T18:57:54.977047+00:00",
+      "visible_playground_stop_after_completion": false,
+      "runner_cancels": 0,
+      "interpretation": "completed_run_control_no_active_stop_available"
+    }
+  }
+}
