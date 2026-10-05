@@ -230,7 +230,7 @@ class WorkflowRunStore:
     def record_runner_wait_uncertain(self, run_id, invocation_id):
         """A wait deadline is not evidence that the native run stopped."""
         with self._database() as db:
-            changed = db.execute("""UPDATE runs SET status='unknown',
+            changed = db.execute("""UPDATE runs SET status='incomplete',
                 evidence_complete=0, terminal_reason='runner_result_pending'
                 WHERE run_id=? AND status='dispatching' AND dispatch_attempts=1""",
                 (run_id,)).rowcount
