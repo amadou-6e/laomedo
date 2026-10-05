@@ -25,3 +25,10 @@ input refs, a synthetic grant, run/trace identities and raw mock events. The
 fixture grant checks binding and expiry fields only; it is not a real
 authorization grant. EXP-03's missing native component attestation and the
 real adapter refusal remain with [#77](https://github.com/amadou-6e/laomedo/issues/77).
+
+The [sanitized result](result.json) records 20 passing cases and each counter,
+snapshot and binding check. Its private installed-wheel path is replaced with
+a placeholder; the raw result and SQLite artifacts stay in the disposable
+output directory. The fixtures and oracle were written by the implementation
+author in separate commits from the result, not by an independent second party.
+This is a mock boundary result only and does not grant real dispatch authority.
