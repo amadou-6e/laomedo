@@ -39,7 +39,8 @@ class RunnerAdapter:
             raise HandoffError("runner_token_invalid")
         return {"Content-Type": "application/json", "Authorization": "Bearer " + token}
 
-    def dispatch(self, handoff, *, deadline, cancelled, early_start=False, on_ack=None):
+    def dispatch(self, handoff, *, deadline, cancelled, early_start=False, on_ack=None,
+                 runner_request_id=None):
         if cancelled.is_set() or time.monotonic() >= deadline:
             raise HandoffError("dispatch_stopped")
         target = handoff["target"]
@@ -64,8 +65,9 @@ class RunnerAdapter:
             task["handoff"] = {key: handoff[key] for key in
                                ("execution_id", "step", "source", "workspace_policy")}
             if early_start and provider == "codex":
-                task["request_id"] = str(uuid5(UUID(handoff["execution_id"]),
-                                               str(handoff["step"])))
+                task["request_id"] = (runner_request_id or
+                                      str(uuid5(UUID(handoff["execution_id"]),
+                                                str(handoff["step"]))))
                 endpoint = base + "/v1/runs/async"
             else:
                 endpoint = base + "/v1/runs"
@@ -86,8 +88,14 @@ class RunnerAdapter:
             raise HandoffError("invalid_runner_response")
         self.active[handoff["execution_id"]] = (base, raw["run_id"])
         if early_start and provider == "codex" and handoff["operation"] == "fresh":
+            if (raw.get("client_request_id") != task["request_id"] or
+                    raw.get("raw_event_ref") !=
+                    f"laomedo:run:{raw['run_id']}:events"):
+                raise HandoffError("runner_ack_identity_mismatch")
             if callable(on_ack):
-                on_ack({"run_id": raw["run_id"], "status": raw.get("status")})
+                on_ack({"run_id": raw["run_id"], "status": raw.get("status"),
+                        "client_request_id": raw["client_request_id"],
+                        "raw_event_ref": raw["raw_event_ref"]})
             endpoint = base + "/v1/runs/" + raw["run_id"]
             cancel_forwarded = False
             while raw.get("status") in {"prepared", "running"}:

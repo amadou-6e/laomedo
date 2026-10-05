@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import sqlite3
 from uuid import uuid4
+from uuid import UUID
 
 
 def _canonical(value):
@@ -65,6 +66,10 @@ class WorkflowRunStore:
                     error_class TEXT,
                     native_job_id TEXT,
                     native_job_state TEXT NOT NULL,
+                    runner_request_id TEXT,
+                    runner_provider TEXT,
+                    runner_run_id TEXT,
+                    runner_raw_event_ref TEXT,
                     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
                 );
                 CREATE TABLE IF NOT EXISTS trace_receipts (
@@ -77,6 +82,15 @@ class WorkflowRunStore:
                     received_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
                 );
             """)
+            # Preserve stores created before native runner correlation existed.
+            columns = {row[1] for row in db.execute("PRAGMA table_info(workflow_invocations)")}
+            for column in ("runner_request_id", "runner_provider", "runner_run_id",
+                           "runner_raw_event_ref"):
+                if column not in columns:
+                    db.execute(f"ALTER TABLE workflow_invocations ADD COLUMN {column} TEXT")
+            db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS unique_runner_binding
+                ON workflow_invocations(runner_provider, runner_run_id)
+                WHERE runner_run_id IS NOT NULL""")
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=10)
@@ -149,12 +163,101 @@ class WorkflowRunStore:
             if db.execute("SELECT 1 FROM workflow_invocations WHERE run_id=?", (run_id,)).fetchone():
                 raise LaunchError("first_slice_allows_one_invocation")
             db.execute("""INSERT INTO workflow_invocations
-                (invocation_id,run_id,stage_id,status,evidence_state,effect_state,native_job_state)
-                VALUES (?,?,?,'reserved','unknown','unknown','unknown')""",
-                (invocation_id, run_id, stage_id))
+                (invocation_id,run_id,stage_id,status,evidence_state,effect_state,
+                 native_job_state,runner_request_id)
+                VALUES (?,?,?,'reserved','unknown','unknown','unknown',?)""",
+                (invocation_id, run_id, stage_id, invocation_id))
             self._receipt(db, run_id, invocation_id, "invocation_reserved",
-                          {"stage_id": stage_id})
+                          {"stage_id": stage_id, "runner_request_id": invocation_id})
         return invocation_id
+
+    def bind_runner_ack(self, run_id, invocation_id, *, request_id, provider,
+                        runner_run_id, raw_event_ref):
+        """Persist one exact native acknowledgement without replaying dispatch."""
+        try:
+            UUID(str(request_id))
+            UUID(str(runner_run_id))
+        except (TypeError, ValueError, AttributeError):
+            raise LaunchError("invalid_runner_identity") from None
+        if (provider != "codex" or
+                raw_event_ref != f"laomedo:run:{runner_run_id}:events"):
+            raise LaunchError("invalid_runner_reference")
+        with self._database() as db:
+            row = db.execute("""SELECT runner_request_id,runner_provider,runner_run_id,
+                runner_raw_event_ref FROM workflow_invocations
+                WHERE run_id=? AND invocation_id=?""", (run_id, invocation_id)).fetchone()
+            attempts = db.execute("SELECT dispatch_attempts FROM runs WHERE run_id=?",
+                                  (run_id,)).fetchone()
+            if row is None or attempts is None or attempts[0] != 1:
+                raise LaunchError("runner_ack_without_dispatch")
+            if request_id != row["runner_request_id"]:
+                raise LaunchError("runner_request_id_mismatch")
+            binding = (provider, runner_run_id, raw_event_ref)
+            existing = (row["runner_provider"], row["runner_run_id"],
+                        row["runner_raw_event_ref"])
+            if existing == binding:
+                return False
+            if any(existing):
+                raise LaunchError("runner_binding_conflict")
+            try:
+                db.execute("""UPDATE workflow_invocations SET runner_provider=?,
+                    runner_run_id=?,runner_raw_event_ref=?
+                    WHERE run_id=? AND invocation_id=?""",
+                    (*binding, run_id, invocation_id))
+            except sqlite3.IntegrityError as exc:
+                raise LaunchError("runner_binding_conflict") from exc
+            self._receipt(db, run_id, invocation_id, "runner_acknowledged",
+                          {"runner_request_id": request_id, "runner_provider": provider,
+                           "runner_run_id": runner_run_id,
+                           "raw_event_ref": raw_event_ref})
+        return True
+
+    def record_runner_observation(self, run_id, invocation_id, *, provider,
+                                  runner_run_id, kind, payload):
+        """Append runner status/cancel evidence under the existing trace identity."""
+        if kind not in {"runner_status", "runner_cancel"} or not isinstance(payload, dict):
+            raise LaunchError("invalid_runner_observation")
+        with self._database() as db:
+            row = db.execute("""SELECT 1 FROM workflow_invocations
+                WHERE run_id=? AND invocation_id=? AND runner_provider=? AND runner_run_id=?""",
+                (run_id, invocation_id, provider, runner_run_id)).fetchone()
+            if row is None:
+                raise LaunchError("runner_observation_not_correlated")
+            self._receipt(db, run_id, invocation_id, kind,
+                          {"runner_provider": provider, "runner_run_id": runner_run_id,
+                           "observation": payload})
+
+    def record_runner_wait_uncertain(self, run_id, invocation_id):
+        """A wait deadline is not evidence that the native run stopped."""
+        with self._database() as db:
+            changed = db.execute("""UPDATE runs SET status='unknown',
+                evidence_complete=0, terminal_reason='runner_result_pending'
+                WHERE run_id=? AND status='dispatching' AND dispatch_attempts=1""",
+                (run_id,)).rowcount
+            if changed != 1:
+                raise LaunchError("runner_wait_not_dispatching")
+            db.execute("""UPDATE workflow_invocations SET status='failed',
+                error_class='timeout' WHERE run_id=? AND invocation_id=?
+                AND status='running'""", (run_id, invocation_id))
+            self._receipt(db, run_id, invocation_id, "runner_result_pending",
+                          {"native_execution_may_continue": True})
+
+    def record_runner_rejection(self, run_id, invocation_id, *, category):
+        """A complete client rejection has no runner identity to bind."""
+        if not isinstance(category, str) or not category:
+            raise LaunchError("invalid_runner_rejection")
+        with self._database() as db:
+            changed = db.execute("""UPDATE runs SET status='failed',
+                terminal_reason='runner_rejected' WHERE run_id=? AND status='dispatching'
+                AND dispatch_attempts=1""", (run_id,)).rowcount
+            invocation_changed = db.execute("""UPDATE workflow_invocations
+                SET status='failed',error_class='runner_rejected'
+                WHERE run_id=? AND invocation_id=? AND status='running'""",
+                (run_id, invocation_id)).rowcount
+            if changed != 1 or invocation_changed != 1:
+                raise LaunchError("runner_rejection_not_correlated")
+            self._receipt(db, run_id, invocation_id, "runner_rejected",
+                          {"error_category": category})
 
     def begin_invocation(self, run_id, invocation_id):
         """Commit one dispatch attempt before the caller sends its request."""
