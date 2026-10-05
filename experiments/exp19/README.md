@@ -27,17 +27,23 @@ The approved local server configuration in [compose.yaml](compose.yaml) uses a
 separate Langflow data volume and localhost port 7863. Its auto-login is
 appropriate only for this disposable, localhost-only experiment. The runner
 uses port 8769 and a separate private state directory. The user granted six
-submitted turns and one draft PR from `test/49` to `develop`. The cumulative
-ledger is 6/6. After the private login copy was refreshed, a minimal direct
-runner turn completed with `READY`, and the final Langflow agent turn completed
-with three command results. It produced no selected output file, so no output
-PR was published.
-The [spec result](https://github.com/amadou-6e/specs/blob/docs/49/projects/laomedo/experiments/issue-agent-pr-integration/iterations/2026-10-05-local-e2e/results.md)
-records the limits. [#68](https://github.com/amadou-6e/laomedo/issues/68)
-records the subscription-login diagnostic, and
-[#69](https://github.com/amadou-6e/laomedo/issues/69) owns the remaining
-artifact failure. No credential, private raw rollout, or unreviewed generated
-report belongs in this repository.
+submitted turns and one draft PR from `test/49` to `develop`. The first 6/6
+attempt completed a native agent turn but produced no selected output file.
+Its [negative result](https://github.com/amadou-6e/specs/blob/docs/49/projects/laomedo/experiments/issue-agent-pr-integration/iterations/2026-10-05-local-e2e/results.md)
+remains part of the record. [#68](https://github.com/amadou-6e/laomedo/issues/68)
+records the subscription-login diagnostic.
+
+The user then granted four more submitted turns. A direct agent-originated
+nested-write diagnostic passed at turn 7/10. With the output parent present in
+the source fixture and verified before dispatch, turn 8/10 ran through the
+imported Langflow flow and produced the selected report. The trusted host
+verified its bytes and published only that file in
+[draft PR #71](https://github.com/amadou-6e/laomedo/pull/71), from `test/49`
+into `develop`. The [retry result](https://github.com/amadou-6e/specs/blob/docs/49/projects/laomedo/experiments/issue-agent-pr-integration/iterations/2026-10-05-artifact-retry/results.md)
+records the exact run, artifact and binding identifiers. The ledger is 8/10;
+the one-draft-PR grant is consumed. This supports a bounded single-user local
+path, without proving which fixture change corrected the first failure. No
+credential or private raw rollout belongs in this repository.
 
 The [spec protocol](https://github.com/amadou-6e/specs/tree/docs/49/projects/laomedo/experiments/issue-agent-pr-integration)
 distinguishes this single-user local path from the deferred push-capable stage
