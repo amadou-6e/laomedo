@@ -37,3 +37,15 @@ image files; the final streaming sweep covered those files. No model turn or
 personal credential was used. This is a direct process-boundary result, not
 the agent-originated criterion or a production runner integration. The
 current runner's permissions remain unchanged.
+
+For step 5, `model_egress_proxy.py` and `Dockerfile.model-egress` are an
+unreviewed draft of a second sidecar. The proxy accepts only a CONNECT tunnel
+to `api.openai.com:443`; TLS prevents it from inspecting which API path the
+agent requests. It holds no credential. `probe_model_egress_create.py` builds
+no image and starts no container: it checks the pinned local image, creates
+the proposed sidecar on an internal network plus Docker bridge, inspects its
+mounts, ports, user, command, environment and protection settings, then removes
+it. The [create-only observation](model-egress-create-observation.json) passed
+with zero model turns. This does not approve the model route or prove Codex uses
+the proxy. A nonpersonal credential, a reviewed writable-home stage manifest,
+and a separately reviewed egress grant remain necessary before step 5 runs.

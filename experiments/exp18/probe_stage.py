@@ -43,12 +43,15 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def sidecar_evidence(item, network):
+def sidecar_evidence(item, network, *, expected_image=SIDE_ID,
+                     expected_entrypoint=None):
     host = item["HostConfig"]
     config = item["Config"]
     networks = set(item["NetworkSettings"]["Networks"])
     errors = []
-    if item["Image"] != SIDE_ID:
+    if expected_entrypoint is None:
+        expected_entrypoint = ["python", "-B", "-u", "/app/probe.py"]
+    if item["Image"] != expected_image:
         errors.append("sidecar_image_mismatch")
     if networks != {network, "bridge"}:
         errors.append("sidecar_network_set_mismatch")
@@ -70,7 +73,7 @@ def sidecar_evidence(item, network):
         errors.append("sidecar_no_new_privileges")
     if config.get("User") != "10001:10001":
         errors.append("sidecar_user")
-    if config.get("Entrypoint") != ["python", "-B", "-u", "/app/probe.py"]:
+    if config.get("Entrypoint") != expected_entrypoint:
         errors.append("sidecar_entrypoint")
     return {"image_id": item["Image"], "networks": sorted(networks),
             "published_ports": host.get("PortBindings"),
