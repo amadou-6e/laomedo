@@ -42,8 +42,11 @@ verified its bytes and published only that file in
 into `develop`. The [retry result](https://github.com/amadou-6e/specs/blob/docs/49/projects/laomedo/experiments/issue-agent-pr-integration/iterations/2026-10-05-artifact-retry/results.md)
 records the exact run, artifact and binding identifiers. The ledger is 8/10;
 the one-draft-PR grant is consumed. This supports a bounded single-user local
-path, without proving which fixture change corrected the first failure. No
-credential or private raw rollout belongs in this repository.
+path. Read-only inspection of the first attempt's private native trace found
+that its report-write command exited with a missing-directory error: the
+original fixture lacked the output parent. Whether the revised task wording
+was also necessary remains unproved. No credential or private raw rollout
+belongs in this repository.
 
 The [spec protocol](https://github.com/amadou-6e/specs/tree/docs/49/projects/laomedo/experiments/issue-agent-pr-integration)
 distinguishes this single-user local path from the deferred push-capable stage
