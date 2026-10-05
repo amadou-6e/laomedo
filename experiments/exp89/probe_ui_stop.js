@@ -93,15 +93,15 @@ async function main() {
     observation.target_event = event ? { kind: event.kind, run_id: event.run_id, at_utc: event.at_utc } : null;
     observation.buttons_at_target = await buttons(page);
     await page.screenshot({ path: path.join(privateRoot, `case-${name.toLowerCase()}-before.png`) });
-    const stop = observation.buttons_at_target.find(item => !item.disabled);
+    const stop = observation.buttons_at_target.find(item => item.testId === 'button-stop' && !item.disabled);
     if (stop) {
       let locator = stop.testId ? page.getByTestId(stop.testId) :
         stop.aria ? page.getByRole('button', { name: stop.aria, exact: true }) :
         stop.title ? page.locator(`button[title=${JSON.stringify(stop.title)}]`) :
         page.getByRole('button', { name: stop.text, exact: true });
-      observation.stop_clicked_utc = at();
       observation.stop_control = stop;
       await locator.first().click({ timeout: 3000 });
+      observation.stop_clicked_utc = at();
     } else {
       observation.stop_control = null;
     }
