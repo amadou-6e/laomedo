@@ -1,0 +1,501 @@
+{
+  "corpus_sha256": "6517d65a101eaba5ef1e126d3440d9a8e21daafe44b4078cf47772377e7fabb2",
+  "cases_sha256": "ea8a66961f38206c9c1e0de3d330cda8a346b6c157629392bcff1acc7498e03f",
+  "oracle_sha256": "5fa15ce568ddbe1932730505e7b37b7d926076a221c3a780a0864bd18360dbda",
+  "installed_package_path": "<private-venv>/Lib/site-packages/laomedo/__init__.py",
+  "connector_version": "github-gh-v1",
+  "schema_version": 1,
+  "model_turns": 0,
+  "github_writes": 0,
+  "cases": {
+    "ready_fresh": {
+      "passed": true,
+      "expected": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "base",
+        "choice": "unchanged",
+        "override": false
+      },
+      "observed": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "base",
+        "choice": "unchanged",
+        "override": false,
+        "trace": "complete",
+        "run_id": "0aa57c5a-47be-4e64-a6f9-dcacea86ccc3",
+        "trace_id": "0382c105-d14f-4be0-a16e-8f6b73212db5",
+        "graph_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c",
+        "input_digest": "sha256:cdd589c5ef68465179c41fc2ee16e6aaa4475b38a13e3dbf4c34ebf15812d036"
+      },
+      "checks": {
+        "one_run": true,
+        "one_attempt": true,
+        "one_mock_call": true,
+        "trigger_retained": true,
+        "grant_and_config_retained": true,
+        "raw_binding_retained": true,
+        "definition_revision_retained": true,
+        "component_revision_retained": true,
+        "snapshot_retained": true,
+        "trace_identity_retained": true,
+        "partial_not_fabricated": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    },
+    "stale_no_choice": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "stale_unacknowledged"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "stale_unacknowledged"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:93f30572f6fd9ccc1da8628ef86bdfc3c89f04d81241e3fc3cc68a8c4613fa14"
+    },
+    "stale_pinned": {
+      "passed": true,
+      "expected": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "base",
+        "choice": "pinned",
+        "override": false
+      },
+      "observed": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "base",
+        "choice": "pinned",
+        "override": false,
+        "trace": "complete",
+        "run_id": "8b70c9c9-e774-480a-8fca-abfdba713b13",
+        "trace_id": "3bc11dc3-dc3c-46c3-b291-e0c0f8cda4de",
+        "graph_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c",
+        "input_digest": "sha256:cdd589c5ef68465179c41fc2ee16e6aaa4475b38a13e3dbf4c34ebf15812d036"
+      },
+      "checks": {
+        "one_run": true,
+        "one_attempt": true,
+        "one_mock_call": true,
+        "trigger_retained": true,
+        "grant_and_config_retained": true,
+        "raw_binding_retained": true,
+        "definition_revision_retained": true,
+        "component_revision_retained": true,
+        "snapshot_retained": true,
+        "trace_identity_retained": true,
+        "partial_not_fabricated": true
+      },
+      "source_snapshot_id": "sha256:93f30572f6fd9ccc1da8628ef86bdfc3c89f04d81241e3fc3cc68a8c4613fa14"
+    },
+    "stale_refreshed": {
+      "passed": true,
+      "expected": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "content_changed",
+        "choice": "refreshed",
+        "override": false
+      },
+      "observed": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "content_changed",
+        "choice": "refreshed",
+        "override": false,
+        "trace": "complete",
+        "run_id": "db5365fd-b1d3-485d-9a26-244b40d5fa58",
+        "trace_id": "a3dbc207-8311-4749-966a-15a89661b68e",
+        "graph_snapshot_id": "sha256:93f30572f6fd9ccc1da8628ef86bdfc3c89f04d81241e3fc3cc68a8c4613fa14",
+        "input_digest": "sha256:503637d73bdc1bc390d0667627fe9533c1efd5343c2cde3bd60d4d913782db15"
+      },
+      "checks": {
+        "one_run": true,
+        "one_attempt": true,
+        "one_mock_call": true,
+        "trigger_retained": true,
+        "grant_and_config_retained": true,
+        "raw_binding_retained": true,
+        "definition_revision_retained": true,
+        "component_revision_retained": true,
+        "snapshot_retained": true,
+        "trace_identity_retained": true,
+        "partial_not_fabricated": true
+      },
+      "source_snapshot_id": "sha256:93f30572f6fd9ccc1da8628ef86bdfc3c89f04d81241e3fc3cc68a8c4613fa14"
+    },
+    "opened_pinned": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "open_prerequisite"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "open_prerequisite"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:3821b83c9cf05497783320dbad8f18638b79efd6a23f9fbda27b2d3798b70002"
+    },
+    "opened_refreshed": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "open_prerequisite"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "open_prerequisite"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:3821b83c9cf05497783320dbad8f18638b79efd6a23f9fbda27b2d3798b70002"
+    },
+    "opened_override": {
+      "passed": true,
+      "expected": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "opened_blocker",
+        "choice": "refreshed",
+        "override": true
+      },
+      "observed": {
+        "outcome": "completed",
+        "calls": 1,
+        "selection": "opened_blocker",
+        "choice": "refreshed",
+        "override": true,
+        "trace": "complete",
+        "run_id": "9b49ef84-fac9-453b-b41d-ec3fc47399eb",
+        "trace_id": "e83fb698-82cf-4c8f-8f00-c74d76daf197",
+        "graph_snapshot_id": "sha256:3821b83c9cf05497783320dbad8f18638b79efd6a23f9fbda27b2d3798b70002",
+        "input_digest": "sha256:437ec498208c0feff34545a2020f1985d236e8a4900306ae0f85e0084de0f08f"
+      },
+      "checks": {
+        "one_run": true,
+        "one_attempt": true,
+        "one_mock_call": true,
+        "trigger_retained": true,
+        "grant_and_config_retained": true,
+        "raw_binding_retained": true,
+        "definition_revision_retained": true,
+        "component_revision_retained": true,
+        "snapshot_retained": true,
+        "trace_identity_retained": true,
+        "partial_not_fabricated": true
+      },
+      "source_snapshot_id": "sha256:3821b83c9cf05497783320dbad8f18638b79efd6a23f9fbda27b2d3798b70002"
+    },
+    "override_missing_rationale": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "override_incomplete"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "override_incomplete"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:3821b83c9cf05497783320dbad8f18638b79efd6a23f9fbda27b2d3798b70002"
+    },
+    "override_wrong_edge": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "override_wrong_edge"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "override_wrong_edge"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:3821b83c9cf05497783320dbad8f18638b79efd6a23f9fbda27b2d3798b70002"
+    },
+    "hidden_open_blocker": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "open_prerequisite",
+        "projection_readiness": "blocked",
+        "context_edge": true
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "open_prerequisite",
+        "projection_readiness": "blocked",
+        "context_edge": true
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:3821b83c9cf05497783320dbad8f18638b79efd6a23f9fbda27b2d3798b70002"
+    },
+    "unresolved_override": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "prerequisite_unknown"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "prerequisite_unknown"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:8322b319e8fff26a4060828c2766053c1b552ef4422fff3c88823e2686b40d8a"
+    },
+    "cycle_override": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "prerequisite_cyclic"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "prerequisite_cyclic"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:a600c4d95c1f44372b153e1a73233e3d1cec9eaf3f9a3d13a0db1e78a3d2ef2a"
+    },
+    "incomplete_source": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "source_incomplete"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "source_incomplete"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:cde17282e925859e376768dbc8f5ef25f3ed5b47ce31d9fbeff8ffe5aab7a885"
+    },
+    "grant_expired": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_expired"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_expired"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    },
+    "grant_wrong_work": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_wrong_work"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_wrong_work"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    },
+    "grant_wrong_graph": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_wrong_graph"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_wrong_graph"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    },
+    "grant_wrong_runner": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_wrong_runner"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_wrong_runner"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    },
+    "grant_unauthorized": {
+      "passed": true,
+      "expected": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_unauthorized"
+      },
+      "observed": {
+        "outcome": "refused",
+        "calls": 0,
+        "reason": "grant_unauthorized"
+      },
+      "checks": {
+        "zero_runs": true,
+        "zero_dispatch_attempts": true,
+        "zero_mock_calls": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    },
+    "mock_runner_rejection": {
+      "passed": true,
+      "expected": {
+        "outcome": "failed",
+        "calls": 1,
+        "selection": "base",
+        "choice": "unchanged",
+        "override": false,
+        "trace": "partial"
+      },
+      "observed": {
+        "outcome": "failed",
+        "calls": 1,
+        "selection": "base",
+        "choice": "unchanged",
+        "override": false,
+        "trace": "partial",
+        "run_id": "a872f66f-f2ee-4072-9d54-1e06d49c4ef9",
+        "trace_id": "5a853705-31c9-4772-a4a6-459d581aa49e",
+        "graph_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c",
+        "input_digest": "sha256:cdd589c5ef68465179c41fc2ee16e6aaa4475b38a13e3dbf4c34ebf15812d036"
+      },
+      "checks": {
+        "one_run": true,
+        "one_attempt": true,
+        "one_mock_call": true,
+        "trigger_retained": true,
+        "grant_and_config_retained": true,
+        "raw_binding_retained": true,
+        "definition_revision_retained": true,
+        "component_revision_retained": true,
+        "snapshot_retained": true,
+        "trace_identity_retained": true,
+        "partial_not_fabricated": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    },
+    "mock_runner_unknown": {
+      "passed": true,
+      "expected": {
+        "outcome": "unknown",
+        "calls": 1,
+        "selection": "base",
+        "choice": "unchanged",
+        "override": false,
+        "trace": "partial"
+      },
+      "observed": {
+        "outcome": "unknown",
+        "calls": 1,
+        "selection": "base",
+        "choice": "unchanged",
+        "override": false,
+        "trace": "partial",
+        "run_id": "22e84a31-fb55-4bca-b4b5-d0b78083fb43",
+        "trace_id": "fb37e16b-170d-42e6-9ff9-1a759e82f8ef",
+        "graph_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c",
+        "input_digest": "sha256:cdd589c5ef68465179c41fc2ee16e6aaa4475b38a13e3dbf4c34ebf15812d036"
+      },
+      "checks": {
+        "one_run": true,
+        "one_attempt": true,
+        "one_mock_call": true,
+        "trigger_retained": true,
+        "grant_and_config_retained": true,
+        "raw_binding_retained": true,
+        "definition_revision_retained": true,
+        "component_revision_retained": true,
+        "snapshot_retained": true,
+        "trace_identity_retained": true,
+        "partial_not_fabricated": true
+      },
+      "source_snapshot_id": "sha256:1ba21698697294a9fa288796696292d5b02c85f591ca764da96cc10091630d8c"
+    }
+  },
+  "passed": true
+}
