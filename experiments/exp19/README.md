@@ -28,12 +28,16 @@ separate Langflow data volume and localhost port 7863. Its auto-login is
 appropriate only for this disposable, localhost-only experiment. The runner
 uses port 8769 and a separate private state directory. The user granted six
 submitted turns and one draft PR from `test/49` to `develop`. The cumulative
-ledger is 3/6: two Langflow turns and one minimal direct-runner turn all failed
-before an agent command or verified artifact. No output PR was published.
+ledger is 6/6. After the private login copy was refreshed, a minimal direct
+runner turn completed with `READY`, and the final Langflow agent turn completed
+with three command results. It produced no selected output file, so no output
+PR was published.
 The [spec result](https://github.com/amadou-6e/specs/blob/docs/49/projects/laomedo/experiments/issue-agent-pr-integration/iterations/2026-10-05-local-e2e/results.md)
-records the limits, and [#68](https://github.com/amadou-6e/laomedo/issues/68)
-owns the model-call failure. No credential, private raw rollout, or unreviewed
-generated report belongs in this repository.
+records the limits. [#68](https://github.com/amadou-6e/laomedo/issues/68)
+records the subscription-login diagnostic, and
+[#69](https://github.com/amadou-6e/laomedo/issues/69) owns the remaining
+artifact failure. No credential, private raw rollout, or unreviewed generated
+report belongs in this repository.
 
 The [spec protocol](https://github.com/amadou-6e/specs/tree/docs/49/projects/laomedo/experiments/issue-agent-pr-integration)
 distinguishes this single-user local path from the deferred push-capable stage
