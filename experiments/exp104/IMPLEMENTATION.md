@@ -37,8 +37,10 @@ identity separation is still unproven.
 
 The bearer-capability `/v1/mediate` endpoint now belongs to an independent
 `MediationHTTPService` class, not the lease service. It is intended to run in
-a separate credential-owning process; the current tests use separate server
-objects/threads and **do not yet prove process survival**. Its
+a separate credential-owning process. Unit tests use separate server
+objects/threads; the [synthetic process probe](RESULTS.md) additionally
+shows the mediator surviving a hard kill of one lease-service process while
+another lease service stays live. It does not prove production deployment. Its
 credential-free HTTP tests show a revoked run is denied before transport,
 another run remains usable, and both runs' grants expire at the authorizer
 when the lease service stops renewing them. A narrow
@@ -53,7 +55,8 @@ has not been connected to a scoped GitHub identity, and the service's CLI
 still starts only the old synthetic `GrantBook`.
 
 These tests do not check a real Docker container, GitHub token, `git` push,
-whole-tree kill, service manager, or model. There is no production mediator
+whole-tree kill, service manager, or model. The synthetic probe checks an
+exact lease-service PID hard kill, not a runner or process-tree kill. There is no production mediator
 deployment path or agent-container route to the loopback endpoint. Consequently
 this remains an integration draft, not a reason to lift #97's draft status or to
 accept Q11. The run-scoped grant remains short-lived (at most 60 seconds),
