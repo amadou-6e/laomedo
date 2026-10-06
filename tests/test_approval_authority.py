@@ -180,6 +180,16 @@ class ApprovalAuthorityTests(unittest.TestCase):
         with closing(sqlite3.connect(self.ledger)) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM grants").fetchone()[0], 1)
 
+    def test_reopen_preserves_one_grant_and_its_redemption(self):
+        submitted, grant_id = self.approve()
+        reopened = ProtectedApprovalAuthority(self.ledger, self.key.anchor())
+        self.assertEqual(reopened.grant_for(submitted["request_id"]), grant_id)
+        reopened(grant_id, binding(submitted["request"]))
+        after_restart = ProtectedApprovalAuthority(self.ledger, self.key.anchor())
+        with self.assertRaisesRegex(LaunchError, "grant_invalid"):
+            after_restart(grant_id, binding(submitted["request"]))
+        self.assertEqual(after_restart.grant_for(submitted["request_id"]), grant_id)
+
     def test_denied_and_expired_requests_cannot_be_approved(self):
         denied = self.authority.submit(request())
         self.authority.deny(denied["request_id"])
