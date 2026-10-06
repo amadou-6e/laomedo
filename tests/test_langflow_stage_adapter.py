@@ -1,6 +1,7 @@
 """Credential-free checks of the pinned Langflow launch graph boundary."""
 
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from importlib.metadata import PackageNotFoundError, version
 import json
 from pathlib import Path
@@ -11,6 +12,9 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.langflow_stage_adapter import FrozenLangflowStage
+from laomedo.work_graph.github import import_pages
+from laomedo.work_graph.grants import LocalGrantAuthority
+from laomedo.work_graph.launch import launch_github_saved_flow_stage, launch_work_stage
 from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
 
 
@@ -118,6 +122,84 @@ class LangflowStageAdapterTests(unittest.TestCase):
         self.assertNotEqual(second_record["graph_revision"], first_record["graph_revision"])
         self.assertEqual(fetched, ["selected-flow", "selected-flow"])
         self.assertEqual(self.store.counters()["dispatch_attempts"], 2)
+
+    def test_work_graph_gate_launches_the_checked_langflow_graph(self):
+        corpus = json.loads((FLOW.parents[0] / ".." / "exp16" / "corpus.json")
+                            .resolve().read_text(encoding="utf-8"))
+        frozen = import_pages("verify/exp16", corpus["base"],
+                              fetched_at="2026-10-05T10:00:00+00:00")
+        current = import_pages("verify/exp16", corpus["content_changed"],
+                               fetched_at="2026-10-05T10:01:00+00:00")
+        self.gate.write_text("released", encoding="utf-8")
+        stage = FrozenLangflowStage(self.flow)
+
+        def fixture_authority(ref, binding):
+            return {"grant_id": ref, "operator_authorized": True,
+                "work_key": "github:S-20",
+                "graph_snapshot_id": binding["selected_graph_snapshot_id"],
+                "runner": "langflow-local", "scope": "stage-launch",
+                "expires_at": "2026-10-05T10:10:00+00:00",
+                "limits": {"timeout_seconds": 60, "max_turns": 0}}
+
+        record, result = launch_work_stage(frozen=frozen,
+            source_fetch=lambda _repository: current,
+            work_key="github:S-20", choice="pinned", stage=stage,
+            store=self.store, grant_ref="synthetic", grant_authority=fixture_authority,
+            resolved_config={"mode": "no-model"},
+            inputs=[{"input_value": "TASK"}], types=["chat"],
+            outputs=["ChatOutput-exp03"],
+            now=datetime.fromisoformat("2026-10-05T10:00:00+00:00"))
+        self.assertIn("TASK|BEFORE", str(result))
+        binding = json.loads(record["trigger_json"])
+        self.assertEqual(binding["selected_graph_snapshot_id"], frozen.snapshot_id)
+        self.assertEqual(binding["authorization_graph_snapshot_id"], current.snapshot_id)
+        self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
+
+    def test_saved_flow_entrypoint_routes_through_live_source_and_grant_gate(self):
+        corpus = json.loads((FLOW.parents[0] / ".." / "exp16" / "corpus.json")
+                            .resolve().read_text(encoding="utf-8"))
+        frozen = import_pages("verify/exp16", corpus["base"],
+                              fetched_at="2026-10-05T10:00:00+00:00")
+        current = import_pages("verify/exp16", corpus["base"],
+                               fetched_at="2026-10-05T10:01:00+00:00")
+        self.flow["id"] = "selected-flow"
+        exports = []
+
+        def fetch_export(flow_id):
+            exports.append(flow_id)
+            return self.flow
+
+        arguments = {"frozen": frozen, "work_key": "github:S-20",
+            "flow_id": "selected-flow", "fetch_export": fetch_export,
+            "store": self.store, "grant_ref": "synthetic",
+            "grant_authority": None, "resolved_config": {"mode": "no-model"},
+            "inputs": [{"input_value": "TASK"}], "types": ["chat"],
+            "outputs": ["ChatOutput-exp03"],
+            "now": datetime.now(timezone.utc)}
+        with patch("laomedo.work_graph.github.fetch", return_value=current) as fetch:
+            with self.assertRaisesRegex(LaunchError, "grant_authority_required"):
+                launch_github_saved_flow_stage(**arguments)
+            fetch.assert_called_once_with("verify/exp16")
+        self.assertEqual(self.store.counters()["runs"], 0)
+
+        self.gate.write_text("released", encoding="utf-8")
+        authority = LocalGrantAuthority(self.root / "private" / "grants.sqlite")
+        ref = authority.issue(work_key="github:S-20",
+            graph_snapshot=frozen,
+            expires_at=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+            timeout_seconds=60, max_turns=0)
+        arguments["grant_ref"] = ref
+        arguments["grant_authority"] = authority
+        with patch("laomedo.work_graph.github.fetch", return_value=current) as fetch:
+            record, result = launch_github_saved_flow_stage(**arguments)
+            fetch.assert_called_once_with("verify/exp16")
+        self.assertIn("TASK|BEFORE", str(result))
+        self.assertEqual(exports, ["selected-flow", "selected-flow"])
+        self.assertEqual(json.loads(record["trigger_json"])["source_choice"], "unchanged")
+        self.assertEqual(self.store.counters()["dispatch_attempts"], 1)
+        with self.assertRaisesRegex(LaunchError, "grant_invalid"):
+            authority(ref, {"work_snapshot": {"key": "github:S-20"},
+                            "selected_graph_snapshot_id": frozen.snapshot_id})
 
 
 if __name__ == "__main__":

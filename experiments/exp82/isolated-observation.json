@@ -1,0 +1,53 @@
+{
+  "source_commit": "9638397",
+  "date": "2026-10-05",
+  "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "scope": "single-user local zero-model stage",
+  "docker_stage_probe": {
+    "result": "pass",
+    "worker_ready": true,
+    "component_revision_count": 3,
+    "output_marker": true
+  },
+  "docker_grant_probe": {
+    "result": "pass",
+    "run_status": "completed",
+    "dispatch_attempts": 1,
+    "private_grant_not_mounted": true,
+    "replay_refused": true,
+    "attestation_mismatch_refused_before_reservation": true,
+    "failed_worker_absent": true
+  },
+  "docker_timeout_probe": {
+    "result": "pass",
+    "run_status": "unknown",
+    "dispatch_attempts": 1,
+    "container_absent": true
+  },
+  "live_docker_e2e": {
+    "result": "pass",
+    "source_complete": true,
+    "saved_flow_api": "GET /api/v1/flows/{id}",
+    "grant_max_turns": 0,
+    "run_status": "completed",
+    "dispatch_attempts": 1,
+    "output_marker": true
+  },
+  "live_cli_e2e": {
+    "result": "pass",
+    "source_complete": true,
+    "run_status": "completed",
+    "dispatch_attempts": 1,
+    "output_present": true,
+    "run_identity_present": true,
+    "api_token_absent_from_output": true
+  },
+  "model_turns": 0,
+  "github_writes": 0,
+  "limits": [
+    "The typed CLI confirmation does not independently authenticate the operator.",
+    "Windows grant-store ACL inheritance was not audited.",
+    "A malicious custom component might forge worker stdout protocol messages.",
+    "Network-disabled zero-turn checks do not verify a real Codex or OpenCode agent."
+  ]
+}
