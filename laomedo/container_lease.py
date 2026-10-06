@@ -79,7 +79,13 @@ class LeaseProcess:
                     self.process.stdin.flush()
                 self.process.stdin.close()
                 self.process.wait(timeout=15)
-            if self.process.returncode != 0 or self.lost.is_set():
+            report = (json.loads(self.result.read_text(encoding="utf-8"))
+                      if self.result.exists() else {})
+            expected = "done" if normal else "eof"
+            if (self.process.returncode != 0 or self.lost.is_set() or
+                    report.get("reason") != expected or
+                    (normal and report.get("state") != "absent") or
+                    (not normal and report.get("cleanup_verified") is not True)):
                 raise RuntimeError("lease_supervisor_unverified")
         finally:
             self.log.close()
