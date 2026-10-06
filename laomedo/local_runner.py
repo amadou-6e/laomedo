@@ -756,6 +756,7 @@ class LocalRunner:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
         run_dir, record, cancelled, server, lease = None, None, None, None, None
+        launch_attempted = False
         try:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
@@ -787,6 +788,7 @@ class LocalRunner:
                 record["container_ownership"]["grant_id"] = lease.grant_id
                 with self.control_lock:
                     _json(run_dir / "record.json", record)
+            launch_attempted = True
             server = self.transport(["docker", *_docker_prefix(
                 run_dir / "workspace", run_dir / "canonical", run_dir / "store",
                 name=name, run_id=run_id, launch_token=launch_token)], run_dir)
@@ -894,7 +896,19 @@ class LocalRunner:
                     record.update(status="failed", error_category="container_termination_unverified")
             finally:
                 try:
-                    if record is not None and self.supervise_containers:
+                    if record is not None and self.supervise_containers and not launch_attempted:
+                        verified, detail = True, "not_launched"
+                        if lease is not None:
+                            try:
+                                lease.finish()
+                            except Exception:
+                                verified, detail = False, "lease_service_unverified"
+                        record["container_ownership"]["cleanup_verified"] = verified
+                        record["container_ownership"]["cleanup_detail"] = detail
+                        if not verified:
+                            record.update(status="failed",
+                                          error_category="container_termination_unverified")
+                    elif record is not None and self.supervise_containers:
                         verified, detail = cleanup_exact(name, run_id, launch_token)
                         if lease is not None:
                             try:

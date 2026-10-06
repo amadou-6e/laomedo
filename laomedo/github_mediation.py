@@ -133,6 +133,10 @@ class MediationStore:
                     next_run_id TEXT NOT NULL, next_effect_id TEXT NOT NULL,
                     approved_by TEXT NOT NULL, used_at REAL,
                     PRIMARY KEY(next_run_id,next_effect_id));
+                CREATE TABLE IF NOT EXISTS lease_bindings (
+                    grant_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
+                    lease_token TEXT UNIQUE NOT NULL, lease_scope TEXT NOT NULL,
+                    service_instance TEXT NOT NULL);
             """)
 
     def _connect(self):
@@ -142,7 +146,9 @@ class MediationStore:
 
     def issue(self, *, run_id: str, invocation_id: str, repository: str,
               operations: set[str], ttl_seconds: float, branch: str | None = None,
-              reviewed_issue_requests: dict[str, dict] | None = None) -> tuple[str, str]:
+              reviewed_issue_requests: dict[str, dict] | None = None,
+              lease_token: str | None = None, lease_scope: str | None = None,
+              service_instance: str | None = None) -> tuple[str, str]:
         reviewed_issue_requests = reviewed_issue_requests or {}
         if (not all(isinstance(v, str) and v for v in (run_id, invocation_id, repository)) or
                 not isinstance(operations, set) or not operations or
@@ -153,7 +159,10 @@ class MediationStore:
                 any(not isinstance(k, str) or not k or not isinstance(v, dict) or
                     v.get("reviewed_proposal_id") != k for k, v in
                     reviewed_issue_requests.items()) or
-                ("issue_create" in operations and not reviewed_issue_requests)):
+                ("issue_create" in operations and not reviewed_issue_requests) or
+                (any(v is not None for v in (lease_token, lease_scope, service_instance)) and
+                 not all(isinstance(v, str) and v for v in
+                         (lease_token, lease_scope, service_instance)))):
             raise MediationError("grant_request_invalid")
         reviewed_hashes = {key: _request_hash(repository, "issue_create", body)
                            for key, body in reviewed_issue_requests.items()}
@@ -164,7 +173,44 @@ class MediationStore:
                         invocation_id, repository, json.dumps(sorted(operations)), branch,
                         json.dumps(reviewed_hashes, sort_keys=True),
                         self.now() + ttl_seconds))
+            if lease_token is not None:
+                db.execute("INSERT INTO lease_bindings VALUES (?,?,?,?,?)",
+                           (grant_id, run_id, lease_token, lease_scope, service_instance))
         return grant_id, token
+
+    def revoke_lease(self, *, run_id: str, lease_token: str,
+                     lease_scope: str) -> list[str]:
+        """Trusted lease service revokes only the exact persisted binding."""
+        with closing(self._connect()) as db, db:
+            rows = db.execute(
+                "SELECT grant_id FROM lease_bindings WHERE run_id=? AND lease_token=? AND lease_scope=?",
+                (run_id, lease_token, lease_scope)).fetchall()
+            ids = [row["grant_id"] for row in rows]
+            for grant_id in ids:
+                db.execute("UPDATE grants SET revoked_at=? WHERE grant_id=? AND revoked_at IS NULL",
+                           (self.now(), grant_id))
+            return ids
+
+    def renew_lease(self, *, run_id: str, lease_token: str,
+                    lease_scope: str, ttl_seconds: float) -> bool:
+        if not 0 < ttl_seconds <= 60:
+            raise MediationError("grant_renewal_invalid")
+        with closing(self._connect()) as db, db:
+            result = db.execute(
+                "UPDATE grants SET expires_at=? WHERE grant_id IN "
+                "(SELECT grant_id FROM lease_bindings WHERE run_id=? AND lease_token=? AND lease_scope=?) "
+                "AND revoked_at IS NULL AND expires_at>?",
+                (self.now() + ttl_seconds, run_id, lease_token, lease_scope, self.now()))
+            return result.rowcount == 1
+
+    def revoke_lease_scope(self, lease_scope: str) -> int:
+        """Fail closed on service startup; previous instance grants never survive."""
+        with closing(self._connect()) as db, db:
+            result = db.execute(
+                "UPDATE grants SET revoked_at=? WHERE grant_id IN "
+                "(SELECT grant_id FROM lease_bindings WHERE lease_scope=?) AND revoked_at IS NULL",
+                (self.now(), lease_scope))
+            return result.rowcount
 
     def revoke_run(self, run_id: str) -> int:
         """A lease owner can revoke all of a run's grants without its token."""
