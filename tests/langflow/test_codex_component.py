@@ -7,6 +7,7 @@ import io
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 import tempfile
 import unittest
@@ -56,6 +57,62 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cancelled_component_resolves_same_request_without_redispatch(self):
+        node = component(operation="start", request_id=RUN)
+        entered, release = threading.Event(), threading.Event()
+        def blocked_http(*_args):
+            entered.set()
+            release.wait(timeout=3)
+            return {"run_id": RUN, "status": "prepared"}
+        with patch.object(node, "_http", side_effect=blocked_http) as post, \
+                patch.object(node, "_cancel_after_ui_stop") as stop:
+            task = asyncio.create_task(node.run_output())
+            for _ in range(100):
+                if entered.is_set():
+                    break
+                await asyncio.sleep(.01)
+            self.assertTrue(entered.is_set())
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            await node._cancel_task
+            release.set()
+            await node._dispatch_task
+            self.assertEqual(post.call_count, 1)
+            self.assertEqual(stop.call_count, 1)
+            self.assertEqual(stop.call_args.args[1], RUN)
+            self.assertTrue(stop.call_args.args[2].startswith("sha256:"))
+
+    async def test_stop_lookup_cancels_only_matching_nonterminal_run(self):
+        node = component(operation="start", request_id=RUN)
+        expected_hash = "sha256:" + "c" * 64
+        lookup = {"client_request_id": RUN, "request_hash": expected_hash,
+                  "run_id": RUN, "status": "prepared"}
+        with patch.object(node, "_stop_http", side_effect=[None, lookup,
+                {"run_id": RUN, "status": "cancelled", "cancel_requested": True},
+                {"run_id": RUN, "status": "cancelled", "cancel_confirmed": True}]) as http:
+            node._cancel_after_ui_stop("http://host.docker.internal:8765", RUN, expected_hash)
+        self.assertEqual(http.call_count, 4)
+        self.assertEqual(http.call_args_list[2].args[0],
+                         "http://host.docker.internal:8765/v1/runs/" + RUN + "/cancel")
+        self.assertIn("cancellation confirmed", node.status)
+
+    async def test_stop_binding_conflict_and_completed_control_send_no_cancel(self):
+        node = component(operation="start", request_id=RUN)
+        good = "sha256:" + "c" * 64
+        bad = {"client_request_id": RUN, "request_hash": "sha256:" + "d" * 64,
+               "run_id": RUN, "status": "running"}
+        with patch.object(node, "_stop_http", return_value=bad) as http:
+            node._cancel_after_ui_stop("http://host.docker.internal:8765", RUN, good)
+        self.assertEqual(http.call_count, 1)
+        self.assertIn("binding_conflict", node.status)
+        completed = {"client_request_id": RUN, "request_hash": good,
+                     "run_id": RUN, "status": "completed"}
+        with patch.object(node, "_stop_http", return_value=completed) as http:
+            node._cancel_after_ui_stop("http://host.docker.internal:8765", RUN, good)
+        self.assertEqual(http.call_count, 1)
+        self.assertIn("no cancel sent", node.status)
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -94,8 +151,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         root = Path(__file__).resolve().parents[2]
         flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
         graph = Graph.from_payload(flow)
-        with patch.object(module.request, "urlopen", side_effect=lambda *_args, **_kwargs:
-                          Response(json.dumps(result()).encode())) as http:
+        with patch.object(module.request, "urlopen", side_effect=lambda req, **_kwargs:
+                          Response(json.dumps(result(client_request_id=
+                              json.loads(req.data)["request_id"])).encode())) as http:
             output = await graph.arun(inputs=[{"input_value": "Read fixture"}],
                                      types=["chat"], outputs=["ChatOutput-laomedo",
                                                            "ChatOutput-run-reference"])
@@ -140,7 +198,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             refs = json.loads(req.data)["skill_refs"]
             self.assertEqual({r["skill_id"] for r in refs},
                              {"second", skill["data"]["node"]["template"]["skill_id"]["value"]})
-            return Response(json.dumps(result()).encode())
+            return Response(json.dumps(result(client_request_id=
+                json.loads(req.data)["request_id"])).encode())
         with patch.object(module.request, "urlopen", side_effect=respond) as http:
             await Graph.from_payload(flow).arun(inputs=[{"input_value": "Use both skills"}], types=["chat"])
             self.assertEqual(http.call_count, 1)
@@ -148,9 +207,10 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_both_outputs_submit_once_and_new_build_submits_again(self):
         node = component()
         def respond(req, timeout):
-            self.assertEqual(json.loads(req.data)["skill_ref"]["tree_hash"], HASH)
+            payload = json.loads(req.data)
+            self.assertEqual(payload["skill_ref"]["tree_hash"], HASH)
             self.assertEqual(req.get_header("Authorization"), "Bearer test-runner-token")
-            return Response(json.dumps(result()).encode())
+            return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
         with patch.object(module.request, "urlopen", side_effect=respond) as http:
             message, data = await asyncio.gather(node.answer_output(), node.run_output())
             self.assertEqual(message.text, "amber 3")
