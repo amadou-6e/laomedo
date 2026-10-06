@@ -1,0 +1,98 @@
+{
+  "case": "CONTROL",
+  "probe_started_utc": "2026-10-06T09:07:03.500Z",
+  "browser_requests": [
+    {
+      "at_utc": "2026-10-06T09:07:06.048Z",
+      "method": "GET",
+      "path": "/api/v1/monitor/builds"
+    }
+  ],
+  "runner_baseline": 14,
+  "flow_id": "74af4f3d-401f-4f21-93b3-327eba01aa16",
+  "send_clicked_utc": "2026-10-06T09:07:06.672Z",
+  "target_event": {
+    "kind": "synthetic_effect",
+    "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+    "at_utc": "2026-10-06T09:07:08.194851+00:00"
+  },
+  "buttons_at_target": [
+    {
+      "text": "Stop",
+      "title": "",
+      "aria": "",
+      "testId": "stop_building_button",
+      "disabled": false,
+      "visible": true
+    },
+    {
+      "text": "",
+      "title": "Stop",
+      "aria": "Stop",
+      "testId": "button-stop",
+      "disabled": false,
+      "visible": true
+    }
+  ],
+  "stop_control": {
+    "text": "",
+    "title": "Stop",
+    "aria": "Stop",
+    "testId": "button-stop",
+    "disabled": false,
+    "visible": true
+  },
+  "buttons_after_wait": [],
+  "probe_finished_utc": "2026-10-06T09:07:17.423Z",
+  "runner_events": [
+    {
+      "kind": "post_received",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:07.193888+00:00",
+      "case": "CONTROL",
+      "duplicate": false
+    },
+    {
+      "kind": "ack_sent",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:07.194949+00:00",
+      "case": "CONTROL",
+      "status": "running"
+    },
+    {
+      "kind": "status_read",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:07.398011+00:00",
+      "found": true
+    },
+    {
+      "kind": "status_read",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:07.602912+00:00",
+      "found": true
+    },
+    {
+      "kind": "status_read",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:07.807753+00:00",
+      "found": true
+    },
+    {
+      "kind": "status_read",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:08.013051+00:00",
+      "found": true
+    },
+    {
+      "kind": "synthetic_effect",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:08.194851+00:00"
+    },
+    {
+      "kind": "status_read",
+      "run_id": "536ba808-20f1-4930-a0bd-bd0425914254",
+      "at_utc": "2026-10-06T09:07:08.216920+00:00",
+      "found": true
+    }
+  ]
+}
