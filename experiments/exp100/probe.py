@@ -160,6 +160,8 @@ def run():
             except subprocess.TimeoutExpired:
                 service.kill()
                 service.wait(timeout=5)
+            if service.stderr is not None:
+                service.stderr.close()
     return observations
 
 
