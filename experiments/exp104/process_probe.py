@@ -15,6 +15,7 @@ from pathlib import Path
 import signal
 import sqlite3
 import subprocess
+import threading
 import time
 from urllib import error, request
 
@@ -124,42 +125,58 @@ def run(state: Path) -> dict:
     context = multiprocessing.get_context("spawn")
     mediator = context.Process(target=_mediator_process,
                                args=(str(ledger), str(port_file), str(calls_file)))
-    lease = context.Process(target=_lease_process,
-                            args=(str(state), str(ledger), str(approvals)))
+    a_state, b_state = state / "service-a", state / "service-b"
+    lease_a = context.Process(target=_lease_process,
+                              args=(str(a_state), str(ledger), str(approvals)))
+    lease_b = context.Process(target=_lease_process,
+                              args=(str(b_state), str(ledger), str(approvals)))
+    keep_b_alive = threading.Event()
+    heartbeat_thread = None
     mediator.start()
-    lease.start()
+    lease_a.start()
+    lease_b.start()
     try:
         _wait(port_file)
-        _wait(state / "service.alive")
-        first, bearer_a = _register(authority, state, "a")
-        second, bearer_b = _register(authority, state, "b")
+        _wait(a_state / "service.alive")
+        _wait(b_state / "service.alive")
+        first, bearer_a = _register(authority, a_state, "a")
+        second, bearer_b = _register(authority, b_state, "b")
+        def heartbeat_b() -> None:
+            while not keep_b_alive.is_set():
+                (second / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+                keep_b_alive.wait(1)
+        heartbeat_thread = threading.Thread(target=heartbeat_b, daemon=True)
+        heartbeat_thread.start()
         port = int(port_file.read_text(encoding="utf-8"))
         with sqlite3.connect(ledger) as db:
             expiries = [row[0] for row in db.execute("SELECT expires_at FROM grants")]
-        if len(expiries) != 2:
+        if len(expiries) != 2 or not lease_b.is_alive():
             raise RuntimeError("grant_count_invalid")
         last_renewal = max(expiries) - 60
         kill_started_monotonic = time.monotonic()
-        _kill_exact(lease)
+        _kill_exact(lease_a)
         kill_completed_monotonic = time.monotonic()
         kill_completed_wall = time.time()
         observations = []
         for index, delay in enumerate((0, 15, 30, 45, 60, 61)):
             while time.monotonic() < kill_completed_monotonic + delay:
                 time.sleep(min(.2, kill_completed_monotonic + delay - time.monotonic()))
-            if not mediator.is_alive():
-                raise RuntimeError("mediator_did_not_survive")
+            if not mediator.is_alive() or not lease_b.is_alive():
+                raise RuntimeError("surviving_service_not_alive")
             observed_at = time.monotonic()
             observations.append({"at_monotonic": observed_at,
                                  "seconds_after_kill": round(observed_at - kill_completed_monotonic, 3),
                                  "a_status": _write(port, bearer_a, "a", index),
                                  "b_status": _write(port, bearer_b, "b", index)})
-            if observations[-1]["a_status"] == observations[-1]["b_status"] == 403:
+            if observations[-1]["a_status"] == 403:
                 break
         calls = [json.loads(line) for line in calls_file.read_text(encoding="utf-8").splitlines()]
         result = {"kind": "synthetic_separate_process_expiry",
-                  "lease_pid": lease.pid, "mediator_pid": mediator.pid,
-                  "lease_exitcode": lease.exitcode, "mediator_alive_after_kill": mediator.is_alive(),
+                  "lease_a_pid": lease_a.pid, "lease_b_pid": lease_b.pid,
+                  "mediator_pid": mediator.pid,
+                  "lease_a_exitcode": lease_a.exitcode,
+                  "lease_b_alive_after_a_kill": lease_b.is_alive(),
+                  "mediator_alive_after_kill": mediator.is_alive(),
                   "kill_started_monotonic": kill_started_monotonic,
                   "kill_completed_monotonic": kill_completed_monotonic,
                   "last_renewal_to_kill_wall_seconds": round(
@@ -169,15 +186,20 @@ def run(state: Path) -> dict:
                   "model_turns": 0, "github_tokens": 0}
         accepted = sum(row["a_status"] == 200 for row in observations) + sum(
             row["b_status"] == 200 for row in observations)
-        if (observations[-1]["a_status"] != 403 or observations[-1]["b_status"] != 403 or
+        if (observations[-1]["a_status"] != 403 or
+                any(row["b_status"] != 200 for row in observations) or
                 not result["mediator_alive_after_kill"] or
+                not result["lease_b_alive_after_a_kill"] or
                 len(calls) != accepted or
                 any(row["a_status"] not in (200, 403) or row["b_status"] not in (200, 403)
                     for row in observations)):
             raise RuntimeError("expiry_gate_failed")
         return result
     finally:
-        for process in (lease, mediator):
+        keep_b_alive.set()
+        if heartbeat_thread is not None:
+            heartbeat_thread.join(5)
+        for process in (lease_a, lease_b, mediator):
             if process.is_alive():
                 process.terminate()
             process.join(10)
