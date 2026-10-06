@@ -37,7 +37,9 @@ def _lease_process(state: str, ledger: str, authority: str) -> None:
 def _mediator_process(ledger: str, port_file: str, calls_file: str) -> None:
     def synthetic_transport(repository, operation, payload):
         with Path(calls_file).open("a", encoding="utf-8") as output:
-            output.write(json.dumps({"at": time.time(), "repository": repository,
+            output.write(json.dumps({"at_wall": time.time(),
+                                     "at_monotonic": time.monotonic(),
+                                     "repository": repository,
                                      "operation": operation}) + "\n")
         return {"synthetic": True}
 
@@ -137,15 +139,19 @@ def run(state: Path) -> dict:
         if len(expiries) != 2:
             raise RuntimeError("grant_count_invalid")
         last_renewal = max(expiries) - 60
-        loss_at = time.time()
+        kill_started_monotonic = time.monotonic()
         _kill_exact(lease)
+        kill_completed_monotonic = time.monotonic()
+        kill_completed_wall = time.time()
         observations = []
         for index, delay in enumerate((0, 15, 30, 45, 60, 61)):
-            while time.time() < loss_at + delay:
-                time.sleep(min(.2, loss_at + delay - time.time()))
+            while time.monotonic() < kill_completed_monotonic + delay:
+                time.sleep(min(.2, kill_completed_monotonic + delay - time.monotonic()))
             if not mediator.is_alive():
                 raise RuntimeError("mediator_did_not_survive")
-            observations.append({"seconds_after_kill": round(time.time() - loss_at, 3),
+            observed_at = time.monotonic()
+            observations.append({"at_monotonic": observed_at,
+                                 "seconds_after_kill": round(observed_at - kill_completed_monotonic, 3),
                                  "a_status": _write(port, bearer_a, "a", index),
                                  "b_status": _write(port, bearer_b, "b", index)})
             if observations[-1]["a_status"] == observations[-1]["b_status"] == 403:
@@ -154,11 +160,18 @@ def run(state: Path) -> dict:
         result = {"kind": "synthetic_separate_process_expiry",
                   "lease_pid": lease.pid, "mediator_pid": mediator.pid,
                   "lease_exitcode": lease.exitcode, "mediator_alive_after_kill": mediator.is_alive(),
-                  "last_renewal_to_kill_seconds": round(loss_at - last_renewal, 3),
+                  "kill_started_monotonic": kill_started_monotonic,
+                  "kill_completed_monotonic": kill_completed_monotonic,
+                  "last_renewal_to_kill_wall_seconds": round(
+                      kill_completed_wall - last_renewal, 3),
                   "observations": observations, "provider_call_count": len(calls),
+                  "provider_calls": calls,
                   "model_turns": 0, "github_tokens": 0}
+        accepted = sum(row["a_status"] == 200 for row in observations) + sum(
+            row["b_status"] == 200 for row in observations)
         if (observations[-1]["a_status"] != 403 or observations[-1]["b_status"] != 403 or
                 not result["mediator_alive_after_kill"] or
+                len(calls) != accepted or
                 any(row["a_status"] not in (200, 403) or row["b_status"] not in (200, 403)
                     for row in observations)):
             raise RuntimeError("expiry_gate_failed")
