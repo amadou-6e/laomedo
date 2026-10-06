@@ -66,6 +66,7 @@ class FixtureAuthenticator:
 def request(**changes):
     value = {"work_key": "github:S-20", "work_url": "https://github.com/o/r/issues/20",
              "body_digest": "sha256:" + "1" * 64, "content_digest": "sha256:" + "2" * 64,
+             "task_digest": "sha256:" + sha256(b"Synthetic task").hexdigest(),
              "graph_snapshot_id": "sha256:" + "3" * 64, "runner": "langflow-local",
              "scope": "stage-launch",
              "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
@@ -107,6 +108,14 @@ class ApprovalAuthorityTests(unittest.TestCase):
                                     submitted["request_digest"])
         self.assertEqual(b64url_decode(submitted["challenge"]), expected)
         self.assertEqual(submitted["request_digest"], request_digest(submitted["request"]))
+
+    def test_service_review_refuses_corrupt_pending_record(self):
+        submitted = self.authority.submit(request())
+        with closing(sqlite3.connect(self.ledger)) as db, db:
+            db.execute("UPDATE requests SET request_json=? WHERE request_id=?",
+                       ("not-json", submitted["request_id"]))
+        with self.assertRaisesRegex(LaunchError, "approval_request_tampered"):
+            self.authority.pending_request(submitted["request_id"])
 
     def test_approved_grant_redeems_once_for_matching_binding(self):
         submitted, grant_id = self.approve()

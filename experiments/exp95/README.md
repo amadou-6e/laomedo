@@ -33,3 +33,16 @@ known-answer vector in `tests/test_approval_authority.py`.
 
 `boundary_passed` therefore stays `false` until the service identity, ACL audit
 and a real operator ceremony are tested.
+
+**Service-facing slice.** `laomedo.work_graph.approval_service` exposes only
+request submission and launch on loopback. The response omits the challenge;
+there is no HTTP approval route. Its service-owned `review()` method displays
+the canonical request and starts the authenticator callback before approval.
+The fixed local dispatch configuration accepts a task and source choice but no
+client-selected paths or authorization callback. The signed request includes
+the SHA-256 digest of the exact task; a different task is refused before stage
+dispatch, although it can consume the one-use grant. Three credential-free
+HTTP and dispatch tests cover the exposed routes. This is an API fixture, not
+an installed Windows service or a real WebAuthn UI. The service process must
+run under the dedicated account, own Docker dispatch, and have protected
+ledger, trust anchor and code before the same-user boundary can pass.

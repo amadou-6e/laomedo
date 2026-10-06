@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
+import re
 import secrets
 import sqlite3
 
@@ -31,6 +32,7 @@ from .webauthn import AssertionError_, b64url_decode, b64url_encode, verify_asse
 
 CHALLENGE_SECONDS = 300
 REQUEST_FIELDS = ("work_key", "work_url", "body_digest", "content_digest",
+                  "task_digest",
                   "graph_snapshot_id", "runner", "scope", "expires_at",
                   "timeout_seconds", "max_turns")
 
@@ -57,6 +59,7 @@ def validate_request(request: dict) -> dict:
                for key in REQUEST_FIELDS if key not in ("timeout_seconds", "max_turns")):
         raise LaunchError("approval_request_invalid")
     if (request["runner"] != "langflow-local" or request["scope"] != "stage-launch" or
+            not re.fullmatch(r"sha256:[0-9a-f]{64}", request["task_digest"]) or
             type(request["timeout_seconds"]) is not int or
             not 1 <= request["timeout_seconds"] <= 3600 or
             type(request["max_turns"]) is not int or not 0 <= request["max_turns"] <= 100):
@@ -140,6 +143,30 @@ class ProtectedApprovalAuthority:
                 "challenge": b64url_encode(challenge),
                 "challenge_expires_at": expires.isoformat(), "request": canonical}
 
+    def pending_request(self, request_id: str) -> dict:
+        """Recover the exact pending request for the service-owned review UI."""
+        with closing(self._connect()) as db:
+            row = db.execute("SELECT * FROM requests WHERE request_id=?",
+                             (request_id,)).fetchone()
+        if row is None or row["state"] != "pending":
+            raise LaunchError("approval_request_not_pending")
+        try:
+            expires = datetime.fromisoformat(row["challenge_expires_at"])
+            request = json.loads(row["request_json"])
+            digest = request_digest(request)
+            challenge = derive_challenge(
+                row["request_id"], b64url_decode(row["nonce"]), digest)
+        except (ValueError, TypeError, KeyError, AssertionError_):
+            raise LaunchError("approval_request_tampered") from None
+        if expires.tzinfo is None:
+            raise LaunchError("approval_request_tampered")
+        if expires <= datetime.now(timezone.utc):
+            raise LaunchError("approval_challenge_expired")
+        if digest != row["request_digest"]:
+            raise LaunchError("approval_request_tampered")
+        return {"request_id": row["request_id"], "request": request,
+                "request_digest": digest, "challenge": b64url_encode(challenge)}
+
     def deny(self, request_id: str) -> None:
         with closing(self._connect()) as db, db:
             db.execute("UPDATE requests SET state='denied' WHERE request_id=? AND state='pending'",
@@ -222,6 +249,9 @@ class ProtectedApprovalAuthority:
             if row is None or row["state"] != "approved":
                 raise LaunchError("grant_invalid")
             request = json.loads(row["request_json"])
+            if not isinstance(request, dict) or not re.fullmatch(
+                    r"sha256:[0-9a-f]{64}", request.get("task_digest", "")):
+                raise LaunchError("grant_task_unbound")
             # The digest is recomputed and the signature re-verified here, so an
             # edited or forged ledger row is not trusted on its own.
             if (request_digest(request) != row["request_digest"] or
@@ -245,6 +275,7 @@ class ProtectedApprovalAuthority:
                 "approval": "webauthn-es256", "request_id": grant["request_id"],
                 "request_digest": row["request_digest"],
                 "work_key": request["work_key"], "content_digest": request["content_digest"],
+                "task_digest": request["task_digest"],
                 "graph_snapshot_id": request["graph_snapshot_id"],
                 "runner": request["runner"], "scope": request["scope"],
                 "expires_at": request["expires_at"],

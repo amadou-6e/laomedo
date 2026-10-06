@@ -13,6 +13,7 @@ that need the OS boundary (a separate service identity and ACLs).
 
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -36,6 +37,7 @@ TESTS = Path(__file__).resolve().parents[2] / "tests"
 def _request(work_key="github:S-20"):
     return {"work_key": work_key, "work_url": "https://github.com/verify/exp16/issues/20",
             "body_digest": "sha256:" + "1" * 64, "content_digest": "sha256:" + "2" * 64,
+            "task_digest": "sha256:" + sha256(b"Synthetic task").hexdigest(),
             "graph_snapshot_id": "sha256:" + "3" * 64, "runner": "langflow-local",
             "scope": "stage-launch",
             "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
