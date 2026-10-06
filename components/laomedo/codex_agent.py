@@ -1,10 +1,12 @@
 """Langflow 1.12.3 custom component for the private local Codex runner."""
 
 import asyncio
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import time
 from urllib import error, request
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
@@ -12,6 +14,10 @@ from uuid import UUID, uuid4
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput
 from lfx.schema import Data, Message
+
+
+_STOP_TASKS = set()
+_TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 
 
 class LaomedoCodexAgent(Component):
@@ -49,6 +55,11 @@ class LaomedoCodexAgent(Component):
         # Langflow invokes this once per build. Both output methods share dispatch.
         self._dispatch_task = None
         self._generated_request_id = None
+        self._active_run_id = None
+        self._stop_request_id = None
+        self._stop_request_hash = None
+        self._stop_requested = False
+        self._cancel_task = None
 
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
@@ -85,20 +96,19 @@ class LaomedoCodexAgent(Component):
         if operation in {"fresh", "start", "resume"} and (not model.strip() or not effort.strip()):
             raise ValueError("model_and_effort_required")
         if operation in {"fresh", "start"}:
-            if operation == "start":
-                selected_request_id = str(getattr(self, "request_id", "") or "")
-                if not selected_request_id:
-                    selected_request_id = (getattr(self, "_generated_request_id", None)
-                                           or str(uuid4()))
-                    self._generated_request_id = selected_request_id
-                try:
-                    if str(UUID(selected_request_id)) != selected_request_id:
-                        raise ValueError()
-                except ValueError:
-                    raise ValueError("invalid_request_id") from None
-            else:
-                selected_request_id = None
-            endpoint = base + ("/v1/runs/async" if operation == "start" else "/v1/runs")
+            selected_request_id = str(getattr(self, "request_id", "") or "")
+            if not selected_request_id:
+                selected_request_id = (getattr(self, "_generated_request_id", None)
+                                       or str(uuid4()))
+                self._generated_request_id = selected_request_id
+            try:
+                if str(UUID(selected_request_id)) != selected_request_id:
+                    raise ValueError()
+            except ValueError:
+                raise ValueError("invalid_request_id") from None
+            # Blocking fresh is async start followed by read-only polling. A
+            # synchronous POST has no identity to reconcile if Stop races its reply.
+            endpoint = base + "/v1/runs/async"
             connected = getattr(self, "skill_reference", None)
             if connected in (None, "", []):
                 connected = None
@@ -124,8 +134,7 @@ class LaomedoCodexAgent(Component):
                         raise ValueError("conflicting_skill_inputs")
                     payload = {"task": task, "model": model,
                                "effort": effort, "skill_refs": refs}
-                    if selected_request_id:
-                        payload["request_id"] = selected_request_id
+                    payload["request_id"] = selected_request_id
                     return endpoint, payload, "POST"
                 connected = refs[0]
             revision = str(getattr(self, "revision_id", "") or "")
@@ -149,8 +158,7 @@ class LaomedoCodexAgent(Component):
             payload = {"task": task, "model": model, "effort": effort,
                        "skill_ref": {"skill_id": skill_id,
                                      "revision_id": revision, "tree_hash": revision}}
-            if selected_request_id:
-                payload["request_id"] = selected_request_id
+            payload["request_id"] = selected_request_id
             return endpoint, payload, "POST"
         prior = getattr(self.run_reference, "data", self.run_reference)
         if prior is None and getattr(self, "run_reference_json", None):
@@ -184,14 +192,84 @@ class LaomedoCodexAgent(Component):
         return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
                               "/run/secrets/laomedo-runner-token")
 
-    def _http(self, endpoint, payload, method):
-        token_file = self._token_file_path()
+    def _token(self):
         try:
-            token = Path(token_file).read_text(encoding="utf-8").strip()
+            token = Path(self._token_file_path()).read_text(encoding="utf-8").strip()
         except OSError:
             raise RuntimeError("runner_api_token_file_unavailable") from None
         if not token:
             raise RuntimeError("runner_api_token_file_empty")
+        return token
+
+    def _stop_http(self, endpoint, payload, method, token):
+        req = request.Request(endpoint,
+            data=None if payload is None else json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json",
+                     "Authorization": "Bearer " + token}, method=method)
+        try:
+            with request.urlopen(req, timeout=10) as response:
+                value = json.load(response)
+        except error.HTTPError as exc:
+            if method == "GET" and exc.code == 404:
+                return None
+            raise RuntimeError("stop_runner_http_error") from None
+        except (error.URLError, TimeoutError, OSError, ValueError, TypeError):
+            raise RuntimeError("stop_runner_transport_unknown") from None
+        if not isinstance(value, dict):
+            raise RuntimeError("stop_runner_invalid_response")
+        return value
+
+    def _cancel_after_ui_stop(self, base, request_id, expected_hash):
+        """Resolve a stopped invocation without a second POST or guessed run ID."""
+        try:
+            token = self._token()
+            deadline = time.monotonic() + min(240, max(10, int(self.timeout_seconds)))
+            run_id = None
+            status = None
+            while time.monotonic() < deadline:
+                candidate = self._stop_http(base + "/v1/requests/" + request_id,
+                                            None, "GET", token)
+                if candidate is None:
+                    time.sleep(.2)
+                    continue
+                if (candidate.get("client_request_id") != request_id or
+                        candidate.get("request_hash") != expected_hash):
+                    raise RuntimeError("stop_request_binding_conflict")
+                run_id, status = candidate.get("run_id"), candidate.get("status")
+                if not isinstance(run_id, str) or str(UUID(run_id)) != run_id:
+                    raise RuntimeError("stop_runner_identity_unknown")
+                if self._active_run_id and self._active_run_id != run_id:
+                    raise RuntimeError("stop_runner_identity_conflict")
+                break
+            if run_id is None:
+                raise RuntimeError("stop_runner_identity_unknown")
+            self._active_run_id = run_id
+            if status in _TERMINAL:
+                self.status = f"Laomedo run {run_id}: already {status}; no cancel sent"
+                return
+            if status not in {"prepared", "running"}:
+                raise RuntimeError("stop_runner_status_unknown")
+            self._stop_http(base + "/v1/runs/" + run_id + "/cancel", {}, "POST", token)
+            self.status = f"Laomedo run {run_id}: cancel requested; outcome unknown"
+            while time.monotonic() < deadline:
+                current = self._stop_http(base + "/v1/runs/" + run_id,
+                                          None, "GET", token)
+                if current is None or current.get("run_id") != run_id:
+                    raise RuntimeError("stop_runner_status_unknown")
+                if current.get("status") in _TERMINAL:
+                    confirmed = (current.get("status") == "cancelled" and
+                                 current.get("cancel_confirmed") is True)
+                    self.status = (f"Laomedo run {run_id}: cancellation confirmed" if confirmed
+                                   else f"Laomedo run {run_id}: {current.get('status')}; "
+                                        "cancellation unconfirmed")
+                    return
+                time.sleep(.2)
+            raise RuntimeError("stop_runner_result_pending")
+        except (RuntimeError, ValueError) as exc:
+            self.status = f"Laomedo Stop: {exc}; remote outcome unknown"
+
+    def _http(self, endpoint, payload, method):
+        token = self._token()
         req = request.Request(endpoint,
             data=None if payload is None else json.dumps(payload).encode(),
             headers={"Content-Type": "application/json",
@@ -220,7 +298,29 @@ class LaomedoCodexAgent(Component):
             raise RuntimeError("runner_invalid_response") from None
         if not isinstance(result, dict) or not result.get("run_id"):
             raise RuntimeError("runner_invalid_response")
-        if self.operation in {"fresh", "resume"} and result.get("status") != "completed":
+        if self.operation in {"fresh", "start"}:
+            if result.get("client_request_id") != self._stop_request_id:
+                raise RuntimeError("runner_request_identity_mismatch")
+            self._active_run_id = result["run_id"]
+        if self.operation == "fresh":
+            deadline = time.monotonic() + int(self.timeout_seconds)
+            while result.get("status") not in _TERMINAL and not self._stop_requested:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("runner_wait_deadline; remote execution may still be active")
+                time.sleep(.2)
+                try:
+                    with request.urlopen(request.Request(
+                            str(self.runner_url).rstrip("/") + "/v1/runs/" + result["run_id"],
+                            headers={"Authorization": "Bearer " + token}, method="GET"),
+                            timeout=10) as response:
+                        result = json.load(response)
+                except (error.HTTPError, error.URLError, TimeoutError, OSError,
+                        ValueError, TypeError):
+                    raise RuntimeError("runner_status_unknown; remote execution may still be active") from None
+                if not isinstance(result, dict) or result.get("run_id") != self._active_run_id:
+                    raise RuntimeError("runner_status_identity_mismatch")
+        if (self.operation in {"fresh", "resume"} and not self._stop_requested and
+                result.get("status") != "completed"):
             raise RuntimeError(f"Laomedo run {result['run_id']} failed: "
                                f"{result.get('error_category') or result.get('status') or 'unknown'}")
         skill = result.get("skill") or {}
@@ -243,9 +343,29 @@ class LaomedoCodexAgent(Component):
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
             prepared = self._prepare()
+            if self.operation in {"fresh", "start"}:
+                payload = prepared[1]
+                self._stop_request_id = payload["request_id"]
+                canonical = {key: value for key, value in payload.items()
+                             if key != "request_id"}
+                self._stop_request_hash = "sha256:" + hashlib.sha256(
+                    json.dumps(canonical, sort_keys=True, separators=(",", ":"),
+                               ensure_ascii=False).encode("utf-8")).hexdigest()
             self._dispatch_task = asyncio.create_task(asyncio.to_thread(self._http, *prepared))
-        # A cancelled Langflow request must not imply that the remote agent stopped.
-        result = await asyncio.shield(self._dispatch_task)
+        try:
+            # Shield the HTTP call so the same request identity can be reconciled.
+            result = await asyncio.shield(self._dispatch_task)
+        except asyncio.CancelledError:
+            self._stop_requested = True
+            if self._stop_request_id and self._cancel_task is None:
+                base = str(self.runner_url).rstrip("/")
+                self._cancel_task = asyncio.create_task(asyncio.to_thread(
+                    self._cancel_after_ui_stop, base, self._stop_request_id,
+                    self._stop_request_hash))
+                _STOP_TASKS.add(self._cancel_task)
+                self._cancel_task.add_done_callback(_STOP_TASKS.discard)
+            self.status = "Laomedo Stop requested; remote outcome unknown"
+            raise
         self.status = f"Laomedo run {result['run_id']}: {result['status']}"
         return result
 
