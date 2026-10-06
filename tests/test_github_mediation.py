@@ -1,0 +1,211 @@
+"""Zero-credential checks of the durable mediated-write boundary."""
+
+from pathlib import Path
+import tempfile
+import threading
+import unittest
+
+from laomedo.github_mediation import KnownRejected, MediationError, MediationStore
+
+
+REPO = "example/disposable"
+
+
+class MediationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="laomedo-mediation-")
+        self.addCleanup(self.tmp.cleanup)
+        self.clock = [1000.0]
+        self.path = Path(self.tmp.name) / "mediator.db"
+        self.store = MediationStore(self.path, now=lambda: self.clock[0])
+        self.calls = []
+
+    def grant(self, run="run-a", operations=None, branch="run-a-branch", issues=None):
+        return self.store.issue(run_id=run, invocation_id=run + "-invocation",
+                                repository=REPO,
+                                operations=operations or {"git_push", "pr_create", "pr_list"},
+                                branch=branch, reviewed_issue_requests=issues, ttl_seconds=60)
+
+    def transport(self, repository, operation, payload):
+        self.calls.append((repository, operation, payload))
+        return {"number": len(self.calls), "operation": operation}
+
+    def invoke(self, token, operation, payload=None, effect_id=None, repository=REPO,
+               transport=None):
+        return self.store.invoke(token=token, repository=repository, operation=operation,
+                                 payload=payload or {}, effect_id=effect_id,
+                                 transport=transport or self.transport)
+
+    def assert_code(self, code, function):
+        with self.assertRaises(MediationError) as found:
+            function()
+        self.assertEqual(found.exception.code, code)
+
+    def test_confirmed_repeat_and_request_conflict(self):
+        grant_id, token = self.grant()
+        self.assertNotIn(token, self.path.read_bytes().decode("latin1"))
+        self.assertTrue(grant_id)
+        payload = {"branch": "run-a-branch", "commit": "a" * 40}
+        first = self.invoke(token, "git_push", payload, "effect-1")
+        repeat = self.invoke(token, "git_push", payload, "effect-1")
+        self.assertEqual(first["state"], "confirmed")
+        self.assertEqual(first["result"], repeat["result"])
+        self.assertFalse(repeat["resent"])
+        self.assertEqual(len(self.calls), 1)
+        self.assert_code("effect_conflict", lambda: self.invoke(
+            token, "git_push", {"branch": "run-a-branch", "commit": "b" * 40}, "effect-1"))
+        self.assertEqual(len(self.calls), 1)
+
+    def test_lost_response_survives_reopen_without_resend(self):
+        _, token = self.grant()
+        payload = {"head": "run-a-branch", "base": "main", "marker": "request-1"}
+
+        def accepted_then_lost(repository, operation, body):
+            self.calls.append((repository, operation, body))
+            raise ConnectionError("response lost after remote acceptance")
+
+        first = self.invoke(token, "pr_create", payload, "effect-1",
+                            transport=accepted_then_lost)
+        self.assertEqual(first["state"], "unknown")
+        reopened = MediationStore(self.path, now=lambda: self.clock[0])
+        repeated = reopened.invoke(token=token, repository=REPO, operation="pr_create",
+                                   payload=payload, effect_id="effect-1",
+                                   transport=accepted_then_lost)
+        self.assertEqual(repeated, {"state": "unknown", "resent": False})
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(reopened.effect("run-a", "effect-1")["state"], "unknown")
+
+    def test_known_noncreating_rejection_is_not_unknown(self):
+        _, token = self.grant()
+        payload = {"head": "run-a-branch", "base": "main", "marker": "request-1"}
+
+        def reject(*_):
+            self.calls.append("rejected")
+            raise KnownRejected("validation_failed")
+
+        first = self.invoke(token, "pr_create", payload, "effect-1", transport=reject)
+        repeated = self.invoke(token, "pr_create", payload, "effect-1", transport=reject)
+        self.assertEqual(first, {"state": "rejected", "error": "validation_failed"})
+        self.assertEqual(repeated, {**first, "resent": False})
+        self.assertEqual(len(self.calls), 1)
+
+    def test_new_run_cannot_hide_uncertain_pr_behind_new_effect_id(self):
+        _, a = self.grant()
+        _, b = self.grant(run="run-b", branch="run-a-branch")
+        first = {"head": "run-a-branch", "base": "main", "marker": "first"}
+        second = {**first, "marker": "different-marker"}
+
+        def lost(repository, operation, body):
+            self.calls.append((repository, operation, body))
+            raise ConnectionError("upstream accepted; reply missing")
+
+        self.assertEqual(self.invoke(a, "pr_create", first, "effect-1", transport=lost)["state"],
+                         "unknown")
+        self.assert_code("prior_effect_unknown", lambda: self.invoke(
+            b, "pr_create", second, "effect-2"))
+        self.assertEqual(len(self.calls), 1)
+        self.store.authorize_new_attempt(prior_run_id="run-a", prior_effect_id="effect-1",
+                                         next_run_id="run-b", next_effect_id="effect-2",
+                                         approved_by="user-reviewed-duplicate-risk")
+        self.assertEqual(self.invoke(b, "pr_create", second, "effect-2")["state"],
+                         "confirmed")
+        self.assertEqual(len(self.calls), 2)
+        # No third attempt is silently authorized by the one-use approval.
+        self.assert_code("prior_effect_unknown", lambda: self.invoke(
+            b, "pr_create", {**first, "marker": "third"}, "effect-3"))
+
+    def test_confirmed_target_blocks_new_pr_create(self):
+        _, a = self.grant()
+        _, b = self.grant(run="run-b", branch="run-a-branch")
+        first = {"head": "run-a-branch", "base": "main", "marker": "first"}
+        self.invoke(a, "pr_create", first, "effect-1")
+        self.assert_code("target_already_confirmed", lambda: self.invoke(
+            b, "pr_create", {**first, "marker": "new"}, "effect-2"))
+        self.assertEqual(len(self.calls), 1)
+
+    def test_repository_branch_operation_review_and_api_boundaries(self):
+        _, token = self.grant()
+        self.assert_code("repository_denied", lambda: self.invoke(
+            token, "pr_list", repository="wrong/repo"))
+        self.assert_code("operation_denied", lambda: self.invoke(token, "issue_list"))
+        self.assert_code("push_branch_denied", lambda: self.invoke(
+            token, "git_push", {"branch": "other", "commit": "a" * 40}, "effect-1"))
+        self.assert_code("pr_head_denied", lambda: self.invoke(
+            token, "pr_create", {"head": "other", "base": "main", "marker": "x"}, "effect-2"))
+        self.assert_code("unsupported_operation", lambda: self.invoke(token, "auth_token"))
+        _, api = self.grant(run="api", operations={"api_rest_write", "api_graphql_mutation"}, branch=None)
+        self.assert_code("api_write_unsupported", lambda: self.invoke(
+            api, "api_rest_write", {"semantic_operation": "pr_create"}, "api-1"))
+        self.assert_code("api_write_unsupported", lambda: self.invoke(
+            api, "api_graphql_mutation", {"semantic_operation": "issue_create"}, "api-2"))
+        self.assertEqual(self.calls, [])
+
+        approved = {"reviewed_proposal_id": "proposal-1", "marker": "x",
+                    "title": "Reviewed follow-up", "body": "Exact reviewed body"}
+        _, issue_token = self.grant(run="reviewed", operations={"issue_create"},
+                                    branch=None, issues={"proposal-1": approved})
+        self.assert_code("issue_review_denied", lambda: self.invoke(
+            issue_token, "issue_create", {"reviewed_proposal_id": "proposal-2",
+                                          "marker": "x"}, "issue-1"))
+        self.assert_code("issue_review_denied", lambda: self.invoke(
+            issue_token, "issue_create", {**approved, "body": "Unreviewed edit"}, "issue-1"))
+        result = self.invoke(issue_token, "issue_create", approved, "issue-1")
+        self.assertEqual(result["state"], "confirmed")
+
+    def test_revoke_and_expire_are_per_run(self):
+        grant_a, a = self.grant()
+        grant_b, b = self.grant(run="run-b", branch="run-b-branch")
+        self.clock[0] += 30
+        self.assertTrue(self.store.renew_grant(grant_b, 60))
+        self.assertEqual(self.store.revoke_run("run-a"), 1)
+        self.assertFalse(self.store.renew_grant(grant_a, 60))
+        self.assert_code("grant_unavailable", lambda: self.invoke(a, "pr_list"))
+        self.assertEqual(self.invoke(b, "pr_list")["state"], "confirmed")
+        self.clock[0] += 61
+        self.assertFalse(self.store.renew_grant(grant_b, 60))
+        self.assert_code("grant_unavailable", lambda: self.invoke(b, "pr_list"))
+
+    def test_concurrent_same_effect_dispatches_once(self):
+        _, token = self.grant()
+        entered, release = threading.Event(), threading.Event()
+        results = []
+        payload = {"head": "run-a-branch", "base": "main", "marker": "request-1"}
+
+        def slow(repository, operation, body):
+            self.calls.append((repository, operation, body))
+            entered.set()
+            self.assertTrue(release.wait(5))
+            return {"number": 1}
+
+        worker = threading.Thread(target=lambda: results.append(
+            self.invoke(token, "pr_create", payload, "effect-1", transport=slow)))
+        worker.start()
+        self.assertTrue(entered.wait(5))
+        duplicate = self.invoke(token, "pr_create", payload, "effect-1")
+        self.assertEqual(duplicate, {"state": "unknown", "resent": False})
+        release.set()
+        worker.join(5)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(results[0]["state"], "confirmed")
+        self.assertEqual(len(self.calls), 1)
+
+    def test_caller_cannot_change_nested_payload_after_journal_hash(self):
+        _, token = self.grant()
+        payload = {"head": "run-a-branch", "base": "main", "marker": "request-1",
+                   "body": {"text": "reviewed"}}
+
+        def mutate_caller(repository, operation, forwarded):
+            payload["body"]["text"] = "changed after dispatch"
+            self.calls.append(forwarded)
+            return {"accepted": True}
+
+        result = self.invoke(token, "pr_create", payload, "effect-1",
+                             transport=mutate_caller)
+        self.assertEqual(result["state"], "confirmed")
+        self.assertEqual(self.calls[0]["body"]["text"], "reviewed")
+        self.assert_code("effect_conflict", lambda: self.invoke(
+            token, "pr_create", payload, "effect-1"))
+
+
+if __name__ == "__main__":
+    unittest.main()
