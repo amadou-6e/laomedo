@@ -70,8 +70,10 @@ laomedo-work-graph launch SNAPSHOT.json --work-key WORK_KEY --flow-id FLOW_ID --
 ```
 
 Use the snapshot path from `fetch`, the work key from `inspect`, and the grant
-reference from `issue-grant`. `launch` prints run and trace IDs plus status, not the flow output
-or API token.
+reference from `issue-grant`. `launch` prints run and trace IDs, status,
+completion basis and evidence completeness, not the flow output or API token.
+For the Docker route, `completed` with `completion_basis: process_exit` and
+`evidence_complete: false` confirms only a zero executor exit.
 `launch` currently requires a disposable loopback Langflow instance with
 auto-login enabled. It obtains the local API token in memory from
 `/api/v1/auto_login` and does not accept a production token file. The earlier

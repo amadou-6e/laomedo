@@ -59,6 +59,9 @@ def launch_local_saved_flow(*, snapshot_path, work_key, flow_id, langflow_base,
         choice=choice, inputs=[{"input_value": task}], types=["chat"],
         outputs=None, source_root=source_root)
     return {"run_id": record["run_id"], "trace_id": record["trace_id"],
-            "status": record["status"], "dispatch_attempts": record["dispatch_attempts"],
+            "status": record["status"],
+            "completion_basis": record["completion_basis"],
+            "evidence_complete": bool(record["evidence_complete"]),
+            "dispatch_attempts": record["dispatch_attempts"],
             "output_present": bool(output),
             "graph_revision": record["graph_revision"]}
