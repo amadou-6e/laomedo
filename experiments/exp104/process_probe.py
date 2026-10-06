@@ -173,8 +173,20 @@ def run(state: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
+    parser.add_argument("--record", type=Path,
+                        help="write the machine observation once, with LF endings")
     args = parser.parse_args()
-    print(json.dumps(run(args.state), sort_keys=True, indent=2))
+    if args.record is not None and (args.record.exists() or not args.record.parent.is_dir()):
+        parser.error("record_target_must_be_new_in_existing_directory")
+    result = run(args.state)
+    content = json.dumps(result, sort_keys=True, indent=2) + "\n"
+    if args.record is not None:
+        with args.record.open("x", encoding="utf-8", newline="\n") as observation:
+            observation.write(content)
+        print(json.dumps({"recorded": str(args.record),
+                          "provider_call_count": result["provider_call_count"]}))
+    else:
+        print(content, end="")
 
 
 if __name__ == "__main__":
