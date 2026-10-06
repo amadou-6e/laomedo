@@ -46,3 +46,21 @@ an adequate standalone owner for the required whole-tree failure boundary.
 The original single-process-kill result remains valid only for its narrower
 case. #93 and Q11 remain open; a supervisor outside the runner's process tree
 and a scoped-grant revocation test are still needed. No model turn was used.
+
+## Short-lived launcher parentage check (positive but narrow)
+
+After the negative whole-tree result, [amendment](LAUNCHER-AMENDMENT.md)
+`bd78351` froze a fresh one-shot Windows diagnostic before the
+[probe](launcher_probe.py) `dc29140` ran. Its short-lived launcher started a
+marked idle supervisor and exited before an exact `taskkill /T /F` of the
+disposable runner. The [machine observation](launcher-observation.json),
+SHA-256 `95409d79d7e5becfb4f00a35ff43f0a1415935a42d5dd4621dcd3f7266f1be33`,
+records `survived_tree_kill`; the exact surviving supervisor was then stopped.
+Zero model turns, no Docker container and no grant were involved.
+
+This **does not overturn** the negative result for the current production
+`LeaseProcess`, which still launches its supervisor as a direct child. It only
+supports trying the launcher parentage in that path. A separately frozen
+production-lease whole-tree/Docker probe is required before #93 can claim the
+tested failure boundary, and systemd-cgroup survival and scoped-grant
+revocation remain separate gates.
