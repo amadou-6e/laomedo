@@ -29,6 +29,13 @@ been prototyped. `GH_TOKEN` would be consumed directly by `gh` and override
 stored credentials according to the [CLI environment manual](https://cli.github.com/manual/gh_help_environment),
 so it is not an acceptable stage-side shortcut.
 
+The probe grants use predictable IDs (`run-a`/`run-b`) and do not authenticate
+an adversarial same-user client. The broker's local Git operation trusts the
+workspace's `origin` configuration, which an agent could alter; a production
+broker must pin and verify the remote independently and sandbox Git config,
+hooks and signing. These are **security gaps in the prototype**, not
+implementation details that this experiment has already solved.
+
 ## Observed matrix
 
 - Ordinary local Git produced a commit; the broker ran real `git push` and
