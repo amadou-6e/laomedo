@@ -46,3 +46,5 @@ HTTP and dispatch tests cover the exposed routes. This is an API fixture, not
 an installed Windows service or a real WebAuthn UI. The service process must
 run under the dedicated account, own Docker dispatch, and have protected
 ledger, trust anchor and code before the same-user boundary can pass.
+The proposed machine boundary and acceptance checks are in
+[DEPLOYMENT.md](DEPLOYMENT.md). They have not been applied.
