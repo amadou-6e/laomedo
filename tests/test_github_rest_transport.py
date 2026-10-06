@@ -88,7 +88,8 @@ class GitHubRestTransportTests(unittest.TestCase):
         self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET"])
         self.opener.calls.clear()
         self.opener.responses = [json.dumps({"head": {"ref": "branch-a",
-            "repo": {"full_name": "example/disposable"}}}).encode()]
+            "repo": {"full_name": "example/disposable"}},
+            "base": {"ref": "main"}}).encode()]
         self.adapter("example/disposable", "pr_update", payload)
         self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET", "PATCH"])
 

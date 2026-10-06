@@ -37,7 +37,12 @@ class RunGrantAuthority:
                 ref_hash TEXT PRIMARY KEY, run_id TEXT UNIQUE,
                 invocation_id TEXT NOT NULL, repository TEXT NOT NULL,
                 branch TEXT NOT NULL, operations TEXT NOT NULL,
-                reviewed_by TEXT NOT NULL, lease_token TEXT UNIQUE)""")
+                reviewed_by TEXT NOT NULL, lease_token TEXT UNIQUE,
+                target_prs TEXT NOT NULL DEFAULT '{}')""")
+            columns = {row[1] for row in db.execute("PRAGMA table_info(authorizations)")}
+            if "target_prs" not in columns:
+                db.execute("ALTER TABLE authorizations ADD COLUMN target_prs TEXT NOT NULL "
+                           "DEFAULT '{}'")
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=10)
@@ -45,19 +50,28 @@ class RunGrantAuthority:
         return db
 
     def approve(self, *, invocation_id: str, repository: str, branch: str,
-                operations: set[str], reviewed_by: str) -> str:
+                operations: set[str], reviewed_by: str,
+                target_prs: dict[int, str] | None = None) -> str:
         """Trusted controller records an explicit operator-approved scope."""
+        target_prs = target_prs or {}
         if (not all(isinstance(v, str) and v for v in
                     (invocation_id, repository, branch, reviewed_by)) or
                 not isinstance(operations, set) or not operations or
                 not operations <= FIRST_SLICE_OPERATIONS or
-                branch.startswith("refs/") or ".." in branch):
+                branch.startswith("refs/") or ".." in branch or
+                not isinstance(target_prs, dict) or
+                any(type(number) is not int or number < 1 or
+                    not isinstance(base, str) or not base
+                    for number, base in target_prs.items()) or
+                ("pr_update" in operations and "pr_create" not in operations and
+                 not target_prs)):
             raise MediationError("authorization_invalid")
         reference = secrets.token_urlsafe(32)
         with closing(self._connect()) as db, db:
-            db.execute("INSERT INTO authorizations VALUES (?,NULL,?,?,?,?,?,NULL)",
+            db.execute("INSERT INTO authorizations VALUES (?,NULL,?,?,?,?,?,NULL,?)",
                        (sha256(reference.encode()).hexdigest(), invocation_id,
-                        repository, branch, json.dumps(sorted(operations)), reviewed_by))
+                        repository, branch, json.dumps(sorted(operations)), reviewed_by,
+                        json.dumps(target_prs, sort_keys=True)))
         return reference
 
     def bind_run(self, reference: str, run_id: str) -> dict:
@@ -88,4 +102,6 @@ class RunGrantAuthority:
             if request != expected:
                 return None
             db.execute("UPDATE authorizations SET lease_token=? WHERE run_id=?", (token, run_id))
-            return {**expected, "operations": set(json.loads(row["operations"]))}
+            return {**expected, "operations": set(json.loads(row["operations"])),
+                    "target_prs": {int(number): base for number, base in
+                                   json.loads(row["target_prs"]).items()}}

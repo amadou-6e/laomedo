@@ -20,6 +20,11 @@ original error while finishing any accepted lease.
 The tests use a fake effect transport and mocked container cleanup. They
 check another run remains usable, the grant is denied *inside* the cleanup
 callback, restart denial, failed acknowledgement, and malformed requests.
+A bad lease now gets a terminal refusal without starving other leases in the
+same tick. Accepted leases get best-effort exact revocation and cleanup if
+processing fails. Live grant secrets are created exclusively with mode `0600`;
+Windows ACL inheritance still needs a deployment check. The binding table
+enforces one grant per lease token.
 The authority now has a private SQLite approval record: a trusted controller
 approves repository, branch, first-slice operations and invocation; the runner
 consumes the opaque reference once for its saved run; the independent service
@@ -30,14 +35,20 @@ caller-supplied `github_scope` object. The controller API is in-process only:
 its caller must establish actual user approval, and the local OS/service
 identity separation is still unproven.
 
-The service also exposes a bearer-capability `/v1/mediate` endpoint when a
-trusted transport is injected. Its credential-free HTTP test shows a revoked
-run is denied before transport and another run remains usable. A narrow
+The bearer-capability `/v1/mediate` endpoint now belongs to an independent
+`MediationHTTPService` class, not the lease service. It is intended to run in
+a separate credential-owning process; the current tests use separate server
+objects/threads and **do not yet prove process survival**. Its
+credential-free HTTP tests show a revoked run is denied before transport,
+another run remains usable, and both runs' grants expire at the authorizer
+when the lease service stops renewing them. A narrow
 credential-owning REST adapter covers PR create/update, reviewed issue
 creation, Actions job read and same-repository REST read. It requires an
 explicit token supplier and never falls back to ambient `gh`. It rejects
 arbitrary API mutations, GraphQL and `git_push` visibly; this is **not** full
-`git`/`gh` parity. The adapter has only no-network tests. Its token supplier
+`git`/`gh` parity. PR updates need a target number and base from the trusted
+grant record, plus a provider-side head/base preflight. The adapter has only
+no-network tests. Its token supplier
 has not been connected to a scoped GitHub identity, and the service's CLI
 still starts only the old synthetic `GrantBook`.
 
@@ -46,8 +57,8 @@ whole-tree kill, service manager, or model. There is no production mediator
 deployment path or agent-container route to the loopback endpoint. Consequently
 this remains an integration draft, not a reason to lift #97's draft status or to
 accept Q11. The run-scoped grant remains short-lived (at most 60 seconds),
-but a service failure can leave it usable until expiry; independent service
-failure and credential-source tests remain required.
+but a service failure can leave it usable until expiry; the live hard-kill
+case in `AMENDMENT-01.md` and credential-source tests remain required.
 
 Review dependencies: specs #150 and #250; Laomedo #97 and #103. A later
 frozen experiment must exercise the deployed mediated path with a disposable

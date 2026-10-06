@@ -61,7 +61,8 @@ class GitHubRestTransport:
             head = existing.get("head") or {}
             head_repo = head.get("repo") or {}
             if (head.get("ref") != payload.get("head") or
-                    head_repo.get("full_name") != repository):
+                    head_repo.get("full_name") != repository or
+                    (existing.get("base") or {}).get("ref") != payload.get("base")):
                 raise KnownRejected("pr_target_denied")
         elif operation == "issue_create":
             if not all(isinstance(payload.get(k), str) and payload[k]
