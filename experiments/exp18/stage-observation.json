@@ -1,0 +1,149 @@
+{
+  "launcher_revision": "probe_stage.py",
+  "docker_engine": "27.3.1",
+  "stage_image_id": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
+  "sidecar_image_id": "sha256:cb476dfe5717f9a6a37795c22b24e93892ccbfde2873c3cda109268e131a47e3",
+  "canary_image_id": "sha256:502b45f6af95045522f9ea8e9da6f28c197263d2216bc57cd2828dfbf76b13d1",
+  "runner_port": 8767,
+  "model_turns": 0,
+  "grant_fingerprint": "04dbb42bb771a3965634acb5afdf135abde96de290b99b6291d4604ea8194d1e",
+  "stage_starts": 1,
+  "runner_model_turn_cap": 0,
+  "sidecar_prestart_inspect": {
+    "image_id": "sha256:cb476dfe5717f9a6a37795c22b24e93892ccbfde2873c3cda109268e131a47e3",
+    "networks": [
+      "bridge",
+      "laomedo-exp18-stage-009065e4d09b"
+    ],
+    "published_ports": {},
+    "mount_count": 0,
+    "read_only_root": true,
+    "cap_drop": [
+      "ALL"
+    ],
+    "cap_add": null,
+    "security_options": [
+      "no-new-privileges"
+    ],
+    "user": "10001:10001",
+    "entrypoint": [
+      "python",
+      "-B",
+      "-u",
+      "/app/probe.py"
+    ],
+    "errors": []
+  },
+  "sidecar_runner_401": true,
+  "lease_deadline_ns": 1791125041334095610,
+  "stage_prestart_errors": [],
+  "stage_config_errors": [],
+  "stage_env_names": [
+    "CANARY_GRANT",
+    "HOME",
+    "NODE_VERSION",
+    "PATH",
+    "YARN_VERSION"
+  ],
+  "stage_command": [
+    "sh",
+    "-c",
+    "sleep 45"
+  ],
+  "stage_id": "94dbb1cead1d973a",
+  "probe_start_ns": 1791124981992167300,
+  "probe_exit_code": 0,
+  "probe_end_ns": 1791124984534069000,
+  "probe": {
+    "checkout_write": true,
+    "effective_skill_read": true,
+    "skill_write": "EROFS",
+    "protected_paths": {
+      "/canonical-skill/canonical_skill-97641e2610cadfed.txt": "ENOENT",
+      "/canonical-skill/canonical_skill-97641e2610cadfed.txt:write": "ENOENT",
+      "/host-protected/host-65104670fa73e6c8.txt": "ENOENT",
+      "/host-protected/host-65104670fa73e6c8.txt:write": "ENOENT",
+      "/runner-store/runner_store-792e9ed2ed51e6ba.txt": "ENOENT",
+      "/runner-store/runner_store-792e9ed2ed51e6ba.txt:write": "ENOENT",
+      "/credential-standin/credential_standin-898ff98c8b6a6b13.txt": "ENOENT",
+      "/credential-standin/credential_standin-898ff98c8b6a6b13.txt:write": "ENOENT"
+    },
+    "symlink_read": "ENOENT",
+    "canary_valid": 200,
+    "canary_invalid": 403,
+    "runner_probe": 401,
+    "direct_routes": {
+      "2375": "EAI_AGAIN",
+      "8767": "EAI_AGAIN",
+      "8768": "EAI_AGAIN"
+    },
+    "sweep": {
+      "found": [],
+      "files": 6009,
+      "bytes": 679212708,
+      "incomplete": false,
+      "incomplete_reasons": {},
+      "elapsed_ms": 2234
+    }
+  },
+  "stage_stopped": true,
+  "grant_revoked": true,
+  "post_revoke_status": "403",
+  "canary_revoked": true,
+  "canary_events": [
+    {
+      "at_ns": 1791124982254875513,
+      "action": "write",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1791124982264151222,
+      "action": "write",
+      "accepted": false,
+      "reason": "bad_grant"
+    },
+    {
+      "at_ns": 1791124986183444342,
+      "action": "revoke",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "at_ns": 1791124986458166497,
+      "action": "write",
+      "accepted": false,
+      "reason": "revoked"
+    }
+  ],
+  "host_symlink_processing": "unsafe_workspace_entry",
+  "protected_hashes": {
+    "checkout": {
+      "before": "c3cf54924531b446010cd79bda65b45d9f53a76f3c430f027cb7691355f19e35",
+      "after": "c3cf54924531b446010cd79bda65b45d9f53a76f3c430f027cb7691355f19e35"
+    },
+    "canonical_skill": {
+      "before": "0b36ef95cf6eaaa185ccdba2330c89c4f889e09344a7c9a556bf446daf73761f",
+      "after": "0b36ef95cf6eaaa185ccdba2330c89c4f889e09344a7c9a556bf446daf73761f"
+    },
+    "runner_store": {
+      "before": "250eb7c8861f63889a7c3368cf9156e63b0e036bf760336c8a9f7711e35ad0c7",
+      "after": "250eb7c8861f63889a7c3368cf9156e63b0e036bf760336c8a9f7711e35ad0c7"
+    },
+    "host": {
+      "before": "3cd5b3cfedd27035af5d2d3d241a741b61388f713ae3b36f192619407d26f640",
+      "after": "3cd5b3cfedd27035af5d2d3d241a741b61388f713ae3b36f192619407d26f640"
+    },
+    "credential_standin": {
+      "before": "4c14453ff5cc23f0f1c85117d69e2f7007632d9a614d53e5e748877f94d8fb56",
+      "after": "4c14453ff5cc23f0f1c85117d69e2f7007632d9a614d53e5e748877f94d8fb56"
+    },
+    "effective_skill": {
+      "before": "22dd7a7cdc756ae5c086e99b2ea718de7cbd9703be07b63eea59faa3533f75bc",
+      "after": "22dd7a7cdc756ae5c086e99b2ea718de7cbd9703be07b63eea59faa3533f75bc"
+    }
+  },
+  "protected_hashes_unchanged": true,
+  "cleanup_complete": true,
+  "direct_boundary_pass": true
+}
