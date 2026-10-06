@@ -33,6 +33,11 @@ known-answer vector in `tests/test_approval_authority.py`.
 
 `boundary_passed` therefore stays `false` until the service identity, ACL audit
 and a real operator ceremony are tested.
+The probe now also shows that an ordinary direct caller can supply a forged
+`grant_authority` callback to the injectable launcher and trigger one
+synthetic stage execution without a human decision. This does not run Docker;
+it identifies the launch-capability boundary that the protected broker must
+own.
 
 **Service-facing slice.** `laomedo.work_graph.approval_service` exposes only
 request submission and launch on loopback. The response omits the challenge;

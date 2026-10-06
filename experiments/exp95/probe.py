@@ -26,6 +26,7 @@ from laomedo.work_graph.approval import (ProtectedApprovalAuthority, TrustAnchor
                                          derive_challenge)
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority, _host_principal
+from laomedo.work_graph.launch import launch_work_stage
 from laomedo.work_graph.webauthn import b64url_decode
 from laomedo.workflow_run_store import LaunchError
 
@@ -141,12 +142,39 @@ def main():
                                 capture_output=True, text=True, timeout=120, check=False)
         outcomes = json.loads(attack.stdout.strip().splitlines()[-1]) if attack.returncode == 0 else {}
         refused_all = bool(outcomes) and all(v.startswith("refused:") for v in outcomes.values())
+
+        # A direct caller can still substitute a fake authority at the
+        # injectable launcher. This is synthetic dispatch, not a Docker test.
+        corpus = json.loads(CORPUS.read_text(encoding="utf-8"))
+        frozen = import_pages("verify/exp16", corpus["base"],
+                              fetched_at="2026-10-05T10:00:00+00:00")
+        dispatches = []
+
+        class StubStage:
+            def execute(self, _store, **_kwargs):
+                dispatches.append(1)
+                return {}, "synthetic"
+
+        def forged_authority(ref, binding):
+            return {"grant_id": ref, "operator_authorized": True,
+                    "work_key": "github:S-20",
+                    "content_digest": binding["selected_content_digest"],
+                    "graph_snapshot_id": binding["selected_graph_snapshot_id"],
+                    "runner": "langflow-local", "scope": "stage-launch",
+                    "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+                    "limits": {"timeout_seconds": 60, "max_turns": 0}}
+
+        launch_work_stage(frozen=frozen, source_fetch=lambda _repo: frozen,
+                          work_key="github:S-20", stage=StubStage(), store=None,
+                          grant_ref="forged", grant_authority=forged_authority,
+                          resolved_config={})
         result = {
             "legacy_same_principal": recorded is not None and recorded[0] == _host_principal(),
             "legacy_grants_issued_without_human_approval": issued,
             "legacy_child_exit_zero": child.returncode == 0,
             "protected_attacker_outcomes": outcomes,
             "protected_minting_refused": refused_all,
+            "synthetic_direct_callback_dispatches_without_approval": len(dispatches),
             # Residual limits that only the OS boundary closes; reported, not hidden.
             "trust_anchor_writable_by_same_user": os.access(anchor, os.W_OK),
             "os_service_identity_and_acl_implemented": False,
@@ -155,7 +183,7 @@ def main():
         }
         print(json.dumps(result, sort_keys=True))
         ok = (result["legacy_same_principal"] and issued == 1 and result["legacy_child_exit_zero"]
-              and refused_all)
+              and refused_all and len(dispatches) == 1)
         return 0 if ok else 1
 
 
