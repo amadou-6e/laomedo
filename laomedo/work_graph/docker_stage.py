@@ -178,5 +178,6 @@ class DockerLangflowStage:
                     subprocess.run(["docker", "rm", "-f", name], capture_output=True,
                                    timeout=10)
 
-            result = store.dispatch(record["run_id"], dispatch)
+            result = store.dispatch(record["run_id"], dispatch,
+                                    completion_basis="process_exit")
             return store.get(record["run_id"]), result

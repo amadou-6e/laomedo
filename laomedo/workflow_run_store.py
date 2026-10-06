@@ -48,6 +48,7 @@ class WorkflowRunStore:
                     status TEXT NOT NULL,
                     dispatch_attempts INTEGER NOT NULL DEFAULT 0,
                     evidence_complete INTEGER NOT NULL DEFAULT 0,
+                    completion_basis TEXT,
                     terminal_reason TEXT,
                     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
                 );
@@ -90,6 +91,9 @@ class WorkflowRunStore:
                            "runner_raw_event_ref"):
                 if column not in columns:
                     db.execute(f"ALTER TABLE workflow_invocations ADD COLUMN {column} TEXT")
+            run_columns = {row[1] for row in db.execute("PRAGMA table_info(runs)")}
+            if "completion_basis" not in run_columns:
+                db.execute("ALTER TABLE runs ADD COLUMN completion_basis TEXT")
             db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS unique_runner_binding
                 ON workflow_invocations(runner_provider, runner_run_id)
                 WHERE runner_run_id IS NOT NULL""")
@@ -403,8 +407,10 @@ class WorkflowRunStore:
                 "stream_state": "partial" if run["dispatch_attempts"] else "unknown",
                 "action_uniqueness": "uncertain"}
 
-    def dispatch(self, run_id, callback):
-        """Commit a conservative attempt before calling the synthetic stage."""
+    def dispatch(self, run_id, callback, *, completion_basis="callback_result"):
+        """Commit one attempt; distinguish a returned callback from process exit."""
+        if completion_basis not in {"callback_result", "process_exit"}:
+            raise LaunchError("completion_basis_invalid")
         with self._database() as db:
             changed = db.execute("""UPDATE runs SET status='dispatching',
                 dispatch_attempts=dispatch_attempts+1
@@ -427,8 +433,10 @@ class WorkflowRunStore:
                     WHERE run_id=? AND status='dispatching'""", (run_id,))
             raise
         with self._database() as db:
-            db.execute("""UPDATE runs SET status='completed', evidence_complete=1,
-                terminal_reason=NULL WHERE run_id=? AND status='dispatching'""", (run_id,))
+            db.execute("""UPDATE runs SET status='completed', evidence_complete=?,
+                completion_basis=?, terminal_reason=NULL
+                WHERE run_id=? AND status='dispatching'""",
+                (int(completion_basis == "callback_result"), completion_basis, run_id))
         return result
 
     def record_synthetic_dispatch(self, run_id):
