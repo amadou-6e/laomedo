@@ -22,6 +22,8 @@ from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 from .artifacts import ArtifactError, import_selected, relative_path, selections
 from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
 from .lease_service import LeaseClient
+from .mediation_authority import RunGrantAuthority
+from .github_mediation import MediationError
 
 
 IMAGE = "laomedo-codex-boundary:0.159.2"
@@ -358,7 +360,8 @@ class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
                  check_docker: bool = True, max_model_turns: int = 0,
                  supervise_containers: bool | None = None,
-                 lease_service: Path | None = None):
+                 lease_service: Path | None = None,
+                 github_authority: RunGrantAuthority | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -384,6 +387,7 @@ class LocalRunner:
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
+        self.github_authority = github_authority
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -598,12 +602,24 @@ class LocalRunner:
             seen.add(ref["skill_id"])
         source = self.source
         handoff = self._handoff(request.get("handoff"))
+        if "github_scope" in request:
+            raise RunnerError("github_scope_must_come_from_authority")
+        github_ref = request.get("github_authorization_ref")
+        if github_ref is not None and (self.github_authority is None or
+                                       not self.supervise_containers or
+                                       self.lease_service is None):
+            raise RunnerError("mediated_lease_required")
         run_id = str(uuid4())
         run_dir = self._run_dir(run_id)
         run_dir.mkdir()
         workspace, canonical, store_mount = (run_dir / x for x in
                                               ("workspace", "canonical", "store"))
         try:
+            try:
+                github_scope = (self.github_authority.bind_run(github_ref, run_id)
+                                if github_ref is not None else None)
+            except MediationError as error:
+                raise RunnerError(error.code) from None
             source_hash = _copy_tree(source, workspace)
             # Preserve the tested read-only canonical and sibling store mounts.
             if _copy_tree(source, canonical) != source_hash:
@@ -633,6 +649,8 @@ class LocalRunner:
                       "client_request_id": client_request_id,
                       "request_hash": request_hash,
                       "cancel_requested": False, "cancel_confirmed": False}
+            if github_scope is not None:
+                record["github_scope"] = github_scope
             _json(run_dir / "record.json", record)
         except Exception:
             shutil.rmtree(run_dir)
@@ -781,7 +799,8 @@ class LocalRunner:
                     raise RunnerError("lease_service_required")
                 try:
                     lease = LeaseClient(self.lease_service, run_id=run_id, name=name,
-                                        token=launch_token, cancelled=cancelled)
+                                        token=launch_token, cancelled=cancelled,
+                                        mediation_request=record.get("github_scope"))
                 except (OSError, RuntimeError):
                     raise RunnerError("lease_service_unavailable") from None
                 record["container_ownership"]["lease_instance"] = lease.instance

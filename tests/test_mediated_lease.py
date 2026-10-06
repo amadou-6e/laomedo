@@ -7,9 +7,11 @@ import sqlite3
 import tempfile
 import time
 import unittest
+from urllib import error, request
 
 from laomedo.github_mediation import MediationError, MediationStore
 from laomedo.lease_service import LeaseService
+from laomedo.mediation_authority import RunGrantAuthority
 
 
 class MediatedLeaseTests(unittest.TestCase):
@@ -19,6 +21,7 @@ class MediatedLeaseTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.state = self.root / "service"
         self.store = MediationStore(self.root / "private" / "mediator.sqlite")
+        self.authority = RunGrantAuthority(self.root / "private" / "authority.sqlite")
         self.cleanups = []
 
         def cleanup(name, run_id, token):
@@ -26,17 +29,25 @@ class MediatedLeaseTests(unittest.TestCase):
             return True, "removed_after_loss"
 
         self.cleanup = cleanup
-        self.authorize = lambda lease, request: (
-            request["invocation_id"] == "invocation-" + lease["run_id"] and
-            request["repository"] == "example/disposable" and
-            request["branch"] == "branch-" + lease["run_id"])
-        self.service = LeaseService(self.state, mediator=self.store,
-                                    cleanup=cleanup, loss_seconds=.5,
-                                    mediation_authority=self.authorize)
-        self.addCleanup(self.service.server.server_close)
+        self.authorize = self.authority.authorize_lease
         self.calls = []
 
+        def transport(repository, operation, payload):
+            self.calls.append((repository, operation, payload))
+            return {"ok": True}
+
+        self.service = LeaseService(self.state, mediator=self.store,
+                                    cleanup=cleanup, loss_seconds=.5,
+                                    mediation_authority=self.authorize,
+                                    transport=transport)
+        self.addCleanup(self.service.server.server_close)
+
     def register(self, run_id, lease_token):
+        reference = self.authority.approve(
+            invocation_id="invocation-" + run_id, repository="example/disposable",
+            branch="branch-" + run_id,
+            operations={"git_push", "pr_create", "actions_read"}, reviewed_by="test-operator")
+        self.authority.bind_run(reference, run_id)
         directory = self.state / "leases" / lease_token
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
@@ -121,6 +132,21 @@ class MediatedLeaseTests(unittest.TestCase):
             self.service.tick()
         self.assertFalse((directory / "accepted.json").exists())
 
+    def test_authority_rejects_changed_scope_and_second_run_or_lease(self):
+        ref = self.authority.approve(
+            invocation_id="invocation-a", repository="example/disposable",
+            branch="branch-a", operations={"actions_read"}, reviewed_by="operator")
+        scope = self.authority.bind_run(ref, "a")
+        with self.assertRaisesRegex(MediationError, "authorization_unavailable"):
+            self.authority.bind_run(ref, "b")
+        self.assertIsNone(self.authority.authorize_lease(
+            {"run_id": "a", "token": "lease-a"},
+            {**scope, "repository": "other/repo"}))
+        self.assertEqual(self.authority.authorize_lease(
+            {"run_id": "a", "token": "lease-a"}, scope)["operations"], {"actions_read"})
+        self.assertIsNone(self.authority.authorize_lease(
+            {"run_id": "a", "token": "lease-b"}, scope))
+
     def test_acknowledgement_write_failure_revokes_issued_grant(self):
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
@@ -132,6 +158,10 @@ class MediatedLeaseTests(unittest.TestCase):
         # Make the acknowledgement path a directory. Grant issuance succeeds,
         # but no dispatch acknowledgement can be durably written.
         (directory / "accepted.json").mkdir()
+        reference = self.authority.approve(
+            invocation_id="invocation-a", repository="example/disposable",
+            branch="branch-a", operations={"git_push"}, reviewed_by="test-operator")
+        self.authority.bind_run(reference, "a")
         with self.assertRaises(OSError):
             self.service._accept(directory, json.loads(
                 (directory / "lease.json").read_text(encoding="utf-8")), time.time())
@@ -140,6 +170,35 @@ class MediatedLeaseTests(unittest.TestCase):
             grants = db.execute("SELECT revoked_at FROM grants").fetchall()
         self.assertEqual(len(grants), 1)
         self.assertIsNotNone(grants[0][0])
+
+    def test_http_mediator_denies_revoked_grant_before_transport(self):
+        first, _, token_a = self.register("a", "lease-a")
+        _, _, token_b = self.register("b", "lease-b")
+        import threading
+        thread = threading.Thread(target=self.service.server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(self.service.server.shutdown)
+
+        def mediate(token):
+            body = json.dumps({"repository": "example/disposable",
+                               "operation": "actions_read", "payload": {}}).encode()
+            call = request.Request(
+                f"http://127.0.0.1:{self.service.port}/v1/mediate",
+                data=body, method="POST", headers={
+                    "Authorization": "Bearer " + token, "Content-Type": "application/json"})
+            try:
+                with request.urlopen(call, timeout=5) as response:
+                    return response.status
+            except error.HTTPError as failure:
+                return failure.code
+
+        self.assertEqual(mediate(token_a), 200)
+        (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
+        self.service.tick()
+        before = len(self.calls)
+        self.assertEqual(mediate(token_a), 403)
+        self.assertEqual(len(self.calls), before)
+        self.assertEqual(mediate(token_b), 200)
 
 
 if __name__ == "__main__":

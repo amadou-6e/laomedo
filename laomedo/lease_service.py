@@ -25,7 +25,7 @@ import threading
 import time
 
 from .container_lease import cleanup_after_loss, inspect_exact
-from .github_mediation import MediationStore
+from .github_mediation import MediationError, MediationStore
 
 
 LOSS_SECONDS = 5.0
@@ -100,18 +100,43 @@ class GrantBook:
         return accepted, grant_id
 
 
-def _handler(book: GrantBook):
+def _handler(book: GrantBook, mediator: MediationStore | None = None,
+             transport=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
 
         def do_POST(self):
+            if self.path == "/v1/mediate":
+                if mediator is None or transport is None:
+                    return self._json_reply(503, {"error": "mediator_unavailable"})
+                try:
+                    size = int(self.headers.get("Content-Length", ""))
+                    if not 0 < size <= 1024 * 1024 or not self.headers.get(
+                            "Authorization", "").startswith("Bearer "):
+                        raise MediationError("request_invalid")
+                    body = json.loads(self.rfile.read(size))
+                    if not isinstance(body, dict):
+                        raise MediationError("request_invalid")
+                    result = mediator.invoke(
+                        token=self.headers["Authorization"][len("Bearer "):],
+                        repository=body.get("repository"),
+                        operation=body.get("operation"),
+                        payload=body.get("payload"),
+                        effect_id=body.get("effect_id"), transport=transport)
+                except (MediationError, ValueError, TypeError) as error:
+                    code = error.code if isinstance(error, MediationError) else "request_invalid"
+                    return self._json_reply(403, {"error": code})
+                return self._json_reply(200, result)
             supplied = self.headers.get("Authorization", "")
             accepted = False
-            if self.path == "/write" and supplied.startswith("Bearer "):
+            if mediator is None and self.path == "/write" and supplied.startswith("Bearer "):
                 accepted, _ = book.check(supplied[len("Bearer "):])
-            body = json.dumps({"accepted": accepted}).encode()
-            self.send_response(200 if accepted else 403)
+            return self._json_reply(200 if accepted else 403, {"accepted": accepted})
+
+        def _json_reply(self, status: int, value: dict):
+            body = json.dumps(value).encode()
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -124,7 +149,7 @@ class LeaseService:
     def __init__(self, state: Path, *, port: int = 0, host: str = "127.0.0.1",
                  loss_seconds: float = LOSS_SECONDS, cleanup=cleanup_after_loss,
                  mediator: MediationStore | None = None,
-                 mediation_authority=None):
+                 mediation_authority=None, transport=None):
         self.state = state.resolve()
         (self.state / "leases").mkdir(parents=True, exist_ok=True)
         self.loss_seconds = loss_seconds
@@ -137,7 +162,8 @@ class LeaseService:
             # An old service instance cannot continue authorizing writes after
             # restart. Its lease is not silently adopted by this instance.
             mediator.revoke_lease_scope(self.lease_scope)
-        self.server = ThreadingHTTPServer((host, port), _handler(self.book))
+        self.server = ThreadingHTTPServer((host, port),
+                                          _handler(self.book, mediator, transport))
         self.instance = secrets.token_hex(8)
         self.stopping = threading.Event()
 
@@ -161,13 +187,17 @@ class LeaseService:
                 raise RuntimeError("mediated_lease_request_invalid")
             # Lease files originate on the runner side. The service must not
             # treat its requested repo/branch/operations as authorization.
-            if (self.mediation_authority is None or
-                    self.mediation_authority(lease, request) is not True):
+            scope = (self.mediation_authority(lease, request)
+                     if self.mediation_authority is not None else None)
+            if (not isinstance(scope, dict) or
+                    any(scope.get(key) != request[key] for key in
+                        ("invocation_id", "repository", "branch")) or
+                    not isinstance(scope.get("operations"), set)):
                 raise RuntimeError("mediated_lease_not_authorized")
             grant_id, secret = self.mediator.issue(
-                run_id=lease["run_id"], invocation_id=request["invocation_id"],
-                repository=request["repository"], branch=request["branch"],
-                operations={"git_push", "pr_create", "pr_update", "actions_read"},
+                run_id=lease["run_id"], invocation_id=scope["invocation_id"],
+                repository=scope["repository"], branch=scope["branch"],
+                operations=scope["operations"],
                 ttl_seconds=GRANT_TTL_SECONDS, lease_token=lease["token"],
                 lease_scope=self.lease_scope, service_instance=self.instance)
         try:

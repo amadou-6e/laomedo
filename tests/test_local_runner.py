@@ -13,6 +13,7 @@ from urllib import request as http_request, error as http_error
 from laomedo.local_runner import (AppServer, LocalRunner, RunnerError,
                                   _hash_tree, _native_error_summary, serve)
 from laomedo.skill_store import SkillStore
+from laomedo.mediation_authority import RunGrantAuthority
 
 
 class FakeServer:
@@ -95,6 +96,34 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error_category"], "lease_service_required")
         self.assertEqual(launched, [])
+
+    def test_mediated_scope_requires_trusted_one_run_authorization(self):
+        authority = RunGrantAuthority(self.runner.state / "github-authority.sqlite")
+        reference = authority.approve(
+            invocation_id="approved-invocation", repository="example/disposable",
+            branch="approved-branch", operations={"git_push"},
+            reviewed_by="test-operator")
+        request = self.request()
+        request["github_scope"] = {"repository": "other/repo"}
+        with self.assertRaisesRegex(RunnerError, "github_scope_must_come_from_authority"):
+            self.runner._prepare(request)
+        request.pop("github_scope")
+        request["github_authorization_ref"] = reference
+        with self.assertRaisesRegex(RunnerError, "mediated_lease_required"):
+            self.runner._prepare(request)
+
+        mediated = LocalRunner(self.runner.state, self.runner.store.root, self.source,
+                               transport=FakeServer, check_docker=False,
+                               max_model_turns=6, supervise_containers=True,
+                               lease_service=self.root / "lease-state",
+                               github_authority=authority)
+        prepared = mediated._prepare(request)
+        self.assertEqual(prepared["github_scope"], {
+            "invocation_id": "approved-invocation",
+            "repository": "example/disposable", "branch": "approved-branch"})
+        self.assertNotIn(reference, json.dumps(prepared))
+        with self.assertRaisesRegex(RunnerError, "authorization_unavailable"):
+            mediated._prepare(request)
 
     def test_restart_sweep_preserves_unverified_cleanup(self):
         record = self.runner._prepare(self.request())
