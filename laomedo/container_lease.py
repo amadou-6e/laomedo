@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import queue
 import subprocess
@@ -18,8 +19,23 @@ import time
 
 
 LEASE_SECONDS = 60
+POST_LOSS_WATCH_SECONDS = 5
 LABEL_RUN = "laomedo.run_id"
 LABEL_TOKEN = "laomedo.launch_token"
+
+
+def _detached_process_options() -> dict:
+    """Keep the supervisor outside the runner's console/process group.
+
+    Windows job containment may forbid breakaway. In that case Popen fails and
+    the runner refuses to launch the container, rather than silently sharing
+    the runner's fate.
+    """
+    if os.name == "nt":
+        return {"creationflags": (subprocess.CREATE_NEW_PROCESS_GROUP |
+                                  subprocess.CREATE_BREAKAWAY_FROM_JOB |
+                                  subprocess.CREATE_NO_WINDOW)}
+    return {"start_new_session": True}
 
 
 class LeaseProcess:
@@ -37,7 +53,7 @@ class LeaseProcess:
                 [sys.executable, "-m", "laomedo.container_lease", str(record_path),
                  name, run_id, token, str(self.ready), str(self.result)],
                 stdin=subprocess.PIPE, stdout=self.log, stderr=self.log,
-                text=True, encoding="utf-8")
+                text=True, encoding="utf-8", **_detached_process_options())
         except Exception:
             self.log.close()
             raise
@@ -132,6 +148,33 @@ def cleanup_exact(name: str, run_id: str, token: str) -> tuple[bool, str]:
     return False, "remove_failed" if result.returncode else "still_present"
 
 
+def cleanup_after_loss(name: str, run_id: str, token: str, *,
+                       watch_seconds: float = POST_LOSS_WATCH_SECONDS) -> tuple[bool, str]:
+    """Keep watching for a container created after the runner disappeared.
+
+    Absence throughout the watch is *not* proof that a delayed Docker client
+    cannot create it later. Report that case as unverified; never assert safe
+    termination merely because the first inspection found nothing.
+    """
+    deadline = time.monotonic() + watch_seconds
+    observed = False
+    while True:
+        state, _ = inspect_exact(name, run_id, token)
+        if state in {"conflict", "unknown"}:
+            return False, state
+        if state == "owned":
+            observed = True
+            verified, detail = cleanup_exact(name, run_id, token)
+            if not verified:
+                return False, detail
+        if time.monotonic() >= deadline:
+            state, _ = inspect_exact(name, run_id, token)
+            if state == "absent":
+                return (True, "removed_after_loss") if observed else (False, "never_observed")
+            return False, "late_" + state
+        time.sleep(min(.1, max(0, deadline - time.monotonic())))
+
+
 def supervise(record_path: Path, name: str, run_id: str, token: str,
               ready_path: Path, result_path: Path) -> int:
     events: queue.Queue[str] = queue.Queue()
@@ -164,7 +207,7 @@ def supervise(record_path: Path, name: str, run_id: str, token: str,
                                    encoding="utf-8")
             return 0 if state == "absent" else 3
         if event in {"EOF", "EXPIRED"}:
-            verified, state = cleanup_exact(name, run_id, token)
+            verified, state = cleanup_after_loss(name, run_id, token)
             result_path.write_text(json.dumps({"reason": event.lower(),
                                                "cleanup_verified": verified,
                                                "state": state}) + "\n", encoding="utf-8")

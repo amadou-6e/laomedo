@@ -8,10 +8,38 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.container_lease import cleanup_exact, inspect_exact, supervise
+from laomedo.container_lease import (cleanup_after_loss, cleanup_exact,
+                                     inspect_exact, supervise,
+                                     _detached_process_options)
 
 
 class ContainerLeaseTests(unittest.TestCase):
+    def test_supervisor_is_detached_from_runner_group(self):
+        options = _detached_process_options()
+        if "creationflags" in options:
+            self.assertTrue(options["creationflags"] & subprocess.CREATE_NEW_PROCESS_GROUP)
+            self.assertTrue(options["creationflags"] & subprocess.CREATE_BREAKAWAY_FROM_JOB)
+        else:
+            self.assertEqual(options, {"start_new_session": True})
+
+    def test_delayed_container_creation_is_removed(self):
+        observations = iter([("absent", None), ("owned", "exact-id")])
+        def observe(*_):
+            return next(observations, ("absent", None))
+        with patch("laomedo.container_lease.inspect_exact", side_effect=observe) as inspect, \
+                patch("laomedo.container_lease.cleanup_exact", return_value=(True, "removed")) as cleanup:
+            self.assertEqual(cleanup_after_loss("exact-name", "run-one", "token-one",
+                                                watch_seconds=.01),
+                             (True, "removed_after_loss"))
+        self.assertGreaterEqual(inspect.call_count, 3)
+        cleanup.assert_called_once_with("exact-name", "run-one", "token-one")
+
+    def test_never_observed_does_not_claim_cleanup(self):
+        with patch("laomedo.container_lease.inspect_exact", return_value=("absent", None)):
+            self.assertEqual(cleanup_after_loss("exact-name", "run-one", "token-one",
+                                                watch_seconds=.001),
+                             (False, "never_observed"))
+
     def test_exact_identity_refuses_lookalike_container(self):
         entry = {"Id": "sha256:unrelated", "Name": "/laomedo-codex-looks-similar",
                  "Config": {"Labels": {"laomedo.run_id": "other",
@@ -48,7 +76,7 @@ class ContainerLeaseTests(unittest.TestCase):
                 "name": "exact-name", "launch_token": "token-one"}}), encoding="utf-8")
             ready, result = root / "ready", root / "result.json"
             with patch("laomedo.container_lease.sys.stdin", io.StringIO("")), \
-                    patch("laomedo.container_lease.cleanup_exact", return_value=(True, "removed")) as cleanup:
+                    patch("laomedo.container_lease.cleanup_after_loss", return_value=(True, "removed")) as cleanup:
                 self.assertEqual(supervise(record, "exact-name", "run-one", "token-one",
                                            ready, result), 0)
             self.assertEqual(ready.read_text(encoding="utf-8"), "token-one")
