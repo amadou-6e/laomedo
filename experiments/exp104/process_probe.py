@@ -99,7 +99,9 @@ def _kill_exact(process: multiprocessing.Process) -> None:
         result = subprocess.run(["taskkill", "/PID", str(process.pid), "/F"],
                                 capture_output=True, timeout=10)
         if result.returncode:
-            raise RuntimeError("exact_kill_failed")
+            # No bearer is passed to taskkill; its diagnostic is safe to keep.
+            detail = (result.stderr or result.stdout).decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"exact_kill_failed:{result.returncode}:{detail}")
     else:
         os.kill(process.pid, signal.SIGKILL)
     process.join(10)
