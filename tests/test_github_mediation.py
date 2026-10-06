@@ -17,14 +17,20 @@ class MediationTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.clock = [1000.0]
         self.path = Path(self.tmp.name) / "mediator.db"
-        self.store = MediationStore(self.path, now=lambda: self.clock[0])
+        self.workflow_changes = set()
+        self.store = MediationStore(
+            self.path, now=lambda: self.clock[0],
+            workflow_change_classifier=lambda repo, branch, commit:
+                commit in self.workflow_changes)
         self.calls = []
 
-    def grant(self, run="run-a", operations=None, branch="run-a-branch", issues=None):
+    def grant(self, run="run-a", operations=None, branch="run-a-branch", issues=None,
+              target_prs=None):
         return self.store.issue(run_id=run, invocation_id=run + "-invocation",
                                 repository=REPO,
                                 operations=operations or {"git_push", "pr_create", "pr_list"},
-                                branch=branch, reviewed_issue_requests=issues, ttl_seconds=60)
+                                branch=branch, reviewed_issue_requests=issues,
+                                target_prs=target_prs, ttl_seconds=60)
 
     def transport(self, repository, operation, payload):
         self.calls.append((repository, operation, payload))
@@ -151,6 +157,52 @@ class MediationTests(unittest.TestCase):
             issue_token, "issue_create", {**approved, "body": "Unreviewed edit"}, "issue-1"))
         result = self.invoke(issue_token, "issue_create", approved, "issue-1")
         self.assertEqual(result["state"], "confirmed")
+
+    def test_pr_update_requires_bound_number_head_and_base(self):
+        _, token = self.grant(operations={"pr_update"}, target_prs={7: "main"})
+        payload = {"number": 7, "head": "run-a-branch", "base": "main",
+                   "marker": "reviewed"}
+        for changed in ({**payload, "number": 999},
+                        {**payload, "head": "other-branch"},
+                        {**payload, "base": "other-base"}):
+            self.assert_code("target_pr_denied", lambda changed=changed: self.invoke(
+                token, "pr_update", changed, "effect-1"))
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.invoke(token, "pr_update", payload, "effect-1")["state"],
+                         "confirmed")
+
+    def test_read_labels_cannot_hide_mutations(self):
+        _, token = self.grant(operations={"api_rest_read"}, branch=None)
+        for payload in ({"path": "/repos/example/disposable/issues/1", "method": "POST"},
+                        {"path": "/repos/other/repo/issues/1"},
+                        {"path": "/repos/example/disposable/../other"}):
+            self.assert_code("api_read_denied", lambda payload=payload: self.invoke(
+                token, "api_rest_read", payload))
+        self.assert_code("unsupported_operation", lambda: self.invoke(
+            token, "api_graphql_read", {"query": "mutation { deleteRef(...) }"}))
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.invoke(token, "api_rest_read", {
+            "path": "/repos/example/disposable/issues/1"})["state"], "confirmed")
+
+    def test_workflow_diff_is_trusted_not_agent_flag(self):
+        _, token = self.grant(operations={"git_push"})
+        commit = "a" * 40
+        self.workflow_changes.add(commit)
+        self.assert_code("workflow_approval_required", lambda: self.invoke(
+            token, "git_push", {"branch": "run-a-branch", "commit": commit,
+                                "workflow_file_change": False}, "effect-1"))
+        self.assertEqual(self.calls, [])
+        reopened = MediationStore(self.path, now=lambda: self.clock[0])
+        self.assert_code("push_diff_unverified", lambda: reopened.invoke(
+            token=token, repository=REPO, operation="git_push",
+            payload={"branch": "run-a-branch", "commit": "b" * 40},
+            effect_id="effect-2", transport=self.transport))
+
+    def test_expiry_denies_use_without_any_revocation(self):
+        _, token = self.grant(operations={"pr_list"})
+        self.clock[0] += 61
+        self.assert_code("grant_unavailable", lambda: self.invoke(token, "pr_list"))
+        self.assertEqual(self.calls, [])
 
     def test_revoke_and_expire_are_per_run(self):
         grant_a, a = self.grant()
