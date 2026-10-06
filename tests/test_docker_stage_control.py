@@ -5,7 +5,6 @@ from io import StringIO
 import json
 import unittest
 
-from experiments.exp82.docker_stage_probe import no_model_flow
 from laomedo.work_graph.docker_stage import DockerLangflowStage
 from laomedo.workflow_run_store import LaunchError
 
@@ -22,7 +21,8 @@ class FakeProcess:
 
 class DockerStageControlTests(unittest.TestCase):
     def test_frozen_identities_are_derived_before_component_execution(self):
-        original = no_model_flow()
+        original = {"data": {"nodes": [{"id": "fixture", "data": {"node": {
+            "template": {"code": {"value": "class Fixture: pass"}}}}}]}}
         stage = DockerLangflowStage(original)
         flow_bytes = stage.flow_bytes
         graph_revision = stage.graph_revision
