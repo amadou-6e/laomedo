@@ -102,13 +102,10 @@ raw-write spoof control at `fc0ec6f`.
 The issuer derives the local OS principal rather than accepting an operator
 name from its caller, and the CLI requires a real terminal. This does not
 authenticate a human decision against another process running under the same
-host principal. The worker redirects ordinary component stdout away from its
-protocol. The later no-model control also forged a message with a raw write
-to stdout file descriptor 1; the worker discarded it. Code in the same
-process may still discover or manipulate other descriptors, which has not
-been audited. The zero-turn
-restriction and `--network none`
-keep this route unsuitable for a real Codex agent. The stage protocol also
-has not been audited against sophisticated malicious component code. Do not
-claim hosted, multi-user or untrusted-flow safety from these
-tests; #95 and #96 own those trust boundaries.
+host principal. The original #82 observations used a worker stdout protocol.
+The later #96 host controller removes that control protocol; the #82 probes
+above now use the host controller and treat component output as untrusted data.
+See [the #96 probe](../exp96/README.md) for the adversarial descriptor checks.
+The zero-turn restriction and `--network none` keep this route unsuitable for
+a real Codex agent. Do not claim hosted, multi-user or arbitrary-flow safety
+from these probes.
