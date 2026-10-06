@@ -26,3 +26,23 @@ real-stage check are required before a push-capable first slice.
 Unit tests additionally refuse a lookalike with conflicting labels and remove
 the inspected container by ID rather than by name. The full host suite passed
 171 tests with two skipped before the probe. No real model turn was spent.
+
+## Whole-process-tree follow-up (negative)
+
+The later [frozen amendment](GROUP-AMENDMENT.md) `d16238d` and [committed
+probe](group_probe.py) `c832ac8` tested the review's stronger Windows process
+boundary once, after the separate-process-group code at `cdf2599`. The exact
+disposable runner child was killed with `taskkill /T /F`. Its supervisor wrote
+no lease result within 8.609 seconds and was no longer running. The
+[machine observation](group-observation.json) has SHA-256
+`f9a9b1d5eabb669c1658320e6f1cb6c228dfe461f376062a720d8e50e83b529c`.
+The classification is `killed_with_runner`.
+
+This is **negative evidence**: Windows process-group/job-breakaway flags do
+not protect the current child supervisor against this whole-tree kill. No
+Docker container or grant was used in this case, so it does not independently
+test post-kill Docker cleanup. It does show the present lease process is not
+an adequate standalone owner for the required whole-tree failure boundary.
+The original single-process-kill result remains valid only for its narrower
+case. #93 and Q11 remain open; a supervisor outside the runner's process tree
+and a scoped-grant revocation test are still needed. No model turn was used.
