@@ -20,7 +20,8 @@ from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 from .artifacts import ArtifactError, import_selected, relative_path, selections
-from .container_lease import (LABEL_RUN, LABEL_TOKEN, LeaseProcess, cleanup_exact)
+from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
+from .lease_service import LeaseClient
 
 
 IMAGE = "laomedo-codex-boundary:0.159.2"
@@ -356,7 +357,8 @@ def _answer(events: list[dict]) -> str | None:
 class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
                  check_docker: bool = True, max_model_turns: int = 0,
-                 supervise_containers: bool | None = None):
+                 supervise_containers: bool | None = None,
+                 lease_service: Path | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -379,6 +381,9 @@ class LocalRunner:
         (self.state / "runs").mkdir(exist_ok=True)
         self.supervise_containers = (transport is AppServer if supervise_containers is None
                                      else supervise_containers)
+        # The lease service is started independently of this runner, so a
+        # whole-process-tree kill of the runner cannot also kill it.
+        self.lease_service = Path(lease_service).resolve() if lease_service else None
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -771,8 +776,17 @@ class LocalRunner:
                     "cleanup_verified": False}
                 _json(run_dir / "record.json", record)
             if self.supervise_containers:
-                lease = LeaseProcess(run_dir / "record.json", name, run_id,
-                                     launch_token, cancelled)
+                if self.lease_service is None:
+                    raise RunnerError("lease_service_required")
+                try:
+                    lease = LeaseClient(self.lease_service, run_id=run_id, name=name,
+                                        token=launch_token, cancelled=cancelled)
+                except (OSError, RuntimeError):
+                    raise RunnerError("lease_service_unavailable") from None
+                record["container_ownership"]["lease_instance"] = lease.instance
+                record["container_ownership"]["grant_id"] = lease.grant_id
+                with self.control_lock:
+                    _json(run_dir / "record.json", record)
             server = self.transport(["docker", *_docker_prefix(
                 run_dir / "workspace", run_dir / "canonical", run_dir / "store",
                 name=name, run_id=run_id, launch_token=launch_token)], run_dir)
@@ -859,7 +873,7 @@ class LocalRunner:
                     "STORE-ORIGINAL"):
                 raise RunnerError("protected_mount_changed")
             if lease is not None and lease.lost.is_set():
-                raise RunnerError("lease_supervisor_unverified")
+                raise RunnerError("lease_service_lost")
         except Exception as exc:
             if record is None:
                 raise
@@ -884,10 +898,10 @@ class LocalRunner:
                         verified, detail = cleanup_exact(name, run_id, launch_token)
                         if lease is not None:
                             try:
-                                lease.finish(normal=verified and not close_error)
+                                lease.finish()
                             except Exception:
                                 verified = False
-                                detail = "lease_supervisor_unverified"
+                                detail = "lease_service_unverified"
                         # A failed normal close may have been completed by the
                         # independent supervisor after its pipe closed.
                         if not verified:
@@ -1006,9 +1020,12 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--preflight", action="store_true")
     parser.add_argument("--max-model-turns", type=int, default=0)
+    parser.add_argument("--lease-service", type=Path,
+                        help="State directory of an independently started lease service")
     args = parser.parse_args()
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
-                         max_model_turns=args.max_model_turns)
+                         max_model_turns=args.max_model_turns,
+                         lease_service=args.lease_service)
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return
