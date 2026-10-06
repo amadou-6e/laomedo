@@ -11,6 +11,7 @@ const cases = {
   A: { operation: 'start', task: 'CASE_A synthetic stop probe', event: 'ack_held' },
   B: { operation: 'fresh', task: 'CASE_B synthetic stop probe', event: 'synthetic_wait_started' },
   CONTROL: { operation: 'fresh', task: 'CONTROL synthetic stop probe', event: 'synthetic_effect' },
+  CONTROL_LATE: { operation: 'fresh', task: 'CONTROL_LATE synthetic stop probe', event: 'synthetic_effect' },
 };
 
 function at() { return new Date().toISOString(); }
