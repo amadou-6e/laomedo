@@ -26,9 +26,16 @@ defines the first-slice grant scope; neither document asserts a live credential.
   approval. This acknowledges duplicate risk rather than promising exactly
   once.
 - A Git push is restricted to its granted branch. Issue creation requires a
-  trusted issuer to bind the exact reviewed payload hash. Workflow-file
-  changes and generic REST/GraphQL mutations fail visibly in this slice;
-  client-supplied semantic labels are not treated as authorization.
+  trusted issuer to bind the exact reviewed payload hash. PR updates require
+  a grant-bound PR number and base plus the granted head branch; a confirmed
+  create can bind its returned PR number. A Git push requires a trusted diff
+  classifier: absent or uncertain classification refuses dispatch, and a
+  detected `.github/workflows/` change requires separate approval. The
+  agent's `workflow_file_change` flag cannot grant that approval.
+- The generic REST read lane accepts only an explicit same-repository GET
+  path. GraphQL reads are disabled until a reviewed query classifier exists;
+  an agent-labelled GraphQL `mutation` cannot bypass the write journal.
+  Generic REST/GraphQL mutations fail visibly in this slice.
 
 ## Boundaries not yet crossed
 
@@ -41,6 +48,11 @@ the `MediationStore` object, SQLite path or trusted retry-approval method.
 The caller must place the store outside the checkout and mount, and keep its
 transport and credential in the independently owned service. The current
 tests use synthetic transport only and do not accept #100, #93 or Q11.
+Grant expiry is checked on every invocation even if the lease owner dies;
+the maximum TTL is 60 seconds. Expiry uses the wall clock, so a backwards
+clock step is an open hardening issue. Revocation prevents *new* dispatches,
+not an already in-flight provider call. Read-only reconciliation of unknown
+effects and deliberate reopening after a confirmed create are also open.
 
 The next integration must bind this store to #97's separately owned lease
 service, then supply an actual credential-owning transport and a stage-facing

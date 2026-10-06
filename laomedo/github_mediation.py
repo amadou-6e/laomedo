@@ -17,7 +17,7 @@ import time
 from typing import Callable
 
 
-READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read", "api_graphql_read"})
+READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read"})
 WRITES = frozenset({"git_push", "pr_create", "pr_update", "issue_create", "api_rest_write", "api_graphql_mutation"})
 OPERATIONS = READS | WRITES
 
@@ -65,7 +65,8 @@ def _target_key(repository: str, operation: str, payload: dict) -> str:
     return json.dumps(target, separators=(",", ":"))
 
 
-def _validate_effect(operation: str, payload: dict, grant) -> None:
+def _validate_effect(operation: str, payload: dict, grant, db,
+                     workflow_change_classifier) -> None:
     """Enforce semantic approval before a generic API mutation is dispatched."""
     if operation == "git_push":
         if not all(isinstance(payload.get(key), str) and payload[key]
@@ -75,13 +76,30 @@ def _validate_effect(operation: str, payload: dict, grant) -> None:
             raise MediationError("push_branch_invalid")
         if payload["branch"] != grant["branch"]:
             raise MediationError("push_branch_denied")
+        # Only a trusted inspection of the actual outgoing diff may decide
+        # whether the separate workflow-file approval is needed.
+        if workflow_change_classifier is None:
+            raise MediationError("push_diff_unverified")
+        try:
+            changes_workflow = workflow_change_classifier(
+                grant["repository"], payload["branch"], payload["commit"])
+        except Exception:
+            raise MediationError("push_diff_unverified") from None
+        if changes_workflow is not False:
+            raise MediationError("workflow_approval_required" if changes_workflow is True
+                                 else "push_diff_unverified")
     if operation in {"pr_create", "pr_update"}:
         if not all(isinstance(payload.get(key), str) and payload[key]
                    for key in ("head", "base", "marker")):
             raise MediationError("pr_identity_required")
-        if operation == "pr_update" and (type(payload.get("number")) is not int or
-                                          payload["number"] < 1):
-            raise MediationError("target_pr_required")
+        if operation == "pr_update":
+            if type(payload.get("number")) is not int or payload["number"] < 1:
+                raise MediationError("target_pr_required")
+            target = db.execute("SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
+                                (grant["grant_id"], payload["number"])).fetchone()
+            if (target is None or payload["head"] != grant["branch"] or
+                    payload["base"] != target["base"]):
+                raise MediationError("target_pr_denied")
         if operation == "pr_create" and payload["head"] != grant["branch"]:
             raise MediationError("pr_head_denied")
     if operation == "issue_create":
@@ -96,14 +114,24 @@ def _validate_effect(operation: str, payload: dict, grant) -> None:
         # An agent-declared semantic_operation is not a security classifier.
         # The real endpoint/query parser must be reviewed before this lane opens.
         raise MediationError("api_write_unsupported")
-    if payload.get("workflow_file_change"):
-        raise MediationError("workflow_approval_required")
+
+
+def _validate_read(operation: str, payload: dict, repository: str) -> None:
+    if operation != "api_rest_read":
+        return
+    path = payload.get("path")
+    prefix = f"/repos/{repository}/"
+    if (payload.get("method", "GET") != "GET" or not isinstance(path, str) or
+            not path.startswith(prefix) or
+            any(part in path for part in ("..", "//", "\\", "%", "?", "#"))):
+        raise MediationError("api_read_denied")
 
 
 class MediationStore:
     """Durable grant/effect ledger for one trusted mediator process family."""
 
-    def __init__(self, path: str | Path, *, now: Callable[[], float] = time.time):
+    def __init__(self, path: str | Path, *, now: Callable[[], float] = time.time,
+                 workflow_change_classifier=None):
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
             raise MediationError("store_path_invalid")
@@ -113,6 +141,7 @@ class MediationStore:
             raise MediationError("store_inside_checkout")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.now = now
+        self.workflow_change_classifier = workflow_change_classifier
         with closing(self._connect()) as db, db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS grants (
@@ -133,6 +162,9 @@ class MediationStore:
                     next_run_id TEXT NOT NULL, next_effect_id TEXT NOT NULL,
                     approved_by TEXT NOT NULL, used_at REAL,
                     PRIMARY KEY(next_run_id,next_effect_id));
+                CREATE TABLE IF NOT EXISTS pr_targets (
+                    grant_id TEXT NOT NULL, number INTEGER NOT NULL,
+                    base TEXT NOT NULL, PRIMARY KEY(grant_id,number));
             """)
 
     def _connect(self):
@@ -142,8 +174,10 @@ class MediationStore:
 
     def issue(self, *, run_id: str, invocation_id: str, repository: str,
               operations: set[str], ttl_seconds: float, branch: str | None = None,
-              reviewed_issue_requests: dict[str, dict] | None = None) -> tuple[str, str]:
+              reviewed_issue_requests: dict[str, dict] | None = None,
+              target_prs: dict[int, str] | None = None) -> tuple[str, str]:
         reviewed_issue_requests = reviewed_issue_requests or {}
+        target_prs = target_prs or {}
         if (not all(isinstance(v, str) and v for v in (run_id, invocation_id, repository)) or
                 not isinstance(operations, set) or not operations or
                 not operations <= OPERATIONS or not 0 < ttl_seconds <= 60 or
@@ -153,7 +187,11 @@ class MediationStore:
                 any(not isinstance(k, str) or not k or not isinstance(v, dict) or
                     v.get("reviewed_proposal_id") != k for k, v in
                     reviewed_issue_requests.items()) or
-                ("issue_create" in operations and not reviewed_issue_requests)):
+                ("issue_create" in operations and not reviewed_issue_requests) or
+                not isinstance(target_prs, dict) or
+                any(type(number) is not int or number < 1 or
+                    not isinstance(base, str) or not base
+                    for number, base in target_prs.items())):
             raise MediationError("grant_request_invalid")
         reviewed_hashes = {key: _request_hash(repository, "issue_create", body)
                            for key, body in reviewed_issue_requests.items()}
@@ -164,6 +202,9 @@ class MediationStore:
                         invocation_id, repository, json.dumps(sorted(operations)), branch,
                         json.dumps(reviewed_hashes, sort_keys=True),
                         self.now() + ttl_seconds))
+            for number, base in target_prs.items():
+                db.execute("INSERT INTO pr_targets VALUES (?,?,?)",
+                           (grant_id, number, base))
         return grant_id, token
 
     def revoke_run(self, run_id: str) -> int:
@@ -237,8 +278,11 @@ class MediationStore:
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             grant = self._grant(db, token, repository, operation)
+            if operation in READS:
+                _validate_read(operation, payload, repository)
             if operation in WRITES:
-                _validate_effect(operation, payload, grant)
+                _validate_effect(operation, payload, grant, db,
+                                 self.workflow_change_classifier)
                 prior = db.execute("SELECT * FROM effects WHERE run_id=? AND effect_id=?",
                                    (grant["run_id"], effect_id)).fetchone()
                 if prior:
@@ -292,6 +336,10 @@ class MediationStore:
                 return {"state": "rejected", "error": error_code}
             return {"state": "confirmed", "result": result}
         with closing(self._connect()) as db, db:
+            if state == "confirmed" and operation == "pr_create" and \
+                    type(result.get("number")) is int and result["number"] > 0:
+                db.execute("INSERT OR IGNORE INTO pr_targets VALUES (?,?,?)",
+                           (grant["grant_id"], result["number"], payload["base"]))
             db.execute("UPDATE effects SET state=?,result_json=?,error_code=? "
                        "WHERE run_id=? AND effect_id=? AND state='unknown'",
                        (state, json.dumps(result) if result is not None else None,
