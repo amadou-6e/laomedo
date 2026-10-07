@@ -42,6 +42,13 @@ def request(proc, inbox, method, params, request_id):
 def run(docker: Path, image: str) -> dict:
     result = {"issue": 78, "selection_mode": "native_listing_only",
               "model_turns": 0, "image_id": image, "skill_body_read": "unknown"}
+    version = subprocess.run(
+        [str(docker), "run", "--rm", "--pull", "never", "--network", "none",
+         "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+         "--user", "1000:1000", "--entrypoint", "/usr/local/bin/codex",
+         image, "--version"], capture_output=True, text=True, timeout=20)
+    result["codex_version"] = (version.stdout.strip().splitlines() or [None])[0]
+    result["version_probe_ok"] = version.returncode == 0
     container = "laomedo-exp78-" + uuid.uuid4().hex[:12]
     with tempfile.TemporaryDirectory(prefix="laomedo-exp78-image-") as temp:
         state = Path(temp).resolve()
@@ -149,7 +156,8 @@ def run(docker: Path, image: str) -> dict:
         result["source_sha256"] == result["effective_before_sha256"] ==
         result["effective_after_sha256"])
     classes = result.get("listed_path_classes") or {}
-    result["pass"] = (result.get("fixture_offered") is True and
+    result["pass"] = (result["version_probe_ok"] and
+                      result.get("fixture_offered") is True and
                       classes.get("other") == 0 and result["effective_unchanged"] and
                       result["container_removed"])
     return result
