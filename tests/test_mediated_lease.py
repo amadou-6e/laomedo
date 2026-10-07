@@ -5,14 +5,25 @@ from contextlib import closing
 from pathlib import Path
 import sqlite3
 import tempfile
+import threading
 import time
 import unittest
 from urllib import error, request
 
 from laomedo.github_mediation import MediationError, MediationStore
-from laomedo.lease_service import LeaseService
+from laomedo.lease_service import GRANT_TTL_SECONDS, LOSS_SECONDS, LeaseService
 from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService
+
+
+def _result(directory: Path) -> dict:
+    path = directory / "result.json"
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+        time.sleep(.01)
+    raise AssertionError("lease result not written")
 
 
 class MediatedLeaseTests(unittest.TestCase):
@@ -101,7 +112,7 @@ class MediatedLeaseTests(unittest.TestCase):
 
         (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         self.service.tick()
-        result = json.loads((first / "result.json").read_text(encoding="utf-8"))
+        result = _result(first)
         self.assertEqual(result["reason"], "heartbeat_lost")
         self.assertEqual(result["revoked_grants"], [accepted["grant_id"]])
         self.assertLessEqual(result["revoked_at"], result["cleanup_finished_at"])
@@ -109,6 +120,40 @@ class MediatedLeaseTests(unittest.TestCase):
             self.read(token_a)
         self.read(token_b)
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
+
+    def test_slow_cleanup_does_not_block_other_run_or_admission(self):
+        self.assertLess(GRANT_TTL_SECONDS + LOSS_SECONDS, 60)
+        first, _, token_a = self.register("a", "lease-a")
+        _, _, token_b = self.register("b", "lease-b")
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_cleanup(name, run_id, lease_token):
+            started.set()
+            if not release.wait(3):
+                raise AssertionError("cleanup not released")
+            return self.cleanup(name, run_id, lease_token)
+
+        self.service.cleanup = slow_cleanup
+        (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
+        try:
+            start = time.monotonic()
+            self.service.tick()
+            self.assertLess(time.monotonic() - start, 1)
+            self.assertTrue(started.wait(1))
+            self.assertTrue((first / "revoked.json").exists())
+            with self.assertRaisesRegex(MediationError, "grant_unavailable"):
+                self.read(token_a)
+            self.read(token_b)
+            # A new run must be admitted while A's Docker cleanup is held.
+            _, _, token_c = self.register("c", "lease-c")
+            self.read(token_c)
+            self.service.tick()
+            self.read(token_b)
+            self.assertFalse((first / "result.json").exists())
+        finally:
+            release.set()
+        self.assertEqual(_result(first)["reason"], "heartbeat_lost")
 
     def test_trusted_approval_can_authorize_same_repository_read(self):
         with self.assertRaisesRegex(MediationError, "authorization_invalid"):
@@ -138,7 +183,7 @@ class MediatedLeaseTests(unittest.TestCase):
         with self.assertRaisesRegex(MediationError, "grant_unavailable"):
             self.read(token)
         restarted.tick()
-        result = json.loads((directory / "result.json").read_text(encoding="utf-8"))
+        result = _result(directory)
         self.assertEqual(result["reason"], "service_restart")
         self.assertEqual(result["revoked_grants"], [accepted["grant_id"]])
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
@@ -151,7 +196,7 @@ class MediatedLeaseTests(unittest.TestCase):
         (directory / "lease.json").write_text(json.dumps({
             "token": "lease-a", "run_id": "a", "name": "container-a"}), encoding="utf-8")
         self.service.tick()
-        result = json.loads((directory / "result.json").read_text(encoding="utf-8"))
+        result = _result(directory)
         self.assertEqual((result["reason"], result["error_code"]),
                          ("refused", "mediated_lease_request_invalid"))
         self.assertFalse((directory / "accepted.json").exists())
@@ -167,7 +212,7 @@ class MediatedLeaseTests(unittest.TestCase):
                           "repository": "example/disposable", "branch": "branch-a"}
         }), encoding="utf-8")
         self.service.tick()
-        result = json.loads((directory / "result.json").read_text(encoding="utf-8"))
+        result = _result(directory)
         self.assertEqual((result["reason"], result["error_code"]),
                          ("refused", "mediated_lease_not_authorized"))
         self.assertFalse((directory / "accepted.json").exists())
@@ -180,8 +225,8 @@ class MediatedLeaseTests(unittest.TestCase):
         good, _, token = self.register("good", "z-good")
         (good / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         self.service.tick()
-        self.assertEqual(json.loads((bad / "result.json").read_text())["reason"], "refused")
-        self.assertEqual(json.loads((good / "result.json").read_text())["reason"],
+        self.assertEqual(_result(bad)["reason"], "refused")
+        self.assertEqual(_result(good)["reason"],
                          "heartbeat_lost")
         with self.assertRaisesRegex(MediationError, "grant_unavailable"):
             self.read(token)

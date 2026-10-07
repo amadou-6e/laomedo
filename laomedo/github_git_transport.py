@@ -26,7 +26,7 @@ _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 def _base_git_environment() -> dict:
     """Remove inherited Git and host-account overrides for every Git call."""
     environment = {key: value for key, value in os.environ.items()
-                   if not key.startswith(("GIT_CONFIG_", "GCM_")) and
+                   if not key.startswith(("GIT_", "GCM_")) and
                    key not in {"GH", "GH_TOKEN", "GITHUB_TOKEN", "GIT_ASKPASS",
                                "SSH_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND"}}
     environment.update({
@@ -35,6 +35,7 @@ def _base_git_environment() -> dict:
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_ASKPASS": "",
+        "GIT_NO_REPLACE_OBJECTS": "1",
     })
     return environment
 
@@ -84,22 +85,43 @@ class GitHubGitTransport:
         result = self._git("cat-file", "-t", commit)
         return result.returncode == 0 and result.stdout.strip() == b"commit"
 
-    def classify_workflow_diff(self, repository: str, branch: str,
-                               commit: str) -> bool | None:
-        """Fail closed unless the exact outgoing history is inspectable."""
-        if repository != self.repository or not self._valid_commit(commit) or \
-                not self._valid_commit(self.baseline):
+    def _stage(self, bare: Path, commit: str) -> bool:
+        """Fetch real objects into an isolated repository, without credentials."""
+        environment = _base_git_environment()
+        if self._run_git(bare, "init", "--bare", "--quiet", env=environment).returncode:
+            return False
+        fetched = self._run_git(bare, "fetch", "--no-tags", "--no-write-fetch-head",
+                                str(self.checkout), commit, env=environment)
+        return fetched.returncode == 0
+
+    def _classify_staged(self, bare: Path, commit: str) -> bool | None:
+        environment = _base_git_environment()
+        if self._run_git(bare, "cat-file", "-t", commit,
+                         env=environment).stdout.strip() != b"commit":
             return None
-        ancestor = self._git("merge-base", "--is-ancestor", self.baseline, commit)
+        ancestor = self._run_git(bare, "merge-base", "--is-ancestor",
+                                 self.baseline, commit, env=environment)
         if ancestor.returncode != 0:
             return None
-        changed = self._git("diff", "--no-ext-diff", "--no-textconv",
-                            "--name-only", "-z", "--no-renames",
-                            self.baseline, commit)
+        changed = self._run_git(bare, "diff", "--no-ext-diff", "--no-textconv",
+                                "--name-only", "-z", "--no-renames",
+                                self.baseline, commit, env=environment)
         if changed.returncode != 0:
             return None
         return any(path.startswith(b".github/workflows/") for path in
                    changed.stdout.split(b"\0") if path)
+
+    def classify_workflow_diff(self, repository: str, branch: str,
+                               commit: str) -> bool | None:
+        """Fail closed unless the exact outgoing history is inspectable."""
+        if repository != self.repository or not isinstance(commit, str) or \
+                not _SHA.fullmatch(commit):
+            return None
+        with tempfile.TemporaryDirectory(prefix="laomedo-git-check-") as scratch:
+            bare = Path(scratch)
+            if not self._stage(bare, commit):
+                return None
+            return self._classify_staged(bare, commit)
 
     def __call__(self, repository: str, operation: str, payload: dict, *,
                  connection_id: str | None = None,
@@ -114,45 +136,36 @@ class GitHubGitTransport:
         ref = "refs/heads/" + branch
         if self._git("check-ref-format", ref).returncode != 0:
             raise KnownRejected("push_branch_invalid")
-        if not self._valid_commit(commit) or self.classify_workflow_diff(
-                repository, branch, commit) is not False:
+        if not isinstance(commit, str) or not _SHA.fullmatch(commit):
             raise KnownRejected("push_commit_unverified")
         if not isinstance(connection_id, str) or not connection_id or \
                 type(connection_generation) is not int or connection_generation < 1:
             raise KnownRejected("connection_binding_required")
-        try:
-            token = self.token_supplier(connection_id, connection_generation)
-        except (KeyError, TypeError, ValueError):
-            raise KnownRejected("provider_credential_unavailable") from None
-        if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
-            raise KnownRejected("provider_credential_unavailable")
-
-        # Empty global/system config prevents Git Credential Manager, host gh,
-        # URL rewrites and inherited helpers from supplying a broader identity.
-        environment, helper_command = _credential_environment(token)
         remote = "https://github.com/" + repository + ".git"
-        try:
-            # Never run the network push from the agent-controlled checkout:
-            # its local Git config could rewrite the remote URL or install an
-            # unexpected credential helper. Transfer only the exact object to
-            # a fresh bare repository with no checkout config or hooks.
-            with tempfile.TemporaryDirectory(prefix="laomedo-git-push-") as scratch:
-                bare = Path(scratch)
-                initialized = self._run_git(bare, "init", "--bare", "--quiet",
-                                            env=environment)
-                if initialized.returncode != 0:
-                    raise KnownRejected("push_staging_failed")
-                fetched = self._run_git(bare, "fetch", "--no-tags", "--no-write-fetch-head",
-                                        str(self.checkout), commit, env=environment)
-                if fetched.returncode != 0:
-                    raise KnownRejected("push_staging_failed")
+        # Never inspect the agent-writable checkout for workflow approval:
+        # replace refs or alternates there can describe different objects from
+        # those sent by upload-pack. Classify the very staging repository that
+        # will push, and do not expose the provider token during the fetch.
+        with tempfile.TemporaryDirectory(prefix="laomedo-git-push-") as scratch:
+            bare = Path(scratch)
+            if not self._stage(bare, commit) or \
+                    self._classify_staged(bare, commit) is not False:
+                raise KnownRejected("push_commit_unverified")
+            try:
+                token = self.token_supplier(connection_id, connection_generation)
+            except (KeyError, TypeError, ValueError):
+                raise KnownRejected("provider_credential_unavailable") from None
+            if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
+                raise KnownRejected("provider_credential_unavailable")
+            environment, helper_command = _credential_environment(token)
+            try:
                 pushed = self._run_git(
                     bare, "-c", "credential.helper=", "-c",
                     "credential.helper=" + helper_command,
                     "push", "--porcelain", "--force-with-lease=" + ref + ":",
                     remote, commit + ":" + ref, env=environment)
-        finally:
-            environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
+            finally:
+                environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
         if pushed.returncode != 0:
             # A lost response can follow a successful remote write.
             raise RuntimeError("push_outcome_unknown")

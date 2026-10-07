@@ -14,6 +14,16 @@ from laomedo.github_mediation import MediationStore
 from laomedo.lease_service import LeaseClient, LeaseService
 
 
+def _result(directory: Path) -> dict:
+    path = directory / "result.json"
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+        time.sleep(.01)
+    raise AssertionError("lease result not written")
+
+
 class LeaseServiceTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -48,7 +58,7 @@ class LeaseServiceTests(unittest.TestCase):
         lease_dir, secret = self.register()
         (lease_dir / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         self.service.tick()
-        result = json.loads((lease_dir / "result.json").read_text(encoding="utf-8"))
+        result = _result(lease_dir)
         self.assertEqual(result["reason"], "heartbeat_lost")
         self.assertTrue(result["cleanup_verified"])
         self.assertEqual(len(result["revoked_grants"]), 1)
@@ -71,7 +81,7 @@ class LeaseServiceTests(unittest.TestCase):
         (lease_dir / "done").write_text("done", encoding="utf-8")
         with patch("laomedo.lease_service.inspect_exact", return_value=("absent", None)):
             self.service.tick()
-        result = json.loads((lease_dir / "result.json").read_text(encoding="utf-8"))
+            result = _result(lease_dir)
         self.assertEqual((result["reason"], result["cleanup_verified"]), ("done", True))
         self.assertFalse(self.service.book.check(secret)[0])
         self.assertEqual(self.cleanups, [])
@@ -82,6 +92,7 @@ class LeaseServiceTests(unittest.TestCase):
         (lease_dir / "lease.json").write_text(json.dumps(
             {"token": "other", "run_id": "run", "name": "n"}), encoding="utf-8")
         self.service.tick()
+        self.assertEqual(_result(lease_dir)["reason"], "refused")
         self.assertFalse((lease_dir / "accepted.json").exists())
 
     def test_http_write_endpoint_accepts_only_active_grant(self):

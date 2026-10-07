@@ -30,7 +30,9 @@ from .github_mediation import MediationError, MediationStore
 
 LOSS_SECONDS = 5.0
 SERVICE_STALE_SECONDS = 3.0
-GRANT_TTL_SECONDS = 60.0
+# A runner can be lost just after a renewal. Keep the hard credential TTL
+# below the 60-second loss bound even if service cleanup is delayed.
+GRANT_TTL_SECONDS = 50.0
 POLL_SECONDS = 0.25
 
 
@@ -166,6 +168,8 @@ class LeaseService:
                                           _handler(self.book, mediator, None))
         self.instance = secrets.token_hex(8)
         self.stopping = threading.Event()
+        self._finishing: set[Path] = set()
+        self._finishing_lock = threading.Lock()
 
     @property
     def port(self) -> int:
@@ -222,6 +226,19 @@ class LeaseService:
             raise
 
     def _finish(self, lease_dir: Path, lease: dict, reason: str, now: float) -> None:
+        with self._finishing_lock:
+            if lease_dir in self._finishing:
+                return
+            self._finishing.add(lease_dir)
+        try:
+            self._revoke_and_cleanup(lease_dir, lease, reason, now)
+        except Exception:
+            with self._finishing_lock:
+                self._finishing.discard(lease_dir)
+            raise
+
+    def _revoke_and_cleanup(self, lease_dir: Path, lease: dict,
+                            reason: str, now: float) -> None:
         if self.mediator is None:
             revoked = self.book.revoke(lease["token"], now)
         else:
@@ -229,20 +246,38 @@ class LeaseService:
                 run_id=lease["run_id"], lease_token=lease["token"],
                 lease_scope=self.lease_scope)
         revoked_at = time.time()
-        if reason == "done":
-            state, _ = inspect_exact(lease["name"], lease["run_id"], lease["token"])
-            verified, detail = state == "absent", state
-        else:
-            verified, detail = self.cleanup(lease["name"], lease["run_id"], lease["token"])
-        _write_json(lease_dir / "result.json", {
-            "reason": reason, "revoked_grants": revoked, "detected_at": now,
-            "revoked_at": revoked_at, "cleanup_finished_at": time.time(),
-            "cleanup_verified": verified, "state": detail})
+        # Publish the authorization boundary separately from container cleanup
+        # so callers can verify denial while the old container still exists.
+        _write_json(lease_dir / "revoked.json", {
+            "reason": reason, "revoked_grants": revoked,
+            "detected_at": now, "revoked_at": revoked_at})
+        def finish_cleanup() -> None:
+            try:
+                if reason == "done":
+                    state, _ = inspect_exact(lease["name"], lease["run_id"], lease["token"])
+                    verified, detail = state == "absent", state
+                else:
+                    verified, detail = self.cleanup(
+                        lease["name"], lease["run_id"], lease["token"])
+            except Exception:
+                verified, detail = False, "cleanup_error"
+            try:
+                _write_json(lease_dir / "result.json", {
+                    "reason": reason, "revoked_grants": revoked, "detected_at": now,
+                    "revoked_at": revoked_at, "cleanup_finished_at": time.time(),
+                    "cleanup_verified": verified, "state": detail})
+            finally:
+                with self._finishing_lock:
+                    self._finishing.discard(lease_dir)
+
+        threading.Thread(target=finish_cleanup, daemon=True,
+                         name="laomedo-lease-cleanup").start()
 
     def tick(self) -> None:
         now = time.time()
         for lease_dir in sorted((self.state / "leases").iterdir()):
-            if not lease_dir.is_dir() or (lease_dir / "result.json").exists():
+            if (not lease_dir.is_dir() or (lease_dir / "result.json").exists() or
+                    lease_dir in self._finishing):
                 continue
             try:
                 self._tick_lease(lease_dir, now)
@@ -279,6 +314,10 @@ class LeaseService:
             self._finish(lease_dir, lease, "grant_expired", now)
 
     def _refuse_lease(self, lease_dir: Path, now: float, error: Exception) -> None:
+        with self._finishing_lock:
+            if lease_dir in self._finishing:
+                return
+            self._finishing.add(lease_dir)
         lease = _read_json(lease_dir / "lease.json")
         valid = (lease is not None and lease.get("token") == lease_dir.name and
                  all(isinstance(lease.get(k), str) and lease[k]
@@ -296,7 +335,6 @@ class LeaseService:
         except OSError:
             pass
         revoked, revocation_verified = [], False
-        cleanup_verified, detail = False, "identity_invalid"
         if valid:
             try:
                 revoked = (self.mediator.revoke_lease(
@@ -307,20 +345,30 @@ class LeaseService:
             except Exception:
                 # The use-time TTL still bounds the grant if the DB is down.
                 pass
+        def finish_refusal() -> None:
+            cleanup_verified, detail = False, "identity_invalid"
             try:
-                cleanup_verified, detail = self.cleanup(
-                    lease["name"], lease["run_id"], lease["token"])
-            except Exception:
-                detail = "cleanup_error"
-        try:
-            _write_json(lease_dir / "result.json", {
-                "reason": "refused" if not (lease_dir / "accepted.json").exists() else "lease_error",
-                "error_code": code, "detected_at": now,
-                "revoked_grants": revoked, "revocation_verified": revocation_verified,
-                "cleanup_verified": cleanup_verified, "state": detail})
-        except OSError:
-            # A broken directory may be retried, but cannot starve its peers.
-            pass
+                if valid:
+                    try:
+                        cleanup_verified, detail = self.cleanup(
+                            lease["name"], lease["run_id"], lease["token"])
+                    except Exception:
+                        detail = "cleanup_error"
+                _write_json(lease_dir / "result.json", {
+                    "reason": "refused" if not (lease_dir / "accepted.json").exists()
+                    else "lease_error", "error_code": code, "detected_at": now,
+                    "revoked_grants": revoked,
+                    "revocation_verified": revocation_verified,
+                    "cleanup_verified": cleanup_verified, "state": detail})
+            except OSError:
+                # A broken directory may be retried, but cannot starve peers.
+                pass
+            finally:
+                with self._finishing_lock:
+                    self._finishing.discard(lease_dir)
+
+        threading.Thread(target=finish_refusal, daemon=True,
+                         name="laomedo-lease-refusal").start()
 
     def serve(self) -> None:
         _write_json(self.state / "service.json", {

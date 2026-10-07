@@ -47,6 +47,25 @@ CONTAINER_B = "laomedo-" + IDENTITY + "-b"
 CONTAINER_C = "laomedo-" + IDENTITY + "-c"
 
 
+def select_fresh_identity(identity: str, connection_id: str) -> None:
+    """Select a frozen, unused experiment identity before starting anything."""
+    import re
+
+    if not re.fullmatch(r"exp104-[a-z0-9-]{8,60}", identity) or \
+            not re.fullmatch(r"exp104-[a-z0-9-]{8,60}", connection_id):
+        raise ValueError("experiment_identity_invalid")
+    global IDENTITY, CONNECTION_ID, BRANCH_A, BRANCH_B, BRANCH_C
+    global RUN_A, RUN_B, RUN_C, LEASE_A, LEASE_B, LEASE_C
+    global CONTAINER_A, CONTAINER_B, CONTAINER_C
+    IDENTITY, CONNECTION_ID = identity, connection_id
+    BRANCH_A, BRANCH_B, BRANCH_C = (identity + suffix for suffix in ("-a", "-b", "-c"))
+    RUN_A, RUN_B, RUN_C = (identity + suffix for suffix in ("-run-a", "-run-b", "-run-c"))
+    LEASE_A, LEASE_B, LEASE_C = (identity + suffix for suffix in
+                               ("-lease-a", "-lease-b", "-lease-c"))
+    CONTAINER_A, CONTAINER_B, CONTAINER_C = ("laomedo-" + identity + suffix
+                                           for suffix in ("-a", "-b", "-c"))
+
+
 def _git(*args: str, cwd: Path | None = None) -> str:
     command = ["git", *( ["-C", str(cwd)] if cwd else []), *args]
     result = subprocess.run(command, env=_base_git_environment(),
@@ -168,7 +187,7 @@ def _call_count(path: Path) -> int:
     return len(path.read_text(encoding="utf-8").splitlines()) if path.exists() else 0
 
 
-def run(state: Path, token_file: Path, code_sha: str) -> dict:
+def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
     if state.exists() or any((parent / ".git").exists() for parent in
                              (state.parent, *state.parent.parents)):
         raise RuntimeError("fresh_private_state_outside_checkout_required")
@@ -178,7 +197,8 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
     checkout = state / "trusted-checkout"
     connection = HostTokenConnection(
         connection_id=CONNECTION_ID, generation=GENERATION,
-        repository=REPOSITORY, token_file=token_file, forbidden_mount=checkout)
+        repository=REPOSITORY, token_file=token_file, key=token_key,
+        forbidden_mount=checkout)
     token = connection.token(CONNECTION_ID, GENERATION)
     user = _api(token, "/user")
     repo = _api(token, "/repos/" + REPOSITORY)
@@ -247,7 +267,7 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
                             "--checkout", str(checkout), "--baseline", BASELINE,
                             "--agent-mount", str(checkout), "--connection-id", CONNECTION_ID,
                             "--connection-generation", str(GENERATION),
-                            "--token-file", str(token_file))
+            "--token-file", str(token_file), "--token-key", token_key)
         info = _wait(mediator_state / "mediator.json")
         if info.get("pid") != mediator.pid or info.get("repository") != REPOSITORY:
             raise RuntimeError("mediator_identity_mismatch")
@@ -312,13 +332,14 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
         killed = _kill_runner(runner_a)
         observation["runner_loss"] = killed
         checkpoint()
-        result = _wait(lease_state / "leases" / LEASE_A / "result.json", timeout=40)
-        observation["lease_result_a"] = result
+        revoked = _wait(lease_state / "leases" / LEASE_A / "revoked.json", timeout=40)
+        observation["lease_revocation_a"] = revoked
+        observation["container_a_at_denial"] = inspect_exact(
+            CONTAINER_A, RUN_A, LEASE_A)[0]
         checkpoint()
-        if (result.get("reason") != "heartbeat_lost" or
-                result.get("cleanup_verified") is not True or
-                result.get("revoked_at", float("inf")) - killed["completed_wall"] > 60):
-            raise RuntimeError("revocation_or_cleanup_gate_failed")
+        if (revoked.get("reason") != "heartbeat_lost" or
+                revoked.get("revoked_at", float("inf")) - killed["completed_wall"] > 60):
+            raise RuntimeError("revocation_gate_failed")
         count_before_denial = _call_count(mediator_state / "provider-attempts.jsonl")
         status, denied = _mediate(port, bearer_a, "git_push",
                                   {"branch": BRANCH_A, "commit": commit}, IDENTITY + "-push-a-denied")
@@ -334,6 +355,11 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
                 count_after_denial != count_before_denial or
                 remote_after.get("object", {}).get("sha") != commit):
             raise RuntimeError("post_loss_denial_gate_failed")
+        result = _wait(lease_state / "leases" / LEASE_A / "result.json", timeout=40)
+        observation["lease_result_a"] = result
+        checkpoint()
+        if result.get("cleanup_verified") is not True:
+            raise RuntimeError("cleanup_gate_failed")
         status, read_b = _mediate(port, bearer_b, "api_rest_read", read_payload, None)
         observation["events"].append({"name": "b_read_after", "http": status,
                                        "state": read_b.get("state"), "at_monotonic": time.monotonic()})
@@ -489,6 +515,9 @@ def main() -> None:
     parser.add_argument("--runner", action="store_true")
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--token-file", type=Path)
+    parser.add_argument("--token-key", default="GH")
+    parser.add_argument("--identity", default=IDENTITY)
+    parser.add_argument("--connection-id", default=CONNECTION_ID)
     parser.add_argument("--code-sha")
     parser.add_argument("--record", type=Path)
     parser.add_argument("--run-id")
@@ -510,8 +539,10 @@ def main() -> None:
     if (args.token_file is None or args.code_sha is None or args.record is None or
             args.record.exists() or not args.record.parent.is_dir()):
         parser.error("fresh_record_token_file_and_code_sha_required")
+    select_fresh_identity(args.identity, args.connection_id)
     try:
-        result = run(args.state.resolve(), args.token_file.resolve(), args.code_sha)
+        result = run(args.state.resolve(), args.token_file.resolve(), args.code_sha,
+                     args.token_key)
     except Exception as failure:
         plan_path = args.state / "plan.json"
         result = {"status": "incomplete", "failure_type": type(failure).__name__,

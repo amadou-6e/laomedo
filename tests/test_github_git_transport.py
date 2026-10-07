@@ -84,6 +84,30 @@ class GitHubGitTransportTests(unittest.TestCase):
                 connection_generation=1)
         self.assertEqual(self.push_calls, [])
 
+    def test_replace_ref_cannot_hide_outgoing_workflow(self):
+        workflows = self.checkout / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "ci.yml").write_text("name: hidden\n", encoding="utf-8")
+        self._git("add", ".github/workflows/ci.yml")
+        self._git("commit", "-qm", "real workflow commit")
+        real = self._git("rev-parse", "HEAD").stdout.decode().strip()
+        self._git("checkout", "-q", self.baseline)
+        (self.checkout / "file.txt").write_text("harmless\n", encoding="utf-8")
+        self._git("commit", "-qam", "harmless replacement")
+        harmless = self._git("rev-parse", "HEAD").stdout.decode().strip()
+        self._git("replace", real, harmless)
+        # An ordinary checkout diff now sees the replacement, but the
+        # isolated staging repository must inspect the real pushed objects.
+        ordinary = self._git("diff", "--name-only", self.baseline, real).stdout
+        self.assertNotIn(b".github/workflows/", ordinary)
+        self.assertTrue(self.transport.classify_workflow_diff(REPOSITORY,
+                                                               "probe-a", real))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": real},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
     def test_missing_or_unbound_commit_is_refused_before_credential(self):
         for commit in ("a" * 40, "HEAD", "", self.baseline[:20]):
             with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):

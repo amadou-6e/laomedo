@@ -75,10 +75,13 @@ base from the trusted grant record, plus a provider-side head/base preflight.
 
 The new host-only `GitHubGitTransport` handles one narrow `git_push`: an exact
 local commit to an approved *new* branch in one configured repository. It
-verifies the object, proves the pinned baseline is an ancestor, checks the
-entire outgoing diff for workflow-file changes, stages the object in a fresh
-bare repository, and uses an absent-ref lease so an existing branch is never
-overwritten. A rejected or lost Git response is uncertain, not retried. The
+stages the real objects in a fresh bare repository without provider credentials,
+checks the baseline ancestry and outgoing workflow-file diff **there**, then
+pushes those same staged objects with replace refs disabled. A regression
+uses a checkout-local Git replace ref to conceal a workflow edit and verifies
+the edit is still refused. The absent-ref lease prevents overwriting an
+existing branch; branch updates and full `git` parity are not implemented.
+A rejected or lost Git response is uncertain, not retried. The
 Git credential helper gets a selected token only in the host mediator's
 short-lived subprocess environment. It receives no ambient `gh` login, Git
 Credential Manager configuration, token-bearing URL or agent mount. The CLI
@@ -122,7 +125,16 @@ real model or production service manager, and the broad token plus test-only
 credential custody cannot satisfy the original scoped-identity gate. There
 is no production agent-container route to the loopback endpoint. This remains
 an integration draft, not a reason to lift #97's draft status or accept Q11.
-The run-scoped grant remains short-lived (at most 60 seconds), but a service
+After [amendment 12](AMENDMENT-12.md), grant revocation writes a separate
+checkpoint before exact-container cleanup starts in a background thread.
+Slow cleanup no longer stalls the lease scan, renewals or admission of another
+run; tests hold cleanup open and exercise both. A 50-second use-time TTL plus
+the 5-second heartbeat-loss threshold bounds a lost runner even if the lease
+service's cleanup is slow. The reviewer-identified serial-cleanup and
+replace-ref defects were not exercised in the earlier D2 live observation;
+the corrected code needs fresh evidence. The probe accepts a fresh identity
+and selected `GH_LAOMEDO` key without changing the historical observation.
+The run-scoped grant remains short-lived (less than 60 seconds), but a service
 failure can leave it usable until expiry; the original live hard-kill and
 credential-source acceptance tests remain required.
 
