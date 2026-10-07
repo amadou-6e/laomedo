@@ -90,6 +90,40 @@ class GitHubGitTransportTests(unittest.TestCase):
                 connection_id="connection-a", connection_generation=1)
         self.assertEqual(self.push_calls, [])
 
+    def test_object_alternates_refuse_before_provider_contact(self):
+        alternate = self.checkout / ".git" / "objects" / "info" / "alternates"
+        alternate.write_text(str(self.checkout.parent / "other-objects") + "\n",
+                             encoding="utf-8")
+        self.assertEqual(self._git("rev-parse", "HEAD").stdout.decode().strip(),
+                         self.commit)
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        self.assertIsNone(self.transport.classify_workflow_diff(
+            REPOSITORY, "probe-a", self.commit))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
+    def test_gitdir_redirect_refuses_before_provider_contact(self):
+        git_dir = self.checkout / ".git"
+        git_dir.rename(self.checkout / ".git-real")
+        git_dir.write_text("gitdir: .git-real\n", encoding="utf-8")
+        self.assertEqual(self._git("rev-parse", "HEAD").stdout.decode().strip(),
+                         self.commit)
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        self.assertIsNone(self.transport.classify_workflow_diff(
+            REPOSITORY, "probe-a", self.commit))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
     def test_classification_timeout_refuses_push_before_credential(self):
         def timed_out_diff(args, **kwargs):
             if "diff" in args:

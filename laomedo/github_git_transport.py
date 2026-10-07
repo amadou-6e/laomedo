@@ -176,8 +176,31 @@ class GitHubGitTransport:
         result = self._git("cat-file", "-t", commit)
         return result.returncode == 0 and result.stdout.strip() == b"commit"
 
+    def _plain_object_source(self) -> bool:
+        """Refuse Git metadata that redirects staging outside the checkout.
+
+        The source checkout can be writable by the agent. Git's upload-pack
+        follows objects/info/alternates and linked-worktree gitdir pointers,
+        so a staged commit alone does not prove its objects came from the
+        selected checkout. This is a preflight refusal, not an OS ownership
+        boundary against a concurrent same-user mutation.
+        """
+        git_dir = self.checkout / ".git"
+        objects = git_dir / "objects"
+        info = objects / "info"
+        pack = objects / "pack"
+        if any(not path.is_dir() or path.is_symlink()
+               for path in (git_dir, objects, info, pack)):
+            return False
+        if (git_dir / "commondir").exists() or (git_dir / "commondir").is_symlink():
+            return False
+        alternates = info / "alternates"
+        return not alternates.exists() and not alternates.is_symlink()
+
     def _stage(self, bare: Path, commit: str) -> bool:
         """Fetch real objects into an isolated repository, without credentials."""
+        if not self._plain_object_source():
+            return False
         environment = _base_git_environment()
         try:
             if self._run_git(bare, "init", "--bare", "--quiet", env=environment).returncode:
