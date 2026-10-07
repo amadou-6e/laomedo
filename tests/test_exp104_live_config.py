@@ -45,6 +45,14 @@ class LiveProbeConfigurationTests(unittest.TestCase):
                                "GH", None)
             self.assertFalse(state.exists())
 
+    def test_secret_canary_reports_only_counts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "safe.txt").write_text("safe", encoding="utf-8")
+            (root / "bad.txt").write_text("hidden-test-secret", encoding="utf-8")
+            self.assertEqual(live_probe._secret_canary(root, "hidden-test-secret"),
+                             {"files_scanned": 2, "exact_token_hits": 1})
+
 
 if __name__ == "__main__":
     unittest.main()

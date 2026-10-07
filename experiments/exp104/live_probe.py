@@ -187,6 +187,18 @@ def _call_count(path: Path) -> int:
     return len(path.read_text(encoding="utf-8").splitlines()) if path.exists() else 0
 
 
+def _secret_canary(state: Path, token: str) -> dict:
+    needle = token.encode("utf-8")
+    files = 0
+    hits = 0
+    for path in state.rglob("*"):
+        if path.is_file():
+            files += 1
+            if needle in path.read_bytes():
+                hits += 1
+    return {"files_scanned": files, "exact_token_hits": hits}
+
+
 def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         scope_confirmation: str | None) -> dict:
     if IDENTITY.startswith("exp104-s3-") and (
@@ -326,6 +338,9 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         if status != 200 or pushed.get("state") != "confirmed":
             raise RuntimeError("a_push_not_confirmed_no_retry")
         remote = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A)
+        observation["remote_ref_a_after_push"] = {
+            "sha": remote.get("object", {}).get("sha"), "read_at": time.time()}
+        checkpoint()
         if remote.get("object", {}).get("sha") != commit:
             raise RuntimeError("a_ref_readback_mismatch")
         status, read_b = _mediate(port, bearer_b, "actions_read", read_payload, None)
@@ -356,6 +371,9 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
                                        "provider_calls_after": count_after_denial})
         checkpoint()
         remote_after = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A)
+        observation["remote_ref_a_after_denial"] = {
+            "sha": remote_after.get("object", {}).get("sha"), "read_at": time.time()}
+        checkpoint()
         if (status != 403 or denied.get("error") != "grant_unavailable" or
                 count_after_denial != count_before_denial or
                 remote_after.get("object", {}).get("sha") != commit):
@@ -501,16 +519,38 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         observation["provider_attempts"] = _call_count(mediator_state / "provider-attempts.jsonl")
         observation["container_a_after"] = inspect_exact(CONTAINER_A, RUN_A, LEASE_A)[0]
         observation["container_b_after"] = inspect_exact(CONTAINER_B, RUN_B, LEASE_B)[0]
-        observation["status"] = "bounded_diagnostic_pass"
+        observation["secret_canary"] = _secret_canary(state, token)
+        if observation["secret_canary"]["exact_token_hits"]:
+            raise RuntimeError("secret_canary_failed")
+        observation["status"] = "scoped_candidate_pending_cleanup" if \
+            IDENTITY.startswith("exp104-s3-") else "bounded_diagnostic_pending_cleanup"
         checkpoint()
         return observation
     finally:
         for process in (runner_a, runner_b, runner_c):
             _stop(process)
+        cleanup = {}
         for name, run_id, lease_token in ((CONTAINER_A, RUN_A, LEASE_A),
                                           (CONTAINER_B, RUN_B, LEASE_B),
                                           (CONTAINER_C, RUN_C, LEASE_C)):
-            cleanup_exact(name, run_id, lease_token)
+            try:
+                verified, detail = cleanup_exact(name, run_id, lease_token)
+                state_after, _ = inspect_exact(name, run_id, lease_token)
+                cleanup[name] = {"verified": verified, "detail": detail,
+                                 "state_after": state_after}
+            except Exception:
+                cleanup[name] = {"verified": False, "detail": "cleanup_error",
+                                 "state_after": "unknown"}
+        observation["final_container_cleanup"] = cleanup
+        if observation["status"].endswith("pending_cleanup"):
+            if all(item["verified"] and item["state_after"] == "absent"
+                   for item in cleanup.values()):
+                observation["status"] = ("scoped_candidate_pass" if
+                                         IDENTITY.startswith("exp104-s3-") else
+                                         "bounded_diagnostic_pass")
+            else:
+                observation["status"] = "incomplete"
+        checkpoint()
         for process in (lease, mediator):
             _stop(process)
 
