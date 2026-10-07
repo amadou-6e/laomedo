@@ -23,10 +23,8 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 
 
-def _credential_environment(token: str) -> tuple[dict, str]:
-    """Host-only Git environment without ambient credential/config sources."""
-    helper = Path(__file__).with_name("git_credential_helper.py")
-    command = "!" + shlex.quote(sys.executable) + " " + shlex.quote(str(helper))
+def _base_git_environment() -> dict:
+    """Remove inherited Git and host-account overrides for every Git call."""
     environment = {key: value for key, value in os.environ.items()
                    if not key.startswith(("GIT_CONFIG_", "GCM_")) and
                    key not in {"GH", "GH_TOKEN", "GITHUB_TOKEN", "GIT_ASKPASS",
@@ -37,6 +35,16 @@ def _credential_environment(token: str) -> tuple[dict, str]:
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_ASKPASS": "",
+    })
+    return environment
+
+
+def _credential_environment(token: str) -> tuple[dict, str]:
+    """Host-only Git environment without ambient credential/config sources."""
+    helper = Path(__file__).with_name("git_credential_helper.py")
+    command = "!" + shlex.quote(sys.executable) + " " + shlex.quote(str(helper))
+    environment = _base_git_environment()
+    environment.update({
         "LAOMEDO_MEDIATED_GIT_TOKEN": token,
     })
     return environment, command
@@ -64,7 +72,8 @@ class GitHubGitTransport:
 
     def _run_git(self, directory: Path, *args: str, env: dict | None = None):
         return self.run(["git", "-C", str(directory), *args],
-                        capture_output=True, check=False, env=env)
+                        capture_output=True, check=False,
+                        env=env if env is not None else _base_git_environment())
 
     def _git(self, *args: str, env: dict | None = None):
         return self._run_git(self.checkout, *args, env=env)
