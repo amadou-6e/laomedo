@@ -330,44 +330,41 @@ profile volume persists for future authorized work. This proves the bounded
 local before/after-process-restart route, not refresh rotation, sign-out,
 host reboot recovery, network namespace separation or hosted isolation.
 
-## Patch-route negative control and fail-closed app-owned dispatch
+## Patch-route correction and bounded app-owned dispatch
 
-A later credential-free extension of `probe_runner_split.py` sent an
-agent-originated `apply_patch` call without an Environment ID. In Codex CLI
-0.159.2, it wrote a synthetic marker into the credential controller's private
-profile volume. The same three synthetic turns still routed shell commands to
-the executor; environment, process-tree and controller-only file canaries were
-absent there. An agent-originated `view_image` attempt could not read a PNG in
-the controller profile. The profile write is enough to fail #107's protected
-route requirement. The synthetic token never represented a real login, the
-probe removed its containers and volume, and no new real model turn was used.
+The earlier `a0f9013` and `c1ef8ea` findings reported that an unselected
+`apply_patch` wrote to the credential controller. That conclusion was wrong.
+The check searched a tar archive of the entire controller profile for the
+random marker. Codex also saves the tool-call input in that profile, so the
+archive contained the marker even when the patch wrote elsewhere. The
+historical result and its temporary fail-closed gate remain linked in the
+specification as superseded evidence.
 
-The current probe uses an explicit synthetic token to preserve that negative
-control while the broker is tested separately for restart and reference
-stability. `LocalRunner` now refuses app-owned split preflight, start, async
-start and resume with `controller_patch_route_unisolated` before a turn can be
-reserved. The earlier two real turns remain historical evidence for account
-access and process-restart reuse; they do not establish a safe tool boundary.
-The new four-turn cap is **0/4 used**. Do not submit those turns until a
-credential-free probe shows every offered file and command tool confined to
-the executor, including a negative control that would catch a default route
-back to the controller. A reviewed runner configuration may solve this by
-blocking unselected `apply_patch` calls, but no such configuration is active.
+The corrected `probe_patch_route.py` reads the exact target file through a
+separate read-only mount of the controller profile. It first confirms that a
+host-created control file is visible through that mount, so a missing patch
+file is meaningful. With the active runner configuration and a fake Responses
+backend, the agent-originated patch completed in the executor: its file was
+present in the live executor and absent in the controller. The disposable
+`probe_patch_hook.py` variant produced the same result, without observed hook
+feedback; the hook is not needed and is not active. The full
+`probe_runner_split.py` exercises the app-owned `auth_store` path with a
+synthetic broker account, redirects only that disposable runner instance to
+the fake Responses backend, and checks the controller file exactly after
+three synthetic turns. It retains the controller canary checks. All probes
+used a dummy token, removed disposable containers and volumes, and used zero
+model turns. The new four-turn cap remains **0/4 used** at this correction
+point. The separate programmatic `split_access_token` path is only for
+synthetic probes and must never carry a real credential.
 
-The disposable `probe_patch_hook.py` also tried the apparent configuration
-repair without changing the active runner: a `PreToolUse` deny hook matched to
-`apply_patch`, plus an explicit deny on `/home/runner/.codex`. The synthetic
-hook text was present in the controller's temporary config file, but hook
-registration and execution were not observed, and no feedback appeared
-and the unselected patch still wrote the controller-profile marker. Its
-credential-free result was `patch_reached_controller=true`,
-`hook_feedback_in_fake_request=false`, and two fake Responses requests.
-This does not prove that all Codex hooks fail; it shows that this proposed
-configuration did not repair code-mode patch routing in the pinned 0.159.2
-path. The turn used `externalSandbox`, which may explain why the base
-read-only-root rule and the extra profile rule did not bind; this explanation
-has not been separately tested. The default legacy route was not probed for
-the same patch behavior. The programmatic `split_access_token` synthetic path
-is also outside the app-owned gate and must not carry a real credential. The
-probe removed its temporary containers and volume. The active runner
-configuration is unchanged, and the app-owned gate stays closed.
+Pinned Codex 0.159.2 resolves an `apply_patch` without an Environment ID to
+the turn's primary environment. The runner supplies exactly one registered
+executor environment on thread start, thread resume, and turn start, and now
+refuses a missing, ambiguous, or mismatched selection before dispatch. The
+earlier negative control showed why turn-level selection matters: omitting it
+sent a shell command to the controller. This result supports a bounded
+single-user local continuation, subject to final review and live canaries.
+It does not prove every future Codex version, legacy default routing, native
+per-event executor attestation, independent network namespaces, or hosted
+isolation. Trusted host Docker users can still inspect a running controller's
+token. Actual provider refresh, revocation, and host reboot remain untested.
