@@ -407,7 +407,13 @@ remained. [Sanitized observations](live-route-observation.json) pin the private
 trace hashes and the local harness hash; the raw trace and login remain
 outside Git. The harness source stays in ignored local scratch, so these
 hashes identify the run but do not make it independently replayable without
-the private account.
+the private account. The harness directly checked marker files, completed
+events, run-file token absence, and the agent's answer; separate host checks
+established the credential-check command's exit code, matching credential
+reference/subject/generation, distinct processes and threads, controller-profile
+token absence, and the final split-container count. The live `apply_patch`
+file was in the workspace shared by controller and executor; the corrected
+synthetic exact-file probe establishes executor placement for the pinned route.
 
 This establishes the bounded single-user local before/after-process-restart
 route with a live shell and `apply_patch` canary. It does not establish actual
