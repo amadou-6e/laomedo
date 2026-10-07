@@ -353,3 +353,15 @@ credential-free probe shows every offered file and command tool confined to
 the executor, including a negative control that would catch a default route
 back to the controller. A reviewed runner configuration may solve this by
 blocking unselected `apply_patch` calls, but no such configuration is active.
+
+The disposable `probe_patch_hook.py` also tried the apparent configuration
+repair without changing the active runner: a `PreToolUse` deny hook matched to
+`apply_patch`, plus an explicit deny on `/home/runner/.codex`. The synthetic
+controller loaded the temporary config file, but no hook feedback appeared
+and the unselected patch still wrote the controller-profile marker. Its
+credential-free result was `patch_reached_controller=true`,
+`hook_feedback_in_fake_request=false`, and two fake Responses requests.
+This does not prove that all Codex hooks fail; it shows that this proposed
+hook and profile rule do not repair code-mode patch routing in the pinned
+0.159.2 path. The probe removed its temporary containers and volume. The
+active runner configuration is unchanged, and the app-owned gate stays closed.
