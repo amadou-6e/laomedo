@@ -42,6 +42,8 @@ class LeaseServiceTests(unittest.TestCase):
         lease_dir = self.state / "leases" / token
         lease_dir.mkdir(parents=True)
         (lease_dir / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+        (lease_dir / "heartbeat.monotonic").write_text(
+            repr(time.monotonic()), encoding="utf-8")
         (lease_dir / "lease.json").write_text(json.dumps(
             {"token": token, "run_id": "run-one", "name": "exact-name"}), encoding="utf-8")
         self.service.tick()
@@ -71,6 +73,15 @@ class LeaseServiceTests(unittest.TestCase):
         self.assertEqual(self.service.book.check(secret)[0], False)
         self.service.tick()  # a finished lease is never processed twice
         self.assertEqual(len(self.cleanups), 1)
+
+    def test_monotonic_stale_heartbeat_revokes_even_if_wall_clock_is_fresh(self):
+        lease_dir, secret = self.register()
+        (lease_dir / "heartbeat.monotonic").write_text(
+            repr(time.monotonic() - 10), encoding="utf-8")
+        self.service.tick()
+        result = _result(lease_dir)
+        self.assertEqual(result["reason"], "heartbeat_lost")
+        self.assertFalse(self.service.book.check(secret)[0])
 
     def test_fresh_heartbeat_renews_and_unrenewed_grant_expires(self):
         lease_dir, secret = self.register()

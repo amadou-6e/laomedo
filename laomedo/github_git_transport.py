@@ -21,12 +21,13 @@ from .github_mediation import KnownRejected
 
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
+GIT_COMMAND_TIMEOUT_SECONDS = 30
 
 
 class PushOutcomeUnknown(RuntimeError):
     """A nonzero Git exit; its remote effect remains unknown regardless of hint."""
 
-    def __init__(self, category: str, exit_code: int):
+    def __init__(self, category: str, exit_code: int | None):
         super().__init__("push_outcome_unknown")
         self.category = category
         self.exit_code = exit_code
@@ -100,6 +101,7 @@ class GitHubGitTransport:
     def _run_git(self, directory: Path, *args: str, env: dict | None = None):
         return self.run(["git", "-C", str(directory), *args],
                         capture_output=True, check=False,
+                        timeout=GIT_COMMAND_TIMEOUT_SECONDS,
                         env=env if env is not None else _base_git_environment())
 
     def _git(self, *args: str, env: dict | None = None):
@@ -114,11 +116,15 @@ class GitHubGitTransport:
     def _stage(self, bare: Path, commit: str) -> bool:
         """Fetch real objects into an isolated repository, without credentials."""
         environment = _base_git_environment()
-        if self._run_git(bare, "init", "--bare", "--quiet", env=environment).returncode:
+        try:
+            if self._run_git(bare, "init", "--bare", "--quiet", env=environment).returncode:
+                return False
+            fetched = self._run_git(bare, "fetch", "--no-tags", "--no-write-fetch-head",
+                                    str(self.checkout), commit, env=environment)
+            return fetched.returncode == 0
+        except subprocess.TimeoutExpired:
+            # No provider credential exists yet; fail closed before a push.
             return False
-        fetched = self._run_git(bare, "fetch", "--no-tags", "--no-write-fetch-head",
-                                str(self.checkout), commit, env=environment)
-        return fetched.returncode == 0
 
     def _classify_staged(self, bare: Path, commit: str) -> bool | None:
         environment = _base_git_environment()
@@ -185,11 +191,15 @@ class GitHubGitTransport:
                 raise KnownRejected("provider_credential_unavailable")
             environment, helper_command = _credential_environment(token)
             try:
-                pushed = self._run_git(
-                    bare, "-c", "credential.helper=", "-c",
-                    "credential.helper=" + helper_command,
-                    "push", "--porcelain", "--force-with-lease=" + ref + ":",
-                    remote, commit + ":" + ref, env=environment)
+                try:
+                    pushed = self._run_git(
+                        bare, "-c", "credential.helper=", "-c",
+                        "credential.helper=" + helper_command,
+                        "push", "--porcelain", "--force-with-lease=" + ref + ":",
+                        remote, commit + ":" + ref, env=environment)
+                except subprocess.TimeoutExpired:
+                    # The remote may have accepted the push before Git was killed.
+                    raise PushOutcomeUnknown("timeout", None) from None
             finally:
                 environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
         if pushed.returncode != 0:

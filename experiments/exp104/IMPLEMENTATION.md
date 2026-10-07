@@ -151,3 +151,16 @@ Review dependencies: merged specs #150, #250, #254 and #256; Laomedo #97 and
 merged #103. A later frozen experiment must exercise the deployed mediated
 path with a disposable *repository-scoped* GitHub identity before claiming
 full acceptance. The broad-token diagnostic cannot substitute for that gate.
+
+## Post-S6 safety correction (not live-tested)
+
+The independent review of draft #105 identified unbounded host Git commands
+and wall-clock-only lease enforcement. The follow-up code bounds each Git
+command to 30 seconds; a staging timeout refuses the push, while a push
+timeout remains an `unknown` effect and is never retried automatically. The
+runner heartbeat and grant expiry now also use monotonic deadlines; migrated
+grants without such a deadline fail closed. Synthetic regression tests cover
+clock rollback, stale monotonic heartbeat, old grants, and both Git timeout
+paths. These changes were made **after** the S6 observation and do not revise
+its evidence or establish how a Git subprocess tree behaves during a real
+provider-side timeout. Full EXP-104 and Q11 acceptance remain open.

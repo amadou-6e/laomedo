@@ -80,6 +80,8 @@ class MediatedLeaseTests(unittest.TestCase):
         directory = self.state / "leases" / lease_token
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+        (directory / "heartbeat.monotonic").write_text(
+            repr(time.monotonic()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": lease_token, "run_id": run_id, "name": "container-" + run_id,
             "mediation": {"invocation_id": "invocation-" + run_id,
@@ -215,6 +217,8 @@ class MediatedLeaseTests(unittest.TestCase):
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+        (directory / "heartbeat.monotonic").write_text(
+            repr(time.monotonic()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": "lease-a", "run_id": "a", "name": "container-a"}), encoding="utf-8")
         self.service.tick()
@@ -229,6 +233,8 @@ class MediatedLeaseTests(unittest.TestCase):
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+        (directory / "heartbeat.monotonic").write_text(
+            repr(time.monotonic()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": "lease-a", "run_id": "a", "name": "container-a",
             "mediation": {"invocation_id": "invocation-a",
@@ -311,6 +317,8 @@ class MediatedLeaseTests(unittest.TestCase):
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+        (directory / "heartbeat.monotonic").write_text(
+            repr(time.monotonic()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": "lease-a", "run_id": "a", "name": "container-a",
             "mediation": {"invocation_id": "invocation-a",

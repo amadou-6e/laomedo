@@ -125,6 +125,7 @@ class MediationStore:
     """Durable grant/effect ledger for one trusted mediator process family."""
 
     def __init__(self, path: str | Path, *, now: Callable[[], float] = time.time,
+                 monotonic: Callable[[], float] = time.monotonic,
                  workflow_change_classifier=None, connection_is_current=None):
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
@@ -135,6 +136,7 @@ class MediationStore:
             raise MediationError("store_inside_checkout")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.now = now
+        self.monotonic = monotonic
         self.workflow_change_classifier = workflow_change_classifier
         self.connection_is_current = connection_is_current
         with closing(self._connect()) as db, db:
@@ -171,6 +173,12 @@ class MediationStore:
                 db.execute("ALTER TABLE grants ADD COLUMN connection_id TEXT")
             if "connection_generation" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN connection_generation INTEGER")
+            if "issued_monotonic" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN issued_monotonic REAL")
+            if "expires_monotonic" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN expires_monotonic REAL")
+            # An old grant has no monotonic proof of its remaining lifetime.
+            # Leaving these columns NULL makes every old grant fail closed.
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=10)
@@ -185,7 +193,8 @@ class MediationStore:
               target_prs: dict[int, str] | None = None,
               connection_id: str | None = None,
               connection_generation: int | None = None,
-              expires_not_after: float | None = None) -> tuple[str, str]:
+               expires_not_after: float | None = None,
+               expires_not_after_monotonic: float | None = None) -> tuple[str, str]:
         reviewed_issue_requests = reviewed_issue_requests or {}
         target_prs = target_prs or {}
         if (not all(isinstance(v, str) and v for v in (run_id, invocation_id, repository)) or
@@ -204,6 +213,9 @@ class MediationStore:
                 (expires_not_after is not None and
                  (not isinstance(expires_not_after, (int, float)) or
                   not math.isfinite(expires_not_after))) or
+                 (expires_not_after_monotonic is not None and
+                  (not isinstance(expires_not_after_monotonic, (int, float)) or
+                   not math.isfinite(expires_not_after_monotonic))) or
                 not isinstance(target_prs, dict) or
                 any(type(number) is not int or number < 1 or
                     not isinstance(base, str) or not base
@@ -219,21 +231,26 @@ class MediationStore:
         reviewed_hashes = {key: _request_hash(repository, "issue_create", body)
                            for key, body in reviewed_issue_requests.items()}
         grant_id, token = secrets.token_hex(16), secrets.token_urlsafe(32)
+        issued_monotonic = self.monotonic()
+        expiry_monotonic = issued_monotonic + ttl_seconds
+        if expires_not_after_monotonic is not None:
+            expiry_monotonic = min(expiry_monotonic, expires_not_after_monotonic)
         expiry = self.now() + ttl_seconds
         if expires_not_after is not None:
             expiry = min(expiry, expires_not_after)
-        if expiry <= self.now():
+        if expiry <= self.now() or expiry_monotonic <= issued_monotonic:
             raise MediationError("grant_expired")
         with closing(self._connect()) as db, db:
             db.execute("""INSERT INTO grants
                 (token_hash,grant_id,run_id,invocation_id,repository,operations,
                  branch,reviewed_issue_hashes,expires_at,revoked_at,
-                 connection_id,connection_generation)
-                VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?)""",
+                  connection_id,connection_generation,issued_monotonic,expires_monotonic)
+                 VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?,?)""",
                        (sha256(token.encode()).hexdigest(), grant_id, run_id,
                         invocation_id, repository, json.dumps(sorted(operations)), branch,
                         json.dumps(reviewed_hashes, sort_keys=True),
-                        expiry, connection_id, connection_generation))
+                         expiry, connection_id, connection_generation,
+                         issued_monotonic, expiry_monotonic))
             if lease_token is not None:
                 db.execute("INSERT INTO lease_bindings VALUES (?,?,?,?,?)",
                            (grant_id, run_id, lease_token, lease_scope, service_instance))
@@ -257,23 +274,33 @@ class MediationStore:
 
     def renew_lease(self, *, run_id: str, lease_token: str,
                     lease_scope: str, ttl_seconds: float,
-                    expires_not_after: float | None = None) -> bool:
+                     expires_not_after: float | None = None,
+                     expires_not_after_monotonic: float | None = None) -> bool:
         if (not 0 < ttl_seconds <= 60 or
                 (expires_not_after is not None and
                  (not isinstance(expires_not_after, (int, float)) or
-                  not math.isfinite(expires_not_after)))):
+                   not math.isfinite(expires_not_after))) or
+                (expires_not_after_monotonic is not None and
+                 (not isinstance(expires_not_after_monotonic, (int, float)) or
+                  not math.isfinite(expires_not_after_monotonic)))):
             raise MediationError("grant_renewal_invalid")
         with closing(self._connect()) as db, db:
             now = self.now()
+            now_monotonic = self.monotonic()
             expiry = min(now + ttl_seconds, expires_not_after) if \
                 expires_not_after is not None else now + ttl_seconds
-            if expiry <= now:
+            expiry_monotonic = min(now_monotonic + ttl_seconds,
+                                   expires_not_after_monotonic) if \
+                expires_not_after_monotonic is not None else now_monotonic + ttl_seconds
+            if expiry <= now or expiry_monotonic <= now_monotonic:
                 return False
             result = db.execute(
-                "UPDATE grants SET expires_at=? WHERE grant_id IN "
+                "UPDATE grants SET expires_at=?, expires_monotonic=? WHERE grant_id IN "
                 "(SELECT grant_id FROM lease_bindings WHERE run_id=? AND lease_token=? AND lease_scope=?) "
-                "AND revoked_at IS NULL AND expires_at>?",
-                (expiry, run_id, lease_token, lease_scope, now))
+                "AND revoked_at IS NULL AND expires_at>? AND issued_monotonic IS NOT NULL "
+                "AND issued_monotonic<=? AND expires_monotonic>?",
+                (expiry, expiry_monotonic, run_id, lease_token, lease_scope,
+                 now, now_monotonic, now_monotonic))
             return result.rowcount == 1
 
     def revoke_lease_scope(self, lease_scope: str) -> int:
@@ -297,10 +324,14 @@ class MediationStore:
         if not isinstance(grant_id, str) or not grant_id or not 0 < ttl_seconds <= 60:
             raise MediationError("grant_renewal_invalid")
         with closing(self._connect()) as db, db:
+            now = self.now()
+            now_monotonic = self.monotonic()
             result = db.execute(
-                "UPDATE grants SET expires_at=? WHERE grant_id=? AND revoked_at IS NULL "
-                "AND expires_at>?",
-                (self.now() + ttl_seconds, grant_id, self.now()))
+                "UPDATE grants SET expires_at=?, expires_monotonic=? WHERE grant_id=? "
+                "AND revoked_at IS NULL AND expires_at>? AND issued_monotonic IS NOT NULL "
+                "AND issued_monotonic<=? AND expires_monotonic>?",
+                (now + ttl_seconds, now_monotonic + ttl_seconds, grant_id,
+                 now, now_monotonic, now_monotonic))
             return result.rowcount == 1
 
     def authorize_new_attempt(self, *, prior_run_id: str, prior_effect_id: str,
@@ -327,7 +358,13 @@ class MediationStore:
             raise MediationError("grant_unavailable")
         row = db.execute("SELECT * FROM grants WHERE token_hash=?",
                          (sha256(token.encode()).hexdigest(),)).fetchone()
-        if row is None or row["revoked_at"] is not None or row["expires_at"] <= self.now():
+        now_monotonic = self.monotonic()
+        if (row is None or row["revoked_at"] is not None or
+                row["expires_at"] <= self.now() or
+                row["issued_monotonic"] is None or
+                row["expires_monotonic"] is None or
+                now_monotonic < row["issued_monotonic"] or
+                now_monotonic >= row["expires_monotonic"]):
             raise MediationError("grant_unavailable")
         if row["connection_id"] is not None and not self._connection_current(
                 row["connection_id"], row["connection_generation"], repository):

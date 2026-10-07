@@ -66,22 +66,33 @@ class GrantBook:
         self.by_digest: dict[str, dict] = {}
         self.events = events
 
-    def issue(self, token: str, now: float, expires_not_after: float) -> tuple[str, str]:
+    def issue(self, token: str, now: float, expires_not_after: float,
+              expires_not_after_monotonic: float) -> tuple[str, str]:
         secret = secrets.token_hex(32)
         grant_id = "grant-" + secrets.token_hex(8)
+        issued_monotonic = time.monotonic()
         with self.lock:
             self.by_digest[sha256(secret.encode()).hexdigest()] = {
                 "grant_id": grant_id, "lease_token": token,
                 "expires_at": min(now + GRANT_TTL_SECONDS, expires_not_after),
+                "issued_monotonic": issued_monotonic,
+                "expires_monotonic": min(issued_monotonic + GRANT_TTL_SECONDS,
+                                         expires_not_after_monotonic),
                 "revoked_at": None}
         return grant_id, secret
 
-    def renew(self, token: str, now: float, expires_not_after: float) -> None:
+    def renew(self, token: str, now: float, expires_not_after: float,
+              expires_not_after_monotonic: float) -> None:
+        now_monotonic = time.monotonic()
         with self.lock:
             for grant in self.by_digest.values():
-                if grant["lease_token"] == token and grant["revoked_at"] is None:
+                if (grant["lease_token"] == token and grant["revoked_at"] is None and
+                        grant["expires_monotonic"] > now_monotonic):
                     grant["expires_at"] = min(now + GRANT_TTL_SECONDS,
                                                expires_not_after)
+                    grant["expires_monotonic"] = min(
+                        now_monotonic + GRANT_TTL_SECONDS,
+                        expires_not_after_monotonic)
 
     def revoke(self, token: str, now: float) -> list[str]:
         revoked = []
@@ -94,10 +105,13 @@ class GrantBook:
 
     def check(self, secret: str) -> tuple[bool, str | None]:
         now = time.time()
+        now_monotonic = time.monotonic()
         with self.lock:
             grant = self.by_digest.get(sha256(secret.encode()).hexdigest())
             accepted = (grant is not None and grant["revoked_at"] is None and
-                        now < grant["expires_at"])
+                        now < grant["expires_at"] and
+                        grant["issued_monotonic"] <= now_monotonic <
+                        grant["expires_monotonic"])
             grant_id = grant["grant_id"] if grant else None
             with self.events.open("a", encoding="utf-8") as log:
                 log.write(json.dumps({"at": now, "grant_id": grant_id,
@@ -181,15 +195,25 @@ class LeaseService:
     def _beat(self) -> None:
         while not self.stopping.is_set():
             (self.state / "service.alive").write_text(repr(time.time()), encoding="utf-8")
+            (self.state / "service.alive.monotonic").write_text(
+                repr(time.monotonic()), encoding="utf-8")
             self.stopping.wait(1)
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
         beat = _read_float(lease_dir / "heartbeat")
-        if beat is None or beat > now + 1 or now - beat > self.loss_seconds:
+        beat_monotonic = _read_float(lease_dir / "heartbeat.monotonic")
+        now_monotonic = time.monotonic()
+        if (beat is None or beat_monotonic is None or
+                beat_monotonic > now_monotonic + 1 or
+                now_monotonic - beat_monotonic > self.loss_seconds or
+                beat > now + 1 or now - beat > self.loss_seconds):
             raise RuntimeError("lease_heartbeat_invalid")
         expiry_cap = min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS
+        expiry_cap_monotonic = (min(beat_monotonic, now_monotonic) +
+                                MAX_FROM_HEARTBEAT_SECONDS)
         if self.mediator is None:
-            grant_id, secret = self.book.issue(lease["token"], now, expiry_cap)
+            grant_id, secret = self.book.issue(
+                lease["token"], now, expiry_cap, expiry_cap_monotonic)
         else:
             request = lease.get("mediation")
             if not isinstance(request, dict) or not all(
@@ -214,7 +238,8 @@ class LeaseService:
                 target_prs=scope.get("target_prs", {}),
                 ttl_seconds=GRANT_TTL_SECONDS, lease_token=lease["token"],
                 lease_scope=self.lease_scope, service_instance=self.instance,
-                expires_not_after=expiry_cap)
+                expires_not_after=expiry_cap,
+                expires_not_after_monotonic=expiry_cap_monotonic)
         try:
             # Never create a live bearer using inherited broad file modes.
             secret_path = lease_dir / "grant.secret"
@@ -317,18 +342,26 @@ class LeaseService:
             self._finish(lease_dir, lease, "done", now)
             return
         beat = _read_float(lease_dir / "heartbeat")
+        beat_monotonic = _read_float(lease_dir / "heartbeat.monotonic")
         now = time.time()
-        if (beat is None or beat > now + 1 or
-                now - beat > self.loss_seconds):
+        now_monotonic = time.monotonic()
+        if (beat is None or beat_monotonic is None or
+                beat_monotonic > now_monotonic + 1 or
+                now_monotonic - beat_monotonic > self.loss_seconds or
+                beat > now + 1 or now - beat > self.loss_seconds):
             self._finish(lease_dir, lease, "heartbeat_lost", now)
         elif self.mediator is None:
             self.book.renew(lease["token"], now,
-                            min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS)
+                            min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS,
+                            min(beat_monotonic, now_monotonic) +
+                            MAX_FROM_HEARTBEAT_SECONDS)
         elif not self.mediator.renew_lease(
                 run_id=lease["run_id"], lease_token=lease["token"],
                 lease_scope=self.lease_scope,
                 ttl_seconds=GRANT_TTL_SECONDS,
-                expires_not_after=min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS):
+                 expires_not_after=min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS,
+                 expires_not_after_monotonic=(min(beat_monotonic, now_monotonic) +
+                                               MAX_FROM_HEARTBEAT_SECONDS)):
             self._finish(lease_dir, lease, "grant_expired", now)
 
     def _refuse_lease(self, lease_dir: Path, now: float, error: Exception) -> None:
@@ -412,8 +445,13 @@ class LeaseClient:
         self.state = Path(service_state).resolve()
         info = _read_json(self.state / "service.json")
         alive = _read_float(self.state / "service.alive")
-        if (info is None or alive is None or
-                time.time() - alive > SERVICE_STALE_SECONDS or info.get("pid") == os.getpid()):
+        alive_monotonic = _read_float(self.state / "service.alive.monotonic")
+        now_monotonic = time.monotonic()
+        if (info is None or alive is None or alive_monotonic is None or
+                alive_monotonic > now_monotonic + 1 or
+                now_monotonic - alive_monotonic > SERVICE_STALE_SECONDS or
+                time.time() - alive > SERVICE_STALE_SECONDS or
+                info.get("pid") == os.getpid()):
             raise RuntimeError("lease_service_unavailable")
         self.instance = info.get("instance")
         self.port = info.get("port")
@@ -428,6 +466,8 @@ class LeaseClient:
         self.lost = threading.Event()
         self.stop_event = threading.Event()
         (pending / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+        (pending / "heartbeat.monotonic").write_text(
+            repr(time.monotonic()), encoding="utf-8")
         _write_json(pending / "lease.json", {
             "token": token, "run_id": run_id, "name": name,
             "runner_pid": os.getpid(), "created_at": time.time(),
@@ -456,9 +496,16 @@ class LeaseClient:
         def heartbeat() -> None:
             while not self.stop_event.wait(1):
                 (self.dir / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+                (self.dir / "heartbeat.monotonic").write_text(
+                    repr(time.monotonic()), encoding="utf-8")
                 alive_at = _read_float(self.state / "service.alive")
+                alive_monotonic = _read_float(self.state / "service.alive.monotonic")
                 current = _read_json(self.state / "service.json")
-                if (alive_at is None or time.time() - alive_at > SERVICE_STALE_SECONDS or
+                now_monotonic = time.monotonic()
+                if (alive_at is None or alive_monotonic is None or
+                        alive_monotonic > now_monotonic + 1 or
+                        now_monotonic - alive_monotonic > SERVICE_STALE_SECONDS or
+                        time.time() - alive_at > SERVICE_STALE_SECONDS or
                         current is None or current.get("instance") != self.instance):
                     self.lost.set()
                     cancelled.set()

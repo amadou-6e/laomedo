@@ -10,7 +10,8 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.github_git_transport import (GitHubGitTransport,
-                                          PushOutcomeUnknown)
+                                          PushOutcomeUnknown,
+                                          GIT_COMMAND_TIMEOUT_SECONDS)
 from laomedo.github_mediation import KnownRejected
 from laomedo.github_mediation import MediationStore
 from laomedo.mediation_service import JournaledTransport
@@ -71,6 +72,41 @@ class GitHubGitTransportTests(unittest.TestCase):
         self.assertNotIn("GH_TOKEN", options["env"])
         self.assertNotIn("GIT_CONFIG_COUNT", options["env"])
         self.assertNotIn("GCM_TEST", options["env"])
+        self.assertEqual(options["timeout"], GIT_COMMAND_TIMEOUT_SECONDS)
+
+    def test_staging_timeout_refuses_push_before_credential(self):
+        def timed_out_fetch(args, **kwargs):
+            if "fetch" in args:
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = timed_out_fetch
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
+    def test_push_timeout_is_unknown_without_secret_in_error(self):
+        calls = []
+
+        def timed_out_push(args, **kwargs):
+            if "push" in args:
+                calls.append(args)
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"],
+                                                stderr=b"synthetic-secret")
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = timed_out_push
+        with self.assertRaisesRegex(PushOutcomeUnknown,
+                                    "push_outcome_unknown") as found:
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(found.exception.category, "timeout")
+        self.assertIsNone(found.exception.exit_code)
+        self.assertNotIn("synthetic-secret", str(found.exception))
 
     def test_workflow_file_change_is_detected_and_never_pushed(self):
         workflows = self.checkout / ".github" / "workflows"

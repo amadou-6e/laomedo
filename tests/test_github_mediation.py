@@ -1,6 +1,8 @@
 """Zero-credential checks of the durable mediated-write boundary."""
 
 from pathlib import Path
+from contextlib import closing
+import sqlite3
 import tempfile
 import threading
 import time
@@ -265,6 +267,29 @@ class MediationTests(unittest.TestCase):
     def test_expiry_denies_use_without_any_revocation(self):
         _, token = self.grant(operations={"pr_list"})
         self.clock[0] += 61
+        self.assert_code("grant_unavailable", lambda: self.invoke(token, "pr_list"))
+        self.assertEqual(self.calls, [])
+
+    def test_wall_clock_rollback_cannot_extend_grant(self):
+        wall, mono = [1000.0], [500.0]
+        store = MediationStore(self.path, now=lambda: wall[0],
+                               monotonic=lambda: mono[0])
+        grant_id, token = store.issue(
+            run_id="clock-run", invocation_id="clock-invocation",
+            repository=REPO, operations={"pr_list"}, ttl_seconds=50)
+        wall[0] = 900.0  # A backward wall-clock step cannot extend access.
+        mono[0] = 551.0
+        self.assert_code("grant_unavailable", lambda: store.invoke(
+            token=token, repository=REPO, operation="pr_list", payload={},
+            effect_id=None, transport=self.transport))
+        self.assertFalse(store.renew_grant(grant_id, 50))
+        self.assertEqual(self.calls, [])
+
+    def test_old_grant_without_monotonic_deadline_fails_closed(self):
+        _, token = self.grant(operations={"pr_list"})
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("UPDATE grants SET issued_monotonic=NULL, "
+                       "expires_monotonic=NULL")
         self.assert_code("grant_unavailable", lambda: self.invoke(token, "pr_list"))
         self.assertEqual(self.calls, [])
 
