@@ -14,7 +14,7 @@ user's temporary directory, and the personal session-root hash changed while
 this IDE session was active. Amendment 01 preserved that finding and narrowed
 the listing classification before a rerun.
 
-The retained run used installed `codex-cli 0.155.0-alpha.16.3`. The sole
+The retained host run used installed `codex-cli 0.155.0-alpha.16.3`. The sole
 synthetic project skill appeared exactly once in `skills/list`, at its
 effective private project path, without an explicit skill input, path mention,
 thread, or turn. Six other listed skills lived in the private `CODEX_HOME`;
@@ -26,9 +26,22 @@ retained run. The observation includes a sanitized projection of the native
 `skills/list` response and its request shape. Raw app-server logs and the
 disposable profile were deleted.
 
-**Conclusion:** the private pinned fixture was **offered** by this installed
-Codex build. No native event proves that a model read its body, so `used`
-remains unknown. This does not establish discovery in the pinned Docker
-runner's Codex 0.159.2 build, a model-initiated skill read, or behavior under
-a model turn. A separate model-backed comparison would require a credential
-decision and its own turn cap. The probe did not attempt that comparison.
+After Claude's bounded review, amendment 03 and the pinned-image probe were
+committed before the Docker run. A version-recording correction at `f6241b9`
+preceded the retained [Docker observation](observation-docker.json), SHA-256
+`9e22f55b8d9c99c95f500b1c8bc7ee4be1d58509cfc150411bb01b964f4bd9bc`.
+The exact image ID was
+`sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239`
+and reported `codex-cli 0.159.2`. With no network, credential mount or model
+turn, its native `skills/list` response offered the same fixture exactly once
+at the read-only private project path. Five other skills were under the
+container's private `CODEX_HOME`; none was outside the private project/home
+roots. Source, effective-before and effective-after bytes matched the host
+fixture hash above. The exact disposable container was removed.
+
+**Conclusion:** both the installed host build and the runner's pinned Docker
+build **offered** the private pinned fixture. No native event proves that a
+model read its body, so `used` remains unknown. This does not establish a
+model-initiated skill read or behavior under a model turn. A separate
+model-backed comparison would require a credential decision and its own turn
+cap. The probes did not attempt that comparison.
