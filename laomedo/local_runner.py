@@ -16,6 +16,7 @@ import stat
 import subprocess
 import threading
 import time
+from urllib.request import urlopen
 from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
@@ -31,6 +32,7 @@ IMAGE_ID = "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587
 CLI_VERSION = "codex-cli 0.159.2"
 VOLUME = "laomedo-122-docker-auth"
 CONFIG = Path(__file__).resolve().parent / "runner-config.toml"
+MEDIATION_CLIENT = Path(__file__).resolve().parent / "agent_mediation_client.mjs"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 MAX_BODY = 64 * 1024
@@ -184,12 +186,21 @@ def _native_error_summary(events: list[dict], turn_id: str) -> dict:
 
 def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    name: str | None = None, run_id: str | None = None,
-                   launch_token: str | None = None) -> list[str]:
+                   launch_token: str | None = None,
+                   capability: Path | None = None,
+                   mediator_url: str | None = None) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
     labels = (["--label", f"{LABEL_RUN}={run_id}",
                "--label", f"{LABEL_TOKEN}={launch_token}"]
               if run_id and launch_token else [])
+    mediation = (["--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
+                  "--mount", f"type=bind,source={MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
+                  "--env", "LAOMEDO_MEDIATOR_URL=" + mediator_url,
+                  "--env", "LAOMEDO_CAPABILITY_FILE=/run/laomedo/capability"]
+                 if capability is not None and mediator_url is not None else [])
+    if (capability is None) != (mediator_url is None):
+        raise RunnerError("incomplete_mediator_mount")
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -199,6 +210,7 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             "--mount", f"type=bind,source={canonical},target=/canonical,readonly",
             "--mount", f"type=bind,source={store_mount},target=/store",
             "--mount", f"type=bind,source={CONFIG},target=/config.toml,readonly",
+            *mediation,
             "--workdir", "/draft", IMAGE, "sh", "-c",
             'cp /config.toml /home/runner/.codex/config.toml && exec codex "$@"',
             "bootstrap", "app-server", "--stdio"]
@@ -361,7 +373,8 @@ class LocalRunner:
                  check_docker: bool = True, max_model_turns: int = 0,
                  supervise_containers: bool | None = None,
                  lease_service: Path | None = None,
-                 github_authority: RunGrantAuthority | None = None):
+                 github_authority: RunGrantAuthority | None = None,
+                 mediator_state: Path | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -388,6 +401,7 @@ class LocalRunner:
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
         self.github_authority = github_authority
+        self.mediator_state = _private(mediator_state) if mediator_state else None
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -607,7 +621,8 @@ class LocalRunner:
         github_ref = request.get("github_authorization_ref")
         if github_ref is not None and (self.github_authority is None or
                                        not self.supervise_containers or
-                                       self.lease_service is None):
+                                       self.lease_service is None or
+                                       self.mediator_state is None):
             raise RunnerError("mediated_lease_required")
         run_id = str(uuid4())
         run_dir = self._run_dir(run_id)
@@ -770,6 +785,27 @@ class LocalRunner:
             raise RunnerError("protected_mount_changed")
         return self._execute(run_id, task, resume=True)
 
+    def _mediator_url(self) -> str:
+        # host.docker.internal -> host loopback is checked by the Windows
+        # Docker Desktop probe. Other network layouts need their own check.
+        if os.name != "nt" or self.mediator_state is None:
+            raise RunnerError("mediator_container_route_unverified")
+        try:
+            status = json.loads((self.mediator_state / "mediator.json").read_text(
+                encoding="utf-8"))
+            port = status["port"]
+            instance = status["instance"]
+            if type(port) is not int or not 1 <= port <= 65535 or not re.fullmatch(
+                    r"[0-9a-f]{32}", instance):
+                raise ValueError("invalid_mediator_status")
+            with urlopen(f"http://127.0.0.1:{port}/v1/health", timeout=2) as response:
+                health = json.load(response)
+            if health != {"status": "ready", "instance": instance}:
+                raise ValueError("mediator_instance_mismatch")
+        except (OSError, ValueError, KeyError, TypeError, TimeoutError) as error:
+            raise RunnerError("mediator_unavailable") from error
+        return f"http://host.docker.internal:{port}/v1/mediate"
+
     def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
@@ -807,10 +843,20 @@ class LocalRunner:
                 record["container_ownership"]["grant_id"] = lease.grant_id
                 with self.control_lock:
                     _json(run_dir / "record.json", record)
+            capability = None
+            mediator_url = None
+            if record.get("github_scope") is not None:
+                if lease is None or lease.grant_id is None:
+                    raise RunnerError("mediated_grant_unavailable")
+                capability = lease.dir / "grant.secret"
+                if capability.is_symlink() or not capability.is_file():
+                    raise RunnerError("mediated_capability_unavailable")
+                mediator_url = self._mediator_url()
             launch_attempted = True
             server = self.transport(["docker", *_docker_prefix(
                 run_dir / "workspace", run_dir / "canonical", run_dir / "store",
-                name=name, run_id=run_id, launch_token=launch_token)], run_dir)
+                name=name, run_id=run_id, launch_token=launch_token,
+                capability=capability, mediator_url=mediator_url)], run_dir)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"}})
@@ -855,6 +901,15 @@ class LocalRunner:
                 record.update(status="cancelled", error_category="cancelled_before_turn",
                               cancel_requested=True)
                 return record
+            if record.get("github_scope") is not None:
+                task += ("\n\nThis run has approved, bounded GitHub mediation. "
+                         "To request an authorized operation, pipe one JSON object "
+                         "with repository, operation, payload and (for a write) "
+                         "effect_id to `node /run/laomedo/mediate.mjs`. "
+                         "The client reads its run capability from a read-only file; "
+                         "never print or copy that file. A denied or unknown write "
+                         "must not be retried automatically. Direct host GitHub "
+                         "credentials and ambient gh login are unavailable.")
             sent = server.request("turn/start", {"threadId": native_id,
                 "model": record["requested_model"], "effort": record["requested_effort"],
                 "cwd": "/draft", "input": [{"type": "text", "text": task}]})
@@ -1055,10 +1110,20 @@ def main():
     parser.add_argument("--max-model-turns", type=int, default=0)
     parser.add_argument("--lease-service", type=Path,
                         help="State directory of an independently started lease service")
+    parser.add_argument("--github-authority-store", type=Path,
+                        help="Trusted run-approval database outside the checkout")
+    parser.add_argument("--mediator-state", type=Path,
+                        help="Private host mediator state; only its port is passed to Docker")
     args = parser.parse_args()
+    if (args.github_authority_store is None) != (args.mediator_state is None):
+        parser.error("GitHub authority and mediator state must be configured together")
+    authority = (RunGrantAuthority(args.github_authority_store)
+                 if args.github_authority_store else None)
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
                          max_model_turns=args.max_model_turns,
-                         lease_service=args.lease_service)
+                         lease_service=args.lease_service,
+                         github_authority=authority,
+                         mediator_state=args.mediator_state)
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return

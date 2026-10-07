@@ -12,6 +12,7 @@ from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import secrets
 import threading
 import time
 
@@ -27,8 +28,9 @@ class MediationHTTPService:
     def __init__(self, store: MediationStore, transport, *, host="127.0.0.1", port=0):
         if transport is None:
             raise ValueError("credential_transport_required")
+        self.instance = secrets.token_hex(16)
         self.server = ThreadingHTTPServer((host, port),
-                                          _handler(None, store, transport))
+                                          _handler(None, store, transport, self.instance))
 
     @property
     def port(self):
@@ -111,6 +113,7 @@ def main() -> None:
     status = state / "mediator.json"
     pending = status.with_suffix(".pending")
     pending.write_text(json.dumps({"pid": os.getpid(), "port": service.port,
+                                   "instance": service.instance,
                                    "started_at": time.time(),
                                    "connection_id": args.connection_id,
                                    "generation": args.connection_generation,

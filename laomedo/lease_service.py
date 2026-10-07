@@ -120,10 +120,16 @@ class GrantBook:
 
 
 def _handler(book: GrantBook | None, mediator: MediationStore | None = None,
-             transport=None):
+             transport=None, instance: str | None = None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
+
+        def do_GET(self):
+            if self.path == "/v1/health" and mediator is not None and \
+                    transport is not None and instance is not None:
+                return self._json_reply(200, {"status": "ready", "instance": instance})
+            return self._json_reply(404, {"error": "not_found"})
 
         def do_POST(self):
             if self.path == "/v1/mediate":

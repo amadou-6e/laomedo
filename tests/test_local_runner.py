@@ -11,7 +11,8 @@ from unittest.mock import Mock, patch
 from urllib import request as http_request, error as http_error
 
 from laomedo.local_runner import (AppServer, LocalRunner, RunnerError,
-                                  _hash_tree, _native_error_summary, serve)
+                                  _docker_prefix, _hash_tree, _native_error_summary,
+                                  serve)
 from laomedo.skill_store import SkillStore
 from laomedo.mediation_authority import RunGrantAuthority
 
@@ -66,6 +67,22 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
+    def test_mediator_mount_contains_capability_not_provider_token(self):
+        capability = self.runner.state / "grant.secret"
+        capability.write_text("synthetic-run-capability", encoding="utf-8")
+        command = _docker_prefix(self.root / "source", self.root / "source",
+                                 self.runner.state, capability=capability,
+                                 mediator_url="http://host.docker.internal:1234/v1/mediate")
+        joined = " ".join(command)
+        self.assertIn("source=" + str(capability), joined)
+        self.assertIn("target=/run/laomedo/capability,readonly", joined)
+        self.assertIn("LAOMEDO_MEDIATOR_URL=http://host.docker.internal:1234/v1/mediate",
+                      joined)
+        self.assertNotIn("synthetic-run-capability", joined)
+        self.assertNotIn("GH_TOKEN", joined)
+        with self.assertRaisesRegex(RunnerError, "incomplete_mediator_mount"):
+            _docker_prefix(self.root, self.root, self.root, capability=capability)
+
     def test_container_identity_is_saved_before_transport_launch(self):
         class InspectReservation(FakeServer):
             def __init__(self, command, evidence):
@@ -116,7 +133,8 @@ class LocalRunnerTests(unittest.TestCase):
                                transport=FakeServer, check_docker=False,
                                max_model_turns=6, supervise_containers=True,
                                lease_service=self.root / "lease-state",
-                               github_authority=authority)
+                               github_authority=authority,
+                               mediator_state=self.runner.state / "mediator-state")
         prepared = mediated._prepare(request)
         self.assertEqual(prepared["github_scope"], {
             "invocation_id": "approved-invocation",

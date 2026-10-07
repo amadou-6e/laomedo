@@ -44,6 +44,7 @@ class MediationServiceStartupTests(unittest.TestCase):
             mediation_service.main()
         status = json.loads((self.state / "mediator.json").read_text(encoding="utf-8"))
         self.assertEqual(status["connection_id"], "selected")
+        self.assertRegex(status["instance"], r"^[0-9a-f]{32}$")
         self.assertNotIn("synthetic-provider-secret", json.dumps(status))
 
     def test_lease_service_requires_explicit_mediated_configuration(self):
