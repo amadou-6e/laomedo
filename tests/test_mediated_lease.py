@@ -155,6 +155,23 @@ class MediatedLeaseTests(unittest.TestCase):
             release.set()
         self.assertEqual(_result(first)["reason"], "heartbeat_lost")
 
+    def test_scan_rechecks_time_after_an_earlier_lease_stalls(self):
+        self.register("a", "a-lease")
+        second, _, token_b = self.register("b", "b-lease")
+        original = self.service._tick_lease
+
+        def delayed_first(directory, now):
+            if directory.name == "a-lease":
+                time.sleep(.6)
+            return original(directory, now)
+
+        self.service._tick_lease = delayed_first
+        (second / "heartbeat").write_text(repr(time.time() - .1), encoding="utf-8")
+        self.service.tick()
+        self.assertEqual(_result(second)["reason"], "heartbeat_lost")
+        with self.assertRaisesRegex(MediationError, "grant_unavailable"):
+            self.read(token_b)
+
     def test_trusted_approval_can_authorize_same_repository_read(self):
         with self.assertRaisesRegex(MediationError, "authorization_invalid"):
             self.authority.approve(
@@ -193,6 +210,7 @@ class MediatedLeaseTests(unittest.TestCase):
     def test_incomplete_mediation_request_never_acknowledges(self):
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
+        (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": "lease-a", "run_id": "a", "name": "container-a"}), encoding="utf-8")
         self.service.tick()
@@ -206,6 +224,7 @@ class MediatedLeaseTests(unittest.TestCase):
         self.service.mediation_authority = None
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
+        (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": "lease-a", "run_id": "a", "name": "container-a",
             "mediation": {"invocation_id": "invocation-a",
@@ -287,6 +306,7 @@ class MediatedLeaseTests(unittest.TestCase):
     def test_acknowledgement_write_failure_revokes_issued_grant(self):
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
+        (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": "lease-a", "run_id": "a", "name": "container-a",
             "mediation": {"invocation_id": "invocation-a",

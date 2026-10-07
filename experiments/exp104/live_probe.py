@@ -187,7 +187,12 @@ def _call_count(path: Path) -> int:
     return len(path.read_text(encoding="utf-8").splitlines()) if path.exists() else 0
 
 
-def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
+def run(state: Path, token_file: Path, code_sha: str, token_key: str,
+        scope_confirmation: str | None) -> dict:
+    if IDENTITY.startswith("exp104-s3-") and (
+            token_key != "GH_LAOMEDO" or
+            scope_confirmation != "selected_repository_only"):
+        raise RuntimeError("scoped_identity_confirmation_required")
     if state.exists() or any((parent / ".git").exists() for parent in
                              (state.parent, *state.parent.parents)):
         raise RuntimeError("fresh_private_state_outside_checkout_required")
@@ -240,6 +245,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
             "branches": [BRANCH_A, BRANCH_B, BRANCH_C],
             "run_ids": [RUN_A, RUN_B, RUN_C],
             "connection_id": CONNECTION_ID, "generation": GENERATION,
+            "token_key": token_key, "scope_confirmation": scope_confirmation,
             "image": IMAGE, "preflight_wall": time.time()}
     (state / "plan.json").write_text(json.dumps(plan, sort_keys=True, indent=2) + "\n",
                                      encoding="utf-8", newline="\n")
@@ -249,8 +255,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
     mediator_state.mkdir()
     ledger = mediator_state / "mediator.sqlite"
     approvals = state / "authority.sqlite"
-    authority = RunGrantAuthority(approvals, connection_authorizer=connection.authorize,
-                                  diagnostic_repository_read=True)
+    authority = RunGrantAuthority(approvals, connection_authorizer=connection.authorize)
     mediator = lease = runner_a = runner_b = runner_c = None
     observation = {"plan": plan, "setup": "README initialized before probe",
                    "events": [], "status": "incomplete"}
@@ -285,8 +290,8 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
             reference = authority.approve(
                 invocation_id="invocation-" + run_id, repository=REPOSITORY,
                 branch=branch,
-                operations={"git_push"} if run_id == RUN_A else {"api_rest_read"},
-                reviewed_by="user-authorized-exp104-d2",
+                operations={"git_push"} if run_id == RUN_A else {"actions_read"},
+                reviewed_by="user-authorized-" + IDENTITY,
                 connection_id=CONNECTION_ID, connection_generation=GENERATION)
             authority.bind_run(reference, run_id)
         runner_args = (str(Path(__file__).resolve()), "--runner", "--state", str(lease_state))
@@ -303,7 +308,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
         bearer_a = (lease_state / "leases" / LEASE_A / "grant.secret").read_text()
         bearer_b = (lease_state / "leases" / LEASE_B / "grant.secret").read_text()
         port = info["port"]
-        read_payload = {"method": "GET", "path": "/repos/" + REPOSITORY + "/branches/main"}
+        read_payload = {"resource": "runs"}
         before = _call_count(mediator_state / "provider-attempts.jsonl")
         status, wrong_branch = _mediate(port, bearer_a, "git_push",
                                         {"branch": BRANCH_B, "commit": commit},
@@ -323,7 +328,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
         remote = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A)
         if remote.get("object", {}).get("sha") != commit:
             raise RuntimeError("a_ref_readback_mismatch")
-        status, read_b = _mediate(port, bearer_b, "api_rest_read", read_payload, None)
+        status, read_b = _mediate(port, bearer_b, "actions_read", read_payload, None)
         observation["events"].append({"name": "b_read_before", "http": status,
                                        "state": read_b.get("state"), "at_monotonic": time.monotonic()})
         checkpoint()
@@ -360,7 +365,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
         checkpoint()
         if result.get("cleanup_verified") is not True:
             raise RuntimeError("cleanup_gate_failed")
-        status, read_b = _mediate(port, bearer_b, "api_rest_read", read_payload, None)
+        status, read_b = _mediate(port, bearer_b, "actions_read", read_payload, None)
         observation["events"].append({"name": "b_read_after", "http": status,
                                        "state": read_b.get("state"), "at_monotonic": time.monotonic()})
         checkpoint()
@@ -406,8 +411,8 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
         checkpoint()
         reference = authority.approve(
             invocation_id="invocation-" + RUN_C, repository=REPOSITORY,
-            branch=BRANCH_C, operations={"api_rest_read", "git_push"},
-            reviewed_by="user-authorized-exp104-d2",
+            branch=BRANCH_C, operations={"actions_read", "git_push"},
+            reviewed_by="user-authorized-" + IDENTITY,
             connection_id=CONNECTION_ID, connection_generation=GENERATION)
         authority.bind_run(reference, RUN_C)
         runner_c = _process(*runner_args, "--run-id", RUN_C, "--lease-token", LEASE_C,
@@ -417,7 +422,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
         if ready_c.get("pid") != runner_c.pid:
             raise RuntimeError("new_run_identity_mismatch")
         bearer_c = (lease_state / "leases" / LEASE_C / "grant.secret").read_text()
-        status, new_c = _mediate(port, bearer_c, "api_rest_read", read_payload, None)
+        status, new_c = _mediate(port, bearer_c, "actions_read", read_payload, None)
         if status != 200 or new_c.get("state") != "confirmed":
             raise RuntimeError("new_run_after_restart_failed")
         observation["events"].append({"name": "new_c_read", "http": status,
@@ -427,7 +432,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str) -> dict:
         status, workflow = _mediate(port, bearer_c, "git_push",
                                     {"branch": BRANCH_C, "commit": workflow_commit},
                                     IDENTITY + "-workflow-denied")
-        status_repo, wrong_repo = _mediate(port, bearer_c, "api_rest_read",
+        status_repo, wrong_repo = _mediate(port, bearer_c, "actions_read",
                                             read_payload, None,
                                             repository="ga84jog/other-disposable")
         missing = authority.authorize_lease(
@@ -518,6 +523,8 @@ def main() -> None:
     parser.add_argument("--token-key", default="GH")
     parser.add_argument("--identity", default=IDENTITY)
     parser.add_argument("--connection-id", default=CONNECTION_ID)
+    parser.add_argument("--scope-confirmation",
+                        choices=["selected_repository_only"])
     parser.add_argument("--code-sha")
     parser.add_argument("--record", type=Path)
     parser.add_argument("--run-id")
@@ -542,7 +549,7 @@ def main() -> None:
     select_fresh_identity(args.identity, args.connection_id)
     try:
         result = run(args.state.resolve(), args.token_file.resolve(), args.code_sha,
-                     args.token_key)
+                     args.token_key, args.scope_confirmation)
     except Exception as failure:
         plan_path = args.state / "plan.json"
         result = {"status": "incomplete", "failure_type": type(failure).__name__,

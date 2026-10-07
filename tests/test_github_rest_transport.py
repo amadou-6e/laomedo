@@ -61,16 +61,20 @@ class GitHubRestTransportTests(unittest.TestCase):
 
     def test_actions_and_repository_scoped_read_only(self):
         self.adapter("example/disposable", "actions_read", {"job_id": 12})
+        self.adapter("example/disposable", "actions_read", {"resource": "runs"})
         self.adapter("example/disposable", "api_rest_read", {
             "path": "/repos/example/disposable/issues/1"})
         self.assertEqual([call.full_url for call, _ in self.opener.calls], [
             "https://api.github.com/repos/example/disposable/actions/jobs/12",
+            "https://api.github.com/repos/example/disposable/actions/runs",
             "https://api.github.com/repos/example/disposable/issues/1"])
+        with self.assertRaisesRegex(KnownRejected, "actions_target_invalid"):
+            self.adapter("example/disposable", "actions_read", {"resource": "other"})
         for path in ("/repos/other/repo/issues/1", "/repos/example/disposable/../other",
                      "/repos/example/disposable/%2e%2e/other"):
             with self.assertRaisesRegex(KnownRejected, "api_path_denied"):
                 self.adapter("example/disposable", "api_rest_read", {"path": path})
-        self.assertEqual(len(self.opener.calls), 2)
+        self.assertEqual(len(self.opener.calls), 3)
 
     def test_unsupported_writes_fail_without_ambient_gh_fallback(self):
         for operation in ("git_push", "api_rest_write", "api_graphql_mutation"):

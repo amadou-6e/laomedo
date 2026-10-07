@@ -33,6 +33,7 @@ SERVICE_STALE_SECONDS = 3.0
 # A runner can be lost just after a renewal. Keep the hard credential TTL
 # below the 60-second loss bound even if service cleanup is delayed.
 GRANT_TTL_SECONDS = 50.0
+MAX_FROM_HEARTBEAT_SECONDS = 58.0
 POLL_SECONDS = 0.25
 
 
@@ -65,20 +66,22 @@ class GrantBook:
         self.by_digest: dict[str, dict] = {}
         self.events = events
 
-    def issue(self, token: str, now: float) -> tuple[str, str]:
+    def issue(self, token: str, now: float, expires_not_after: float) -> tuple[str, str]:
         secret = secrets.token_hex(32)
         grant_id = "grant-" + secrets.token_hex(8)
         with self.lock:
             self.by_digest[sha256(secret.encode()).hexdigest()] = {
                 "grant_id": grant_id, "lease_token": token,
-                "expires_at": now + GRANT_TTL_SECONDS, "revoked_at": None}
+                "expires_at": min(now + GRANT_TTL_SECONDS, expires_not_after),
+                "revoked_at": None}
         return grant_id, secret
 
-    def renew(self, token: str, now: float) -> None:
+    def renew(self, token: str, now: float, expires_not_after: float) -> None:
         with self.lock:
             for grant in self.by_digest.values():
                 if grant["lease_token"] == token and grant["revoked_at"] is None:
-                    grant["expires_at"] = now + GRANT_TTL_SECONDS
+                    grant["expires_at"] = min(now + GRANT_TTL_SECONDS,
+                                               expires_not_after)
 
     def revoke(self, token: str, now: float) -> list[str]:
         revoked = []
@@ -181,8 +184,12 @@ class LeaseService:
             self.stopping.wait(1)
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
+        beat = _read_float(lease_dir / "heartbeat")
+        if beat is None or beat > now + 1 or now - beat > self.loss_seconds:
+            raise RuntimeError("lease_heartbeat_invalid")
+        expiry_cap = min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS
         if self.mediator is None:
-            grant_id, secret = self.book.issue(lease["token"], now)
+            grant_id, secret = self.book.issue(lease["token"], now, expiry_cap)
         else:
             request = lease.get("mediation")
             if not isinstance(request, dict) or not all(
@@ -206,7 +213,8 @@ class LeaseService:
                 connection_generation=scope.get("connection_generation"),
                 target_prs=scope.get("target_prs", {}),
                 ttl_seconds=GRANT_TTL_SECONDS, lease_token=lease["token"],
-                lease_scope=self.lease_scope, service_instance=self.instance)
+                lease_scope=self.lease_scope, service_instance=self.instance,
+                expires_not_after=expiry_cap)
         try:
             # Never create a live bearer using inherited broad file modes.
             secret_path = lease_dir / "grant.secret"
@@ -274,17 +282,16 @@ class LeaseService:
                          name="laomedo-lease-cleanup").start()
 
     def tick(self) -> None:
-        now = time.time()
         for lease_dir in sorted((self.state / "leases").iterdir()):
             if (not lease_dir.is_dir() or (lease_dir / "result.json").exists() or
                     lease_dir in self._finishing):
                 continue
             try:
-                self._tick_lease(lease_dir, now)
+                self._tick_lease(lease_dir, time.time())
             except Exception as error:
                 # One runner-controlled lease must not stop revocation and
                 # exact-container cleanup for every other run.
-                self._refuse_lease(lease_dir, now, error)
+                self._refuse_lease(lease_dir, time.time(), error)
 
     def _tick_lease(self, lease_dir: Path, now: float) -> None:
         lease = _read_json(lease_dir / "lease.json")
@@ -303,14 +310,18 @@ class LeaseService:
             self._finish(lease_dir, lease, "done", now)
             return
         beat = _read_float(lease_dir / "heartbeat")
-        if beat is None or now - beat > self.loss_seconds:
+        now = time.time()
+        if (beat is None or beat > now + 1 or
+                now - beat > self.loss_seconds):
             self._finish(lease_dir, lease, "heartbeat_lost", now)
         elif self.mediator is None:
-            self.book.renew(lease["token"], now)
+            self.book.renew(lease["token"], now,
+                            min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS)
         elif not self.mediator.renew_lease(
                 run_id=lease["run_id"], lease_token=lease["token"],
                 lease_scope=self.lease_scope,
-                ttl_seconds=GRANT_TTL_SECONDS):
+                ttl_seconds=GRANT_TTL_SECONDS,
+                expires_not_after=min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS):
             self._finish(lease_dir, lease, "grant_expired", now)
 
     def _refuse_lease(self, lease_dir: Path, now: float, error: Exception) -> None:

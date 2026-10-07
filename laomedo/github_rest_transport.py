@@ -76,9 +76,12 @@ class GitHubRestTransport:
             body = {k: payload[k] for k in ("title", "body")}
         elif operation == "actions_read":
             job_id = payload.get("job_id")
-            if type(job_id) is not int or job_id < 1:
+            if payload == {"resource": "runs"}:
+                path = prefix + "/actions/runs"
+            elif type(job_id) is int and job_id > 0 and len(payload) == 1:
+                path = prefix + f"/actions/jobs/{job_id}"
+            else:
                 raise KnownRejected("actions_target_invalid")
-            path = prefix + f"/actions/jobs/{job_id}"
         elif operation == "api_rest_read":
             suffix = payload.get("path")
             if (not isinstance(suffix, str) or not suffix.startswith(prefix + "/") or

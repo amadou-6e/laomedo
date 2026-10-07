@@ -3,6 +3,7 @@
 from pathlib import Path
 import tempfile
 import threading
+import time
 import unittest
 
 from laomedo.github_mediation import KnownRejected, MediationError, MediationStore
@@ -61,6 +62,69 @@ class MediationTests(unittest.TestCase):
         self.assert_code("effect_conflict", lambda: self.invoke(
             token, "git_push", {"branch": "run-a-branch", "commit": "b" * 40}, "effect-1"))
         self.assertEqual(len(self.calls), 1)
+
+    def test_slow_workflow_classification_does_not_lock_lease_renewal(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def classify(*_):
+            started.set()
+            if not release.wait(3):
+                raise AssertionError("classification not released")
+            return False
+
+        store = MediationStore(self.path, now=lambda: self.clock[0],
+                               workflow_change_classifier=classify)
+        _, token = store.issue(
+            run_id="slow", invocation_id="invocation-slow", repository=REPO,
+            branch="slow-branch", operations={"git_push"}, ttl_seconds=50,
+            lease_token="lease-slow", lease_scope="service", service_instance="one")
+        outcome = []
+
+        def push():
+            try:
+                outcome.append(store.invoke(
+                    token=token, repository=REPO, operation="git_push",
+                    payload={"branch": "slow-branch", "commit": "a" * 40},
+                    effect_id="slow-effect", transport=self.transport))
+            except Exception as failure:
+                outcome.append(failure)
+
+        worker = threading.Thread(target=push)
+        worker.start()
+        try:
+            self.assertTrue(started.wait(1))
+            began = time.monotonic()
+            self.assertTrue(store.renew_lease(
+                run_id="slow", lease_token="lease-slow",
+                lease_scope="service", ttl_seconds=50))
+            self.assertLess(time.monotonic() - began, 1)
+        finally:
+            release.set()
+            worker.join(3)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(outcome[0]["state"], "confirmed")
+
+    def test_lease_expiry_cannot_extend_past_last_heartbeat_cap(self):
+        store = MediationStore(self.path, now=lambda: self.clock[0])
+        _, token = store.issue(
+            run_id="bounded", invocation_id="invocation-bounded", repository=REPO,
+            operations={"pr_list"}, ttl_seconds=50,
+            lease_token="lease-bounded", lease_scope="service",
+            service_instance="one", expires_not_after=1005)
+        self.clock[0] = 1004
+        self.assertTrue(store.renew_lease(
+            run_id="bounded", lease_token="lease-bounded",
+            lease_scope="service", ttl_seconds=50,
+            expires_not_after=1005))
+        self.clock[0] = 1006
+        self.assert_code("grant_unavailable", lambda: store.invoke(
+            token=token, repository=REPO, operation="pr_list", payload={},
+            effect_id=None, transport=self.transport))
+        self.assertFalse(store.renew_lease(
+            run_id="bounded", lease_token="lease-bounded",
+            lease_scope="service", ttl_seconds=50,
+            expires_not_after=1005))
 
     def test_lost_response_survives_reopen_without_resend(self):
         _, token = self.grant()

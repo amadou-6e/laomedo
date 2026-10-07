@@ -10,6 +10,7 @@ from __future__ import annotations
 from contextlib import closing
 from hashlib import sha256
 import json
+import math
 from pathlib import Path
 import secrets
 import sqlite3
@@ -66,7 +67,7 @@ def _target_key(repository: str, operation: str, payload: dict) -> str:
 
 
 def _validate_effect(operation: str, payload: dict, grant, db,
-                     workflow_change_classifier) -> None:
+                     changes_workflow: bool | None) -> None:
     """Enforce semantic approval before a generic API mutation is dispatched."""
     if operation == "git_push":
         if not all(isinstance(payload.get(key), str) and payload[key]
@@ -76,15 +77,8 @@ def _validate_effect(operation: str, payload: dict, grant, db,
             raise MediationError("push_branch_invalid")
         if payload["branch"] != grant["branch"]:
             raise MediationError("push_branch_denied")
-        # Only a trusted inspection of the actual outgoing diff may decide
-        # whether the separate workflow-file approval is needed.
-        if workflow_change_classifier is None:
-            raise MediationError("push_diff_unverified")
-        try:
-            changes_workflow = workflow_change_classifier(
-                grant["repository"], payload["branch"], payload["commit"])
-        except Exception:
-            raise MediationError("push_diff_unverified") from None
+        # The expensive trusted inspection was performed without a write
+        # transaction. Revalidate the grant and branch inside this transaction.
         if changes_workflow is not False:
             raise MediationError("workflow_approval_required" if changes_workflow is True
                                  else "push_diff_unverified")
@@ -190,7 +184,8 @@ class MediationStore:
               service_instance: str | None = None,
               target_prs: dict[int, str] | None = None,
               connection_id: str | None = None,
-              connection_generation: int | None = None) -> tuple[str, str]:
+              connection_generation: int | None = None,
+              expires_not_after: float | None = None) -> tuple[str, str]:
         reviewed_issue_requests = reviewed_issue_requests or {}
         target_prs = target_prs or {}
         if (not all(isinstance(v, str) and v for v in (run_id, invocation_id, repository)) or
@@ -206,6 +201,9 @@ class MediationStore:
                 (any(v is not None for v in (lease_token, lease_scope, service_instance)) and
                  not all(isinstance(v, str) and v for v in
                          (lease_token, lease_scope, service_instance))) or
+                (expires_not_after is not None and
+                 (not isinstance(expires_not_after, (int, float)) or
+                  not math.isfinite(expires_not_after))) or
                 not isinstance(target_prs, dict) or
                 any(type(number) is not int or number < 1 or
                     not isinstance(base, str) or not base
@@ -221,6 +219,11 @@ class MediationStore:
         reviewed_hashes = {key: _request_hash(repository, "issue_create", body)
                            for key, body in reviewed_issue_requests.items()}
         grant_id, token = secrets.token_hex(16), secrets.token_urlsafe(32)
+        expiry = self.now() + ttl_seconds
+        if expires_not_after is not None:
+            expiry = min(expiry, expires_not_after)
+        if expiry <= self.now():
+            raise MediationError("grant_expired")
         with closing(self._connect()) as db, db:
             db.execute("""INSERT INTO grants
                 (token_hash,grant_id,run_id,invocation_id,repository,operations,
@@ -230,7 +233,7 @@ class MediationStore:
                        (sha256(token.encode()).hexdigest(), grant_id, run_id,
                         invocation_id, repository, json.dumps(sorted(operations)), branch,
                         json.dumps(reviewed_hashes, sort_keys=True),
-                        self.now() + ttl_seconds, connection_id, connection_generation))
+                        expiry, connection_id, connection_generation))
             if lease_token is not None:
                 db.execute("INSERT INTO lease_bindings VALUES (?,?,?,?,?)",
                            (grant_id, run_id, lease_token, lease_scope, service_instance))
@@ -253,15 +256,24 @@ class MediationStore:
             return ids
 
     def renew_lease(self, *, run_id: str, lease_token: str,
-                    lease_scope: str, ttl_seconds: float) -> bool:
-        if not 0 < ttl_seconds <= 60:
+                    lease_scope: str, ttl_seconds: float,
+                    expires_not_after: float | None = None) -> bool:
+        if (not 0 < ttl_seconds <= 60 or
+                (expires_not_after is not None and
+                 (not isinstance(expires_not_after, (int, float)) or
+                  not math.isfinite(expires_not_after)))):
             raise MediationError("grant_renewal_invalid")
         with closing(self._connect()) as db, db:
+            now = self.now()
+            expiry = min(now + ttl_seconds, expires_not_after) if \
+                expires_not_after is not None else now + ttl_seconds
+            if expiry <= now:
+                return False
             result = db.execute(
                 "UPDATE grants SET expires_at=? WHERE grant_id IN "
                 "(SELECT grant_id FROM lease_bindings WHERE run_id=? AND lease_token=? AND lease_scope=?) "
                 "AND revoked_at IS NULL AND expires_at>?",
-                (self.now() + ttl_seconds, run_id, lease_token, lease_scope, self.now()))
+                (expiry, run_id, lease_token, lease_scope, now))
             return result.rowcount == 1
 
     def revoke_lease_scope(self, lease_scope: str) -> int:
@@ -354,14 +366,28 @@ class MediationStore:
             if not isinstance(effect_id, str) or not 0 < len(effect_id) <= 128:
                 raise MediationError("effect_id_required")
         digest = _request_hash(repository, operation, payload)
+        changes_workflow = None
+        if operation == "git_push":
+            # A Git fetch may take longer than SQLite's busy timeout. Verify
+            # the capability without a write lock, classify immutable commit
+            # objects, then recheck the grant in the transaction below.
+            with closing(self._connect()) as preflight_db:
+                preflight_grant = self._grant(preflight_db, token, repository, operation)
+                if payload.get("branch") != preflight_grant["branch"]:
+                    raise MediationError("push_branch_denied")
+            if self.workflow_change_classifier is not None:
+                try:
+                    changes_workflow = self.workflow_change_classifier(
+                        repository, payload.get("branch"), payload.get("commit"))
+                except Exception:
+                    pass
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             grant = self._grant(db, token, repository, operation)
             if operation in READS:
                 _validate_read(operation, payload, repository)
             if operation in WRITES:
-                _validate_effect(operation, payload, grant, db,
-                                 self.workflow_change_classifier)
+                _validate_effect(operation, payload, grant, db, changes_workflow)
                 prior = db.execute("SELECT * FROM effects WHERE run_id=? AND effect_id=?",
                                    (grant["run_id"], effect_id)).fetchone()
                 if prior:

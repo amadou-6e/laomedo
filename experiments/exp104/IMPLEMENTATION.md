@@ -134,6 +134,15 @@ service's cleanup is slow. The reviewer-identified serial-cleanup and
 replace-ref defects were not exercised in the earlier D2 live observation;
 the corrected code needs fresh evidence. The probe accepts a fresh identity
 and selected `GH_LAOMEDO` key without changing the historical observation.
+The independent recheck then found an expensive Git classifier running inside
+the shared SQLite write transaction. [Amendment 13](AMENDMENT-13.md) moves
+classification outside that transaction, rechecks the grant before intent is
+committed, and tests another lease renewal while classification is held open.
+The heartbeat clock is read per lease; issue and renewal expiry are capped by
+the last heartbeat plus 58 seconds. S3 grants only the first-slice Actions
+run-list read rather than D2's diagnostic general REST read. The S3 probe
+requires the `GH_LAOMEDO` key and an explicit selected-repository confirmation
+before any provider contact; that confirmation must still be corroborated.
 The run-scoped grant remains short-lived (less than 60 seconds), but a service
 failure can leave it usable until expiry; the original live hard-kill and
 credential-source acceptance tests remain required.

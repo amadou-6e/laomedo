@@ -3,6 +3,7 @@
 import unittest
 import importlib.util
 from pathlib import Path
+import tempfile
 
 
 _PROBE = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "live_probe.py"
@@ -32,6 +33,17 @@ class LiveProbeConfigurationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "experiment_identity_invalid"):
             live_probe.select_fresh_identity("../old", "exp104-s3-selected-gh")
         self.assertEqual(live_probe.IDENTITY, self.original_identity)
+
+    def test_scoped_candidate_refuses_without_selected_token_provenance(self):
+        live_probe.select_fresh_identity("exp104-s3-20261007-01",
+                                         "exp104-s3-selected-gh")
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "untouched-state"
+            with self.assertRaisesRegex(RuntimeError,
+                                        "scoped_identity_confirmation_required"):
+                live_probe.run(state, Path(directory) / "missing-token", "0" * 40,
+                               "GH", None)
+            self.assertFalse(state.exists())
 
 
 if __name__ == "__main__":
