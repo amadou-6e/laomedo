@@ -32,7 +32,7 @@ BASELINE = "1f1a505f2fbd31993a7946924a9bec5a27bb15c1"
 IMAGE = "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84"
 CONNECTION_ID = "exp104-d2-selected-gh"
 GENERATION = 1
-IDENTITY = "exp104-d2-20261007-01"
+IDENTITY = "exp104-d2-20261007-02"
 BRANCH_A = IDENTITY + "-a"
 BRANCH_B = IDENTITY + "-b"
 BRANCH_C = IDENTITY + "-c"
@@ -76,6 +76,10 @@ def _wait(path: Path, timeout: float = 20) -> dict:
             value = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(value, dict):
                 return value
+        failure_path = path.with_suffix(".error.json")
+        if failure_path.is_file():
+            failure = json.loads(failure_path.read_text(encoding="utf-8"))
+            raise RuntimeError("runner_start_failed:" + failure.get("code", "unknown"))
         time.sleep(.05)
     raise RuntimeError("ready_timeout")
 
@@ -97,7 +101,8 @@ def _runner(state: Path, run_id: str, lease_token: str, name: str,
         IMAGE, "python", "-c", "import time; time.sleep(180)"],
         env=_base_git_environment(), capture_output=True, timeout=30)
     if launched.returncode:
-        raise RuntimeError("container_launch_failed")
+        (ready.parent / (ready.stem + ".docker-stderr.txt")).write_bytes(launched.stderr)
+        raise RuntimeError("container_launch_failed:" + str(launched.returncode))
     owned, _ = inspect_exact(name, run_id, lease_token)
     if owned != "owned":
         raise RuntimeError("container_identity_unverified")
@@ -228,6 +233,13 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
     mediator = lease = runner_a = runner_b = runner_c = None
     observation = {"plan": plan, "setup": "README initialized before probe",
                    "events": [], "status": "incomplete"}
+    progress_path = state / "progress.json"
+
+    def checkpoint() -> None:
+        progress_path.write_text(json.dumps(observation, sort_keys=True, indent=2) + "\n",
+                                 encoding="utf-8", newline="\n")
+
+    checkpoint()
     try:
         mediator = _process("-m", "laomedo.mediation_service",
                             "--state", str(mediator_state), "--repository", REPOSITORY,
@@ -284,6 +296,7 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
                                   {"branch": BRANCH_A, "commit": commit}, IDENTITY + "-push-a")
         observation["events"].append({"name": "a_push", "http": status,
                                        "state": pushed.get("state"), "at_monotonic": time.monotonic()})
+        checkpoint()
         if status != 200 or pushed.get("state") != "confirmed":
             raise RuntimeError("a_push_not_confirmed_no_retry")
         remote = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A)
@@ -292,12 +305,15 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
         status, read_b = _mediate(port, bearer_b, "api_rest_read", read_payload, None)
         observation["events"].append({"name": "b_read_before", "http": status,
                                        "state": read_b.get("state"), "at_monotonic": time.monotonic()})
+        checkpoint()
         if status != 200 or read_b.get("state") != "confirmed":
             raise RuntimeError("b_read_failed")
         killed = _kill_runner(runner_a)
         observation["runner_loss"] = killed
+        checkpoint()
         result = _wait(lease_state / "leases" / LEASE_A / "result.json", timeout=40)
         observation["lease_result_a"] = result
+        checkpoint()
         if (result.get("reason") != "heartbeat_lost" or
                 result.get("cleanup_verified") is not True or
                 result.get("revoked_at", float("inf")) - killed["completed_wall"] > 60):
@@ -311,6 +327,7 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
                                        "at_monotonic": time.monotonic(),
                                        "provider_calls_before": count_before_denial,
                                        "provider_calls_after": count_after_denial})
+        checkpoint()
         remote_after = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A)
         if (status != 403 or denied.get("error") != "grant_unavailable" or
                 count_after_denial != count_before_denial or
@@ -319,6 +336,7 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
         status, read_b = _mediate(port, bearer_b, "api_rest_read", read_payload, None)
         observation["events"].append({"name": "b_read_after", "http": status,
                                        "state": read_b.get("state"), "at_monotonic": time.monotonic()})
+        checkpoint()
         if status != 200 or read_b.get("state") != "confirmed":
             raise RuntimeError("b_continuity_failed")
         # Restart only the independent lease service. No old grant may be
@@ -348,6 +366,7 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
         observation["events"].append({"name": "service_restart_old_b", "http": status,
                                        "error": old_b.get("error"),
                                        "new_instance": restarted["instance"]})
+        checkpoint()
         reference = authority.approve(
             invocation_id="invocation-" + RUN_C, repository=REPOSITORY,
             branch=BRANCH_C, operations={"api_rest_read", "git_push"},
@@ -366,6 +385,7 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
             raise RuntimeError("new_run_after_restart_failed")
         observation["events"].append({"name": "new_c_read", "http": status,
                                        "state": new_c.get("state")})
+        checkpoint()
         before_controls = _call_count(mediator_state / "provider-attempts.jsonl")
         status, workflow = _mediate(port, bearer_c, "git_push",
                                     {"branch": BRANCH_C, "commit": workflow_commit},
@@ -440,6 +460,7 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
         observation["container_a_after"] = inspect_exact(CONTAINER_A, RUN_A, LEASE_A)[0]
         observation["container_b_after"] = inspect_exact(CONTAINER_B, RUN_B, LEASE_B)[0]
         observation["status"] = "bounded_diagnostic_pass"
+        checkpoint()
         return observation
     finally:
         for process in (runner_a, runner_b, runner_c):
@@ -466,8 +487,14 @@ def main() -> None:
     parser.add_argument("--ready", type=Path)
     args = parser.parse_args()
     if args.runner:
-        _runner(args.state, args.run_id, args.lease_token, args.container,
-                args.branch, args.ready)
+        try:
+            _runner(args.state, args.run_id, args.lease_token, args.container,
+                    args.branch, args.ready)
+        except Exception as failure:
+            args.ready.with_suffix(".error.json").write_text(
+                json.dumps({"code": str(failure) if type(failure) is RuntimeError else
+                            type(failure).__name__}) + "\n", encoding="utf-8", newline="\n")
+            raise
         return
     if (args.token_file is None or args.code_sha is None or args.record is None or
             args.record.exists() or not args.record.parent.is_dir()):
@@ -479,8 +506,10 @@ def main() -> None:
         result = {"status": "incomplete", "failure_type": type(failure).__name__,
                   "failure_code": str(failure) if type(failure) is RuntimeError else
                   "external_or_unexpected_error",
-                  "plan": json.loads(plan_path.read_text(encoding="utf-8"))
-                  if plan_path.exists() else None,
+                  "progress": json.loads((args.state / "progress.json").read_text(encoding="utf-8"))
+                  if (args.state / "progress.json").exists() else None,
+                  "plan": json.loads(plan_path.read_text(encoding="utf-8")) if plan_path.exists()
+                  else None,
                   "provider_attempts": _call_count(args.state / "mediator" /
                                                     "provider-attempts.jsonl")}
         with args.record.open("x", encoding="utf-8", newline="\n") as output:
