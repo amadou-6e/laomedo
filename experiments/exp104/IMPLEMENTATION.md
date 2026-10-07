@@ -155,12 +155,18 @@ full acceptance. The broad-token diagnostic cannot substitute for that gate.
 ## Post-S6 safety correction (not live-tested)
 
 The independent review of draft #105 identified unbounded host Git commands
-and wall-clock-only lease enforcement. The follow-up code bounds each Git
-command to 30 seconds; a staging timeout refuses the push, while a push
-timeout remains an `unknown` effect and is never retried automatically. The
+and wall-clock-only lease enforcement. The follow-up code gives the parent
+Git process a 30-second deadline and attempts to stop its process tree on
+timeout. A staging timeout refuses the push; a push timeout remains an
+`unknown` effect and is never retried automatically. Tree cleanup is marked
+unverified if the OS refuses it. Neither a timeout nor tree cleanup proves
+that an already-started remote write did not land. The
 runner heartbeat and grant expiry now also use monotonic deadlines; migrated
 grants without such a deadline fail closed. Synthetic regression tests cover
-clock rollback, stale monotonic heartbeat, old grants, and both Git timeout
-paths. These changes were made **after** the S6 observation and do not revise
-its evidence or establish how a Git subprocess tree behaves during a real
-provider-side timeout. Full EXP-104 and Q11 acceptance remain open.
+clock rollback, stale monotonic heartbeat, old grants, both Git timeout
+paths, and a descendant's late local effect where process-tree cleanup is
+permitted. These changes were made **after** the S6 observation and do not
+revise its evidence or establish how a Git subprocess tree behaves during a
+real provider-side timeout. Monotonic values are shared only among processes
+on the same host; distributing the lease service and mediator across hosts is
+outside this design. Full EXP-104 and Q11 acceptance remain open.

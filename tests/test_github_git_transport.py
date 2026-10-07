@@ -6,12 +6,15 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
 from laomedo.github_git_transport import (GitHubGitTransport,
                                           PushOutcomeUnknown,
-                                          GIT_COMMAND_TIMEOUT_SECONDS)
+                                          GIT_COMMAND_TIMEOUT_SECONDS,
+                                          GitTreeTimeout,
+                                          _run_bounded_tree)
 from laomedo.github_mediation import KnownRejected
 from laomedo.github_mediation import MediationStore
 from laomedo.mediation_service import JournaledTransport
@@ -87,6 +90,19 @@ class GitHubGitTransportTests(unittest.TestCase):
                 connection_id="connection-a", connection_generation=1)
         self.assertEqual(self.push_calls, [])
 
+    def test_classification_timeout_refuses_push_before_credential(self):
+        def timed_out_diff(args, **kwargs):
+            if "diff" in args:
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = timed_out_diff
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
     def test_push_timeout_is_unknown_without_secret_in_error(self):
         calls = []
 
@@ -107,6 +123,22 @@ class GitHubGitTransportTests(unittest.TestCase):
         self.assertEqual(found.exception.category, "timeout")
         self.assertIsNone(found.exception.exit_code)
         self.assertNotIn("synthetic-secret", str(found.exception))
+
+    def test_bounded_runner_stops_descendant_before_late_effect(self):
+        sentinel = self.checkout / "late-child-effect.txt"
+        child = ("import time; from pathlib import Path; "
+                 f"time.sleep(2); Path({str(sentinel)!r}).write_text('late')")
+        parent = ("import subprocess,time,sys; "
+                  f"subprocess.Popen([sys.executable,'-c',{child!r}]); "
+                  "time.sleep(10)")
+        with self.assertRaises(GitTreeTimeout) as found:
+            _run_bounded_tree([sys.executable, "-c", parent],
+                              capture_output=True, check=False, timeout=.5,
+                              env=os.environ.copy())
+        time.sleep(2.2)
+        if not found.exception.cleanup_verified:
+            self.skipTest("OS denied process-tree kill; result remains unverified")
+        self.assertFalse(sentinel.exists(), "timed-out command left a live child")
 
     def test_workflow_file_change_is_detected_and_never_pushed(self):
         workflows = self.checkout / ".github" / "workflows"

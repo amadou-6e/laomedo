@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,65 @@ from .github_mediation import KnownRejected
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 GIT_COMMAND_TIMEOUT_SECONDS = 30
+GIT_TREE_CLEANUP_SECONDS = 5
+
+
+class GitTreeTimeout(subprocess.TimeoutExpired):
+    """A timeout with an explicit tree-cleanup verification result."""
+
+    def __init__(self, args: list[str], timeout: float, cleanup_verified: bool):
+        super().__init__(args, timeout)
+        self.cleanup_verified = cleanup_verified
+
+
+def _run_bounded_tree(args: list[str], *, capture_output: bool, check: bool,
+                      timeout: float, env: dict):
+    """Bound a Git command and its descendants without a shell or host login."""
+    if not capture_output or check:
+        raise ValueError("git_runner_options_invalid")
+    options = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE,
+               "env": env}
+    if os.name == "nt":
+        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    process = subprocess.Popen(args, **options)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # Kill while the parent still exists so taskkill can enumerate its
+        # descendants. A bare Popen.kill() would strand git-remote-https.
+        cleanup_verified = False
+        if os.name == "nt":
+            try:
+                killed = subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    check=False, timeout=GIT_TREE_CLEANUP_SECONDS)
+                cleanup_verified = killed.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+                cleanup_verified = True
+            except ProcessLookupError:
+                pass
+        if process.poll() is None:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+        try:
+            process.communicate(timeout=GIT_TREE_CLEANUP_SECONDS)
+        except subprocess.TimeoutExpired:
+            # Do not wait forever for a child that inherited an output pipe.
+            for pipe in (process.stdout, process.stderr):
+                if pipe is not None:
+                    pipe.close()
+            process.wait(timeout=GIT_TREE_CLEANUP_SECONDS)
+        raise GitTreeTimeout(args, timeout, cleanup_verified) from None
+    return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
 
 
 class PushOutcomeUnknown(RuntimeError):
@@ -96,7 +156,7 @@ class GitHubGitTransport:
         self.checkout = checkout
         self.baseline = baseline
         self.token_supplier = token_supplier
-        self.run = run
+        self.run = _run_bounded_tree if run is subprocess.run else run
 
     def _run_git(self, directory: Path, *args: str, env: dict | None = None):
         return self.run(["git", "-C", str(directory), *args],
@@ -128,17 +188,21 @@ class GitHubGitTransport:
 
     def _classify_staged(self, bare: Path, commit: str) -> bool | None:
         environment = _base_git_environment()
-        if self._run_git(bare, "cat-file", "-t", commit,
-                         env=environment).stdout.strip() != b"commit":
-            return None
-        ancestor = self._run_git(bare, "merge-base", "--is-ancestor",
-                                 self.baseline, commit, env=environment)
-        if ancestor.returncode != 0:
-            return None
-        changed = self._run_git(bare, "diff", "--no-ext-diff", "--no-textconv",
-                                "--name-only", "-z", "--no-renames",
-                                self.baseline, commit, env=environment)
-        if changed.returncode != 0:
+        try:
+            if self._run_git(bare, "cat-file", "-t", commit,
+                             env=environment).stdout.strip() != b"commit":
+                return None
+            ancestor = self._run_git(bare, "merge-base", "--is-ancestor",
+                                     self.baseline, commit, env=environment)
+            if ancestor.returncode != 0:
+                return None
+            changed = self._run_git(bare, "diff", "--no-ext-diff", "--no-textconv",
+                                    "--name-only", "-z", "--no-renames",
+                                    self.baseline, commit, env=environment)
+            if changed.returncode != 0:
+                return None
+        except subprocess.TimeoutExpired:
+            # Classification uses only local objects, before provider contact.
             return None
         return any(path.startswith(b".github/workflows/") for path in
                    changed.stdout.split(b"\0") if path)
@@ -166,7 +230,11 @@ class GitHubGitTransport:
         if not isinstance(branch, str) or not branch or branch.startswith("refs/"):
             raise KnownRejected("push_branch_invalid")
         ref = "refs/heads/" + branch
-        if self._git("check-ref-format", ref).returncode != 0:
+        try:
+            branch_valid = self._git("check-ref-format", ref).returncode == 0
+        except subprocess.TimeoutExpired:
+            branch_valid = False
+        if not branch_valid:
             raise KnownRejected("push_branch_invalid")
         if not isinstance(commit, str) or not _SHA.fullmatch(commit):
             raise KnownRejected("push_commit_unverified")
@@ -197,9 +265,11 @@ class GitHubGitTransport:
                         "credential.helper=" + helper_command,
                         "push", "--porcelain", "--force-with-lease=" + ref + ":",
                         remote, commit + ":" + ref, env=environment)
-                except subprocess.TimeoutExpired:
+                except subprocess.TimeoutExpired as error:
                     # The remote may have accepted the push before Git was killed.
-                    raise PushOutcomeUnknown("timeout", None) from None
+                    category = ("timeout" if getattr(error, "cleanup_verified", None)
+                                is not False else "timeout_cleanup_unverified")
+                    raise PushOutcomeUnknown(category, None) from None
             finally:
                 environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
         if pushed.returncode != 0:
