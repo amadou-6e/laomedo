@@ -1,5 +1,12 @@
 # #107 Codex subscription connection boundary probe
 
+**Current result (2026-10-07):** The app-owned split runner passed a bounded
+single-user local live check before and after runner-process restart. The
+original single-container no-go below remains valid for that old route; the
+later split-route correction and [live observation](live-route-observation.json)
+supersede it for the pinned local route. Refresh rotation, provider
+revocation, host reboot and hosted isolation are still unproven.
+
 Observed on 2026-10-07 against Laomedo `c93be20`, Docker Desktop Engine
 27.3.1, and the pinned `laomedo-codex-boundary:0.159.2` image. This is a
 credential-free check of the existing controller and command layout, not a
@@ -368,3 +375,38 @@ It does not prove every future Codex version, legacy default routing, native
 per-event executor attestation, independent network namespaces, or hosted
 isolation. Trusted host Docker users can still inspect a running controller's
 token. Actual provider refresh, revocation, and host reboot remain untested.
+
+## Live route recheck after the correction
+
+After specs #269 and Laomedo #112 merged, the existing app-owned ChatGPT
+connection passed a model-free preflight with `gpt-6-luna` at `low` effort.
+No browser sign-in or credential copy was needed. The operator had authorized
+four additional submitted turns beyond the earlier 2/2 ledger. Two were used,
+leaving the private ledger at **4/6 total, 2/4 of the extension used**.
+
+Both new turns used the merged split runner, the actual
+`openai_chatgpt_plan` provider configuration, and the same pinned `live-107`
+skill. In the first turn, the agent checked that `ACCESS_TOKEN` was absent
+from its environment and process-1 environment and that its executor had no
+Codex `auth.json`. It followed the skill, wrote and read back the skill-only
+marker with a shell command, then used `apply_patch` to create a separate
+random marker file and read that back. A second Python runner process repeated
+the same work with the same nonsecret credential reference, provider subject
+hash and credential generation. Both runs completed in distinct native
+threads, with completed command and file-change events and matching host-read
+files. No access or refresh token was found in either private run directory
+or in the persistent controller profile, and no disposable split container
+remained. [Sanitized observations](live-route-observation.json) pin the private
+trace hashes and the local harness hash; the raw trace and login remain
+outside Git. The harness source stays in ignored local scratch, so these
+hashes identify the run but do not make it independently replayable without
+the private account.
+
+This establishes the bounded single-user local before/after-process-restart
+route with a live shell and `apply_patch` canary. It does not establish actual
+refresh rotation, provider revocation, host reboot recovery, event-level
+executor attestation, independent network namespaces, legacy routing, or
+hosted/multi-user isolation. Docker administrators on the host can still
+inspect an active controller token through container metadata. The two
+remaining authorized turns were not spent because both required live checks
+passed.

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "observed_on": "2026-10-07",
+  "scope": "bounded_single_user_local_codex_subscription",
+  "implementation_merge_commit": "037897ce00c7085a3befa188d9809bdbe87d70fc",
+  "specification_merge_commit": "9f94b7dcbdce960460dbeec114c10e15b5372576",
+  "model": "gpt-6-luna",
+  "effort": "low",
+  "credential_mode": "chatgpt_plan_oauth",
+  "same_nonsecret_credential_reference": true,
+  "same_provider_subject_hash": true,
+  "same_credential_generation": true,
+  "browser_reauthentication_between_runs": false,
+  "turn_cap_extension": 4,
+  "extension_turns_used": 2,
+  "total_turn_ledger": {
+    "attempted": 4,
+    "authorized": 6
+  },
+  "private_harness_sha256": "951b036886f9f90c1188d8dca0d716e8eda7432dc9ae19c94041e1f94e6b7cd3",
+  "runs": [
+    {
+      "phase": "before_runner_process_restart",
+      "run_id": "f53f5523-2728-4c65-a18b-cb1538c93ac0",
+      "attempt_number": 3,
+      "status": "completed",
+      "error_category": null,
+      "skill_marker_match": true,
+      "patch_marker_match": true,
+      "command_event_completed": true,
+      "file_change_event_completed": true,
+      "agent_credential_check_command_exit_zero": true,
+      "agent_reported_credential_absent": true,
+      "access_and_refresh_tokens_absent_from_private_run_files": true,
+      "raw_event_sha256": "40b05c9ec95503463214a4e075d3181c0e8ca5d1b8d52a5a10272a47d986cd93",
+      "record_sha256": "779a1ca6a026f1dade08838199ec71b163b7e2509710e337e48ddcdfa42af73b"
+    },
+    {
+      "phase": "after_runner_process_restart",
+      "run_id": "3e75c476-c2cd-4664-b0f7-f9df4e2849a5",
+      "attempt_number": 4,
+      "status": "completed",
+      "error_category": null,
+      "skill_marker_match": true,
+      "patch_marker_match": true,
+      "command_event_completed": true,
+      "file_change_event_completed": true,
+      "agent_credential_check_command_exit_zero": true,
+      "agent_reported_credential_absent": true,
+      "access_and_refresh_tokens_absent_from_private_run_files": true,
+      "raw_event_sha256": "cf431d6d0f600889e69abe312e609f6d8490cafa5905891751a19e9e06aab718",
+      "record_sha256": "27aa9df609d989775839641bc36cd76b1dbe2ee3571e04054c9255b643946943"
+    }
+  ],
+  "run_processes_distinct": true,
+  "native_threads_distinct": true,
+  "tokens_absent_from_persistent_controller_profile": true,
+  "disposable_split_containers_remaining": 0,
+  "raw_traces_and_credentials_committed": false,
+  "not_established": [
+    "actual_refresh_rotation",
+    "provider_revocation",
+    "host_reboot_recovery",
+    "native_per_event_executor_attestation",
+    "independent_network_namespaces",
+    "legacy_tool_route",
+    "hosted_or_multi_user_isolation"
+  ]
+}
