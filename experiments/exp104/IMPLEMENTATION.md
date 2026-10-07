@@ -28,9 +28,10 @@ enforces one grant per lease token.
 The runner now stages heartbeat and lease metadata outside the directory the
 service scans, then publishes the complete registration with one directory
 rename. This removes the gap in which a normal runner could be permanently
-refused because the service saw its empty directory. A refused lease reports
-its sanitized error code to the runner instead of a generic acceptance
-timeout. An interrupted runner can leave an unscanned staging directory; it
+refused because the service saw its empty directory. A refused lease gets an
+early, sanitized refusal record, so the runner can report the error while
+exact cleanup continues; only the final result claims cleanup status. An
+interrupted runner can leave an unscanned staging directory; it
 cannot receive a grant from that directory. A transient database failure
 still causes fail-closed terminal lease handling rather than automatic retry;
 whether to tolerate short locks is an open reliability choice.

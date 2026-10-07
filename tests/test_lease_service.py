@@ -185,7 +185,13 @@ class LeaseClientTests(unittest.TestCase):
 
     def test_client_reports_service_refusal_without_waiting_for_timeout(self):
         store = MediationStore(Path(self.temp.name) / "mediator.sqlite")
-        service = LeaseService(self.state, mediator=store)
+        cleanup_started = threading.Event()
+        release_cleanup = threading.Event()
+        def slow_cleanup(*_):
+            cleanup_started.set()
+            release_cleanup.wait(10)
+            return True, "synthetic_cleanup"
+        service = LeaseService(self.state, mediator=store, cleanup=slow_cleanup)
         runner = threading.Thread(target=service.serve, daemon=True)
         runner.start()
         def stop_service():
@@ -195,14 +201,19 @@ class LeaseClientTests(unittest.TestCase):
         deadline = time.monotonic() + 5
         while not (self.state / "service.alive").exists() and time.monotonic() < deadline:
             time.sleep(.05)
-        with patch("laomedo.lease_service.os.getpid", return_value=-2):
-            with self.assertRaisesRegex(
-                    RuntimeError, "lease_service_refused:mediated_lease_not_authorized"):
-                LeaseClient(self.state, run_id="r", name="n", token="t",
-                            cancelled=threading.Event(),
-                            mediation_request={"invocation_id": "i",
-                                               "repository": "example/disposable",
-                                               "branch": "probe-r"})
+        try:
+            with patch("laomedo.lease_service.os.getpid", return_value=-2):
+                with self.assertRaisesRegex(
+                        RuntimeError, "lease_service_refused:mediated_lease_not_authorized"):
+                    LeaseClient(self.state, run_id="r", name="n", token="t",
+                                cancelled=threading.Event(),
+                                mediation_request={"invocation_id": "i",
+                                                   "repository": "example/disposable",
+                                                   "branch": "probe-r"})
+            self.assertTrue(cleanup_started.is_set())
+            self.assertFalse((self.state / "leases" / "t" / "result.json").exists())
+        finally:
+            release_cleanup.set()
 
 
 if __name__ == "__main__":

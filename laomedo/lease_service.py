@@ -281,6 +281,18 @@ class LeaseService:
         valid = (lease is not None and lease.get("token") == lease_dir.name and
                  all(isinstance(lease.get(k), str) and lease[k]
                      for k in ("token", "run_id", "name")))
+        code = (str(error) if isinstance(error, RuntimeError) and
+                str(error) in {"lease_identity_invalid", "mediated_lease_request_invalid",
+                               "mediated_lease_not_authorized"}
+                else type(error).__name__)
+        try:
+            # The final result waits for exact cleanup. Give a registering
+            # runner the refusal immediately, without implying cleanup has
+            # finished or allowing dispatch.
+            _write_json(lease_dir / "refused.json", {"error_code": code,
+                                                     "detected_at": now})
+        except OSError:
+            pass
         revoked, revocation_verified = [], False
         cleanup_verified, detail = False, "identity_invalid"
         if valid:
@@ -298,10 +310,6 @@ class LeaseService:
                     lease["name"], lease["run_id"], lease["token"])
             except Exception:
                 detail = "cleanup_error"
-        code = (str(error) if isinstance(error, RuntimeError) and
-                str(error) in {"lease_identity_invalid", "mediated_lease_request_invalid",
-                               "mediated_lease_not_authorized"}
-                else type(error).__name__)
         try:
             _write_json(lease_dir / "result.json", {
                 "reason": "refused" if not (lease_dir / "accepted.json").exists() else "lease_error",
@@ -366,6 +374,8 @@ class LeaseClient:
             if accepted is not None:
                 break
             refused = _read_json(self.dir / "result.json")
+            if refused is None:
+                refused = _read_json(self.dir / "refused.json")
             if refused is not None:
                 code = refused.get("error_code") or refused.get("reason", "unknown")
                 raise RuntimeError(f"lease_service_refused:{code}")
