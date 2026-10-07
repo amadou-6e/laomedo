@@ -2,8 +2,9 @@
 
 The first credential-free run of the frozen protocol discovered the private
 fixture, but counted seven skill paths under the real Windows home and saw a
-change in the personal Codex session-root hash. That broad path test cannot
-tell packaged skills under the VS Code extension apart from personal skill
+change in the personal Codex session-root hash. The disposable private profile
+was itself in the Windows user's temporary directory, so that broad path test
+could not distinguish private fixture or built-in paths from personal skill
 directories. The current IDE conversation can also change its own session
 file during the probe. The first run remains a failed and inconclusive
 isolation observation.
