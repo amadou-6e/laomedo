@@ -141,6 +141,17 @@ class LeaseClientTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.state = Path(self.temp.name) / "service"
 
+    def wait_for_service(self):
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if (lease_service._read_json(self.state / "service.json") is not None and
+                    lease_service._read_float(self.state / "service.alive") is not None and
+                    lease_service._read_float(
+                        self.state / "service.alive.monotonic") is not None):
+                return
+            time.sleep(.05)
+        self.fail("lease service did not publish complete readiness")
+
     def test_client_refuses_missing_or_stale_service(self):
         with self.assertRaisesRegex(RuntimeError, "lease_service_unavailable"):
             LeaseClient(self.state, run_id="r", name="n", token="t",
@@ -158,9 +169,7 @@ class LeaseClientTests(unittest.TestCase):
         runner = threading.Thread(target=service.serve, daemon=True)
         runner.start()
         self.addCleanup(service.stopping.set)
-        deadline = time.monotonic() + 5
-        while not (self.state / "service.alive").exists() and time.monotonic() < deadline:
-            time.sleep(.05)
+        self.wait_for_service()
         cancelled = threading.Event()
         # The service runs in-thread here; production refuses a same-process service.
         with patch("laomedo.lease_service.os.getpid", return_value=-2):
@@ -182,9 +191,7 @@ class LeaseClientTests(unittest.TestCase):
             service.stopping.set()
             runner.join(3)
         self.addCleanup(stop_service)
-        deadline = time.monotonic() + 5
-        while not (self.state / "service.alive").exists() and time.monotonic() < deadline:
-            time.sleep(.05)
+        self.wait_for_service()
 
         original_write = lease_service._write_json
         saw_staged_registration = []
@@ -224,9 +231,7 @@ class LeaseClientTests(unittest.TestCase):
             service.stopping.set()
             runner.join(3)
         self.addCleanup(stop_service)
-        deadline = time.monotonic() + 5
-        while not (self.state / "service.alive").exists() and time.monotonic() < deadline:
-            time.sleep(.05)
+        self.wait_for_service()
         try:
             with patch("laomedo.lease_service.os.getpid", return_value=-2):
                 with self.assertRaisesRegex(
