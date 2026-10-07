@@ -199,6 +199,8 @@ def _auth_record_error(exc: AuthError) -> tuple[str, str]:
         return "auth_revoked", "revoked"
     if code == "auth_account_mismatch":
         return "auth_account_mismatch", "account_mismatch"
+    if code == "auth_generation_changed":
+        return "auth_generation_changed", "generation_changed"
     return "auth_mode_unavailable", code.removeprefix("auth_")
 
 
@@ -1140,25 +1142,55 @@ class LocalRunner:
                 turn_params["sandboxPolicy"] = {"type": "externalSandbox",
                                                  "networkAccess": "restricted"}
             if self.auth:
+                auth_failure = {"error": "auth_revoked_during_turn",
+                                "outcome": "revoked", "code": "auth_revoked"}
+
                 def still_authorized():
                     try:
                         current = self.auth.active()
                         selected = self.auth.summary(current)
-                        return (current.get("state") == "active" and
-                                all(selected.get(key) == auth_summary.get(key)
-                                    for key in ("credential_ref",
-                                                "provider_subject_hash")))
-                    except (AuthError, OSError, ValueError):
+                    except AuthError as exc:
+                        category, outcome = _auth_record_error(exc)
+                        auth_failure.update(error=category + "_during_turn",
+                                            outcome=outcome, code=str(exc))
                         return False
+                    except (OSError, ValueError):
+                        auth_failure.update(error="auth_unavailable_during_turn",
+                                            outcome="unavailable",
+                                            code="auth_mode_unavailable")
+                        return False
+                    if current.get("state") != "active":
+                        if current.get("state") in {"refresh_unknown",
+                                                    "refresh_in_flight"}:
+                            auth_failure.update(error="auth_refresh_failed_during_turn",
+                                                outcome="refresh_unknown",
+                                                code="auth_refresh_unknown")
+                        return False
+                    if any(selected.get(key) != auth_summary.get(key)
+                           for key in ("credential_ref", "provider_subject_hash")):
+                        auth_failure.update(error="auth_account_changed_during_turn",
+                                            outcome="account_mismatch",
+                                            code="auth_account_mismatch")
+                        return False
+                    if selected.get("generation") != auth_summary.get("generation"):
+                        auth_failure.update(error="auth_generation_changed_during_turn",
+                                            outcome="generation_changed",
+                                            code="auth_generation_changed")
+                        return False
+                    return True
+
                 server.authorization_probe = still_authorized
                 if not still_authorized():
-                    raise AuthError("auth_revoked")
+                    raise AuthError(auth_failure["code"])
             sent = server.request("turn/start", turn_params)
             turn_id = ((sent.get("result") or {}).get("turn") or {}).get("id")
             if not turn_id:
                 raise RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
+            if self.auth and error == "auth_revoked_during_turn":
+                error = auth_failure["error"]
+                record["credential"]["auth_outcome"] = auth_failure["outcome"]
             native_errors = _native_error_summary(server.events, turn_id)
             if status == "failed" and error is None and native_errors["last_category"]:
                 error = "codex_" + native_errors["last_category"]

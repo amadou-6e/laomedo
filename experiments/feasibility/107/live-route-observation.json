@@ -13,6 +13,17 @@
   "browser_reauthentication_between_runs": false,
   "synthetic_workspace_disposal_before_reconstructed_runner_passed": true,
   "synthetic_workspace_disposal_model_turns": 0,
+  "host_tests": {
+    "passed": 227,
+    "skipped": 4,
+    "synthetic_auth_transition_cases": [
+      "mid_turn_revocation_keeps_consumed_turn_and_partial_trace",
+      "mid_turn_account_change_is_distinct",
+      "mid_turn_generation_change_is_distinct",
+      "mid_turn_refresh_uncertainty_is_distinct",
+      "pre_turn_generation_change_refuses_model_submission"
+    ]
+  },
   "turn_cap_extension": 4,
   "extension_turns_used": 2,
   "total_turn_ledger": {

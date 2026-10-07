@@ -417,3 +417,11 @@ hosted/multi-user isolation. Docker administrators on the host can still
 inspect an active controller token through container metadata. The two
 remaining authorized turns were not spent because both required live checks
 passed.
+
+The host suite also exercises authorization changes around a turn. A
+pre-turn generation change refuses model submission. Synthetic mid-turn
+revocation, account switching, generation replacement and refresh uncertainty
+end as `unknown` with a distinct sanitized category and outcome; a consumed
+turn and partial trace remain recorded. These are fake-server tests, not
+claims that a provider-side revocation or refresh was observed live. The
+suite passed **227 tests, 4 skipped** at this evidence revision.
