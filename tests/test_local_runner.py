@@ -132,6 +132,163 @@ class LocalRunnerTests(unittest.TestCase):
                                             "^executor_selection_mismatch$"):
                     SplitAppServer.assert_executor_selection(server, bad)
 
+    def test_split_wait_turn_revocation_interrupts_without_completion(self):
+        server = SimpleNamespace(events=[{"method": "item/completed",
+            "params": {"item": {"type": "commandExecution"}}}],
+            authorization_probe=lambda: False, interrupt=Mock())
+        status, error = SplitAppServer.wait_turn(
+            server, "native-turn", 1, threading.Event())
+        self.assertEqual((status, error), ("unknown", "auth_revoked_during_turn"))
+        server.interrupt.assert_called_once_with("native-turn")
+
+    def test_mid_turn_revocation_retains_turn_ledger_and_partial_trace(self):
+        state = {"active": True}
+
+        class ConnectedAccount:
+            def access_token(self):
+                return "SYNTHETIC", {"credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture", "generation": 1,
+                    "auth_outcome": "active"}
+
+            def active(self):
+                return {"state": "active" if state["active"] else "revoked"}
+
+            def summary(self, _account):
+                return {"credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture", "generation": 1,
+                    "auth_outcome": "active"}
+
+        class RevokedDuringTurn(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                self.events.append({"method": "item/completed", "params": {
+                    "item": {"type": "commandExecution", "exitCode": 0}}})
+                self.log.write('{"method":"item/completed"}\n')
+                self.log.flush()
+                state["active"] = False
+                assert not self.authorization_probe()
+                return "unknown", "auth_revoked_during_turn"
+
+        self.runner.transport = RevokedDuringTurn
+        self.runner.auth = ConnectedAccount()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["error_category"], "auth_revoked_during_turn")
+        self.assertEqual(result["credential"]["auth_outcome"], "revoked")
+        self.assertEqual(result["attempt_number"], 1)
+        self.assertEqual(result["turns"][0]["status"], "unknown")
+        self.assertTrue((self.runner._run_dir(result["run_id"]) /
+                         "raw-events.jsonl").exists())
+        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json")
+                         .read_text())["attempted_turns"], 1)
+
+    def test_mid_turn_account_or_generation_change_is_not_reported_as_revocation(self):
+        for change, expected_error, expected_outcome in (
+                ("account", "auth_account_changed_during_turn", "account_mismatch"),
+                ("generation", "auth_generation_changed_during_turn",
+                 "generation_changed")):
+            state = {"credential_ref": "chatgpt:fixture", "generation": 1}
+
+            class ConnectedAccount:
+                def access_token(self):
+                    return "SYNTHETIC", {"credential_ref": "chatgpt:fixture",
+                        "provider_subject_hash": "sha256:fixture", "generation": 1,
+                        "auth_outcome": "active"}
+
+                def active(self):
+                    return {"state": "active"}
+
+                def summary(self, _account):
+                    return {"credential_ref": state["credential_ref"],
+                        "provider_subject_hash": "sha256:fixture",
+                        "generation": state["generation"], "auth_outcome": "active"}
+
+            class ChangedDuringTurn(FakeServer):
+                def wait_turn(self, turn_id, timeout, cancelled):
+                    self.events.append({"method": "item/completed", "params": {
+                        "item": {"type": "commandExecution", "exitCode": 0}}})
+                    state["credential_ref" if change == "account" else
+                          "generation"] = ("chatgpt:other" if change == "account"
+                                           else 2)
+                    assert not self.authorization_probe()
+                    return "unknown", "auth_revoked_during_turn"
+
+            self.runner.transport = ChangedDuringTurn
+            self.runner.auth = ConnectedAccount()
+            result = self.runner.start(self.request())
+            with self.subTest(change=change):
+                self.assertEqual(result["status"], "unknown")
+                self.assertEqual(result["error_category"], expected_error)
+                self.assertEqual(result["credential"]["auth_outcome"],
+                                 expected_outcome)
+                self.assertEqual(result["turns"][0]["error_category"],
+                                 expected_error)
+        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json")
+                         .read_text())["attempted_turns"], 2)
+
+    def test_generation_change_before_turn_refuses_without_model_submission(self):
+        class ChangedBeforeTurn(FakeServer):
+            turn_starts = 0
+
+            def request(self, method, params, timeout=30):
+                if method == "turn/start":
+                    type(self).turn_starts += 1
+                return super().request(method, params, timeout)
+
+        class Account:
+            def access_token(self):
+                return "SYNTHETIC", {"credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture", "generation": 1,
+                    "auth_outcome": "active"}
+
+            def active(self):
+                return {"state": "active"}
+
+            def summary(self, _account):
+                return {"credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture", "generation": 2,
+                    "auth_outcome": "active"}
+
+        self.runner.transport = ChangedBeforeTurn
+        self.runner.auth = Account()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "auth_generation_changed")
+        self.assertEqual(result["credential"]["auth_outcome"],
+                         "generation_changed")
+        self.assertEqual(result["turns"], [])
+        self.assertEqual(ChangedBeforeTurn.turn_starts, 0)
+
+    def test_mid_turn_refresh_uncertainty_stays_distinct_from_revocation(self):
+        state = {"value": "active"}
+
+        class Account:
+            def access_token(self):
+                return "SYNTHETIC", {"credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture", "generation": 1,
+                    "auth_outcome": "active"}
+
+            def active(self):
+                return {"state": state["value"]}
+
+            def summary(self, _account):
+                return {"credential_ref": "chatgpt:fixture",
+                    "provider_subject_hash": "sha256:fixture", "generation": 1,
+                    "auth_outcome": state["value"]}
+
+        class RefreshUnknown(FakeServer):
+            def wait_turn(self, turn_id, timeout, cancelled):
+                state["value"] = "refresh_unknown"
+                assert not self.authorization_probe()
+                return "unknown", "auth_revoked_during_turn"
+
+        self.runner.transport = RefreshUnknown
+        self.runner.auth = Account()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "unknown")
+        self.assertEqual(result["error_category"], "auth_refresh_failed_during_turn")
+        self.assertEqual(result["credential"]["auth_outcome"], "refresh_unknown")
+        self.assertEqual(result["attempt_number"], 1)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

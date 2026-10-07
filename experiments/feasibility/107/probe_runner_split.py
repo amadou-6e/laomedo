@@ -8,6 +8,7 @@ import ast
 import json
 from pathlib import Path
 import secrets
+import shutil
 import subprocess
 import tempfile
 
@@ -138,6 +139,10 @@ def probe():
                 resumed_file = (
                     first_workspace / "file-observation.txt").read_text()
                 resumed_marker = (first_workspace / "runner-marker.txt").read_text()
+                if not first_workspace.resolve().is_relative_to(root.resolve()):
+                    raise RuntimeError("workspace_outside_disposable_probe")
+                shutil.rmtree(first_workspace)
+                workspace_disposed = not first_workspace.exists()
                 second_runner = LocalRunner(state, store.root, source, **options)
                 second_runner.split_provider_config = provider
                 second = second_runner.start(request)
@@ -205,6 +210,7 @@ def probe():
                     "new_native_thread_after_restart": first["thread_id"] !=
                         second["thread_id"],
                     "synthetic_broker_ref_stable": broker_ref_stable,
+                    "first_workspace_disposed_before_restart": workspace_disposed,
                     "controller_token_absent_from_executor":
                         first_observation == "absent" and
                         resumed_observation == "absent" and
@@ -242,6 +248,7 @@ def probe():
                         not result["same_native_thread_on_resume"] or
                         not result["new_native_thread_after_restart"] or
                         not result["synthetic_broker_ref_stable"] or
+                        not result["first_workspace_disposed_before_restart"] or
                         not result["controller_token_absent_from_executor"] or
                         not result["controller_process_absent_from_executor"] or
                         not result["controller_process_tree_absent_from_executor"] or
