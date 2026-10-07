@@ -30,6 +30,9 @@ class LiveProbeConfigurationTests(unittest.TestCase):
         live_probe.select_fresh_identity("exp104-s4-testunused-01",
                                          "exp104-s4-selected-gh")
         self.assertEqual(live_probe.BRANCH_A, "exp104-s4-testunused-01-a")
+        self.assertEqual(live_probe.BRANCH_A_DENIED,
+                         "exp104-s4-testunused-01-a-denied")
+        self.assertNotEqual(live_probe.BRANCH_A_DENIED, live_probe.BRANCH_A)
         self.assertEqual(live_probe.RUN_B, "exp104-s4-testunused-01-run-b")
         self.assertEqual(live_probe.LEASE_C, "exp104-s4-testunused-01-lease-c")
         self.assertEqual(live_probe.CONTAINER_A,
@@ -63,6 +66,17 @@ class LiveProbeConfigurationTests(unittest.TestCase):
     def test_s5_requires_selected_token_provenance_before_state_creation(self):
         live_probe.select_fresh_identity("exp104-s5-testunused-01",
                                          "exp104-s5-selected-gh")
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "untouched-state"
+            with self.assertRaisesRegex(RuntimeError,
+                                        "scoped_identity_confirmation_required"):
+                live_probe.run(state, Path(directory) / "missing-token", "0" * 40,
+                               "GH", None)
+            self.assertFalse(state.exists())
+
+    def test_s6_requires_selected_token_provenance_before_state_creation(self):
+        live_probe.select_fresh_identity("exp104-s6-testunused-01",
+                                         "exp104-s6-selected-gh")
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / "untouched-state"
             with self.assertRaisesRegex(RuntimeError,

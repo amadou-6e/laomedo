@@ -1,7 +1,7 @@
-"""One-shot EXP-104-D2 GitHub/runner-loss diagnostic.
+"""One-shot EXP-104 GitHub/runner-loss diagnostic.
 
 The selected token is read only by the credential-owning host process and
-read-only preflight. This is not the repository-scoped acceptance experiment.
+read-only preflight. A harness pass is not by itself full protocol acceptance.
 Run with an unused state directory outside every checkout. Never rerun a
 state directory or automatically retry an uncertain remote effect.
 """
@@ -40,6 +40,7 @@ IDENTITY = "exp104-d2-20261007-02"
 BRANCH_A = IDENTITY + "-a"
 BRANCH_B = IDENTITY + "-b"
 BRANCH_C = IDENTITY + "-c"
+BRANCH_A_DENIED = IDENTITY + "-a-denied"
 RUN_A = IDENTITY + "-run-a"
 RUN_B = IDENTITY + "-run-b"
 RUN_C = IDENTITY + "-run-c"
@@ -65,11 +66,12 @@ def select_fresh_identity(identity: str, connection_id: str) -> None:
         raise ValueError("experiment_identity_invalid")
     if identity in CONSUMED_IDENTITIES:
         raise ValueError("experiment_identity_consumed")
-    global IDENTITY, CONNECTION_ID, BRANCH_A, BRANCH_B, BRANCH_C
+    global IDENTITY, CONNECTION_ID, BRANCH_A, BRANCH_B, BRANCH_C, BRANCH_A_DENIED
     global RUN_A, RUN_B, RUN_C, LEASE_A, LEASE_B, LEASE_C
     global CONTAINER_A, CONTAINER_B, CONTAINER_C
     IDENTITY, CONNECTION_ID = identity, connection_id
     BRANCH_A, BRANCH_B, BRANCH_C = (identity + suffix for suffix in ("-a", "-b", "-c"))
+    BRANCH_A_DENIED = identity + "-a-denied"
     RUN_A, RUN_B, RUN_C = (identity + suffix for suffix in ("-run-a", "-run-b", "-run-c"))
     LEASE_A, LEASE_B, LEASE_C = (identity + suffix for suffix in
                                ("-lease-a", "-lease-b", "-lease-c"))
@@ -310,7 +312,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         scope_confirmation: str | None) -> dict:
     if IDENTITY in CONSUMED_IDENTITIES:
         raise RuntimeError("experiment_identity_consumed")
-    if IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) and (
+    if IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-", "exp104-s6-")) and (
             token_key != "GH_LAOMEDO" or
             scope_confirmation != "selected_repository_only"):
         raise RuntimeError("scoped_identity_confirmation_required")
@@ -335,7 +337,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
             repo.get("permissions", {}).get("push") is not True or
             type(actions.get("total_count")) is not int):
         raise RuntimeError("github_baseline_mismatch")
-    for branch in (BRANCH_A, BRANCH_B, BRANCH_C):
+    for branch in (BRANCH_A, BRANCH_B, BRANCH_C, BRANCH_A_DENIED):
         try:
             _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + branch)
         except error.HTTPError as failure:
@@ -365,7 +367,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
             "repository": REPOSITORY, "repository_id": REPOSITORY_ID,
             "baseline": BASELINE, "commit": commit,
             "workflow_control_commit": workflow_commit,
-            "branches": [BRANCH_A, BRANCH_B, BRANCH_C],
+            "branches": [BRANCH_A, BRANCH_B, BRANCH_C, BRANCH_A_DENIED],
             "run_ids": [RUN_A, RUN_B, RUN_C],
             "connection_id": CONNECTION_ID, "generation": GENERATION,
             "token_key": token_key, "scope_confirmation": scope_confirmation,
@@ -483,31 +485,50 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         observation["container_a_at_denial"] = inspect_exact(
             CONTAINER_A, RUN_A, LEASE_A)[0]
         checkpoint()
+        detected_mono = revoked.get("detected_at_monotonic")
+        revoked_mono = revoked.get("revoked_at_monotonic")
         if (revoked.get("reason") != "heartbeat_lost" or
-                revoked.get("revoked_at", float("inf")) - killed["completed_wall"] > 60):
+                not isinstance(detected_mono, (int, float)) or
+                not isinstance(revoked_mono, (int, float)) or
+                not killed["completed_monotonic"] <= detected_mono <= revoked_mono or
+                revoked_mono - killed["completed_monotonic"] > 60):
             raise RuntimeError("revocation_gate_failed")
         count_before_denial = _call_count(mediator_state / "provider-attempts.jsonl")
+        denial_requested_at_monotonic = time.monotonic()
         status, denied = _mediate(port, bearer_a, "git_push",
-                                  {"branch": BRANCH_A, "commit": commit}, IDENTITY + "-push-a-denied")
+                                  {"branch": BRANCH_A_DENIED, "commit": commit},
+                                  IDENTITY + "-push-a-denied")
         count_after_denial = _call_count(mediator_state / "provider-attempts.jsonl")
         observation["events"].append({"name": "a_denied_after_loss", "http": status,
                                        "error": denied.get("error"),
+                                       "requested_at_monotonic": denial_requested_at_monotonic,
                                        "at_monotonic": time.monotonic(),
                                        "provider_calls_before": count_before_denial,
                                        "provider_calls_after": count_after_denial})
         checkpoint()
-        remote_after = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A)
-        observation["remote_ref_a_after_denial"] = {
-            "sha": remote_after.get("object", {}).get("sha"), "read_at": time.time()}
+        denied_ref_requested_at_monotonic = time.monotonic()
+        try:
+            _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A_DENIED)
+        except error.HTTPError as failure:
+            denied_ref_status = failure.code
+        else:
+            denied_ref_status = 200
+        observation["remote_ref_a_denied_branch"] = {
+            "branch": BRANCH_A_DENIED, "http": denied_ref_status,
+            "requested_at_monotonic": denied_ref_requested_at_monotonic,
+            "read_at_monotonic": time.monotonic(), "read_at_wall": time.time()}
         checkpoint()
         if (status != 403 or denied.get("error") != "grant_unavailable" or
                 count_after_denial != count_before_denial or
-                remote_after.get("object", {}).get("sha") != commit):
+                denied_ref_status != 404):
             raise RuntimeError("post_loss_denial_gate_failed")
         result = _wait(lease_state / "leases" / LEASE_A / "result.json", timeout=40)
         observation["lease_result_a"] = result
         checkpoint()
-        if result.get("cleanup_verified") is not True:
+        cleanup_mono = result.get("cleanup_finished_at_monotonic")
+        if (result.get("cleanup_verified") is not True or
+                not isinstance(cleanup_mono, (int, float)) or
+                cleanup_mono < revoked_mono):
             raise RuntimeError("cleanup_gate_failed")
         status, read_b = _mediate(port, bearer_b, "actions_read", read_payload, None)
         observation["events"].append({"name": "b_read_after", "http": status,
@@ -649,7 +670,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         if observation["secret_canary"]["exact_token_hits"]:
             raise RuntimeError("secret_canary_failed")
         observation["status"] = "scoped_candidate_pending_cleanup" if \
-            IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) else \
+            IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-", "exp104-s6-")) else \
             "bounded_diagnostic_pending_cleanup"
         checkpoint()
         return observation
@@ -681,7 +702,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
                 if all(item["verified"] and item["state_after"] == "absent"
                        for item in cleanup.values()):
                     observation["status"] = ("scoped_candidate_pass" if
-                                             IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) else
+                                             IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-", "exp104-s6-")) else
                                              "bounded_diagnostic_pass")
                 else:
                     observation["status"] = "incomplete"

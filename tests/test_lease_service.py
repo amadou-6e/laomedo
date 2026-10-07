@@ -63,6 +63,10 @@ class LeaseServiceTests(unittest.TestCase):
         self.assertTrue(result["cleanup_verified"])
         self.assertEqual(len(result["revoked_grants"]), 1)
         self.assertLessEqual(result["revoked_at"], result["cleanup_finished_at"])
+        self.assertLessEqual(result["detected_at_monotonic"],
+                             result["revoked_at_monotonic"])
+        self.assertLessEqual(result["revoked_at_monotonic"],
+                             result["cleanup_finished_at_monotonic"])
         self.assertEqual(self.cleanups, [("exact-name", "run-one", "token-one")])
         self.assertEqual(self.service.book.check(secret)[0], False)
         self.service.tick()  # a finished lease is never processed twice

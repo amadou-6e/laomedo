@@ -116,6 +116,10 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(result["reason"], "heartbeat_lost")
         self.assertEqual(result["revoked_grants"], [accepted["grant_id"]])
         self.assertLessEqual(result["revoked_at"], result["cleanup_finished_at"])
+        self.assertLessEqual(result["detected_at_monotonic"],
+                             result["revoked_at_monotonic"])
+        self.assertLessEqual(result["revoked_at_monotonic"],
+                             result["cleanup_finished_at_monotonic"])
         with self.assertRaisesRegex(MediationError, "grant_unavailable"):
             self.read(token_a)
         self.read(token_b)

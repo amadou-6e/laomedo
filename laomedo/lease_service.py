@@ -247,6 +247,7 @@ class LeaseService:
 
     def _revoke_and_cleanup(self, lease_dir: Path, lease: dict,
                             reason: str, now: float) -> None:
+        detected_at_monotonic = time.monotonic()
         if self.mediator is None:
             revoked = self.book.revoke(lease["token"], now)
         else:
@@ -254,11 +255,14 @@ class LeaseService:
                 run_id=lease["run_id"], lease_token=lease["token"],
                 lease_scope=self.lease_scope)
         revoked_at = time.time()
+        revoked_at_monotonic = time.monotonic()
         # Publish the authorization boundary separately from container cleanup
         # so callers can verify denial while the old container still exists.
         _write_json(lease_dir / "revoked.json", {
             "reason": reason, "revoked_grants": revoked,
-            "detected_at": now, "revoked_at": revoked_at})
+            "detected_at": now, "revoked_at": revoked_at,
+            "detected_at_monotonic": detected_at_monotonic,
+            "revoked_at_monotonic": revoked_at_monotonic})
         def finish_cleanup() -> None:
             try:
                 if reason == "done":
@@ -273,6 +277,9 @@ class LeaseService:
                 _write_json(lease_dir / "result.json", {
                     "reason": reason, "revoked_grants": revoked, "detected_at": now,
                     "revoked_at": revoked_at, "cleanup_finished_at": time.time(),
+                    "detected_at_monotonic": detected_at_monotonic,
+                    "revoked_at_monotonic": revoked_at_monotonic,
+                    "cleanup_finished_at_monotonic": time.monotonic(),
                     "cleanup_verified": verified, "state": detail})
             finally:
                 with self._finishing_lock:
