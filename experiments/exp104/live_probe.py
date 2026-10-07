@@ -52,6 +52,7 @@ CONTAINER_C = "laomedo-" + IDENTITY + "-c"
 CONSUMED_IDENTITIES = frozenset({
     "exp104-d2-20261007-01", "exp104-d2-20261007-02",
     "exp104-s3-20261007-01", "exp104-s4-20261007-01",
+    "exp104-s5-20261007-01",
 })
 
 

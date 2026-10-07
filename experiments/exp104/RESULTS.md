@@ -216,3 +216,55 @@ the user's repository selection and API preflight do not prove Git-over-HTTPS
 write permission. Before another live attempt, verify the token's `Contents:
 Read and write` setting and Git authentication. EXP-104 acceptance, draft
 #97/#105 promotion, and Q11 remain open.
+
+## Selected-repository S5 attempt `-01` (scoped candidate pass)
+
+The user requested another bounded attempt, and amendment
+[17](AMENDMENT-17.md) froze identity `exp104-s5-20261007-01`, connection
+`exp104-s5-selected-gh`, and the unchanged disposable repository before
+code or provider contact. The read-only reviewer approved source
+`6fc655cc4d96a09163ca544463fc4ea7f58a20bb` for this one attempt;
+the full local suite and both CI jobs passed. The non-mutating Git dry-run
+passed and its A ref remained absent before the first mediated write. This
+shows the selected token could perform this Git operation; it does **not**
+independently attest that only this repository was selected in GitHub.
+The exact-byte [dry-run record](live-dry-run-s5-01.json) has SHA-256
+`22FEDDB5E8BD5B74B027EEE24E589142903C3572031B5D515E3AE5739FD95C89`;
+it contains only exit code 0 and a null failure category.
+
+The exact-byte [machine observation](live-observation-s5-01.json) has
+SHA-256 `D0F3523A398676FAD6512560E2D3453DF46FC4BE00F1A914B282A732C2DAA661`.
+It records a confirmed push to fresh branch `exp104-s5-20261007-01-a` at
+commit `969d50b8b2a238cac10954ee4eee0d0773b1f48c`, a confirmed B read,
+and one killed A runner process tree. The independent service detected
+runner loss after 4.552 seconds and revoked A's grant after 4.556 seconds;
+the A post-loss write was denied at 4.625 seconds with HTTP 403 and no
+additional provider call. The exact A container was removed and verified
+absent after 9.657 seconds. B's grant still completed an approved read.
+On service restart, old B was denied and a newly authorized C completed
+its read. Missing-run, workflow-file, expiry and lost-response controls
+behaved as specified; the synthetic ambiguous write used one transport
+call and remained `unknown` on repeat.
+
+Four provider calls are recorded in total. The negative controls added
+none. The exact-byte [provider-attempt journal](live-provider-attempts-s5-01.jsonl)
+has SHA-256 `31DD9E35A109450112DCDDEED2E95665923F31063E5DC85F3FFA3BEB9733456A`;
+its four entries contain only operation, repository, timestamp and (for
+the push) branch and commit. A separate credential-free read-back found
+only S5's A branch at
+the same SHA, not S5's B or C branches. The probe verified all exact
+S5 containers absent; a post-run process check found no S5 runner,
+lease-service or mediator process. Its in-run canary found zero exact-token
+hits in 67 files; a separate post-run scan, including hidden checkout
+files and the sanitized observation, found zero hits in 68 files. No model
+turn was used. The probe-created A branch is intentionally left for review,
+not deleted.
+
+This is a **scoped candidate pass**, not EXP-104 acceptance or permission
+to promote drafts #97/#105. The token's exclusive repository scope remains
+user-confirmed rather than independently verified. The probe used a
+synthetic runner and disposable container, not a real agent. Production
+account connection, complete `git`/`gh` parity, real-agent cancellation,
+and Q11 are still open. S3's earlier A effect remains `unknown` and was
+never resent. Amendment [18](AMENDMENT-18.md), frozen after S5, marks the
+S5 identity consumed before any further code change.
