@@ -156,15 +156,15 @@ evidence for this probe, but the event by itself cannot attest that a future
 turn ran in the executor. Production dispatch still needs a tested per-turn
 routing check; a mere `environment/status: ready` result is insufficient.
 
-This is a promising **experimental route**, not yet a production connection.
-It has not tested every tool or filesystem operation, broker IPC, access to a
-real token store, refresh rotation, a full runner restart, or a live model
-turn. It also has not established that this account can grant Sign in with
-ChatGPT plan usage.
-The current runner still uses its original single-container transport; do not
-inject a reusable subscription token into it. #107 remains open until the
-split is implemented in that transport, broader access paths are denied, and
-the separately authorized live turn and full runner restart checks pass.
+At this credential-free probe stage, this was a promising **experimental
+route**, not a production connection. It had not tested every tool or
+filesystem operation, broker IPC, access to a real token store, refresh
+rotation, a full runner restart, or a live model turn. It had not established
+that this account could grant Sign in with ChatGPT plan usage. The runner then
+still used its original single-container transport; a reusable subscription
+token must not be injected into that transport. The later opt-in split runner
+and bounded live result are recorded below. #107 remains open for its broader
+credential lifecycle and access-path acceptance checks.
 
 ## Controller restart and native resume follow-up
 
