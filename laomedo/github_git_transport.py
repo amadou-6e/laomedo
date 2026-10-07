@@ -23,6 +23,25 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 
 
+def _credential_environment(token: str) -> tuple[dict, str]:
+    """Host-only Git environment without ambient credential/config sources."""
+    helper = Path(__file__).with_name("git_credential_helper.py")
+    command = "!" + shlex.quote(sys.executable) + " " + shlex.quote(str(helper))
+    environment = {key: value for key, value in os.environ.items()
+                   if not key.startswith(("GIT_CONFIG_", "GCM_")) and
+                   key not in {"GH", "GH_TOKEN", "GITHUB_TOKEN", "GIT_ASKPASS",
+                               "SSH_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND"}}
+    environment.update({
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_ASKPASS": "",
+        "LAOMEDO_MEDIATED_GIT_TOKEN": token,
+    })
+    return environment, command
+
+
 class GitHubGitTransport:
     """Push a locally present commit to a new remote branch, without host login."""
 
@@ -101,20 +120,7 @@ class GitHubGitTransport:
 
         # Empty global/system config prevents Git Credential Manager, host gh,
         # URL rewrites and inherited helpers from supplying a broader identity.
-        helper = Path(__file__).with_name("git_credential_helper.py")
-        helper_command = "!" + shlex.quote(sys.executable) + " " + shlex.quote(str(helper))
-        environment = {key: value for key, value in os.environ.items()
-                       if not key.startswith(("GIT_CONFIG_", "GCM_")) and
-                       key not in {"GH", "GH_TOKEN", "GITHUB_TOKEN", "GIT_ASKPASS",
-                                   "SSH_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND"}}
-        environment.update({
-            "GIT_CONFIG_GLOBAL": os.devnull,
-            "GIT_CONFIG_SYSTEM": os.devnull,
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_TERMINAL_PROMPT": "0",
-            "GIT_ASKPASS": "",
-            "LAOMEDO_MEDIATED_GIT_TOKEN": token,
-        })
+        environment, helper_command = _credential_environment(token)
         remote = "https://github.com/" + repository + ".git"
         try:
             # Never run the network push from the agent-controlled checkout:

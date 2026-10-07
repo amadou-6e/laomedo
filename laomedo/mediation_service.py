@@ -12,6 +12,7 @@ from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import threading
 import time
 
 from .github_mediation import MediationStore
@@ -38,6 +39,25 @@ class MediationHTTPService:
     def close(self):
         self.server.shutdown()
         self.server.server_close()
+
+
+class JournaledTransport:
+    """Private, non-secret provider-attempt journal for diagnostic accounting."""
+
+    def __init__(self, transport, path: Path):
+        self.transport = transport
+        self.path = path
+        self.lock = threading.Lock()
+
+    def __call__(self, repository, operation, payload, **binding):
+        event = {"at_wall": time.time(), "at_monotonic": time.monotonic(),
+                 "repository": repository, "operation": operation}
+        if operation == "git_push":
+            event.update({"branch": payload.get("branch"),
+                          "commit": payload.get("commit")})
+        with self.lock, self.path.open("a", encoding="utf-8") as journal:
+            journal.write(json.dumps(event, sort_keys=True) + "\n")
+        return self.transport(repository, operation, payload, **binding)
 
 
 def main() -> None:
@@ -70,8 +90,9 @@ def main() -> None:
         state / "mediator.sqlite",
         workflow_change_classifier=git_transport.classify_workflow_diff,
         connection_is_current=connection.current)
+    transport = GitHubMediatedTransport(git_transport, rest_transport)
     service = MediationHTTPService(
-        store, GitHubMediatedTransport(git_transport, rest_transport))
+        store, JournaledTransport(transport, state / "provider-attempts.jsonl"))
     # This file contains no token, only the instance/port required by a
     # trusted controller. It is never copied into a run workspace.
     status = state / "mediator.json"

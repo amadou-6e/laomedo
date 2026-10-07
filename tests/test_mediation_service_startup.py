@@ -63,6 +63,22 @@ class MediationServiceStartupTests(unittest.TestCase):
         self.assertIsNotNone(seen[0].mediation_authority)
         self.assertEqual(seen[0].server.server_address[0], "127.0.0.1")
 
+    def test_provider_journal_counts_attempts_without_secret_payload(self):
+        journal = self.path / "attempts.jsonl"
+        transport = mediation_service.JournaledTransport(
+            lambda repository, operation, payload, **binding:
+            {"accepted": True}, journal)
+        result = transport("example/disposable", "git_push", {
+            "branch": "probe-a", "commit": "a" * 40,
+            "secret": "synthetic-provider-secret"},
+            connection_id="selected", connection_generation=1)
+        self.assertEqual(result, {"accepted": True})
+        events = [json.loads(line) for line in journal.read_text(
+            encoding="utf-8").splitlines()]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["branch"], "probe-a")
+        self.assertNotIn("synthetic-provider-secret", json.dumps(events))
+
 
 if __name__ == "__main__":
     unittest.main()

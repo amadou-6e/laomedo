@@ -97,6 +97,14 @@ could not access the original disposable repository. One attempt to create
 the alternate private repository was explicitly rejected with HTTP 403; a
 read-back still returned 404. No real push has occurred.
 
+Amendment 07 records another pre-run validity fix: the original instruction
+to try a *different* branch with A's revoked capability cannot test
+revocation when A is bound to exactly one branch. The diagnostic will use a
+fresh effect on the same approved branch and require `grant_unavailable`
+before provider transport; the original acceptance wording still needs a
+reviewed correction. The mediator now records non-secret provider-attempt
+entries so the diagnostic can detect an accidental post-revocation call.
+
 These tests do not check a real Docker container, GitHub push, whole-tree
 kill, service manager or model. The synthetic probe checks an exact
 lease-service PID hard kill, not a runner or process-tree kill. There is no
