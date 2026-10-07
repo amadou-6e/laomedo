@@ -426,8 +426,34 @@ def main() -> None:
     serve = commands.add_parser("serve", help="run the independent lease service")
     serve.add_argument("--state", type=Path, required=True)
     serve.add_argument("--port", type=int, default=0)
+    serve.add_argument("--mediator-store", type=Path)
+    serve.add_argument("--authority-store", type=Path)
+    serve.add_argument("--repository")
+    serve.add_argument("--connection-id")
+    serve.add_argument("--connection-generation", type=int)
     args = parser.parse_args()
-    LeaseService(args.state, port=args.port).serve()
+    selected = (args.mediator_store, args.authority_store, args.repository,
+                args.connection_id, args.connection_generation)
+    if any(value is not None for value in selected):
+        if any(value is None for value in selected):
+            parser.error("mediated mode requires all store and connection options")
+        from .mediation_authority import RunGrantAuthority
+
+        def matches(connection_id, generation, repository, reviewed_by):
+            return (bool(reviewed_by) and
+                    (connection_id, generation, repository) ==
+                    (args.connection_id, args.connection_generation, args.repository))
+
+        authority = RunGrantAuthority(
+            args.authority_store, connection_authorizer=matches)
+        mediator = MediationStore(args.mediator_store,
+                                  connection_is_current=lambda cid, gen, repo:
+                                  matches(cid, gen, repo, "lease-service"))
+        service = LeaseService(args.state, port=args.port, mediator=mediator,
+                               mediation_authority=authority.authorize_lease)
+    else:
+        service = LeaseService(args.state, port=args.port)
+    service.serve()
 
 
 if __name__ == "__main__":
