@@ -22,3 +22,15 @@ This proves the container-to-mediator capability route and durable grant
 revocation in one credential-free check. It does not test the lease service's
 loss detection, a runner-tree kill, a real Codex turn, a real GitHub write,
 Langflow Stop or Linux service-manager ownership. Those remain Phase C gates.
+
+## Pinned-route rerun after parent integration
+
+The parent runner added pinned mediator-instance headers and stricter Docker
+flags after the first preflight. The reconciled source was committed at
+`f5d27bc` before another opt-in rerun on 2026-10-07. Both cases passed with
+the parent `_docker_prefix` command, including the run-capability mount,
+mediator-instance binding, capability revocation and B continuity. Its new
+ignored local proof is `claude-review.local/phase-c-docker-preflight-v2.txt`,
+SHA-256 `2c67f3dd414779e5cf510c9d18957c763f874c0f68eb822e1641d4cc0f097679`.
+The first proof above remains a record of the earlier source, not the current
+implementation result. No model or GitHub call was made in either rerun.
