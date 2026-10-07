@@ -677,6 +677,8 @@ class LocalRunner:
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
+        if self.auth is not None and self.split_executor:
+            raise RunnerError("controller_patch_route_unisolated")
         root = self.state / "preflight" / str(uuid4())
         root.mkdir(parents=True)
         for name in ("workspace", "canonical", "store"):
@@ -848,6 +850,11 @@ class LocalRunner:
 
     def _prepare(self, request: dict, *, client_request_id=None,
                  request_hash=None) -> dict:
+        if self.auth is not None and self.split_executor:
+            # In pinned Codex 0.159.2, apply_patch without an Environment ID
+            # targets the credential-bearing controller. Do not submit a turn
+            # until every offered file tool is forced into the executor.
+            raise RunnerError("controller_patch_route_unisolated")
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
         task = request.get("task")
@@ -1007,6 +1014,8 @@ class LocalRunner:
 
     def resume(self, run_id: str, task: str, *, expected_post_run_hash: str,
                expected_thread_id: str, model: str, effort: str) -> dict:
+        if self.auth is not None and self.split_executor:
+            raise RunnerError("controller_patch_route_unisolated")
         record = self.status(run_id)
         if not isinstance(task, str) or not task.strip():
             raise RunnerError("invalid_task")

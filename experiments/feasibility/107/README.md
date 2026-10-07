@@ -253,19 +253,16 @@ $env:PYTHONPATH = (Get-Location).Path
 .\.venv\Scripts\python.exe experiments/feasibility/107/probe_runner_split.py
 ```
 
-The fake Responses backend requested three actual agent commands: the first
-start, a successful native resume in the same `LocalRunner`, and a new run
-after constructing another `LocalRunner` from the same state. The resumed
-turn retained the same native thread. A synthetic app-owned account and host
-ID survived the restart. The previous run refused native resume after runner
-restart, while the new run completed without sign-in. Each command reported
-the controller token absent from its own
-environment, `/proc/1/environ`, and a controller-only file path. The exact
-nine-tool code-mode inventory matched the pinned list. Six fake Responses
-requests were made; **zero real model turns** were used. Random access and
-refresh canaries were absent from the run directory and archived controller
-profile volume. The disposable volume and containers were removed. These are
-synthetic checks, not an actual OAuth login.
+At the reviewed `6f14d12` revision, the fake Responses backend requested
+three actual agent commands: first start, native resume in the same
+`LocalRunner`, and a new run after reconstruction. That revision used a
+synthetic app-owned account and showed that the old run refused resume after
+runner restart while the new run completed without sign-in. Its agent commands
+reported the controller token absent from their own environment,
+`/proc/1/environ`, and a controller-only file path. The exact nine-tool
+code-mode inventory matched the pinned list. Six fake Responses requests and
+zero real model turns were used. This was a narrow positive result; the patch
+route finding below changes the isolation verdict.
 
 The access token is set in the controller container's environment and is
 therefore visible to a host process with Docker Engine access through Docker
@@ -332,3 +329,27 @@ still in the private persistent broker store, and the dedicated controller
 profile volume persists for future authorized work. This proves the bounded
 local before/after-process-restart route, not refresh rotation, sign-out,
 host reboot recovery, network namespace separation or hosted isolation.
+
+## Patch-route negative control and fail-closed app-owned dispatch
+
+A later credential-free extension of `probe_runner_split.py` sent an
+agent-originated `apply_patch` call without an Environment ID. In Codex CLI
+0.159.2, it wrote a synthetic marker into the credential controller's private
+profile volume. The same three synthetic turns still routed shell commands to
+the executor; environment, process-tree and controller-only file canaries were
+absent there. An agent-originated `view_image` attempt could not read a PNG in
+the controller profile. The profile write is enough to fail #107's protected
+route requirement. The synthetic token never represented a real login, the
+probe removed its containers and volume, and no new real model turn was used.
+
+The current probe uses an explicit synthetic token to preserve that negative
+control while the broker is tested separately for restart and reference
+stability. `LocalRunner` now refuses app-owned split preflight, start, async
+start and resume with `controller_patch_route_unisolated` before a turn can be
+reserved. The earlier two real turns remain historical evidence for account
+access and process-restart reuse; they do not establish a safe tool boundary.
+The new four-turn cap is **0/4 used**. Do not submit those turns until a
+credential-free probe shows every offered file and command tool confined to
+the executor, including a negative control that would catch a default route
+back to the controller. A reviewed runner configuration may solve this by
+blocking unselected `apply_patch` calls, but no such configuration is active.

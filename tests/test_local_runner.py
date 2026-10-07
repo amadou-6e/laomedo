@@ -119,6 +119,30 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["turns"], [])
         self.assertFalse((self.runner.state / "turn-ledger.json").exists())
 
+    def test_app_owned_split_route_refuses_unisolated_patch_before_dispatch(self):
+        state = self.root.parent / (self.root.name + "-patch-state")
+        auth = self.root.parent / (self.root.name + "-patch-auth")
+        self.addCleanup(lambda: __import__("shutil").rmtree(state,
+                        ignore_errors=True))
+        self.addCleanup(lambda: __import__("shutil").rmtree(auth,
+                        ignore_errors=True))
+        runner = LocalRunner(state, self.runner.store.root, self.source,
+                             split_executor=True, auth_store=auth,
+                             check_docker=False, max_model_turns=4)
+        with self.assertRaisesRegex(RunnerError,
+                                    "^controller_patch_route_unisolated$"):
+            runner.preflight()
+        with self.assertRaisesRegex(RunnerError,
+                                    "^controller_patch_route_unisolated$"):
+            runner.start(self.request())
+        with self.assertRaisesRegex(RunnerError,
+                                    "^controller_patch_route_unisolated$"):
+            runner.resume("no-run", "continue", expected_post_run_hash="hash",
+                          expected_thread_id="thread", model="test-model",
+                          effort="low")
+        self.assertEqual(list((state / "runs").iterdir()), [])
+        self.assertFalse((state / "turn-ledger.json").exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

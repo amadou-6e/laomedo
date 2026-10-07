@@ -11,7 +11,7 @@ import secrets
 import subprocess
 import tempfile
 
-from laomedo.local_runner import LocalRunner, RunnerError, SPLIT_TOOLS, _split_profile
+from laomedo.local_runner import LocalRunner, SPLIT_TOOLS, _split_profile
 from laomedo.siwc_auth import ChatGPTConnection, NEEDED
 from laomedo.skill_store import SkillStore
 from probe_mock_responses import MockResponses
@@ -25,6 +25,9 @@ def probe():
         access_canary = "SYNTHETIC_" + secrets.token_hex(16)
         refresh_canary = "SYNTHETIC_" + secrets.token_hex(16)
         file_canary = "FILE_" + secrets.token_hex(16)
+        patch_canary = "PATCH_" + secrets.token_hex(16)
+        tiny_png = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC"
+                    "AAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=")
         profile = _split_profile(state.resolve())
         skill_source = root / "skill-source"
         skill_source.mkdir()
@@ -43,10 +46,24 @@ def probe():
                    "if test -r /home/runner/.codex/probe.secret; "
                    "then printf readable; else printf absent; fi "
                    "> /draft/file-observation.txt; "
+                   "found=0; for item in /proc/[0-9]*/environ; do "
+                   "tr \"\\000\" \"\\n\" <\"$item\" 2>/dev/null | "
+                   "grep -q \"^ACCESS_TOKEN=\" && found=1; done; "
+                   "if test \"$found\" -eq 1; then printf readable; "
+                   "else printf absent; fi > /draft/process-tree-observation.txt; "
                    "printf remote >> /draft/runner-marker.txt'")
+        patch = ("*** Begin Patch\n*** Add File: "
+                 "/home/runner/.codex/patch-sentinel.txt\n+" + patch_canary +
+                 "\n*** End Patch")
         script = ("const result = await tools.exec_command({cmd: " +
                   json.dumps(command) + ", workdir: '/draft'}); " +
                   "text(result.exit_code); " +
+                  "try { const image = await tools.view_image({path: " +
+                  json.dumps("/home/runner/.codex/probe.png") +
+                  "}); text('IMAGE:' + (image?.image_url ? 'readable' : 'absent')); "
+                  "} catch { text('IMAGE:absent'); } " +
+                  "try { await tools.apply_patch(" + json.dumps(patch) +
+                  "); } catch {} " +
                   "text('TOOLS:' + JSON.stringify(ALL_TOOLS.map(t => t.name).sort()));")
         try:
             with MockResponses(tool_input=script, tool_request_numbers=(1, 3, 5)) as mock:
@@ -71,23 +88,29 @@ def probe():
                         "expires_in": 3600},
                     verify=lambda _token, _client, _nonce: {
                         "iss": "https://auth.openai.com", "sub": "fixture-subject"})
-                # Use the real broker path; only the endpoint is replaced by
-                # the local fake Responses server for this credential-free run.
-                options = dict(split_executor=True, auth_store=auth_state,
-                               max_model_turns=3)
+                # The app-owned broker path is now fail-closed in LocalRunner.
+                # This synthetic token keeps the tool-routing negative control
+                # runnable without making an app-owned dispatch possible.
+                restarted_broker = ChatGPTConnection(auth_state)
+                broker_ref_stable = (connection.summary(connection.active()) ==
+                    restarted_broker.summary(restarted_broker.active()))
+                options = dict(split_executor=True,
+                               split_access_token=access_canary,
+                               split_provider_config=provider, max_model_turns=3)
                 request = {"task": "Synthetic fixture", "model": "gpt-6-luna",
                            "effort": "low", "skill_ref": {
                                "skill_id": "split-probe",
                                "revision_id": revision["revision_id"],
                                "tree_hash": revision["tree_hash"]}}
                 first_runner = LocalRunner(state, store.root, source, **options)
-                first_runner.split_provider_config = provider
                 writer = subprocess.run(["docker", "run", "--rm", "--pull=never",
                     "--network", "none", "--user", "10001:10001", "--mount",
                     f"type=volume,source={profile},target=/home/runner/.codex",
                     "laomedo-codex-boundary:0.159.2", "sh", "-c",
                     "printf %s " + file_canary +
-                    " > /home/runner/.codex/probe.secret"],
+                    " > /home/runner/.codex/probe.secret; "
+                    "printf %s " + tiny_png +
+                    " | base64 -d > /home/runner/.codex/probe.png"],
                     capture_output=True, timeout=15)
                 if writer.returncode:
                     raise RuntimeError("controller_file_canary_setup_failed")
@@ -98,6 +121,8 @@ def probe():
                 first_workspace = state / "runs" / first["run_id"] / "workspace"
                 first_observation = (first_workspace / "token-observation.txt").read_text()
                 first_process = (first_workspace / "process-observation.txt").read_text()
+                first_process_tree = (first_workspace /
+                                      "process-tree-observation.txt").read_text()
                 first_file = (first_workspace / "file-observation.txt").read_text()
                 resumed = first_runner.resume(
                     first["run_id"], "Synthetic same-runner continuation",
@@ -108,24 +133,18 @@ def probe():
                     first_workspace / "token-observation.txt").read_text()
                 resumed_process = (
                     first_workspace / "process-observation.txt").read_text()
+                resumed_process_tree = (
+                    first_workspace / "process-tree-observation.txt").read_text()
                 resumed_file = (
                     first_workspace / "file-observation.txt").read_text()
                 resumed_marker = (first_workspace / "runner-marker.txt").read_text()
                 second_runner = LocalRunner(state, store.root, source, **options)
-                second_runner.split_provider_config = provider
-                old_run_refused = False
-                try:
-                    second_runner.resume(
-                        resumed["run_id"], "Synthetic restart fixture",
-                        expected_post_run_hash=resumed["post_run_hash"],
-                        expected_thread_id=resumed["thread_id"],
-                        model="gpt-6-luna", effort="low")
-                except RunnerError as exc:
-                    old_run_refused = str(exc) == "resume_after_runner_restart_forbidden"
                 second = second_runner.start(request)
                 workspace = state / "runs" / second["run_id"] / "workspace"
                 observation = (workspace / "token-observation.txt").read_text()
                 process_observation = (workspace / "process-observation.txt").read_text()
+                process_tree_observation = (
+                    workspace / "process-tree-observation.txt").read_text()
                 file_observation = (workspace / "file-observation.txt").read_text()
                 marker = (workspace / "runner-marker.txt").read_text()
                 ledger = json.loads((state / "turn-ledger.json").read_text())
@@ -154,6 +173,11 @@ def probe():
                     raise RuntimeError("controller_profile_scan_failed")
                 profile_clean = (access_canary.encode() not in profile_archive.stdout and
                                  refresh_canary.encode() not in profile_archive.stdout)
+                patch_reached_controller = patch_canary.encode() in profile_archive.stdout
+                image_observed_absent = all(
+                    "IMAGE:absent" in output
+                    for request in mock.requests if request["tool_outputs"]
+                    for output in request["tool_outputs"])
                 result = {
                     "schema_version": 1,
                     "real_model_turns": 0,
@@ -164,11 +188,9 @@ def probe():
                     "same_native_thread_on_resume": first["thread_id"] ==
                         resumed["thread_id"],
                     "new_run_after_restart_status": second["status"],
-                    "old_run_resume_refused": old_run_refused,
                     "new_native_thread_after_restart": first["thread_id"] !=
                         second["thread_id"],
-                    "same_nonsecret_credential_ref": first["credential"] ==
-                        second["credential"],
+                    "synthetic_broker_ref_stable": broker_ref_stable,
                     "controller_token_absent_from_executor":
                         first_observation == "absent" and
                         resumed_observation == "absent" and
@@ -177,10 +199,17 @@ def probe():
                         first_process == "absent" and
                         resumed_process == "absent" and
                         process_observation == "absent",
+                    "controller_process_tree_absent_from_executor":
+                        first_process_tree == "absent" and
+                        resumed_process_tree == "absent" and
+                        process_tree_observation == "absent",
                     "controller_file_absent_from_executor":
                         first_file == "absent" and resumed_file == "absent" and
                         file_observation == "absent",
                     "tokens_absent_from_controller_profile": profile_clean,
+                    "unselected_patch_reached_controller_profile":
+                        patch_reached_controller,
+                    "image_read_absent_from_executor": image_observed_absent,
                     "secret_absent_from_run_state": trace_clean,
                     "secret_exposure_files": exposure_files,
                     "tool_surface_exact": observed_tools == SPLIT_TOOLS,
@@ -193,13 +222,15 @@ def probe():
                         result["synthetic_turns"] != 3 or
                         result["fake_responses_requests"] != 6 or
                         not result["same_native_thread_on_resume"] or
-                        not result["old_run_resume_refused"] or
                         not result["new_native_thread_after_restart"] or
-                        not result["same_nonsecret_credential_ref"] or
+                        not result["synthetic_broker_ref_stable"] or
                         not result["controller_token_absent_from_executor"] or
                         not result["controller_process_absent_from_executor"] or
+                        not result["controller_process_tree_absent_from_executor"] or
                         not result["controller_file_absent_from_executor"] or
                         not result["tokens_absent_from_controller_profile"] or
+                        not result["unselected_patch_reached_controller_profile"] or
+                        not result["image_read_absent_from_executor"] or
                         not result["secret_absent_from_run_state"] or
                         not result["tool_surface_exact"] or
                         not result["agent_commands_ran_three_times"]):

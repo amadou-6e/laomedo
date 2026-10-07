@@ -217,6 +217,72 @@ class ChatGPTConnectionTests(unittest.TestCase):
             self.store.access_token(refresh=malformed)
         self.assertEqual(attempts, ["synthetic-refresh"])
 
+    def test_ambiguous_refresh_requires_reconnect_and_does_not_switch_accounts(self):
+        self._connect(client_id="oaiapp_one", subject="one", token="old-access",
+                      expiry=60)
+        self._connect(client_id="oaiapp_two", subject="two", token="other-access")
+        self.store.switch("oaiapp_one")
+        calls = []
+
+        def uncertain(_url, fields):
+            calls.append(fields["refresh_token"])
+            raise TimeoutError("synthetic timeout")
+
+        with self.assertRaisesRegex(AuthError, "^auth_refresh_unknown$"):
+            self.store.access_token(refresh=uncertain)
+        restarted = ChatGPTConnection(self.root)
+        with self.assertRaisesRegex(AuthError, "^auth_refresh_unknown$"):
+            restarted.access_token(refresh=uncertain)
+        self.assertEqual(calls, ["synthetic-refresh"])
+        self.assertEqual(restarted.active()["client_id"], "oaiapp_one")
+        self.assertEqual(restarted.active()["state"], "refresh_unknown")
+        self._connect(client_id="oaiapp_one", subject="one",
+                      token="reconnected-access")
+        self.assertEqual(restarted.access_token()[0], "reconnected-access")
+        self.assertEqual(restarted.active()["generation"], 2)
+        self.assertNotIn("old-access", restarted._path("oaiapp_one").read_text())
+        restarted.switch("oaiapp_two")
+        self.assertEqual(restarted.access_token()[0], "other-access")
+
+    def test_expiry_threshold_refreshes_once_across_runner_restart(self):
+        self._connect(expiry=301)
+        refreshes = []
+
+        def refresh(_url, fields):
+            refreshes.append(fields["refresh_token"])
+            return {"access_token": "rotated-access",
+                    "refresh_token": "rotated-refresh", "expires_in": 3600}
+
+        self.assertEqual(self.store.access_token(refresh=refresh)[0],
+                         "synthetic-access")
+        account = self.store.active()
+        account["expires_at"] = time.time() + 299
+        from laomedo.siwc_auth import _atomic_private
+        _atomic_private(self.store._path(account["client_id"]), account)
+        restarted = ChatGPTConnection(self.root)
+        self.assertEqual(restarted.access_token(refresh=refresh)[0],
+                         "rotated-access")
+        self.assertEqual(self.store.access_token(refresh=refresh)[0],
+                         "rotated-access")
+        self.assertEqual(refreshes, ["synthetic-refresh"])
+
+    def test_failed_remote_revocation_scrubs_local_tokens_and_refuses_switch(self):
+        self._connect()
+        outcome = self.store.sign_out(revoke=lambda *_args: False)
+        self.assertEqual(outcome, {"auth_outcome": "signed_out",
+                                   "remote_revocation_confirmed": False})
+        restarted = ChatGPTConnection(self.root)
+        with self.assertRaisesRegex(AuthError, "^auth_account_missing$"):
+            restarted.active()
+        with self.assertRaisesRegex(AuthError, "^auth_account_unavailable$"):
+            restarted.switch("oaiapp_fixture")
+        account = restarted._account("oaiapp_fixture")
+        self.assertEqual(account["state"], "revoked")
+        self.assertIsNone(account["access_token"])
+        self.assertIsNone(account["refresh_token"])
+        self.assertNotIn("synthetic-refresh",
+                         restarted._path("oaiapp_fixture").read_text())
+
     def test_dynamic_registration_cannot_replace_other_subject(self):
         self._connect(client_id="oaiapp_fixture", subject="first")
         attempt = self.store.begin("http://127.0.0.1:1455/auth/callback")
