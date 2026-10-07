@@ -171,8 +171,9 @@ copy.
 A subsequent read-only GitHub ref lookup returned 404 for S3's A branch.
 This is useful read-back evidence, **not** proof that the unconfirmed push
 could not have taken effect or appeared later. A read-only `git ls-remote`
-through the same selected host-side credential helper succeeded for `main`;
-that does not establish write permission or explain the `unknown` result.
+configured with the selected host-side credential helper succeeded for
+`main`; the public repository may not have used that credential, so this
+does not establish token acceptance or explain the `unknown` result.
 The probe verified removal of its exact A and B containers (C was absent).
 An after-run exact-token scan found zero hits in 56 private state files;
 the probe ended before its planned full success-path canary. No model turn
@@ -193,3 +194,25 @@ Amendment [15](AMENDMENT-15.md) then froze consumed-identity refusal, an
 end-to-end redaction test, and a non-mutating S4 dry-run preflight before
 the next separate live candidate. The dry-run is a guard, not a promise that
 a later GitHub write will succeed.
+
+## Selected-repository S4 attempt `-01` (preflight stop)
+
+At reviewed code `c464040`, the separately frozen S4 identity used the same
+selected token and disposable repository. Its Git `push --dry-run` guard
+exited 128 with fixed category `authentication_or_authorization`, before
+mediator creation, runner launch, container launch, or live push. The
+[machine observation](live-observation-s4-01.json) is byte-identical to the
+private result and has SHA-256
+`876EA17E29665F266A1B031E6FC240630E3555878D4ED426EC50C4301674E841`.
+It records zero provider-attempt journal entries and no model turn. A
+subsequent read-only GitHub lookup returned 404 for S4's A branch, and no
+S4-named container existed. A local-only credential-helper check emitted
+the selected token to Git, without displaying it; this narrows the failure
+but does not identify GitHub's exact rejection reason.
+
+S4 is consumed. Amendment [16](AMENDMENT-16.md) freezes local safeguards
+and evidence changes made *after* this result. The category is heuristic;
+the user's repository selection and API preflight do not prove Git-over-HTTPS
+write permission. Before another live attempt, verify the token's `Contents:
+Read and write` setting and Git authentication. EXP-104 acceptance, draft
+#97/#105 promotion, and Q11 remain open.

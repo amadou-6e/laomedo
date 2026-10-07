@@ -9,9 +9,11 @@ state directory or automatically retry an uncertain remote effect.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -49,7 +51,7 @@ CONTAINER_B = "laomedo-" + IDENTITY + "-b"
 CONTAINER_C = "laomedo-" + IDENTITY + "-c"
 CONSUMED_IDENTITIES = frozenset({
     "exp104-d2-20261007-01", "exp104-d2-20261007-02",
-    "exp104-s3-20261007-01",
+    "exp104-s3-20261007-01", "exp104-s4-20261007-01",
 })
 
 
@@ -244,8 +246,38 @@ def _diagnostic_records(state: Path) -> list[dict]:
     return records
 
 
+def _safe_diagnostic_records(state: Path) -> dict:
+    try:
+        return {"records": _diagnostic_records(state), "error": None}
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError,
+            RuntimeError):
+        return {"records": [], "error": "invalid_or_unavailable"}
+
+
+def _stored_effect_state(state: Path, run_id: str,
+                         effect_id: str) -> dict:
+    """Read the mediator's durable effect without opening a write connection."""
+    path = state / "mediator" / "mediator.sqlite"
+    if not path.is_file():
+        return {"state": None, "error": None}
+    try:
+        with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True,
+                                     timeout=2)) as db:
+            row = db.execute(
+                "SELECT state FROM effects WHERE run_id=? AND effect_id=?",
+                (run_id, effect_id)).fetchone()
+        value = row[0] if row else None
+        if value not in {None, "unknown", "confirmed", "rejected"}:
+            return {"state": None, "error": "invalid_or_unavailable"}
+        return {"state": value, "error": None}
+    except (OSError, sqlite3.Error):
+        return {"state": None, "error": "invalid_or_unavailable"}
+
+
 def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         scope_confirmation: str | None) -> dict:
+    if IDENTITY in CONSUMED_IDENTITIES:
+        raise RuntimeError("experiment_identity_consumed")
     if IDENTITY.startswith(("exp104-s3-", "exp104-s4-")) and (
             token_key != "GH_LAOMEDO" or
             scope_confirmation != "selected_repository_only"):
@@ -662,7 +694,9 @@ def main() -> None:
                   else None,
                   "provider_attempts": _call_count(args.state / "mediator" /
                                                     "provider-attempts.jsonl"),
-                  "push_diagnostics": _diagnostic_records(args.state),
+                  "push_diagnostics": _safe_diagnostic_records(args.state),
+                  "stored_a_push_effect": _stored_effect_state(
+                      args.state, RUN_A, IDENTITY + "-push-a"),
                   "dry_run": json.loads((args.state / "dry-run.json").read_text(
                       encoding="utf-8")) if (args.state / "dry-run.json").exists()
                   else None}
