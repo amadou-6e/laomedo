@@ -34,6 +34,7 @@
     }
   },
   "pass": true,
+  "personal_root_comparison": "metadata_only",
   "personal_roots_unchanged": {
     ".agents_skills": true,
     ".codex_auth.json": true,
