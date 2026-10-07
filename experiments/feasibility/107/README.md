@@ -47,9 +47,11 @@ Do not wire Sign in with ChatGPT tokens into this runner or call its present
 prompt rule, or output redaction cannot undo an observed read path.
 
 This says nothing about whether the selected account will grant ChatGPT plan
-usage. OpenAI's [local-app guide](https://developers.openai.com/cookbook/articles/sign-in-with-chatgpt)
-lists personal projects that run locally as eligible in principle; Laomedo has
-not performed app-owned sign-in or checked this account's granted scopes.
+usage. OpenAI's [quickstart](https://developers.openai.com/siwc/quickstart),
+checked on 2026-10-07, says plan usage is available to open-source partners
+and selected private clients. Laomedo has not established selected-private-client
+access or performed app-owned sign-in with separately granted Responses API
+scopes.
 Refresh, restart, sign-out, and account switching are also untested. No
 production credential broker was added here.
 
