@@ -12,6 +12,8 @@ from unittest.mock import patch
 from laomedo.github_git_transport import (GitHubGitTransport,
                                           PushOutcomeUnknown)
 from laomedo.github_mediation import KnownRejected
+from laomedo.github_mediation import MediationStore
+from laomedo.mediation_service import JournaledTransport
 from laomedo import git_credential_helper
 
 
@@ -127,7 +129,7 @@ class GitHubGitTransportTests(unittest.TestCase):
     def test_transport_failure_is_uncertain_not_safe_to_retry(self):
         self.transport.run = lambda args, **kwargs: (
             subprocess.CompletedProcess(
-                args, 1, b"synthetic-secret", b"403 synthetic-secret")
+                args, 1, b"synthetic-secret", b"error: 403 synthetic-secret")
             if "push" in args else subprocess.run(args, **kwargs))
         with self.assertRaisesRegex(PushOutcomeUnknown,
                                     "push_outcome_unknown") as found:
@@ -138,6 +140,57 @@ class GitHubGitTransportTests(unittest.TestCase):
                          "authentication_or_authorization")
         self.assertEqual(found.exception.exit_code, 1)
         self.assertNotIn("synthetic-secret", str(found.exception))
+
+    def test_secret_bearing_git_failure_stays_private_end_to_end(self):
+        secret = "synthetic-secret"
+        seen_pushes = []
+
+        def failing_git(args, **kwargs):
+            if "push" in args:
+                seen_pushes.append(args)
+                return subprocess.CompletedProcess(
+                    args, 1, ("[remote rejected] " + secret).encode(),
+                    ("fatal: " + secret).encode())
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = failing_git
+        private = tempfile.TemporaryDirectory()
+        self.addCleanup(private.cleanup)
+        store_path = Path(private.name) / "effects.sqlite"
+        attempts = Path(private.name) / "attempts.jsonl"
+        diagnostics = Path(private.name) / "diagnostics.jsonl"
+        store = MediationStore(
+            store_path,
+            workflow_change_classifier=self.transport.classify_workflow_diff,
+            connection_is_current=lambda *_args: True)
+        _, bearer = store.issue(
+            run_id="run-a", invocation_id="invocation-a", repository=REPOSITORY,
+            branch="probe-a", operations={"git_push"}, ttl_seconds=60,
+            connection_id="connection-a", connection_generation=1)
+        transport = JournaledTransport(self.transport, attempts, diagnostics)
+        payload = {"branch": "probe-a", "commit": self.commit}
+        first = store.invoke(token=bearer, repository=REPOSITORY,
+                             operation="git_push", payload=payload,
+                             effect_id="effect-a", transport=transport)
+        second = store.invoke(token=bearer, repository=REPOSITORY,
+                              operation="git_push", payload=payload,
+                              effect_id="effect-a", transport=transport)
+        self.assertEqual(first, {"state": "unknown", "resent": False})
+        self.assertEqual(second, first)
+        self.assertEqual(len(seen_pushes), 1)
+        self.assertEqual(len(attempts.read_text(encoding="utf-8").splitlines()), 1)
+        diagnostic = diagnostics.read_text(encoding="utf-8")
+        self.assertIn("remote_rejected", diagnostic)
+        for artifact in (attempts.read_bytes(), diagnostics.read_bytes(),
+                         store_path.read_bytes()):
+            self.assertNotIn(secret.encode(), artifact)
+        self.assertNotIn(secret, repr(store.effect("run-a", "effect-a")))
+
+    def test_commit_digits_do_not_misclassify_remote_rejection_as_auth(self):
+        from laomedo.github_git_transport import _push_failure_category
+        self.assertEqual(_push_failure_category(
+            b"", b"!\t403abc:refs/heads/probe\t[remote rejected]"),
+            "remote_rejected")
 
     def test_git_credential_helper_ignores_host_credentials(self):
         helper = "!" + shlex.quote(sys.executable) + " " + shlex.quote(

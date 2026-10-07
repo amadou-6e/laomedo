@@ -32,12 +32,13 @@ class PushOutcomeUnknown(RuntimeError):
         self.exit_code = exit_code
 
 
-def _push_failure_category(stderr: bytes) -> str:
+def _push_failure_category(stderr: bytes, stdout: bytes = b"") -> str:
     """Return only a fixed diagnostic label, never Git's untrusted output."""
-    lower = stderr.lower()
+    lower = (stderr + b"\n" + stdout).lower()
     if any(marker in lower for marker in (
-            b"authentication failed", b"403", b"permission denied",
-            b"permission to", b"could not read username")):
+            b"authentication failed", b"http 403", b"error: 403",
+            b"403 forbidden", b"permission denied", b"permission to",
+            b"could not read username")):
         return "authentication_or_authorization"
     if b"remote rejected" in lower or b"pre-receive hook declined" in lower:
         return "remote_rejected"
@@ -193,7 +194,8 @@ class GitHubGitTransport:
                 environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
         if pushed.returncode != 0:
             # A lost response can follow a successful remote write.
-            raise PushOutcomeUnknown(_push_failure_category(pushed.stderr),
+            raise PushOutcomeUnknown(_push_failure_category(pushed.stderr,
+                                                             pushed.stdout),
                                      pushed.returncode)
         return {"branch": branch, "commit": commit}
 

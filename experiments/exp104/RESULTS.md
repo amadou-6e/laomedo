@@ -155,8 +155,9 @@ attestation that no other repository is selected.
 The first command failed while importing the local package, before state
 creation or provider contact. With the local checkout added to `PYTHONPATH`,
 the same unused identity entered the one-shot probe. The wrong-branch control
-returned 403 before transport. A's exact-branch push made **one** recorded
-provider attempt, but the mediator returned HTTP 200 with effect state
+returned 403 before transport. A's exact-branch push wrote **one**
+provider-attempt journal entry before entering the transport, but the
+mediator returned HTTP 200 with effect state
 `unknown`; the probe stopped at `a_push_not_confirmed_no_retry`. It did not
 retry the push, kill the runner, or execute B/C cases. The machine-written
 [observation](live-observation-s3-01.json) has SHA-256
@@ -171,20 +172,24 @@ A subsequent read-only GitHub ref lookup returned 404 for S3's A branch.
 This is useful read-back evidence, **not** proof that the unconfirmed push
 could not have taken effect or appeared later. A read-only `git ls-remote`
 through the same selected host-side credential helper succeeded for `main`;
-that does not establish write permission or explain the nonzero push result.
+that does not establish write permission or explain the `unknown` result.
 The probe verified removal of its exact A and B containers (C was absent).
 An after-run exact-token scan found zero hits in 56 private state files;
 the probe ended before its planned full success-path canary. No model turn
 was used and no PR or issue was written in the disposable repository.
 
 S3 identity `-01` is consumed. The live EXP-104 acceptance gate remains
-open, as do draft #97/#105 and Q11. The Git transport currently collapses
-every nonzero push into an `unknown` effect without a safe diagnostic class.
-Investigate that path with non-mutating controls and freeze any next protocol
-revision before a distinct new live identity; never resend this effect.
+open, as do draft #97/#105 and Q11. S3 did not capture whether Git exited
+nonzero or another transport error occurred. Investigate that path with
+non-mutating controls and freeze any next protocol revision before a distinct
+new live identity; never resend this effect.
 
 Amendment [14](AMENDMENT-14.md) was frozen after S3-01 and before a
 diagnostic-only code change. The later code appends a fixed-category private
 record for nonzero Git exits while leaving the durable effect `unknown` and
 never persisting Git output. Unit tests cover the no-secret and no-resend
 rules. S3-01 did **not** run that later code, so it has no such category.
+Amendment [15](AMENDMENT-15.md) then froze consumed-identity refusal, an
+end-to-end redaction test, and a non-mutating S4 dry-run preflight before
+the next separate live candidate. The dry-run is a guard, not a promise that
+a later GitHub write will succeed.

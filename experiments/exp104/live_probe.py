@@ -19,7 +19,9 @@ import time
 from urllib import error, request
 
 from laomedo.container_lease import cleanup_exact, inspect_exact
-from laomedo.github_git_transport import _base_git_environment
+from laomedo.github_git_transport import (_base_git_environment,
+                                          _credential_environment,
+                                          _push_failure_category)
 from laomedo.github_mediation import MediationError, MediationStore
 from laomedo.host_token_connection import HostTokenConnection
 from laomedo.lease_service import LeaseClient
@@ -45,6 +47,10 @@ LEASE_C = IDENTITY + "-lease-c"
 CONTAINER_A = "laomedo-" + IDENTITY + "-a"
 CONTAINER_B = "laomedo-" + IDENTITY + "-b"
 CONTAINER_C = "laomedo-" + IDENTITY + "-c"
+CONSUMED_IDENTITIES = frozenset({
+    "exp104-d2-20261007-01", "exp104-d2-20261007-02",
+    "exp104-s3-20261007-01",
+})
 
 
 def select_fresh_identity(identity: str, connection_id: str) -> None:
@@ -54,6 +60,8 @@ def select_fresh_identity(identity: str, connection_id: str) -> None:
     if not re.fullmatch(r"exp104-[a-z0-9-]{8,60}", identity) or \
             not re.fullmatch(r"exp104-[a-z0-9-]{8,60}", connection_id):
         raise ValueError("experiment_identity_invalid")
+    if identity in CONSUMED_IDENTITIES:
+        raise ValueError("experiment_identity_consumed")
     global IDENTITY, CONNECTION_ID, BRANCH_A, BRANCH_B, BRANCH_C
     global RUN_A, RUN_B, RUN_C, LEASE_A, LEASE_B, LEASE_C
     global CONTAINER_A, CONTAINER_B, CONTAINER_C
@@ -199,9 +207,46 @@ def _secret_canary(state: Path, token: str) -> dict:
     return {"files_scanned": files, "exact_token_hits": hits}
 
 
+def _dry_run_preflight(token: str, checkout: Path, commit: str,
+                       branch: str, *, run=subprocess.run) -> dict:
+    """Check the new ref without sending updates or persisting Git output."""
+    ref = "refs/heads/" + branch
+    environment, helper = _credential_environment(token)
+    try:
+        result = run(["git", "-C", str(checkout), "-c", "credential.helper=",
+                      "-c", "credential.helper=" + helper, "push", "--dry-run",
+                      "--porcelain", "--force-with-lease=" + ref + ":",
+                      "https://github.com/" + REPOSITORY + ".git",
+                      commit + ":" + ref], env=environment, capture_output=True,
+                     timeout=30)
+    finally:
+        environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
+    return {"exit_code": result.returncode,
+            "category": _push_failure_category(result.stderr, result.stdout)
+            if result.returncode else None}
+
+
+def _diagnostic_records(state: Path) -> list[dict]:
+    """Allowlist private Git diagnostics before putting them in evidence."""
+    path = state / "mediator" / "push-diagnostics.jsonl"
+    if not path.exists():
+        return []
+    allowed = {"authentication_or_authorization", "remote_rejected",
+               "network_or_transport", "unclassified"}
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        value = json.loads(line)
+        if (value.get("category") not in allowed or
+                type(value.get("exit_code")) is not int):
+            raise RuntimeError("push_diagnostic_invalid")
+        records.append({"category": value["category"],
+                        "exit_code": value["exit_code"]})
+    return records
+
+
 def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         scope_confirmation: str | None) -> dict:
-    if IDENTITY.startswith("exp104-s3-") and (
+    if IDENTITY.startswith(("exp104-s3-", "exp104-s4-")) and (
             token_key != "GH_LAOMEDO" or
             scope_confirmation != "selected_repository_only"):
         raise RuntimeError("scoped_identity_confirmation_required")
@@ -263,6 +308,19 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
             "image": IMAGE, "preflight_wall": time.time()}
     (state / "plan.json").write_text(json.dumps(plan, sort_keys=True, indent=2) + "\n",
                                      encoding="utf-8", newline="\n")
+
+    dry_run = _dry_run_preflight(token, checkout, commit, BRANCH_A)
+    (state / "dry-run.json").write_text(
+        json.dumps(dry_run, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    if dry_run["exit_code"] != 0:
+        raise RuntimeError("dry_run_preflight_failed")
+    try:
+        _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCH_A)
+    except error.HTTPError as failure:
+        if failure.code != 404:
+            raise RuntimeError("dry_run_ref_readback_uncertain") from None
+    else:
+        raise RuntimeError("dry_run_created_ref")
 
     mediator_state = state / "mediator"
     lease_state = state / "lease"
@@ -525,7 +583,8 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         if observation["secret_canary"]["exact_token_hits"]:
             raise RuntimeError("secret_canary_failed")
         observation["status"] = "scoped_candidate_pending_cleanup" if \
-            IDENTITY.startswith("exp104-s3-") else "bounded_diagnostic_pending_cleanup"
+            IDENTITY.startswith(("exp104-s3-", "exp104-s4-")) else \
+            "bounded_diagnostic_pending_cleanup"
         checkpoint()
         return observation
     finally:
@@ -548,7 +607,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
             if all(item["verified"] and item["state_after"] == "absent"
                    for item in cleanup.values()):
                 observation["status"] = ("scoped_candidate_pass" if
-                                         IDENTITY.startswith("exp104-s3-") else
+                                         IDENTITY.startswith(("exp104-s3-", "exp104-s4-")) else
                                          "bounded_diagnostic_pass")
             else:
                 observation["status"] = "incomplete"
@@ -602,7 +661,11 @@ def main() -> None:
                   "plan": json.loads(plan_path.read_text(encoding="utf-8")) if plan_path.exists()
                   else None,
                   "provider_attempts": _call_count(args.state / "mediator" /
-                                                    "provider-attempts.jsonl")}
+                                                    "provider-attempts.jsonl"),
+                  "push_diagnostics": _diagnostic_records(args.state),
+                  "dry_run": json.loads((args.state / "dry-run.json").read_text(
+                      encoding="utf-8")) if (args.state / "dry-run.json").exists()
+                  else None}
         with args.record.open("x", encoding="utf-8", newline="\n") as output:
             output.write(json.dumps(result, sort_keys=True, indent=2) + "\n")
         raise

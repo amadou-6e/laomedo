@@ -2,7 +2,9 @@
 
 import unittest
 import importlib.util
+import json
 from pathlib import Path
+import subprocess
 import tempfile
 
 
@@ -17,26 +19,34 @@ class LiveProbeConfigurationTests(unittest.TestCase):
         self.original_identity = live_probe.IDENTITY
         self.original_connection = live_probe.CONNECTION_ID
         self.addCleanup(live_probe.select_fresh_identity,
-                        self.original_identity, self.original_connection)
+                        "exp104-test-reset-0001", "exp104-test-connection")
 
     def test_fresh_identity_changes_every_effect_namespace(self):
-        live_probe.select_fresh_identity("exp104-s3-20261007-01",
-                                         "exp104-s3-selected-gh")
-        self.assertEqual(live_probe.BRANCH_A, "exp104-s3-20261007-01-a")
-        self.assertEqual(live_probe.RUN_B, "exp104-s3-20261007-01-run-b")
-        self.assertEqual(live_probe.LEASE_C, "exp104-s3-20261007-01-lease-c")
+        live_probe.select_fresh_identity("exp104-s4-20261007-01",
+                                         "exp104-s4-selected-gh")
+        self.assertEqual(live_probe.BRANCH_A, "exp104-s4-20261007-01-a")
+        self.assertEqual(live_probe.RUN_B, "exp104-s4-20261007-01-run-b")
+        self.assertEqual(live_probe.LEASE_C, "exp104-s4-20261007-01-lease-c")
         self.assertEqual(live_probe.CONTAINER_A,
-                         "laomedo-exp104-s3-20261007-01-a")
-        self.assertEqual(live_probe.CONNECTION_ID, "exp104-s3-selected-gh")
+                         "laomedo-exp104-s4-20261007-01-a")
+        self.assertEqual(live_probe.CONNECTION_ID, "exp104-s4-selected-gh")
 
     def test_invalid_identity_is_rejected_before_run(self):
         with self.assertRaisesRegex(ValueError, "experiment_identity_invalid"):
-            live_probe.select_fresh_identity("../old", "exp104-s3-selected-gh")
+            live_probe.select_fresh_identity("../old", "exp104-s4-selected-gh")
         self.assertEqual(live_probe.IDENTITY, self.original_identity)
 
+    def test_all_consumed_identities_refused_before_fresh_state(self):
+        for identity in sorted(live_probe.CONSUMED_IDENTITIES):
+            with self.subTest(identity=identity), self.assertRaisesRegex(
+                    ValueError, "experiment_identity_consumed"):
+                live_probe.select_fresh_identity(identity,
+                                                 "exp104-s4-selected-gh")
+            self.assertEqual(live_probe.IDENTITY, self.original_identity)
+
     def test_scoped_candidate_refuses_without_selected_token_provenance(self):
-        live_probe.select_fresh_identity("exp104-s3-20261007-01",
-                                         "exp104-s3-selected-gh")
+        live_probe.select_fresh_identity("exp104-s4-20261007-01",
+                                         "exp104-s4-selected-gh")
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / "untouched-state"
             with self.assertRaisesRegex(RuntimeError,
@@ -44,6 +54,36 @@ class LiveProbeConfigurationTests(unittest.TestCase):
                 live_probe.run(state, Path(directory) / "missing-token", "0" * 40,
                                "GH", None)
             self.assertFalse(state.exists())
+
+    def test_dry_run_uses_selected_helper_without_persisting_git_output(self):
+        seen = []
+
+        def fake_run(args, **kwargs):
+            seen.append((args, kwargs))
+            return subprocess.CompletedProcess(args, 1, b"[remote rejected] secret",
+                                               b"secret")
+
+        result = live_probe._dry_run_preflight(
+            "secret", Path("synthetic-checkout"), "a" * 40,
+            "exp104-s4-20261007-01-a", run=fake_run)
+        self.assertEqual(result, {"exit_code": 1, "category": "remote_rejected"})
+        self.assertIn("--dry-run", seen[0][0])
+        self.assertNotIn("secret", " ".join(seen[0][0]))
+        self.assertNotIn("LAOMEDO_MEDIATED_GIT_TOKEN", seen[0][1]["env"])
+
+    def test_failure_observation_allowlists_private_push_diagnostic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            mediator = state / "mediator"
+            mediator.mkdir()
+            (mediator / "push-diagnostics.jsonl").write_text(
+                json.dumps({"category": "remote_rejected", "exit_code": 1,
+                            "raw_stderr": "synthetic-secret"}) + "\n",
+                encoding="utf-8")
+            records = live_probe._diagnostic_records(state)
+            self.assertEqual(records, [{"category": "remote_rejected",
+                                        "exit_code": 1}])
+            self.assertNotIn("synthetic-secret", json.dumps(records))
 
     def test_secret_canary_reports_only_counts(self):
         with tempfile.TemporaryDirectory() as directory:
