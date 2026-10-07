@@ -19,7 +19,7 @@ import sqlite3
 from .github_mediation import MediationError
 
 
-FIRST_SLICE_OPERATIONS = frozenset({"git_push", "pr_create", "pr_update", "actions_read"})
+FIRST_SLICE_OPERATIONS = frozenset({"git_push", "pr_create", "pr_update", "actions_read", "api_rest_read"})
 
 
 class RunGrantAuthority:

@@ -109,6 +109,15 @@ class MediatedLeaseTests(unittest.TestCase):
         self.read(token_b)
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
 
+    def test_trusted_approval_can_authorize_same_repository_read(self):
+        _, _, bearer = self.register("read", "lease-read", operations={"api_rest_read"})
+        result = self.store.invoke(
+            token=bearer, repository="example/disposable", operation="api_rest_read",
+            payload={"method": "GET", "path": "/repos/example/disposable/branches/main"},
+            effect_id=None, transport=self.transport)
+        self.assertEqual(result["state"], "confirmed")
+        self.assertEqual(len(self.calls), 1)
+
     def test_reopened_service_revokes_old_grant_and_never_reissues_it(self):
         directory, accepted, token = self.register("a", "lease-a")
         self.service.server.server_close()
