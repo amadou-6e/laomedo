@@ -308,7 +308,9 @@ class EarlyRunnerTests(unittest.TestCase):
         try:
             with self.assertRaisesRegex(HandoffError, "runner_result_pending"):
                 bridge.dispatch(run["run_id"], "agent", handoff,
-                                deadline=time.monotonic() + .3,
+                                # Leave room for CI database writes and HTTP setup;
+                                # the synthetic turn remains blocked for four seconds.
+                                deadline=time.monotonic() + 3,
                                 cancelled=threading.Event())
             before = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
             invocation = before["invocation"]

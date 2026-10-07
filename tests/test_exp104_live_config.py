@@ -140,6 +140,29 @@ class LiveProbeConfigurationTests(unittest.TestCase):
             self.assertEqual(live_probe._safe_diagnostic_records(state),
                              {"records": [], "error": "invalid_or_unavailable"})
 
+    def test_services_stop_when_final_checkpoint_fails(self):
+        stopped = []
+        with mock.patch.object(live_probe, "_stop", side_effect=stopped.append):
+            with self.assertRaisesRegex(PermissionError, "checkpoint_locked"):
+                live_probe._checkpoint_and_stop_services(
+                    mock.Mock(side_effect=PermissionError("checkpoint_locked")),
+                    "lease", "mediator")
+        self.assertEqual(stopped, ["lease", "mediator"])
+
+    def test_mediator_stop_attempted_when_lease_stop_fails(self):
+        stopped = []
+
+        def stop(process):
+            stopped.append(process)
+            if process == "lease":
+                raise OSError("lease_stop_failed")
+
+        with mock.patch.object(live_probe, "_stop", side_effect=stop):
+            with self.assertRaisesRegex(OSError, "lease_stop_failed"):
+                live_probe._checkpoint_and_stop_services(lambda: None,
+                                                         "lease", "mediator")
+        self.assertEqual(stopped, ["lease", "mediator"])
+
     def test_durable_effect_lookup_is_read_only_and_allowlisted(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)

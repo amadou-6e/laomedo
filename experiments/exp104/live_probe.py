@@ -177,6 +177,17 @@ def _stop(process: subprocess.Popen | None) -> None:
             process.wait(timeout=8)
 
 
+def _checkpoint_and_stop_services(checkpoint, lease, mediator) -> None:
+    """Attempt both service stops even if recording or the first stop fails."""
+    try:
+        checkpoint()
+    finally:
+        try:
+            _stop(lease)
+        finally:
+            _stop(mediator)
+
+
 def _kill_runner(process: subprocess.Popen) -> dict:
     if process.poll() is not None:
         raise RuntimeError("runner_not_alive")
@@ -642,32 +653,39 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         checkpoint()
         return observation
     finally:
-        for process in (runner_a, runner_b, runner_c):
-            _stop(process)
-        cleanup = {}
-        for name, run_id, lease_token in ((CONTAINER_A, RUN_A, LEASE_A),
-                                          (CONTAINER_B, RUN_B, LEASE_B),
-                                          (CONTAINER_C, RUN_C, LEASE_C)):
-            try:
-                verified, detail = cleanup_exact(name, run_id, lease_token)
-                state_after, _ = inspect_exact(name, run_id, lease_token)
-                cleanup[name] = {"verified": verified, "detail": detail,
-                                 "state_after": state_after}
-            except Exception:
-                cleanup[name] = {"verified": False, "detail": "cleanup_error",
-                                 "state_after": "unknown"}
-        observation["final_container_cleanup"] = cleanup
-        if observation["status"].endswith("pending_cleanup"):
-            if all(item["verified"] and item["state_after"] == "absent"
-                   for item in cleanup.values()):
-                observation["status"] = ("scoped_candidate_pass" if
-                                         IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) else
-                                         "bounded_diagnostic_pass")
-            else:
+        try:
+            runner_stop_failures = 0
+            for process in (runner_a, runner_b, runner_c):
+                try:
+                    _stop(process)
+                except Exception:
+                    runner_stop_failures += 1
+            observation["runner_stop_failures"] = runner_stop_failures
+            cleanup = {}
+            for name, run_id, lease_token in ((CONTAINER_A, RUN_A, LEASE_A),
+                                              (CONTAINER_B, RUN_B, LEASE_B),
+                                              (CONTAINER_C, RUN_C, LEASE_C)):
+                try:
+                    verified, detail = cleanup_exact(name, run_id, lease_token)
+                    state_after, _ = inspect_exact(name, run_id, lease_token)
+                    cleanup[name] = {"verified": verified, "detail": detail,
+                                     "state_after": state_after}
+                except Exception:
+                    cleanup[name] = {"verified": False, "detail": "cleanup_error",
+                                     "state_after": "unknown"}
+            observation["final_container_cleanup"] = cleanup
+            if runner_stop_failures:
                 observation["status"] = "incomplete"
-        checkpoint()
-        for process in (lease, mediator):
-            _stop(process)
+            elif observation["status"].endswith("pending_cleanup"):
+                if all(item["verified"] and item["state_after"] == "absent"
+                       for item in cleanup.values()):
+                    observation["status"] = ("scoped_candidate_pass" if
+                                             IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) else
+                                             "bounded_diagnostic_pass")
+                else:
+                    observation["status"] = "incomplete"
+        finally:
+            _checkpoint_and_stop_services(checkpoint, lease, mediator)
 
 
 def main() -> None:
