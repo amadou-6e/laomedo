@@ -57,8 +57,16 @@ retains an `unknown` run with one dispatch attempt. The local CLI exposes
 The worker's hash report shows that it loaded the export supplied by the host.
 It is not attestation of arbitrary Langflow component behavior; #96 owns that
 boundary. A grant is redeemed before the worker's hash check, so a failed
-check consumes the grant without reserving a run. #95 owns the approval and
-lost-response policy for a future model-backed path.
+check consumes the grant without reserving a run. At the time of this result,
+#95 was listed as the future approval and lost-response policy owner.
+
+Scope update (2026-10-06): #95's separate authenticated human approval
+requirement was retired. A same-user process can mint the current local grant
+and launch a stage. The grant scopes one run; it is not independent human
+authorization. A model-backed path still needs the selected provider's login,
+verified stage isolation, and enforced time and turn limits. An ambiguous
+outcome does not authorize silent grant reissue or redispatch. The zero-turn
+result above is unchanged.
 
 In a private directory outside Git, the local sequence is:
 
