@@ -229,7 +229,8 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
     mediator_state.mkdir()
     ledger = mediator_state / "mediator.sqlite"
     approvals = state / "authority.sqlite"
-    authority = RunGrantAuthority(approvals, connection_authorizer=connection.authorize)
+    authority = RunGrantAuthority(approvals, connection_authorizer=connection.authorize,
+                                  diagnostic_repository_read=True)
     mediator = lease = runner_a = runner_b = runner_c = None
     observation = {"plan": plan, "setup": "README initialized before probe",
                    "events": [], "status": "incomplete"}

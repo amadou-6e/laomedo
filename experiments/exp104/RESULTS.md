@@ -132,3 +132,12 @@ its host-file custody is test-only. A synthetic runner and disposable Docker
 container stood in for a real agent. Production service launch, browser/token
 account connection, real `git`/`gh` parity, real-agent cancellation and Q11
 remain unproven. Drafts #97/#105 must not be promoted from this result alone.
+
+The tested `4b0c2cd` revision temporarily allowed `api_rest_read` in the
+default first-slice approval set to perform B's control read. That was wider
+than the current first-slice spec, which permits Actions read but not general
+REST read by default. A subsequent implementation correction restored the
+narrow default and made same-repository REST read an explicit diagnostic-only
+opt-in, with a regression test for both paths. **No new live run was made
+after that correction**; the observation remains pinned to the code that
+actually ran and cannot prove the corrected path's live behavior.

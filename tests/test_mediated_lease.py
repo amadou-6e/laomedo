@@ -56,15 +56,16 @@ class MediatedLeaseTests(unittest.TestCase):
         self.addCleanup(self.service.server.server_close)
 
     def register(self, run_id, lease_token, *, operations=None, target_prs=None,
-                 connection_id=None, connection_generation=None):
-        reference = self.authority.approve(
+                 connection_id=None, connection_generation=None, authority=None):
+        approver = authority or self.authority
+        reference = approver.approve(
             invocation_id="invocation-" + run_id, repository="example/disposable",
             branch="branch-" + run_id,
             operations=operations or {"git_push", "pr_create", "actions_read"},
             target_prs=target_prs, reviewed_by="test-operator",
             connection_id=connection_id,
             connection_generation=connection_generation)
-        self.authority.bind_run(reference, run_id)
+        approver.bind_run(reference, run_id)
         directory = self.state / "leases" / lease_token
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
@@ -110,7 +111,16 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
 
     def test_trusted_approval_can_authorize_same_repository_read(self):
-        _, _, bearer = self.register("read", "lease-read", operations={"api_rest_read"})
+        with self.assertRaisesRegex(MediationError, "authorization_invalid"):
+            self.authority.approve(
+                invocation_id="denied-default", repository="example/disposable",
+                branch="branch-read", operations={"api_rest_read"},
+                reviewed_by="test-operator")
+        diagnostic = RunGrantAuthority(
+            self.root / "private" / "authority.sqlite",
+            diagnostic_repository_read=True)
+        _, _, bearer = self.register("read", "lease-read", operations={"api_rest_read"},
+                                      authority=diagnostic)
         result = self.store.invoke(
             token=bearer, repository="example/disposable", operation="api_rest_read",
             payload={"method": "GET", "path": "/repos/example/disposable/branches/main"},

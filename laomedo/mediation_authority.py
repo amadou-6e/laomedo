@@ -19,11 +19,14 @@ import sqlite3
 from .github_mediation import MediationError
 
 
-FIRST_SLICE_OPERATIONS = frozenset({"git_push", "pr_create", "pr_update", "actions_read", "api_rest_read"})
+FIRST_SLICE_OPERATIONS = frozenset({"git_push", "pr_create", "pr_update", "actions_read"})
 
 
 class RunGrantAuthority:
-    def __init__(self, path: str | Path, *, connection_authorizer=None):
+    def __init__(self, path: str | Path, *, connection_authorizer=None,
+                 diagnostic_repository_read: bool = False):
+        # Same-repository REST read is a D2 diagnostic control, not part of
+        # the accepted first-slice grant. Production callers leave this off.
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
             raise MediationError("authority_path_invalid")
@@ -33,6 +36,7 @@ class RunGrantAuthority:
             raise MediationError("authority_inside_checkout")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.connection_authorizer = connection_authorizer
+        self.diagnostic_repository_read = diagnostic_repository_read is True
         with closing(self._connect()) as db, db:
             db.execute("""CREATE TABLE IF NOT EXISTS authorizations (
                 ref_hash TEXT PRIMARY KEY, run_id TEXT UNIQUE,
@@ -65,7 +69,9 @@ class RunGrantAuthority:
         if (not all(isinstance(v, str) and v for v in
                     (invocation_id, repository, branch, reviewed_by)) or
                 not isinstance(operations, set) or not operations or
-                not operations <= FIRST_SLICE_OPERATIONS or
+                not operations <= (FIRST_SLICE_OPERATIONS |
+                                   ({"api_rest_read"} if self.diagnostic_repository_read
+                                    else set())) or
                 branch.startswith("refs/") or ".." in branch or
                 not isinstance(target_prs, dict) or
                 any(type(number) is not int or number < 1 or

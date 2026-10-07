@@ -100,7 +100,10 @@ repository, which was initialized once under amendment 08. The first D2
 identity pushed a branch but stopped after a C admission race and remains
 incomplete. Fresh identity `-02` completed the bounded runner-loss diagnostic;
 the machine observation and exact provider journal are linked from
-[RESULTS.md](RESULTS.md).
+[RESULTS.md](RESULTS.md). The tested revision temporarily widened the
+default first-slice approval set for B's read. The later correction restored
+the narrow default and put that read behind an explicit diagnostic-only
+opt-in; its live path has not been rerun.
 
 Amendment 07 records another pre-run validity fix: the original instruction
 to try a *different* branch with A's revoked capability cannot test
