@@ -4,6 +4,7 @@ from pathlib import Path
 import io
 import json
 import multiprocessing
+import os
 import queue
 import tempfile
 import threading
@@ -141,6 +142,14 @@ class LocalRunnerTests(unittest.TestCase):
             prepared = prepare(1)
             with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
                 result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
+            if os.name != "nt":
+                # The container-to-host loopback route is verified only on
+                # Windows Docker Desktop. Linux must refuse before dispatch.
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["error_category"],
+                                 "mediator_container_route_unverified")
+                self.assertEqual(FakeServer.calls, [])
+                return
             self.assertEqual(result["status"], "completed", result.get("error_category"))
             self.assertEqual(len(FakeServer.calls), 1)
             command = " ".join(FakeServer.calls[0])
