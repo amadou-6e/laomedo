@@ -360,6 +360,16 @@ def run(state: Path, token_file: Path, code_sha: str) -> dict:
             time.sleep(.05)
         if restarted is None or restarted.get("instance") == service.get("instance"):
             raise RuntimeError("service_restart_unverified")
+        # The startup sweep performs exact-container cleanup and may take
+        # several seconds. Do not register C until that sweep has finished:
+        # otherwise C's first heartbeat can expire while it waits in the
+        # service's scan queue, before it can start its heartbeat thread.
+        swept_b = _wait(lease_state / "leases" / LEASE_B / "result.json", timeout=30)
+        if (swept_b.get("reason") != "service_restart" or
+                swept_b.get("cleanup_verified") is not True):
+            raise RuntimeError("startup_sweep_unverified")
+        observation["lease_result_b"] = swept_b
+        checkpoint()
         status, old_b = _mediate(port, bearer_b, "api_rest_read", read_payload, None)
         if status != 403 or old_b.get("error") != "grant_unavailable":
             raise RuntimeError("old_grant_adopted")

@@ -42,3 +42,43 @@ runner, launch an agent or container, use a scoped GitHub identity, push a
 branch, read GitHub back, test actual credential retirement or prove the
 full `git`/`gh` adapter. Those cases remain open under #104 and the live
 protocol. No model turn or GitHub token was used.
+
+## Broad-token live diagnostic D2, first identity (incomplete)
+
+The user created public disposable repository
+`ga84jog/laomedo-exp104-disposable-20261007` (ID `1408647759`). Amendment
+[08](AMENDMENT-08.md) froze its one-shot README initialization; the response
+confirmed baseline `1f1a505f2fbd31993a7946924a9bec5a27bb15c1`.
+Amendment [09](AMENDMENT-09.md) and probe code at `fceaecc` preceded the
+first mediated push. The probe used the selected `ga84jog` token, not ambient
+`gh`; the token was broad and the host-file connection test-only, as
+amendments [05](AMENDMENT-05.md) and [06](AMENDMENT-06.md) disclose.
+
+The machine-written [first observation](live-observation-d2.json) records
+identity `exp104-d2-20261007-01` and an incomplete `ready_timeout`. Its
+committed-byte SHA-256 is
+`95A5A579DFBA4F943ACEE6D5F89616C035B43A3BCEEAD12A4A81B8799AADA3D0`.
+Independent read-back found A's new branch at exactly
+`919fc96cd89ac5c972a36cef4296780544133a8b`. The local non-secret
+provider-attempt journal contained one `git_push` and two
+`api_rest_read` attempts, with no post-revocation push attempt. A's saved
+lease result reported `heartbeat_lost`, revocation and verified exact
+container removal. B's restart result reported revocation and verified
+removal. C's lease was accepted but its heartbeat expired and the container
+was never observed. The probe stopped there; no C provider request occurred.
+
+The first harness wrote detailed progress only on full completion, so the
+exact runner-kill timestamp and response details are not in committed raw
+evidence. Do **not** infer a measured 60-second bound or full diagnostic pass
+from this run. The private state remains local for inspection, while the A
+branch remains in the disposable repository. Identity `-01` is consumed and
+will not be retried. Amendment [10](AMENDMENT-10.md) freezes a fresh identity
+and incremental evidence capture.
+
+The local-only [Docker preflight observation](docker-preflight-observation.json)
+shows the pinned image launching as an exact labelled container and verified
+removal, with no credential or model. Its committed-byte SHA-256 is
+`4718CD69E586671541920AFD14F10382821B1F807035016D244E48AAD8C89C1F`.
+The B/C lease timing points to the startup sweep occupying the lease service
+while C waited for admission; this is a diagnosis, not a captured C exception.
+Amendment [11](AMENDMENT-11.md) requires the B sweep to finish before C starts.
