@@ -52,13 +52,14 @@ class HostServicesTests(unittest.TestCase):
                 if os.name == "nt":
                     runner = LocalRunner.__new__(LocalRunner)
                     runner.mediator_state = state / "mediator"
-                    self.assertEqual(runner._mediator_url(),
-                                     f"http://host.docker.internal:{status['port']}/v1/mediate")
+                    self.assertEqual(runner._mediator_route(),
+                                     (f"http://host.docker.internal:{status['port']}/v1/mediate",
+                                      status["instance"]))
                     path = state / "mediator" / "mediator.json"
                     path.write_text(json.dumps({**status, "instance": "0" * 32}),
                                     encoding="utf-8")
                     with self.assertRaisesRegex(RunnerError, "mediator_unavailable"):
-                        runner._mediator_url()
+                        runner._mediator_route()
             finally:
                 lease.stopping.set()
                 thread.join(timeout=5)
