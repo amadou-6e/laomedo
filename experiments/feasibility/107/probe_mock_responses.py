@@ -8,9 +8,10 @@ from uuid import uuid4
 
 
 class MockResponses:
-    def __init__(self, tool_input=None):
+    def __init__(self, tool_input=None, before_first_output=None):
         self.requests = []
         self.tool_input = tool_input
+        self.before_first_output = before_first_output
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -24,6 +25,15 @@ class MockResponses:
                 length = int(self.headers.get("Content-Length", "0"))
                 request = json.loads(self.rfile.read(length))
                 owner.requests.append({"model": request.get("model"),
+                                       "advertised_tools": sorted({
+                                           child.get("name")
+                                           for item in request.get("input", [])
+                                           if isinstance(item, dict) and
+                                           item.get("type") == "additional_tools"
+                                           for group in item.get("tools", [])
+                                           for child in group.get("tools", [])
+                                           if isinstance(child, dict) and
+                                           isinstance(child.get("name"), str)}),
                                        "input_types": [item.get("type") for item
                                                        in request.get("input", [])
                                                        if isinstance(item, dict)],
@@ -32,6 +42,8 @@ class MockResponses:
                                                         if isinstance(item, dict) and
                                                         item.get("type") ==
                                                         "custom_tool_call_output"]})
+                if len(owner.requests) == 1 and owner.before_first_output:
+                    owner.before_first_output()
                 response_id = "resp_" + uuid4().hex
                 if owner.tool_input is not None and len(owner.requests) == 1:
                     item = {"id": "ctc_" + uuid4().hex,

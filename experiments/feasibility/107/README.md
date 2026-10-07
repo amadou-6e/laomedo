@@ -79,6 +79,7 @@ python experiments/feasibility/107/probe_remote_executor.py
 python experiments/feasibility/107/probe_remote_executor.py --disconnect-executor
 python experiments/feasibility/107/probe_remote_executor.py --patch-probe executor
 python experiments/feasibility/107/probe_remote_executor.py --patch-probe controller
+python experiments/feasibility/107/probe_remote_executor.py --listener-probe
 ```
 
 The controller enables `deferred_executor` and
@@ -103,13 +104,14 @@ code 0, and the draft marker was present. The probe reports
 `agent_command_boundary_verified: true` and
 `controller_token_absent_from_executor: true` for this exact command path.
 
-In the negative control, the executor was removed before `turn/start`. The
-turn timed out, no command event or marker appeared, and the controller did
-not run the command during the observation window. This supports a fail-closed
-result for that failure point only; it does not establish recovery or a
-general liveness bound. Both probe variants removed their disposable
-containers. The fake backend and synthetic canary used no personal login,
-browser authorization, or model turn.
+In the revised negative control, the executor was removed after the fake
+model request began, while the turn was active. The five-second wait ended as
+`timeout` about 4.5 seconds after removal. No command event or marker appeared,
+and the controller did not run the command during that window. This supports
+an `unknown` outcome for this loss point, not a general recovery or liveness
+guarantee. All probe variants removed their disposable containers. The fake
+backend and synthetic canary used no personal login, browser authorization,
+or model turn.
 
 The `apply_patch` control changed an executor-only file and left a
 controller-only file untouched. The controller-only attempt returned a
@@ -118,6 +120,32 @@ file still held its original bytes. The successful executor-only control is
 needed because an absent file alone would not prove which process handled
 the patch. These probes cover update hunks only; they do not prove all patch
 operations or other native tools route to the executor.
+
+The reviewer independently exercised code-mode JavaScript and `view_image`
+against the same fake backend. The JavaScript had no direct `process`, `Deno`,
+`require`, or `fetch` access, and `view_image` resolved executor-only and
+controller-only paths from the executor side. Their [review of this
+draft](https://github.com/amadou-6e/laomedo/pull/109) records the exact
+observations. The follow-up probe pins the image digest and `codex-cli
+0.159.2`, and reads `ALL_TOOLS` from inside a synthetic `functions.exec` call.
+The observed code-mode inventory matches the reviewed nine names exactly:
+`apply_patch`, `clock__curr_time`, `create_goal`, `exec_command`, `get_goal`,
+`update_goal`, `view_image`, `wait_for_environment`, and `write_stdin`. An
+unexpected tool makes the normal probe fail.
+
+The controller listener gate matches listening TCP and Unix socket inodes to
+processes in the controller PID namespace. At startup it found none. A
+negative control started a loopback exec-server listener in the controller;
+the gate detected it as `tcp` and refused the normal path. Because the two
+containers still share a network namespace, production integration must run
+this check before each dispatch and refuse any listener. This check is not a
+substitute for the stronger option of separate network namespaces.
+
+The `commandExecution` item in the pinned app-server event has no explicit
+environment ID. Exact thread and turn selections plus the canary result give
+evidence for this probe, but the event by itself cannot attest that a future
+turn ran in the executor. Production dispatch still needs a tested per-turn
+routing check; a mere `environment/status: ready` result is insufficient.
 
 This is a promising **experimental route**, not yet a production connection.
 It has not tested every tool or filesystem operation, broker IPC, access to a
@@ -140,14 +168,20 @@ the controller-to-tool channel; never mount the Docker socket in either
 container.
 
 After `initialize`, register the executor and require a ready status and
-expected shell information. Configure the controller with the two observed
+expected shell information. Reject a controller with any listening TCP or
+Unix socket, including abstract Unix listeners, and repeat that check before
+each turn while the network namespace is shared. Gate on the exact pinned
+image, CLI version, and nine-tool code-mode inventory; any tool addition needs
+new access-path tests. Configure the controller with the two observed
 executor feature flags. Select the exact environment on every thread start or
 resume and on every turn, with `externalSandbox` on the turn. Refuse dispatch
 if any selection is missing, mismatched, or rejected. Do not use the current
 controller-local `command/exec` preflight in this mode: run boundary probes
 against the executor and require a real agent-issued command check before a
-credential is connected. Treat executor loss as a failed or unknown turn;
-never retry locally. On shutdown, verify removal of both owned containers.
+credential is connected. Establish a per-turn executor-origin check beyond
+the current event fields. Treat executor loss as an unknown turn within a
+short tested bound; never retry locally. On shutdown, verify removal of both
+owned containers.
 
 This is a draft launch shape, not an applied runner configuration. Review must
 settle the exact Docker mounts, network policy, status evidence, and resume
