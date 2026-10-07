@@ -1,6 +1,7 @@
 """Credential-free Codex app-server skill-discovery probe for issue #78."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -10,8 +11,7 @@ import tempfile
 
 SHARED = Path(__file__).resolve().parents[1] / "feasibility" / "120"
 sys.path.insert(0, str(SHARED))
-from _shared import (AppServer, codex_version, compare_personal_roots,
-                     construct_env, hash_path, hash_personal_roots)
+from _shared import AppServer, codex_version, construct_env, hash_path
 
 
 NAME = "fixture-native-78"
@@ -20,8 +20,36 @@ BODY = ("---\nname: fixture-native-78\n"
         "---\n\nPrivate fixture body; no model turn reads this text.\n")
 
 
+def personal_metadata():
+    """Compare personal roots without opening credential or transcript files."""
+    home = Path.home()
+    roots = {
+        ".agents_skills": home / ".agents" / "skills",
+        ".codex_skills": home / ".codex" / "skills",
+        ".codex_sessions": home / ".codex" / "sessions",
+        ".codex_auth.json": home / ".codex" / "auth.json",
+    }
+    result = {}
+    for label, root in roots.items():
+        digest = hashlib.sha256()
+        if not root.exists():
+            result[label] = "absent"
+            continue
+        paths = [root, *sorted(root.rglob("*"))] if root.is_dir() else [root]
+        for path in paths:
+            try:
+                stat = path.lstat()
+            except FileNotFoundError:
+                digest.update(b"disappeared_during_snapshot")
+                continue
+            relative = "." if path == root else path.relative_to(root).as_posix()
+            digest.update(f"{relative}|{stat.st_mode}|{stat.st_size}|{stat.st_mtime_ns}\n".encode())
+        result[label] = digest.hexdigest()
+    return result
+
+
 def run(codex: Path) -> dict:
-    before = hash_personal_roots()
+    before = personal_metadata()
     real_home = Path.home().resolve()
     result = {"issue": 78, "model_turns": 0, "selection_mode": "native_listing_only"}
     with tempfile.TemporaryDirectory(prefix="laomedo-exp78-") as temporary:
@@ -103,8 +131,10 @@ def run(codex: Path) -> dict:
             result["effective_unchanged"] = (
                 result["source_sha256"] == result["effective_before_sha256"] ==
                 result["effective_after_sha256"])
-    result["personal_roots_unchanged"] = compare_personal_roots(
-        before, hash_personal_roots())
+    after = personal_metadata()
+    result["personal_roots_unchanged"] = {
+        key: before[key] == after[key] for key in before}
+    result["personal_root_comparison"] = "metadata_only"
     result["personal_session_comparison"] = (
         "unchanged" if result["personal_roots_unchanged"].get(".codex_sessions")
         else "changed_during_concurrent_ide_session_attribution_unknown")
