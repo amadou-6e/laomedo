@@ -22,8 +22,8 @@ class FakeProvider:
                               "operations": list(operations),
                               "expires_at": expiry.isoformat()}
 
-    def add_code(self, code, token):
-        self.codes[code] = token
+    def add_code(self, code, token, state):
+        self.codes[code] = (token, state)
 
     def __enter__(self):
         provider = self
@@ -44,8 +44,12 @@ class FakeProvider:
                                               "repository": data.get("repository"),
                                               "operation": data.get("operation")})
                     if self.path == "/exchange":
-                        token = provider.codes.pop(data.get("code"), None)
-                        result = {"token": token} if token else None
+                        issued = provider.codes.get(data.get("code"))
+                        if issued and issued[1] == data.get("state"):
+                            provider.codes.pop(data["code"])
+                            result = {"token": issued[0]}
+                        else:
+                            result = None
                     elif self.path == "/verify":
                         result = provider.tokens.get(data.get("token"))
                     elif self.path == "/write":

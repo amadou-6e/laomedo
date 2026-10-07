@@ -63,7 +63,7 @@ def run():
                 "ambient_credentials_not_fallback"))
             pending = broker.begin_browser(owner="laomedo-alice", session="browser-1",
                                            account="alice", repository="org/repo")
-            provider.add_code("synthetic-code", "synthetic-app")
+            provider.add_code("synthetic-code", "synthetic-app", pending["state"])
             cases.append(_refused(lambda: broker.finish_browser(
                 owner="laomedo-bob", session="browser-1", state=pending["state"],
                 code="synthetic-code"), "callback_wrong_owner"))
@@ -73,6 +73,11 @@ def run():
             cases.append(_refused(lambda: broker.finish_browser(
                 owner="laomedo-alice", session="browser-1", state="wrong-state",
                 code="synthetic-code"), "callback_wrong_state"))
+            other_pending = broker.begin_browser(owner="laomedo-alice", session="browser-1",
+                    account="alice", repository="org/repo")
+            cases.append(_refused(lambda: broker.finish_browser(
+                owner="laomedo-alice", session="browser-1", state=other_pending["state"],
+                code="synthetic-code"), "code_for_other_valid_state_refused"))
             # Recreate the broker before callback to prove pending state is durable.
             broker = ConnectionBroker(db, provider.url)
             browser = broker.finish_browser(owner="laomedo-alice", session="browser-1",
@@ -91,10 +96,19 @@ def run():
 
             wrong = broker.begin_browser(owner="laomedo-alice", session="browser-2",
                                           account="alice", repository="org/repo")
-            provider.add_code("synthetic-bad-code", "synthetic-other")
+            provider.add_code("synthetic-bad-code", "synthetic-other", wrong["state"])
             cases.append(_refused(lambda: broker.finish_browser(
                 owner="laomedo-alice", session="browser-2", state=wrong["state"],
                 code="synthetic-bad-code"), "browser_account_mismatch"))
+            provider.add_token("synthetic-browser-wrongrepo", token_type="app_user",
+                               repositories=("org/other",))
+            wrong_repo = broker.begin_browser(owner="laomedo-alice", session="browser-3",
+                    account="alice", repository="org/repo")
+            provider.add_code("synthetic-browser-wrongrepo-code",
+                              "synthetic-browser-wrongrepo", wrong_repo["state"])
+            cases.append(_refused(lambda: broker.finish_browser(
+                owner="laomedo-alice", session="browser-3", state=wrong_repo["state"],
+                code="synthetic-browser-wrongrepo-code"), "browser_repository_mismatch"))
 
             token = broker.connect_token(owner="laomedo-alice", account="alice",
                                           repository="org/repo", token="synthetic-fg")
@@ -154,7 +168,7 @@ def run():
             assert "synthetic-ambient-should-not-use" not in public
             cases.append({"case": "no_secret_in_stage_or_observation", "passed": True})
 
-        return {"protocol": "EXP-108-v1", "synthetic_only": True,
+        return {"protocol": "EXP-108-v2", "synthetic_only": True,
                 "model_turns": 0, "real_github_requests": 0,
                 "browser_connection_id": _id(browser["id"]),
                 "token_connection_id": _id(token["id"]),
@@ -171,7 +185,7 @@ def main():
     args = parser.parse_args()
     observation = run()
     if args.record:
-        output = HERE / "observation.json"
+        output = HERE / "observation-v2.json"
         if output.exists():
             raise SystemExit("observation already exists; refusing to overwrite")
         output.write_text(json.dumps(observation, indent=2) + "\n",
