@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "model_turns": 0,
+  "github_tokens": 0,
+  "kill_scope": "taskkill_exact_runner_tree",
+  "docker_engine": "27.3.1",
+  "image": "laomedo-codex-boundary:0.159.2",
+  "service_survived": true,
+  "result_reason": "heartbeat_lost",
+  "grant_revoked": true,
+  "cleanup_verified": true,
+  "cleanup_state": "removed_after_loss",
+  "seconds_kill_to_revocation": 4.921,
+  "seconds_kill_to_container_absent": 5.568,
+  "accepted_writes_before_kill": 3,
+  "accepted_writes_after_revocation": 0,
+  "post_revocation_write_status": 403,
+  "lookalike_running": true,
+  "bound_seconds": 60,
+  "classification": "pass"
+}

@@ -1,5 +1,11 @@
 """Exact-container lease supervision for a local runner process.
 
+Superseded for runner launches by ``laomedo.lease_service``: EXP-93's frozen
+whole-tree diagnostic showed this runner-spawned child supervisor dies with
+the runner under ``taskkill /T /F``. The exact inspection and cleanup helpers
+below remain shared. ``LeaseProcess``/``supervise`` are kept only so the
+committed historical probes stay reproducible.
+
 The supervisor is a separate process. It receives heartbeats over a private
 pipe; an EOF or an expired heartbeat makes it stop only the labelled container
 reserved by the durable run record. It never searches by a name prefix.

@@ -83,6 +83,21 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["container_ownership"]["supervised"], False)
 
+    def test_supervised_launch_refuses_without_independent_lease_service(self):
+        launched = []
+
+        class Recording(FakeServer):
+            def __init__(self, command, evidence):
+                launched.append(command)
+                super().__init__(command, evidence)
+
+        self.runner.transport = Recording
+        self.runner.supervise_containers = True
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "lease_service_required")
+        self.assertEqual(launched, [])
+
     def test_restart_sweep_preserves_unverified_cleanup(self):
         record = self.runner._prepare(self.request())
         path = self.runner._run_dir(record["run_id"]) / "record.json"

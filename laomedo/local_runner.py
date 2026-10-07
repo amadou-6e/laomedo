@@ -20,7 +20,8 @@ from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 from .artifacts import ArtifactError, import_selected, relative_path, selections
-from .container_lease import (LABEL_RUN, LABEL_TOKEN, LeaseProcess, cleanup_exact)
+from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
+from .lease_service import LeaseClient
 from .siwc_auth import AuthError, ChatGPTConnection, _outside_git
 
 
@@ -616,7 +617,8 @@ class LocalRunner:
                  check_docker: bool = True, max_model_turns: int = 0,
                  supervise_containers: bool | None = None,
                  split_executor: bool = False, split_provider_config=(),
-                 split_access_token=None, auth_store: Path | None = None):
+                 split_access_token=None, auth_store: Path | None = None,
+                 lease_service: Path | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -640,6 +642,9 @@ class LocalRunner:
         self.supervise_containers = (transport is AppServer and not split_executor
                                      if supervise_containers is None
                                      else supervise_containers)
+        # The lease service is started independently of this runner, so a
+        # whole-process-tree kill of the runner cannot also kill it.
+        self.lease_service = Path(lease_service).resolve() if lease_service else None
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -1118,8 +1123,17 @@ class LocalRunner:
                     "cleanup_verified": False}
                 _json(run_dir / "record.json", record)
             if self.supervise_containers:
-                lease = LeaseProcess(run_dir / "record.json", name, run_id,
-                                     launch_token, cancelled)
+                if self.lease_service is None:
+                    raise RunnerError("lease_service_required")
+                try:
+                    lease = LeaseClient(self.lease_service, run_id=run_id, name=name,
+                                        token=launch_token, cancelled=cancelled)
+                except (OSError, RuntimeError):
+                    raise RunnerError("lease_service_unavailable") from None
+                record["container_ownership"]["lease_instance"] = lease.instance
+                record["container_ownership"]["grant_id"] = lease.grant_id
+                with self.control_lock:
+                    _json(run_dir / "record.json", record)
             access_token, auth_summary = self.auth.access_token() if self.auth else (None, None)
             if resume and self.auth:
                 prior = record.get("credential") or {}
@@ -1272,7 +1286,7 @@ class LocalRunner:
                     "STORE-ORIGINAL"):
                 raise RunnerError("protected_mount_changed")
             if lease is not None and lease.lost.is_set():
-                raise RunnerError("lease_supervisor_unverified")
+                raise RunnerError("lease_service_lost")
         except Exception as exc:
             if record is None:
                 raise
@@ -1303,10 +1317,10 @@ class LocalRunner:
                         verified, detail = cleanup_exact(name, run_id, launch_token)
                         if lease is not None:
                             try:
-                                lease.finish(normal=verified and not close_error)
+                                lease.finish()
                             except Exception:
                                 verified = False
-                                detail = "lease_supervisor_unverified"
+                                detail = "lease_service_unverified"
                         # A failed normal close may have been completed by the
                         # independent supervisor after its pipe closed.
                         if not verified:
@@ -1429,11 +1443,14 @@ def main():
                         help="Credential-free experimental split controller/executor")
     parser.add_argument("--auth-store", type=Path,
                         help="Private app-owned ChatGPT OAuth store; requires --split-executor")
+    parser.add_argument("--lease-service", type=Path,
+                        help="State directory of an independently started lease service")
     args = parser.parse_args()
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
                          max_model_turns=args.max_model_turns,
                          split_executor=args.split_executor,
-                         auth_store=args.auth_store)
+                         auth_store=args.auth_store,
+                         lease_service=args.lease_service)
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return

@@ -58,9 +58,42 @@ SHA-256 `95409d79d7e5becfb4f00a35ff43f0a1415935a42d5dd4621dcd3f7266f1be33`,
 records `survived_tree_kill`; the exact surviving supervisor was then stopped.
 Zero model turns, no Docker container and no grant were involved.
 
-This **does not overturn** the negative result for the current production
-`LeaseProcess`, which still launches its supervisor as a direct child. It only
-supports trying the launcher parentage in that path. A separately frozen
-production-lease whole-tree/Docker probe is required before #93 can claim the
-tested failure boundary, and systemd-cgroup survival and scoped-grant
-revocation remain separate gates.
+At the time of this diagnostic, `LeaseProcess` still launched its supervisor
+as a direct child. This result supported moving supervision outside that tree;
+it did not itself prove production-lease survival or Docker cleanup. The
+independent-service check below tested that next boundary separately.
+
+## Independent lease service under whole-tree kill (amendment 2, pass)
+
+After the negative whole-tree result, supervision moved out of the runner into
+an independently started lease service (`laomedo.lease_service`, implementation
+`4fef6f7`). The [frozen amendment](SERVICE-AMENDMENT.md) `b9e6a56` preceded the
+[committed probe](service_probe.py) `d0cf8a8`; the case ran once. The
+[machine observation](service-observation.json) has LF-byte SHA-256
+`479c8ac735298190f61c267dcce2353c06e2671d359081701e155cf52e05ae1c`.
+
+| Check | Observation |
+| --- | --- |
+| Kill scope | `taskkill /T /F` of the exact disposable runner tree, once |
+| Service survival | Service process still running with a fresh heartbeat after the kill |
+| Grant revocation | Lease result `heartbeat_lost`; the run's grant revoked **4.921 s** after the kill |
+| Exact container | Owned writer container absent **5.568 s** after the kill; `cleanup_verified=true` |
+| Write denial | No accepted write logged after revocation; a post-revocation write returned **403** |
+| Negative control | The same-prefix lookalike with other labels kept running |
+| Model turns / GitHub tokens | Zero / zero |
+
+The owned container ran the pinned `laomedo-codex-boundary:0.159.2` image as a
+synthetic writer that POSTed through `host.docker.internal` with its grant until
+removed. Writes it made between the kill and revocation were still accepted;
+that ~5-second exposure is the configured heartbeat-loss threshold, inside the
+selected 60-second bound.
+
+This establishes, for this Windows process-tree kill, that the lease service sits
+outside the runner's fate boundary and enforces revocation of the run-scoped
+synthetic write grant it issues. It does **not** establish: a systemd-cgroup or
+Windows job-object stop that also contains the service; power loss; revocation
+of a real push credential or of any credential copied outside the grant broker;
+a Codex agent run; or the double failure in which the service dies too (the
+synthetic grant endpoint disappears with it, but container cleanup then waits
+for the runner's startup sweep). #93 and Q11 remain open for those and for a
+separately authorized bounded real-stage check.
