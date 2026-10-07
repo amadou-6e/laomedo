@@ -95,7 +95,12 @@ token is broader than the original scoped-token protocol; amendments 05–06
 record the deviation. A read-only preflight authenticated it as `ga84jog` but
 could not access the original disposable repository. One attempt to create
 the alternate private repository was explicitly rejected with HTTP 403; a
-read-back still returned 404. No real push has occurred.
+read-back still returned 404. The user then created the public alternate
+repository, which was initialized once under amendment 08. The first D2
+identity pushed a branch but stopped after a C admission race and remains
+incomplete. Fresh identity `-02` completed the bounded runner-loss diagnostic;
+the machine observation and exact provider journal are linked from
+[RESULTS.md](RESULTS.md).
 
 Amendment 07 records another pre-run validity fix: the original instruction
 to try a *different* branch with A's revoked capability cannot test
@@ -105,15 +110,18 @@ before provider transport; the original acceptance wording still needs a
 reviewed correction. The mediator now records non-secret provider-attempt
 entries so the diagnostic can detect an accidental post-revocation call.
 
-These tests do not check a real Docker container, GitHub push, whole-tree
-kill, service manager or model. The synthetic probe checks an exact
-lease-service PID hard kill, not a runner or process-tree kill. There is no
-production service manager or agent-container route to the loopback
-endpoint. Consequently this remains an integration draft, not a reason to
-lift #97's draft status or accept Q11. The run-scoped grant remains
-short-lived (at most 60 seconds), but a service failure can leave it usable
-until expiry; the live hard-kill case and credential-source tests remain
-required.
+The earlier synthetic process probe checked only a lease-service PID hard
+kill. D2 additionally launched exact disposable Docker containers, killed
+one synthetic runner process tree, pushed one new GitHub branch, observed A's
+grant revocation after 4.357 seconds, and proved that a later A request did
+not reach the provider while B still read successfully. It did not use a
+real model or production service manager, and the broad token plus test-only
+credential custody cannot satisfy the original scoped-identity gate. There
+is no production agent-container route to the loopback endpoint. This remains
+an integration draft, not a reason to lift #97's draft status or accept Q11.
+The run-scoped grant remains short-lived (at most 60 seconds), but a service
+failure can leave it usable until expiry; the original live hard-kill and
+credential-source acceptance tests remain required.
 
 Review dependencies: merged specs #150, #250, #254 and #256; Laomedo #97 and
 merged #103. A later frozen experiment must exercise the deployed mediated

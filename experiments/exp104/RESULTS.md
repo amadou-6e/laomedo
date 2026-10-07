@@ -82,3 +82,53 @@ removal, with no credential or model. Its committed-byte SHA-256 is
 The B/C lease timing points to the startup sweep occupying the lease service
 while C waited for admission; this is a diagnosis, not a captured C exception.
 Amendment [11](AMENDMENT-11.md) requires the B sweep to finish before C starts.
+
+## Broad-token live diagnostic D2, fresh identity `-02` (bounded pass)
+
+The corrected probe at `4b0c2cd` used fresh identity
+`exp104-d2-20261007-02`. Its [machine observation](live-observation-d2-02.json)
+has committed-byte SHA-256
+`AE2C85E0EE414B30EDB9A5E10557B935399C2B49AF25E8F70737A6AE3DEB9FEC`.
+The [provider-attempt journal](live-provider-attempts-d2-02.jsonl) is an
+exact-byte copy of the private host journal, preserved without Git newline
+conversion; both source and committed target hash to
+`62F69933E06927980DE4B4023B19D6CB58EBAD66B0732D29BB8C86F65178DB6C`.
+The selected-token canary scan found zero exact-token matches across 65
+generated state/evidence files. It does not prove general secret redaction
+outside those files.
+
+The observed sequence was:
+
+1. Trusted A and B run scopes and labelled disposable containers were
+   admitted under separate lease and mediator processes. A wrong-branch push
+   was refused before provider transport.
+2. A pushed one new branch, `exp104-d2-20261007-02-a`, at exact commit
+   `058ad6e5fce09481a1be57c684df69f557d5ba53`. A selected-token
+   read-back confirmed that SHA. B's scoped same-repository read succeeded.
+3. The A runner process tree was killed once. The lease service revoked A
+   **4.357 seconds** after kill completion and verified exact-container
+   removal **9.480 seconds** after kill completion. A new effect using A's
+   same approved branch was refused as `grant_unavailable`; the journal
+   stayed at two provider attempts through the denial. A second remote
+   read-back found the branch unchanged. B's read still succeeded.
+4. Restarting only the lease service revoked B's old grant and removed its
+   exact container. The service did not adopt the old lease. A freshly
+   approved C run completed a scoped read. Its unpushed workflow-file commit
+   was refused as `workflow_approval_required` before provider transport;
+   the missing-run and mismatched-repository controls also refused.
+   Isolated synthetic controls refused an expired grant and retained an
+   ambiguous response as `unknown` without a second transport call.
+
+The journal contains **four** provider attempts: one A push and three reads.
+There is no second push, no PR or issue write, and no model turn. Independent
+post-run read-back found only `main` and the two A diagnostic branches; `main`
+remained at baseline. The probe's exact A/B/C containers were absent after
+cleanup. The two A branches remain in the disposable repository for review;
+none was deleted.
+
+This is a **bounded diagnostic pass**, not EXP-104 acceptance. The token has
+`All repositories` access rather than provider-enforced repository scope;
+its host-file custody is test-only. A synthetic runner and disposable Docker
+container stood in for a real agent. Production service launch, browser/token
+account connection, real `git`/`gh` parity, real-agent cancellation and Q11
+remain unproven. Drafts #97/#105 must not be promoted from this result alone.
