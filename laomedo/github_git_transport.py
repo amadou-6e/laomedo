@@ -65,7 +65,7 @@ def _run_bounded_tree(args: list[str], *, capture_output: bool, check: bool,
             try:
                 os.killpg(process.pid, signal.SIGKILL)
                 cleanup_verified = True
-            except ProcessLookupError:
+            except OSError:
                 pass
         if process.poll() is None:
             try:
@@ -79,7 +79,10 @@ def _run_bounded_tree(args: list[str], *, capture_output: bool, check: bool,
             for pipe in (process.stdout, process.stderr):
                 if pipe is not None:
                     pipe.close()
-            process.wait(timeout=GIT_TREE_CLEANUP_SECONDS)
+            try:
+                process.wait(timeout=GIT_TREE_CLEANUP_SECONDS)
+            except subprocess.TimeoutExpired:
+                cleanup_verified = False
         raise GitTreeTimeout(args, timeout, cleanup_verified) from None
     return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
 
@@ -268,7 +271,7 @@ class GitHubGitTransport:
                 except subprocess.TimeoutExpired as error:
                     # The remote may have accepted the push before Git was killed.
                     category = ("timeout" if getattr(error, "cleanup_verified", None)
-                                is not False else "timeout_cleanup_unverified")
+                                is True else "timeout_cleanup_unverified")
                     raise PushOutcomeUnknown(category, None) from None
             finally:
                 environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)

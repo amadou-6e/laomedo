@@ -159,7 +159,9 @@ and wall-clock-only lease enforcement. The follow-up code gives the parent
 Git process a 30-second deadline and attempts to stop its process tree on
 timeout. A staging timeout refuses the push; a push timeout remains an
 `unknown` effect and is never retried automatically. Tree cleanup is marked
-unverified if the OS refuses it. Neither a timeout nor tree cleanup proves
+unverified if the OS refuses it. A reported successful kill command is not
+proof that every descendant exited, and cleanup can add up to about 15 seconds
+after the parent Git process's 30-second deadline. Neither a timeout nor tree cleanup proves
 that an already-started remote write did not land. The
 runner heartbeat and grant expiry now also use monotonic deadlines; migrated
 grants without such a deadline fail closed. Synthetic regression tests cover

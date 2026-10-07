@@ -120,7 +120,7 @@ class GitHubGitTransportTests(unittest.TestCase):
                 "branch": "probe-a", "commit": self.commit},
                 connection_id="connection-a", connection_generation=1)
         self.assertEqual(len(calls), 1)
-        self.assertEqual(found.exception.category, "timeout")
+        self.assertEqual(found.exception.category, "timeout_cleanup_unverified")
         self.assertIsNone(found.exception.exit_code)
         self.assertNotIn("synthetic-secret", str(found.exception))
 
@@ -131,10 +131,13 @@ class GitHubGitTransportTests(unittest.TestCase):
         parent = ("import subprocess,time,sys; "
                   f"subprocess.Popen([sys.executable,'-c',{child!r}]); "
                   "time.sleep(10)")
+        started = time.monotonic()
         with self.assertRaises(GitTreeTimeout) as found:
             _run_bounded_tree([sys.executable, "-c", parent],
                               capture_output=True, check=False, timeout=.5,
                               env=os.environ.copy())
+        self.assertLess(time.monotonic() - started, 8,
+                        "timed-out command waited for the sleeping parent")
         time.sleep(2.2)
         if not found.exception.cleanup_verified:
             self.skipTest("OS denied process-tree kill; result remains unverified")
