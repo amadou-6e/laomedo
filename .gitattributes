@@ -4,3 +4,4 @@ experiments/exp22/prethread.json -text whitespace=cr-at-eol
 experiments/exp22/active.json -text whitespace=cr-at-eol
 experiments/exp104/live-provider-attempts-d2-02.jsonl -text whitespace=cr-at-eol
 experiments/exp104/live-provider-attempts-s5-01.jsonl -text whitespace=cr-at-eol
+experiments/exp104/live-provider-attempts-s6-01.jsonl -text whitespace=cr-at-eol

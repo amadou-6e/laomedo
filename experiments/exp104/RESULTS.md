@@ -282,3 +282,64 @@ account connection, complete `git`/`gh` parity, real-agent cancellation,
 and Q11 are still open. S3's earlier A effect remains `unknown` and was
 never resent. Amendment [18](AMENDMENT-18.md), frozen after S5, marks the
 S5 identity consumed before any further code change.
+
+## Selected-repository S6 attempt `-01` (new-branch control passes)
+
+The user retained the frozen protocol's literal new-branch post-loss
+control and authorized one fresh attempt. Amendment [19](AMENDMENT-19.md)
+was committed before the S6 probe code; the tested source was
+`a32d5ed8173b4d7a16f3ab75b3ec127da822f945`. The local 284-test
+suite (four skipped) and CI on that SHA passed. The prescribed read-only
+Claude reviewer returned `native_error`; a clearly labelled self-review
+was posted before execution. No independent-review verdict is claimed.
+The probe ran once with identity `exp104-s6-20261007-01` and zero model
+turns. Post-result amendment [20](AMENDMENT-20.md) was committed before
+marking the identity consumed or copying evidence.
+
+The exact-byte [machine observation](live-observation-s6-01.json) has
+SHA-256 `8D0EF471B530CCE222ECA01EDF077C7AEC419CA52F7B085E9E56BC905F1AF003`.
+The [dry-run record](live-dry-run-s6-01.json) has SHA-256
+`22FEDDB5E8BD5B74B027EEE24E589142903C3572031B5D515E3AE5739FD95C89`
+and records exit 0. The exact-byte
+[provider-attempt journal](live-provider-attempts-s6-01.jsonl) has
+SHA-256 `C0D169879A8B13E3A0DE2D70F766875F1ACC0722A10333337D62ACCFE4CB35A8`.
+Its four entries contain operation, repository, time and the A push's
+branch/commit, not credentials or request bodies.
+
+The A marker push was confirmed at branch
+`exp104-s6-20261007-01-a`, commit
+`0755d092baff7a45904570152f8dee96b271cbd9`. B's approved read
+succeeded. The exact A runner tree was killed once. On the same host's
+monotonic clock, the lease service detected runner loss and revoked A's
+grant **4.187 seconds** after kill completion; the denial request started
+**4.265 seconds** after kill completion. This exposes a roughly 4.19-second
+window before revocation, not an instantaneous stop. The request attempted
+the *distinct new branch* `exp104-s6-20261007-01-a-denied` with A's
+original capability and returned HTTP 403 `grant_unavailable`. Provider
+attempts remained at two before and after that denial. The independent
+post-loss read-back returned 404 at 4.593 seconds after kill completion.
+Before loss, the wrong-branch control returned 403
+`push_branch_denied`, distinguishing branch authorization from revocation.
+
+The exact A container was still owned at the instant of denial; the
+service later verified its removal 9.312 seconds after kill completion.
+B remained usable after A's revocation. Restarting only the lease service
+left old B denied, while a newly authorized C read succeeded. The
+missing-run, repository, workflow-file, expiry and ambiguous-response
+controls made no unintended provider call. An unauthenticated public API
+read after the run found only S6's A branch at the recorded SHA; the
+denied, B and C refs were absent. The exact S6 containers and recorded
+processes were absent. The in-run canary found zero exact-token hits in
+67 files; a post-run scan including the observation found zero in 68.
+The A branch remains in the disposable repository for review.
+
+This **passes the S6 new-branch and monotonic-timing controls**, but the
+harness's `scoped_candidate_pass` is not a claim that every live-protocol
+precondition is independently proven. The fine-grained token's exclusive
+repository selection is user-attested rather than independently exposed
+by GitHub; issuer/permission/expiry evidence is incomplete, and the
+disposable issue count was not captured before the run. The harness used
+a synthetic runner/container, not a model stage. Production account
+connection, complete mediated `git`/`gh` parity, real-agent cancellation
+and Q11 remain outside this result. S3 remains `unknown`; no uncertain
+effect was resent. Draft #97/#105 should not be promoted solely from S6.
