@@ -1,8 +1,14 @@
 """No-network checks of the one-shot EXP-104 probe configuration."""
 
 import unittest
+import importlib.util
+from pathlib import Path
 
-from experiments.exp104 import live_probe
+
+_PROBE = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "live_probe.py"
+_SPEC = importlib.util.spec_from_file_location("exp104_live_probe_config", _PROBE)
+live_probe = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(live_probe)
 
 
 class LiveProbeConfigurationTests(unittest.TestCase):
