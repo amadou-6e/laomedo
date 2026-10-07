@@ -25,6 +25,15 @@ same tick. Accepted leases get best-effort exact revocation and cleanup if
 processing fails. Live grant secrets are created exclusively with mode `0600`;
 Windows ACL inheritance still needs a deployment check. The binding table
 enforces one grant per lease token.
+The runner now stages heartbeat and lease metadata outside the directory the
+service scans, then publishes the complete registration with one directory
+rename. This removes the gap in which a normal runner could be permanently
+refused because the service saw its empty directory. A refused lease reports
+its sanitized error code to the runner instead of a generic acceptance
+timeout. An interrupted runner can leave an unscanned staging directory; it
+cannot receive a grant from that directory. A transient database failure
+still causes fail-closed terminal lease handling rather than automatic retry;
+whether to tolerate short locks is an open reliability choice.
 The authority now has a private SQLite approval record: a trusted controller
 approves repository, branch, first-slice operations and invocation; the runner
 consumes the opaque reference once for its saved run; the independent service

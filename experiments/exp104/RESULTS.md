@@ -9,6 +9,17 @@ historical; v2 did not test a surviving run because both grants belonged to
 the killed lease service. The v3 run used probe code at `9109bbc`, with two
 separate lease-service processes and one credential-free mediator process.
 
+Probe provenance: initial probe code `c18756a` was changed by diagnostic
+commit `a1d9393` and recording commit `566d19c` before the first committed
+observation (`b7eb9e1`, v1). Two initial attempts were stopped by Windows
+`taskkill` access denial before any measured case or provider call. One
+elevated, stdout-only diagnostic run completed but was not committed and is
+not acceptance evidence. The later v2 observation (`85bd82e`) used probe
+`2c90ded`; the v3 observation (`1198406`) used probe `9109bbc`. No v1 or v2
+observation was overwritten or silently substituted for v3. This records the
+known developmental attempts; it does not claim that those earlier diagnostics
+provide independent replication.
+
 The machine-written [v3 observation](process-observation-v3.json) is committed
 at `1198406` as Git blob `d9f9d2a3e5674ac818b699cc030d23337f52affb`.
 Its committed-byte SHA-256 is

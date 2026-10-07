@@ -9,6 +9,8 @@ import unittest
 from unittest.mock import patch
 from urllib import error, request
 
+from laomedo import lease_service
+from laomedo.github_mediation import MediationStore
 from laomedo.lease_service import LeaseClient, LeaseService
 
 
@@ -145,6 +147,62 @@ class LeaseClientTests(unittest.TestCase):
         self.assertEqual(result["reason"], "done")
         self.assertFalse(service.book.check(client.grant_secret())[0])
         self.assertFalse(cancelled.is_set())
+
+    def test_client_publishes_only_complete_registration(self):
+        service = LeaseService(self.state, loss_seconds=5)
+        runner = threading.Thread(target=service.serve, daemon=True)
+        runner.start()
+        def stop_service():
+            service.stopping.set()
+            runner.join(3)
+        self.addCleanup(stop_service)
+        deadline = time.monotonic() + 5
+        while not (self.state / "service.alive").exists() and time.monotonic() < deadline:
+            time.sleep(.05)
+
+        original_write = lease_service._write_json
+        saw_staged_registration = []
+
+        def checked_write(path, value):
+            if path.name == "lease.json":
+                self.assertEqual(path.parent.parent, self.state / "pending-leases")
+                self.assertFalse((self.state / "leases" / "token-race").exists())
+                # Reproduce the scan that previously refused a directory
+                # created before its lease.json had been written.
+                service.tick()
+                saw_staged_registration.append(True)
+            original_write(path, value)
+
+        with patch("laomedo.lease_service._write_json", side_effect=checked_write), \
+                patch("laomedo.lease_service.os.getpid", return_value=-2):
+            client = LeaseClient(self.state, run_id="run-race", name="exact-name",
+                                 token="token-race", cancelled=threading.Event())
+        self.assertEqual(saw_staged_registration, [True])
+        self.assertFalse((client.dir / "result.json").exists())
+        self.assertTrue((client.dir / "accepted.json").exists())
+        with patch("laomedo.lease_service.inspect_exact", return_value=("absent", None)):
+            client.finish()
+
+    def test_client_reports_service_refusal_without_waiting_for_timeout(self):
+        store = MediationStore(Path(self.temp.name) / "mediator.sqlite")
+        service = LeaseService(self.state, mediator=store)
+        runner = threading.Thread(target=service.serve, daemon=True)
+        runner.start()
+        def stop_service():
+            service.stopping.set()
+            runner.join(3)
+        self.addCleanup(stop_service)
+        deadline = time.monotonic() + 5
+        while not (self.state / "service.alive").exists() and time.monotonic() < deadline:
+            time.sleep(.05)
+        with patch("laomedo.lease_service.os.getpid", return_value=-2):
+            with self.assertRaisesRegex(
+                    RuntimeError, "lease_service_refused:mediated_lease_not_authorized"):
+                LeaseClient(self.state, run_id="r", name="n", token="t",
+                            cancelled=threading.Event(),
+                            mediation_request={"invocation_id": "i",
+                                               "repository": "example/disposable",
+                                               "branch": "probe-r"})
 
 
 if __name__ == "__main__":

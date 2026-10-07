@@ -342,20 +342,33 @@ class LeaseClient:
         self.instance = info.get("instance")
         self.port = info.get("port")
         self.dir = self.state / "leases" / token
-        self.dir.mkdir(parents=True, exist_ok=False)
+        # The service scans only leases/. Publish the complete registration in
+        # one directory rename so it cannot mistake a half-written lease for
+        # an invalid runner request and permanently refuse it.
+        staging_root = self.state / "pending-leases"
+        staging_root.mkdir(parents=True, exist_ok=True)
+        pending = staging_root / (token + "-" + secrets.token_hex(8))
+        pending.mkdir(mode=0o700)
         self.lost = threading.Event()
         self.stop_event = threading.Event()
-        (self.dir / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
-        _write_json(self.dir / "lease.json", {
+        (pending / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+        _write_json(pending / "lease.json", {
             "token": token, "run_id": run_id, "name": name,
             "runner_pid": os.getpid(), "created_at": time.time(),
             "mediation": mediation_request})
+        if self.dir.exists():
+            raise FileExistsError(self.dir)
+        os.rename(pending, self.dir)
         deadline = time.monotonic() + accept_timeout
         accepted = None
         while time.monotonic() < deadline:
             accepted = _read_json(self.dir / "accepted.json")
             if accepted is not None:
                 break
+            refused = _read_json(self.dir / "result.json")
+            if refused is not None:
+                code = refused.get("error_code") or refused.get("reason", "unknown")
+                raise RuntimeError(f"lease_service_refused:{code}")
             time.sleep(.05)
         if (accepted is None or accepted.get("token") != token or
                 accepted.get("instance") != self.instance):
