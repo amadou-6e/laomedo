@@ -1,9 +1,11 @@
 """Credential-free runner and pinned-skill contract tests."""
 
 from pathlib import Path
+from contextlib import nullcontext
 import io
 import json
 import multiprocessing
+import os
 import queue
 import tempfile
 import threading
@@ -138,31 +140,48 @@ class LocalRunnerTests(unittest.TestCase):
 
             FakeServer.calls.clear()
             FakeServer.turn_inputs.clear()
-            prepared = prepare(1)
-            with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
-                result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
-            self.assertEqual(result["status"], "completed", result.get("error_category"))
-            self.assertEqual(len(FakeServer.calls), 1)
-            command = " ".join(FakeServer.calls[0])
-            self.assertIn("target=/run/laomedo/capability,readonly", command)
-            self.assertIn("host.docker.internal", command)
-            self.assertNotIn("synthetic-provider-secret", command)
-            self.assertIn("node /run/laomedo/mediate.mjs", FakeServer.turn_inputs[0])
-            lease_dir = host_state / "lease" / "leases" / result["container_ownership"]["launch_token"]
-            self.assertEqual(json.loads((lease_dir / "result.json").read_text())["reason"], "done")
+            # Linux CI has no verified container-to-host route. Exercise the
+            # real lease/runner path with a fake transport while preserving
+            # the same live instance check; Windows tests the actual route.
+            def ci_route():
+                status = json.loads((host_state / "mediator" / "mediator.json").read_text())
+                with http_request.urlopen(
+                        f"http://127.0.0.1:{status['port']}/v1/health",
+                        timeout=2) as response:
+                    health = json.load(response)
+                if health != {"status": "ready", "instance": status["instance"]}:
+                    raise RunnerError("mediator_unavailable")
+                return (f"http://host.docker.internal:{status['port']}/v1/mediate",
+                        status["instance"])
 
-            prepared = prepare(2)
-            status_path = host_state / "mediator" / "mediator.json"
-            status = json.loads(status_path.read_text(encoding="utf-8"))
-            status_path.write_text(json.dumps({**status, "instance": "0" * 32}),
-                                   encoding="utf-8")
-            with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
-                result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
-            self.assertEqual(result["status"], "failed")
-            self.assertEqual(result["error_category"], "mediator_unavailable")
-            self.assertEqual(len(FakeServer.calls), 1)
-            lease_dir = host_state / "lease" / "leases" / result["container_ownership"]["launch_token"]
-            self.assertEqual(json.loads((lease_dir / "result.json").read_text())["reason"], "done")
+            route_check = (nullcontext() if os.name == "nt" else
+                           patch.object(mediated, "_mediator_route", side_effect=ci_route))
+            with route_check:
+                prepared = prepare(1)
+                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                    result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
+                self.assertEqual(result["status"], "completed", result.get("error_category"))
+                self.assertEqual(len(FakeServer.calls), 1)
+                command = " ".join(FakeServer.calls[0])
+                self.assertIn("target=/run/laomedo/capability,readonly", command)
+                self.assertIn("host.docker.internal", command)
+                self.assertNotIn("synthetic-provider-secret", command)
+                self.assertIn("node /run/laomedo/mediate.mjs", FakeServer.turn_inputs[0])
+                lease_dir = host_state / "lease" / "leases" / result["container_ownership"]["launch_token"]
+                self.assertEqual(json.loads((lease_dir / "result.json").read_text())["reason"], "done")
+
+                prepared = prepare(2)
+                status_path = host_state / "mediator" / "mediator.json"
+                status = json.loads(status_path.read_text(encoding="utf-8"))
+                status_path.write_text(json.dumps({**status, "instance": "0" * 32}),
+                                       encoding="utf-8")
+                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                    result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["error_category"], "mediator_unavailable")
+                self.assertEqual(len(FakeServer.calls), 1)
+                lease_dir = host_state / "lease" / "leases" / result["container_ownership"]["launch_token"]
+                self.assertEqual(json.loads((lease_dir / "result.json").read_text())["reason"], "done")
         finally:
             child.terminate()
             child.join(timeout=5)
