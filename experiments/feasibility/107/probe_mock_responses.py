@@ -8,10 +8,12 @@ from uuid import uuid4
 
 
 class MockResponses:
-    def __init__(self, tool_input=None, before_first_output=None):
+    def __init__(self, tool_input=None, before_first_output=None,
+                 tool_request_numbers=(1,)):
         self.requests = []
         self.tool_input = tool_input
         self.before_first_output = before_first_output
+        self.tool_request_numbers = frozenset(tool_request_numbers)
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -45,7 +47,8 @@ class MockResponses:
                 if len(owner.requests) == 1 and owner.before_first_output:
                     owner.before_first_output()
                 response_id = "resp_" + uuid4().hex
-                if owner.tool_input is not None and len(owner.requests) == 1:
+                if (owner.tool_input is not None and
+                        len(owner.requests) in owner.tool_request_numbers):
                     item = {"id": "ctc_" + uuid4().hex,
                             "type": "custom_tool_call", "status": "completed",
                             "call_id": "call_" + uuid4().hex,

@@ -69,6 +69,20 @@ def _code_mode_tools(requests):
     return []
 
 
+def _resumed_tool_evidence(requests):
+    """Identify the output added by turn two, rather than replayed history."""
+    if len(requests) != 4:
+        return [], False
+    first_outputs = requests[1]["tool_outputs"]
+    resumed_input = requests[2]["tool_outputs"]
+    final_outputs = requests[3]["tool_outputs"]
+    history_retained = bool(first_outputs) and all(
+        output in resumed_input for output in first_outputs)
+    if not history_retained or len(final_outputs) != len(resumed_input) + 1:
+        return [], history_retained
+    return _code_mode_tools([{"tool_outputs": [final_outputs[-1]]}]), history_retained
+
+
 def _controller_listeners(name):
     """Match listening sockets to processes visible in the controller PID namespace."""
     links = _docker("exec", name, "sh", "-c",
@@ -97,11 +111,13 @@ def _controller_listeners(name):
 
 
 def probe(*, disconnect_executor=False, patch_target=None,
-          listener_probe=False):
+          listener_probe=False, restart_controller=False):
     controller_canary = "LAOMEDO_107_" + secrets.token_hex(24)
     executor_token = secrets.token_hex(32)
     executor_name = "laomedo-107-exec-" + uuid4().hex
+    init_name = "laomedo-107-init-" + uuid4().hex
     environment_id = "laomedo-107-" + uuid4().hex
+    controller_volume = "laomedo-107-controller-" + uuid4().hex
     with tempfile.TemporaryDirectory(prefix="laomedo-107-remote-") as directory:
         root = Path(directory)
         for name in ("workspace", "canonical", "store"):
@@ -128,6 +144,7 @@ def probe(*, disconnect_executor=False, patch_target=None,
             hashlib.sha256(executor_token.encode()).hexdigest(),
         ]
         server = None
+        controller_volume_requested = False
         marker = workspace / "agent-marker.txt"
         shell = (
             "sh -c 'if test -n \"${ACCESS_TOKEN+x}\"; then printf readable; "
@@ -157,6 +174,16 @@ def probe(*, disconnect_executor=False, patch_target=None,
         try:
             if _docker("image", "inspect", IMAGE, "--format", "{{.Id}}") != IMAGE_ID:
                 raise RuntimeError("image_digest_changed")
+            if restart_controller:
+                controller_volume_requested = True
+                _docker("volume", "create", controller_volume)
+                _docker("run", "--rm", "--name", init_name,
+                        "--pull=never", "--network", "none",
+                        "--user", "0:0", "--cap-drop", "ALL",
+                        "--cap-add", "CHOWN", "--mount",
+                        "type=volume,source=" + controller_volume +
+                        ",target=/home/runner/.codex", IMAGE,
+                        "chown", "10001:10001", "/home/runner/.codex")
             _docker(*executor)
             _docker("exec", executor_name, "sh", "-c",
                     "printf ORIGINAL > /home/runner/.codex/executor-only.txt")
@@ -170,10 +197,12 @@ def probe(*, disconnect_executor=False, patch_target=None,
                 raise RuntimeError("unexpected_login_volume_mount_shape")
             del prefix[index - 1:index + 1]
             insert = prefix.index("--workdir")
-            prefix[insert:insert] = [
-                "--tmpfs", "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
-                "--env", "ACCESS_TOKEN=" + controller_canary,
-            ]
+            controller_home = (["--mount", "type=volume,source=" +
+                                controller_volume + ",target=/home/runner/.codex"]
+                               if restart_controller else
+                               ["--tmpfs", "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700"])
+            prefix[insert:insert] = controller_home + [
+                "--env", "ACCESS_TOKEN=" + controller_canary]
             executor_loss_at = []
             def drop_executor():
                 _docker("rm", "-f", executor_name)
@@ -181,7 +210,8 @@ def probe(*, disconnect_executor=False, patch_target=None,
 
             mock = MockResponses(
                 tool_input=tool_input,
-                before_first_output=drop_executor if disconnect_executor else None)
+                before_first_output=drop_executor if disconnect_executor else None,
+                tool_request_numbers=(1, 3) if restart_controller else (1,))
             mock.__enter__()
             prefix.extend([
                 "-c", "features.deferred_executor=true",
@@ -291,6 +321,62 @@ def probe(*, disconnect_executor=False, patch_target=None,
             turn_status, turn_error = server.wait_turn(
                 turn, 5 if disconnect_executor else 30,
                 threading.Event())
+            first_turn_status = turn_status
+            resumed_thread_id = None
+            if restart_controller:
+                if first_turn_status != "completed":
+                    raise RuntimeError("first_turn_incomplete_before_restart")
+                server.close()
+                server = None
+                for name in ("agent-env.txt", "agent-pid1.txt",
+                             "script-env.txt", "script-pid1.txt",
+                             "script-file.txt", "agent-marker.txt"):
+                    (workspace / name).unlink(missing_ok=True)
+                server = AppServer(["docker", *prefix], root)
+                _result(server, "initialize", {"clientInfo": {
+                    "name": "laomedo_107_probe", "title": "Laomedo 107 Probe",
+                    "version": "0.1.0"}, "capabilities": {"experimentalApi": True}})
+                server.notify("initialized", {})
+                if _docker("exec", server.container_name,
+                           "codex", "--version") != CLI_VERSION:
+                    raise RuntimeError("unsupported_codex_cli_version")
+                if _controller_listeners(server.container_name):
+                    raise RuntimeError("controller_listener_gate_failed_after_restart")
+                _result(server, "environment/add", {
+                    "environmentId": environment_id,
+                    "execServerUrl": f"ws://127.0.0.1:{PORT}",
+                    "authBearerToken": executor_token,
+                    "connectTimeoutMs": 15000,
+                }, timeout=25)
+                deadline = time.monotonic() + 15
+                while time.monotonic() < deadline:
+                    status = _result(server, "environment/status", {
+                        "environmentId": environment_id})
+                    if status.get("status") != "pending":
+                        break
+                    time.sleep(.2)
+                if status.get("status") != "ready":
+                    raise RuntimeError("remote_environment_not_ready_after_restart")
+                resumed = _result(server, "thread/resume", {
+                    "threadId": thread["id"], "cwd": "/draft",
+                    "environments": [{"environmentId": environment_id,
+                                      "cwd": "/draft"}],
+                }).get("thread") or {}
+                resumed_thread_id = resumed.get("id")
+                if resumed_thread_id != thread["id"]:
+                    raise RuntimeError("resumed_thread_identity_mismatch")
+                second_turn = _result(server, "turn/start", {
+                    "threadId": resumed_thread_id,
+                    "model": models[0]["id"], "cwd": "/draft",
+                    "sandboxPolicy": {"type": "externalSandbox",
+                                      "networkAccess": "restricted"},
+                    "environments": [{"environmentId": environment_id,
+                                      "cwd": "/draft",
+                                      "runtimeWorkspaceRoots": ["/draft"]}],
+                    "input": [{"type": "text", "text": "Synthetic restart fixture"}],
+                })["turn"]["id"]
+                turn_status, turn_error = server.wait_turn(
+                    second_turn, 30, threading.Event())
             elapsed_seconds = round(time.monotonic() - started, 2)
             executor_loss_to_turn_end = (round(time.monotonic() -
                                          executor_loss_at[0], 2)
@@ -308,7 +394,13 @@ def probe(*, disconnect_executor=False, patch_target=None,
                               if event.get("method") == "item/completed" and
                               ((event.get("params") or {}).get("item") or {})
                               .get("type") == "commandExecution"]
-            code_mode_tools = set(_code_mode_tools(mock.requests))
+            if restart_controller:
+                resumed_tools, history_retained = _resumed_tool_evidence(
+                    mock.requests)
+                code_mode_tools = set(resumed_tools)
+            else:
+                history_retained = None
+                code_mode_tools = set(_code_mode_tools(mock.requests))
             tool_surface_exact = (code_mode_tools == EXPECTED_TOOLS
                                   if code_mode_tools else None)
             no_fallback = not disconnect_executor or not marker.exists()
@@ -340,6 +432,11 @@ def probe(*, disconnect_executor=False, patch_target=None,
                     "direct_process_separation_observed":
                         all(value == "absent" for value in direct.values()),
                     "synthetic_turn_status": turn_status,
+                    "first_turn_status": first_turn_status,
+                    "controller_restarted": restart_controller,
+                    "resumed_thread_id_matches":
+                        resumed_thread_id == thread["id"] if restart_controller else None,
+                    "resumed_history_retained": history_retained,
                     "synthetic_turn_error_category": turn_error,
                     "turn_wait_seconds": elapsed_seconds,
                     "executor_loss_to_turn_end_seconds":
@@ -376,12 +473,30 @@ def probe(*, disconnect_executor=False, patch_target=None,
                         (all(value == "absent" for value in observations.values())
                          if len(observations) == 5 else None)}
         finally:
-            if server is not None:
-                server.close()
-            if "mock" in locals():
-                mock.__exit__(None, None, None)
-            subprocess.run(["docker", "rm", "-f", executor_name],
-                           capture_output=True, timeout=15)
+            try:
+                if server is not None:
+                    server.close()
+            finally:
+                try:
+                    if "mock" in locals():
+                        mock.__exit__(None, None, None)
+                finally:
+                    subprocess.run(["docker", "rm", "-f", init_name],
+                                   capture_output=True, timeout=15)
+                    subprocess.run(["docker", "rm", "-f", executor_name],
+                                   capture_output=True, timeout=15)
+                    if controller_volume_requested:
+                        inspected = subprocess.run(
+                            ["docker", "volume", "inspect", controller_volume],
+                            capture_output=True, timeout=15)
+                        if inspected.returncode == 0:
+                            removed = subprocess.run(
+                                ["docker", "volume", "rm", controller_volume],
+                                capture_output=True, timeout=15)
+                            if removed.returncode:
+                                raise RuntimeError("controller_volume_cleanup_failed")
+                        elif b"No such volume" not in inspected.stderr:
+                            raise RuntimeError("controller_volume_cleanup_unverified")
 
 
 if __name__ == "__main__":
@@ -389,14 +504,17 @@ if __name__ == "__main__":
     parser.add_argument("--disconnect-executor", action="store_true")
     parser.add_argument("--patch-probe", choices=("controller", "executor"))
     parser.add_argument("--listener-probe", action="store_true")
+    parser.add_argument("--restart-probe", action="store_true")
     args = parser.parse_args()
     if sum(bool(value) for value in (args.disconnect_executor,
                                      args.patch_probe,
-                                     args.listener_probe)) > 1:
+                                     args.listener_probe,
+                                     args.restart_probe)) > 1:
         parser.error("select one probe mode")
     result = probe(disconnect_executor=args.disconnect_executor,
                    patch_target=args.patch_probe,
-                   listener_probe=args.listener_probe)
+                   listener_probe=args.listener_probe,
+                   restart_controller=args.restart_probe)
     print(json.dumps(result, indent=2, sort_keys=True))
     if args.listener_probe:
         if not result["injected_listener_detected"]:
@@ -405,6 +523,16 @@ if __name__ == "__main__":
         if (not result["no_controller_fallback_after_disconnect"] or
                 result["executor_loss_to_turn_end_seconds"] is None or
                 result["executor_loss_to_turn_end_seconds"] > 8):
+            raise SystemExit(1)
+    elif args.restart_probe:
+        if (result["first_turn_status"] != "completed" or
+                result["synthetic_turn_status"] != "completed" or
+                not result["resumed_thread_id_matches"] or
+                not result["resumed_history_retained"] or
+                not result["agent_command_boundary_verified"] or
+                not result["controller_token_absent_from_executor"] or
+                not result["tool_surface_exact"] or
+                result["mock_request_count"] != 4):
             raise SystemExit(1)
     elif args.patch_probe:
         if (result["controller_only_file_modified"] or

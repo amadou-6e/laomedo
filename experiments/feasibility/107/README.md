@@ -80,6 +80,7 @@ python experiments/feasibility/107/probe_remote_executor.py --disconnect-executo
 python experiments/feasibility/107/probe_remote_executor.py --patch-probe executor
 python experiments/feasibility/107/probe_remote_executor.py --patch-probe controller
 python experiments/feasibility/107/probe_remote_executor.py --listener-probe
+python experiments/feasibility/107/probe_remote_executor.py --restart-probe
 ```
 
 The controller enables `deferred_executor` and
@@ -149,12 +150,46 @@ routing check; a mere `environment/status: ready` result is insufficient.
 
 This is a promising **experimental route**, not yet a production connection.
 It has not tested every tool or filesystem operation, broker IPC, access to a
-real token store, refresh rotation, resumed threads, or restart. It also has
-not established that this account can grant Sign in with ChatGPT plan usage.
+real token store, refresh rotation, a full runner restart, or a live model
+turn. It also has not established that this account can grant Sign in with
+ChatGPT plan usage.
 The current runner still uses its original single-container transport; do not
 inject a reusable subscription token into it. #107 remains open until the
 split is implemented in that transport, broader access paths are denied, and
-the separately authorized live and restart checks pass.
+the separately authorized live turn and full runner restart checks pass.
+
+## Controller restart and native resume follow-up
+
+On 2026-10-07, `--restart-probe` kept the same remote executor and workspace
+while replacing the app-server controller. It used a newly created Docker
+volume only for that controller's synthetic Codex home, never the real login
+volume. A named, one-time network-disabled init container set that disposable
+volume to UID/GID 10001; an unprepared Docker volume was root-owned and caused the
+non-root app-server to exit before `initialize`.
+
+The first synthetic turn completed. After controller removal, the new
+app-server found no controller listener at startup, registered the same
+executor and found it ready, resumed the original native thread ID, and
+completed a second synthetic turn. The second turn issued a fresh agent command:
+its workspace
+marker and all five environment/process/file checks were written after the
+first turn's files were removed. Every check reported `absent` for the
+controller canary. The second turn's tool output independently matched the
+exact nine-tool surface, and its request retained the first turn's tool-output
+history. The fake Responses server received exactly four requests across the
+two turns. The image ID and CLI version matched the pinned values. Only the
+local fake Responses backend was configured; no real account, browser login,
+or persistent credential was used. The ordinary probe still passed, all 192
+host tests passed (4 skipped), and no named probe container or
+disposable controller volume remained.
+
+This establishes a credential-free `thread/resume` route after **controller**
+replacement, with retained tool-output history and remote tool execution
+observed on the resumed turn. It does not establish broker refresh, real
+account eligibility, a full runner restart,
+or safe fallback behavior for all future Codex versions and tools. The
+`commandExecution` event still has no environment ID, and the containers
+still share a network namespace. The production runner remains unchanged.
 
 ## Proposed runner integration, pending review
 
