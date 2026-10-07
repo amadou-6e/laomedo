@@ -1,6 +1,8 @@
 # EXP-104 synthetic process control
 
-Status: synthetic control passed; **live scoped-GitHub-identity acceptance has not run**.
+Status: synthetic control passed; live scoped-GitHub-identity attempts have
+run, but **full protocol acceptance has not passed** (S5 harness pass with
+recorded deviations).
 
 The base [live protocol](LIVE-PROTOCOL.md) remains frozen. Amendments
 [01](AMENDMENT-01.md), [02](AMENDMENT-02.md), and [03](AMENDMENT-03.md)
@@ -227,7 +229,8 @@ The user requested another bounded attempt, and amendment
 code or provider contact. The read-only reviewer approved source
 `6fc655cc4d96a09163ca544463fc4ea7f58a20bb` for this one attempt;
 the full local suite and both CI jobs passed. The non-mutating Git dry-run
-passed and its A ref remained absent before the first mediated write. This
+passed; the probe's subsequent read-only ref check would have stopped the
+run had its A ref appeared before the first mediated write. This
 shows the selected token could perform this Git operation; it does **not**
 independently attest that only this repository was selected in GitHub.
 The record does not establish whether the token's value or settings changed

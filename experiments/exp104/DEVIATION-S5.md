@@ -11,9 +11,11 @@ effect-ID request against A's existing approved branch
 
 The same-branch request isolates revocation: before runner loss, A was
 authorized for that exact branch, so a later refusal is not explained by
-a wrong-branch check. Under the current exact-branch grant, a new branch
-would be refused before reaching revocation logic. Nevertheless, the run
-did not execute the protocol's literal new-branch case. Its internal
+a wrong-branch check. This does not make the protocol's new-branch case
+impossible. The mediator checks whether a grant is revoked **before** it
+checks the branch: a new-branch request would return `push_branch_denied`
+while A is active, but `grant_unavailable` after revocation. S5 did not
+execute that literal new-branch case. Its internal
 `scoped_candidate_pass` status is a harness result, not full EXP-104
 protocol acceptance. Preserve the useful revocation evidence, but do not
 count the new-branch acceptance criterion as met or promote drafts on it.
@@ -26,10 +28,10 @@ service deltas are computed from recorded wall times on the same host, not
 from a complete monotonic sequence. They are useful bounded diagnostic
 measurements but not literal compliance with that timing-evidence rule.
 
-Before any future live attempt, the protocol and branch-grant design need
-an explicit reviewed reconciliation: either define the same-approved-branch
-fresh-effect control as the intended revocation test, or design a grant
-that legitimately permits a second distinct branch without weakening
-unrelated branch restrictions. A future run needs its own frozen amendment,
+Before any future live attempt, explicitly decide whether the protocol
+still requires its literal new-branch post-loss control. The current
+mediator check order supports that case without a grant redesign; the
+distinct error codes separate wrong-branch rejection from revoked-grant
+rejection. A future run needs its own frozen amendment,
 fresh identity and separate authorization. S3's uncertain effect remains
 `unknown`; S5 is consumed and must not be rerun.
