@@ -141,3 +141,44 @@ narrow default and made same-repository REST read an explicit diagnostic-only
 opt-in, with a regression test for both paths. **No new live run was made
 after that correction**; the observation remains pinned to the code that
 actually ran and cannot prove the corrected path's live behavior.
+
+## Selected-repository S3 attempt `-01` (incomplete)
+
+The user confirmed that `GH_LAOMEDO` is a fine-grained token selecting only
+`ga84jog/laomedo-exp104-disposable-20261007`. The probe at `aedeef4a` used
+fresh identity `exp104-s3-20261007-01`, the host-only selected token, the
+unchanged disposable `main` baseline, and the narrow Actions-read preflight.
+The frozen amendments [12](AMENDMENT-12.md) and [13](AMENDMENT-13.md)
+preceded the run. This user confirmation is not an independent GitHub
+attestation that no other repository is selected.
+
+The first command failed while importing the local package, before state
+creation or provider contact. With the local checkout added to `PYTHONPATH`,
+the same unused identity entered the one-shot probe. The wrong-branch control
+returned 403 before transport. A's exact-branch push made **one** recorded
+provider attempt, but the mediator returned HTTP 200 with effect state
+`unknown`; the probe stopped at `a_push_not_confirmed_no_retry`. It did not
+retry the push, kill the runner, or execute B/C cases. The machine-written
+[observation](live-observation-s3-01.json) has SHA-256
+`5C2DD78CE0B8C3D9788E4B06848FC6FDBCBEEDD695C3B36D635C7387BE7C74AF`
+and matches the private original byte-for-byte. The committed
+[single-entry provider-attempt journal](live-provider-attempts-s3-01.jsonl)
+records only the operation, branch, commit and time; its newline is
+normalized from the private journal, so it is not presented as an exact-byte
+copy.
+
+A subsequent read-only GitHub ref lookup returned 404 for S3's A branch.
+This is useful read-back evidence, **not** proof that the unconfirmed push
+could not have taken effect or appeared later. A read-only `git ls-remote`
+through the same selected host-side credential helper succeeded for `main`;
+that does not establish write permission or explain the nonzero push result.
+The probe verified removal of its exact A and B containers (C was absent).
+An after-run exact-token scan found zero hits in 56 private state files;
+the probe ended before its planned full success-path canary. No model turn
+was used and no PR or issue was written in the disposable repository.
+
+S3 identity `-01` is consumed. The live EXP-104 acceptance gate remains
+open, as do draft #97/#105 and Q11. The Git transport currently collapses
+every nonzero push into an `unknown` effect without a safe diagnostic class.
+Investigate that path with non-mutating controls and freeze any next protocol
+revision before a distinct new live identity; never resend this effect.
