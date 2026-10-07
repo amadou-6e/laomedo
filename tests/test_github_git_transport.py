@@ -90,6 +90,78 @@ class GitHubGitTransportTests(unittest.TestCase):
                 connection_id="connection-a", connection_generation=1)
         self.assertEqual(self.push_calls, [])
 
+    def test_object_alternates_refuse_before_provider_contact(self):
+        other_root = tempfile.TemporaryDirectory()
+        self.addCleanup(other_root.cleanup)
+        other = Path(other_root.name)
+        subprocess.run(["git", "clone", "--quiet", "--no-hardlinks",
+                        str(self.checkout), str(other)], check=True,
+                       capture_output=True)
+        subprocess.run(["git", "-C", str(other), "config", "user.name", "Test"],
+                       check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(other), "config", "user.email",
+                        "test@example.invalid"], check=True, capture_output=True)
+        (other / "file.txt").write_text("outside source\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(other), "commit", "-qam", "outside"],
+                       check=True, capture_output=True)
+        outside_commit = subprocess.run(
+            ["git", "-C", str(other), "rev-parse", "HEAD"], check=True,
+            capture_output=True).stdout.decode().strip()
+        alternate = self.checkout / ".git" / "objects" / "info" / "alternates"
+        alternate.write_text((other / ".git" / "objects").as_posix() + "\n",
+                             encoding="utf-8", newline="\n")
+        visibility = subprocess.run(
+            ["git", "-C", str(self.checkout), "cat-file", "-t", outside_commit],
+            capture_output=True)
+        self.assertEqual(visibility.stdout.strip(), b"commit",
+                         visibility.stderr.decode(errors="replace"))
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        self.assertIsNone(self.transport.classify_workflow_diff(
+            REPOSITORY, "probe-a", outside_commit))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": outside_commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
+    def test_loose_object_symlink_refuses_before_provider_contact(self):
+        objects = self.checkout / ".git" / "objects"
+        fanout = next(objects / f"{value:02x}" for value in range(256)
+                      if not (objects / f"{value:02x}").exists())
+        outside = self.checkout / "external-fanout"
+        outside.mkdir()
+        try:
+            fanout.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("host does not permit directory symlinks")
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
+    def test_gitdir_redirect_refuses_before_provider_contact(self):
+        git_dir = self.checkout / ".git"
+        git_dir.rename(self.checkout / ".git-real")
+        git_dir.write_text("gitdir: .git-real\n", encoding="utf-8")
+        self.assertEqual(self._git("rev-parse", "HEAD").stdout.decode().strip(),
+                         self.commit)
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        self.assertIsNone(self.transport.classify_workflow_diff(
+            REPOSITORY, "probe-a", self.commit))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
     def test_classification_timeout_refuses_push_before_credential(self):
         def timed_out_diff(args, **kwargs):
             if "diff" in args:

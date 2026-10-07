@@ -79,8 +79,15 @@ stages the real objects in a fresh bare repository without provider credentials,
 checks the baseline ancestry and outgoing workflow-file diff **there**, then
 pushes those same staged objects with replace refs disabled. A regression
 uses a checkout-local Git replace ref to conceal a workflow edit and verifies
-the edit is still refused. The absent-ref lease prevents overwriting an
-existing branch; branch updates and full `git` parity are not implemented.
+the edit is still refused. The staging preflight also refuses a redirected
+`.git` file, linked-worktree common directory, object-tree symlinks, Windows
+reparse points, or `objects/info/alternates` before any provider credential
+is requested. Tests exercise an external-object alternate, redirected gitdir
+and, where the host allows it, a symlinked loose-object fan-out. This is a
+fail-closed check for the local prototype, not an OS ownership boundary
+against another process mutating the checkout between preflight and fetch.
+The absent-ref lease prevents overwriting an existing branch; branch updates
+and full `git` parity are not implemented.
 A rejected or lost Git response is uncertain, not retried. The
 Git credential helper gets a selected token only in the host mediator's
 short-lived subprocess environment. It receives no ambient `gh` login, Git

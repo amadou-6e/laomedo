@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import shlex
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,17 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 GIT_COMMAND_TIMEOUT_SECONDS = 30
 GIT_TREE_CLEANUP_SECONDS = 5
+
+
+def _redirected_path(path: Path) -> bool:
+    """Treat links and Windows reparse points as external object sources."""
+    try:
+        status = path.lstat()
+    except OSError:
+        return True
+    return path.is_symlink() or bool(
+        getattr(status, "st_file_attributes", 0) &
+        getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
 
 
 class GitTreeTimeout(subprocess.TimeoutExpired):
@@ -176,8 +188,39 @@ class GitHubGitTransport:
         result = self._git("cat-file", "-t", commit)
         return result.returncode == 0 and result.stdout.strip() == b"commit"
 
+    def _plain_object_source(self) -> bool:
+        """Refuse Git metadata that redirects staging outside the checkout.
+
+        The source checkout can be writable by the agent. Git's upload-pack
+        follows objects/info/alternates and linked-worktree gitdir pointers,
+        so a staged commit alone does not prove its objects came from the
+        selected checkout. This is a preflight refusal, not an OS ownership
+        boundary against a concurrent same-user mutation.
+        """
+        git_dir = self.checkout / ".git"
+        objects = git_dir / "objects"
+        info = objects / "info"
+        pack = objects / "pack"
+        if any(not path.is_dir() or _redirected_path(path)
+               for path in (git_dir, objects, info, pack)):
+            return False
+        if (git_dir / "commondir").exists() or (git_dir / "commondir").is_symlink():
+            return False
+        alternates = info / "alternates"
+        if alternates.exists() or alternates.is_symlink():
+            return False
+        errors = []
+        for root, directories, files in os.walk(
+                objects, topdown=True, followlinks=False, onerror=errors.append):
+            for name in directories + files:
+                if _redirected_path(Path(root) / name):
+                    return False
+        return not errors
+
     def _stage(self, bare: Path, commit: str) -> bool:
         """Fetch real objects into an isolated repository, without credentials."""
+        if not self._plain_object_source():
+            return False
         environment = _base_git_environment()
         try:
             if self._run_git(bare, "init", "--bare", "--quiet", env=environment).returncode:
