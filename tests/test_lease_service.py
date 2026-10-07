@@ -1,6 +1,7 @@
 """Independent lease service: grant revocation and exact cleanup, no Docker daemon."""
 
 import json
+import os
 from pathlib import Path
 import tempfile
 import threading
@@ -48,6 +49,23 @@ class LeaseServiceTests(unittest.TestCase):
             {"token": token, "run_id": "run-one", "name": "exact-name"}), encoding="utf-8")
         self.service.tick()
         return lease_dir, (lease_dir / "grant.secret").read_text(encoding="utf-8")
+
+    def test_heartbeat_replacement_keeps_old_value_readable_until_publish(self):
+        heartbeat = self.state / "service.alive"
+        heartbeat.write_text("1.0", encoding="utf-8")
+        replace = os.replace
+        seen_before_publish = []
+
+        def inspect_replace(source, target):
+            seen_before_publish.append(lease_service._read_float(heartbeat))
+            self.assertEqual(Path(target), heartbeat)
+            self.assertEqual(Path(source).parent, heartbeat.parent)
+            replace(source, target)
+
+        with patch("laomedo.lease_service.os.replace", side_effect=inspect_replace):
+            lease_service._write_float(heartbeat, 2.0)
+        self.assertEqual(seen_before_publish, [1.0])
+        self.assertEqual(lease_service._read_float(heartbeat), 2.0)
 
     def test_accepted_lease_gets_an_active_grant(self):
         lease_dir, secret = self.register()

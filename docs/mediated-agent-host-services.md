@@ -34,6 +34,11 @@ are never mounted. The agent can send a normalized operation as JSON on
 stdin to `node /run/laomedo/mediate.mjs`. The command prints the mediator's
 JSON response and exits nonzero on denial. It never prints the capability.
 
+Service and runner heartbeats are published by atomic file replacement so a
+reader cannot mistake a truncated renewal for a lost process. The two clock
+values remain separate files; service-manager deployment and failure behavior
+still need their own check.
+
 The current Docker route uses `host.docker.internal` to reach a loopback-only
 host mediator. A no-model test checks that route on Windows Docker Desktop.
 The runner refuses mediated dispatch on other host platforms until their

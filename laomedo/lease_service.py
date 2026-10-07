@@ -43,6 +43,13 @@ def _write_json(path: Path, value: dict) -> None:
     os.replace(pending, path)
 
 
+def _write_float(path: Path, value: float) -> None:
+    """Publish a heartbeat without exposing a truncated value to readers."""
+    pending = path.with_name(path.name + ".pending-" + secrets.token_hex(4))
+    pending.write_text(repr(value), encoding="utf-8")
+    os.replace(pending, path)
+
+
 def _read_json(path: Path) -> dict | None:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -200,9 +207,8 @@ class LeaseService:
 
     def _beat(self) -> None:
         while not self.stopping.is_set():
-            (self.state / "service.alive").write_text(repr(time.time()), encoding="utf-8")
-            (self.state / "service.alive.monotonic").write_text(
-                repr(time.monotonic()), encoding="utf-8")
+            _write_float(self.state / "service.alive", time.time())
+            _write_float(self.state / "service.alive.monotonic", time.monotonic())
             self.stopping.wait(1)
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
@@ -471,9 +477,8 @@ class LeaseClient:
         pending.mkdir(mode=0o700)
         self.lost = threading.Event()
         self.stop_event = threading.Event()
-        (pending / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
-        (pending / "heartbeat.monotonic").write_text(
-            repr(time.monotonic()), encoding="utf-8")
+        _write_float(pending / "heartbeat", time.time())
+        _write_float(pending / "heartbeat.monotonic", time.monotonic())
         _write_json(pending / "lease.json", {
             "token": token, "run_id": run_id, "name": name,
             "runner_pid": os.getpid(), "created_at": time.time(),
@@ -501,9 +506,8 @@ class LeaseClient:
 
         def heartbeat() -> None:
             while not self.stop_event.wait(1):
-                (self.dir / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
-                (self.dir / "heartbeat.monotonic").write_text(
-                    repr(time.monotonic()), encoding="utf-8")
+                _write_float(self.dir / "heartbeat", time.time())
+                _write_float(self.dir / "heartbeat.monotonic", time.monotonic())
                 alive_at = _read_float(self.state / "service.alive")
                 alive_monotonic = _read_float(self.state / "service.alive.monotonic")
                 current = _read_json(self.state / "service.json")
