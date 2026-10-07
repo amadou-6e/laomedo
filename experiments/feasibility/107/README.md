@@ -296,4 +296,8 @@ request to OpenAI's public discovery endpoint reported
 `SSLCertVerificationError`, while Windows curl verified that endpoint and got
 HTTP 200. This supports a Python TLS trust-path cause for the exchange failures,
 but the first attempt's exact cause is unknown. The store remained unconnected;
-no model turn was used.
+no model turn was used. A separate credential-free Node HTTPS request inside
+the pinned Codex controller image returned HTTP 401 from
+`https://api.openai.com/v1/models`, which shows that image completed TLS for
+that public endpoint. The expected unauthenticated response does not test
+model access or the eventual access-token route.
