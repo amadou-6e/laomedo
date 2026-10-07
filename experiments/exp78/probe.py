@@ -84,6 +84,16 @@ def run(codex: Path) -> dict:
                         Path(matches[0].get("path", "")).resolve() == effective.resolve())
                     result["fixture_offered"] = (
                         len(matches) == 1 and result["fixture_path_matches_effective"])
+                    result["native_listing_event"] = {
+                        "method": "skills/list",
+                        "request": {"cwd_class": "private_project", "forceReload": True},
+                        "response": {
+                            "skill_count": len(skills),
+                            "fixture_name": NAME if len(matches) == 1 else None,
+                            "fixture_path_class": "private_project"
+                            if result["fixture_path_matches_effective"] else "other",
+                        },
+                    }
         except Exception as error:
             result["error_category"] = type(error).__name__
         finally:
