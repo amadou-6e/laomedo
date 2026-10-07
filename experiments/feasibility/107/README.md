@@ -50,8 +50,8 @@ This says nothing about whether the selected account will grant ChatGPT plan
 usage. OpenAI's [local-app guide](https://developers.openai.com/cookbook/articles/sign-in-with-chatgpt)
 lists personal projects that run locally as eligible in principle; Laomedo has
 not performed app-owned sign-in or checked this account's granted scopes.
-Refresh, restart, sign-out, account switching, and an agent-originated attempt
-are also untested. No production credential broker was added here.
+Refresh, restart, sign-out, and account switching are also untested. No
+production credential broker was added here.
 
 The next implementation needs a controller/tool separation that denies both
 environment and controller-process reads, followed by canary probes through
@@ -59,3 +59,71 @@ every command and bundled-script path. Only after those denials should #107
 connect an account, implement its persistent refresh lifecycle, and request a
 separately capped live test. The existing copied-login prototype remains
 unchanged; this experiment does not upgrade its security claim.
+
+## Split controller and executor follow-up
+
+The pinned image also provides a local app-server `environment/add` connection
+to `codex exec-server`. The follow-up uses a credential-free fake Responses
+stream to request a real `functions.exec` call. It makes no OpenAI request and
+uses zero model turns. The controller has a synthetic `ACCESS_TOKEN` in its
+environment and a canary file in its private Codex home. The executor has no
+token, no canary file, and no login volume. The two containers
+share a Docker network namespace for loopback transport, but have separate PID
+and mount namespaces. Their only shared file mount is the disposable draft.
+
+Run from the Laomedo checkout:
+
+```powershell
+$env:PYTHONPATH = (Get-Location).Path
+python experiments/feasibility/107/probe_remote_executor.py
+python experiments/feasibility/107/probe_remote_executor.py --disconnect-executor
+python experiments/feasibility/107/probe_remote_executor.py --patch-probe executor
+python experiments/feasibility/107/probe_remote_executor.py --patch-probe controller
+```
+
+The controller enables `deferred_executor` and
+`executor_capability_discovery`, selects the registered environment on both
+`thread/start` and `turn/start`, and uses `externalSandbox` for the turn. The
+combined configuration passed; individual flag necessity was not tested.
+Without the turn-level configuration, a synthetic
+agent command ran in the controller and read the canary despite a successful
+`environment/status: ready` result. This is a measured silent fallback, not
+proof that environment registration alone isolates commands. A similar
+host-local fallback was [reported upstream](https://github.com/openai/codex/issues/41563)
+for an older Codex build.
+
+With those selections, the fake model's command executed in the remote
+executor. Both an inline command and a bundled shell script checked their own
+environment and `/proc/1/environ`; the script also checked the private canary
+file. All five agent-path checks returned `absent`. Independent direct
+executor checks returned `absent` for the environment, process, and file
+routes. The
+app-server event stream contained one `commandExecution` completion with exit
+code 0, and the draft marker was present. The probe reports
+`agent_command_boundary_verified: true` and
+`controller_token_absent_from_executor: true` for this exact command path.
+
+In the negative control, the executor was removed before `turn/start`. The
+turn timed out, no command event or marker appeared, and the controller did
+not run the command during the observation window. This supports a fail-closed
+result for that failure point only; it does not establish recovery or a
+general liveness bound. Both probe variants removed their disposable
+containers. The fake backend and synthetic canary used no personal login,
+browser authorization, or model turn.
+
+The `apply_patch` control changed an executor-only file and left a
+controller-only file untouched. The controller-only attempt returned a
+file-not-found error from the tool, while a host-side check confirmed that
+file still held its original bytes. The successful executor-only control is
+needed because an absent file alone would not prove which process handled
+the patch. These probes cover update hunks only; they do not prove all patch
+operations or other native tools route to the executor.
+
+This is a promising **experimental route**, not yet a production connection.
+It has not tested every tool or filesystem operation, broker IPC, access to a
+real token store, refresh rotation, resumed threads, or restart. It also has
+not established that this account can grant Sign in with ChatGPT plan usage.
+The current runner still uses its original single-container transport; do not
+inject a reusable subscription token into it. #107 remains open until the
+split is implemented in that transport, broader access paths are denied, and
+the separately authorized live and restart checks pass.
