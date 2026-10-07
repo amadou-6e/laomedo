@@ -16,6 +16,7 @@ import stat
 import subprocess
 import threading
 import time
+from urllib.request import urlopen
 from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
@@ -24,13 +25,20 @@ from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
 from .lease_service import LeaseClient
 from .mediation_authority import RunGrantAuthority
 from .github_mediation import MediationError
+from .siwc_auth import AuthError, ChatGPTConnection, _outside_git
 
 
 IMAGE = "laomedo-codex-boundary:0.159.2"
 IMAGE_ID = "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239"
 CLI_VERSION = "codex-cli 0.159.2"
 VOLUME = "laomedo-122-docker-auth"
+SPLIT_TOOLS = frozenset({
+    "apply_patch", "clock__curr_time", "create_goal", "exec_command",
+    "get_goal", "update_goal", "view_image", "wait_for_environment",
+    "write_stdin",
+})
 CONFIG = Path(__file__).resolve().parent / "runner-config.toml"
+MEDIATION_CLIENT = Path(__file__).resolve().parent / "agent_mediation_client.mjs"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 MAX_BODY = 64 * 1024
@@ -182,14 +190,43 @@ def _native_error_summary(events: list[dict], turn_id: str) -> dict:
             "http_status_codes": sorted(statuses), "last_category": last_kind}
 
 
+def _auth_record_error(exc: AuthError) -> tuple[str, str]:
+    code = str(exc)
+    if code == "auth_account_missing":
+        return "auth_missing", "missing"
+    if code == "auth_consent_denied":
+        return "auth_consent_missing", "consent_denied"
+    if code == "auth_scope_missing":
+        return "auth_scope_denied", "scope_missing"
+    if code in {"auth_refresh_unknown", "auth_refresh_lock_unavailable",
+                "auth_refresh_response_invalid"}:
+        return "auth_refresh_failed", code.removeprefix("auth_")
+    if code == "auth_revoked":
+        return "auth_revoked", "revoked"
+    if code == "auth_account_mismatch":
+        return "auth_account_mismatch", "account_mismatch"
+    if code == "auth_generation_changed":
+        return "auth_generation_changed", "generation_changed"
+    return "auth_mode_unavailable", code.removeprefix("auth_")
+
+
 def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    name: str | None = None, run_id: str | None = None,
-                   launch_token: str | None = None) -> list[str]:
+                   launch_token: str | None = None,
+                   capability: Path | None = None,
+                   mediator_url: str | None = None) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
     labels = (["--label", f"{LABEL_RUN}={run_id}",
                "--label", f"{LABEL_TOKEN}={launch_token}"]
               if run_id and launch_token else [])
+    mediation = (["--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
+                  "--mount", f"type=bind,source={MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
+                  "--env", "LAOMEDO_MEDIATOR_URL=" + mediator_url,
+                  "--env", "LAOMEDO_CAPABILITY_FILE=/run/laomedo/capability"]
+                 if capability is not None and mediator_url is not None else [])
+    if (capability is None) != (mediator_url is None):
+        raise RunnerError("incomplete_mediator_mount")
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -199,13 +236,14 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             "--mount", f"type=bind,source={canonical},target=/canonical,readonly",
             "--mount", f"type=bind,source={store_mount},target=/store",
             "--mount", f"type=bind,source={CONFIG},target=/config.toml,readonly",
+            *mediation,
             "--workdir", "/draft", IMAGE, "sh", "-c",
             'cp /config.toml /home/runner/.codex/config.toml && exec codex "$@"',
             "bootstrap", "app-server", "--stdio"]
 
 
 class AppServer:
-    def __init__(self, command: list[str], evidence: Path):
+    def __init__(self, command: list[str], evidence: Path, *, env=None):
         self.events = []
         self.messages = queue.Queue()
         self.container_name = command[command.index("--name") + 1]
@@ -224,7 +262,7 @@ class AppServer:
         try:
             self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
                                             stdout=subprocess.PIPE, stderr=self.stderr,
-                                            text=True, encoding="utf-8")
+                                            text=True, encoding="utf-8", env=env)
         except Exception:
             self.log.close()
             self.stderr.close()
@@ -345,6 +383,238 @@ class AppServer:
             raise RunnerError("container_termination_unverified")
 
 
+def _docker_checked(*args: str, timeout: float = 15) -> str:
+    try:
+        result = subprocess.run(["docker", *args], capture_output=True,
+                                text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        raise RunnerError("docker_control_unavailable") from None
+    if result.returncode:
+        raise RunnerError("docker_control_failed")
+    return result.stdout.strip()
+
+
+def _split_profile(state: Path) -> str:
+    return "laomedo-codex-split-" + hashlib.sha256(
+        str(state).encode("utf-8")).hexdigest()[:20]
+
+
+def _ensure_split_profile(name: str) -> None:
+    found = subprocess.run(["docker", "volume", "inspect", name],
+                           capture_output=True, timeout=10)
+    if found.returncode == 0:
+        return
+    _docker_checked("volume", "create", name)
+    try:
+        _docker_checked("run", "--rm", "--pull=never", "--network", "none",
+                        "--user", "0:0", "--cap-drop", "ALL", "--cap-add", "CHOWN",
+                        "--mount", f"type=volume,source={name},target=/home/runner/.codex",
+                        IMAGE, "chown", "10001:10001", "/home/runner/.codex",
+                        timeout=30)
+    except Exception:
+        _docker_checked("volume", "rm", name)
+        raise
+
+
+class SplitAppServer(AppServer):
+    """Pinned Codex controller with a separate, disposable tool executor.
+
+    This mode is credential-free until the app-owned OAuth broker is connected.
+    The executor never mounts the controller profile or receives ACCESS_TOKEN.
+    """
+
+    def __init__(self, workspace: Path, canonical: Path, store_mount: Path,
+                 evidence: Path, profile: str, *, provider_config=(),
+                 access_token=None):
+        self.executor_name = "laomedo-executor-" + uuid4().hex
+        self.environment_id = "laomedo-executor-" + uuid4().hex
+        self.executor_token = secrets.token_hex(32)
+        self.registered = False
+        self.authorization_probe = None
+        self._controller_started = False
+        self._executor_started = False
+        if _docker_checked("image", "inspect", IMAGE, "--format",
+                           "{{.Id}}") != IMAGE_ID:
+            raise RunnerError("docker_image_digest_changed")
+        executor = ["run", "--rm", "-d", "--name", self.executor_name,
+                    "--pull=never", "--network", "bridge",
+                    "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                    "--pids-limit", "128", "--memory", "1g", "--user", "10001:10001",
+                    "--mount", f"type=bind,source={workspace},target=/draft",
+                    "--tmpfs", "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
+                    "--workdir", "/draft", IMAGE, "codex", "exec-server",
+                    "--listen", "ws://0.0.0.0:39871", "--ws-auth", "capability-token",
+                    "--ws-token-sha256",
+                    hashlib.sha256(self.executor_token.encode()).hexdigest()]
+        try:
+            _docker_checked(*executor, timeout=30)
+            self._executor_started = True
+            command = _docker_prefix(workspace, canonical, store_mount)
+            command[command.index("--network") + 1] = "container:" + self.executor_name
+            old_mount = f"type=volume,source={VOLUME},target=/home/runner/.codex"
+            index = command.index(old_mount)
+            del command[index - 1:index + 1]
+            command[command.index("--workdir"):command.index("--workdir")] = [
+                "--mount", f"type=volume,source={profile},target=/home/runner/.codex"]
+            command += ["-c", "features.deferred_executor=true",
+                        "-c", "features.executor_capability_discovery=true"]
+            for setting in provider_config:
+                command += ["-c", setting]
+            environment = None
+            if access_token is not None:
+                if not isinstance(access_token, str) or not access_token:
+                    raise RunnerError("invalid_controller_token")
+                command[command.index("--workdir"):command.index("--workdir")] = [
+                    "--env", "ACCESS_TOKEN"]
+                environment = dict(os.environ, ACCESS_TOKEN=access_token)
+            super().__init__(["docker", *command], evidence, env=environment)
+            self._controller_started = True
+        except Exception:
+            if self._executor_started:
+                subprocess.run(["docker", "rm", "-f", self.executor_name],
+                               capture_output=True, timeout=15)
+            raise
+
+    def _controller_listeners(self) -> set[str]:
+        """Reject controller-owned listening TCP/Unix and any UDP socket."""
+        fds = _docker_checked("exec", self.container_name, "sh", "-c",
+                              "ls -l /proc/[0-9]*/fd 2>/dev/null", timeout=5)
+        owned = set(re.findall(r"socket:\[(\d+)\]", fds))
+        if not owned:
+            return set()
+        found = set()
+        for table, kind in (("tcp", "tcp"), ("tcp6", "tcp"),
+                            ("udp", "udp"), ("udp6", "udp")):
+            rows = _docker_checked("exec", self.container_name, "cat",
+                                   "/proc/net/" + table, timeout=5)
+            for row in rows.splitlines()[1:]:
+                fields = row.split()
+                if len(fields) > 9 and fields[9] in owned and (
+                        kind == "udp" or fields[3] == "0A"):
+                    found.add(kind)
+        rows = _docker_checked("exec", self.container_name, "cat",
+                               "/proc/net/unix", timeout=5)
+        for row in rows.splitlines()[1:]:
+            fields = row.split()
+            if (len(fields) > 6 and fields[6] in owned and
+                    int(fields[3], 16) & 0x10000):
+                found.add("unix")
+        return found
+
+    def assert_controller_isolated(self) -> None:
+        if self._controller_listeners():
+            raise RunnerError("controller_listener_gate_failed")
+        if _docker_checked("exec", self.container_name, "codex", "--version",
+                           timeout=5) != CLI_VERSION:
+            raise RunnerError("unsupported_codex_cli_version")
+        if _docker_checked("inspect", self.executor_name, "--format",
+                           "{{.State.Running}}", timeout=5) != "true":
+            raise RunnerError("executor_not_running")
+        for name in (self.container_name, self.executor_name):
+            if _docker_checked("inspect", name, "--format", "{{.Image}}",
+                               timeout=5) != IMAGE_ID:
+                raise RunnerError("running_image_digest_changed")
+
+    def register_executor(self) -> None:
+        self.assert_controller_isolated()
+        response = self.request("environment/add", {
+            "environmentId": self.environment_id,
+            "execServerUrl": "ws://127.0.0.1:39871",
+            "authBearerToken": self.executor_token,
+            "connectTimeoutMs": 15000}, timeout=25)
+        if "result" not in response or "error" in response:
+            raise RunnerError("executor_registration_rejected")
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            response = self.request("environment/status", {
+                "environmentId": self.environment_id}, timeout=5)
+            status = (response.get("result") or {}).get("status")
+            if status == "ready":
+                self.registered = True
+                return
+            if status != "pending":
+                break
+            time.sleep(.2)
+        raise RunnerError("executor_not_ready")
+
+    def thread_environment(self) -> list[dict]:
+        if not self.registered:
+            raise RunnerError("executor_not_registered")
+        selection = [{"environmentId": self.environment_id, "cwd": "/draft"}]
+        self.assert_executor_selection(selection)
+        return selection
+
+    def turn_environment(self) -> list[dict]:
+        if not self.registered:
+            raise RunnerError("executor_not_registered")
+        selection = [{"environmentId": self.environment_id, "cwd": "/draft",
+                      "runtimeWorkspaceRoots": ["/draft"]}]
+        self.assert_executor_selection(selection)
+        return selection
+
+    def assert_executor_selection(self, selection: list[dict]) -> None:
+        """Refuse a missing or ambiguous remote tool route before dispatch."""
+        if (len(selection) != 1 or
+                selection[0].get("environmentId") != self.environment_id or
+                selection[0].get("cwd") != "/draft"):
+            raise RunnerError("executor_selection_mismatch")
+
+    def wait_turn(self, turn_id: str, timeout: float,
+                  cancelled: threading.Event) -> tuple[str, str | None]:
+        deadline = time.monotonic() + timeout
+        cursor = 0
+        while time.monotonic() < deadline:
+            for event in self.events[cursor:]:
+                if event.get("method") == "turn/completed":
+                    turn = event.get("params", {}).get("turn") or {}
+                    if turn.get("id") == turn_id:
+                        return turn.get("status") or "unknown", None
+            cursor = len(self.events)
+            if cancelled.is_set():
+                self.interrupt(turn_id)
+                return "cancelled", "cancelled_by_user"
+            if self.authorization_probe is not None and not self.authorization_probe():
+                self.interrupt(turn_id)
+                return "unknown", "auth_revoked_during_turn"
+            try:
+                if _docker_checked("inspect", self.executor_name, "--format",
+                                   "{{.State.Running}}", timeout=3) != "true":
+                    return "unknown", "executor_lost"
+            except RunnerError:
+                return "unknown", "executor_lost"
+            try:
+                msg = self.messages.get(timeout=min(.25, deadline - time.monotonic()))
+            except queue.Empty:
+                if self.process.poll() is not None:
+                    return "unknown", "controller_exited"
+                continue
+            self.events.append(msg)
+        self.interrupt(turn_id)
+        return "timeout", "turn_timeout"
+
+    def close(self) -> None:
+        error = None
+        try:
+            if self._controller_started:
+                super().close()
+        except RunnerError as exc:
+            error = exc
+        finally:
+            try:
+                if self._executor_started:
+                    _docker_checked("rm", "-f", self.executor_name, timeout=15)
+                    check = subprocess.run(["docker", "inspect", self.executor_name],
+                                           capture_output=True, timeout=10)
+                    if (check.returncode == 0 or not any(
+                            marker in check.stderr for marker in
+                            (b"No such object:", b"No such container:"))):
+                        raise RunnerError("executor_termination_unverified")
+            except RunnerError as exc:
+                error = error or exc
+        if error:
+            raise error
+
+
 def _answer(events: list[dict]) -> str | None:
     answers = []
     for event in events:
@@ -361,7 +631,10 @@ class LocalRunner:
                  check_docker: bool = True, max_model_turns: int = 0,
                  supervise_containers: bool | None = None,
                  lease_service: Path | None = None,
-                 github_authority: RunGrantAuthority | None = None):
+                 github_authority: RunGrantAuthority | None = None,
+                 mediator_state: Path | None = None,
+                 split_executor: bool = False, split_provider_config=(),
+                 split_access_token=None, auth_store: Path | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -382,12 +655,14 @@ class LocalRunner:
         if not re.fullmatch(r"[0-9a-f]{64}", self.api_token):
             raise RunnerError("invalid_runner_api_token")
         (self.state / "runs").mkdir(exist_ok=True)
-        self.supervise_containers = (transport is AppServer if supervise_containers is None
+        self.supervise_containers = (transport is AppServer and not split_executor
+                                     if supervise_containers is None
                                      else supervise_containers)
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
         self.github_authority = github_authority
+        self.mediator_state = _private(mediator_state) if mediator_state else None
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -403,6 +678,40 @@ class LocalRunner:
                         record["error_category"] = "container_cleanup_unverified"
                 _json(record_path, record)
         self.transport = transport
+        self.split_executor = split_executor
+        self.split_provider_config = tuple(split_provider_config)
+        self.split_access_token = split_access_token
+        if auth_store is not None and not split_executor:
+            raise RunnerError("app_owned_auth_requires_split_executor")
+        if auth_store is not None and (split_provider_config or split_access_token):
+            raise RunnerError("conflicting_split_auth_sources")
+        if auth_store is not None:
+            auth_root = _outside_git(auth_store)
+            if (auth_root == self.state or auth_root.is_relative_to(self.state) or
+                    self.state.is_relative_to(auth_root) or
+                    auth_root == self.store.root or
+                    auth_root.is_relative_to(self.store.root) or
+                    self.store.root.is_relative_to(auth_root)):
+                raise RunnerError("auth_store_overlaps_runner_state")
+            self.auth = ChatGPTConnection(auth_root)
+        else:
+            self.auth = None
+        self.instance_id = str(uuid4())
+        if self.auth:
+            self.split_provider_config = (
+                'model_provider="openai_chatgpt_plan"',
+                'model_providers.openai_chatgpt_plan.name="ChatGPT plan"',
+                'model_providers.openai_chatgpt_plan.base_url="https://api.openai.com/v1"',
+                'model_providers.openai_chatgpt_plan.env_key="ACCESS_TOKEN"',
+                'model_providers.openai_chatgpt_plan.wire_api="responses"',
+                'model_providers.openai_chatgpt_plan.requires_openai_auth=false',
+                'model_providers.openai_chatgpt_plan.supports_websockets=false',
+            )
+        self.profile = _split_profile(self.state) if split_executor else VOLUME
+        if split_executor and transport is not AppServer:
+            raise RunnerError("split_executor_requires_native_transport")
+        if (self.split_provider_config or split_access_token is not None) and not split_executor:
+            raise RunnerError("split_provider_requires_split_executor")
         if not isinstance(max_model_turns, int) or max_model_turns < 0:
             raise RunnerError("invalid_turn_cap")
         self.max_model_turns = max_model_turns
@@ -420,8 +729,29 @@ class LocalRunner:
                                    capture_output=True, text=True, timeout=15)
             if found.stdout.strip() != IMAGE_ID:
                 raise RunnerError("docker_image_digest_changed")
-            subprocess.run(["docker", "volume", "inspect", VOLUME], check=True,
-                           capture_output=True, timeout=15)
+            if not split_executor:
+                subprocess.run(["docker", "volume", "inspect", VOLUME], check=True,
+                               capture_output=True, timeout=15)
+            else:
+                _ensure_split_profile(self.profile)
+
+    def _open_server(self, root: Path, *, access_token=None,
+                     name: str | None = None, run_id: str | None = None,
+                     launch_token: str | None = None,
+                     capability: Path | None = None,
+                     mediator_url: str | None = None):
+        workspace, canonical, store_mount = (root / name for name in
+                                              ("workspace", "canonical", "store"))
+        if self.split_executor:
+            return SplitAppServer(workspace, canonical, store_mount, root,
+                                  self.profile,
+                                  provider_config=self.split_provider_config,
+                                  access_token=(access_token if access_token is not None
+                                                else self.split_access_token))
+        return self.transport(["docker", *_docker_prefix(
+            workspace, canonical, store_mount, name=name, run_id=run_id,
+            launch_token=launch_token, capability=capability,
+            mediator_url=mediator_url)], root)
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
@@ -433,27 +763,43 @@ class LocalRunner:
         (root / "store/sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
         server = None
         try:
-            server = self.transport(["docker", *_docker_prefix(
-                root / "workspace", root / "canonical", root / "store")], root)
+            token = self.auth.access_token()[0] if self.auth else None
+            server = self._open_server(root, access_token=token)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
-                "version": "0.1.0"}})
+                "version": "0.1.0"},
+                **({"capabilities": {"experimentalApi": True}}
+                   if self.split_executor else {})})
             if "result" not in initialized:
                 raise RunnerError("initialize_rejected")
             server.notify("initialized", {})
+            if self.split_executor:
+                server.register_executor()
             models = server.request("model/list", {})
             if "result" not in models:
                 raise RunnerError("model_list_rejected")
             checks = {}
-            for label, command in (
+            if self.split_executor:
+                # Direct checks against the tool executor. Calling command/exec
+                # on app-server would execute inside the credential controller.
+                for label, command in (
+                        ("workspace_write", "printf CANARY > /draft/canary.txt"),
+                        ("canonical_write", "printf FORBIDDEN > /canonical/sentinel.txt"),
+                        ("store_write", "printf FORBIDDEN > /store/sentinel.txt"),
+                        ("auth_read", "cat /home/runner/.codex/auth.json >/dev/null")):
+                    response = subprocess.run(["docker", "exec", server.executor_name,
+                        "sh", "-c", command], capture_output=True, timeout=15)
+                    checks[label] = response.returncode
+            else:
+                for label, command in (
                     ("workspace_write", "printf CANARY > /draft/canary.txt"),
                     ("canonical_write", "printf FORBIDDEN > /canonical/sentinel.txt"),
                     ("store_write", "printf FORBIDDEN > /store/sentinel.txt"),
                     ("auth_read", "cat /home/runner/.codex/auth.json >/dev/null")):
-                response = server.request("command/exec", {
-                    "command": ["sh", "-c", command], "cwd": "/draft",
-                    "timeoutMs": 15000}, timeout=25)
-                checks[label] = (response.get("result") or {}).get("exitCode")
+                    response = server.request("command/exec", {
+                        "command": ["sh", "-c", command], "cwd": "/draft",
+                        "timeoutMs": 15000}, timeout=25)
+                    checks[label] = (response.get("result") or {}).get("exitCode")
             if not (checks["workspace_write"] == 0 and
                     all(checks[x] not in (None, 0) for x in
                         ("canonical_write", "store_write", "auth_read")) and
@@ -468,7 +814,7 @@ class LocalRunner:
                     for y in x.get("supportedReasoningEfforts", [])]}
                 for x in models["result"].get("data", [])],
                 "image": IMAGE, "image_id": IMAGE_ID, "cli_version": CLI_VERSION,
-                "profile": VOLUME,
+                "profile": self.profile,
                 "config_sha256": CONFIG_SHA256, "permission_checks": checks,
                 "submitted_turns": 0}
         finally:
@@ -607,7 +953,9 @@ class LocalRunner:
         github_ref = request.get("github_authorization_ref")
         if github_ref is not None and (self.github_authority is None or
                                        not self.supervise_containers or
-                                       self.lease_service is None):
+                                       self.split_executor or
+                                       self.lease_service is None or
+                                       self.mediator_state is None):
             raise RunnerError("mediated_lease_required")
         run_id = str(uuid4())
         run_dir = self._run_dir(run_id)
@@ -641,9 +989,16 @@ class LocalRunner:
                       "handoff": handoff, "imported_artifacts": artifacts,
                       "requested_model": model, "requested_effort": effort,
                       "effective_model": None, "effective_effort": None,
-                      "profile": VOLUME, "image": IMAGE, "image_id": IMAGE_ID,
+                      "profile": self.profile,
+                      "execution_mode": "split" if self.split_executor else "legacy",
+                      "image": IMAGE, "image_id": IMAGE_ID,
                       "cli_version": CLI_VERSION,
                       "config_sha256": CONFIG_SHA256, "thread_id": None,
+                      "credential": ({"credential_mode": "chatgpt_plan_oauth",
+                                      "credential_ref": None,
+                                      "auth_outcome": "not_checked"}
+                                     if self.auth else None),
+                      "runner_instance_id": self.instance_id,
                       "turns": [], "answer": None, "output_ref": None,
                       "raw_event_ref": f"laomedo:run:{run_id}:events",
                       "client_request_id": client_request_id,
@@ -753,7 +1108,10 @@ class LocalRunner:
                 record["thread_id"] != expected_thread_id or
                 record["post_run_hash"] != expected_post_run_hash or
                 record["requested_model"] != model or record["requested_effort"] != effort or
-                record["profile"] != VOLUME or record["image"] != IMAGE or
+                record["profile"] != self.profile or
+                record.get("execution_mode", "legacy") != (
+                    "split" if self.split_executor else "legacy") or
+                record["image"] != IMAGE or
                 record["image_id"] != IMAGE_ID or record["cli_version"] != CLI_VERSION or
                 record["config_sha256"] != CONFIG_SHA256):
             raise RunnerError("resume_binding_mismatch")
@@ -768,7 +1126,36 @@ class LocalRunner:
                 (run_dir / "store/sentinel.txt").read_text(encoding="utf-8") !=
                 "STORE-ORIGINAL"):
             raise RunnerError("protected_mount_changed")
+        if self.auth:
+            if record.get("runner_instance_id") != self.instance_id:
+                raise RunnerError("resume_after_runner_restart_forbidden")
+            _token, current = self.auth.access_token()
+            prior = record.get("credential") or {}
+            if any(current.get(key) != prior.get(key) for key in
+                   ("credential_ref", "provider_subject_hash")):
+                raise RunnerError("resume_auth_identity_mismatch")
         return self._execute(run_id, task, resume=True)
+
+    def _mediator_url(self) -> str:
+        # host.docker.internal -> host loopback is checked by the Windows
+        # Docker Desktop probe. Other network layouts need their own check.
+        if os.name != "nt" or self.mediator_state is None:
+            raise RunnerError("mediator_container_route_unverified")
+        try:
+            status = json.loads((self.mediator_state / "mediator.json").read_text(
+                encoding="utf-8"))
+            port = status["port"]
+            instance = status["instance"]
+            if type(port) is not int or not 1 <= port <= 65535 or not re.fullmatch(
+                    r"[0-9a-f]{32}", instance):
+                raise ValueError("invalid_mediator_status")
+            with urlopen(f"http://127.0.0.1:{port}/v1/health", timeout=2) as response:
+                health = json.load(response)
+            if health != {"status": "ready", "instance": instance}:
+                raise ValueError("mediator_instance_mismatch")
+        except (OSError, ValueError, KeyError, TypeError, TimeoutError) as error:
+            raise RunnerError("mediator_unavailable") from error
+        return f"http://host.docker.internal:{port}/v1/mediate"
 
     def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
         if not self.lock.acquire(blocking=False):
@@ -807,16 +1194,38 @@ class LocalRunner:
                 record["container_ownership"]["grant_id"] = lease.grant_id
                 with self.control_lock:
                     _json(run_dir / "record.json", record)
+            capability = None
+            mediator_url = None
+            if record.get("github_scope") is not None:
+                if lease is None or lease.grant_id is None:
+                    raise RunnerError("mediated_grant_unavailable")
+                capability = lease.dir / "grant.secret"
+                if capability.is_symlink() or not capability.is_file():
+                    raise RunnerError("mediated_capability_unavailable")
+                mediator_url = self._mediator_url()
+            access_token, auth_summary = self.auth.access_token() if self.auth else (None, None)
+            if resume and self.auth:
+                prior = record.get("credential") or {}
+                if any(auth_summary.get(key) != prior.get(key) for key in
+                       ("credential_ref", "provider_subject_hash")):
+                    raise RunnerError("resume_auth_identity_mismatch")
+            record["credential"] = auth_summary
+            _json(run_dir / "record.json", record)
             launch_attempted = True
-            server = self.transport(["docker", *_docker_prefix(
-                run_dir / "workspace", run_dir / "canonical", run_dir / "store",
-                name=name, run_id=run_id, launch_token=launch_token)], run_dir)
+            server = self._open_server(
+                run_dir, access_token=access_token, name=name, run_id=run_id,
+                launch_token=launch_token, capability=capability,
+                mediator_url=mediator_url)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
-                "version": "0.1.0"}})
+                "version": "0.1.0"},
+                **({"capabilities": {"experimentalApi": True}}
+                   if self.split_executor else {})})
             if "result" not in initialized:
                 raise RunnerError("initialize_rejected")
             server.notify("initialized", {})
+            if self.split_executor:
+                server.register_executor()
             models = server.request("model/list", {})
             entries = (models.get("result") or {}).get("data") or []
             choice = next((x for x in entries if x.get("id") == record["requested_model"]), None)
@@ -833,6 +1242,9 @@ class LocalRunner:
             params = ({"threadId": record["thread_id"], "cwd": "/draft"} if resume else
                       {"model": record["requested_model"], "cwd": "/draft",
                        "approvalPolicy": "never"})
+            if self.split_executor:
+                params["environments"] = server.thread_environment()
+                server.assert_executor_selection(params["environments"])
             response = server.request(method, params)
             result = response.get("result") or {}
             thread = result.get("thread") or {}
@@ -855,14 +1267,74 @@ class LocalRunner:
                 record.update(status="cancelled", error_category="cancelled_before_turn",
                               cancel_requested=True)
                 return record
-            sent = server.request("turn/start", {"threadId": native_id,
+            if record.get("github_scope") is not None:
+                task += ("\n\nThis run has approved, bounded GitHub mediation. "
+                         "To request an authorized operation, pipe one JSON object "
+                         "with repository, operation, payload and (for a write) "
+                         "effect_id to `node /run/laomedo/mediate.mjs`. "
+                         "The client reads its run capability from a read-only file; "
+                         "never print or copy that file. A denied or unknown write "
+                         "must not be retried automatically. Direct host GitHub "
+                         "credentials and ambient gh login are unavailable.")
+            turn_params = {"threadId": native_id,
                 "model": record["requested_model"], "effort": record["requested_effort"],
-                "cwd": "/draft", "input": [{"type": "text", "text": task}]})
+                "cwd": "/draft", "input": [{"type": "text", "text": task}]}
+            if self.split_executor:
+                server.assert_controller_isolated()
+                turn_params["environments"] = server.turn_environment()
+                server.assert_executor_selection(turn_params["environments"])
+                turn_params["sandboxPolicy"] = {"type": "externalSandbox",
+                                                 "networkAccess": "restricted"}
+            if self.auth:
+                auth_failure = {"error": "auth_revoked_during_turn",
+                                "outcome": "revoked", "code": "auth_revoked"}
+
+                def still_authorized():
+                    try:
+                        current = self.auth.active()
+                        selected = self.auth.summary(current)
+                    except AuthError as exc:
+                        category, outcome = _auth_record_error(exc)
+                        auth_failure.update(error=category + "_during_turn",
+                                            outcome=outcome, code=str(exc))
+                        return False
+                    except (OSError, ValueError):
+                        auth_failure.update(error="auth_unavailable_during_turn",
+                                            outcome="unavailable",
+                                            code="auth_mode_unavailable")
+                        return False
+                    if current.get("state") != "active":
+                        if current.get("state") in {"refresh_unknown",
+                                                    "refresh_in_flight"}:
+                            auth_failure.update(error="auth_refresh_failed_during_turn",
+                                                outcome="refresh_unknown",
+                                                code="auth_refresh_unknown")
+                        return False
+                    if any(selected.get(key) != auth_summary.get(key)
+                           for key in ("credential_ref", "provider_subject_hash")):
+                        auth_failure.update(error="auth_account_changed_during_turn",
+                                            outcome="account_mismatch",
+                                            code="auth_account_mismatch")
+                        return False
+                    if selected.get("generation") != auth_summary.get("generation"):
+                        auth_failure.update(error="auth_generation_changed_during_turn",
+                                            outcome="generation_changed",
+                                            code="auth_generation_changed")
+                        return False
+                    return True
+
+                server.authorization_probe = still_authorized
+                if not still_authorized():
+                    raise AuthError(auth_failure["code"])
+            sent = server.request("turn/start", turn_params)
             turn_id = ((sent.get("result") or {}).get("turn") or {}).get("id")
             if not turn_id:
                 raise RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
+            if self.auth and error == "auth_revoked_during_turn":
+                error = auth_failure["error"]
+                record["credential"]["auth_outcome"] = auth_failure["outcome"]
             native_errors = _native_error_summary(server.events, turn_id)
             if status == "failed" and error is None and native_errors["last_category"]:
                 error = "codex_" + native_errors["last_category"]
@@ -900,8 +1372,14 @@ class LocalRunner:
                 raise
             if record["status"] not in {"interrupted", "cancelled"}:
                 record["status"] = "failed"
-                record["error_category"] = (str(exc) if isinstance(exc, RunnerError)
-                                            else type(exc).__name__)
+                if isinstance(exc, AuthError):
+                    category, outcome = _auth_record_error(exc)
+                    record["error_category"] = category
+                    if isinstance(record.get("credential"), dict):
+                        record["credential"]["auth_outcome"] = outcome
+                else:
+                    record["error_category"] = (str(exc) if isinstance(exc, RunnerError)
+                                                else type(exc).__name__)
         finally:
             close_error = False
             try:
@@ -1055,10 +1533,26 @@ def main():
     parser.add_argument("--max-model-turns", type=int, default=0)
     parser.add_argument("--lease-service", type=Path,
                         help="State directory of an independently started lease service")
+    parser.add_argument("--github-authority-store", type=Path,
+                        help="Trusted run-approval database outside the checkout")
+    parser.add_argument("--mediator-state", type=Path,
+                        help="Private host mediator state; only its port is passed to Docker")
+    parser.add_argument("--split-executor", action="store_true",
+                        help="Credential-free experimental split controller/executor")
+    parser.add_argument("--auth-store", type=Path,
+                        help="Private app-owned ChatGPT OAuth store; requires --split-executor")
     args = parser.parse_args()
+    if (args.github_authority_store is None) != (args.mediator_state is None):
+        parser.error("GitHub authority and mediator state must be configured together")
+    authority = (RunGrantAuthority(args.github_authority_store)
+                 if args.github_authority_store else None)
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
                          max_model_turns=args.max_model_turns,
-                         lease_service=args.lease_service)
+                         lease_service=args.lease_service,
+                         github_authority=authority,
+                         mediator_state=args.mediator_state,
+                         split_executor=args.split_executor,
+                         auth_store=args.auth_store)
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return

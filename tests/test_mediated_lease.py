@@ -302,6 +302,10 @@ class MediatedLeaseTests(unittest.TestCase):
         thread = threading.Thread(target=mediator.serve, daemon=True)
         thread.start()
         self.addCleanup(mediator.close)
+        with request.urlopen(f"http://127.0.0.1:{mediator.port}/v1/health",
+                             timeout=5) as response:
+            self.assertEqual(json.load(response),
+                             {"status": "ready", "instance": mediator.instance})
         for token in (token_a, token_b):
             call = request.Request(
                 f"http://127.0.0.1:{mediator.port}/v1/mediate",
