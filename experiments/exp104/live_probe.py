@@ -220,9 +220,11 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
     user = _api(token, "/user")
     repo = _api(token, "/repos/" + REPOSITORY)
     main = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/main")
+    actions = _api(token, "/repos/" + REPOSITORY + "/actions/runs")
     if (user.get("login") != "ga84jog" or repo.get("id") != REPOSITORY_ID or
             main.get("object", {}).get("sha") != BASELINE or
-            repo.get("permissions", {}).get("push") is not True):
+            repo.get("permissions", {}).get("push") is not True or
+            type(actions.get("total_count")) is not int):
         raise RuntimeError("github_baseline_mismatch")
     for branch in (BRANCH_A, BRANCH_B, BRANCH_C):
         try:
