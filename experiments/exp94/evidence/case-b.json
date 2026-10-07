@@ -1,0 +1,93 @@
+{
+  "case": "B",
+  "probe_started_utc": "2026-10-06T09:06:34.830Z",
+  "browser_requests": [
+    {
+      "at_utc": "2026-10-06T09:06:37.099Z",
+      "method": "GET",
+      "path": "/api/v1/monitor/builds"
+    }
+  ],
+  "runner_baseline": 7,
+  "flow_id": "568fa1fe-3598-48c3-b6b9-8aa468c431ff",
+  "send_clicked_utc": "2026-10-06T09:06:37.815Z",
+  "target_event": {
+    "kind": "synthetic_wait_started",
+    "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+    "at_utc": "2026-10-06T09:06:38.413901+00:00"
+  },
+  "buttons_at_target": [
+    {
+      "text": "Stop",
+      "title": "",
+      "aria": "",
+      "testId": "stop_building_button",
+      "disabled": false,
+      "visible": true
+    },
+    {
+      "text": "",
+      "title": "Stop",
+      "aria": "Stop",
+      "testId": "button-stop",
+      "disabled": false,
+      "visible": true
+    }
+  ],
+  "stop_control": {
+    "text": "",
+    "title": "Stop",
+    "aria": "Stop",
+    "testId": "button-stop",
+    "disabled": false,
+    "visible": true
+  },
+  "stop_clicked_utc": "2026-10-06T09:06:38.567Z",
+  "buttons_after_wait": [],
+  "probe_finished_utc": "2026-10-06T09:06:47.781Z",
+  "runner_events": [
+    {
+      "kind": "post_received",
+      "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+      "at_utc": "2026-10-06T09:06:38.412842+00:00",
+      "case": "B",
+      "duplicate": false
+    },
+    {
+      "kind": "synthetic_wait_started",
+      "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+      "at_utc": "2026-10-06T09:06:38.413901+00:00"
+    },
+    {
+      "kind": "ack_sent",
+      "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+      "at_utc": "2026-10-06T09:06:38.414958+00:00",
+      "case": "B",
+      "status": "running"
+    },
+    {
+      "kind": "request_lookup",
+      "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+      "at_utc": "2026-10-06T09:06:38.579853+00:00",
+      "found": true
+    },
+    {
+      "kind": "cancel_received",
+      "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+      "at_utc": "2026-10-06T09:06:38.588470+00:00",
+      "known": true
+    },
+    {
+      "kind": "status_read",
+      "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+      "at_utc": "2026-10-06T09:06:38.596322+00:00",
+      "found": true
+    },
+    {
+      "kind": "status_read",
+      "run_id": "8e00e2f6-b7de-4393-bd75-8e7723a2bf94",
+      "at_utc": "2026-10-06T09:06:38.617941+00:00",
+      "found": true
+    }
+  ]
+}

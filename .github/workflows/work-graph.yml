@@ -29,4 +29,6 @@ jobs:
         run: |
           python -m unittest experiments.exp09.test_probe -v
           python -m experiments.exp09.probe
+      - name: Test credential-free EXP-100 broker probe in checkout
+        run: python -m unittest discover -s experiments/exp100 -p test_probe.py -v
       - run: laomedo-work-graph import --repo example/work --file examples/work-graph/github-pages.json --output-dir "$RUNNER_TEMP/work-graph"

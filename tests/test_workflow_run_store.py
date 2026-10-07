@@ -55,6 +55,22 @@ class WorkflowRunStoreTests(unittest.TestCase):
         self.assertEqual(self.store.sweep_crashed(), [])
         self.assertEqual(self.store.counters()["synthetic_dispatches"], 1)
 
+    def test_process_exit_completion_does_not_claim_complete_evidence(self):
+        record = self.reserve()
+        with self.assertRaisesRegex(LaunchError, "completion_basis_invalid"):
+            self.store.dispatch(record["run_id"], lambda _: "unused",
+                                completion_basis="unverified")
+        self.assertEqual(self.store.get(record["run_id"])["status"], "reserved")
+        self.assertEqual(self.store.dispatch(record["run_id"],
+            lambda _: "untrusted output", completion_basis="process_exit"),
+            "untrusted output")
+        saved = self.store.get(record["run_id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["completion_basis"], "process_exit")
+        self.assertEqual(saved["evidence_complete"], 0)
+        self.assertEqual(saved["dispatch_attempts"], 1)
+        self.assertEqual(WorkflowRunStore(self.store.path).get(record["run_id"]), saved)
+
     def test_lost_external_acknowledgement_stays_unknown_and_never_retries(self):
         record = self.reserve(trigger={"type": "selected-issue"})
         submitted = []

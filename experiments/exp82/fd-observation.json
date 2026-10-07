@@ -1,0 +1,13 @@
+{
+  "source_commit": "fc0ec6f",
+  "date": "2026-10-05",
+  "scope": "single-process component stdout isolation within zero-turn Docker worker",
+  "probe": "python -m experiments.exp82.docker_grant_probe",
+  "result": "pass",
+  "forged_python_print_ignored": true,
+  "forged_raw_stdout_fd1_write_ignored": true,
+  "real_output_marker": true,
+  "successful_run_dispatch_attempts": 1,
+  "attestation_mismatch_refused": true,
+  "remaining_limit": "Custom code in the same process may discover or manipulate other open descriptors; this test does not prove adversarial protocol integrity."
+}

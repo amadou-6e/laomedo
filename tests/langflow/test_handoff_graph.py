@@ -38,8 +38,11 @@ class GraphTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len({edge["id"] for edge in flow["data"]["edges"]}), len(flow["data"]["edges"]))
         def respond(req, **kwargs):
             payloads.append(json.loads(req.data))
-            return Response(json.dumps({"run_id": str(len(payloads)), "status": "completed",
-                "answer": "SELECTED" if len(payloads) == 1 else "DONE"}).encode())
+            result = {"run_id": str(len(payloads)), "status": "completed",
+                "answer": "SELECTED" if len(payloads) == 1 else "DONE"}
+            if "request_id" in payloads[-1]:
+                result["client_request_id"] = payloads[-1]["request_id"]
+            return Response(json.dumps(result).encode())
         with patch("urllib.request.urlopen", side_effect=respond):
             await Graph.from_payload(flow).arun(inputs=[{"input_value": "FIRST"}], types=["chat"])
         self.assertEqual(len(payloads), 2)
@@ -49,8 +52,12 @@ class GraphTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payloads[1]["handoff"]["source"]["run_id"], "1")
 
     async def test_failed_first_does_not_dispatch_second(self):
-        def respond(*args, **kwargs):
-            return Response(json.dumps({"run_id": "one", "status": "failed", "error_category": "fixture"}).encode())
+        def respond(req, **kwargs):
+            payload = json.loads(req.data)
+            result = {"run_id": "one", "status": "failed", "error_category": "fixture"}
+            if "request_id" in payload:
+                result["client_request_id"] = payload["request_id"]
+            return Response(json.dumps(result).encode())
         with patch("urllib.request.urlopen", side_effect=respond) as http:
             with self.assertRaises(Exception):
                 await Graph.from_payload(builder.build()).arun(inputs=[{"input_value": "FIRST"}], types=["chat"])
