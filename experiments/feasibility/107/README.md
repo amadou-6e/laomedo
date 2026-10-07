@@ -357,11 +357,17 @@ blocking unselected `apply_patch` calls, but no such configuration is active.
 The disposable `probe_patch_hook.py` also tried the apparent configuration
 repair without changing the active runner: a `PreToolUse` deny hook matched to
 `apply_patch`, plus an explicit deny on `/home/runner/.codex`. The synthetic
-controller loaded the temporary config file, but no hook feedback appeared
+hook text was present in the controller's temporary config file, but hook
+registration and execution were not observed, and no feedback appeared
 and the unselected patch still wrote the controller-profile marker. Its
 credential-free result was `patch_reached_controller=true`,
 `hook_feedback_in_fake_request=false`, and two fake Responses requests.
 This does not prove that all Codex hooks fail; it shows that this proposed
-hook and profile rule do not repair code-mode patch routing in the pinned
-0.159.2 path. The probe removed its temporary containers and volume. The
-active runner configuration is unchanged, and the app-owned gate stays closed.
+configuration did not repair code-mode patch routing in the pinned 0.159.2
+path. The turn used `externalSandbox`, which may explain why the base
+read-only-root rule and the extra profile rule did not bind; this explanation
+has not been separately tested. The default legacy route was not probed for
+the same patch behavior. The programmatic `split_access_token` synthetic path
+is also outside the app-owned gate and must not carry a real credential. The
+probe removed its temporary containers and volume. The active runner
+configuration is unchanged, and the app-owned gate stays closed.

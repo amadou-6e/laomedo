@@ -137,6 +137,10 @@ class LocalRunnerTests(unittest.TestCase):
             runner.start(self.request())
         with self.assertRaisesRegex(RunnerError,
                                     "^controller_patch_route_unisolated$"):
+            runner.start_async({**self.request(), "request_id":
+                                "00000000-0000-0000-0000-000000000001"})
+        with self.assertRaisesRegex(RunnerError,
+                                    "^controller_patch_route_unisolated$"):
             runner.resume("no-run", "continue", expected_post_run_hash="hash",
                           expected_thread_id="thread", model="test-model",
                           effort="low")
