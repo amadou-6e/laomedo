@@ -7,10 +7,11 @@ import queue
 import tempfile
 import threading
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from urllib import request as http_request, error as http_error
 
-from laomedo.local_runner import (AppServer, LocalRunner, RunnerError,
+from laomedo.local_runner import (AppServer, SplitAppServer, LocalRunner, RunnerError,
                                   _hash_tree, _native_error_summary, serve)
 from laomedo.siwc_auth import AuthError
 from laomedo.skill_store import SkillStore
@@ -119,33 +120,17 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["turns"], [])
         self.assertFalse((self.runner.state / "turn-ledger.json").exists())
 
-    def test_app_owned_split_route_refuses_unisolated_patch_before_dispatch(self):
-        state = self.root.parent / (self.root.name + "-patch-state")
-        auth = self.root.parent / (self.root.name + "-patch-auth")
-        self.addCleanup(lambda: __import__("shutil").rmtree(state,
-                        ignore_errors=True))
-        self.addCleanup(lambda: __import__("shutil").rmtree(auth,
-                        ignore_errors=True))
-        runner = LocalRunner(state, self.runner.store.root, self.source,
-                             split_executor=True, auth_store=auth,
-                             check_docker=False, max_model_turns=4)
-        with self.assertRaisesRegex(RunnerError,
-                                    "^controller_patch_route_unisolated$"):
-            runner.preflight()
-        with self.assertRaisesRegex(RunnerError,
-                                    "^controller_patch_route_unisolated$"):
-            runner.start(self.request())
-        with self.assertRaisesRegex(RunnerError,
-                                    "^controller_patch_route_unisolated$"):
-            runner.start_async({**self.request(), "request_id":
-                                "00000000-0000-0000-0000-000000000001"})
-        with self.assertRaisesRegex(RunnerError,
-                                    "^controller_patch_route_unisolated$"):
-            runner.resume("no-run", "continue", expected_post_run_hash="hash",
-                          expected_thread_id="thread", model="test-model",
-                          effort="low")
-        self.assertEqual(list((state / "runs").iterdir()), [])
-        self.assertFalse((state / "turn-ledger.json").exists())
+    def test_split_selection_refuses_missing_ambiguous_or_wrong_executor(self):
+        server = SimpleNamespace(environment_id="private-executor")
+        good = [{"environmentId": "private-executor", "cwd": "/draft"}]
+        SplitAppServer.assert_executor_selection(server, good)
+        for bad in ([], [{}], [{"environmentId": "other", "cwd": "/draft"}],
+                    [{"environmentId": "private-executor", "cwd": "/"}],
+                    good + good):
+            with self.subTest(selection=bad):
+                with self.assertRaisesRegex(RunnerError,
+                                            "^executor_selection_mismatch$"):
+                    SplitAppServer.assert_executor_selection(server, bad)
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

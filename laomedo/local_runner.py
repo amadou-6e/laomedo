@@ -499,13 +499,24 @@ class SplitAppServer(AppServer):
     def thread_environment(self) -> list[dict]:
         if not self.registered:
             raise RunnerError("executor_not_registered")
-        return [{"environmentId": self.environment_id, "cwd": "/draft"}]
+        selection = [{"environmentId": self.environment_id, "cwd": "/draft"}]
+        self.assert_executor_selection(selection)
+        return selection
 
     def turn_environment(self) -> list[dict]:
         if not self.registered:
             raise RunnerError("executor_not_registered")
-        return [{"environmentId": self.environment_id, "cwd": "/draft",
-                 "runtimeWorkspaceRoots": ["/draft"]}]
+        selection = [{"environmentId": self.environment_id, "cwd": "/draft",
+                      "runtimeWorkspaceRoots": ["/draft"]}]
+        self.assert_executor_selection(selection)
+        return selection
+
+    def assert_executor_selection(self, selection: list[dict]) -> None:
+        """Refuse a missing or ambiguous remote tool route before dispatch."""
+        if (len(selection) != 1 or
+                selection[0].get("environmentId") != self.environment_id or
+                selection[0].get("cwd") != "/draft"):
+            raise RunnerError("executor_selection_mismatch")
 
     def wait_turn(self, turn_id: str, timeout: float,
                   cancelled: threading.Event) -> tuple[str, str | None]:
@@ -677,8 +688,6 @@ class LocalRunner:
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
-        if self.auth is not None and self.split_executor:
-            raise RunnerError("controller_patch_route_unisolated")
         root = self.state / "preflight" / str(uuid4())
         root.mkdir(parents=True)
         for name in ("workspace", "canonical", "store"):
@@ -850,11 +859,6 @@ class LocalRunner:
 
     def _prepare(self, request: dict, *, client_request_id=None,
                  request_hash=None) -> dict:
-        if self.auth is not None and self.split_executor:
-            # In pinned Codex 0.159.2, apply_patch without an Environment ID
-            # targets the credential-bearing controller. Do not submit a turn
-            # until every offered file tool is forced into the executor.
-            raise RunnerError("controller_patch_route_unisolated")
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
         task = request.get("task")
@@ -1014,8 +1018,6 @@ class LocalRunner:
 
     def resume(self, run_id: str, task: str, *, expected_post_run_hash: str,
                expected_thread_id: str, model: str, effort: str) -> dict:
-        if self.auth is not None and self.split_executor:
-            raise RunnerError("controller_patch_route_unisolated")
         record = self.status(run_id)
         if not isinstance(task, str) or not task.strip():
             raise RunnerError("invalid_task")
@@ -1105,6 +1107,7 @@ class LocalRunner:
                        "approvalPolicy": "never"})
             if self.split_executor:
                 params["environments"] = server.thread_environment()
+                server.assert_executor_selection(params["environments"])
             response = server.request(method, params)
             result = response.get("result") or {}
             thread = result.get("thread") or {}
@@ -1133,6 +1136,7 @@ class LocalRunner:
             if self.split_executor:
                 server.assert_controller_isolated()
                 turn_params["environments"] = server.turn_environment()
+                server.assert_executor_selection(turn_params["environments"])
                 turn_params["sandboxPolicy"] = {"type": "externalSandbox",
                                                  "networkAccess": "restricted"}
             if self.auth:

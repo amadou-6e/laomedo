@@ -88,21 +88,21 @@ def probe():
                         "expires_in": 3600},
                     verify=lambda _token, _client, _nonce: {
                         "iss": "https://auth.openai.com", "sub": "fixture-subject"})
-                # The app-owned broker path is now fail-closed in LocalRunner.
-                # This synthetic token keeps the tool-routing negative control
-                # runnable without making an app-owned dispatch possible.
+                # Exercise the app-owned auth_store path with a synthetic
+                # broker account. Redirect only this disposable instance to
+                # the fake Responses endpoint, without editing active config.
                 restarted_broker = ChatGPTConnection(auth_state)
                 broker_ref_stable = (connection.summary(connection.active()) ==
                     restarted_broker.summary(restarted_broker.active()))
-                options = dict(split_executor=True,
-                               split_access_token=access_canary,
-                               split_provider_config=provider, max_model_turns=3)
+                options = dict(split_executor=True, auth_store=auth_state,
+                               max_model_turns=3)
                 request = {"task": "Synthetic fixture", "model": "gpt-6-luna",
                            "effort": "low", "skill_ref": {
                                "skill_id": "split-probe",
                                "revision_id": revision["revision_id"],
                                "tree_hash": revision["tree_hash"]}}
                 first_runner = LocalRunner(state, store.root, source, **options)
+                first_runner.split_provider_config = provider
                 writer = subprocess.run(["docker", "run", "--rm", "--pull=never",
                     "--network", "none", "--user", "10001:10001", "--mount",
                     f"type=volume,source={profile},target=/home/runner/.codex",
@@ -139,6 +139,7 @@ def probe():
                     first_workspace / "file-observation.txt").read_text()
                 resumed_marker = (first_workspace / "runner-marker.txt").read_text()
                 second_runner = LocalRunner(state, store.root, source, **options)
+                second_runner.split_provider_config = provider
                 second = second_runner.start(request)
                 workspace = state / "runs" / second["run_id"] / "workspace"
                 observation = (workspace / "token-observation.txt").read_text()
@@ -171,9 +172,22 @@ def probe():
                     "-C", "/", "profile"], capture_output=True, timeout=15)
                 if profile_archive.returncode:
                     raise RuntimeError("controller_profile_scan_failed")
+                control_file = subprocess.run(["docker", "run", "--rm",
+                    "--pull=never", "--network", "none", "--user", "10001:10001",
+                    "--mount", f"type=volume,source={profile},target=/profile,readonly",
+                    "laomedo-codex-boundary:0.159.2", "cat",
+                    "/profile/probe.secret"], capture_output=True, timeout=15)
                 profile_clean = (access_canary.encode() not in profile_archive.stdout and
                                  refresh_canary.encode() not in profile_archive.stdout)
-                patch_reached_controller = patch_canary.encode() in profile_archive.stdout
+                patch_file = subprocess.run(["docker", "run", "--rm",
+                    "--pull=never", "--network", "none", "--user", "10001:10001",
+                    "--mount", f"type=volume,source={profile},target=/profile,readonly",
+                    "laomedo-codex-boundary:0.159.2", "cat",
+                    "/profile/patch-sentinel.txt"], capture_output=True, timeout=15)
+                patch_reached_controller = (patch_file.returncode == 0 and
+                                            patch_file.stdout.strip() == patch_canary.encode())
+                controller_patch_file_absent = (patch_file.returncode != 0 and
+                                                b"No such file" in patch_file.stderr)
                 image_observed_absent = all(
                     "IMAGE:absent" in output
                     for request in mock.requests if request["tool_outputs"]
@@ -209,6 +223,10 @@ def probe():
                     "tokens_absent_from_controller_profile": profile_clean,
                     "unselected_patch_reached_controller_profile":
                         patch_reached_controller,
+                    "controller_patch_file_absent": controller_patch_file_absent,
+                    "controller_control_present": (
+                        control_file.returncode == 0 and
+                        control_file.stdout == file_canary.encode()),
                     "image_read_absent_from_executor": image_observed_absent,
                     "secret_absent_from_run_state": trace_clean,
                     "secret_exposure_files": exposure_files,
@@ -229,7 +247,9 @@ def probe():
                         not result["controller_process_tree_absent_from_executor"] or
                         not result["controller_file_absent_from_executor"] or
                         not result["tokens_absent_from_controller_profile"] or
-                        not result["unselected_patch_reached_controller_profile"] or
+                        result["unselected_patch_reached_controller_profile"] or
+                        not result["controller_patch_file_absent"] or
+                        not result["controller_control_present"] or
                         not result["image_read_absent_from_executor"] or
                         not result["secret_absent_from_run_state"] or
                         not result["tool_surface_exact"] or
