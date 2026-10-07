@@ -16,9 +16,11 @@ import json
 import os
 from pathlib import Path
 import secrets
+import ssl
 import subprocess
 import time
 from urllib.parse import urlencode, parse_qs, urlsplit
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from uuid import uuid4
 import webbrowser
@@ -56,8 +58,25 @@ def _https_json(url: str, *, fields: dict | None = None) -> dict:
         with build_opener(_NoRedirect()).open(
                 Request(url, data=body, headers=headers), timeout=20) as response:
             result = json.load(response)
+    except AuthError:
+        raise
+    except HTTPError as exc:
+        # Status is safe to report; never include the URL, headers, or body.
+        status = exc.code if type(exc.code) is int and 400 <= exc.code <= 599 else 0
+        exc.close()
+        raise AuthError(f"auth_http_{status}") from None
+    except URLError as exc:
+        if isinstance(exc.reason, ssl.SSLCertVerificationError):
+            raise AuthError("auth_tls_verify_failed") from None
+        raise AuthError("auth_transport_failed") from None
+    except ssl.SSLCertVerificationError:
+        raise AuthError("auth_tls_verify_failed") from None
+    except (TimeoutError, OSError):
+        raise AuthError("auth_transport_failed") from None
+    except (ValueError, TypeError):
+        raise AuthError("auth_response_invalid") from None
     except Exception:
-        raise AuthError("auth_network_or_exchange_failed") from None
+        raise AuthError("auth_exchange_failed") from None
     if not isinstance(result, dict):
         raise AuthError("auth_response_invalid")
     return result

@@ -288,4 +288,12 @@ the old one. Browser consent, renewal with OpenAI, actual plan entitlement,
 and bounded live before/after-restart turns remain untested. One local browser
 connection attempt on 2026-10-07 timed out waiting for the loopback callback;
 the private store still reported `auth_account_missing`. This consumed no
-model turn and does not establish an eligibility refusal.
+model turn and does not establish an eligibility refusal. Two later callbacks
+reached the app. The first exchange returned the old combined
+`auth_network_or_exchange_failed` category; the second returned
+`auth_transport_failed`, with no provider HTTP status. A credential-free Python
+request to OpenAI's public discovery endpoint reported
+`SSLCertVerificationError`, while Windows curl verified that endpoint and got
+HTTP 200. This supports a Python TLS trust-path cause for the exchange failures,
+but the first attempt's exact cause is unknown. The store remained unconnected;
+no model turn was used.

@@ -6,16 +6,63 @@ import tempfile
 import threading
 import time
 import unittest
+from io import BytesIO
+from http.client import BadStatusLine
+import ssl
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from laomedo.siwc_auth import AuthError, ChatGPTConnection, NEEDED, _verify_id_token
+from laomedo.siwc_auth import (AuthError, ChatGPTConnection, NEEDED,
+                               _https_json, _verify_id_token)
 
 
 class ChatGPTConnectionTests(unittest.TestCase):
+    def test_exchange_diagnostic_reports_only_safe_status(self):
+        private_text = "secret-code-and-token"
+        error = HTTPError("https://auth.openai.com/private/" + private_text,
+                          400, private_text, {}, BytesIO(private_text.encode()))
+        with patch("laomedo.siwc_auth.build_opener") as opener:
+            opener.return_value.open.side_effect = error
+            with self.assertRaisesRegex(AuthError, "^auth_http_400$") as raised:
+                _https_json("https://auth.openai.com/api/accounts/oauth/token",
+                            fields={"code": private_text})
+        self.assertNotIn(private_text, str(raised.exception))
+        self.assertTrue(raised.exception.__suppress_context__)
+        self.assertTrue(error.fp.closed)
+        with patch("laomedo.siwc_auth.build_opener") as opener:
+            opener.return_value.open.side_effect = URLError(private_text)
+            with self.assertRaisesRegex(AuthError, "^auth_transport_failed$") as raised:
+                _https_json("https://auth.openai.com/api/accounts/oauth/token",
+                            fields={"code": private_text})
+        self.assertNotIn(private_text, str(raised.exception))
+        with patch("laomedo.siwc_auth.build_opener") as opener:
+            opener.return_value.open.side_effect = URLError(
+                ssl.SSLCertVerificationError(private_text))
+            with self.assertRaisesRegex(AuthError, "^auth_tls_verify_failed$") as raised:
+                _https_json("https://auth.openai.com/api/accounts/oauth/token",
+                            fields={"code": private_text})
+        self.assertNotIn(private_text, str(raised.exception))
+        with patch("laomedo.siwc_auth.build_opener") as opener:
+            opener.return_value.open.side_effect = BadStatusLine(private_text)
+            with self.assertRaisesRegex(AuthError, "^auth_exchange_failed$") as raised:
+                _https_json("https://auth.openai.com/api/accounts/oauth/token",
+                            fields={"code": private_text})
+        self.assertNotIn(private_text, str(raised.exception))
+
+    def test_failed_exchange_does_not_connect_account(self):
+        attempt = self.store.begin("http://127.0.0.1:1455/auth/callback")
+        with self.assertRaisesRegex(AuthError, "^auth_tls_verify_failed$"):
+            self.store.finish(attempt, {"code": "synthetic-code",
+                "state": attempt["state"], "client_id": "oaiapp_fixture"},
+                exchange=lambda *_args, **_kwargs:
+                    (_ for _ in ()).throw(AuthError("auth_tls_verify_failed")))
+        with self.assertRaisesRegex(AuthError, "auth_account_missing"):
+            self.store.active()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
