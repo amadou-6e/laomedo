@@ -127,3 +127,29 @@ The current runner still uses its original single-container transport; do not
 inject a reusable subscription token into it. #107 remains open until the
 split is implemented in that transport, broader access paths are denied, and
 the separately authorized live and restart checks pass.
+
+## Proposed runner integration, pending review
+
+The next code slice should keep the existing runner route unchanged until the
+new one passes a startup gate. For each run, launch an executor container with
+only the draft workspace mount and a disposable, nonsecret Codex home. Launch
+the app-server controller in a separate PID and mount namespace. Only the
+controller may receive a provider credential or persistent auth state. Use
+the executor's loopback, capability-authenticated exec-server connection for
+the controller-to-tool channel; never mount the Docker socket in either
+container.
+
+After `initialize`, register the executor and require a ready status and
+expected shell information. Configure the controller with the two observed
+executor feature flags. Select the exact environment on every thread start or
+resume and on every turn, with `externalSandbox` on the turn. Refuse dispatch
+if any selection is missing, mismatched, or rejected. Do not use the current
+controller-local `command/exec` preflight in this mode: run boundary probes
+against the executor and require a real agent-issued command check before a
+credential is connected. Treat executor loss as a failed or unknown turn;
+never retry locally. On shutdown, verify removal of both owned containers.
+
+This is a draft launch shape, not an applied runner configuration. Review must
+settle the exact Docker mounts, network policy, status evidence, and resume
+behavior before enabling it. The later credential connection needs its own
+eligibility, refresh, and restart checks under #107.
