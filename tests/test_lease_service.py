@@ -210,7 +210,7 @@ class LeaseClientTests(unittest.TestCase):
                                 mediation_request={"invocation_id": "i",
                                                    "repository": "example/disposable",
                                                    "branch": "probe-r"})
-            self.assertTrue(cleanup_started.is_set())
+            self.assertTrue(cleanup_started.wait(2))
             self.assertFalse((self.state / "leases" / "t" / "result.json").exists())
         finally:
             release_cleanup.set()
