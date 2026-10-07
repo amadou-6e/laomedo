@@ -198,6 +198,8 @@ class LeaseService:
                 run_id=lease["run_id"], invocation_id=scope["invocation_id"],
                 repository=scope["repository"], branch=scope["branch"],
                 operations=scope["operations"],
+                connection_id=scope.get("connection_id"),
+                connection_generation=scope.get("connection_generation"),
                 target_prs=scope.get("target_prs", {}),
                 ttl_seconds=GRANT_TTL_SECONDS, lease_token=lease["token"],
                 lease_scope=self.lease_scope, service_instance=self.instance)

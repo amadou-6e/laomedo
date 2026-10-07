@@ -131,7 +131,7 @@ class MediationStore:
     """Durable grant/effect ledger for one trusted mediator process family."""
 
     def __init__(self, path: str | Path, *, now: Callable[[], float] = time.time,
-                 workflow_change_classifier=None):
+                 workflow_change_classifier=None, connection_is_current=None):
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
             raise MediationError("store_path_invalid")
@@ -142,6 +142,7 @@ class MediationStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.now = now
         self.workflow_change_classifier = workflow_change_classifier
+        self.connection_is_current = connection_is_current
         with closing(self._connect()) as db, db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS grants (
@@ -149,7 +150,8 @@ class MediationStore:
                     run_id TEXT NOT NULL, invocation_id TEXT NOT NULL,
                     repository TEXT NOT NULL, operations TEXT NOT NULL,
                     branch TEXT, reviewed_issue_hashes TEXT NOT NULL,
-                    expires_at REAL NOT NULL, revoked_at REAL);
+                    expires_at REAL NOT NULL, revoked_at REAL,
+                    connection_id TEXT, connection_generation INTEGER);
                 CREATE TABLE IF NOT EXISTS effects (
                     run_id TEXT NOT NULL, effect_id TEXT NOT NULL,
                     request_hash TEXT NOT NULL, repository TEXT NOT NULL,
@@ -170,6 +172,11 @@ class MediationStore:
                     grant_id TEXT NOT NULL, number INTEGER NOT NULL,
                     base TEXT NOT NULL, PRIMARY KEY(grant_id,number));
             """)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(grants)")}
+            if "connection_id" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN connection_id TEXT")
+            if "connection_generation" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN connection_generation INTEGER")
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=10)
@@ -181,7 +188,9 @@ class MediationStore:
               reviewed_issue_requests: dict[str, dict] | None = None,
               lease_token: str | None = None, lease_scope: str | None = None,
               service_instance: str | None = None,
-              target_prs: dict[int, str] | None = None) -> tuple[str, str]:
+              target_prs: dict[int, str] | None = None,
+              connection_id: str | None = None,
+              connection_generation: int | None = None) -> tuple[str, str]:
         reviewed_issue_requests = reviewed_issue_requests or {}
         target_prs = target_prs or {}
         if (not all(isinstance(v, str) and v for v in (run_id, invocation_id, repository)) or
@@ -200,17 +209,28 @@ class MediationStore:
                 not isinstance(target_prs, dict) or
                 any(type(number) is not int or number < 1 or
                     not isinstance(base, str) or not base
-                    for number, base in target_prs.items())):
+                    for number, base in target_prs.items()) or
+                ((connection_id is None) != (connection_generation is None)) or
+                (connection_id is not None and
+                 (not isinstance(connection_id, str) or not connection_id or
+                  type(connection_generation) is not int or connection_generation < 1))):
             raise MediationError("grant_request_invalid")
+        if connection_id is not None and not self._connection_current(
+                connection_id, connection_generation, repository):
+            raise MediationError("connection_unavailable")
         reviewed_hashes = {key: _request_hash(repository, "issue_create", body)
                            for key, body in reviewed_issue_requests.items()}
         grant_id, token = secrets.token_hex(16), secrets.token_urlsafe(32)
         with closing(self._connect()) as db, db:
-            db.execute("INSERT INTO grants VALUES (?,?,?,?,?,?,?,?,?,NULL)",
+            db.execute("""INSERT INTO grants
+                (token_hash,grant_id,run_id,invocation_id,repository,operations,
+                 branch,reviewed_issue_hashes,expires_at,revoked_at,
+                 connection_id,connection_generation)
+                VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?)""",
                        (sha256(token.encode()).hexdigest(), grant_id, run_id,
                         invocation_id, repository, json.dumps(sorted(operations)), branch,
                         json.dumps(reviewed_hashes, sort_keys=True),
-                        self.now() + ttl_seconds))
+                        self.now() + ttl_seconds, connection_id, connection_generation))
             if lease_token is not None:
                 db.execute("INSERT INTO lease_bindings VALUES (?,?,?,?,?)",
                            (grant_id, run_id, lease_token, lease_scope, service_instance))
@@ -297,11 +317,24 @@ class MediationStore:
                          (sha256(token.encode()).hexdigest(),)).fetchone()
         if row is None or row["revoked_at"] is not None or row["expires_at"] <= self.now():
             raise MediationError("grant_unavailable")
+        if row["connection_id"] is not None and not self._connection_current(
+                row["connection_id"], row["connection_generation"], repository):
+            raise MediationError("connection_unavailable")
         if row["repository"] != repository:
             raise MediationError("repository_denied")
         if operation not in json.loads(row["operations"]):
             raise MediationError("operation_denied")
         return row
+
+    def _connection_current(self, connection_id: str, generation: int,
+                            repository: str) -> bool:
+        if self.connection_is_current is None:
+            return False
+        try:
+            return self.connection_is_current(connection_id, generation,
+                                              repository) is True
+        except Exception:
+            return False
 
     def invoke(self, *, token: str, repository: str, operation: str,
                payload: dict, effect_id: str | None,
@@ -368,7 +401,12 @@ class MediationStore:
         # The intent is committed before entering the untrusted remote call.
         # After any ambiguous failure, an exact repeat returns unknown.
         try:
-            result = transport(repository, operation, payload)
+            if grant["connection_id"] is None:
+                result = transport(repository, operation, payload)
+            else:
+                result = transport(repository, operation, payload,
+                                   connection_id=grant["connection_id"],
+                                   connection_generation=grant["connection_generation"])
             if not isinstance(result, dict):
                 raise ValueError("transport_result_invalid")
         except KnownRejected as error:

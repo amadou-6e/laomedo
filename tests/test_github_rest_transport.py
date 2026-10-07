@@ -103,6 +103,31 @@ class GitHubRestTransportTests(unittest.TestCase):
         with self.assertRaises(error.HTTPError):
             self.adapter("example/disposable", "actions_read", {"job_id": 1})
 
+    def test_bound_connection_requires_context_aware_token_supplier(self):
+        with self.assertRaisesRegex(KnownRejected, "provider_credential_unavailable"):
+            self.adapter("example/disposable", "actions_read", {"job_id": 1},
+                         connection_id="connection-a", connection_generation=2)
+        self.assertEqual(self.opener.calls, [])
+        seen = []
+
+        def selected_token(connection_id, generation):
+            seen.append((connection_id, generation))
+            if (connection_id, generation) != ("connection-a", 2):
+                raise KeyError("not current")
+            return "synthetic-selected-secret"
+
+        adapter = GitHubRestTransport("example/disposable", selected_token,
+                                     opener=self.opener)
+        adapter("example/disposable", "actions_read", {"job_id": 1},
+                connection_id="connection-a", connection_generation=2)
+        self.assertEqual(seen, [("connection-a", 2)])
+        self.assertEqual(self.opener.calls[0][0].get_header("Authorization"),
+                         "Bearer synthetic-selected-secret")
+        with self.assertRaisesRegex(KnownRejected, "provider_credential_unavailable"):
+            adapter("example/disposable", "actions_read", {"job_id": 1},
+                    connection_id="connection-a", connection_generation=1)
+        self.assertEqual(len(self.opener.calls), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

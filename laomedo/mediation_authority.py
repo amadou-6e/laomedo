@@ -23,7 +23,7 @@ FIRST_SLICE_OPERATIONS = frozenset({"git_push", "pr_create", "pr_update", "actio
 
 
 class RunGrantAuthority:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, *, connection_authorizer=None):
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
             raise MediationError("authority_path_invalid")
@@ -32,17 +32,23 @@ class RunGrantAuthority:
                (self.path.parent, *self.path.parent.parents)):
             raise MediationError("authority_inside_checkout")
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.connection_authorizer = connection_authorizer
         with closing(self._connect()) as db, db:
             db.execute("""CREATE TABLE IF NOT EXISTS authorizations (
                 ref_hash TEXT PRIMARY KEY, run_id TEXT UNIQUE,
                 invocation_id TEXT NOT NULL, repository TEXT NOT NULL,
                 branch TEXT NOT NULL, operations TEXT NOT NULL,
                 reviewed_by TEXT NOT NULL, lease_token TEXT UNIQUE,
-                target_prs TEXT NOT NULL DEFAULT '{}')""")
+                target_prs TEXT NOT NULL DEFAULT '{}',
+                connection_id TEXT, connection_generation INTEGER)""")
             columns = {row[1] for row in db.execute("PRAGMA table_info(authorizations)")}
             if "target_prs" not in columns:
                 db.execute("ALTER TABLE authorizations ADD COLUMN target_prs TEXT NOT NULL "
                            "DEFAULT '{}'")
+            if "connection_id" not in columns:
+                db.execute("ALTER TABLE authorizations ADD COLUMN connection_id TEXT")
+            if "connection_generation" not in columns:
+                db.execute("ALTER TABLE authorizations ADD COLUMN connection_generation INTEGER")
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=10)
@@ -51,7 +57,9 @@ class RunGrantAuthority:
 
     def approve(self, *, invocation_id: str, repository: str, branch: str,
                 operations: set[str], reviewed_by: str,
-                target_prs: dict[int, str] | None = None) -> str:
+                target_prs: dict[int, str] | None = None,
+                connection_id: str | None = None,
+                connection_generation: int | None = None) -> str:
         """Trusted controller records an explicit operator-approved scope."""
         target_prs = target_prs or {}
         if (not all(isinstance(v, str) and v for v in
@@ -64,14 +72,28 @@ class RunGrantAuthority:
                     not isinstance(base, str) or not base
                     for number, base in target_prs.items()) or
                 ("pr_update" in operations and "pr_create" not in operations and
-                 not target_prs)):
+                 not target_prs) or
+                ((connection_id is None) != (connection_generation is None)) or
+                (connection_id is not None and
+                 (not isinstance(connection_id, str) or not connection_id or
+                  type(connection_generation) is not int or connection_generation < 1))):
             raise MediationError("authorization_invalid")
+        if connection_id is not None:
+            try:
+                permitted = (self.connection_authorizer is not None and
+                    self.connection_authorizer(connection_id, connection_generation,
+                                               repository, reviewed_by) is True)
+            except Exception:
+                permitted = False
+            if not permitted:
+                raise MediationError("connection_unavailable")
         reference = secrets.token_urlsafe(32)
         with closing(self._connect()) as db, db:
-            db.execute("INSERT INTO authorizations VALUES (?,NULL,?,?,?,?,?,NULL,?)",
+            db.execute("INSERT INTO authorizations VALUES (?,NULL,?,?,?,?,?,NULL,?,?,?)",
                        (sha256(reference.encode()).hexdigest(), invocation_id,
                         repository, branch, json.dumps(sorted(operations)), reviewed_by,
-                        json.dumps(target_prs, sort_keys=True)))
+                        json.dumps(target_prs, sort_keys=True), connection_id,
+                        connection_generation))
         return reference
 
     def bind_run(self, reference: str, run_id: str) -> dict:
@@ -103,5 +125,7 @@ class RunGrantAuthority:
                 return None
             db.execute("UPDATE authorizations SET lease_token=? WHERE run_id=?", (token, run_id))
             return {**expected, "operations": set(json.loads(row["operations"])),
+                    "connection_id": row["connection_id"],
+                    "connection_generation": row["connection_generation"],
                     "target_prs": {int(number): base for number, base in
                                    json.loads(row["target_prs"]).items()}}

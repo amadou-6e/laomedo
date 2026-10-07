@@ -34,7 +34,9 @@ class GitHubRestTransport:
         self.token_supplier = token_supplier
         self.opener = opener or request.build_opener(_NoRedirect)
 
-    def __call__(self, repository: str, operation: str, payload: dict) -> dict:
+    def __call__(self, repository: str, operation: str, payload: dict, *,
+                 connection_id: str | None = None,
+                 connection_generation: int | None = None) -> dict:
         if repository != self.repository:
             raise KnownRejected("repository_denied")
         prefix = f"/repos/{self.repository}"
@@ -57,7 +59,8 @@ class GitHubRestTransport:
                 raise KnownRejected("pr_payload_invalid")
             # The number alone is not authority: inspect the existing PR and
             # prove that its head is this run's approved branch in this repo.
-            existing = self._call("GET", path, None)
+            existing = self._call("GET", path, None, connection_id,
+                                  connection_generation)
             head = existing.get("head") or {}
             head_repo = head.get("repo") or {}
             if (head.get("ref") != payload.get("head") or
@@ -85,10 +88,20 @@ class GitHubRestTransport:
         else:
             raise KnownRejected("operation_not_implemented")
 
-        return self._call(method, path, body)
+        return self._call(method, path, body, connection_id, connection_generation)
 
-    def _call(self, method: str, path: str, body: dict | None) -> dict:
-        token = self.token_supplier()
+    def _call(self, method: str, path: str, body: dict | None,
+              connection_id: str | None = None,
+              connection_generation: int | None = None) -> dict:
+        if (connection_id is None) != (connection_generation is None):
+            raise KnownRejected("connection_binding_invalid")
+        # Bound grants require a resolver accepting their exact identity and
+        # generation. A legacy zero-argument supplier cannot serve them.
+        try:
+            token = (self.token_supplier() if connection_id is None else
+                     self.token_supplier(connection_id, connection_generation))
+        except (TypeError, KeyError, ValueError):
+            raise KnownRejected("provider_credential_unavailable") from None
         if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
             raise KnownRejected("provider_credential_unavailable")
         encoded = (json.dumps(body, separators=(",", ":")).encode("utf-8")

@@ -21,8 +21,20 @@ class MediatedLeaseTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.state = self.root / "service"
-        self.store = MediationStore(self.root / "private" / "mediator.sqlite")
-        self.authority = RunGrantAuthority(self.root / "private" / "authority.sqlite")
+        self.generations = {}
+        self.repositories = {"connection-a": "example/disposable",
+                             "connection-b": "example/disposable"}
+        self.store = MediationStore(
+            self.root / "private" / "mediator.sqlite",
+            connection_is_current=lambda identity, generation, repository:
+                self.generations.get(identity) == generation and
+                self.repositories.get(identity) == repository)
+        self.authority = RunGrantAuthority(
+            self.root / "private" / "authority.sqlite",
+            connection_authorizer=lambda identity, generation, repository, operator:
+                operator == "test-operator" and
+                self.generations.get(identity) == generation and
+                self.repositories.get(identity) == repository)
         self.cleanups = []
 
         def cleanup(name, run_id, token):
@@ -43,12 +55,15 @@ class MediatedLeaseTests(unittest.TestCase):
         self.transport = transport
         self.addCleanup(self.service.server.server_close)
 
-    def register(self, run_id, lease_token, *, operations=None, target_prs=None):
+    def register(self, run_id, lease_token, *, operations=None, target_prs=None,
+                 connection_id=None, connection_generation=None):
         reference = self.authority.approve(
             invocation_id="invocation-" + run_id, repository="example/disposable",
             branch="branch-" + run_id,
             operations=operations or {"git_push", "pr_create", "actions_read"},
-            target_prs=target_prs, reviewed_by="test-operator")
+            target_prs=target_prs, reviewed_by="test-operator",
+            connection_id=connection_id,
+            connection_generation=connection_generation)
         self.authority.bind_run(reference, run_id)
         directory = self.state / "leases" / lease_token
         directory.mkdir(parents=True)
@@ -258,6 +273,58 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(mediate(token_a), 403)
         self.assertEqual(len(self.calls), before)
         self.assertEqual(mediate(token_b), 200)
+
+    def test_connection_generation_blocks_old_active_run_without_harming_other(self):
+        self.generations.update({"connection-a": 1, "connection-b": 1})
+        _, _, token_a = self.register("a", "lease-a", operations={"actions_read"},
+            connection_id="connection-a", connection_generation=1)
+        _, _, token_b = self.register("b", "lease-b", operations={"actions_read"},
+            connection_id="connection-b", connection_generation=1)
+        routed = []
+
+        def selected_transport(repository, operation, payload, *, connection_id,
+                               connection_generation):
+            routed.append((connection_id, connection_generation))
+            return {"ok": True}
+
+        def use(token):
+            return self.store.invoke(token=token, repository="example/disposable",
+                operation="actions_read", payload={}, effect_id=None,
+                transport=selected_transport)
+
+        self.assertEqual(use(token_a)["state"], "confirmed")
+        self.generations["connection-a"] = 2
+        with self.assertRaisesRegex(MediationError, "connection_unavailable"):
+            use(token_a)
+        self.assertEqual(routed, [("connection-a", 1)])
+        self.assertEqual(use(token_b)["state"], "confirmed")
+        self.assertEqual(routed[-1], ("connection-b", 1))
+        _, _, token_new = self.register("c", "lease-c", operations={"actions_read"},
+            connection_id="connection-a", connection_generation=2)
+        self.assertEqual(use(token_new)["state"], "confirmed")
+        self.assertEqual(routed[-1], ("connection-a", 2))
+
+    def test_connection_bound_grant_fails_closed_without_resolver(self):
+        independent = MediationStore(self.root / "private" / "no-resolver.sqlite")
+        with self.assertRaisesRegex(MediationError, "connection_unavailable"):
+            independent.issue(run_id="a", invocation_id="invocation-a",
+                repository="example/disposable", operations={"actions_read"},
+                ttl_seconds=60, connection_id="connection-a",
+                connection_generation=1)
+
+    def test_connection_approval_fails_closed_on_wrong_repository_or_missing_resolver(self):
+        self.generations["connection-a"] = 1
+        no_resolver = RunGrantAuthority(self.root / "private" / "no-connection.sqlite")
+        with self.assertRaisesRegex(MediationError, "connection_unavailable"):
+            no_resolver.approve(invocation_id="invocation-a",
+                repository="example/disposable", branch="branch-a",
+                operations={"actions_read"}, reviewed_by="test-operator",
+                connection_id="connection-a", connection_generation=1)
+        with self.assertRaisesRegex(MediationError, "connection_unavailable"):
+            self.authority.approve(invocation_id="invocation-a",
+                repository="other/repo", branch="branch-a",
+                operations={"actions_read"}, reviewed_by="test-operator",
+                connection_id="connection-a", connection_generation=1)
 
 
 if __name__ == "__main__":

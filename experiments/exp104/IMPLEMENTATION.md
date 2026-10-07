@@ -45,6 +45,19 @@ caller-supplied `github_scope` object. The controller API is in-process only:
 its caller must establish actual user approval, and the local OS/service
 identity separation is still unproven.
 
+The trusted approval can now pin a non-secret GitHub `connection_id` and
+credential generation alongside the run scope. A trusted connection
+authorizer must confirm that generation, repository and operator before the
+approval is saved; the mediator checks the same generation at grant issue and
+again before every effect. A rotated or disconnected connection therefore
+refuses a still-active run's *new* effect while another connection continues.
+The bound grant passes its identity/generation to the credential-owning
+transport, whose supplier must accept that context; a legacy zero-argument
+supplier cannot silently service it. Existing unbound draft grants remain
+supported for migration and synthetic tests, but they are not a production
+account-connection path. The concrete connection registry and secret custody
+are not implemented in this branch; synthetic #108 examines those separately.
+
 The bearer-capability `/v1/mediate` endpoint now belongs to an independent
 `MediationHTTPService` class, not the lease service. It is intended to run in
 a separate credential-owning process. Unit tests use separate server
@@ -73,6 +86,6 @@ accept Q11. The run-scoped grant remains short-lived (at most 60 seconds),
 but a service failure can leave it usable until expiry; the live hard-kill
 case in `AMENDMENT-01.md` and credential-source tests remain required.
 
-Review dependencies: specs #150 and #250; Laomedo #97 and #103. A later
+Review dependencies: merged specs #150, #250 and #254; Laomedo #97 and #103. A later
 frozen experiment must exercise the deployed mediated path with a disposable
 scoped GitHub identity before claiming actual write revocation.
