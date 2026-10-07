@@ -238,7 +238,8 @@ def _diagnostic_records(state: Path) -> list[dict]:
     records = []
     for line in path.read_text(encoding="utf-8").splitlines():
         value = json.loads(line)
-        if (value.get("category") not in allowed or
+        if (not isinstance(value, dict) or
+                value.get("category") not in allowed or
                 type(value.get("exit_code")) is not int):
             raise RuntimeError("push_diagnostic_invalid")
         records.append({"category": value["category"],
@@ -257,7 +258,7 @@ def _safe_diagnostic_records(state: Path) -> dict:
 def _stored_effect_state(state: Path, run_id: str,
                          effect_id: str) -> dict:
     """Read the mediator's durable effect without opening a write connection."""
-    path = state / "mediator" / "mediator.sqlite"
+    path = (state / "mediator" / "mediator.sqlite").resolve()
     if not path.is_file():
         return {"state": None, "error": None}
     try:
@@ -270,7 +271,7 @@ def _stored_effect_state(state: Path, run_id: str,
         if value not in {None, "unknown", "confirmed", "rejected"}:
             return {"state": None, "error": "invalid_or_unavailable"}
         return {"state": value, "error": None}
-    except (OSError, sqlite3.Error):
+    except (OSError, ValueError, sqlite3.Error):
         return {"state": None, "error": "invalid_or_unavailable"}
 
 

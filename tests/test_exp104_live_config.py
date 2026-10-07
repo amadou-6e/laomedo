@@ -1,12 +1,15 @@
 """No-network checks of the one-shot EXP-104 probe configuration."""
 
 import unittest
+from unittest import mock
 import importlib.util
 from contextlib import closing
 import json
+import os
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 import tempfile
 
 
@@ -116,6 +119,16 @@ class LiveProbeConfigurationTests(unittest.TestCase):
             self.assertEqual(live_probe._safe_diagnostic_records(state),
                              {"records": [], "error": "invalid_or_unavailable"})
 
+    def test_non_object_diagnostic_does_not_hide_original_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            mediator = state / "mediator"
+            mediator.mkdir()
+            (mediator / "push-diagnostics.jsonl").write_text(
+                "[]\n", encoding="utf-8")
+            self.assertEqual(live_probe._safe_diagnostic_records(state),
+                             {"records": [], "error": "invalid_or_unavailable"})
+
     def test_durable_effect_lookup_is_read_only_and_allowlisted(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
@@ -130,6 +143,38 @@ class LiveProbeConfigurationTests(unittest.TestCase):
                 state, "run-a", "effect-a"), {"state": "unknown", "error": None})
             self.assertEqual(live_probe._stored_effect_state(
                 state, "run-b", "effect-a"), {"state": None, "error": None})
+
+    def test_main_preserves_original_failure_with_relative_state_and_bad_diagnostic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state"
+            mediator = state / "mediator"
+            mediator.mkdir(parents=True)
+            (mediator / "push-diagnostics.jsonl").write_text(
+                "[]\n", encoding="utf-8")
+            with closing(sqlite3.connect(mediator / "mediator.sqlite")) as db:
+                with db:
+                    db.execute("CREATE TABLE effects (run_id TEXT, effect_id TEXT, state TEXT)")
+                    db.execute("INSERT INTO effects VALUES (?, ?, ?)",
+                               ("exp104-s4-testunused-02-run-a",
+                                "exp104-s4-testunused-02-push-a", "unknown"))
+            record = root / "record.json"
+            relative_state = Path(os.path.relpath(state, Path.cwd()))
+            argv = ["live_probe.py", "--state", str(relative_state),
+                    "--token-file", str(root / "unused-token"),
+                    "--code-sha", "0" * 40, "--record", str(record),
+                    "--identity", "exp104-s4-testunused-02",
+                    "--connection-id", "exp104-s4-selected-gh"]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+                    live_probe, "run", side_effect=RuntimeError("synthetic_failure")):
+                with self.assertRaisesRegex(RuntimeError, "synthetic_failure"):
+                    live_probe.main()
+            result = json.loads(record.read_text(encoding="utf-8"))
+            self.assertEqual(result["failure_code"], "synthetic_failure")
+            self.assertEqual(result["stored_a_push_effect"],
+                             {"state": "unknown", "error": None})
+            self.assertEqual(result["push_diagnostics"],
+                             {"records": [], "error": "invalid_or_unavailable"})
 
     def test_secret_canary_reports_only_counts(self):
         with tempfile.TemporaryDirectory() as directory:
