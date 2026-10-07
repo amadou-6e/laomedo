@@ -213,11 +213,13 @@ but does not identify GitHub's exact rejection reason.
 S4 is consumed. Amendment [16](AMENDMENT-16.md) freezes local safeguards
 and evidence changes made *after* this result. The category is heuristic;
 the user's repository selection and API preflight do not prove Git-over-HTTPS
-write permission. Before another live attempt, verify the token's `Contents:
-Read and write` setting and Git authentication. EXP-104 acceptance, draft
+write permission. At this handoff, checking the token's `Contents: Read and
+write` setting and Git authentication remained the next prerequisite; the
+later S5 result below establishes a successful write at that time but does
+not identify why S4 failed. EXP-104 acceptance, draft
 #97/#105 promotion, and Q11 remain open.
 
-## Selected-repository S5 attempt `-01` (scoped candidate pass)
+## Selected-repository S5 attempt `-01` (harness pass; protocol incomplete)
 
 The user requested another bounded attempt, and amendment
 [17](AMENDMENT-17.md) froze identity `exp104-s5-20261007-01`, connection
@@ -228,6 +230,8 @@ the full local suite and both CI jobs passed. The non-mutating Git dry-run
 passed and its A ref remained absent before the first mediated write. This
 shows the selected token could perform this Git operation; it does **not**
 independently attest that only this repository was selected in GitHub.
+The record does not establish whether the token's value or settings changed
+between S4 and S5, so S4's Git dry-run failure has no confirmed cause.
 The exact-byte [dry-run record](live-dry-run-s5-01.json) has SHA-256
 `22FEDDB5E8BD5B74B027EEE24E589142903C3572031B5D515E3AE5739FD95C89`;
 it contains only exit code 0 and a null failure category.
@@ -237,10 +241,13 @@ SHA-256 `D0F3523A398676FAD6512560E2D3453DF46FC4BE00F1A914B282A732C2DAA661`.
 It records a confirmed push to fresh branch `exp104-s5-20261007-01-a` at
 commit `969d50b8b2a238cac10954ee4eee0d0773b1f48c`, a confirmed B read,
 and one killed A runner process tree. The independent service detected
-runner loss after 4.552 seconds and revoked A's grant after 4.556 seconds;
-the A post-loss write was denied at 4.625 seconds with HTTP 403 and no
-additional provider call. The exact A container was removed and verified
-absent after 9.657 seconds. B's grant still completed an approved read.
+runner loss after 4.552 seconds and revoked A's grant after 4.556 seconds
+(lease-service wall-clock deltas from the recorded kill time). The grant
+remained usable during that measured ~4.56-second detection window. The
+A post-loss write was denied at 4.625 seconds (probe monotonic delta)
+with HTTP 403 and no additional provider call. The exact A container was
+removed and verified absent after 9.657 seconds (wall-clock delta). B's
+grant still completed an approved read.
 On service restart, old B was denied and a newly authorized C completed
 its read. Missing-run, workflow-file, expiry and lost-response controls
 behaved as specified; the synthetic ambiguous write used one transport
@@ -251,16 +258,20 @@ none. The exact-byte [provider-attempt journal](live-provider-attempts-s5-01.jso
 has SHA-256 `31DD9E35A109450112DCDDEED2E95665923F31063E5DC85F3FFA3BEB9733456A`;
 its four entries contain only operation, repository, timestamp and (for
 the push) branch and commit. A separate credential-free read-back found
-only S5's A branch at
-the same SHA, not S5's B or C branches. The probe verified all exact
-S5 containers absent; a post-run process check found no S5 runner,
+only S5's A branch at the same SHA, not S5's B or C branches. The probe
+verified all exact S5 containers absent; a post-run process check found no S5 runner,
 lease-service or mediator process. Its in-run canary found zero exact-token
 hits in 67 files; a separate post-run scan, including hidden checkout
 files and the sanitized observation, found zero hits in 68 files. No model
 turn was used. The probe-created A branch is intentionally left for review,
 not deleted.
 
-This is a **scoped candidate pass**, not EXP-104 acceptance or permission
+The machine reported `scoped_candidate_pass`, but the literal frozen
+protocol is **not complete**: its post-loss control requires a new unique
+branch, whereas S5 used a fresh effect ID on A's already approved branch.
+The [retrospective deviation record](DEVIATION-S5.md) explains why this
+is an informative revocation isolation test but cannot be counted as the
+new-branch criterion. This result is not EXP-104 acceptance or permission
 to promote drafts #97/#105. The token's exclusive repository scope remains
 user-confirmed rather than independently verified. The probe used a
 synthetic runner and disposable container, not a real agent. Production
