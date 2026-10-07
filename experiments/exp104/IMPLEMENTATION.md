@@ -66,26 +66,48 @@ shows the mediator surviving a hard kill of one lease-service process while
 another lease service stays live. It does not prove production deployment. Its
 credential-free HTTP tests show a revoked run is denied before transport,
 another run remains usable, and both runs' grants expire at the authorizer
-when the lease service stops renewing them. A narrow
-credential-owning REST adapter covers PR create/update, reviewed issue
-creation, Actions job read and same-repository REST read. It requires an
-explicit token supplier and never falls back to ambient `gh`. It rejects
-arbitrary API mutations, GraphQL and `git_push` visibly; this is **not** full
-`git`/`gh` parity. PR updates need a target number and base from the trusted
-grant record, plus a provider-side head/base preflight. The adapter has only
-no-network tests. Its token supplier
-has not been connected to a scoped GitHub identity, and the service's CLI
-still starts only the old synthetic `GrantBook`.
+when the lease service stops renewing them. A narrow credential-owning REST
+adapter covers PR create/update, reviewed issue creation, Actions job read and
+same-repository REST read. It requires an explicit token supplier and never
+falls back to ambient `gh`. It rejects arbitrary API mutations and GraphQL;
+this is **not** full `git`/`gh` parity. PR updates need a target number and
+base from the trusted grant record, plus a provider-side head/base preflight.
 
-These tests do not check a real Docker container, GitHub token, `git` push,
-whole-tree kill, service manager, or model. The synthetic probe checks an
-exact lease-service PID hard kill, not a runner or process-tree kill. There is no production mediator
-deployment path or agent-container route to the loopback endpoint. Consequently
-this remains an integration draft, not a reason to lift #97's draft status or to
-accept Q11. The run-scoped grant remains short-lived (at most 60 seconds),
-but a service failure can leave it usable until expiry; the live hard-kill
-case in `AMENDMENT-01.md` and credential-source tests remain required.
+The new host-only `GitHubGitTransport` handles one narrow `git_push`: an exact
+local commit to an approved *new* branch in one configured repository. It
+verifies the object, proves the pinned baseline is an ancestor, checks the
+entire outgoing diff for workflow-file changes, stages the object in a fresh
+bare repository, and uses an absent-ref lease so an existing branch is never
+overwritten. A rejected or lost Git response is uncertain, not retried. The
+Git credential helper gets a selected token only in the host mediator's
+short-lived subprocess environment. It receives no ambient `gh` login, Git
+Credential Manager configuration, token-bearing URL or agent mount. The CLI
+can now launch the mediator and lease service independently with explicit
+private stores and selected connection identity. Synthetic integration tests
+cover the push path, revocation of A without stopping B, connection
+replacement and startup composition.
 
-Review dependencies: merged specs #150, #250 and #254; Laomedo #97 and #103. A later
-frozen experiment must exercise the deployed mediated path with a disposable
-scoped GitHub identity before claiming actual write revocation.
+For bounded `EXP-104-D2`, `HostTokenConnection` reads the user-supplied `GH`
+key from a host file excluded from the agent's source mount. Replacing or
+removing that file refuses new effects. This is **test-only custody**, not
+browser login or a production registry/secret vault. The user-authorized
+token is broader than the original scoped-token protocol; amendments 05–06
+record the deviation. A read-only preflight authenticated it as `ga84jog` but
+could not access the original disposable repository. One attempt to create
+the alternate private repository was explicitly rejected with HTTP 403; a
+read-back still returned 404. No real push has occurred.
+
+These tests do not check a real Docker container, GitHub push, whole-tree
+kill, service manager or model. The synthetic probe checks an exact
+lease-service PID hard kill, not a runner or process-tree kill. There is no
+production service manager or agent-container route to the loopback
+endpoint. Consequently this remains an integration draft, not a reason to
+lift #97's draft status or accept Q11. The run-scoped grant remains
+short-lived (at most 60 seconds), but a service failure can leave it usable
+until expiry; the live hard-kill case and credential-source tests remain
+required.
+
+Review dependencies: merged specs #150, #250, #254 and #256; Laomedo #97 and
+merged #103. A later frozen experiment must exercise the deployed mediated
+path with a disposable *repository-scoped* GitHub identity before claiming
+full acceptance. The broad-token diagnostic cannot substitute for that gate.
