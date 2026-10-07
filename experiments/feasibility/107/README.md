@@ -284,8 +284,9 @@ and sign-out flow. Its tests use only synthetic tokens. A refresh is marked
 uncertain before the request is sent, so an ambiguous response or crash cannot
 silently replay the old refresh token. A different account cannot resume the
 same run. A backend restart permits a new run, not automatic continuation of
-the old one. Browser consent, renewal with OpenAI, actual plan entitlement,
-and bounded live before/after-restart turns remain untested. One local browser
+the old one. At that synthetic-probe stage, browser consent, renewal with
+OpenAI, actual plan entitlement, and bounded live before/after-restart turns
+were untested; the later bounded live result is recorded below. One local browser
 connection attempt on 2026-10-07 timed out waiting for the loopback callback;
 the private store still reported `auth_account_missing`. This consumed no
 model turn and does not establish an eligibility refusal. Two later callbacks
@@ -313,7 +314,8 @@ connection. No existing Codex login file was copied.
 
 The authenticated split-runner preflight reported `ready`, included
 `gpt-6-luna` at `low` effort, and observed workspace write allowed, canonical
-and sibling-store writes denied, and controller-auth file read denied. It reserved no
+and sibling-store writes denied, and the controller-auth file absent from the
+executor. It reserved no
 model turn. Two subsequent **real** `gpt-6-luna`/`low` turns used a pinned
 `live-107` skill. Each completed with the skill-only marker as its answer and
 as the contents of a workspace file. Each private trace recorded a completed
