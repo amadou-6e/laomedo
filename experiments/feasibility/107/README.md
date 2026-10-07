@@ -138,11 +138,15 @@ unexpected tool makes the normal probe fail.
 
 The controller listener gate matches listening TCP and Unix socket inodes to
 processes in the controller PID namespace. At startup it found none. A
-negative control started a loopback exec-server listener in the controller;
-the gate detected it as `tcp` and refused the normal path. Because the two
-containers still share a network namespace, production integration must run
-this check before each dispatch and refuse any listener. This check is not a
-substitute for the stronger option of separate network namespaces.
+negative control started a loopback exec-server listener and an abstract Unix
+listener in the controller. The gate detected both as `tcp` and `unix`,
+matched the injected abstract socket by name and owned inode, and returned a
+refusal when called with those listeners present. The probe did not submit a
+turn after injection. Filesystem-path Unix and IPv6 TCP listeners were not
+injected, and this gate does not check UDP sockets. Because the two containers
+still share a network namespace, production integration must either use
+separate network namespaces or close these detection gaps and run the gate
+before each dispatch.
 
 The `commandExecution` item in the pinned app-server event has no explicit
 environment ID. Exact thread and turn selections plus the canary result give
@@ -207,7 +211,9 @@ container.
 After `initialize`, register the executor and require a ready status and
 expected shell information. Reject a controller with any listening TCP or
 Unix socket, including abstract Unix listeners, and repeat that check before
-each turn while the network namespace is shared. Gate on the exact pinned
+each turn while the network namespace is shared. UDP remains outside this
+gate, so a shared network namespace cannot be called fully isolated on this
+evidence. Gate on the exact pinned
 image, CLI version, and nine-tool code-mode inventory; any tool addition needs
 new access-path tests. Configure the controller with the two observed
 executor feature flags. Select the exact environment on every thread start or

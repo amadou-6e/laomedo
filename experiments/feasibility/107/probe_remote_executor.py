@@ -83,12 +83,16 @@ def _resumed_tool_evidence(requests):
     return _code_mode_tools([{"tool_outputs": [final_outputs[-1]]}]), history_retained
 
 
-def _controller_listeners(name):
-    """Match listening sockets to processes visible in the controller PID namespace."""
+def _controller_socket_inodes(name):
     links = _docker("exec", name, "sh", "-c",
                     'for fd in /proc/[0-9]*/fd/*; do '
                     'readlink "$fd" 2>/dev/null || :; done')
-    owned = set(re.findall(r"socket:\[(\d+)\]", links))
+    return set(re.findall(r"socket:\[(\d+)\]", links))
+
+
+def _controller_listeners(name):
+    """Match listening sockets to processes visible in the controller PID namespace."""
+    owned = _controller_socket_inodes(name)
     if not owned:
         return []
     listeners = []
@@ -108,6 +112,21 @@ def _controller_listeners(name):
         if flags & 0x10000 or path.startswith("@"):
             listeners.append("unix")
     return sorted(set(listeners))
+
+
+def _controller_has_abstract_listener(name, socket_name):
+    owned = _controller_socket_inodes(name)
+    unix = _docker("exec", name, "cat", "/proc/net/unix")
+    return any(len(fields) > 7 and fields[6] in owned and
+               fields[7] == "@" + socket_name and int(fields[3], 16) & 0x10000
+               for fields in (line.split() for line in unix.splitlines()[1:]))
+
+
+def _require_no_controller_listener(name):
+    listeners = _controller_listeners(name)
+    if listeners:
+        raise RuntimeError("controller_listener_gate_failed")
+    return listeners
 
 
 def probe(*, disconnect_executor=False, patch_target=None,
@@ -238,9 +257,7 @@ def probe(*, disconnect_executor=False, patch_target=None,
                     " > /home/runner/.codex/probe.secret")
             _docker("exec", server.container_name, "sh", "-c",
                     "printf ORIGINAL > /home/runner/.codex/patch-target.txt")
-            initial_listeners = _controller_listeners(server.container_name)
-            if initial_listeners:
-                raise RuntimeError("controller_listener_gate_failed")
+            initial_listeners = _require_no_controller_listener(server.container_name)
             if listener_probe:
                 _docker("exec", "-d", server.container_name,
                         "codex", "exec-server", "--listen",
@@ -250,13 +267,41 @@ def probe(*, disconnect_executor=False, patch_target=None,
                 while time.monotonic() < deadline:
                     injected_listeners = _controller_listeners(
                         server.container_name)
-                    if injected_listeners:
+                    if "tcp" in injected_listeners:
                         break
                     time.sleep(.1)
+                if injected_listeners != ["tcp"]:
+                    raise RuntimeError("tcp_listener_negative_control_ambiguous")
+                abstract_name = "laomedo-107-" + uuid4().hex
+                script = ("require('node:net').createServer().listen('\\0" +
+                          abstract_name + "'); setInterval(() => {}, 1000)")
+                _docker("exec", "-d", server.container_name,
+                        "node", "-e", script)
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    injected_listeners = _controller_listeners(
+                        server.container_name)
+                    if _controller_has_abstract_listener(
+                            server.container_name, abstract_name):
+                        break
+                    time.sleep(.1)
+                expected_abstract_listener_seen = _controller_has_abstract_listener(
+                    server.container_name, abstract_name)
+                injected_listeners = _controller_listeners(server.container_name)
+                gate_refused = False
+                try:
+                    _require_no_controller_listener(server.container_name)
+                except RuntimeError as exc:
+                    if str(exc) != "controller_listener_gate_failed":
+                        raise
+                    gate_refused = True
                 return {"schema_version": 1, "model_turns": 0,
                         "used_real_login_volume": False,
                         "controller_listeners_before": initial_listeners,
-                        "injected_listener_detected": bool(injected_listeners),
+                        "injected_listener_detected":
+                            set(injected_listeners) == {"tcp", "unix"} and
+                            expected_abstract_listener_seen,
+                        "gate_refused_injected_listeners": gate_refused,
                         "injected_listener_types": injected_listeners}
             if _docker("exec", server.container_name, "sh", "-c",
                        "test -r /home/runner/.codex/probe.secret && "
@@ -340,8 +385,7 @@ def probe(*, disconnect_executor=False, patch_target=None,
                 if _docker("exec", server.container_name,
                            "codex", "--version") != CLI_VERSION:
                     raise RuntimeError("unsupported_codex_cli_version")
-                if _controller_listeners(server.container_name):
-                    raise RuntimeError("controller_listener_gate_failed_after_restart")
+                _require_no_controller_listener(server.container_name)
                 _result(server, "environment/add", {
                     "environmentId": environment_id,
                     "execServerUrl": f"ws://127.0.0.1:{PORT}",
@@ -517,7 +561,8 @@ if __name__ == "__main__":
                    restart_controller=args.restart_probe)
     print(json.dumps(result, indent=2, sort_keys=True))
     if args.listener_probe:
-        if not result["injected_listener_detected"]:
+        if (not result["injected_listener_detected"] or
+                not result["gate_refused_injected_listeners"]):
             raise SystemExit(1)
     elif args.disconnect_executor:
         if (not result["no_controller_fallback_after_disconnect"] or
