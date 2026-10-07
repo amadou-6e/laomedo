@@ -49,7 +49,7 @@ def probe():
                   "text(result.exit_code); " +
                   "text('TOOLS:' + JSON.stringify(ALL_TOOLS.map(t => t.name).sort()));")
         try:
-            with MockResponses(tool_input=script, tool_request_numbers=(1, 3)) as mock:
+            with MockResponses(tool_input=script, tool_request_numbers=(1, 3, 5)) as mock:
                 provider = (
                     'model_provider="laomedo_mock"',
                     'model_providers.laomedo_mock.name="Laomedo Mock"',
@@ -74,7 +74,7 @@ def probe():
                 # Use the real broker path; only the endpoint is replaced by
                 # the local fake Responses server for this credential-free run.
                 options = dict(split_executor=True, auth_store=auth_state,
-                               max_model_turns=2)
+                               max_model_turns=3)
                 request = {"task": "Synthetic fixture", "model": "gpt-6-luna",
                            "effort": "low", "skill_ref": {
                                "skill_id": "split-probe",
@@ -99,15 +99,20 @@ def probe():
                 first_observation = (first_workspace / "token-observation.txt").read_text()
                 first_process = (first_workspace / "process-observation.txt").read_text()
                 first_file = (first_workspace / "file-observation.txt").read_text()
-                first_marker = (first_workspace / "runner-marker.txt").read_text()
+                resumed = first_runner.resume(
+                    first["run_id"], "Synthetic same-runner continuation",
+                    expected_post_run_hash=first["post_run_hash"],
+                    expected_thread_id=first["thread_id"],
+                    model="gpt-6-luna", effort="low")
+                resumed_marker = (first_workspace / "runner-marker.txt").read_text()
                 second_runner = LocalRunner(state, store.root, source, **options)
                 second_runner.split_provider_config = provider
                 old_run_refused = False
                 try:
                     second_runner.resume(
-                        first["run_id"], "Synthetic restart fixture",
-                        expected_post_run_hash=first["post_run_hash"],
-                        expected_thread_id=first["thread_id"],
+                        resumed["run_id"], "Synthetic restart fixture",
+                        expected_post_run_hash=resumed["post_run_hash"],
+                        expected_thread_id=resumed["thread_id"],
                         model="gpt-6-luna", effort="low")
                 except RunnerError as exc:
                     old_run_refused = str(exc) == "resume_after_runner_restart_forbidden"
@@ -149,6 +154,9 @@ def probe():
                     "synthetic_turns": ledger["attempted_turns"],
                     "fake_responses_requests": len(mock.requests),
                     "first_status": first["status"],
+                    "same_runner_resume_status": resumed["status"],
+                    "same_native_thread_on_resume": first["thread_id"] ==
+                        resumed["thread_id"],
                     "new_run_after_restart_status": second["status"],
                     "old_run_resume_refused": old_run_refused,
                     "new_native_thread_after_restart": first["thread_id"] !=
@@ -165,13 +173,15 @@ def probe():
                     "secret_absent_from_run_state": trace_clean,
                     "secret_exposure_files": exposure_files,
                     "tool_surface_exact": observed_tools == SPLIT_TOOLS,
-                    "agent_commands_ran_twice":
-                        first_marker == "remote" and marker == "remote",
+                    "agent_commands_ran_three_times":
+                        resumed_marker == "remoteremote" and marker == "remote",
                     "answer": second.get("answer"),
                 }
-                if (second["status"] != "completed" or
-                        result["synthetic_turns"] != 2 or
-                        result["fake_responses_requests"] != 4 or
+                if (resumed["status"] != "completed" or
+                        second["status"] != "completed" or
+                        result["synthetic_turns"] != 3 or
+                        result["fake_responses_requests"] != 6 or
+                        not result["same_native_thread_on_resume"] or
                         not result["old_run_resume_refused"] or
                         not result["new_native_thread_after_restart"] or
                         not result["same_nonsecret_credential_ref"] or
@@ -181,7 +191,7 @@ def probe():
                         not result["tokens_absent_from_controller_profile"] or
                         not result["secret_absent_from_run_state"] or
                         not result["tool_surface_exact"] or
-                        not result["agent_commands_ran_twice"]):
+                        not result["agent_commands_ran_three_times"]):
                     raise RuntimeError("split_runner_probe_failed:" +
                                        json.dumps(result, sort_keys=True))
                 return result

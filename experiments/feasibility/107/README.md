@@ -253,13 +253,15 @@ $env:PYTHONPATH = (Get-Location).Path
 .\.venv\Scripts\python.exe experiments/feasibility/107/probe_runner_split.py
 ```
 
-The fake Responses backend requested two actual agent commands, one before
-and one after constructing a new `LocalRunner` from the same state. A synthetic
-app-owned account and host ID survived the restart. The previous run refused
-native resume after runner restart, while the second new run completed without
-sign-in. Each command reported the controller token absent from its own
+The fake Responses backend requested three actual agent commands: the first
+start, a successful native resume in the same `LocalRunner`, and a new run
+after constructing another `LocalRunner` from the same state. The resumed
+turn retained the same native thread. A synthetic app-owned account and host
+ID survived the restart. The previous run refused native resume after runner
+restart, while the new run completed without sign-in. Each command reported
+the controller token absent from its own
 environment, `/proc/1/environ`, and a controller-only file path. The exact
-nine-tool code-mode inventory matched the pinned list. Four fake Responses
+nine-tool code-mode inventory matched the pinned list. Six fake Responses
 requests were made; **zero real model turns** were used. Random access and
 refresh canaries were absent from the run directory and archived controller
 profile volume. The disposable volume and containers were removed. These are
@@ -283,4 +285,7 @@ uncertain before the request is sent, so an ambiguous response or crash cannot
 silently replay the old refresh token. A different account cannot resume the
 same run. A backend restart permits a new run, not automatic continuation of
 the old one. Browser consent, renewal with OpenAI, actual plan entitlement,
-and bounded live before/after-restart turns remain untested.
+and bounded live before/after-restart turns remain untested. One local browser
+connection attempt on 2026-10-07 timed out waiting for the loopback callback;
+the private store still reported `auth_account_missing`. This consumed no
+model turn and does not establish an eligibility refusal.
