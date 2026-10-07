@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import shlex
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,17 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 GIT_COMMAND_TIMEOUT_SECONDS = 30
 GIT_TREE_CLEANUP_SECONDS = 5
+
+
+def _redirected_path(path: Path) -> bool:
+    """Treat links and Windows reparse points as external object sources."""
+    try:
+        status = path.lstat()
+    except OSError:
+        return True
+    return path.is_symlink() or bool(
+        getattr(status, "st_file_attributes", 0) &
+        getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
 
 
 class GitTreeTimeout(subprocess.TimeoutExpired):
@@ -189,13 +201,21 @@ class GitHubGitTransport:
         objects = git_dir / "objects"
         info = objects / "info"
         pack = objects / "pack"
-        if any(not path.is_dir() or path.is_symlink()
+        if any(not path.is_dir() or _redirected_path(path)
                for path in (git_dir, objects, info, pack)):
             return False
         if (git_dir / "commondir").exists() or (git_dir / "commondir").is_symlink():
             return False
         alternates = info / "alternates"
-        return not alternates.exists() and not alternates.is_symlink()
+        if alternates.exists() or alternates.is_symlink():
+            return False
+        errors = []
+        for root, directories, files in os.walk(
+                objects, topdown=True, followlinks=False, onerror=errors.append):
+            for name in directories + files:
+                if _redirected_path(Path(root) / name):
+                    return False
+        return not errors
 
     def _stage(self, bare: Path, commit: str) -> bool:
         """Fetch real objects into an isolated repository, without credentials."""
