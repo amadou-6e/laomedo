@@ -1,0 +1,39 @@
+{
+  "codex_version": "codex-cli 0.159.2",
+  "container_exit_code": 0,
+  "container_removed": true,
+  "effective_after_sha256": "bf309edde83f7eb908695c0c370ef4f467b348627d0c8e3de4d137be7b4756bc",
+  "effective_before_sha256": "bf309edde83f7eb908695c0c370ef4f467b348627d0c8e3de4d137be7b4756bc",
+  "effective_unchanged": true,
+  "fixture_listing_count": 1,
+  "fixture_offered": true,
+  "fixture_path_matches_effective": true,
+  "image_id": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
+  "initialized": true,
+  "issue": 78,
+  "listed_path_classes": {
+    "other": 0,
+    "private_codex_home": 5,
+    "private_home": 0,
+    "private_project": 1
+  },
+  "model_turns": 0,
+  "native_listing_event": {
+    "method": "skills/list",
+    "request": {
+      "cwd_class": "private_project",
+      "forceReload": true
+    },
+    "response": {
+      "fixture_name": "fixture-native-78",
+      "fixture_path_class": "private_project",
+      "skill_count": 6
+    }
+  },
+  "pass": true,
+  "selection_mode": "native_listing_only",
+  "skill_body_read": "unknown",
+  "source_sha256": "bf309edde83f7eb908695c0c370ef4f467b348627d0c8e3de4d137be7b4756bc",
+  "stderr_nonempty": true,
+  "version_probe_ok": true
+}
