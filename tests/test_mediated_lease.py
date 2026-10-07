@@ -311,7 +311,8 @@ class MediatedLeaseTests(unittest.TestCase):
                 f"http://127.0.0.1:{mediator.port}/v1/mediate",
                 data=json.dumps({"repository": "example/disposable",
                                  "operation": "actions_read", "payload": {}}).encode(),
-                method="POST", headers={"Authorization": "Bearer " + token})
+                method="POST", headers={"Authorization": "Bearer " + token,
+                                        "X-Laomedo-Mediator-Instance": mediator.instance})
             with self.assertRaises(error.HTTPError) as denial:
                 request.urlopen(call, timeout=5)
             self.assertEqual(denial.exception.code, 403)
@@ -353,19 +354,22 @@ class MediatedLeaseTests(unittest.TestCase):
         thread.start()
         self.addCleanup(mediator.close)
 
-        def mediate(token):
+        def mediate(token, *, instance=None):
             body = json.dumps({"repository": "example/disposable",
                                "operation": "actions_read", "payload": {}}).encode()
             call = request.Request(
                 f"http://127.0.0.1:{mediator.port}/v1/mediate",
                 data=body, method="POST", headers={
-                    "Authorization": "Bearer " + token, "Content-Type": "application/json"})
+                    "Authorization": "Bearer " + token, "Content-Type": "application/json",
+                    "X-Laomedo-Mediator-Instance": instance or mediator.instance})
             try:
                 with request.urlopen(call, timeout=5) as response:
                     return response.status
             except error.HTTPError as failure:
                 return failure.code
 
+        self.assertEqual(mediate(token_a, instance="0" * 32), 403)
+        self.assertEqual(self.calls, [])
         self.assertEqual(mediate(token_a), 200)
         (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         self.service.tick()

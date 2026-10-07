@@ -5,7 +5,9 @@ import { readFile } from 'node:fs/promises';
 
 const url = process.env.LAOMEDO_MEDIATOR_URL;
 const capabilityFile = process.env.LAOMEDO_CAPABILITY_FILE;
-if (!url || !capabilityFile || !/^http:\/\/host\.docker\.internal:\d+\/v1\/mediate$/.test(url)) {
+const instance = process.env.LAOMEDO_MEDIATOR_INSTANCE;
+if (!url || !capabilityFile || !/^http:\/\/host\.docker\.internal:\d+\/v1\/mediate$/.test(url) ||
+    !/^[0-9a-f]{32}$/.test(instance ?? '')) {
   process.stderr.write('mediation endpoint unavailable\n');
   process.exit(2);
 }
@@ -24,7 +26,8 @@ try {
   if (!capability) throw new Error('capability unavailable');
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'authorization': `Bearer ${capability}`, 'content-type': 'application/json' },
+    headers: { 'authorization': `Bearer ${capability}`, 'content-type': 'application/json',
+               'x-laomedo-mediator-instance': instance },
     body: JSON.stringify(request),
     signal: AbortSignal.timeout(15000),
   });

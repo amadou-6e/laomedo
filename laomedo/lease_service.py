@@ -58,6 +58,23 @@ def _read_float(path: Path) -> float | None:
         return None
 
 
+def _write_float(path: Path, value: float) -> None:
+    """Never expose a truncated heartbeat to a concurrent service/runner."""
+    pending = path.with_name(path.name + ".pending-" + secrets.token_hex(4))
+    pending.write_text(repr(value), encoding="utf-8")
+    try:
+        for attempt in range(20):
+            try:
+                os.replace(pending, path)
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(.005)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
 class GrantBook:
     """Thread-safe registry of run-scoped synthetic write grants."""
 
@@ -135,6 +152,9 @@ def _handler(book: GrantBook | None, mediator: MediationStore | None = None,
             if self.path == "/v1/mediate":
                 if mediator is None or transport is None:
                     return self._json_reply(503, {"error": "mediator_unavailable"})
+                if instance is not None and self.headers.get(
+                        "X-Laomedo-Mediator-Instance") != instance:
+                    return self._json_reply(403, {"error": "mediator_instance_mismatch"})
                 try:
                     size = int(self.headers.get("Content-Length", ""))
                     if not 0 < size <= 1024 * 1024 or not self.headers.get(
@@ -200,9 +220,8 @@ class LeaseService:
 
     def _beat(self) -> None:
         while not self.stopping.is_set():
-            (self.state / "service.alive").write_text(repr(time.time()), encoding="utf-8")
-            (self.state / "service.alive.monotonic").write_text(
-                repr(time.monotonic()), encoding="utf-8")
+            _write_float(self.state / "service.alive", time.time())
+            _write_float(self.state / "service.alive.monotonic", time.monotonic())
             self.stopping.wait(1)
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
@@ -501,9 +520,8 @@ class LeaseClient:
 
         def heartbeat() -> None:
             while not self.stop_event.wait(1):
-                (self.dir / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
-                (self.dir / "heartbeat.monotonic").write_text(
-                    repr(time.monotonic()), encoding="utf-8")
+                _write_float(self.dir / "heartbeat", time.time())
+                _write_float(self.dir / "heartbeat.monotonic", time.monotonic())
                 alive_at = _read_float(self.state / "service.alive")
                 alive_monotonic = _read_float(self.state / "service.alive.monotonic")
                 current = _read_json(self.state / "service.json")

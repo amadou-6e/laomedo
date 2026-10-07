@@ -1,11 +1,15 @@
 """Credential-free runner and pinned-skill contract tests."""
 
 from pathlib import Path
+from contextlib import nullcontext
 import io
 import json
+import multiprocessing
+import os
 import queue
 import tempfile
 import threading
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -19,8 +23,27 @@ from laomedo.skill_store import SkillStore
 from laomedo.mediation_authority import RunGrantAuthority
 
 
+def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -> None:
+    """Real lease/mediator processes, but no Docker or provider call."""
+    from unittest.mock import patch as child_patch
+    from laomedo.host_services import build_services, serve_services
+    from laomedo import lease_service
+
+    root = Path(state)
+    lease, mediator = build_services(
+        state=root, repository="example/disposable", checkout=Path(checkout),
+        baseline="a" * 40, agent_mount=Path(checkout),
+        connection_id="synthetic", connection_generation=1,
+        token_file=Path(token_file))
+    with child_patch.object(lease_service, "inspect_exact",
+                            return_value=("absent", None)):
+        serve_services(lease, mediator, root, repository="example/disposable",
+                       connection_id="synthetic", connection_generation=1)
+
+
 class FakeServer:
     calls = []
+    turn_inputs = []
 
     def __init__(self, command, evidence):
         self.command = command
@@ -45,6 +68,7 @@ class FakeServer:
             assert params["threadId"] == "native-thread"
             return {"result": {"thread": {"id": "native-thread"}}}
         if method == "turn/start":
+            self.turn_inputs.append(params["input"][0]["text"])
             return {"result": {"turn": {"id": "turn-2" if self.resume else "turn-1"}}}
         raise AssertionError(method)
 
@@ -69,21 +93,121 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
+    def test_exact_run_capability_is_redacted_before_trace_persistence(self):
+        app = AppServer.__new__(AppServer)
+        app.secret_redactions = ("synthetic-run-capability",)
+        output = app._redact('{"text":"synthetic-run-capability"}\n')
+        self.assertEqual(output, '{"text":"[REDACTED_RUN_CAPABILITY]"}\n')
+
+    def test_real_lease_mediated_execute_and_stale_mediator_refusal(self):
+        host_state = self.runner.state / "host-services"
+        token_file = self.runner.state / "private.env"
+        token_file.write_text("GH=synthetic-provider-secret\n", encoding="utf-8")
+        child = multiprocessing.get_context("spawn").Process(
+            target=_serve_synthetic_host_services,
+            args=(str(host_state), str(token_file), str(self.source)))
+        child.start()
+        try:
+            deadline = time.monotonic() + 10
+            while not all(path.exists() for path in (
+                    host_state / "lease" / "service.json",
+                    host_state / "lease" / "service.alive",
+                    host_state / "lease" / "service.alive.monotonic",
+                    host_state / "mediator" / "mediator.json")):
+                if time.monotonic() > deadline or not child.is_alive():
+                    self.fail("synthetic host services did not start")
+                time.sleep(.02)
+            authority = RunGrantAuthority(
+                host_state / "authority.sqlite",
+                connection_authorizer=lambda cid, gen, repo, reviewer:
+                (cid, gen, repo, reviewer) ==
+                ("synthetic", 1, "example/disposable", "operator"))
+            mediated = LocalRunner(
+                self.runner.state, self.runner.store.root, self.source,
+                transport=FakeServer, check_docker=False, max_model_turns=6,
+                supervise_containers=True, lease_service=host_state / "lease",
+                github_authority=authority, mediator_state=host_state / "mediator")
+
+            def prepare(number):
+                reference = authority.approve(
+                    invocation_id=f"invocation-{number}",
+                    repository="example/disposable", branch=f"branch-{number}",
+                    operations={"actions_read"}, reviewed_by="operator",
+                    connection_id="synthetic", connection_generation=1)
+                request = self.request()
+                request["github_authorization_ref"] = reference
+                return mediated._prepare(request)
+
+            FakeServer.calls.clear()
+            FakeServer.turn_inputs.clear()
+            # Linux CI has no verified container-to-host route. Exercise the
+            # real lease/runner path with a fake transport while preserving
+            # the same live instance check; Windows tests the actual route.
+            def ci_route():
+                status = json.loads((host_state / "mediator" / "mediator.json").read_text())
+                with http_request.urlopen(
+                        f"http://127.0.0.1:{status['port']}/v1/health",
+                        timeout=2) as response:
+                    health = json.load(response)
+                if health != {"status": "ready", "instance": status["instance"]}:
+                    raise RunnerError("mediator_unavailable")
+                return (f"http://host.docker.internal:{status['port']}/v1/mediate",
+                        status["instance"])
+
+            route_check = (nullcontext() if os.name == "nt" else
+                           patch.object(mediated, "_mediator_route", side_effect=ci_route))
+            with route_check:
+                prepared = prepare(1)
+                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                    result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
+                self.assertEqual(result["status"], "completed", result.get("error_category"))
+                self.assertEqual(len(FakeServer.calls), 1)
+                command = " ".join(FakeServer.calls[0])
+                self.assertIn("target=/run/laomedo/capability,readonly", command)
+                self.assertIn("host.docker.internal", command)
+                self.assertNotIn("synthetic-provider-secret", command)
+                self.assertIn("node /run/laomedo/mediate.mjs", FakeServer.turn_inputs[0])
+                lease_dir = host_state / "lease" / "leases" / result["container_ownership"]["launch_token"]
+                self.assertEqual(json.loads((lease_dir / "result.json").read_text())["reason"], "done")
+
+                prepared = prepare(2)
+                status_path = host_state / "mediator" / "mediator.json"
+                status = json.loads(status_path.read_text(encoding="utf-8"))
+                status_path.write_text(json.dumps({**status, "instance": "0" * 32}),
+                                       encoding="utf-8")
+                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                    result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["error_category"], "mediator_unavailable")
+                self.assertEqual(len(FakeServer.calls), 1)
+                lease_dir = host_state / "lease" / "leases" / result["container_ownership"]["launch_token"]
+                self.assertEqual(json.loads((lease_dir / "result.json").read_text())["reason"], "done")
+        finally:
+            child.terminate()
+            child.join(timeout=5)
     def test_mediator_mount_contains_capability_not_provider_token(self):
         capability = self.runner.state / "grant.secret"
         capability.write_text("synthetic-run-capability", encoding="utf-8")
         command = _docker_prefix(self.root / "source", self.root / "source",
                                  self.runner.state, capability=capability,
-                                 mediator_url="http://host.docker.internal:1234/v1/mediate")
+                                 mediator_url="http://host.docker.internal:1234/v1/mediate",
+                                 mediator_instance="a" * 32)
         joined = " ".join(command)
         self.assertIn("source=" + str(capability), joined)
         self.assertIn("target=/run/laomedo/capability,readonly", joined)
         self.assertIn("LAOMEDO_MEDIATOR_URL=http://host.docker.internal:1234/v1/mediate",
                       joined)
+        self.assertIn("LAOMEDO_MEDIATOR_INSTANCE=" + "a" * 32, joined)
         self.assertNotIn("synthetic-run-capability", joined)
         self.assertNotIn("GH_TOKEN", joined)
         with self.assertRaisesRegex(RunnerError, "incomplete_mediator_mount"):
             _docker_prefix(self.root, self.root, self.root, capability=capability)
+
+    def test_split_executor_cannot_claim_legacy_container_lease(self):
+        with self.assertRaisesRegex(RunnerError, "split_executor_lease_unavailable"):
+            LocalRunner(self.runner.state, self.runner.store.root, self.source,
+                        check_docker=False, split_executor=True,
+                        supervise_containers=True)
 
     def test_container_identity_is_saved_before_transport_launch(self):
         class InspectReservation(FakeServer):
@@ -120,7 +244,7 @@ class LocalRunnerTests(unittest.TestCase):
         authority = RunGrantAuthority(self.runner.state / "github-authority.sqlite")
         reference = authority.approve(
             invocation_id="approved-invocation", repository="example/disposable",
-            branch="approved-branch", operations={"git_push"},
+            branch="approved-branch", operations={"actions_read"},
             reviewed_by="test-operator")
         request = self.request()
         request["github_scope"] = {"repository": "other/repo"}
@@ -143,6 +267,14 @@ class LocalRunnerTests(unittest.TestCase):
             "repository": "example/disposable", "branch": "approved-branch"})
         self.assertNotIn(reference, json.dumps(prepared))
         with self.assertRaisesRegex(RunnerError, "authorization_unavailable"):
+            mediated._prepare(request)
+
+        push_ref = authority.approve(
+            invocation_id="push-invocation", repository="example/disposable",
+            branch="approved-branch", operations={"git_push"},
+            reviewed_by="test-operator")
+        request["github_authorization_ref"] = push_ref
+        with self.assertRaisesRegex(RunnerError, "operation_unavailable_in_runner"):
             mediated._prepare(request)
 
     def test_restart_sweep_preserves_unverified_cleanup(self):
@@ -659,6 +791,7 @@ class LocalRunnerTests(unittest.TestCase):
         app.process = Mock()
         app.process.poll.return_value = None
         app.reader = Mock()
+        app.stderr_reader = Mock()
         app.log = io.StringIO()
         app.stderr = io.StringIO()
         cancelled = threading.Event()
@@ -682,6 +815,7 @@ class LocalRunnerTests(unittest.TestCase):
         app.process = Mock()
         app.process.poll.return_value = None
         app.reader = Mock()
+        app.stderr_reader = Mock()
         app.log = io.StringIO()
         app.stderr = io.StringIO()
         with patch("laomedo.local_runner.subprocess.run", side_effect=[
