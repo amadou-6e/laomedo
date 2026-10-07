@@ -11,6 +11,8 @@
   "same_provider_subject_hash": true,
   "same_credential_generation": true,
   "browser_reauthentication_between_runs": false,
+  "synthetic_workspace_disposal_before_reconstructed_runner_passed": true,
+  "synthetic_workspace_disposal_model_turns": 0,
   "turn_cap_extension": 4,
   "extension_turns_used": 2,
   "total_turn_ledger": {

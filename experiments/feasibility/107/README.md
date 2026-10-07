@@ -364,6 +364,13 @@ model turns. The new four-turn cap remains **0/4 used** at this correction
 point. The separate programmatic `split_access_token` path is only for
 synthetic probes and must never carry a real credential.
 
+A later credential-free rerun deleted the first disposable workspace after
+same-runner resume, then reconstructed the runner and completed a new run
+with the same synthetic broker reference. The probe verifies its resolved
+delete target stays inside its temporary directory. This covers workspace
+disposal for the local prototype without deleting any real run evidence or
+spending another model turn.
+
 Pinned Codex 0.159.2 resolves an `apply_patch` without an Environment ID to
 the turn's primary environment. The runner supplies exactly one registered
 executor environment on thread start, thread resume, and turn start, and now
