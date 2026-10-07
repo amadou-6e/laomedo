@@ -104,6 +104,12 @@ def probe():
                     expected_post_run_hash=first["post_run_hash"],
                     expected_thread_id=first["thread_id"],
                     model="gpt-6-luna", effort="low")
+                resumed_observation = (
+                    first_workspace / "token-observation.txt").read_text()
+                resumed_process = (
+                    first_workspace / "process-observation.txt").read_text()
+                resumed_file = (
+                    first_workspace / "file-observation.txt").read_text()
                 resumed_marker = (first_workspace / "runner-marker.txt").read_text()
                 second_runner = LocalRunner(state, store.root, source, **options)
                 second_runner.split_provider_config = provider
@@ -164,11 +170,16 @@ def probe():
                     "same_nonsecret_credential_ref": first["credential"] ==
                         second["credential"],
                     "controller_token_absent_from_executor":
-                        first_observation == "absent" and observation == "absent",
+                        first_observation == "absent" and
+                        resumed_observation == "absent" and
+                        observation == "absent",
                     "controller_process_absent_from_executor":
-                        first_process == "absent" and process_observation == "absent",
+                        first_process == "absent" and
+                        resumed_process == "absent" and
+                        process_observation == "absent",
                     "controller_file_absent_from_executor":
-                        first_file == "absent" and file_observation == "absent",
+                        first_file == "absent" and resumed_file == "absent" and
+                        file_observation == "absent",
                     "tokens_absent_from_controller_profile": profile_clean,
                     "secret_absent_from_run_state": trace_clean,
                     "secret_exposure_files": exposure_files,
