@@ -5,7 +5,7 @@ Protocol commit `8d22b4238f532b0806780a3bec53413cd3b4c73d` preceded the
 first run. Classification amendment commit `c398dca` and native-event
 amendment commit `7f5bab9` preceded the retained
 [sanitized observation](observation.json), SHA-256
-`c063605801bbcb95777f1002b92c70e4ba8534a07fddafd6940f0e20dd037198`.
+`85ade6c8545d50ac9aaba5096b5f1fd311701abe15192a17806f8cb43f319fe8`.
 No credential was copied or loaded and no model turn was submitted.
 
 The first run listed the fixture once but was inconclusive on isolation: a
