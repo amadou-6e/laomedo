@@ -60,6 +60,17 @@ class LiveProbeConfigurationTests(unittest.TestCase):
                                "GH", None)
             self.assertFalse(state.exists())
 
+    def test_s5_requires_selected_token_provenance_before_state_creation(self):
+        live_probe.select_fresh_identity("exp104-s5-testunused-01",
+                                         "exp104-s5-selected-gh")
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "untouched-state"
+            with self.assertRaisesRegex(RuntimeError,
+                                        "scoped_identity_confirmation_required"):
+                live_probe.run(state, Path(directory) / "missing-token", "0" * 40,
+                               "GH", None)
+            self.assertFalse(state.exists())
+
     def test_direct_run_refuses_consumed_identity_before_state_creation(self):
         saved = live_probe.IDENTITY
         live_probe.IDENTITY = "exp104-s4-20261007-01"
@@ -152,6 +163,10 @@ class LiveProbeConfigurationTests(unittest.TestCase):
             mediator.mkdir(parents=True)
             (mediator / "push-diagnostics.jsonl").write_text(
                 "[]\n", encoding="utf-8")
+            (state / "progress.json").write_text("{", encoding="utf-8")
+            (state / "plan.json").write_text("[]", encoding="utf-8")
+            (state / "dry-run.json").write_text("{", encoding="utf-8")
+            (mediator / "provider-attempts.jsonl").write_bytes(b"\xff")
             with closing(sqlite3.connect(mediator / "mediator.sqlite")) as db:
                 with db:
                     db.execute("CREATE TABLE effects (run_id TEXT, effect_id TEXT, state TEXT)")
@@ -175,6 +190,12 @@ class LiveProbeConfigurationTests(unittest.TestCase):
                              {"state": "unknown", "error": None})
             self.assertEqual(result["push_diagnostics"],
                              {"records": [], "error": "invalid_or_unavailable"})
+            self.assertEqual(result["record_input_errors"],
+                             ["progress", "plan", "dry_run", "provider_attempts"])
+            self.assertIsNone(result["provider_attempts"])
+            self.assertIsNone(result["progress"])
+            self.assertIsNone(result["plan"])
+            self.assertIsNone(result["dry_run"])
 
     def test_secret_canary_reports_only_counts(self):
         with tempfile.TemporaryDirectory() as directory:

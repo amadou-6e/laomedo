@@ -197,6 +197,25 @@ def _call_count(path: Path) -> int:
     return len(path.read_text(encoding="utf-8").splitlines()) if path.exists() else 0
 
 
+def _safe_call_count(path: Path) -> dict:
+    try:
+        return {"count": _call_count(path), "error": None}
+    except (OSError, UnicodeError):
+        return {"count": None, "error": "invalid_or_unavailable"}
+
+
+def _safe_json_object(path: Path) -> dict:
+    try:
+        if not path.exists():
+            return {"value": None, "error": None}
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(value, dict):
+            return {"value": None, "error": "invalid_or_unavailable"}
+        return {"value": value, "error": None}
+    except (OSError, UnicodeError, ValueError, RecursionError):
+        return {"value": None, "error": "invalid_or_unavailable"}
+
+
 def _secret_canary(state: Path, token: str) -> dict:
     needle = token.encode("utf-8")
     files = 0
@@ -279,7 +298,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         scope_confirmation: str | None) -> dict:
     if IDENTITY in CONSUMED_IDENTITIES:
         raise RuntimeError("experiment_identity_consumed")
-    if IDENTITY.startswith(("exp104-s3-", "exp104-s4-")) and (
+    if IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) and (
             token_key != "GH_LAOMEDO" or
             scope_confirmation != "selected_repository_only"):
         raise RuntimeError("scoped_identity_confirmation_required")
@@ -367,8 +386,10 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
     progress_path = state / "progress.json"
 
     def checkpoint() -> None:
-        progress_path.write_text(json.dumps(observation, sort_keys=True, indent=2) + "\n",
-                                 encoding="utf-8", newline="\n")
+        temporary_path = progress_path.with_suffix(".json.tmp")
+        temporary_path.write_text(json.dumps(observation, sort_keys=True, indent=2) + "\n",
+                                  encoding="utf-8", newline="\n")
+        temporary_path.replace(progress_path)
 
     checkpoint()
     try:
@@ -616,7 +637,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         if observation["secret_canary"]["exact_token_hits"]:
             raise RuntimeError("secret_canary_failed")
         observation["status"] = "scoped_candidate_pending_cleanup" if \
-            IDENTITY.startswith(("exp104-s3-", "exp104-s4-")) else \
+            IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) else \
             "bounded_diagnostic_pending_cleanup"
         checkpoint()
         return observation
@@ -640,7 +661,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
             if all(item["verified"] and item["state_after"] == "absent"
                    for item in cleanup.values()):
                 observation["status"] = ("scoped_candidate_pass" if
-                                         IDENTITY.startswith(("exp104-s3-", "exp104-s4-")) else
+                                         IDENTITY.startswith(("exp104-s3-", "exp104-s4-", "exp104-s5-")) else
                                          "bounded_diagnostic_pass")
             else:
                 observation["status"] = "incomplete"
@@ -685,22 +706,24 @@ def main() -> None:
         result = run(args.state.resolve(), args.token_file.resolve(), args.code_sha,
                      args.token_key, args.scope_confirmation)
     except Exception as failure:
-        plan_path = args.state / "plan.json"
+        progress = _safe_json_object(args.state / "progress.json")
+        plan = _safe_json_object(args.state / "plan.json")
+        dry_run = _safe_json_object(args.state / "dry-run.json")
+        attempts = _safe_call_count(args.state / "mediator" /
+                                    "provider-attempts.jsonl")
         result = {"status": "incomplete", "failure_type": type(failure).__name__,
                   "failure_code": str(failure) if type(failure) is RuntimeError else
                   "external_or_unexpected_error",
-                  "progress": json.loads((args.state / "progress.json").read_text(encoding="utf-8"))
-                  if (args.state / "progress.json").exists() else None,
-                  "plan": json.loads(plan_path.read_text(encoding="utf-8")) if plan_path.exists()
-                  else None,
-                  "provider_attempts": _call_count(args.state / "mediator" /
-                                                    "provider-attempts.jsonl"),
+                  "progress": progress["value"], "plan": plan["value"],
+                  "provider_attempts": attempts["count"],
+                  "record_input_errors": [name for name, item in (
+                      ("progress", progress), ("plan", plan),
+                      ("dry_run", dry_run), ("provider_attempts", attempts))
+                      if item["error"]],
                   "push_diagnostics": _safe_diagnostic_records(args.state),
                   "stored_a_push_effect": _stored_effect_state(
                       args.state, RUN_A, IDENTITY + "-push-a"),
-                  "dry_run": json.loads((args.state / "dry-run.json").read_text(
-                      encoding="utf-8")) if (args.state / "dry-run.json").exists()
-                  else None}
+                  "dry_run": dry_run["value"]}
         with args.record.open("x", encoding="utf-8", newline="\n") as output:
             output.write(json.dumps(result, sort_keys=True, indent=2) + "\n")
         raise
