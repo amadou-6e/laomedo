@@ -1,8 +1,9 @@
-# EXP-104 synthetic process control
+# EXP-104 mediated grant and runner-loss evidence
 
 Status: synthetic control passed; live scoped-GitHub-identity attempts have
-run, but **full protocol acceptance has not passed** (S5 harness pass with
-recorded deviations).
+run. S6 passed the literal new-branch and monotonic-timing controls, but
+**full protocol acceptance has not passed**. S5's recorded deviations and
+S3's uncertain effect remain historical findings.
 
 The base [live protocol](LIVE-PROTOCOL.md) remains frozen. Amendments
 [01](AMENDMENT-01.md), [02](AMENDMENT-02.md), and [03](AMENDMENT-03.md)
