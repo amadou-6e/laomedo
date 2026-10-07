@@ -7,7 +7,10 @@ name = "laomedo"
 version = "0.1.0"
 description = "Design, inspect, and execute agent workflows"
 requires-python = ">=3.10"
-dependencies = ["PyJWT[crypto]==2.15.1"]
+dependencies = [
+    "PyJWT[crypto]==2.15.1",
+    "truststore==0.10.4",
+]
 
 [project.scripts]
 laomedo-work-graph = "laomedo.work_graph.__main__:main"

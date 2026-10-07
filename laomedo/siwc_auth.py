@@ -21,11 +21,12 @@ import subprocess
 import time
 from urllib.parse import urlencode, parse_qs, urlsplit
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, build_opener, HTTPRedirectHandler, HTTPSHandler
 from uuid import uuid4
 import webbrowser
 
 import jwt
+import truststore
 
 
 AUTH_ORIGIN = "https://auth.openai.com"
@@ -45,6 +46,15 @@ class _NoRedirect(HTTPRedirectHandler):
         raise AuthError("auth_redirect_rejected")
 
 
+def _tls_context():
+    """Verify with the OS certificate store, without a process-wide SSL patch."""
+    context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
 def _https_json(url: str, *, fields: dict | None = None) -> dict:
     parts = urlsplit(url)
     if (parts.scheme != "https" or parts.hostname != "auth.openai.com" or
@@ -55,7 +65,7 @@ def _https_json(url: str, *, fields: dict | None = None) -> dict:
     if body is not None:
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     try:
-        with build_opener(_NoRedirect()).open(
+        with build_opener(HTTPSHandler(context=_tls_context()), _NoRedirect()).open(
                 Request(url, data=body, headers=headers), timeout=20) as response:
             result = json.load(response)
     except AuthError:
@@ -90,7 +100,7 @@ def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
         if (parts.scheme != "https" or parts.hostname != "auth.openai.com" or
                 parts.username or parts.password or parts.fragment):
             raise AuthError("auth_jwks_untrusted")
-        key = jwt.PyJWKClient(jwks_uri).get_signing_key_from_jwt(token).key
+        key = jwt.PyJWKClient(jwks_uri, ssl_context=_tls_context()).get_signing_key_from_jwt(token).key
         claims = jwt.decode(token, key, algorithms=["RS256"],
                             audience=client_id, issuer=AUTH_ORIGIN,
                             options={"require": ["exp", "iss", "aud", "sub"]})
@@ -114,7 +124,7 @@ def _revoke(refresh_token: str, client_id: str) -> bool:
     data = urlencode({"token": refresh_token,
                       "token_type_hint": "refresh_token",
                       "client_id": client_id}).encode()
-    with build_opener(_NoRedirect()).open(Request(endpoint, data=data,
+    with build_opener(HTTPSHandler(context=_tls_context()), _NoRedirect()).open(Request(endpoint, data=data,
         headers={"Content-Type": "application/x-www-form-urlencoded"}),
         timeout=20) as response:
         return response.status == 200

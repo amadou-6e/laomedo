@@ -17,10 +17,16 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from laomedo.siwc_auth import (AuthError, ChatGPTConnection, NEEDED,
-                               _https_json, _verify_id_token)
+                               _https_json, _tls_context, _verify_id_token)
 
 
 class ChatGPTConnectionTests(unittest.TestCase):
+    def test_os_trust_context_keeps_tls_verification_enabled(self):
+        context = _tls_context()
+        self.assertTrue(context.check_hostname)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertGreaterEqual(context.minimum_version, ssl.TLSVersion.TLSv1_2)
+
     def test_exchange_diagnostic_reports_only_safe_status(self):
         private_text = "secret-code-and-token"
         error = HTTPError("https://auth.openai.com/private/" + private_text,
@@ -130,6 +136,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
             self.assertEqual(_verify_id_token(token, "oaiapp_fixture",
                                               "fresh-nonce")["sub"],
                              "account-subject")
+            self.assertTrue(client.call_args.kwargs["ssl_context"].check_hostname)
             for audience, nonce in (("other-client", "fresh-nonce"),
                                     ("oaiapp_fixture", "wrong-nonce")):
                 with self.subTest(audience=audience, nonce=nonce):

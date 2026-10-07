@@ -301,3 +301,32 @@ the pinned Codex controller image returned HTTP 401 from
 `https://api.openai.com/v1/models`, which shows that image completed TLS for
 that public endpoint. The expected unauthenticated response does not test
 model access or the eventual access-token route.
+
+## Bounded app-owned live check
+
+With the pinned `truststore==0.10.4` dependency, the broker used an explicit
+OS-native TLS context for token exchange, OpenID discovery, key-set lookup,
+refresh and revocation. Hostname and certificate verification stayed enabled,
+with TLS 1.2 as the minimum. A credential-free discovery request then returned
+the expected OpenAI issuer, and browser consent created one active app-owned
+connection. No existing Codex login file was copied.
+
+The authenticated split-runner preflight reported `ready`, included
+`gpt-6-luna` at `low` effort, and observed workspace write allowed, canonical
+and sibling-store writes denied, and controller-auth file read denied. It reserved no
+model turn. Two subsequent **real** `gpt-6-luna`/`low` turns used a pinned
+`live-107` skill. Each completed with the skill-only marker as its answer and
+as the contents of a workspace file. Each private trace recorded a completed
+`SKILL.md` read and marker-file command with exit code zero. The first run
+completed as ledger attempt 1; the Python runner process then exited. A new
+`LocalRunner` process used the same nonsecret credential reference without
+browser sign-in and completed attempt 2 in a new native thread and workspace.
+The private ledger is **2/2**, with both runs `completed` and no error category.
+
+A host-side audit found neither the access nor refresh token in the private
+run files or archived controller profile volume. No disposable split containers
+remained. Raw traces and credentials stay outside Git. The active account is
+still in the private persistent broker store, and the dedicated controller
+profile volume persists for future authorized work. This proves the bounded
+local before/after-process-restart route, not refresh rotation, sign-out,
+host reboot recovery, network namespace separation or hosted isolation.
