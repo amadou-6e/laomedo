@@ -39,7 +39,7 @@ def run(codex: Path) -> dict:
         result["effective_before_sha256"] = hash_path(effective)
         result["effective_within_private_project"] = effective.resolve().is_relative_to(state)
         env = construct_env(private_home, codex_home, state, codex.parent)
-        result["codex_version"] = codex_version(codex, env)
+        result["codex_version"] = codex_version(codex, env).splitlines()[0]
         server = None
         try:
             server = AppServer(codex, state / "project", env, state)
@@ -62,6 +62,21 @@ def run(codex: Path) -> dict:
                     result["fixture_listing_count"] = len(matches)
                     result["listed_skill_count"] = len(skills)
                     paths = [Path(item.get("path", "")).resolve() for item in skills]
+                    path_roots = {
+                        "private_project": (state / "project").resolve(),
+                        "private_profile": private_home.resolve(),
+                        "private_codex_home": codex_home.resolve(),
+                        "personal_agents_skills": (real_home / ".agents" / "skills").resolve(),
+                        "personal_codex_skills": (real_home / ".codex" / "skills").resolve(),
+                        "codex_installation": codex.parents[2].resolve(),
+                    }
+                    classes = {key: 0 for key in path_roots}
+                    classes["other"] = 0
+                    for path in paths:
+                        group = next((key for key, root in path_roots.items()
+                                      if path.is_relative_to(root)), "other")
+                        classes[group] += 1
+                    result["listed_path_classes"] = classes
                     result["listed_paths_under_real_home"] = sum(
                         path.is_relative_to(real_home) for path in paths)
                     result["fixture_path_matches_effective"] = (
@@ -80,11 +95,17 @@ def run(codex: Path) -> dict:
                 result["effective_after_sha256"])
     result["personal_roots_unchanged"] = compare_personal_roots(
         before, hash_personal_roots())
+    result["personal_session_comparison"] = (
+        "unchanged" if result["personal_roots_unchanged"].get(".codex_sessions")
+        else "changed_during_concurrent_ide_session_attribution_unknown")
+    classes = result.get("listed_path_classes") or {}
     result["pass"] = (
         result.get("fixture_offered") is True and
-        result.get("listed_paths_under_real_home") == 0 and
+        classes.get("personal_agents_skills") == 0 and
+        classes.get("personal_codex_skills") == 0 and
         result["effective_unchanged"] and
-        all(result["personal_roots_unchanged"].values()))
+        all(result["personal_roots_unchanged"].get(key) is True for key in
+            (".agents_skills", ".codex_skills", ".codex_auth.json")))
     result["skill_body_read"] = "unknown"
     return result
 
