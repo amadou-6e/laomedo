@@ -23,6 +23,31 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 
 
+class PushOutcomeUnknown(RuntimeError):
+    """A nonzero Git exit; its remote effect remains unknown regardless of hint."""
+
+    def __init__(self, category: str, exit_code: int):
+        super().__init__("push_outcome_unknown")
+        self.category = category
+        self.exit_code = exit_code
+
+
+def _push_failure_category(stderr: bytes) -> str:
+    """Return only a fixed diagnostic label, never Git's untrusted output."""
+    lower = stderr.lower()
+    if any(marker in lower for marker in (
+            b"authentication failed", b"403", b"permission denied",
+            b"permission to", b"could not read username")):
+        return "authentication_or_authorization"
+    if b"remote rejected" in lower or b"pre-receive hook declined" in lower:
+        return "remote_rejected"
+    if any(marker in lower for marker in (
+            b"could not resolve host", b"timed out", b"failed to connect",
+            b"connection reset", b"network is unreachable")):
+        return "network_or_transport"
+    return "unclassified"
+
+
 def _base_git_environment() -> dict:
     """Remove inherited Git and host-account overrides for every Git call."""
     environment = {key: value for key, value in os.environ.items()
@@ -168,7 +193,8 @@ class GitHubGitTransport:
                 environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
         if pushed.returncode != 0:
             # A lost response can follow a successful remote write.
-            raise RuntimeError("push_outcome_unknown")
+            raise PushOutcomeUnknown(_push_failure_category(pushed.stderr),
+                                     pushed.returncode)
         return {"branch": branch, "commit": commit}
 
 

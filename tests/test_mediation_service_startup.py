@@ -8,6 +8,8 @@ import unittest
 from unittest.mock import patch
 
 from laomedo import lease_service, mediation_service
+from laomedo.github_git_transport import PushOutcomeUnknown
+from laomedo.github_mediation import MediationStore
 
 
 class MediationServiceStartupTests(unittest.TestCase):
@@ -78,6 +80,41 @@ class MediationServiceStartupTests(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["branch"], "probe-a")
         self.assertNotIn("synthetic-provider-secret", json.dumps(events))
+
+    def test_nonzero_push_diagnostic_is_fixed_vocabulary_and_stays_unknown(self):
+        attempts = self.path / "attempts.jsonl"
+        diagnostics = self.path / "diagnostics.jsonl"
+
+        def nonzero_push(*_args, **_kwargs):
+            raise PushOutcomeUnknown("authentication_or_authorization", 1)
+
+        journal = mediation_service.JournaledTransport(
+            nonzero_push, attempts, diagnostics)
+        store = MediationStore(
+            self.path / "effects.sqlite",
+            workflow_change_classifier=lambda *_args: False)
+        _, bearer = store.issue(
+            run_id="run-a", invocation_id="invocation-a",
+            repository="example/disposable", branch="probe-a",
+            operations={"git_push"}, ttl_seconds=60)
+        payload = {"branch": "probe-a", "commit": "a" * 40}
+        first = store.invoke(
+            token=bearer, repository="example/disposable",
+            operation="git_push", payload=payload, effect_id="push-a",
+            transport=journal)
+        second = store.invoke(
+            token=bearer, repository="example/disposable",
+            operation="git_push", payload=payload, effect_id="push-a",
+            transport=journal)
+        self.assertEqual(first, {"state": "unknown", "resent": False})
+        self.assertEqual(second, first)
+        self.assertEqual(len(attempts.read_text(encoding="utf-8").splitlines()), 1)
+        diagnostic = json.loads(diagnostics.read_text(encoding="utf-8"))
+        self.assertEqual(diagnostic["category"],
+                         "authentication_or_authorization")
+        self.assertEqual(diagnostic["exit_code"], 1)
+        self.assertNotIn("synthetic-provider-secret", json.dumps(diagnostic))
+        self.assertNotIn(bearer, json.dumps(diagnostic))
 
 
 if __name__ == "__main__":

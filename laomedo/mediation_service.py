@@ -16,7 +16,8 @@ import threading
 import time
 
 from .github_mediation import MediationStore
-from .github_git_transport import GitHubGitTransport, GitHubMediatedTransport
+from .github_git_transport import (GitHubGitTransport, GitHubMediatedTransport,
+                                   PushOutcomeUnknown)
 from .github_rest_transport import GitHubRestTransport
 from .host_token_connection import HostTokenConnection
 from .lease_service import _handler
@@ -44,9 +45,11 @@ class MediationHTTPService:
 class JournaledTransport:
     """Private, non-secret provider-attempt journal for diagnostic accounting."""
 
-    def __init__(self, transport, path: Path):
+    def __init__(self, transport, path: Path,
+                 diagnostic_path: Path | None = None):
         self.transport = transport
         self.path = path
+        self.diagnostic_path = diagnostic_path
         self.lock = threading.Lock()
 
     def __call__(self, repository, operation, payload, **binding):
@@ -57,7 +60,16 @@ class JournaledTransport:
                           "commit": payload.get("commit")})
         with self.lock, self.path.open("a", encoding="utf-8") as journal:
             journal.write(json.dumps(event, sort_keys=True) + "\n")
-        return self.transport(repository, operation, payload, **binding)
+        try:
+            return self.transport(repository, operation, payload, **binding)
+        except PushOutcomeUnknown as failure:
+            if self.diagnostic_path is not None:
+                diagnostic = {"at_wall": time.time(), "operation": "git_push",
+                              "category": failure.category,
+                              "exit_code": failure.exit_code}
+                with self.lock, self.diagnostic_path.open("a", encoding="utf-8") as journal:
+                    journal.write(json.dumps(diagnostic, sort_keys=True) + "\n")
+            raise
 
 
 def main() -> None:
@@ -92,7 +104,8 @@ def main() -> None:
         connection_is_current=connection.current)
     transport = GitHubMediatedTransport(git_transport, rest_transport)
     service = MediationHTTPService(
-        store, JournaledTransport(transport, state / "provider-attempts.jsonl"))
+        store, JournaledTransport(transport, state / "provider-attempts.jsonl",
+                                  state / "push-diagnostics.jsonl"))
     # This file contains no token, only the instance/port required by a
     # trusted controller. It is never copied into a run workspace.
     status = state / "mediator.json"

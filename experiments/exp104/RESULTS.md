@@ -182,3 +182,9 @@ open, as do draft #97/#105 and Q11. The Git transport currently collapses
 every nonzero push into an `unknown` effect without a safe diagnostic class.
 Investigate that path with non-mutating controls and freeze any next protocol
 revision before a distinct new live identity; never resend this effect.
+
+Amendment [14](AMENDMENT-14.md) was frozen after S3-01 and before a
+diagnostic-only code change. The later code appends a fixed-category private
+record for nonzero Git exits while leaving the durable effect `unknown` and
+never persisting Git output. Unit tests cover the no-secret and no-resend
+rules. S3-01 did **not** run that later code, so it has no such category.

@@ -9,7 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.github_git_transport import GitHubGitTransport
+from laomedo.github_git_transport import (GitHubGitTransport,
+                                          PushOutcomeUnknown)
 from laomedo.github_mediation import KnownRejected
 from laomedo import git_credential_helper
 
@@ -125,12 +126,18 @@ class GitHubGitTransportTests(unittest.TestCase):
 
     def test_transport_failure_is_uncertain_not_safe_to_retry(self):
         self.transport.run = lambda args, **kwargs: (
-            subprocess.CompletedProcess(args, 1, b"", b"remote failed")
+            subprocess.CompletedProcess(
+                args, 1, b"synthetic-secret", b"403 synthetic-secret")
             if "push" in args else subprocess.run(args, **kwargs))
-        with self.assertRaisesRegex(RuntimeError, "push_outcome_unknown"):
+        with self.assertRaisesRegex(PushOutcomeUnknown,
+                                    "push_outcome_unknown") as found:
             self.transport(REPOSITORY, "git_push", {"branch": "probe-a",
                 "commit": self.commit}, connection_id="connection-a",
                 connection_generation=1)
+        self.assertEqual(found.exception.category,
+                         "authentication_or_authorization")
+        self.assertEqual(found.exception.exit_code, 1)
+        self.assertNotIn("synthetic-secret", str(found.exception))
 
     def test_git_credential_helper_ignores_host_credentials(self):
         helper = "!" + shlex.quote(sys.executable) + " " + shlex.quote(
