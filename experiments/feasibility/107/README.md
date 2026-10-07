@@ -47,11 +47,13 @@ Do not wire Sign in with ChatGPT tokens into this runner or call its present
 prompt rule, or output redaction cannot undo an observed read path.
 
 This says nothing about whether the selected account will grant ChatGPT plan
-usage. OpenAI's [quickstart](https://developers.openai.com/siwc/quickstart),
-checked on 2026-10-07, says plan usage is available to open-source partners
-and selected private clients. Laomedo has not established selected-private-client
-access or performed app-owned sign-in with separately granted Responses API
-scopes.
+usage. OpenAI's [local-project
+guide](https://developers.openai.com/cookbook/articles/sign-in-with-chatgpt),
+checked on 2026-10-07, explicitly includes personal projects that run locally.
+The [quickstart](https://developers.openai.com/siwc/quickstart) summarizes
+availability more narrowly. A private, local Laomedo installation can try the
+app-owned flow, but eligibility and the required plan-usage scope remain to be
+verified by real consent and inference.
 Refresh, restart, sign-out, and account switching are also untested. No
 production credential broker was added here.
 
@@ -230,3 +232,55 @@ This is a draft launch shape, not an applied runner configuration. Review must
 settle the exact Docker mounts, network policy, status evidence, and resume
 behavior before enabling it. The later credential connection needs its own
 eligibility, refresh, and restart checks under #107.
+
+## Opt-in runner integration and synthetic app-owned connection
+
+The `feat/107` implementation adds an opt-in `--split-executor` mode. It keeps
+a private controller profile in a Docker volume derived from the runner state
+path, starts a separate disposable tool executor, checks both image IDs and
+the controller's pinned CLI version, refuses controller-owned listening
+TCP/Unix or UDP sockets before a turn, requires a ready remote executor, and
+selects that executor on `thread/start` and `turn/start` with `externalSandbox`.
+The original single-container route remains the default. `--auth-store`
+selects a private app-owned OAuth store outside Git. It never imports the
+user's Codex login file. A missing connection records `auth_missing` before a
+model turn is reserved.
+
+Run the credential-free product-route probe from the Laomedo checkout:
+
+```powershell
+$env:PYTHONPATH = (Get-Location).Path
+.\.venv\Scripts\python.exe experiments/feasibility/107/probe_runner_split.py
+```
+
+The fake Responses backend requested two actual agent commands, one before
+and one after constructing a new `LocalRunner` from the same state. A synthetic
+app-owned account and host ID survived the restart. The previous run refused
+native resume after runner restart, while the second new run completed without
+sign-in. Each command reported the controller token absent from its own
+environment, `/proc/1/environ`, and a controller-only file path. The exact
+nine-tool code-mode inventory matched the pinned list. Four fake Responses
+requests were made; **zero real model turns** were used. Random access and
+refresh canaries were absent from the run directory and archived controller
+profile volume. The disposable volume and containers were removed. These are
+synthetic checks, not an actual OAuth login.
+
+The access token is set in the controller container's environment and is
+therefore visible to a host process with Docker Engine access through Docker
+metadata while that controller exists. Docker access is part of the trusted
+single-user host boundary; the executor receives no Docker socket. Per-turn
+app-server events do not identify the executor, so exact routing is supported
+by the pinned request shape and canary probes, not native event attestation.
+The exact tool list is verified by the synthetic probe, not by a live startup
+RPC. The containers share a network namespace, guarded by a controller-listener
+check; this does not prove isolation against every network or IPC path. Do not
+call this mode hosted or multi-user safe.
+
+The OAuth broker follows OpenAI's dynamic registration, PKCE, ID-token
+verification, scope checks, persistent host ID, single-writer rotating refresh,
+and sign-out flow. Its tests use only synthetic tokens. A refresh is marked
+uncertain before the request is sent, so an ambiguous response or crash cannot
+silently replay the old refresh token. A different account cannot resume the
+same run. A backend restart permits a new run, not automatic continuation of
+the old one. Browser consent, renewal with OpenAI, actual plan entitlement,
+and bounded live before/after-restart turns remain untested.

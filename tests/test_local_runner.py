@@ -12,6 +12,7 @@ from urllib import request as http_request, error as http_error
 
 from laomedo.local_runner import (AppServer, LocalRunner, RunnerError,
                                   _hash_tree, _native_error_summary, serve)
+from laomedo.siwc_auth import AuthError
 from laomedo.skill_store import SkillStore
 
 
@@ -103,6 +104,21 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
                          ["attempted_turns"], 1)
 
+    def test_missing_app_owned_consent_refuses_before_model_turn(self):
+        class MissingAccount:
+            def access_token(self):
+                raise AuthError("auth_account_missing")
+
+        self.runner.auth = MissingAccount()
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "auth_missing")
+        self.assertEqual(result["credential"]["credential_mode"],
+                         "chatgpt_plan_oauth")
+        self.assertEqual(result["credential"]["auth_outcome"], "missing")
+        self.assertEqual(result["turns"], [])
+        self.assertFalse((self.runner.state / "turn-ledger.json").exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -165,6 +181,35 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(len(resumed["turns"]), 2)
         self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
                          ["attempted_turns"], 3)
+
+    def test_app_owned_resume_refuses_changed_account_and_runner_restart(self):
+        completed = self.runner.start(self.request())
+        record_path = self.runner._run_dir(completed["run_id"]) / "record.json"
+        record = json.loads(record_path.read_text())
+        record["credential"] = {"credential_mode": "chatgpt_plan_oauth",
+                                "credential_ref": "chatgpt:first",
+                                "provider_subject_hash": "sha256:first"}
+        record_path.write_text(json.dumps(record))
+
+        class OtherAccount:
+            def access_token(self):
+                return "synthetic", {"credential_ref": "chatgpt:second",
+                                     "provider_subject_hash": "sha256:second"}
+
+        self.runner.auth = OtherAccount()
+        args = dict(expected_post_run_hash=completed["post_run_hash"],
+                    expected_thread_id=completed["thread_id"],
+                    model="test-model", effort="low")
+        with self.assertRaisesRegex(RunnerError, "resume_auth_identity_mismatch"):
+            self.runner.resume(completed["run_id"], "continue", **args)
+        restarted = LocalRunner(self.runner.state, self.runner.store.root,
+                                self.source, transport=FakeServer,
+                                check_docker=False, max_model_turns=6)
+        restarted.auth = OtherAccount()
+        with self.assertRaisesRegex(RunnerError, "resume_after_runner_restart_forbidden"):
+            restarted.resume(completed["run_id"], "continue", **args)
+        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
+                         ["attempted_turns"], 1)
 
     def test_multiple_skills_materialize_and_resume_as_one_bound_snapshot(self):
         second_source = self.root / "second-skill-source"
