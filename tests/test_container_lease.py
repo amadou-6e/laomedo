@@ -78,6 +78,17 @@ class ContainerLeaseTests(unittest.TestCase):
             self.assertEqual(docker.call_args_list[1].args[0],
                              ["docker", "rm", "-f", "sha256:owned"])
 
+    def test_cleanup_does_not_credit_failed_remove_when_docker_self_removed(self):
+        entry = {"Id": "sha256:owned", "Name": "/exact-name",
+                 "Config": {"Labels": {"laomedo.run_id": "run-one",
+                                       "laomedo.launch_token": "token-one"}}}
+        responses = [subprocess.CompletedProcess([], 0, json.dumps([entry]), ""),
+                     subprocess.CompletedProcess([], 1, "", "No such object"),
+                     subprocess.CompletedProcess([], 1, "", "No such object: exact-name")]
+        with patch("laomedo.container_lease.subprocess.run", side_effect=responses):
+            self.assertEqual(cleanup_exact("exact-name", "run-one", "token-one"),
+                             (True, "absent"))
+
     def test_eof_runs_cleanup_after_ready_marker(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

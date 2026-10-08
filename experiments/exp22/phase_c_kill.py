@@ -320,7 +320,7 @@ def main():
                 evidence["startup_sweep_attempts"] != 1 or
                 evidence["runner_submitted_turns"] != 1):
             raise RuntimeError("kill_case_not_passed")
-        outcome = "kill_boundary_passed"
+        outcome = "kill_boundary_passed_cleanup_" + evidence["cleanup_attribution"]
     except Exception as error:
         outcome = str(error) if isinstance(error, RuntimeError) else type(error).__name__
         raise
@@ -366,7 +366,7 @@ def main():
             subprocess.run(["docker", "rm", "-f", lookalike],
                            capture_output=True, timeout=15)
         if attempt_id is not None:
-            if (outcome == "kill_boundary_passed" and
+            if (outcome.startswith("kill_boundary_passed_cleanup_") and
                     (not evidence["host_survived_until_teardown"] or
                      not evidence["teardown_all_containers_absent"] or
                      not evidence.get("continuity_lease_finished"))):

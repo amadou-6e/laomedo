@@ -150,7 +150,7 @@ def cleanup_exact(name: str, run_id: str, token: str) -> tuple[bool, str]:
         return False, "remove_unknown"
     after, _ = inspect_exact(name, run_id, token)
     if after == "absent":
-        return True, "removed"
+        return True, "removed" if result.returncode == 0 else "absent"
     return False, "remove_failed" if result.returncode else "still_present"
 
 
