@@ -86,6 +86,9 @@ def main():
         creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0))
     runner = None
     lookalike = None
+    lease_c = None
+    run_c = None
+    grant_c = None
     run_id = None
     request_id = None
     port = None
@@ -109,7 +112,7 @@ def main():
         lookalike = "laomedo-codex-lookalike-" + uuid4().hex
         started = subprocess.run([
             "docker", "run", "--rm", "-d", "--pull=never", "--network", "none",
-            "--name", lookalike, IMAGE, "sh", "-c", "sleep 120"],
+            "--name", lookalike, IMAGE, "sh", "-c", "sleep 600"],
             capture_output=True, timeout=15)
         if started.returncode != 0:
             raise RuntimeError("lookalike_start_failed")
@@ -136,6 +139,32 @@ def main():
                 time.sleep(.05)
         else:
             raise RuntimeError("runner_start_timeout")
+
+        # C's grant exists and heartbeats before B is submitted. Revoking B
+        # must not affect this already-live, unrelated scope.
+        run_c = str(uuid4())
+        reference_c = authority.approve(
+            invocation_id="phase-c-c-" + uuid4().hex,
+            repository="example/disposable", branch="phase-c-c",
+            operations={"pr_update"}, target_prs={7: "main"},
+            reviewed_by="bounded-local-phase-c")
+        scope_c = authority.bind_run(reference_c, run_c)
+        c_dir = runs / run_c
+        for folder in ("workspace", "bridge-spool", "bridge-responses"):
+            (c_dir / folder).mkdir(parents=True)
+        token_c = uuid4().hex
+        name_c = "laomedo-codex-" + uuid4().hex
+        record_c = {"run_id": run_c, "container_ownership": {
+            "name": name_c, "launch_token": token_c,
+            "supervised": True, "grant_id": None}}
+        (c_dir / "record.json").write_text(json.dumps(record_c), encoding="utf-8")
+        lease_c = LeaseClient(service_state / "lease", run_id=run_c,
+                              name=name_c, token=token_c,
+                              cancelled=threading.Event(),
+                              mediation_request=scope_c)
+        grant_c = lease_c.grant_id
+        record_c["container_ownership"]["grant_id"] = grant_c
+        (c_dir / "record.json").write_text(json.dumps(record_c), encoding="utf-8")
 
         reference = authority.approve(
             invocation_id="phase-c-b-" + uuid4().hex,
@@ -167,6 +196,8 @@ def main():
         auth_result, auth_index = shared._auth_read_result(shared._events(events_path))
         evidence["auth_read"] = auth_result
         evidence["auth_event_index"] = auth_index
+        if auth_result == "readable":
+            raise RuntimeError("login_readable_stop")
         if auth_result != "denied":
             raise RuntimeError("login_read_denial_unverified")
         kill_at = time.monotonic()
@@ -189,6 +220,9 @@ def main():
             result["cleanup_finished_at_monotonic"] - kill_at, 3)
         evidence["service_cleanup_state"] = result.get("state")
         evidence["service_cleanup_verified"] = result.get("cleanup_verified")
+        evidence["cleanup_attribution"] = (
+            "service" if result.get("state") in
+            {"removed", "removed_after_loss"} else "inconclusive")
         evidence["owned_container_state"] = inspect_exact(name, run_id, token)[0]
         evidence["lookalike_alive_after_kill"] = subprocess.run(
             ["docker", "inspect", lookalike], capture_output=True,
@@ -213,8 +247,8 @@ def main():
                             row.get("provider_called") is False for row in post_revoked)
             else "inconclusive")
 
-        # Reconstructing the runner sweeps the killed run. A separate
-        # credential-free run shows that the service still issues a fresh grant.
+        # Reconstructing the runner sweeps the killed run. C keeps the grant
+        # it received before B was submitted.
         restarted = LocalRunner(runner_state, state / "skills", shared.SOURCE,
                                 max_model_turns=1,
                                 lease_service=service_state / "lease",
@@ -223,42 +257,17 @@ def main():
                                 file_mediation=True)
         swept = restarted.status(run_id)
         evidence["startup_sweep_status"] = swept.get("status")
+        evidence["startup_sweep_error"] = swept.get("error_category")
         evidence["startup_sweep_attempts"] = swept.get("attempt_number")
-        reference_c = authority.approve(
-            invocation_id="phase-c-c-" + uuid4().hex,
-            repository="example/disposable", branch="phase-c-c",
-            operations={"pr_update"}, target_prs={7: "main"},
-            reviewed_by="bounded-local-phase-c")
-        prepared = restarted._prepare({
-            "task": "Credential-free B continuity control", "model": shared.MODEL,
-            "effort": shared.EFFORT,
-            "skill_ref": {"skill_id": "phase-c-boundary",
-                          "revision_id": skill["revision_id"],
-                          "tree_hash": skill["revision_id"]},
-            "github_authorization_ref": reference_c})
-        run_c = prepared["run_id"]
-        lease_token = uuid4().hex
-        lease_name = "laomedo-codex-" + uuid4().hex
-        prepared["container_ownership"] = {
-            "name": lease_name, "launch_token": lease_token,
-            "supervised": True, "cleanup_verified": False}
-        (runs / run_c / "record.json").write_text(json.dumps(prepared), encoding="utf-8")
-        lease_c = LeaseClient(service_state / "lease", run_id=run_c,
-                              name=lease_name, token=lease_token,
-                              cancelled=threading.Event(),
-                              mediation_request=prepared["github_scope"])
-        try:
-            prepared["container_ownership"]["grant_id"] = lease_c.grant_id
-            (runs / run_c / "record.json").write_text(
-                json.dumps(prepared), encoding="utf-8")
-            _fake_request(runs / run_c / "workspace", "phase-c-continuity-0",
-                          "phase-c-c", 7)
-            continuity = _wait_item(journal_path, "phase-c-continuity-0", 8)
-            evidence["other_run_continuity"] = (
-                continuity.get("run_id") == run_c and
-                continuity.get("state") == "confirmed")
-        finally:
-            lease_c.finish()
+        accepted_c = json.loads((service_state / "lease" / "leases" / token_c /
+                                 "accepted.json").read_text(encoding="utf-8"))
+        _fake_request(runs / run_c / "workspace", "phase-c-continuity-0",
+                      "phase-c-c", 7)
+        continuity = _wait_item(journal_path, "phase-c-continuity-0", 8)
+        evidence["other_run_continuity"] = (
+            accepted_c.get("grant_id") == grant_c and
+            continuity.get("run_id") == run_c and
+            continuity.get("state") == "confirmed")
 
         evidence["raw_event_sha256"] = shared._digest(events_path)
         receipts = shared._journal(service_state / "mediator" /
@@ -267,6 +276,21 @@ def main():
         evidence["provider_calls_after_revocation"] = sum(
             item.get("at_monotonic", 0) >= revoked["revoked_at_monotonic"]
             and item.get("number") == 8 for item in receipts)
+        b_rows = [row for row in shared._journal(journal_path) if
+                  row.get("run_id") == run_id and
+                  row.get("effect_id", "").startswith("phase-c-kill-")]
+        evidence["receipt_count_matches_confirmed"] = (
+            sum(item.get("number") == 8 for item in receipts) ==
+            sum(row.get("state") == "confirmed" and
+                row.get("provider_called") is True for row in b_rows))
+        unknown_seen = False
+        confirmed_after_unknown = False
+        for row in b_rows:
+            if row.get("state") == "unknown":
+                unknown_seen = True
+            elif unknown_seen and row.get("state") == "confirmed":
+                confirmed_after_unknown = True
+        evidence["confirmed_after_unknown"] = confirmed_after_unknown
         evidence["runner_submitted_turns"] = json.loads(
             (runner_state / "turn-ledger.json").read_text(encoding="utf-8")
             )["attempted_turns"]
@@ -280,7 +304,12 @@ def main():
                 evidence["host_control_provider_called"] is not False or
                 not evidence["other_run_continuity"] or
                 evidence["provider_calls_after_revocation"] != 0 or
-                evidence["startup_sweep_status"] not in {"interrupted", "failed"} or
+                not evidence["receipt_count_matches_confirmed"] or
+                evidence["confirmed_after_unknown"] or
+                evidence["startup_sweep_status"] != "interrupted" or
+                evidence["startup_sweep_error"] not in
+                    {"runner_restarted", "container_cleanup_unverified"} or
+                evidence["startup_sweep_attempts"] != 1 or
                 evidence["runner_submitted_turns"] != 1):
             raise RuntimeError("kill_case_not_passed")
         outcome = "kill_boundary_passed"
@@ -290,27 +319,50 @@ def main():
     finally:
         if runner is not None:
             shared._stop(runner, tree=True)
+        if lease_c is not None:
+            try:
+                lease_c.finish()
+                evidence["continuity_lease_finished"] = True
+            except (OSError, RuntimeError, ValueError):
+                evidence["continuity_lease_finished"] = False
         # If the kill occurred before a result was observed, keep the host up
         # until every registered lease gets its bounded cleanup chance.
+        teardown_leases = []
         for lease_path in (service_state / "lease" / "leases").glob("*/lease.json"):
+            detail = {"lease_result_present": False, "container_absent": False}
             try:
                 lease = json.loads(lease_path.read_text(encoding="utf-8"))
                 shared._wait(lease_path.parent / "result.json", 65)
+                detail["lease_result_present"] = True
                 name, token, lease_run = (lease.get("name"), lease.get("token"),
                                           lease.get("run_id"))
                 if all(isinstance(value, str) and value for value in
                        (name, token, lease_run)):
+                    detail["run_id"] = lease_run
                     container_state, _ = inspect_exact(name, lease_run, token)
                     if container_state != "absent":
-                        cleanup_exact(name, lease_run, token)
-            except (OSError, ValueError, RuntimeError):
-                pass
+                        verified, cleanup_detail = cleanup_exact(name, lease_run, token)
+                        detail["emergency_cleanup"] = cleanup_detail
+                        detail["container_absent"] = verified
+                    else:
+                        detail["container_absent"] = True
+            except (OSError, ValueError, RuntimeError) as error:
+                detail["error_type"] = type(error).__name__
+            teardown_leases.append(detail)
+        evidence["teardown_leases"] = teardown_leases
+        evidence["teardown_all_containers_absent"] = all(
+            item["container_absent"] for item in teardown_leases)
         evidence["host_survived_until_teardown"] = host.poll() is None
         shared._stop(host)
         if lookalike:
             subprocess.run(["docker", "rm", "-f", lookalike],
                            capture_output=True, timeout=15)
         if attempt_id is not None:
+            if (outcome == "kill_boundary_passed" and
+                    (not evidence["host_survived_until_teardown"] or
+                     not evidence["teardown_all_containers_absent"] or
+                     not evidence.get("continuity_lease_finished"))):
+                outcome = "kill_teardown_unverified"
             try:
                 _, evidence["budget_count_after"] = shared._budget_update(
                     attempt_id=attempt_id, result=outcome)
@@ -323,9 +375,11 @@ def main():
         host_log.close()
         runner_log.close()
     if not evidence.get("host_survived_until_teardown") or \
+            not evidence.get("teardown_all_containers_absent") or \
             evidence.get("budget_count_after") != attempt_number:
         raise RuntimeError("kill_teardown_unverified")
-    print(json.dumps({"kill_boundary": "passed",
+    print(json.dumps({"kill_boundary": "passed_at_bounded_scope",
+                      "cleanup_attribution": evidence.get("cleanup_attribution"),
                       "agent_post_revocation": evidence.get(
                           "agent_originated_post_revocation"),
                       "turns_used": 1, "run_id": run_id}))
