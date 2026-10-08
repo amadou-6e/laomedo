@@ -1,4 +1,4 @@
-"""Fail-closed controls for the unexecuted EXP-104 S9 live probe."""
+"""Fail-closed controls for the unexecuted EXP-104 S10 live probe."""
 
 import json
 import importlib.util
@@ -18,15 +18,29 @@ from laomedo.lease_service import LeaseService
 from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService
 
-_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s9_probe.py"
-_probe_spec = importlib.util.spec_from_file_location("exp104_s9_probe", _probe_path)
+_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s10_probe.py"
+_probe_spec = importlib.util.spec_from_file_location("exp104_s10_probe", _probe_path)
 if _probe_spec is None or _probe_spec.loader is None:
-    raise RuntimeError("s9_probe_unavailable")
+    raise RuntimeError("s10_probe_unavailable")
 probe = importlib.util.module_from_spec(_probe_spec)
 _probe_spec.loader.exec_module(probe)
 
 
-class S9ProbeTests(unittest.TestCase):
+class S10ProbeTests(unittest.TestCase):
+    def test_host_python_process_has_direct_identity_and_source_import(self):
+        root = _probe_path.parents[2]
+        child = subprocess.Popen([
+            probe._direct_python(), "-c",
+            "import os,laomedo.host_services; "
+            "print(os.getpid()); print(laomedo.host_services.__file__)"],
+            cwd=root, env=probe._host_environment(), stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True)
+        output, errors = child.communicate(timeout=10)
+        self.assertEqual(child.returncode, 0, errors)
+        lines = output.splitlines()
+        self.assertEqual(int(lines[0]), child.pid)
+        self.assertTrue(Path(lines[1]).resolve().is_relative_to(root / "laomedo"))
+
     def test_agent_process_environment_drops_host_token_override(self):
         with patch.dict(os.environ, {"GH_LAOMEDO": "synthetic-provider-token",
                                   "LAOMEDO_MEDIATED_GIT_TOKEN": "another-secret"}):
@@ -85,7 +99,7 @@ class S9ProbeTests(unittest.TestCase):
 
     def test_reviewed_source_refuses_uncommitted_change(self):
         with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
-                [], 0, b" M experiments/exp104/s9_probe.py\n", b"")), \
+                [], 0, b" M experiments/exp104/s10_probe.py\n", b"")), \
              self.assertRaisesRegex(RuntimeError, "reviewed_source_not_clean"):
             probe._require_clean_source(Path("synthetic"))
         with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
@@ -134,7 +148,7 @@ class S9ProbeTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt" and
                          os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",
                          "requires pinned image and Windows Docker Desktop route")
-    def test_s9_runner_uses_its_mounted_capability_with_synthetic_provider(self):
+    def test_s10_runner_uses_its_mounted_capability_with_synthetic_provider(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
             (state / "mediator").mkdir()
@@ -157,7 +171,7 @@ class S9ProbeTests(unittest.TestCase):
             lease_thread = threading.Thread(target=lease.serve, daemon=True)
             mediator_thread.start()
             lease_thread.start()
-            local_name = "laomedo-s9-synthetic-" + str(os.getpid())
+            local_name = "laomedo-s10-synthetic-" + str(os.getpid())
             runner = None
             try:
                 probe._wait(state / "lease" / "service.json", 5)
@@ -168,7 +182,7 @@ class S9ProbeTests(unittest.TestCase):
                 authority.bind_run(reference, probe.RUNS["a"])
                 script = (
                     "from pathlib import Path; "
-                    "from experiments.exp104 import s9_probe as p; "
+                    "from experiments.exp104 import s10_probe as p; "
                     f"p.NAMES['a']={local_name!r}; "
                     "p._agent_runner(Path(__import__('sys').argv[1]), 'a', "
                     "Path(__import__('sys').argv[2]))"

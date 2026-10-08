@@ -64,6 +64,7 @@ def serve_services(lease: LeaseService, mediator: MediationHTTPService,
     pending = status.with_suffix(".pending")
     pending.write_text(json.dumps({
         "pid": os.getpid(), "port": mediator.port,
+        "module_root": str(Path(__file__).resolve().parent),
         "instance": mediator.instance, "started_at": time.time(),
         "connection_id": connection_id,
         "generation": connection_generation,

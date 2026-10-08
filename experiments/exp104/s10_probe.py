@@ -1,4 +1,4 @@
-"""Single-use, no-model EXP-104 S9 runner-loss probe.
+"""Single-use, no-model EXP-104 S10 runner-loss probe.
 
 This module must be reviewed at an exact commit before ``--run`` is used.
 It never retries a provider mutation after an uncertain result. The selected
@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import sysconfig
 import threading
 import time
 from urllib import error, request
@@ -43,7 +44,7 @@ _stop = _helpers._stop
 _wait = _helpers._wait
 
 
-IDENTITY = "exp104-s9-20261008-01"
+IDENTITY = "exp104-s10-20261008-01"
 CONNECTION_ID = IDENTITY + "-connection"
 GENERATION = 1
 BRANCHES = {side: IDENTITY + "-" + side for side in ("a", "b")}
@@ -53,11 +54,26 @@ LEASES = {side: IDENTITY + "-lease-" + side for side in ("a", "b")}
 NAMES = {side: "laomedo-" + IDENTITY + "-" + side for side in ("a", "b")}
 
 
+def _direct_python() -> str:
+    return getattr(sys, "_base_executable", sys.executable)
+
+
+def _source_pythonpath() -> str:
+    return os.pathsep.join((str(Path(__file__).resolve().parents[2]),
+                            sysconfig.get_path("purelib")))
+
+
+def _host_environment() -> dict[str, str]:
+    environment = _base_git_environment()
+    environment["PYTHONPATH"] = _source_pythonpath()
+    return environment
+
+
 def _agent_environment() -> dict[str, str]:
     environment = _base_git_environment()
     environment.pop("GH_LAOMEDO", None)
     environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
-    environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
+    environment["PYTHONPATH"] = _source_pythonpath()
     return environment
 
 
@@ -66,7 +82,7 @@ def _read_list(token: str, path: str) -> list[dict]:
         "Authorization": "Bearer " + token,
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "laomedo-exp104-s9/0.1",
+        "User-Agent": "laomedo-exp104-s10/0.1",
     })
     with request.urlopen(call, timeout=15) as response:
         value = json.load(response)
@@ -134,10 +150,10 @@ def _prepare_commits(checkout: Path) -> dict[str, str]:
     commits = {}
     for side in ("a", "b"):
         _git("checkout", "--quiet", "--detach", BASELINE, cwd=checkout)
-        marker = checkout / ("exp104-s9-" + side + ".txt")
+        marker = checkout / ("exp104-s10-" + side + ".txt")
         marker.write_text(MARKERS[side] + "\n", encoding="utf-8", newline="\n")
         _git("add", marker.name, cwd=checkout)
-        _git("commit", "-qm", "EXP-104 S9 disposable " + side, cwd=checkout)
+        _git("commit", "-qm", "EXP-104 S10 disposable " + side, cwd=checkout)
         commits[side] = _git("rev-parse", "HEAD", cwd=checkout)
     return commits
 
@@ -357,12 +373,17 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                            "--connection-id", CONNECTION_ID,
                            "--connection-generation", str(GENERATION),
                            "--token-file", str(token_file), "--token-key", "GH_LAOMEDO",
-                           cwd=root)
+                           cwd=root, executable=_direct_python(),
+                           environment=_host_environment())
         mediator = _wait(state / "mediator" / "mediator.json")
         lease_service = _wait(state / "lease" / "service.json")
         if (mediator.get("pid") != service.pid or lease_service.get("pid") != service.pid or
+                mediator.get("module_root") != module_root or
                 not isinstance(mediator.get("instance"), str)):
             raise RuntimeError("host_service_identity_mismatch")
+        record["host_service"] = {"pid": service.pid,
+                                  "module_root": mediator["module_root"]}
+        save()
         authority = RunGrantAuthority(state / "authority.sqlite",
                                       connection_authorizer=connection.authorize)
         for side in ("a", "b"):
@@ -412,12 +433,12 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
         launch_options = ({"creationflags": subprocess.CREATE_NO_WINDOW}
                           if os.name == "nt" else {"start_new_session": True})
         runner_a = subprocess.Popen(
-            [sys.executable, *runner_args, "--side", "a", "--ready",
+            [_direct_python(), *runner_args, "--side", "a", "--ready",
              str(state / "runner-a.json")], env=_agent_environment(),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL, cwd=root, **launch_options)
         runner_b = subprocess.Popen(
-            [sys.executable, *runner_args, "--side", "b", "--ready",
+            [_direct_python(), *runner_args, "--side", "b", "--ready",
              str(state / "runner-b.json")], env=_agent_environment(),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL, cwd=root, **launch_options)
@@ -439,7 +460,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                              for side in ("a", "b"))
         record["exposure_scan"] = _scan_agent_exposure(state, provider_token, capabilities)
         save()
-        title_a = "EXP-104 S9 A " + IDENTITY
+        title_a = "EXP-104 S10 A " + IDENTITY
         payload_a = {"title": title_a, "body": MARKERS["a"],
                      "head": BRANCHES["a"], "base": "main", "marker": MARKERS["a"]}
         before = _journal_count(state)
@@ -494,7 +515,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
             raise RuntimeError("runner_a_cleanup_unverified")
         record["runner_a_result"] = a_result
         save()
-        title_b = "EXP-104 S9 B " + IDENTITY
+        title_b = "EXP-104 S10 B " + IDENTITY
         payload_b = {"title": title_b, "body": MARKERS["b"],
                      "head": BRANCHES["b"], "base": "main", "marker": MARKERS["b"]}
         before = _journal_count(state)
