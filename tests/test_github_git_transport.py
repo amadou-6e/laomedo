@@ -77,6 +77,33 @@ class GitHubGitTransportTests(unittest.TestCase):
         self.assertNotIn("GCM_TEST", options["env"])
         self.assertEqual(options["timeout"], GIT_COMMAND_TIMEOUT_SECONDS)
 
+    def test_old_git_cannot_inherit_host_global_config_or_trace(self):
+        hostile_home = self.checkout / "host-home"
+        hostile_home.mkdir()
+        global_trace = self.checkout / "global-trace.log"
+        inherited_trace = self.checkout / "inherited-trace.log"
+        (hostile_home / ".gitconfig").write_text(
+            "[trace2]\n\tnormalTarget = " + global_trace.as_posix() + "\n",
+            encoding="utf-8")
+        ambient = os.environ.copy()
+        ambient.update({"HOME": str(hostile_home), "USERPROFILE": str(hostile_home),
+                        "XDG_CONFIG_HOME": str(hostile_home),
+                        "GIT_TRACE": str(inherited_trace)})
+        ambient.pop("GIT_CONFIG_GLOBAL", None)
+        control = subprocess.run(["git", "-C", str(self.checkout), "status",
+                                  "--porcelain"], env=ambient, check=False,
+                                 capture_output=True)
+        self.assertEqual(control.returncode, 0, control.stderr)
+        self.assertTrue(global_trace.exists(), "host config control did not fire")
+        self.assertTrue(inherited_trace.exists(), "inherited trace control did not fire")
+        global_trace.unlink()
+        inherited_trace.unlink()
+        with patch.dict(os.environ, ambient):
+            checked = self.transport._git("status", "--porcelain")
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertFalse(global_trace.exists())
+        self.assertFalse(inherited_trace.exists())
+
     def test_staging_timeout_refuses_push_before_credential(self):
         def timed_out_fetch(args, **kwargs):
             if "fetch" in args:

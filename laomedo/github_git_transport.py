@@ -174,10 +174,19 @@ class GitHubGitTransport:
         self.run = _run_bounded_tree if run is subprocess.run else run
 
     def _run_git(self, directory: Path, *args: str, env: dict | None = None):
-        return self.run(["git", "-C", str(directory), *args],
-                        capture_output=True, check=False,
-                        timeout=GIT_COMMAND_TIMEOUT_SECONDS,
-                        env=env if env is not None else _base_git_environment())
+        # Git 2.31 on Windows does not honor GIT_CONFIG_GLOBAL. Isolate both
+        # home-based config locations for each child command, including the
+        # credential helper, rather than relying on that override alone.
+        with tempfile.TemporaryDirectory(prefix="laomedo-git-home-") as home:
+            isolated = (env if env is not None else _base_git_environment()).copy()
+            isolated.update({"HOME": home, "USERPROFILE": home,
+                             "XDG_CONFIG_HOME": home})
+            isolated.pop("HOMEDRIVE", None)
+            isolated.pop("HOMEPATH", None)
+            return self.run(["git", "-C", str(directory), *args],
+                            capture_output=True, check=False,
+                            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+                            env=isolated)
 
     def _git(self, *args: str, env: dict | None = None):
         return self._run_git(self.checkout, *args, env=env)
