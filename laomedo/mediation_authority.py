@@ -135,6 +135,7 @@ class RunGrantAuthority:
                 return None
             db.execute("UPDATE authorizations SET lease_token=? WHERE run_id=?", (token, run_id))
             return {**expected, "operations": set(json.loads(row["operations"])),
+                    "approval_identity": row["reviewed_by"],
                     "connection_id": row["connection_id"],
                     "connection_generation": row["connection_generation"],
                     "target_prs": {int(number): base for number, base in

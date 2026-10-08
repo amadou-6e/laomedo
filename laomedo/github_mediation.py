@@ -147,13 +147,16 @@ class MediationStore:
                     repository TEXT NOT NULL, operations TEXT NOT NULL,
                     branch TEXT, reviewed_issue_hashes TEXT NOT NULL,
                     expires_at REAL NOT NULL, revoked_at REAL,
-                    connection_id TEXT, connection_generation INTEGER);
+                    connection_id TEXT, connection_generation INTEGER,
+                    approval_identity TEXT);
                 CREATE TABLE IF NOT EXISTS effects (
                     run_id TEXT NOT NULL, effect_id TEXT NOT NULL,
                     request_hash TEXT NOT NULL, repository TEXT NOT NULL,
                     operation TEXT NOT NULL, target_key TEXT NOT NULL,
                     state TEXT NOT NULL,
                     result_json TEXT, error_code TEXT,
+                    grant_id TEXT, invocation_id TEXT,
+                    approval_identity TEXT,
                     PRIMARY KEY(run_id,effect_id));
                 CREATE TABLE IF NOT EXISTS retry_approvals (
                     prior_run_id TEXT NOT NULL, prior_effect_id TEXT NOT NULL,
@@ -173,10 +176,16 @@ class MediationStore:
                 db.execute("ALTER TABLE grants ADD COLUMN connection_id TEXT")
             if "connection_generation" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN connection_generation INTEGER")
+            if "approval_identity" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN approval_identity TEXT")
             if "issued_monotonic" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN issued_monotonic REAL")
             if "expires_monotonic" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN expires_monotonic REAL")
+            effect_columns = {row[1] for row in db.execute("PRAGMA table_info(effects)")}
+            for name in ("grant_id", "invocation_id", "approval_identity"):
+                if name not in effect_columns:
+                    db.execute(f"ALTER TABLE effects ADD COLUMN {name} TEXT")
             # An old grant has no monotonic proof of its remaining lifetime.
             # Leaving these columns NULL makes every old grant fail closed.
 
@@ -187,6 +196,7 @@ class MediationStore:
 
     def issue(self, *, run_id: str, invocation_id: str, repository: str,
               operations: set[str], ttl_seconds: float, branch: str | None = None,
+              approval_identity: str | None = None,
               reviewed_issue_requests: dict[str, dict] | None = None,
               lease_token: str | None = None, lease_scope: str | None = None,
               service_instance: str | None = None,
@@ -199,6 +209,8 @@ class MediationStore:
         target_prs = target_prs or {}
         if (not all(isinstance(v, str) and v for v in (run_id, invocation_id, repository)) or
                 not isinstance(operations, set) or not operations or
+                (approval_identity is not None and
+                 (not isinstance(approval_identity, str) or not approval_identity)) or
                 not operations <= OPERATIONS or not 0 < ttl_seconds <= 60 or
                 (operations & {"git_push", "pr_create"} and not branch) or
                 (branch is not None and (not isinstance(branch, str) or not branch)) or
@@ -244,13 +256,14 @@ class MediationStore:
             db.execute("""INSERT INTO grants
                 (token_hash,grant_id,run_id,invocation_id,repository,operations,
                  branch,reviewed_issue_hashes,expires_at,revoked_at,
-                  connection_id,connection_generation,issued_monotonic,expires_monotonic)
-                 VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?,?)""",
+                  connection_id,connection_generation,issued_monotonic,expires_monotonic,
+                  approval_identity)
+                 VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?,?,?)""",
                        (sha256(token.encode()).hexdigest(), grant_id, run_id,
                         invocation_id, repository, json.dumps(sorted(operations)), branch,
                         json.dumps(reviewed_hashes, sort_keys=True),
                          expiry, connection_id, connection_generation,
-                         issued_monotonic, expiry_monotonic))
+                         issued_monotonic, expiry_monotonic, approval_identity))
             if lease_token is not None:
                 db.execute("INSERT INTO lease_bindings VALUES (?,?,?,?,?)",
                            (grant_id, run_id, lease_token, lease_scope, service_instance))
@@ -458,9 +471,13 @@ class MediationStore:
                     db.execute("UPDATE retry_approvals SET used_at=? WHERE next_run_id=? "
                                "AND next_effect_id=? AND used_at IS NULL",
                                (self.now(), grant["run_id"], effect_id))
-                db.execute("INSERT INTO effects VALUES (?,?,?,?,?,?,'unknown',NULL,NULL)",
+                db.execute("""INSERT INTO effects
+                    (run_id,effect_id,request_hash,repository,operation,target_key,
+                     state,result_json,error_code,grant_id,invocation_id,approval_identity)
+                    VALUES (?,?,?,?,?,?,'unknown',NULL,NULL,?,?,?)""",
                            (grant["run_id"], effect_id, digest, repository,
-                            operation, target_key))
+                            operation, target_key, grant["grant_id"],
+                            grant["invocation_id"], grant["approval_identity"]))
         # The intent is committed before entering the untrusted remote call.
         # After any ambiguous failure, an exact repeat returns unknown.
         try:

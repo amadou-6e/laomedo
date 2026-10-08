@@ -277,6 +277,7 @@ class LeaseService:
                 run_id=lease["run_id"], invocation_id=scope["invocation_id"],
                 repository=scope["repository"], branch=scope["branch"],
                 operations=scope["operations"],
+                approval_identity=scope.get("approval_identity"),
                 connection_id=scope.get("connection_id"),
                 connection_generation=scope.get("connection_generation"),
                 target_prs=scope.get("target_prs", {}),

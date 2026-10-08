@@ -276,8 +276,8 @@ class MediatedLeaseTests(unittest.TestCase):
             {"run_id": "a", "token": "lease-b"}, scope))
 
     def test_service_issues_only_trusted_pr_target(self):
-        _, _, token = self.register("a", "lease-a", operations={"pr_update"},
-                                    target_prs={7: "main"})
+        _, accepted, token = self.register("a", "lease-a", operations={"pr_update"},
+                                           target_prs={7: "main"})
         payload = {"number": 999, "head": "branch-a", "base": "main", "marker": "m"}
         with self.assertRaisesRegex(MediationError, "target_pr_denied"):
             self.store.invoke(token=token, repository="example/disposable",
@@ -289,6 +289,12 @@ class MediatedLeaseTests(unittest.TestCase):
                                    operation="pr_update", payload=payload,
                                    effect_id="approved-pr", transport=lambda *_: {"ok": True})
         self.assertEqual(result["state"], "confirmed")
+        with closing(sqlite3.connect(self.store.path)) as db:
+            record = db.execute(
+                "SELECT grant_id,invocation_id,approval_identity FROM effects "
+                "WHERE run_id=? AND effect_id=?", ("a", "approved-pr")).fetchone()
+        self.assertEqual(record, (accepted["grant_id"], "invocation-a",
+                                  "test-operator"))
 
     def test_lease_service_failure_still_expires_at_use(self):
         _, _, token_a = self.register("a", "lease-a")

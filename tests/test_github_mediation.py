@@ -65,6 +65,37 @@ class MediationTests(unittest.TestCase):
             token, "git_push", {"branch": "run-a-branch", "commit": "b" * 40}, "effect-1"))
         self.assertEqual(len(self.calls), 1)
 
+    def test_legacy_effect_table_adds_attribution_without_rewriting_history(self):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("DROP TABLE effects")
+            db.execute("""CREATE TABLE effects (
+                run_id TEXT NOT NULL, effect_id TEXT NOT NULL,
+                request_hash TEXT NOT NULL, repository TEXT NOT NULL,
+                operation TEXT NOT NULL, target_key TEXT NOT NULL,
+                state TEXT NOT NULL, result_json TEXT, error_code TEXT,
+                PRIMARY KEY(run_id,effect_id))""")
+            db.execute("INSERT INTO effects VALUES (?,?,?,?,?,?,?,?,?)",
+                       ("historic", "old", "hash", REPO, "pr_create", "target",
+                        "unknown", None, None))
+        reopened = MediationStore(self.path, now=lambda: self.clock[0])
+        _, token = reopened.issue(
+            run_id="new", invocation_id="new-invocation", repository=REPO,
+            operations={"pr_create"}, branch="new-branch", ttl_seconds=60,
+            approval_identity="test-operator")
+        result = reopened.invoke(
+            token=token, repository=REPO, operation="pr_create",
+            payload={"head": "new-branch", "base": "main", "marker": "new"},
+            effect_id="new", transport=self.transport)
+        self.assertEqual(result["state"], "confirmed")
+        with closing(sqlite3.connect(self.path)) as db:
+            rows = db.execute(
+                "SELECT run_id,grant_id,invocation_id,approval_identity FROM effects "
+                "ORDER BY run_id").fetchall()
+        self.assertEqual(rows[0], ("historic", None, None, None))
+        self.assertEqual(rows[1][0], "new")
+        self.assertEqual(rows[1][2:], ("new-invocation", "test-operator"))
+        self.assertTrue(rows[1][1])
+
     def test_slow_workflow_classification_does_not_lock_lease_renewal(self):
         started = threading.Event()
         release = threading.Event()
