@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import socket
+import stat
 import subprocess
 import tempfile
 import threading
@@ -234,6 +235,7 @@ class BundleTransferTests(unittest.TestCase):
         hook = self.agent / ".git" / "hooks" / "pre-commit"
         sentinel = self.agent / "hook-sentinel.txt"
         hook.write_bytes(b"#!/bin/sh\necho fired > hook-sentinel.txt\n")
+        hook.chmod(hook.stat().st_mode | stat.S_IXUSR)
         self._git(self.agent, "commit", "--allow-empty", "--quiet", "-m", "control")
         self.assertTrue(sentinel.exists(), "hook positive control did not fire")
         sentinel.unlink()
