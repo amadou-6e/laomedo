@@ -73,6 +73,9 @@ def main():
     skill = SkillStore(state / "skills").import_skill(
         "phase-c-boundary", shared.SKILL)
     pins = {"protocol": shared._digest(shared.PROTOCOL),
+            "detached_amendment": shared._digest(
+                shared.ROOT / "experiments" / "exp22" /
+                "PHASE-C-DETACHED-AMENDMENT.md"),
             "task": shared._digest(shared.TASKS),
             "prompt_b": shared._digest(PROMPT),
             "skill": shared._digest(shared.SKILL / "SKILL.md"),
@@ -81,6 +84,10 @@ def main():
                                       "file_mediation_client.mjs"),
             "bridge": shared._digest(shared.ROOT / "laomedo" /
                                       "file_mediation_bridge.py"),
+            "fake_host": shared._digest(shared.ROOT / "experiments" /
+                                        "exp22" / "phase_c_fake_host.py"),
+            "runner": shared._digest(shared.ROOT / "laomedo" /
+                                     "local_runner.py"),
             "implementation": subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], cwd=shared.ROOT, text=True).strip(),
             "model": shared.MODEL, "effort": shared.EFFORT,
