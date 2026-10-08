@@ -43,6 +43,8 @@ MEDIATION_CLIENT = Path(__file__).resolve().parent / "agent_mediation_client.mjs
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 MAX_BODY = 64 * 1024
+MAX_GIT_WORKSPACE_SNAPSHOT_BYTES = 64 * 1024 * 1024
+MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES = 10000
 NATIVE_ERROR_KINDS = frozenset({
     "contextWindowExceeded", "sessionBudgetExceeded", "usageLimitExceeded",
     "rateLimitExceeded", "flexUnavailable", "serverOverloaded", "cyberPolicy",
@@ -112,6 +114,7 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
         raise RunnerError("invalid_workspace")
     files = {}
     directories = []
+    total_bytes = 0
     for parent, dirs, names in os.walk(path, followlinks=False):
         if exclude_root_git and Path(parent) == path:
             dirs[:] = [name for name in dirs if name.casefold() != ".git"]
@@ -126,9 +129,18 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
             if item.is_file():
                 if item.stat().st_nlink != 1:
                     raise RunnerError("unsafe_workspace_entry")
+                if exclude_root_git:
+                    total_bytes += item.stat().st_size
+                    if (total_bytes > MAX_GIT_WORKSPACE_SNAPSHOT_BYTES or
+                            len(files) + len(directories) >=
+                            MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES):
+                        raise RunnerError("git_workspace_snapshot_limit")
                 files[item.relative_to(path).as_posix()] = item.read_bytes()
             else:
                 directories.append(item.relative_to(path).as_posix())
+                if exclude_root_git and len(files) + len(directories) > \
+                        MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES:
+                    raise RunnerError("git_workspace_snapshot_limit")
     digest = hashlib.sha256()
     for relative in sorted(directories):
         encoded = relative.encode("utf-8")

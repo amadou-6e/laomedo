@@ -599,6 +599,14 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(resumed["status"], "completed")
         self.assertTrue((run_dir / "workspace" / ".git").is_dir())
 
+    def test_git_workspace_snapshot_refuses_oversized_file_before_reading_it(self):
+        root = self.root / "oversized"
+        root.mkdir()
+        with (root / "oversized.bin").open("wb") as stream:
+            stream.truncate(65 * 1024 * 1024)
+        with self.assertRaisesRegex(RunnerError, "git_workspace_snapshot_limit"):
+            _hash_tree(root, exclude_root_git=True)
+
     def auth_headers(self, *, content_type="application/json"):
         return {"Authorization": "Bearer " + self.runner.api_token,
                 "Content-Type": content_type}
