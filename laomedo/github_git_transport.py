@@ -177,7 +177,8 @@ class GitHubGitTransport:
         # Git 2.31 on Windows does not honor GIT_CONFIG_GLOBAL. Isolate both
         # home-based config locations for each child command, including the
         # credential helper, rather than relying on that override alone.
-        with tempfile.TemporaryDirectory(prefix="laomedo-git-home-") as home:
+        with tempfile.TemporaryDirectory(prefix="laomedo-git-home-",
+                                         ignore_cleanup_errors=True) as home:
             isolated = (env if env is not None else _base_git_environment()).copy()
             isolated.update({"HOME": home, "USERPROFILE": home,
                              "XDG_CONFIG_HOME": home})

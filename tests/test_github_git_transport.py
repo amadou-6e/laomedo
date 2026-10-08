@@ -14,6 +14,7 @@ from laomedo.github_git_transport import (GitHubGitTransport,
                                           PushOutcomeUnknown,
                                           GIT_COMMAND_TIMEOUT_SECONDS,
                                           GitTreeTimeout,
+                                          _credential_environment,
                                           _run_bounded_tree)
 from laomedo.github_mediation import KnownRejected
 from laomedo.github_mediation import MediationStore
@@ -103,6 +104,28 @@ class GitHubGitTransportTests(unittest.TestCase):
         self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertFalse(global_trace.exists())
         self.assertFalse(inherited_trace.exists())
+
+    def test_isolated_git_home_keeps_only_mediated_credential_helper(self):
+        environment, helper = _credential_environment("synthetic-only")
+        homes = []
+
+        def fill_with_input(args, **options):
+            homes.append(options["env"]["HOME"])
+            self.assertEqual(options["env"]["USERPROFILE"], homes[-1])
+            self.assertEqual(options["env"]["XDG_CONFIG_HOME"], homes[-1])
+            return subprocess.run(
+                args, input=b"protocol=https\nhost=github.com\n\n",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                env=options["env"], timeout=options["timeout"], check=False)
+
+        self.transport.run = fill_with_input
+        filled = self.transport._git("-c", "credential.helper=", "-c",
+                                     "credential.helper=" + helper,
+                                     "credential", "fill", env=environment)
+        self.assertEqual(filled.returncode, 0, filled.stderr)
+        self.assertIn(b"password=synthetic-only", filled.stdout)
+        self.assertEqual(len(homes), 1)
+        self.assertFalse(Path(homes[0]).exists())
 
     def test_staging_timeout_refuses_push_before_credential(self):
         def timed_out_fetch(args, **kwargs):
