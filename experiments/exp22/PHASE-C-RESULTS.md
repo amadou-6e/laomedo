@@ -1,5 +1,7 @@
 # EXP-22/93 Phase C: bounded local results
 
+For the later third-turn detached-stage attempt, see [the separate result](PHASE-C-DETACHED-RESULTS.md). This file preserves the original two-turn observation.
+
 The [frozen protocol](PHASE-C-PROTOCOL.md), [file bridge design](PHASE-C-FILE-BRIDGE.md), and committed probes preceded the model turns. This result is for the single-user local Codex runner with a fake GitHub transport. No real GitHub credential or write was used. The private Codex subscription login was reused under the user's bounded approval; its profile was mounted in the agent container, so this does not establish controller-only credential isolation.
 
 Two `turn/start` submissions were made against the new four-turn cap, including all timeouts. The private ledger is `%LOCALAPPDATA%/Laomedo/exp22-phase-c-turns.json` and records **2/4**. No retry or further turn is needed for this result. The image, source, skill, prompts and model inputs are recorded in private `pins.json` files under the two run directories. The model was `gpt-6-luna` at low effort. The implementation under test was committed before each turn: `2dcb19b` for active cancellation and `e054a98` for the runner-tree kill. The second commit includes the final, bounded cleanup classification.
