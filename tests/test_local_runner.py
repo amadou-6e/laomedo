@@ -809,7 +809,7 @@ class LocalRunnerTests(unittest.TestCase):
         cancelled = threading.Event()
         cancelled.set()
         self.assertEqual(app.wait_turn("turn-test", .05, cancelled),
-                         ("cancelled", "cancelled_by_user"))
+                         ("cancelled", "cancel_native_unconfirmed"))
         self.assertTrue(app.interrupt_acknowledged)
         self.assertIsNone(getattr(app, "native_completion_status", None))
         app.request.assert_called_once_with("turn/interrupt", {
@@ -914,7 +914,7 @@ class LocalRunnerTests(unittest.TestCase):
             self.assertEqual(response.status, 202)
             self.assertTrue(json.load(response)["cancel_requested"])
         submitting.join(3)
-        self.assertEqual(result["status"], "cancelled")
+        self.assertEqual(result["status"], "cancelled", result)
         self.assertEqual(result["run_id"], run_dir.name)
         self.assertIn("item/started", (run_dir / "raw-events.jsonl").read_text())
 
@@ -944,6 +944,18 @@ class LocalRunnerTests(unittest.TestCase):
                          ("cancelled", "cancelled_by_user"))
         self.assertTrue(server.interrupt_acknowledged)
         self.assertEqual(server.native_completion_status, "interrupted")
+
+    def test_supervised_pre_dispatch_cancel_returns_without_cleanup(self):
+        prepared = self.runner._prepare(self.request(),
+                                        client_request_id="pre-dispatch-cancel")
+        run_id = prepared["run_id"]
+        self.runner.supervise_containers = True
+        self.runner.cancel(run_id)
+        result = self.runner._execute(run_id, "unused", resume=False)
+        self.assertEqual(result["status"], "cancelled", result)
+        self.assertTrue(result["cancel_confirmed"])
+        self.assertEqual(result["error_category"], "cancelled_before_dispatch")
+        self.assertNotIn("container_ownership", result)
 
 
 if __name__ == "__main__":

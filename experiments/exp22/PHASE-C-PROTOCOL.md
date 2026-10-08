@@ -21,7 +21,11 @@ not spend them here. No Phase C model turns are authorized by this file.
   skills, personal checkout, host `gh` login, Git Credential Manager, or GitHub
   token may enter the agent container. Record only nonsecret credential mode
   and outcome. Obtain an explicit decision for this exact custody mode before
-  copying or using the subscription login.
+  copying or using the subscription login. The preflight `command/exec`
+  `auth_read` result alone does not prove an agent tool call uses the same
+  policy. The first approved model turn must attempt an agent-originated read
+  of `auth.json`, record a denial without printing its contents, and confirm
+  tool-call network access to the scoped mediator. Stop on a readable login.
 - Start the lease/mediator process independently of the runner's process tree.
   Use a fake, credential-free transport with an append-only receipt for one
   disposable operation. The container receives only its run-scoped mediator
@@ -68,7 +72,11 @@ not spend them here. No Phase C model turns are authorized by this file.
    lease detection, grant revocation, post-revocation request and exact
    container removal. Record the source of each timestamp and distinguish
    lease-service `removed` from `already absent` after the Docker client exits.
-   Only the former proves service-attributed cleanup. The post-revocation
+   Only the former proves service-attributed cleanup. If the container is
+   already absent or the agent loop stops before a post-revocation request,
+   classify service-attributed cleanup or agent-originated denial as
+   inconclusive, respectively; do not promote a host-side denial to either
+   claim. The post-revocation
    request must be a new effect in the
    already approved scope, not a retry of an unknown effect. Verify no new
    fake-provider receipt, B remains usable, the lookalike survives, and the

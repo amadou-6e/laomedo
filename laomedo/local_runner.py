@@ -345,12 +345,12 @@ class AppServer:
                 msg = self.messages.get(timeout=min(.25, deadline - time.monotonic()))
             except queue.Empty:
                 if self.process.poll() is not None:
-                    return (("cancelled", "cancelled_by_user") if interrupt_sent else
+                    return (("cancelled", "cancel_native_unconfirmed") if interrupt_sent else
                             ("failed", "app_server_exited"))
                 continue
             self.events.append(msg)
         if interrupt_sent:
-            return "cancelled", "cancelled_by_user"
+            return "cancelled", "cancel_native_unconfirmed"
         self.interrupt(turn_id)
         return "timeout", "turn_timeout"
 
@@ -1202,11 +1202,13 @@ class LocalRunner:
             raise RunnerError("runner_busy")
         run_dir, record, cancelled, server, lease = None, None, None, None, None
         launch_attempted = False
+        already_cancelled = False
         try:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
                 record = self.status(run_id)
                 if record["status"] == "cancelled" and record.get("cancel_confirmed"):
+                    already_cancelled = True
                     return record
                 if (not resume and record["status"] != "prepared") or (
                         resume and record["status"] != "completed"):
@@ -1438,7 +1440,8 @@ class LocalRunner:
                     record.update(status="failed", error_category="container_termination_unverified")
             finally:
                 try:
-                    if record is not None and self.supervise_containers and not launch_attempted:
+                    if (record is not None and not already_cancelled and
+                            self.supervise_containers and not launch_attempted):
                         verified, detail = True, "not_launched"
                         if lease is not None:
                             try:
@@ -1450,7 +1453,7 @@ class LocalRunner:
                         if not verified:
                             record.update(status="failed",
                                           error_category="container_termination_unverified")
-                    elif record is not None and self.supervise_containers:
+                    elif record is not None and not already_cancelled and self.supervise_containers:
                         verified, detail = cleanup_exact(name, run_id, launch_token)
                         if lease is not None:
                             try:
@@ -1469,12 +1472,13 @@ class LocalRunner:
                                           error_category="container_termination_unverified")
                     with self.control_lock:
                         if record is not None:
-                            record["cancel_confirmed"] = bool(
-                                record.get("status") == "cancelled" and
-                                not close_error and
-                                (not self.supervise_containers or
-                                 record.get("container_ownership", {}).get(
-                                     "cleanup_verified")))
+                            if not already_cancelled:
+                                record["cancel_confirmed"] = bool(
+                                    record.get("status") == "cancelled" and
+                                    not close_error and
+                                    (not self.supervise_containers or
+                                     record.get("container_ownership", {}).get(
+                                         "cleanup_verified")))
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             _json(run_dir / "record.json", record)
