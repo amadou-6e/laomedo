@@ -1,4 +1,4 @@
-"""Single-use, no-model EXP-104 S8 runner-loss probe.
+"""Single-use, no-model EXP-104 S9 runner-loss probe.
 
 This module must be reviewed at an exact commit before ``--run`` is used.
 It never retries a provider mutation after an uncertain result. The selected
@@ -43,7 +43,7 @@ _stop = _helpers._stop
 _wait = _helpers._wait
 
 
-IDENTITY = "exp104-s8-20261008-01"
+IDENTITY = "exp104-s9-20261008-01"
 CONNECTION_ID = IDENTITY + "-connection"
 GENERATION = 1
 BRANCHES = {side: IDENTITY + "-" + side for side in ("a", "b")}
@@ -66,7 +66,7 @@ def _read_list(token: str, path: str) -> list[dict]:
         "Authorization": "Bearer " + token,
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "laomedo-exp104-s8/0.1",
+        "User-Agent": "laomedo-exp104-s9/0.1",
     })
     with request.urlopen(call, timeout=15) as response:
         value = json.load(response)
@@ -134,10 +134,10 @@ def _prepare_commits(checkout: Path) -> dict[str, str]:
     commits = {}
     for side in ("a", "b"):
         _git("checkout", "--quiet", "--detach", BASELINE, cwd=checkout)
-        marker = checkout / ("exp104-s8-" + side + ".txt")
+        marker = checkout / ("exp104-s9-" + side + ".txt")
         marker.write_text(MARKERS[side] + "\n", encoding="utf-8", newline="\n")
         _git("add", marker.name, cwd=checkout)
-        _git("commit", "-qm", "EXP-104 S8 disposable " + side, cwd=checkout)
+        _git("commit", "-qm", "EXP-104 S9 disposable " + side, cwd=checkout)
         commits[side] = _git("rev-parse", "HEAD", cwd=checkout)
     return commits
 
@@ -291,6 +291,21 @@ def _require_clean_source(root: Path) -> None:
         raise RuntimeError("reviewed_source_not_clean")
 
 
+def _require_module_origin(root: Path) -> str:
+    package_root = (root / "laomedo").resolve()
+    seen = 0
+    for name, module in tuple(sys.modules.items()):
+        if name != "laomedo" and not name.startswith("laomedo."):
+            continue
+        source = getattr(module, "__file__", None)
+        if not source or not Path(source).resolve().is_relative_to(package_root):
+            raise RuntimeError("reviewed_module_origin_mismatch:" + name)
+        seen += 1
+    if not seen:
+        raise RuntimeError("reviewed_module_origin_missing")
+    return str(package_root)
+
+
 def run(state: Path, token_file: Path, code_sha: str, approval: str,
         review_record: Path) -> dict:
     if not approval or approval != IDENTITY:
@@ -300,9 +315,11 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
     if state.exists() or any((parent / ".git").exists() for parent in
                              (state.parent, *state.parent.parents)):
         raise RuntimeError("fresh_private_state_outside_checkout_required")
-    if _git("rev-parse", "HEAD", cwd=Path(__file__).resolve().parents[2]) != code_sha:
+    root = Path(__file__).resolve().parents[2]
+    if _git("rev-parse", "HEAD", cwd=root) != code_sha:
         raise RuntimeError("code_sha_mismatch")
-    _require_clean_source(Path(__file__).resolve().parents[2])
+    _require_clean_source(root)
+    module_root = _require_module_origin(root)
     review_hash = _reviewed_record(review_record, code_sha)
     connection = HostTokenConnection(connection_id=CONNECTION_ID,
                                      generation=GENERATION, repository=REPOSITORY,
@@ -314,6 +331,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
     checkout = state / "trusted-checkout"
     commits = _prepare_commits(checkout)
     record = {"identity": IDENTITY, "source_sha": code_sha,
+              "loaded_laomedo_root": module_root,
               "repository": REPOSITORY, "baseline": BASELINE,
               "review_record_sha256": review_hash, "commits": commits,
               "planned_effect_ids": [IDENTITY + suffix for suffix in (
@@ -338,7 +356,8 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                            "--baseline", BASELINE, "--agent-mount", str(state / "agent-a"),
                            "--connection-id", CONNECTION_ID,
                            "--connection-generation", str(GENERATION),
-                           "--token-file", str(token_file), "--token-key", "GH_LAOMEDO")
+                           "--token-file", str(token_file), "--token-key", "GH_LAOMEDO",
+                           cwd=root)
         mediator = _wait(state / "mediator" / "mediator.json")
         lease_service = _wait(state / "lease" / "service.json")
         if (mediator.get("pid") != service.pid or lease_service.get("pid") != service.pid or
@@ -396,12 +415,12 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
             [sys.executable, *runner_args, "--side", "a", "--ready",
              str(state / "runner-a.json")], env=_agent_environment(),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, **launch_options)
+            stderr=subprocess.DEVNULL, cwd=root, **launch_options)
         runner_b = subprocess.Popen(
             [sys.executable, *runner_args, "--side", "b", "--ready",
              str(state / "runner-b.json")], env=_agent_environment(),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, **launch_options)
+            stderr=subprocess.DEVNULL, cwd=root, **launch_options)
         ready_by_side = {}
         for side, process in (("a", runner_a), ("b", runner_b)):
             ready = _wait(state / ("runner-" + side + ".json"))
@@ -420,7 +439,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                              for side in ("a", "b"))
         record["exposure_scan"] = _scan_agent_exposure(state, provider_token, capabilities)
         save()
-        title_a = "EXP-104 S8 A " + IDENTITY
+        title_a = "EXP-104 S9 A " + IDENTITY
         payload_a = {"title": title_a, "body": MARKERS["a"],
                      "head": BRANCHES["a"], "base": "main", "marker": MARKERS["a"]}
         before = _journal_count(state)
@@ -475,7 +494,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
             raise RuntimeError("runner_a_cleanup_unverified")
         record["runner_a_result"] = a_result
         save()
-        title_b = "EXP-104 S8 B " + IDENTITY
+        title_b = "EXP-104 S9 B " + IDENTITY
         payload_b = {"title": title_b, "body": MARKERS["b"],
                      "head": BRANCHES["b"], "base": "main", "marker": MARKERS["b"]}
         before = _journal_count(state)
@@ -555,6 +574,7 @@ def main() -> None:
     if args.runner:
         if args.side is None or args.ready is None:
             parser.error("runner side and ready path required")
+        _require_module_origin(Path(__file__).resolve().parents[2])
         _agent_runner(args.state, args.side, args.ready)
     else:
         if any(value is None for value in (args.token_file, args.source_sha,

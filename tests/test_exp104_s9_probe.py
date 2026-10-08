@@ -1,13 +1,15 @@
-"""Fail-closed controls for the unexecuted EXP-104 S8 live probe."""
+"""Fail-closed controls for the unexecuted EXP-104 S9 live probe."""
 
 import json
 import importlib.util
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import threading
 import time
+from types import ModuleType
 import unittest
 from unittest.mock import patch
 
@@ -16,15 +18,15 @@ from laomedo.lease_service import LeaseService
 from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService
 
-_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s8_probe.py"
-_probe_spec = importlib.util.spec_from_file_location("exp104_s8_probe", _probe_path)
+_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s9_probe.py"
+_probe_spec = importlib.util.spec_from_file_location("exp104_s9_probe", _probe_path)
 if _probe_spec is None or _probe_spec.loader is None:
-    raise RuntimeError("s8_probe_unavailable")
+    raise RuntimeError("s9_probe_unavailable")
 probe = importlib.util.module_from_spec(_probe_spec)
 _probe_spec.loader.exec_module(probe)
 
 
-class S8ProbeTests(unittest.TestCase):
+class S9ProbeTests(unittest.TestCase):
     def test_agent_process_environment_drops_host_token_override(self):
         with patch.dict(os.environ, {"GH_LAOMEDO": "synthetic-provider-token",
                                   "LAOMEDO_MEDIATED_GIT_TOKEN": "another-secret"}):
@@ -83,12 +85,20 @@ class S8ProbeTests(unittest.TestCase):
 
     def test_reviewed_source_refuses_uncommitted_change(self):
         with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
-                [], 0, b" M experiments/exp104/s8_probe.py\n", b"")), \
+                [], 0, b" M experiments/exp104/s9_probe.py\n", b"")), \
              self.assertRaisesRegex(RuntimeError, "reviewed_source_not_clean"):
             probe._require_clean_source(Path("synthetic"))
         with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
                 [], 0, b"", b"")):
             probe._require_clean_source(Path("synthetic"))
+
+    def test_reviewed_modules_must_resolve_inside_checkout(self):
+        root = _probe_path.parents[2]
+        foreign = ModuleType("laomedo.synthetic_foreign")
+        foreign.__file__ = str(Path(tempfile.gettempdir()) / "laomedo" / "foreign.py")
+        with patch.dict(sys.modules, {"laomedo.synthetic_foreign": foreign}), \
+             self.assertRaisesRegex(RuntimeError, "reviewed_module_origin_mismatch"):
+            probe._require_module_origin(root)
 
     def test_run_refuses_wrong_identity_before_token_or_provider(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -124,7 +134,7 @@ class S8ProbeTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt" and
                          os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",
                          "requires pinned image and Windows Docker Desktop route")
-    def test_s8_runner_uses_its_mounted_capability_with_synthetic_provider(self):
+    def test_s9_runner_uses_its_mounted_capability_with_synthetic_provider(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
             (state / "mediator").mkdir()
@@ -147,7 +157,7 @@ class S8ProbeTests(unittest.TestCase):
             lease_thread = threading.Thread(target=lease.serve, daemon=True)
             mediator_thread.start()
             lease_thread.start()
-            local_name = "laomedo-s8-synthetic-" + str(os.getpid())
+            local_name = "laomedo-s9-synthetic-" + str(os.getpid())
             runner = None
             try:
                 probe._wait(state / "lease" / "service.json", 5)
@@ -158,7 +168,7 @@ class S8ProbeTests(unittest.TestCase):
                 authority.bind_run(reference, probe.RUNS["a"])
                 script = (
                     "from pathlib import Path; "
-                    "from experiments.exp104 import s8_probe as p; "
+                    "from experiments.exp104 import s9_probe as p; "
                     f"p.NAMES['a']={local_name!r}; "
                     "p._agent_runner(Path(__import__('sys').argv[1]), 'a', "
                     "Path(__import__('sys').argv[2]))"
@@ -180,9 +190,12 @@ class S8ProbeTests(unittest.TestCase):
                                          capture_output=True, timeout=20)
                 self.assertEqual(stopped.returncode, 0)
                 runner.wait(timeout=20)
-                self.assertEqual(probe._wait(state / "lease" / "leases" /
-                                             probe.LEASES["a"] / "result.json", 20)[
-                                                 "reason"], "done")
+                result = probe._wait(state / "lease" / "leases" /
+                                     probe.LEASES["a"] / "result.json", 20)
+                self.assertEqual(result["reason"], "done")
+                self.assertEqual(result["revoked_grants"], [
+                    json.loads(ready.read_text())["grant_id"]])
+                self.assertIs(result["cleanup_verified"], True)
             finally:
                 if runner is not None and runner.poll() is None:
                     runner.kill()

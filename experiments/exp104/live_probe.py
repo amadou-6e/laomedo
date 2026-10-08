@@ -160,13 +160,13 @@ def _mediate(port: int, bearer: str, operation: str, payload: dict,
         return failure.code, json.load(failure)
 
 
-def _process(*args: str) -> subprocess.Popen:
+def _process(*args: str, cwd: Path | None = None) -> subprocess.Popen:
     environment = _base_git_environment()
     # PYTHONPATH identifies source code, never a host credential.
     environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
     options = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else
                {"start_new_session": True})
-    return subprocess.Popen([sys.executable, *args], env=environment,
+    return subprocess.Popen([sys.executable, *args], env=environment, cwd=cwd,
                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL, **options)
 
