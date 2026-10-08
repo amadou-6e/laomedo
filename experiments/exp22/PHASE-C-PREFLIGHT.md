@@ -41,3 +41,29 @@ tests -q` passed 322 tests with 8 skipped. This is a host regression check,
 not another Docker, lease-loss or model-backed result. The A/B test issues
 unbound grants directly into the mediator store and calls `revoke_run`
 explicitly; it does not exercise lease-triggered revocation.
+
+## Fresh lease-loss check on the reviewed Phase C head
+
+On 2026-10-08, the existing credential-free `exp93/service_probe.py` was run
+against `0f04bd4` with the base Python 3.12 interpreter and the installed
+project dependencies. The first attempt with the Windows virtualenv launcher
+stopped at `service_identity_mismatch` before creating a stage: the launcher
+reported a wrapper PID rather than its Python child's PID. The base-interpreter
+rerun exited 0. Its ignored observation is
+`claude-review.local/phase-c-service-preflight.json`, SHA-256
+`0a6af467561825e9c19f208453b270dbb059af3a4d717d68ea491762c2d4cf5e`.
+
+The runner-tree kill left the independent lease service alive. It revoked the
+synthetic grant 4.566 seconds after the kill, removed the owned container after
+5.14 seconds, rejected a later A write with 403, and left a lookalike
+container unaffected. B continuity was checked in the separate mediator test
+above. There were zero accepted A writes after revocation and
+no model turn or GitHub token. Docker Engine was 27.3.1. A later `docker ps`
+found no named disposable containers left by the probe.
+
+This is a fresh lease-service and Docker kill check at the current source, but
+it uses the older direct synthetic `/write` endpoint rather than the Phase C
+mediator and Codex runner together. The earlier A/B mediator check and this
+lease-loss check therefore remain separate evidence; the integrated Phase C
+step 1 and agent-originated results are still unverified. The full host suite
+at `0f04bd4` passed 339 tests with 9 skipped.
