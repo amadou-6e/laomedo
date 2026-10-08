@@ -1,0 +1,7 @@
+# Phase C detached-stage preflight
+
+The revised [amendment](PHASE-C-DETACHED-AMENDMENT.md), detached transport and [reproducible probe](detached_preflight.py) were committed as `f4b3570a4d7b994d1d386966cbdc6009b81df9ad` before this post-commit run on 2026-10-08. The pinned image was `sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239` on Docker Desktop Engine 27.3.1.
+
+`python -m experiments.exp22.detached_preflight` started a disposable, network-off Codex app-server with an empty temporary profile and no credential mount. It initialized through an attach client, terminated that client, and independently inspected the exact labelled container. The container was still owned and running. Exact cleanup then removed it. The probe submitted zero model turns and made no GitHub call. Its reported booleans were `credential_mounted=false`, `model_turn_submitted=false`, `owned_after_attach_loss=true`, `running_after_attach_loss=true`, and `exact_cleanup_verified=true`.
+
+The focused host tests for the held-request barrier and detached-ownership guard passed. The full host suite before the final error-handling and temporary-directory refinements reported **354 tests passing, 9 skipped**. The focused tests passed again afterward. This preflight does not prove that a model-originated command persists through a runner-tree kill, that the lease service performs cleanup, or that the held request is denied after revocation. Those remain the next bounded model-turn gates and must be reported from fresh evidence.
