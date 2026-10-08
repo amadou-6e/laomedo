@@ -35,9 +35,11 @@ stdin to `node /run/laomedo/mediate.mjs`. The command prints the mediator's
 JSON response and exits nonzero on denial. It never prints the capability.
 
 Service and runner heartbeats are published by atomic file replacement so a
-reader cannot mistake a truncated renewal for a lost process. The two clock
-values remain separate files; service-manager deployment and failure behavior
-still need their own check.
+reader cannot mistake a truncated renewal for a lost process. Windows reader
+locks get bounded replace/read retries; a persistent write error is logged and
+the heartbeat loop keeps running, while stale timestamps still trigger loss.
+The two clock values remain separate files; service-manager deployment and
+failure behavior still need their own check.
 
 The current Docker route uses `host.docker.internal` to reach a loopback-only
 host mediator. A no-model test checks that route on Windows Docker Desktop.

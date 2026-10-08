@@ -67,6 +67,64 @@ class LeaseServiceTests(unittest.TestCase):
         self.assertEqual(seen_before_publish, [1.0])
         self.assertEqual(lease_service._read_float(heartbeat), 2.0)
 
+    def test_heartbeat_retries_windows_replace_lock_and_cleans_pending_file(self):
+        heartbeat = self.state / "service.alive"
+        heartbeat.write_text("1.0", encoding="utf-8")
+        replace = os.replace
+        attempts = []
+
+        def locked_once(source, target):
+            attempts.append((source, target))
+            if len(attempts) == 1:
+                raise PermissionError("simulated reader lock")
+            replace(source, target)
+
+        with patch("laomedo.lease_service.os.replace", side_effect=locked_once):
+            lease_service._write_float(heartbeat, 2.0)
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(lease_service._read_float(heartbeat), 2.0)
+        self.assertEqual(list(self.state.glob("service.alive.pending-*")), [])
+
+    def test_failed_heartbeat_write_does_not_end_service_beat_loop(self):
+        writes = []
+
+        def fail_once(path, value):
+            writes.append(path.name)
+            if len(writes) == 1:
+                raise PermissionError("simulated persistent lock")
+
+        waits = []
+
+        def stop_after_second_wait(seconds):
+            waits.append(seconds)
+            if len(waits) == 2:
+                self.service.stopping.set()
+
+        with patch("laomedo.lease_service._write_float", side_effect=fail_once), \
+             patch.object(self.service.stopping, "wait", side_effect=stop_after_second_wait), \
+             self.assertLogs(level="WARNING"):
+            self.service._beat()
+        self.assertEqual(writes, ["service.alive", "service.alive",
+                                  "service.alive.monotonic"])
+
+    def test_heartbeat_read_retries_transient_windows_lock(self):
+        heartbeat = self.state / "service.alive"
+        heartbeat.write_text("2.0", encoding="utf-8")
+        read_text = Path.read_text
+        attempts = []
+
+        def locked_once(path, *args, **kwargs):
+            if path == heartbeat:
+                attempts.append(path)
+                if len(attempts) == 1:
+                    raise PermissionError("simulated reader lock")
+            return read_text(path, *args, **kwargs)
+
+        with patch.object(Path, "read_text", autospec=True,
+                          side_effect=locked_once):
+            self.assertEqual(lease_service._read_float(heartbeat), 2.0)
+        self.assertEqual(len(attempts), 2)
+
     def test_accepted_lease_gets_an_active_grant(self):
         lease_dir, secret = self.register()
         accepted = json.loads((lease_dir / "accepted.json").read_text(encoding="utf-8"))

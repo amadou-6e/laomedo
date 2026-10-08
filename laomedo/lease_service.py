@@ -18,6 +18,7 @@ import argparse
 from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import logging
 import os
 from pathlib import Path
 import secrets
@@ -37,17 +38,29 @@ MAX_FROM_HEARTBEAT_SECONDS = 58.0
 POLL_SECONDS = 0.25
 
 
-def _write_json(path: Path, value: dict) -> None:
+def _atomic_text(path: Path, value: str) -> None:
     pending = path.with_name(path.name + ".pending-" + secrets.token_hex(4))
-    pending.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(pending, path)
+    try:
+        pending.write_text(value, encoding="utf-8")
+        for attempt in range(20):
+            try:
+                os.replace(pending, path)
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(.01)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
+def _write_json(path: Path, value: dict) -> None:
+    _atomic_text(path, json.dumps(value, sort_keys=True) + "\n")
 
 
 def _write_float(path: Path, value: float) -> None:
     """Publish a heartbeat without exposing a truncated value to readers."""
-    pending = path.with_name(path.name + ".pending-" + secrets.token_hex(4))
-    pending.write_text(repr(value), encoding="utf-8")
-    os.replace(pending, path)
+    _atomic_text(path, repr(value))
 
 
 def _read_json(path: Path) -> dict | None:
@@ -59,10 +72,15 @@ def _read_json(path: Path) -> dict | None:
 
 
 def _read_float(path: Path) -> float | None:
-    try:
-        return float(path.read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
-        return None
+    for attempt in range(5):
+        try:
+            return float(path.read_text(encoding="utf-8").strip())
+        except (PermissionError, FileNotFoundError):
+            if attempt < 4:
+                time.sleep(.01)
+        except (OSError, ValueError):
+            return None
+    return None
 
 
 class GrantBook:
@@ -207,8 +225,11 @@ class LeaseService:
 
     def _beat(self) -> None:
         while not self.stopping.is_set():
-            _write_float(self.state / "service.alive", time.time())
-            _write_float(self.state / "service.alive.monotonic", time.monotonic())
+            try:
+                _write_float(self.state / "service.alive", time.time())
+                _write_float(self.state / "service.alive.monotonic", time.monotonic())
+            except OSError:
+                logging.warning("lease_service_heartbeat_write_failed")
             self.stopping.wait(1)
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
@@ -506,8 +527,12 @@ class LeaseClient:
 
         def heartbeat() -> None:
             while not self.stop_event.wait(1):
-                _write_float(self.dir / "heartbeat", time.time())
-                _write_float(self.dir / "heartbeat.monotonic", time.monotonic())
+                try:
+                    _write_float(self.dir / "heartbeat", time.time())
+                    _write_float(self.dir / "heartbeat.monotonic", time.monotonic())
+                except OSError:
+                    logging.warning("lease_client_heartbeat_write_failed")
+                    continue
                 alive_at = _read_float(self.state / "service.alive")
                 alive_monotonic = _read_float(self.state / "service.alive.monotonic")
                 current = _read_json(self.state / "service.json")
