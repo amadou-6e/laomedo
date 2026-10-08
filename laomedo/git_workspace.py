@@ -125,6 +125,10 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
         if status.returncode or status.stdout:
             raise GitWorkspaceError("source_not_clean")
         try:
+            destination.mkdir()
+        except FileExistsError as error:
+            raise GitWorkspaceError("git_workspace_path_invalid") from error
+        try:
             cloned = command("clone", "--no-local", "--no-hardlinks", "--no-checkout",
                              "--single-branch", "--quiet", str(source), str(destination))
             if cloned.returncode:
@@ -142,10 +146,10 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
                     remotes.returncode or remotes.stdout.strip():
                 raise GitWorkspaceError("git_clone_verification_failed")
             return sha
-        except Exception as error:
+        except BaseException:
             try:
                 if destination.exists():
                     shutil.rmtree(destination)
             except OSError as cleanup_error:
                 raise GitWorkspaceError("git_workspace_cleanup_unverified") from cleanup_error
-            raise error
+            raise

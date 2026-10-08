@@ -83,7 +83,6 @@ class GitWorkspaceTests(unittest.TestCase):
 
         def fail_after_clone(args, env):
             if "clone" in args:
-                destination.mkdir()
                 (destination / "partial").write_text("unfinished", encoding="utf-8")
                 return subprocess.CompletedProcess(args, 1, b"", b"synthetic failure")
             return original(args, env)
@@ -92,6 +91,23 @@ class GitWorkspaceTests(unittest.TestCase):
             with self.assertRaisesRegex(GitWorkspaceError, "git_clone_failed"):
                 prepare_git_workspace(self.source, destination)
         self.assertFalse(destination.exists())
+
+    def test_racing_destination_is_not_removed(self):
+        destination = self.root / "workspace"
+        original = git_workspace._bounded_git
+
+        def claim_destination_after_status(args, env):
+            result = original(args, env)
+            if "status" in args:
+                destination.mkdir()
+                (destination / "foreign").write_text("keep", encoding="utf-8")
+            return result
+
+        with patch.object(git_workspace, "_bounded_git",
+                          side_effect=claim_destination_after_status):
+            with self.assertRaisesRegex(GitWorkspaceError, "git_workspace_path_invalid"):
+                prepare_git_workspace(self.source, destination)
+        self.assertEqual((destination / "foreign").read_text(encoding="utf-8"), "keep")
 
     def test_fsmonitor_source_config_does_not_run(self):
         marker = self.root / "fsmonitor.txt"
