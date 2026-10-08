@@ -1,6 +1,7 @@
 """Fail-closed controls for the unexecuted EXP-104 S7 live probe."""
 
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -10,11 +11,18 @@ import time
 import unittest
 from unittest.mock import patch
 
-from experiments.exp104 import s7_probe as probe
 from laomedo.github_mediation import MediationStore
 from laomedo.lease_service import LeaseService
 from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService
+
+
+# CI runs the installed wheel from outside the checkout. Load this experiment
+# by its checked-in path so the tests still exercise the source artifact.
+_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s7_probe.py"
+_probe_spec = importlib.util.spec_from_file_location("exp104_s7_probe", _probe_path)
+probe = importlib.util.module_from_spec(_probe_spec)
+_probe_spec.loader.exec_module(probe)
 
 
 class S7ProbeTests(unittest.TestCase):
