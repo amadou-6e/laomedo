@@ -214,7 +214,8 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    name: str | None = None, run_id: str | None = None,
                    launch_token: str | None = None,
                    capability: Path | None = None,
-                   mediator_url: str | None = None) -> list[str]:
+                   mediator_url: str | None = None,
+                   mediator_instance: str | None = None) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
     labels = (["--label", f"{LABEL_RUN}={run_id}",
@@ -223,9 +224,12 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
     mediation = (["--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
                   "--mount", f"type=bind,source={MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
                   "--env", "LAOMEDO_MEDIATOR_URL=" + mediator_url,
+                  "--env", "LAOMEDO_MEDIATOR_INSTANCE=" + mediator_instance,
                   "--env", "LAOMEDO_CAPABILITY_FILE=/run/laomedo/capability"]
-                 if capability is not None and mediator_url is not None else [])
-    if (capability is None) != (mediator_url is None):
+                 if all(value is not None for value in
+                        (capability, mediator_url, mediator_instance)) else [])
+    if any(value is not None for value in
+           (capability, mediator_url, mediator_instance)) and not mediation:
         raise RunnerError("incomplete_mediator_mount")
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
@@ -243,7 +247,8 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
 
 
 class AppServer:
-    def __init__(self, command: list[str], evidence: Path, *, env=None):
+    def __init__(self, command: list[str], evidence: Path, *, env=None,
+                 secret_redactions=()):
         self.events = []
         self.messages = queue.Queue()
         self.container_name = command[command.index("--name") + 1]
@@ -257,28 +262,42 @@ class AppServer:
                 self.launch_token = value.split("=", 1)[1]
         self.active_thread_id = None
         self.interrupt_acknowledged = False
+        self.secret_redactions = tuple(value for value in secret_redactions if value)
         self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
         self.stderr = (evidence / "stderr.log").open("a", encoding="utf-8")
         try:
             self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
-                                            stdout=subprocess.PIPE, stderr=self.stderr,
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                             text=True, encoding="utf-8", env=env)
         except Exception:
             self.log.close()
             self.stderr.close()
             raise
         self.reader = threading.Thread(target=self._read, daemon=True)
+        self.stderr_reader = threading.Thread(target=self._read_stderr, daemon=True)
         self.reader.start()
+        self.stderr_reader.start()
         self.seq = 0
+
+    def _redact(self, line: str) -> str:
+        for secret in self.secret_redactions:
+            line = line.replace(secret, "[REDACTED_RUN_CAPABILITY]")
+        return line
 
     def _read(self):
         for line in self.process.stdout:
+            line = self._redact(line)
             self.log.write(line)
             self.log.flush()
             try:
                 self.messages.put(json.loads(line))
             except json.JSONDecodeError:
                 self.events.append({"method": "invalid/json"})
+
+    def _read_stderr(self):
+        for line in self.process.stderr:
+            self.stderr.write(self._redact(line))
+            self.stderr.flush()
 
     def request(self, method: str, params: dict, timeout: float = 30) -> dict:
         self.seq += 1
@@ -377,6 +396,7 @@ class AppServer:
                 verified = False
         finally:
             self.reader.join(timeout=5)
+            self.stderr_reader.join(timeout=5)
             self.log.close()
             self.stderr.close()
         if not verified:
@@ -658,6 +678,8 @@ class LocalRunner:
         self.supervise_containers = (transport is AppServer and not split_executor
                                      if supervise_containers is None
                                      else supervise_containers)
+        if split_executor and self.supervise_containers:
+            raise RunnerError("split_executor_lease_unavailable")
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
@@ -739,7 +761,8 @@ class LocalRunner:
                      name: str | None = None, run_id: str | None = None,
                      launch_token: str | None = None,
                      capability: Path | None = None,
-                     mediator_url: str | None = None):
+                     mediator_url: str | None = None,
+                     mediator_instance: str | None = None):
         workspace, canonical, store_mount = (root / name for name in
                                               ("workspace", "canonical", "store"))
         if self.split_executor:
@@ -748,10 +771,15 @@ class LocalRunner:
                                   provider_config=self.split_provider_config,
                                   access_token=(access_token if access_token is not None
                                                 else self.split_access_token))
-        return self.transport(["docker", *_docker_prefix(
+        command = ["docker", *_docker_prefix(
             workspace, canonical, store_mount, name=name, run_id=run_id,
             launch_token=launch_token, capability=capability,
-            mediator_url=mediator_url)], root)
+            mediator_url=mediator_url,
+            mediator_instance=mediator_instance)]
+        if capability is not None and self.transport is AppServer:
+            return self.transport(command, root, secret_redactions=(
+                capability.read_text(encoding="utf-8").strip(),))
+        return self.transport(command, root)
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
@@ -964,7 +992,10 @@ class LocalRunner:
                                               ("workspace", "canonical", "store"))
         try:
             try:
-                github_scope = (self.github_authority.bind_run(github_ref, run_id)
+                github_scope = (self.github_authority.bind_run(
+                    github_ref, run_id,
+                    allowed_operations=frozenset({"actions_read", "pr_create",
+                                                  "pr_update"}))
                                 if github_ref is not None else None)
             except MediationError as error:
                 raise RunnerError(error.code) from None
@@ -1136,7 +1167,7 @@ class LocalRunner:
                 raise RunnerError("resume_auth_identity_mismatch")
         return self._execute(run_id, task, resume=True)
 
-    def _mediator_url(self) -> str:
+    def _mediator_route(self) -> tuple[str, str]:
         # host.docker.internal -> host loopback is checked by the Windows
         # Docker Desktop probe. Other network layouts need their own check.
         if os.name != "nt" or self.mediator_state is None:
@@ -1155,7 +1186,7 @@ class LocalRunner:
                 raise ValueError("mediator_instance_mismatch")
         except (OSError, ValueError, KeyError, TypeError, TimeoutError) as error:
             raise RunnerError("mediator_unavailable") from error
-        return f"http://host.docker.internal:{port}/v1/mediate"
+        return f"http://host.docker.internal:{port}/v1/mediate", instance
 
     def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
         if not self.lock.acquire(blocking=False):
@@ -1196,13 +1227,14 @@ class LocalRunner:
                     _json(run_dir / "record.json", record)
             capability = None
             mediator_url = None
+            mediator_instance = None
             if record.get("github_scope") is not None:
                 if lease is None or lease.grant_id is None:
                     raise RunnerError("mediated_grant_unavailable")
                 capability = lease.dir / "grant.secret"
                 if capability.is_symlink() or not capability.is_file():
                     raise RunnerError("mediated_capability_unavailable")
-                mediator_url = self._mediator_url()
+                mediator_url, mediator_instance = self._mediator_route()
             access_token, auth_summary = self.auth.access_token() if self.auth else (None, None)
             if resume and self.auth:
                 prior = record.get("credential") or {}
@@ -1215,7 +1247,8 @@ class LocalRunner:
             server = self._open_server(
                 run_dir, access_token=access_token, name=name, run_id=run_id,
                 launch_token=launch_token, capability=capability,
-                mediator_url=mediator_url)
+                mediator_url=mediator_url,
+                mediator_instance=mediator_instance)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
@@ -1268,8 +1301,9 @@ class LocalRunner:
                               cancel_requested=True)
                 return record
             if record.get("github_scope") is not None:
-                task += ("\n\nThis run has approved, bounded GitHub mediation. "
-                         "To request an authorized operation, pipe one JSON object "
+                task += ("\n\nThis run has approved, bounded GitHub mediation "
+                         "for Actions reads and approved PR create/update only. "
+                         "To request one of those operations, pipe one JSON object "
                          "with repository, operation, payload and (for a write) "
                          "effect_id to `node /run/laomedo/mediate.mjs`. "
                          "The client reads its run capability from a read-only file; "

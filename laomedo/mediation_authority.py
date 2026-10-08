@@ -102,7 +102,8 @@ class RunGrantAuthority:
                         connection_generation))
         return reference
 
-    def bind_run(self, reference: str, run_id: str) -> dict:
+    def bind_run(self, reference: str, run_id: str, *,
+                 allowed_operations: frozenset[str] | None = None) -> dict:
         """Consume approval for one saved runner run; no alternate run may reuse it."""
         if not isinstance(reference, str) or not reference or not isinstance(run_id, str) or not run_id:
             raise MediationError("authorization_unavailable")
@@ -112,6 +113,9 @@ class RunGrantAuthority:
             row = db.execute("SELECT * FROM authorizations WHERE ref_hash=?", (digest,)).fetchone()
             if row is None or row["run_id"] not in (None, run_id):
                 raise MediationError("authorization_unavailable")
+            if allowed_operations is not None and not set(json.loads(
+                    row["operations"])) <= allowed_operations:
+                raise MediationError("operation_unavailable_in_runner")
             db.execute("UPDATE authorizations SET run_id=? WHERE ref_hash=?", (run_id, digest))
             return {"invocation_id": row["invocation_id"],
                     "repository": row["repository"], "branch": row["branch"]}

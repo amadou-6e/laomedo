@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 
-from laomedo.local_runner import IMAGE, MEDIATION_CLIENT
+from laomedo.local_runner import IMAGE, _docker_prefix
 
 
 @unittest.skipUnless(os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",
@@ -26,7 +26,9 @@ class AgentMediationContainerTests(unittest.TestCase):
 
             def do_POST(self):
                 body = self.rfile.read(int(self.headers["Content-Length"]))
-                seen.append((self.path, self.headers.get("Authorization"), json.loads(body)))
+                seen.append((self.path, self.headers.get("Authorization"),
+                             self.headers.get("X-Laomedo-Mediator-Instance"),
+                             json.loads(body)))
                 data = b'{"ok":true}'
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -42,21 +44,27 @@ class AgentMediationContainerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             capability = Path(directory) / "capability"
             capability.write_text("synthetic-run-capability\n", encoding="utf-8")
+            capability.chmod(0o600)
+            workspace, canonical, store = (Path(directory) / name for name in
+                                           ("workspace", "canonical", "store"))
+            for path in (workspace, canonical, store):
+                path.mkdir()
             url = f"http://host.docker.internal:{server.server_port}/v1/mediate"
-            command = ["docker", "run", "--rm", "-i", "--pull=never",
-                       "--network", "bridge", "--user", "10001:10001",
-                       "--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
-                       "--mount", f"type=bind,source={MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
-                       "--env", "LAOMEDO_MEDIATOR_URL=" + url,
-                       "--env", "LAOMEDO_CAPABILITY_FILE=/run/laomedo/capability",
-                       IMAGE, "node", "/run/laomedo/mediate.mjs"]
+            command = ["docker", *_docker_prefix(
+                workspace, canonical, store, capability=capability,
+                mediator_url=url, mediator_instance="a" * 32)]
+            command = command[:command.index(IMAGE) + 1] + [
+                "node", "/run/laomedo/mediate.mjs"]
             self.assertNotIn("synthetic-run-capability", " ".join(command))
+            self.assertIn("--cap-drop", command)
+            self.assertIn("no-new-privileges", command)
             result = subprocess.run(command, input=json.dumps({
                 "repository": "example/disposable", "operation": "actions_read",
                 "payload": {}}), text=True, capture_output=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout), {"ok": True})
         self.assertEqual(seen, [("/v1/mediate", "Bearer synthetic-run-capability",
+                                 "a" * 32,
                                  {"repository": "example/disposable",
                                   "operation": "actions_read", "payload": {}})])
 

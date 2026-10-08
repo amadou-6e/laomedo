@@ -88,6 +88,23 @@ def _read_float(path: Path) -> float | None:
     return None
 
 
+def _write_float(path: Path, value: float) -> None:
+    """Never expose a truncated heartbeat to a concurrent service/runner."""
+    pending = path.with_name(path.name + ".pending-" + secrets.token_hex(4))
+    pending.write_text(repr(value), encoding="utf-8")
+    try:
+        for attempt in range(20):
+            try:
+                os.replace(pending, path)
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(.005)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
 class GrantBook:
     """Thread-safe registry of run-scoped synthetic write grants."""
 
@@ -165,6 +182,9 @@ def _handler(book: GrantBook | None, mediator: MediationStore | None = None,
             if self.path == "/v1/mediate":
                 if mediator is None or transport is None:
                     return self._json_reply(503, {"error": "mediator_unavailable"})
+                if instance is not None and self.headers.get(
+                        "X-Laomedo-Mediator-Instance") != instance:
+                    return self._json_reply(403, {"error": "mediator_instance_mismatch"})
                 try:
                     size = int(self.headers.get("Content-Length", ""))
                     if not 0 < size <= 1024 * 1024 or not self.headers.get(
