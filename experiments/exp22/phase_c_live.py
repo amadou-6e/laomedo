@@ -414,6 +414,15 @@ def main():
                 teardown["container_absent"] = False
         teardown["host_survived_until_cleanup"] = host.poll() is None
         _stop(host)
+        ledger_path = runner_state / "turn-ledger.json"
+        teardown["runner_submitted_turns"] = (
+            json.loads(ledger_path.read_text(encoding="utf-8")).get("attempted_turns")
+            if ledger_path.exists() else 0)
+        if (result_category == "active_passed" and
+                (not teardown.get("container_absent") or
+                 not teardown["host_survived_until_cleanup"] or
+                 teardown["runner_submitted_turns"] != 1)):
+            result_category = "teardown_unverified"
         if attempt_id is not None:
             try:
                 _, count = _budget_update(attempt_id=attempt_id,
@@ -421,10 +430,6 @@ def main():
                 teardown["budget_count_after"] = count
             except RuntimeError:
                 teardown["budget_count_after"] = "unknown"
-        ledger_path = runner_state / "turn-ledger.json"
-        teardown["runner_submitted_turns"] = (
-            json.loads(ledger_path.read_text(encoding="utf-8")).get("attempted_turns")
-            if ledger_path.exists() else 0)
         teardown["run_id"] = run_a
         teardown["result_category"] = result_category
         (state / "teardown-sanitized.json").write_text(
