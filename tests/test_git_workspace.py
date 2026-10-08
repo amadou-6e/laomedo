@@ -1,0 +1,74 @@
+"""Credential-free, opt-in whole-repository workspace preparation."""
+
+from pathlib import Path
+import os
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from laomedo.git_workspace import GitWorkspaceError, prepare_git_workspace
+
+
+class GitWorkspaceTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        self._git(self.source, "init", "-q")
+        self._git(self.source, "config", "user.name", "Fixture")
+        self._git(self.source, "config", "user.email", "fixture@example.invalid")
+        (self.source / "task.txt").write_bytes(b"task\n")
+        self._git(self.source, "add", "task.txt")
+        self._git(self.source, "commit", "-qm", "baseline")
+        self.baseline = self._git(self.source, "rev-parse", "HEAD").stdout.decode().strip()
+
+    def _git(self, source, *args):
+        result = subprocess.run(["git", "-C", str(source), *args],
+                                capture_output=True, check=False, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
+    def test_clean_clone_preserves_commit_without_remote_or_host_config(self):
+        hostile_home = self.root / "host-home"
+        hostile_home.mkdir()
+        marker = self.root / "host-trace.log"
+        (hostile_home / ".gitconfig").write_text(
+            "[trace2]\n\tnormalTarget = " + marker.as_posix() + "\n",
+            encoding="utf-8")
+        destination = self.root / "run" / "workspace"
+        destination.parent.mkdir()
+        with patch.dict(os.environ, {"HOME": str(hostile_home),
+                                     "USERPROFILE": str(hostile_home),
+                                     "XDG_CONFIG_HOME": str(hostile_home)}):
+            pinned = prepare_git_workspace(self.source, destination)
+        self.assertEqual(pinned, self.baseline)
+        self.assertEqual(self._git(destination, "rev-parse", "HEAD").stdout.decode().strip(),
+                         self.baseline)
+        self.assertEqual(self._git(destination, "remote").stdout.strip(), b"")
+        self.assertEqual((destination / "task.txt").read_bytes(), b"task\n")
+        self.assertFalse(marker.exists())
+
+    def test_dirty_source_and_existing_destination_fail_before_clone(self):
+        destination = self.root / "workspace"
+        (self.source / "untracked.txt").write_bytes(b"not pinned\n")
+        with self.assertRaisesRegex(GitWorkspaceError, "source_not_clean"):
+            prepare_git_workspace(self.source, destination)
+        self.assertFalse(destination.exists())
+        (self.source / "untracked.txt").unlink()
+        destination.mkdir()
+        with self.assertRaisesRegex(GitWorkspaceError, "git_workspace_path_invalid"):
+            prepare_git_workspace(self.source, destination)
+
+    def test_submodule_gitlink_is_refused(self):
+        self._git(self.source, "update-index", "--add", "--cacheinfo",
+                  "160000," + self.baseline + ",nested")
+        self._git(self.source, "commit", "-qm", "gitlink")
+        with self.assertRaisesRegex(GitWorkspaceError, "submodule_source_unsupported"):
+            prepare_git_workspace(self.source, self.root / "workspace")
+
+
+if __name__ == "__main__":
+    unittest.main()
