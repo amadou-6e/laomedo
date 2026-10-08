@@ -34,3 +34,10 @@ ignored local proof is `claude-review.local/phase-c-docker-preflight-v2.txt`,
 SHA-256 `2c67f3dd414779e5cf510c9d18957c763f874c0f68eb822e1641d4cc0f097679`.
 The first proof above remains a record of the earlier source, not the current
 implementation result. No model or GitHub call was made in either rerun.
+
+On 2026-10-08, the ordinary host suite at `e0938f4` was rerun with the
+project's installed virtual environment: `python -m unittest discover -s
+tests -q` passed 322 tests with 8 skipped. This is a host regression check,
+not another Docker, lease-loss or model-backed result. The A/B test issues
+unbound grants directly into the mediator store and calls `revoke_run`
+explicitly; it does not exercise lease-triggered revocation.
