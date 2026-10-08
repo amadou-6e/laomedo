@@ -78,36 +78,36 @@ def git(args: list[str], *, directory: Path | None = None,
         return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
-def _header(data: bytes, expected_ref: str) -> tuple[str, bytes | None, bytes | None]:
+def _header(data: bytes, expected_ref: str) -> tuple[str, bytes | None, list[bytes]]:
     """Inspect only the bundle header; leave pack integrity to unbundle."""
     end = data.find(b"\n\n")
     if end < 0 or end > 4096 or not data.startswith(b"# v"):
-        return "bundle_invalid", None, None
+        return "bundle_invalid", None, []
     lines = data[:end].split(b"\n")
     if lines[0] not in (b"# v2 git bundle", b"# v3 git bundle"):
-        return "bundle_version", None, None
+        return "bundle_version", None, []
     version = lines[0]
     if version == b"# v2 git bundle" and any(line.startswith(b"@") for line in lines[1:]):
-        return "bundle_version", None, None
+        return "bundle_version", None, []
     if any(line.startswith(b"@filter=") for line in lines[1:]):
-        return "bundle_version", None, None
+        return "bundle_version", None, []
     formats = [line for line in lines[1:] if line.startswith(b"@object-format=")]
     if formats and formats != [b"@object-format=sha1"]:
-        return "object_format", None, None
+        return "object_format", None, []
     if any(line.startswith(b"@") and line not in (b"@object-format=sha1",)
            for line in lines[1:]):
-        return "bundle_version", None, None
+        return "bundle_version", None, []
     prerequisites = [line[1:].split(b" ", 1)[0] for line in lines[1:]
                      if line.startswith(b"-")]
     if any(not SHA.fullmatch(value) for value in prerequisites):
-        return "bundle_invalid", None, None
+        return "bundle_invalid", None, []
     refs = [line.split(b" ", 1) for line in lines[1:]
             if line and not line.startswith((b"-", b"@"))]
     if len(refs) != 1 or len(refs[0]) != 2 or not SHA.fullmatch(refs[0][0]):
-        return "ref_count", None, None
+        return "ref_count", None, []
     if refs[0][1] != expected_ref.encode("ascii"):
-        return "ref_name", None, None
-    return "accepted", refs[0][0], (prerequisites[0] if prerequisites else None)
+        return "ref_name", None, []
+    return "accepted", refs[0][0], prerequisites
 
 
 def verify_bundle(data: bytes, *, trusted_source: Path, baseline: str,
@@ -123,7 +123,7 @@ def verify_bundle(data: bytes, *, trusted_source: Path, baseline: str,
             not re.fullmatch(r"refs/heads/[A-Za-z0-9._/-]+", expected_ref) or \
             not re.fullmatch(r"[0-9a-f]{40}", baseline):
         return result
-    reason, commit, prerequisite = _header(data, expected_ref)
+    reason, commit, prerequisites = _header(data, expected_ref)
     if reason != "accepted":
         result["reason"] = reason
         return result
@@ -147,11 +147,11 @@ def verify_bundle(data: bytes, *, trusted_source: Path, baseline: str,
             if seed_confirmed.returncode:
                 result.update(reason="object_invalid", stage="seed")
                 return result
-        if prerequisite is not None and git(
-                ["cat-file", "-e", prerequisite.decode() + "^{commit}"],
-                directory=stage).returncode:
-            result.update(reason="missing_prerequisite", stage="prerequisite")
-            return result
+        for prerequisite in prerequisites:
+            if git(["cat-file", "-e", prerequisite.decode() + "^{commit}"],
+                   directory=stage).returncode:
+                result.update(reason="missing_prerequisite", stage="prerequisite")
+                return result
         imported = git(["bundle", "unbundle", str(bundle)], directory=stage)
         if imported.returncode:
             result.update(reason="object_invalid", stage="import")

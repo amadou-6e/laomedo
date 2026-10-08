@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 import hashlib
+import json
 import os
 import socket
 import subprocess
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 from experiments.exp100.bundle_transfer import git, git_env, verify_bundle
 
@@ -92,12 +94,18 @@ class BundleTransferTests(unittest.TestCase):
         self._git(host, "fetch", "--no-tags", str(self.source), self.baseline)
         self._git(host, "bundle", "unbundle", str(self.root / "first.bundle"))
         self.assertEqual(self._verify(first_bundle)["reason"], "accepted")
+        journal = self.root / "host-confirmed.json"
+        journal.write_text(json.dumps({"run_ref": REF, "confirmed_commit": self.first}),
+                           encoding="utf-8")
         (self.agent / "change.txt").write_bytes(b"second\n")
         self._commit(self.agent, "second")
         second = self._git(self.agent, "rev-parse", "HEAD").stdout.decode().strip()
         thin = self._bundle("second.bundle", self.first + "..run-a")
         self.assertEqual(self._verify(thin)["reason"], "missing_prerequisite")
-        accepted = self._verify(thin, trusted_source=host, confirmed_commit=self.first)
+        confirmed = json.loads(journal.read_text(encoding="utf-8"))
+        self.assertEqual(confirmed["run_ref"], REF)
+        accepted = self._verify(thin, trusted_source=host,
+                                confirmed_commit=confirmed["confirmed_commit"])
         self.assertEqual(accepted["reason"], "accepted", accepted)
         self.assertEqual(accepted["commit"], second)
 
@@ -107,6 +115,7 @@ class BundleTransferTests(unittest.TestCase):
         self._control_import(extra)
         self.assertEqual(self._verify(extra)["reason"], "ref_count")
         good = self._bundle("good.bundle", "run-a")
+        self.assertEqual(self._verify(good)["reason"], "accepted")
         truncated = good[:-20]
         bad = self._verify(truncated)
         self.assertEqual((bad["reason"], bad["stage"]),
@@ -175,15 +184,11 @@ class BundleTransferTests(unittest.TestCase):
         self.assertEqual(control.returncode, 0)
         self.assertTrue(inherited_trace.exists(), "inherited trace control did not fire")
         inherited_trace.unlink()
-        old = os.environ.get("GIT_TRACE")
-        try:
-            os.environ["GIT_TRACE"] = str(inherited_trace)
+        with patch.dict(os.environ, {"HOME": str(hostile_home),
+                                     "USERPROFILE": str(hostile_home),
+                                     "XDG_CONFIG_HOME": str(hostile_home),
+                                     "GIT_TRACE": str(inherited_trace)}):
             self.assertEqual(self._verify(bundle)["reason"], "accepted")
-        finally:
-            if old is None:
-                os.environ.pop("GIT_TRACE", None)
-            else:
-                os.environ["GIT_TRACE"] = old
         self.assertFalse(global_trace.exists())
         self.assertFalse(inherited_trace.exists())
 
@@ -198,18 +203,28 @@ class BundleTransferTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout
 
+        def handmade_bundle(blob: bytes, *, include_blob: bool):
+            tree = raw_git(["hash-object", "--literally", "-t", "tree", "-w",
+                            "--stdin"], b"100644 missing.txt\x00" + blob).strip()
+            commit_data = (b"tree " + tree + b"\nparent " +
+                           self.baseline.encode() +
+                           b"\nauthor Fixture <fixture@example.invalid> "
+                           b"1577836800 +0000\ncommitter Fixture "
+                           b"<fixture@example.invalid> 1577836800 +0000\n\ninvalid\n")
+            commit = raw_git(["hash-object", "--literally", "-t", "commit",
+                              "-w", "--stdin"], commit_data).strip()
+            objects = commit + b"\n" + tree + b"\n"
+            if include_blob:
+                objects += blob.hex().encode() + b"\n"
+            pack = raw_git(["pack-objects", "--stdout"], objects)
+            return b"# v2 git bundle\n" + commit + b" refs/heads/run-a\n\n" + pack
+
+        present = raw_git(["hash-object", "-t", "blob", "-w", "--stdin"],
+                          b"present\n").strip()
+        control = handmade_bundle(bytes.fromhex(present.decode()), include_blob=True)
+        self.assertEqual(self._verify(control)["reason"], "accepted")
         missing = bytes.fromhex("11" * 20)
-        tree = raw_git(["hash-object", "--literally", "-t", "tree", "-w",
-                        "--stdin"], b"100644 missing.txt\x00" + missing).strip()
-        commit_data = (b"tree " + tree + b"\nparent " +
-                       self.baseline.encode() +
-                       b"\nauthor Fixture <fixture@example.invalid> "
-                       b"1577836800 +0000\ncommitter Fixture "
-                       b"<fixture@example.invalid> 1577836800 +0000\n\ninvalid\n")
-        invalid = raw_git(["hash-object", "--literally", "-t", "commit",
-                           "-w", "--stdin"], commit_data).strip()
-        pack = raw_git(["pack-objects", "--stdout"], invalid + b"\n" + tree + b"\n")
-        bundle = (b"# v2 git bundle\n" + invalid + b" refs/heads/run-a\n\n" + pack)
+        bundle = handmade_bundle(missing, include_blob=False)
         result = self._verify(bundle)
         self.assertEqual(result["reason"], "object_invalid", result)
         self.assertIn(result["stage"], {"import", "integrity"})
