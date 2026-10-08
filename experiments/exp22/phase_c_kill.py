@@ -90,7 +90,8 @@ def main():
     runner_log = (state / "runner.log").open("w", encoding="utf-8")
     host = subprocess.Popen([
         sys.executable, "-m", "experiments.exp22.phase_c_fake_host",
-        "--state", str(service_state), "--runner-runs-root", str(runs)],
+        "--state", str(service_state), "--runner-runs-root", str(runs),
+        "--hold-agent-effect", "phase-c-kill-1"],
         cwd=shared.ROOT, stdin=subprocess.DEVNULL, stdout=host_log,
         stderr=subprocess.STDOUT,
         creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0))
@@ -210,7 +211,20 @@ def main():
             raise RuntimeError("login_readable_stop")
         if auth_result != "denied":
             raise RuntimeError("login_read_denial_unverified")
+        held_path = service_state / "mediator" / "held-agent-request.json"
+        shared._wait(held_path, 20)
+        held = json.loads(held_path.read_text(encoding="utf-8"))
+        if held.get("run_id") != run_id or \
+                held.get("effect_id") != "phase-c-kill-1" or \
+                held.get("claimed_name") != ".laomedo-req-phase-c-kill-1.json":
+            raise RuntimeError("agent_request_hold_unverified")
+        evidence["held_agent_effect"] = held["effect_id"]
         kill_at = time.monotonic()
+        evidence["held_before_kill"] = (
+            isinstance(held.get("held_at_monotonic"), (int, float)) and
+            held["held_at_monotonic"] < kill_at)
+        if not evidence["held_before_kill"]:
+            raise RuntimeError("agent_request_hold_order_unverified")
         shared._stop(runner, tree=True)
         evidence["runner_tree_killed_at_monotonic"] = kill_at
         evidence["host_survived_kill"] = host.poll() is None
@@ -247,7 +261,7 @@ def main():
         evidence["host_control_origin"] = "host"
         post_revoked = [row for row in shared._journal(journal_path)
                         if row.get("run_id") == run_id and
-                        row.get("effect_id", "").startswith("phase-c-kill-") and
+                        row.get("effect_id") == held["effect_id"] and
                         row.get("claimed_at_monotonic", 0) >=
                             revoked["revoked_at_monotonic"]]
         evidence["agent_originated_post_revocation"] = (
@@ -305,9 +319,10 @@ def main():
         if (not evidence["host_survived_kill"] or
                 not 0 <= evidence["revocation_seconds"] <= 60 or
                 not 0 <= evidence["cleanup_seconds"] <= 60 or
-                evidence["cleanup_attribution"] == "failed" or
+                evidence["cleanup_attribution"] != "service" or
                 evidence["owned_container_state"] != "absent" or
                 not evidence["lookalike_alive_after_kill"] or
+                evidence["agent_originated_post_revocation"] != "denied" or
                 evidence["host_control_error"] != "grant_unavailable" or
                 evidence["host_control_provider_called"] is not False or
                 not evidence["other_run_continuity"] or

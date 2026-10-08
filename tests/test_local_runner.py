@@ -215,6 +215,20 @@ class LocalRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RunnerError, "incomplete_mediator_mount"):
             _docker_prefix(self.root, self.root, self.root, capability=capability)
 
+    def test_detached_stage_requires_exact_ownership(self):
+        with self.assertRaisesRegex(RunnerError,
+                                    "detached_stage_requires_exact_ownership"):
+            _docker_prefix(self.root, self.root, self.root, detached=True)
+        command = _docker_prefix(
+            self.root, self.root, self.root, detached=True,
+            run_id="00000000-0000-4000-8000-000000000001",
+            launch_token="synthetic-token")
+        self.assertIn("--detach", command)
+        self.assertIn("--rm", command)
+        self.assertIn("-i", command)
+        self.assertIn("laomedo.run_id=00000000-0000-4000-8000-000000000001",
+                      command)
+
     def test_split_executor_cannot_claim_legacy_container_lease(self):
         with self.assertRaisesRegex(RunnerError, "split_executor_lease_unavailable"):
             LocalRunner(self.runner.state, self.runner.store.root, self.source,

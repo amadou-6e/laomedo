@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 from .artifacts import ArtifactError, import_selected, relative_path, selections
-from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
+from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact, inspect_exact
 from .lease_service import LeaseClient
 from .mediation_authority import RunGrantAuthority
 from .github_mediation import MediationError
@@ -214,6 +214,7 @@ def _auth_record_error(exc: AuthError) -> tuple[str, str]:
 def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    name: str | None = None, run_id: str | None = None,
                    launch_token: str | None = None,
+                   detached: bool = False,
                    capability: Path | None = None,
                    mediator_url: str | None = None,
                    mediator_instance: str | None = None,
@@ -223,6 +224,8 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
     labels = (["--label", f"{LABEL_RUN}={run_id}",
                "--label", f"{LABEL_TOKEN}={launch_token}"]
               if run_id and launch_token else [])
+    if detached and not (run_id and launch_token):
+        raise RunnerError("detached_stage_requires_exact_ownership")
     mediation = (["--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
                   "--mount", f"type=bind,source={MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
                   "--env", "LAOMEDO_MEDIATOR_URL=" + mediator_url,
@@ -238,7 +241,8 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             raise RunnerError("invalid_file_mediator_mount")
         mediation = ["--mount", f"type=bind,source={FILE_MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
                      "--mount", f"type=bind,source={file_responses},target=/run/laomedo/responses,readonly"]
-    return ["run", "--rm", "-i", "--name", name, *labels,
+    return ["run", *(["--detach"] if detached else []), "--rm", "-i",
+            "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--pids-limit", "128", "--memory", "1g", "--user", "10001:10001",
@@ -273,13 +277,41 @@ class AppServer:
         self.secret_redactions = tuple(value for value in secret_redactions if value)
         self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
         self.stderr = (evidence / "stderr.log").open("a", encoding="utf-8")
+        detached_launched = False
         try:
+            if "--detach" in command:
+                if not (self.run_id and self.launch_token):
+                    raise RunnerError("detached_stage_requires_exact_ownership")
+                launch = subprocess.run(command, capture_output=True,
+                                        text=True, timeout=30, env=env)
+                if launch.returncode:
+                    raise RunnerError("detached_stage_launch_failed")
+                detached_launched = True
+                if not re.fullmatch(r"[0-9a-f]{64}", launch.stdout.strip()):
+                    raise RunnerError("detached_stage_id_invalid")
+                deadline = time.monotonic() + 5
+                while True:
+                    state, container_id = inspect_exact(
+                        self.container_name, self.run_id, self.launch_token)
+                    if state == "owned" and container_id == launch.stdout.strip():
+                        break
+                    if state == "conflict" or time.monotonic() >= deadline:
+                        raise RunnerError("detached_stage_identity_unverified")
+                    time.sleep(.05)
+                command = ["docker", "attach", "--sig-proxy=false",
+                           self.container_name]
             self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                             text=True, encoding="utf-8", env=env)
-        except Exception:
+        except Exception as error:
+            cleanup_verified = True
+            if detached_launched:
+                cleanup_verified, _ = cleanup_exact(
+                    self.container_name, self.run_id, self.launch_token)
             self.log.close()
             self.stderr.close()
+            if not cleanup_verified:
+                raise RunnerError("detached_stage_cleanup_unverified") from error
             raise
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.stderr_reader = threading.Thread(target=self._read_stderr, daemon=True)
@@ -795,7 +827,9 @@ class LocalRunner:
                                                 else self.split_access_token))
         command = ["docker", *_docker_prefix(
             workspace, canonical, store_mount, name=name, run_id=run_id,
-            launch_token=launch_token, capability=capability,
+            launch_token=launch_token,
+            detached=(self.supervise_containers and run_id is not None),
+            capability=capability,
             mediator_url=mediator_url,
             mediator_instance=mediator_instance,
             file_responses=file_responses)]

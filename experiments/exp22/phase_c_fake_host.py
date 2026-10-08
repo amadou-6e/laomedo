@@ -13,10 +13,42 @@ from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService
 
 
+class HeldAgentRequestBridge(FileMediationBridge):
+    """Test-only barrier for one already-claimed agent request."""
+
+    def __init__(self, *args, held_effect: str, barrier: Path, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.held_effect = held_effect
+        self.barrier = barrier
+
+    def _process(self, run_id, effect_id, claimed, responses, token):
+        if effect_id == self.held_effect:
+            self.barrier.write_text(json.dumps({
+                "run_id": run_id, "effect_id": effect_id,
+                "claimed_name": claimed.name,
+                "held_at_monotonic": time.monotonic(),
+            }), encoding="utf-8")
+            deadline = time.monotonic() + 70
+            while time.monotonic() < deadline:
+                for lease_dir in (self.lease_root / "leases").glob("*/lease.json"):
+                    try:
+                        lease = json.loads(lease_dir.read_text(encoding="utf-8"))
+                    except (OSError, ValueError):
+                        continue
+                    if (lease.get("run_id") == run_id and
+                            (lease_dir.parent / "revoked.json").exists()):
+                        return super()._process(
+                            run_id, effect_id, claimed, responses, token)
+                time.sleep(.05)
+            raise RuntimeError("held_agent_request_revocation_timeout")
+        return super()._process(run_id, effect_id, claimed, responses, token)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--runner-runs-root", type=Path, required=True)
+    parser.add_argument("--hold-agent-effect")
     args = parser.parse_args()
     state = args.state.resolve()
     runs = args.runner_runs_root.resolve()
@@ -40,9 +72,12 @@ def main():
         return {"synthetic": True, "number": payload["number"]}
 
     mediator = MediationHTTPService(store, fake_transport)
-    bridge = FileMediationBridge(runs, state / "lease", store,
-                                 fake_transport,
-                                 state / "mediator" / "file-bridge-journal.jsonl")
+    bridge_args = (runs, state / "lease", store, fake_transport,
+                   state / "mediator" / "file-bridge-journal.jsonl")
+    bridge = (HeldAgentRequestBridge(
+        *bridge_args, held_effect=args.hold_agent_effect,
+        barrier=state / "mediator" / "held-agent-request.json")
+        if args.hold_agent_effect else FileMediationBridge(*bridge_args))
     serve_services(lease, mediator, state, repository="example/disposable",
                    connection_id="synthetic", connection_generation=1,
                    file_bridge=bridge)
