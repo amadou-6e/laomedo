@@ -1,0 +1,141 @@
+{
+  "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+  "commits": {
+    "a": "70b43f060057ea44c82de718c9a38bfd203ac0f9",
+    "b": "86e387ee4c881d6988f0706eb10999fa82b19b5f"
+  },
+  "containers": {
+    "a": {
+      "id": "0567dace130c9b14b81ee37a9f60f5623eaccb6ea2a839f9026d1cb7570f91d7",
+      "launch_label": "exp104-s11-20261008-01-lease-a",
+      "name": "laomedo-exp104-s11-20261008-01-a",
+      "run_label": "exp104-s11-20261008-01-run-a"
+    },
+    "b": {
+      "id": "2a59fdbd3cf5666f563d65d0731db5ec1722427f6dca09a056e8112f7df2e2e9",
+      "launch_label": "exp104-s11-20261008-01-lease-b",
+      "name": "laomedo-exp104-s11-20261008-01-b",
+      "run_label": "exp104-s11-20261008-01-run-b"
+    }
+  },
+  "events": [
+    {
+      "http": 200,
+      "name": "setup_push_a",
+      "provider_delta": 1,
+      "state": "confirmed"
+    },
+    {
+      "http": 200,
+      "name": "setup_push_b",
+      "provider_delta": 1,
+      "state": "confirmed"
+    },
+    {
+      "name": "pr_create_a",
+      "number": 1,
+      "provider_delta": 1,
+      "readback": {
+        "base": "main",
+        "head": "exp104-s11-20261008-01-a",
+        "marker_present": true,
+        "number": 1,
+        "title": "EXP-104 S11 A exp104-s11-20261008-01"
+      }
+    },
+    {
+      "error": "grant_unavailable",
+      "http": 403,
+      "name": "a_denied",
+      "provider_delta": 0
+    },
+    {
+      "name": "pr_create_b",
+      "number": 2,
+      "provider_delta": 1,
+      "readback": {
+        "base": "main",
+        "head": "exp104-s11-20261008-01-b",
+        "marker_present": true,
+        "number": 2,
+        "title": "EXP-104 S11 B exp104-s11-20261008-01"
+      }
+    }
+  ],
+  "exposure_scan": {
+    "designated_capability_mounts": 2,
+    "inspected_locations": 2,
+    "unexpected_exact_hits": 0
+  },
+  "host_service": {
+    "initial_heartbeat": {
+      "monotonic_age_seconds": 0.28099999999994907,
+      "wall_age_seconds": 0.27663493156433105
+    },
+    "module_root": "C:\\CodeWorkspace\\theseo-anysearch\\.worktrees\\laomedo-104\\laomedo",
+    "pid": 30468
+  },
+  "identity": "exp104-s11-20261008-01",
+  "loaded_laomedo_root": "C:\\CodeWorkspace\\theseo-anysearch\\.worktrees\\laomedo-104\\laomedo",
+  "model_turns": 0,
+  "persisted_exposure_scan": {
+    "files_scanned": 76,
+    "unexpected_exact_hits": 0
+  },
+  "planned_effect_ids": [
+    "exp104-s11-20261008-01-setup-push-a",
+    "exp104-s11-20261008-01-setup-push-b",
+    "exp104-s11-20261008-01-pr-create-a",
+    "exp104-s11-20261008-01-pr-update-a-denied",
+    "exp104-s11-20261008-01-pr-create-b"
+  ],
+  "provider_attempts": 4,
+  "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+  "review_record_sha256": "67da8c7a5da1c009d529a9ac237463407479e04e0459d749cc41d47bad810f7a",
+  "runner_a_loss": {
+    "completed_monotonic": 4407.453,
+    "completed_wall": 1791443072.2711484,
+    "pid": 9736,
+    "started_monotonic": 4407.328
+  },
+  "runner_a_result": {
+    "cleanup_finished_at": 1791443082.2829878,
+    "cleanup_finished_at_monotonic": 4417.468,
+    "cleanup_verified": true,
+    "detected_at": 1791443077.1700597,
+    "detected_at_monotonic": 4412.359,
+    "reason": "heartbeat_lost",
+    "revoked_at": 1791443077.1732206,
+    "revoked_at_monotonic": 4412.359,
+    "revoked_grants": [
+      "fe5681dd42043c5f9714d5161c2b9c19"
+    ],
+    "state": "removed_after_loss"
+  },
+  "runner_a_revocation": {
+    "detected_at": 1791443077.1700597,
+    "detected_at_monotonic": 4412.359,
+    "reason": "heartbeat_lost",
+    "revoked_at": 1791443077.1732206,
+    "revoked_at_monotonic": 4412.359,
+    "revoked_grants": [
+      "fe5681dd42043c5f9714d5161c2b9c19"
+    ]
+  },
+  "runner_b_result": {
+    "cleanup_finished_at": 1791443095.0419073,
+    "cleanup_finished_at_monotonic": 4430.234,
+    "cleanup_verified": true,
+    "detected_at": 1791443094.9710495,
+    "detected_at_monotonic": 4430.156,
+    "reason": "done",
+    "revoked_at": 1791443094.9750175,
+    "revoked_at_monotonic": 4430.156,
+    "revoked_grants": [
+      "60435d80dcd60633197c851290ff86cb"
+    ],
+    "state": "absent"
+  },
+  "source_sha": "d0d3b25a06835c701a5e294b27eeebfef1d0cdae",
+  "status": "passed"
+}
