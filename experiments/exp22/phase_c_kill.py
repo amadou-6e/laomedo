@@ -264,7 +264,7 @@ def main():
                         row.get("effect_id") == held["effect_id"] and
                         row.get("claimed_at_monotonic", 0) >=
                             revoked["revoked_at_monotonic"]]
-        evidence["agent_originated_post_revocation"] = (
+        evidence["agent_written_pre_kill_denied_after_revocation"] = (
             "denied" if any(row.get("error") == "grant_unavailable" and
                             row.get("provider_called") is False for row in post_revoked)
             else "inconclusive")
@@ -322,7 +322,7 @@ def main():
                 evidence["cleanup_attribution"] != "service" or
                 evidence["owned_container_state"] != "absent" or
                 not evidence["lookalike_alive_after_kill"] or
-                evidence["agent_originated_post_revocation"] != "denied" or
+                evidence["agent_written_pre_kill_denied_after_revocation"] != "denied" or
                 evidence["host_control_error"] != "grant_unavailable" or
                 evidence["host_control_provider_called"] is not False or
                 not evidence["other_run_continuity"] or
@@ -403,8 +403,8 @@ def main():
         raise RuntimeError("kill_teardown_unverified")
     print(json.dumps({"kill_boundary": "passed_at_bounded_scope",
                       "cleanup_attribution": evidence.get("cleanup_attribution"),
-                      "agent_post_revocation": evidence.get(
-                          "agent_originated_post_revocation"),
+                      "agent_written_pre_kill_denied_after_revocation": evidence.get(
+                          "agent_written_pre_kill_denied_after_revocation"),
                       "turns_used": 1, "run_id": run_id}))
 
 
