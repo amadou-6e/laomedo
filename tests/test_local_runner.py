@@ -140,6 +140,18 @@ class LocalRunnerTests(unittest.TestCase):
 
             FakeServer.calls.clear()
             FakeServer.turn_inputs.clear()
+            if os.name != "nt":
+                # The CI success path below substitutes a fake route. First
+                # assert that the actual Linux route fails before dispatch.
+                unverified = prepare("unverified")
+                with patch("laomedo.local_runner.cleanup_exact",
+                           return_value=(True, "absent")):
+                    refused = mediated._execute(
+                        unverified["run_id"], "Synthetic task", resume=False)
+                self.assertEqual(refused["status"], "failed")
+                self.assertEqual(refused["error_category"],
+                                 "mediator_container_route_unverified")
+                self.assertEqual(FakeServer.calls, [])
             # Linux CI has no verified container-to-host route. Exercise the
             # real lease/runner path with a fake transport while preserving
             # the same live instance check; Windows tests the actual route.
