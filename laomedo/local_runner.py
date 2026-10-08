@@ -39,6 +39,7 @@ SPLIT_TOOLS = frozenset({
 })
 CONFIG = Path(__file__).resolve().parent / "runner-config.toml"
 MEDIATION_CLIENT = Path(__file__).resolve().parent / "agent_mediation_client.mjs"
+FILE_MEDIATION_CLIENT = Path(__file__).resolve().parent / "file_mediation_client.mjs"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 MAX_BODY = 64 * 1024
@@ -215,7 +216,8 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    launch_token: str | None = None,
                    capability: Path | None = None,
                    mediator_url: str | None = None,
-                   mediator_instance: str | None = None) -> list[str]:
+                   mediator_instance: str | None = None,
+                   file_responses: Path | None = None) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
     labels = (["--label", f"{LABEL_RUN}={run_id}",
@@ -231,6 +233,11 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
     if any(value is not None for value in
            (capability, mediator_url, mediator_instance)) and not mediation:
         raise RunnerError("incomplete_mediator_mount")
+    if file_responses is not None:
+        if mediation or not file_responses.is_dir() or file_responses.is_symlink():
+            raise RunnerError("invalid_file_mediator_mount")
+        mediation = ["--mount", f"type=bind,source={FILE_MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
+                     "--mount", f"type=bind,source={file_responses},target=/run/laomedo/responses,readonly"]
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -662,6 +669,7 @@ class LocalRunner:
                  lease_service: Path | None = None,
                  github_authority: RunGrantAuthority | None = None,
                  mediator_state: Path | None = None,
+                 file_mediation: bool = False,
                  split_executor: bool = False, split_provider_config=(),
                  split_access_token=None, auth_store: Path | None = None):
         self.state = _private(state)
@@ -694,6 +702,10 @@ class LocalRunner:
         self.lease_service = Path(lease_service).resolve() if lease_service else None
         self.github_authority = github_authority
         self.mediator_state = _private(mediator_state) if mediator_state else None
+        self.file_mediation = file_mediation
+        if file_mediation and (self.mediator_state is None or
+                               self.lease_service is None or split_executor):
+            raise RunnerError("file_mediation_requires_supervised_docker")
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -771,7 +783,8 @@ class LocalRunner:
                      launch_token: str | None = None,
                      capability: Path | None = None,
                      mediator_url: str | None = None,
-                     mediator_instance: str | None = None):
+                     mediator_instance: str | None = None,
+                     file_responses: Path | None = None):
         workspace, canonical, store_mount = (root / name for name in
                                               ("workspace", "canonical", "store"))
         if self.split_executor:
@@ -784,7 +797,8 @@ class LocalRunner:
             workspace, canonical, store_mount, name=name, run_id=run_id,
             launch_token=launch_token, capability=capability,
             mediator_url=mediator_url,
-            mediator_instance=mediator_instance)]
+            mediator_instance=mediator_instance,
+            file_responses=file_responses)]
         if capability is not None and self.transport is AppServer:
             return self.transport(command, root, secret_redactions=(
                 capability.read_text(encoding="utf-8").strip(),))
@@ -1018,6 +1032,9 @@ class LocalRunner:
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
             effective_hash = _hash_tree(workspace)
+            if self.file_mediation and github_scope is not None:
+                (run_dir / "bridge-spool").mkdir()
+                (run_dir / "bridge-responses").mkdir()
             (run_dir / "raw-events.jsonl").touch()
             record = {"schema_version": 1, "run_id": run_id, "status": "prepared",
                       "error_category": None, "source_hash": source_hash,
@@ -1197,6 +1214,18 @@ class LocalRunner:
             raise RunnerError("mediator_unavailable") from error
         return f"http://host.docker.internal:{port}/v1/mediate", instance
 
+    def _file_bridge_ready(self) -> None:
+        if self.mediator_state is None:
+            raise RunnerError("file_bridge_unavailable")
+        try:
+            status = _read(self.mediator_state / "file-bridge.json")
+            age = time.monotonic() - status["at_monotonic"]
+            if (type(status.get("pid")) is not int or status["pid"] < 1 or
+                    not 0 <= age < 3):
+                raise ValueError("stale_file_bridge")
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            raise RunnerError("file_bridge_unavailable") from error
+
     def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
@@ -1239,13 +1268,20 @@ class LocalRunner:
             capability = None
             mediator_url = None
             mediator_instance = None
+            file_responses = None
             if record.get("github_scope") is not None:
                 if lease is None or lease.grant_id is None:
                     raise RunnerError("mediated_grant_unavailable")
-                capability = lease.dir / "grant.secret"
-                if capability.is_symlink() or not capability.is_file():
-                    raise RunnerError("mediated_capability_unavailable")
-                mediator_url, mediator_instance = self._mediator_route()
+                if self.file_mediation:
+                    self._file_bridge_ready()
+                    file_responses = run_dir / "bridge-responses"
+                    if not file_responses.is_dir() or file_responses.is_symlink():
+                        raise RunnerError("file_bridge_responses_unavailable")
+                else:
+                    capability = lease.dir / "grant.secret"
+                    if capability.is_symlink() or not capability.is_file():
+                        raise RunnerError("mediated_capability_unavailable")
+                    mediator_url, mediator_instance = self._mediator_route()
             access_token, auth_summary = self.auth.access_token() if self.auth else (None, None)
             if resume and self.auth:
                 prior = record.get("credential") or {}
@@ -1259,7 +1295,8 @@ class LocalRunner:
                 run_dir, access_token=access_token, name=name, run_id=run_id,
                 launch_token=launch_token, capability=capability,
                 mediator_url=mediator_url,
-                mediator_instance=mediator_instance)
+                mediator_instance=mediator_instance,
+                file_responses=file_responses)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
@@ -1314,11 +1351,19 @@ class LocalRunner:
             if record.get("github_scope") is not None:
                 task += ("\n\nThis run has approved, bounded GitHub mediation "
                          "for Actions reads and approved PR create/update only. "
-                         "To request one of those operations, pipe one JSON object "
-                         "with repository, operation, payload and (for a write) "
-                         "effect_id to `node /run/laomedo/mediate.mjs`. "
-                         "The client reads its run capability from a read-only file; "
-                         "never print or copy that file. A denied or unknown write "
+                         + ("To request an operation, write one JSON object with "
+                            "repository, operation, payload and effect_id to a file "
+                            "directly in /draft, then call "
+                            "`node /run/laomedo/mediate.mjs --request-file /draft/NAME.json`. "
+                            if self.file_mediation else
+                            "To request an operation, pipe one JSON object with "
+                            "repository, operation, payload and effect_id to "
+                            "`node /run/laomedo/mediate.mjs`. ")
+                         + ("The host-held file bridge reads requests from /draft; "
+                            "no capability is mounted. " if self.file_mediation else
+                            "The client reads its run capability from a read-only file; "
+                            "never print or copy that file. ") +
+                         "A denied or unknown write "
                          "must not be retried automatically. Direct host GitHub "
                          "credentials and ambient gh login are unavailable.")
             turn_params = {"threadId": native_id,
@@ -1401,6 +1446,10 @@ class LocalRunner:
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")
             if status == "completed":
+                if (self.file_mediation and
+                        any(item.name.startswith(".laomedo-req-") for item in
+                            (run_dir / "workspace").iterdir())):
+                    raise RunnerError("file_bridge_pending_request")
                 post_hash = _hash_tree(run_dir / "workspace")
                 pending = run_dir / ("post-run-pending-" + uuid4().hex)
                 _copy_tree(run_dir / "workspace", pending)
@@ -1592,6 +1641,8 @@ def main():
                         help="Trusted run-approval database outside the checkout")
     parser.add_argument("--mediator-state", type=Path,
                         help="Private host mediator state; only its port is passed to Docker")
+    parser.add_argument("--file-mediation", action="store_true",
+                        help="Use independent file bridge with network-off agent commands")
     parser.add_argument("--split-executor", action="store_true",
                         help="Credential-free experimental split controller/executor")
     parser.add_argument("--auth-store", type=Path,
@@ -1606,6 +1657,7 @@ def main():
                          lease_service=args.lease_service,
                          github_authority=authority,
                          mediator_state=args.mediator_state,
+                         file_mediation=args.file_mediation,
                          split_executor=args.split_executor,
                          auth_store=args.auth_store)
     if args.preflight:

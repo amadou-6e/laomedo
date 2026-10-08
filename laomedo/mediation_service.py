@@ -28,6 +28,8 @@ class MediationHTTPService:
     def __init__(self, store: MediationStore, transport, *, host="127.0.0.1", port=0):
         if transport is None:
             raise ValueError("credential_transport_required")
+        self.store = store
+        self.transport = transport
         self.instance = secrets.token_hex(16)
         self.server = ThreadingHTTPServer((host, port),
                                           _handler(None, store, transport, self.instance))

@@ -26,12 +26,14 @@ not spend them here. No Phase C model turns are authorized by this file.
   policy. Before the turn, verify the exact `auth.json` mount path exists from
   the host side without reading its contents. The first approved model turn
   must attempt an agent-originated read
-  of `auth.json`, record a denial without printing its contents, and confirm
-  tool-call network access to the scoped mediator. Stop on a readable login.
+  of `auth.json` and record a denial without printing its contents. The file
+  bridge must deliver a host-journaled fake response while the agent remains
+  network-off. Stop on a readable login.
 - Start the lease/mediator process independently of the runner's process tree.
   Use a fake, credential-free transport with an append-only receipt for one
-  disposable operation. The container receives only its run-scoped mediator
-  capability. This case is not evidence of a real GitHub write.
+  disposable operation. In file-bridge mode the container receives no
+  mediator capability; the independent host service holds the run grant.
+  This case is not evidence of a real GitHub write.
 - Freeze the exact prompts, artifact names, timeouts, safe-stop commands and
   private evidence directory. Never replay an ambiguous effect with a new ID.
   Before dispatch, verify that service identity and grant ownership match the

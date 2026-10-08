@@ -16,6 +16,7 @@ import threading
 import time
 
 from .github_git_transport import GitHubGitTransport, GitHubMediatedTransport
+from .file_mediation_bridge import FileMediationBridge
 from .github_mediation import MediationStore
 from .github_rest_transport import GitHubRestTransport
 from .host_token_connection import HostTokenConnection
@@ -56,7 +57,8 @@ def build_services(*, state: Path, repository: str, checkout: Path,
 
 def serve_services(lease: LeaseService, mediator: MediationHTTPService,
                    state: Path, *, repository: str, connection_id: str,
-                   connection_generation: int) -> None:
+                   connection_generation: int,
+                   file_bridge: FileMediationBridge | None = None) -> None:
     """Publish mediator identity, then keep both host services alive together."""
     mediator_state = state / "mediator"
     mediator_state.mkdir(parents=True, exist_ok=True)
@@ -72,9 +74,20 @@ def serve_services(lease: LeaseService, mediator: MediationHTTPService,
     thread = threading.Thread(target=mediator.serve, daemon=True,
                               name="laomedo-mediator")
     thread.start()
+    stop_bridge = threading.Event()
+    bridge_thread = None
+    if file_bridge is not None:
+        bridge_thread = threading.Thread(
+            target=file_bridge.serve,
+            args=(stop_bridge, mediator_state / "file-bridge.json"),
+            daemon=True, name="laomedo-file-bridge")
+        bridge_thread.start()
     try:
         lease.serve()
     finally:
+        stop_bridge.set()
+        if bridge_thread is not None:
+            bridge_thread.join(timeout=3)
         mediator.close()
 
 
@@ -89,11 +102,20 @@ def main() -> None:
     parser.add_argument("--connection-generation", required=True, type=int)
     parser.add_argument("--token-file", required=True, type=Path)
     parser.add_argument("--token-key", default="GH")
+    parser.add_argument("--runner-runs-root", type=Path,
+                        help="Enable independent network-free file mediation for this runner")
     args = parser.parse_args()
-    lease, mediator = build_services(**vars(args))
+    options = vars(args).copy()
+    runs_root = options.pop("runner_runs_root")
+    lease, mediator = build_services(**options)
+    file_bridge = (FileMediationBridge(runs_root, args.state / "lease",
+                                      mediator.store, mediator.transport,
+                                      args.state / "mediator" / "file-bridge-journal.jsonl")
+                   if runs_root is not None else None)
     serve_services(lease, mediator, args.state.resolve(),
                    repository=args.repository, connection_id=args.connection_id,
-                   connection_generation=args.connection_generation)
+                   connection_generation=args.connection_generation,
+                   file_bridge=file_bridge)
 
 
 if __name__ == "__main__":

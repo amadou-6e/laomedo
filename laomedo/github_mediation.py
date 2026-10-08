@@ -496,6 +496,6 @@ class MediationStore:
 
     def effect(self, run_id: str, effect_id: str) -> dict | None:
         with closing(self._connect()) as db:
-            row = db.execute("SELECT state,result_json,error_code FROM effects "
+            row = db.execute("SELECT state,result_json,error_code,request_hash FROM effects "
                              "WHERE run_id=? AND effect_id=?", (run_id, effect_id)).fetchone()
         return dict(row) if row else None
