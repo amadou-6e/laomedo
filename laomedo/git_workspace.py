@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -32,6 +33,7 @@ def _git_environment(home: str) -> dict[str, str]:
                         "GIT_CONFIG_SYSTEM": os.devnull,
                         "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
                         "GIT_NO_REPLACE_OBJECTS": "1",
+                        "GIT_OPTIONAL_LOCKS": "0",
                         "GIT_LFS_SKIP_SMUDGE": "1"})
     environment.pop("HOMEDRIVE", None)
     environment.pop("HOMEPATH", None)
@@ -78,10 +80,11 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
     """Clone a clean, real repository into a new run workspace without login.
 
     The returned baseline is a trusted host observation, not an agent claim.
-    Source must be an ordinary repository root for this first slice; worktrees,
-    submodules, sparse checkouts and an uncommitted source are refused.
+    Source must be a trusted host repository root, never agent output or a
+    previous run workspace. Worktrees, gitlinks, symlinks, sparse checkouts
+    and an uncommitted source are refused.
     """
-    if source.is_symlink() or destination.exists():
+    if source.is_symlink() or destination.exists() or destination.is_symlink():
         raise GitWorkspaceError("git_workspace_path_invalid")
     source = source.expanduser().resolve()
     git_dir = source / ".git"
@@ -90,40 +93,59 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
     with tempfile.TemporaryDirectory(prefix="laomedo-git-home-") as home:
         env = _git_environment(home)
 
-        def command(*args: str, cwd: Path | None = None):
+        def command(*args: str, cwd: Path | None = None, source_side: bool = False):
             argv = ["git"]
+            if source_side:
+                argv.extend(["-c", "core.fsmonitor=false",
+                             "-c", f"core.hooksPath={home}"])
             if cwd is not None:
                 argv.extend(["-C", str(cwd)])
             argv.extend(args)
             return _bounded_git(argv, env)
 
-        baseline = command("rev-parse", "--verify", "HEAD", cwd=source)
+        baseline = command("rev-parse", "--verify", "HEAD", cwd=source,
+                           source_side=True)
         if baseline.returncode or not _SHA.fullmatch(baseline.stdout.strip()):
             raise GitWorkspaceError("source_commit_invalid")
-        indexed = command("ls-files", "--stage", "-z", cwd=source)
-        if indexed.returncode or any(row.startswith(b"160000 ") for row in
-                                     indexed.stdout.split(b"\0")):
+        indexed = command("ls-files", "--stage", "-z", cwd=source,
+                          source_side=True)
+        if indexed.returncode:
+            raise GitWorkspaceError("source_index_invalid")
+        modes = {row.split(b" ", 1)[0] for row in indexed.stdout.split(b"\0") if row}
+        if b"160000" in modes:
             raise GitWorkspaceError("submodule_source_unsupported")
-        config = command("config", "--local", "--get", "core.sparseCheckout", cwd=source)
+        if b"120000" in modes:
+            raise GitWorkspaceError("symlink_source_unsupported")
+        config = command("config", "--local", "--get", "core.sparseCheckout",
+                         cwd=source, source_side=True)
         if config.returncode == 0 and config.stdout.strip().lower() in {b"true", b"1", b"yes"}:
             raise GitWorkspaceError("sparse_source_unsupported")
-        status = command("status", "--porcelain=v1", "--untracked-files=all", cwd=source)
+        status = command("status", "--porcelain=v1", "--untracked-files=all",
+                         cwd=source, source_side=True)
         if status.returncode or status.stdout:
             raise GitWorkspaceError("source_not_clean")
-        cloned = command("clone", "--no-local", "--no-hardlinks", "--no-checkout",
-                         "--single-branch", "--quiet", str(source), str(destination))
-        if cloned.returncode:
-            raise GitWorkspaceError("git_clone_failed")
-        sha = baseline.stdout.decode("ascii").strip()
-        checked = command("checkout", "--quiet", "--detach", sha, cwd=destination)
-        if checked.returncode:
-            raise GitWorkspaceError("git_checkout_failed")
-        removed = command("remote", "remove", "origin", cwd=destination)
-        if removed.returncode:
-            raise GitWorkspaceError("git_remote_removal_failed")
-        final = command("rev-parse", "--verify", "HEAD", cwd=destination)
-        remotes = command("remote", cwd=destination)
-        if final.returncode or final.stdout.strip() != baseline.stdout.strip() or \
-                remotes.returncode or remotes.stdout.strip():
-            raise GitWorkspaceError("git_clone_verification_failed")
-        return sha
+        try:
+            cloned = command("clone", "--no-local", "--no-hardlinks", "--no-checkout",
+                             "--single-branch", "--quiet", str(source), str(destination))
+            if cloned.returncode:
+                raise GitWorkspaceError("git_clone_failed")
+            sha = baseline.stdout.decode("ascii").strip()
+            checked = command("checkout", "--quiet", "--detach", sha, cwd=destination)
+            if checked.returncode:
+                raise GitWorkspaceError("git_checkout_failed")
+            removed = command("remote", "remove", "origin", cwd=destination)
+            if removed.returncode:
+                raise GitWorkspaceError("git_remote_removal_failed")
+            final = command("rev-parse", "--verify", "HEAD", cwd=destination)
+            remotes = command("remote", cwd=destination)
+            if final.returncode or final.stdout.strip() != baseline.stdout.strip() or \
+                    remotes.returncode or remotes.stdout.strip():
+                raise GitWorkspaceError("git_clone_verification_failed")
+            return sha
+        except Exception as error:
+            try:
+                if destination.exists():
+                    shutil.rmtree(destination)
+            except OSError as cleanup_error:
+                raise GitWorkspaceError("git_workspace_cleanup_unverified") from cleanup_error
+            raise error

@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from laomedo import git_workspace
 from laomedo.git_workspace import GitWorkspaceError, prepare_git_workspace
 
 
@@ -68,6 +69,36 @@ class GitWorkspaceTests(unittest.TestCase):
         self._git(self.source, "commit", "-qm", "gitlink")
         with self.assertRaisesRegex(GitWorkspaceError, "submodule_source_unsupported"):
             prepare_git_workspace(self.source, self.root / "workspace")
+
+    def test_indexed_symlink_is_refused(self):
+        self._git(self.source, "update-index", "--add", "--cacheinfo",
+                  "120000," + self.baseline + ",link")
+        self._git(self.source, "commit", "-qm", "symlink")
+        with self.assertRaisesRegex(GitWorkspaceError, "symlink_source_unsupported"):
+            prepare_git_workspace(self.source, self.root / "workspace")
+
+    def test_partial_clone_is_removed_on_failure(self):
+        destination = self.root / "workspace"
+        original = git_workspace._bounded_git
+
+        def fail_after_clone(args, env):
+            if "clone" in args:
+                destination.mkdir()
+                (destination / "partial").write_text("unfinished", encoding="utf-8")
+                return subprocess.CompletedProcess(args, 1, b"", b"synthetic failure")
+            return original(args, env)
+
+        with patch.object(git_workspace, "_bounded_git", side_effect=fail_after_clone):
+            with self.assertRaisesRegex(GitWorkspaceError, "git_clone_failed"):
+                prepare_git_workspace(self.source, destination)
+        self.assertFalse(destination.exists())
+
+    def test_fsmonitor_source_config_does_not_run(self):
+        marker = self.root / "fsmonitor.txt"
+        command = f'echo fired > "{marker}"'
+        self._git(self.source, "config", "core.fsmonitor", command)
+        prepare_git_workspace(self.source, self.root / "workspace")
+        self.assertFalse(marker.exists())
 
 
 if __name__ == "__main__":
