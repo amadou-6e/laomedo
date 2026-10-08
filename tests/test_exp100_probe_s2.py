@@ -1,28 +1,21 @@
-"""The one-shot evidence writer must preserve failed attempts."""
+"""Check EXP-100/S2 one-shot evidence behavior from installed-wheel CI."""
 
-import json
 from pathlib import Path
-import tempfile
+import subprocess
+import sys
 import unittest
 
-from experiments.exp100.probe_s2 import record_once
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
-class ProbeS2RecordTests(unittest.TestCase):
-    def test_failed_attempt_is_recorded_and_cannot_be_retried(self):
-        with tempfile.TemporaryDirectory() as scratch:
-            target = Path(scratch) / "observation-s2.json"
-
-            def fail():
-                raise AssertionError("synthetic fixture failed")
-
-            observed = record_once(target, "a" * 40, run=fail)
-            self.assertEqual(observed["status"], "failed")
-            self.assertEqual(observed["error_type"], "AssertionError")
-            self.assertEqual(json.loads(target.read_text(encoding="utf-8")), observed)
-            with self.assertRaises(FileExistsError):
-                record_once(target, "b" * 40, run=lambda: {"status": "passed"})
-            self.assertEqual(json.loads(target.read_text(encoding="utf-8")), observed)
+class Exp100ProbeCI(unittest.TestCase):
+    def test_failed_record_is_not_retried(self):
+        result = subprocess.run(
+            [sys.executable, "-m", "unittest",
+             "experiments.exp100.test_probe_s2", "-q"],
+            cwd=ROOT, capture_output=True, text=True, timeout=30, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

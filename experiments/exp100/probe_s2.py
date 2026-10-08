@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-from tests.test_exp100_bundle_transfer import BundleTransferTests
+from experiments.exp100.test_bundle_transfer import BundleTransferTests
 from experiments.exp100.bundle_transfer import git
 
 
