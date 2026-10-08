@@ -125,6 +125,25 @@ class LeaseServiceTests(unittest.TestCase):
             self.assertEqual(lease_service._read_float(heartbeat), 2.0)
         self.assertEqual(len(attempts), 2)
 
+    def test_json_read_retries_transient_windows_lock(self):
+        record = self.state / "service.json"
+        record.write_text('{"instance": "one"}', encoding="utf-8")
+        read_text = Path.read_text
+        attempts = []
+
+        def locked_once(path, *args, **kwargs):
+            if path == record:
+                attempts.append(path)
+                if len(attempts) == 1:
+                    raise PermissionError("simulated reader lock")
+            return read_text(path, *args, **kwargs)
+
+        with patch.object(Path, "read_text", autospec=True,
+                          side_effect=locked_once):
+            self.assertEqual(lease_service._read_json(record),
+                             {"instance": "one"})
+        self.assertEqual(len(attempts), 2)
+
     def test_accepted_lease_gets_an_active_grant(self):
         lease_dir, secret = self.register()
         accepted = json.loads((lease_dir / "accepted.json").read_text(encoding="utf-8"))

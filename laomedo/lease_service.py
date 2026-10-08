@@ -64,11 +64,16 @@ def _write_float(path: Path, value: float) -> None:
 
 
 def _read_json(path: Path) -> dict | None:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return value if isinstance(value, dict) else None
+    for attempt in range(5):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            return value if isinstance(value, dict) else None
+        except (PermissionError, FileNotFoundError):
+            if attempt < 4:
+                time.sleep(.01)
+        except (OSError, ValueError):
+            return None
+    return None
 
 
 def _read_float(path: Path) -> float | None:
@@ -532,7 +537,6 @@ class LeaseClient:
                     _write_float(self.dir / "heartbeat.monotonic", time.monotonic())
                 except OSError:
                     logging.warning("lease_client_heartbeat_write_failed")
-                    continue
                 alive_at = _read_float(self.state / "service.alive")
                 alive_monotonic = _read_float(self.state / "service.alive.monotonic")
                 current = _read_json(self.state / "service.json")
