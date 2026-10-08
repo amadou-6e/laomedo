@@ -1,4 +1,4 @@
-"""Fail-closed controls for the unexecuted EXP-104 S10 live probe."""
+"""Fail-closed controls for the unexecuted EXP-104 S11 live probe."""
 
 import json
 import importlib.util
@@ -11,22 +11,45 @@ import threading
 import time
 from types import ModuleType
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from laomedo.github_mediation import MediationStore
 from laomedo.lease_service import LeaseService
 from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService
 
-_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s10_probe.py"
-_probe_spec = importlib.util.spec_from_file_location("exp104_s10_probe", _probe_path)
+_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s11_probe.py"
+_probe_spec = importlib.util.spec_from_file_location("exp104_s11_probe", _probe_path)
 if _probe_spec is None or _probe_spec.loader is None:
-    raise RuntimeError("s10_probe_unavailable")
+    raise RuntimeError("s11_probe_unavailable")
 probe = importlib.util.module_from_spec(_probe_spec)
 _probe_spec.loader.exec_module(probe)
 
 
-class S10ProbeTests(unittest.TestCase):
+class S11ProbeTests(unittest.TestCase):
+    def test_service_gate_waits_for_fresh_monotonic_heartbeat(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            (state / "service.alive").write_text(str(time.time()), encoding="utf-8")
+            service = Mock()
+            service.poll.return_value = None
+
+            def publish() -> None:
+                time.sleep(.15)
+                (state / "service.alive.monotonic").write_text(
+                    str(time.monotonic()), encoding="utf-8")
+
+            publisher = threading.Thread(target=publish)
+            publisher.start()
+            start = time.monotonic()
+            try:
+                result = probe._wait_service_heartbeat(state, service, timeout=2)
+            finally:
+                publisher.join(timeout=2)
+            self.assertGreaterEqual(time.monotonic() - start, .1)
+            self.assertLess(result["monotonic_age_seconds"],
+                            probe.SERVICE_STALE_SECONDS)
+
     def test_host_python_process_has_direct_identity_and_source_import(self):
         root = _probe_path.parents[2]
         child = subprocess.Popen([
@@ -99,7 +122,7 @@ class S10ProbeTests(unittest.TestCase):
 
     def test_reviewed_source_refuses_uncommitted_change(self):
         with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
-                [], 0, b" M experiments/exp104/s10_probe.py\n", b"")), \
+                [], 0, b" M experiments/exp104/s11_probe.py\n", b"")), \
              self.assertRaisesRegex(RuntimeError, "reviewed_source_not_clean"):
             probe._require_clean_source(Path("synthetic"))
         with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
@@ -148,7 +171,7 @@ class S10ProbeTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt" and
                          os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",
                          "requires pinned image and Windows Docker Desktop route")
-    def test_s10_runner_uses_its_mounted_capability_with_synthetic_provider(self):
+    def test_s11_runner_uses_its_mounted_capability_with_synthetic_provider(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
             (state / "mediator").mkdir()
@@ -171,7 +194,7 @@ class S10ProbeTests(unittest.TestCase):
             lease_thread = threading.Thread(target=lease.serve, daemon=True)
             mediator_thread.start()
             lease_thread.start()
-            local_name = "laomedo-s10-synthetic-" + str(os.getpid())
+            local_name = "laomedo-s11-synthetic-" + str(os.getpid())
             runner = None
             try:
                 probe._wait(state / "lease" / "service.json", 5)
@@ -182,7 +205,7 @@ class S10ProbeTests(unittest.TestCase):
                 authority.bind_run(reference, probe.RUNS["a"])
                 script = (
                     "from pathlib import Path; "
-                    "from experiments.exp104 import s10_probe as p; "
+                    "from experiments.exp104 import s11_probe as p; "
                     f"p.NAMES['a']={local_name!r}; "
                     "p._agent_runner(Path(__import__('sys').argv[1]), 'a', "
                     "Path(__import__('sys').argv[2]))"

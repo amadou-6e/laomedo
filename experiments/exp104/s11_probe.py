@@ -1,4 +1,4 @@
-"""Single-use, no-model EXP-104 S10 runner-loss probe.
+"""Single-use, no-model EXP-104 S11 runner-loss probe.
 
 This module must be reviewed at an exact commit before ``--run`` is used.
 It never retries a provider mutation after an uncertain result. The selected
@@ -22,7 +22,7 @@ from urllib import error, request
 
 from laomedo.container_lease import inspect_exact
 from laomedo.host_token_connection import HostTokenConnection
-from laomedo.lease_service import LeaseClient
+from laomedo.lease_service import LeaseClient, SERVICE_STALE_SECONDS
 from laomedo.local_runner import IMAGE, _docker_prefix
 from laomedo.mediation_authority import RunGrantAuthority
 
@@ -44,7 +44,7 @@ _stop = _helpers._stop
 _wait = _helpers._wait
 
 
-IDENTITY = "exp104-s10-20261008-01"
+IDENTITY = "exp104-s11-20261008-01"
 CONNECTION_ID = IDENTITY + "-connection"
 GENERATION = 1
 BRANCHES = {side: IDENTITY + "-" + side for side in ("a", "b")}
@@ -82,7 +82,7 @@ def _read_list(token: str, path: str) -> list[dict]:
         "Authorization": "Bearer " + token,
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "laomedo-exp104-s10/0.1",
+        "User-Agent": "laomedo-exp104-s11/0.1",
     })
     with request.urlopen(call, timeout=15) as response:
         value = json.load(response)
@@ -150,10 +150,10 @@ def _prepare_commits(checkout: Path) -> dict[str, str]:
     commits = {}
     for side in ("a", "b"):
         _git("checkout", "--quiet", "--detach", BASELINE, cwd=checkout)
-        marker = checkout / ("exp104-s10-" + side + ".txt")
+        marker = checkout / ("exp104-s11-" + side + ".txt")
         marker.write_text(MARKERS[side] + "\n", encoding="utf-8", newline="\n")
         _git("add", marker.name, cwd=checkout)
-        _git("commit", "-qm", "EXP-104 S10 disposable " + side, cwd=checkout)
+        _git("commit", "-qm", "EXP-104 S11 disposable " + side, cwd=checkout)
         commits[side] = _git("rev-parse", "HEAD", cwd=checkout)
     return commits
 
@@ -322,6 +322,29 @@ def _require_module_origin(root: Path) -> str:
     return str(package_root)
 
 
+def _wait_service_heartbeat(lease_state: Path, service: subprocess.Popen,
+                            timeout: float = 20.0) -> dict[str, float]:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if service.poll() is not None:
+            raise RuntimeError("host_service_exited_before_ready")
+        try:
+            wall = float((lease_state / "service.alive").read_text(encoding="utf-8"))
+            monotonic = float((lease_state / "service.alive.monotonic").read_text(
+                encoding="utf-8"))
+        except (FileNotFoundError, PermissionError, OSError, ValueError):
+            time.sleep(.05)
+            continue
+        wall_age = time.time() - wall
+        monotonic_age = time.monotonic() - monotonic
+        if (0 <= wall_age < SERVICE_STALE_SECONDS and
+                -1 <= monotonic_age < SERVICE_STALE_SECONDS):
+            return {"wall_age_seconds": wall_age,
+                    "monotonic_age_seconds": monotonic_age}
+        time.sleep(.05)
+    raise RuntimeError("host_service_heartbeat_not_ready")
+
+
 def run(state: Path, token_file: Path, code_sha: str, approval: str,
         review_record: Path) -> dict:
     if not approval or approval != IDENTITY:
@@ -383,6 +406,8 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
             raise RuntimeError("host_service_identity_mismatch")
         record["host_service"] = {"pid": service.pid,
                                   "module_root": mediator["module_root"]}
+        record["host_service"]["initial_heartbeat"] = _wait_service_heartbeat(
+            state / "lease", service)
         save()
         authority = RunGrantAuthority(state / "authority.sqlite",
                                       connection_authorizer=connection.authorize)
@@ -460,7 +485,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                              for side in ("a", "b"))
         record["exposure_scan"] = _scan_agent_exposure(state, provider_token, capabilities)
         save()
-        title_a = "EXP-104 S10 A " + IDENTITY
+        title_a = "EXP-104 S11 A " + IDENTITY
         payload_a = {"title": title_a, "body": MARKERS["a"],
                      "head": BRANCHES["a"], "base": "main", "marker": MARKERS["a"]}
         before = _journal_count(state)
@@ -515,7 +540,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
             raise RuntimeError("runner_a_cleanup_unverified")
         record["runner_a_result"] = a_result
         save()
-        title_b = "EXP-104 S10 B " + IDENTITY
+        title_b = "EXP-104 S11 B " + IDENTITY
         payload_b = {"title": title_b, "body": MARKERS["b"],
                      "head": BRANCHES["b"], "base": "main", "marker": MARKERS["b"]}
         before = _journal_count(state)
