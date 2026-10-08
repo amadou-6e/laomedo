@@ -10,10 +10,18 @@ not spend them here. No Phase C model turns are authorized by this file.
 - Use the merged, pinned Docker Codex image ID and record its CLI version,
   source commit, component revision, requested model and effort, and every
   task/skill byte hash before dispatch. Refuse a changed image or source.
-- Use a new private runner profile, run directory and synthetic pinned skill.
-  The provider login remains in the controller. No personal skills, personal
-  checkout, host `gh` login, Git Credential Manager, or GitHub token may enter
-  the agent container. Record only nonsecret credential mode and outcome.
+- Use a new private run directory and synthetic pinned skill. The current
+  mediated lease route is non-split: its Codex profile volume, including the
+  provider login, is mounted in the agent container. Codex's `auth_read`
+  sandbox control must deny agent commands access to `auth.json`; record the
+  volume name, mount target and negative-control result without recording the
+  login. Do not claim controller-only credential custody. The provider login
+  remains exposed to the container process itself, so this is a bounded local
+  test, not proof of an untrusted-container credential boundary. No personal
+  skills, personal checkout, host `gh` login, Git Credential Manager, or GitHub
+  token may enter the agent container. Record only nonsecret credential mode
+  and outcome. Obtain an explicit decision for this exact custody mode before
+  copying or using the subscription login.
 - Start the lease/mediator process independently of the runner's process tree.
   Use a fake, credential-free transport with an append-only receipt for one
   disposable operation. The container receives only its run-scoped mediator
@@ -32,24 +40,36 @@ not spend them here. No Phase C model turns are authorized by this file.
    and a same-prefix lookalike remains. Abort if any preflight fails.
 2. Obtain a separate explicit model-turn cap and credential decision for this
    exact protocol. Count every submitted `turn/start`, including a timeout.
-   Record the ledger before and after each attempt. Do not run if the cap or
-   nonsecret login reference is missing.
+   The proposed cap is four turns, with two planned runs and up to two
+   diagnostic retries. A retry needs a recorded cause, an unused turn and a
+   check that no ambiguous mediated effect would be replayed. Record the
+   ledger before and after each attempt. Do not run if the cap or nonsecret
+   login reference is missing.
 3. Start one Codex run through the real runner with the pinned skill and
    scoped fake-mediator grant. Capture the early run ID before turn completion.
-   The task asks the agent to make one deterministic mediated request and then
+   The task asks the agent to make one deterministic mediated fake write and then
    enter a long, observable command. A successful mediator receipt must bind
    the run, effect ID, invocation, repository and scope; raw output is not an
    authorization or completion signal.
 4. After the native command-start event, request cancellation by the saved
    run ID. Record the HTTP acknowledgement separately from native interrupt,
    terminal run state, exact-container inspection, raw-event retention and
-   fake-transport receipts. Never infer confirmed cancellation from the HTTP
-   request alone. Check after the command's original delay that its sentinel
-   is absent.
+   fake-transport receipts. Require a saved native `turn/completed` event with
+   status `interrupted` for the native-interrupt criterion. A bounded wait that
+   expires without it records an unknown native outcome, even if exact Docker
+   cleanup succeeds. Never infer confirmed cancellation from the HTTP request
+   alone. Check after the command's original delay that its sentinel is absent.
 5. In a separate run, kill the runner's entire Windows process tree while the
-   agent's tool is active. On one host monotonic clock, measure the kill,
+   agent's tool is active. Before launch, freeze an in-container loop that
+   issues new, distinct effect IDs in the approved fake-write scope and logs a
+   host-correlatable timestamp and response for each. A host-side call using
+   A's capability is a separate boundary check, not agent-originated evidence.
+   On one host monotonic clock, measure the kill,
    lease detection, grant revocation, post-revocation request and exact
-   container removal. The post-revocation request must be a new effect in the
+   container removal. Record the source of each timestamp and distinguish
+   lease-service `removed` from `already absent` after the Docker client exits.
+   Only the former proves service-attributed cleanup. The post-revocation
+   request must be a new effect in the
    already approved scope, not a retry of an unknown effect. Verify no new
    fake-provider receipt, B remains usable, the lookalike survives, and the
    startup sweep records the old run as interrupted or unknown without

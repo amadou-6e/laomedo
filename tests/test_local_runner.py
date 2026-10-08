@@ -808,8 +808,10 @@ class LocalRunnerTests(unittest.TestCase):
         app.stderr = io.StringIO()
         cancelled = threading.Event()
         cancelled.set()
-        self.assertEqual(app.wait_turn("turn-test", 1, cancelled),
+        self.assertEqual(app.wait_turn("turn-test", .05, cancelled),
                          ("cancelled", "cancelled_by_user"))
+        self.assertTrue(app.interrupt_acknowledged)
+        self.assertIsNone(getattr(app, "native_completion_status", None))
         app.request.assert_called_once_with("turn/interrupt", {
             "threadId": "thread-test", "turnId": "turn-test"}, timeout=5)
         with patch("laomedo.local_runner.subprocess.run", side_effect=[
@@ -922,6 +924,26 @@ class LocalRunnerTests(unittest.TestCase):
             "id": "fast-turn", "status": "completed"}}}]
         status, error = server.wait_turn("fast-turn", .1, threading.Event())
         self.assertEqual((status, error), ("completed", None))
+
+    def test_cancel_waits_for_native_interrupted_completion(self):
+        server = AppServer.__new__(AppServer)
+        server.events = []
+        server.messages = queue.Queue()
+        server.process = Mock()
+        server.process.poll.return_value = None
+        server.active_thread_id = "thread-test"
+        server.interrupt_acknowledged = False
+        server.native_completion_status = None
+        server.request = Mock(side_effect=lambda *args, **kwargs: (
+            server.messages.put({"method": "turn/completed", "params": {
+                "turn": {"id": "turn-test", "status": "interrupted"}}}) or
+            {"result": {}}))
+        cancelled = threading.Event()
+        cancelled.set()
+        self.assertEqual(server.wait_turn("turn-test", 1, cancelled),
+                         ("cancelled", "cancelled_by_user"))
+        self.assertTrue(server.interrupt_acknowledged)
+        self.assertEqual(server.native_completion_status, "interrupted")
 
 
 if __name__ == "__main__":

@@ -262,6 +262,7 @@ class AppServer:
                 self.launch_token = value.split("=", 1)[1]
         self.active_thread_id = None
         self.interrupt_acknowledged = False
+        self.native_completion_status = None
         self.secret_redactions = tuple(value for value in secret_redactions if value)
         self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
         self.stderr = (evidence / "stderr.log").open("a", encoding="utf-8")
@@ -325,23 +326,31 @@ class AppServer:
     def wait_turn(self, turn_id: str, timeout: float, cancelled: threading.Event) -> tuple[str, str | None]:
         deadline = time.monotonic() + timeout
         cursor = 0
+        interrupt_sent = False
         while time.monotonic() < deadline:
             for event in self.events[cursor:]:
                 if event.get("method") == "turn/completed":
                     turn = event.get("params", {}).get("turn") or {}
                     if turn.get("id") == turn_id:
-                        return turn.get("status") or "unknown", None
+                        self.native_completion_status = turn.get("status") or "unknown"
+                        if interrupt_sent and self.native_completion_status == "interrupted":
+                            return "cancelled", "cancelled_by_user"
+                        return self.native_completion_status, None
             cursor = len(self.events)
-            if cancelled.is_set():
+            if cancelled.is_set() and not interrupt_sent:
                 self.interrupt(turn_id)
-                return "cancelled", "cancelled_by_user"
+                interrupt_sent = True
+                deadline = min(deadline, time.monotonic() + 5)
             try:
                 msg = self.messages.get(timeout=min(.25, deadline - time.monotonic()))
             except queue.Empty:
                 if self.process.poll() is not None:
-                    return "failed", "app_server_exited"
+                    return (("cancelled", "cancelled_by_user") if interrupt_sent else
+                            ("failed", "app_server_exited"))
                 continue
             self.events.append(msg)
+        if interrupt_sent:
+            return "cancelled", "cancelled_by_user"
         self.interrupt(turn_id)
         return "timeout", "turn_timeout"
 
@@ -1374,6 +1383,10 @@ class LocalRunner:
                 error = "codex_" + native_errors["last_category"]
             record["turns"].append({"turn_id": turn_id, "status": status,
                                     "error_category": error,
+                                    "native_completion_status": getattr(
+                                        server, "native_completion_status", None),
+                                    "interrupt_acknowledged": getattr(
+                                        server, "interrupt_acknowledged", False),
                                     "native_error_summary": native_errors,
                                     "input_hash": "sha256:" +
                                     hashlib.sha256(task.encode()).hexdigest()})
@@ -1419,8 +1432,6 @@ class LocalRunner:
             try:
                 if server is not None:
                     server.close()
-                    if record is not None and record.get("status") == "cancelled":
-                        record["cancel_confirmed"] = True
             except Exception:
                 close_error = True
                 if record is not None:
@@ -1458,6 +1469,12 @@ class LocalRunner:
                                           error_category="container_termination_unverified")
                     with self.control_lock:
                         if record is not None:
+                            record["cancel_confirmed"] = bool(
+                                record.get("status") == "cancelled" and
+                                not close_error and
+                                (not self.supervise_containers or
+                                 record.get("container_ownership", {}).get(
+                                     "cleanup_verified")))
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             _json(run_dir / "record.json", record)
