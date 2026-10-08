@@ -234,11 +234,14 @@ class LeaseService:
     def _beat(self) -> None:
         while not self.stopping.is_set():
             try:
-                _write_float(self.state / "service.alive", time.time())
-                _write_float(self.state / "service.alive.monotonic", time.monotonic())
+                self._publish_heartbeat()
             except OSError:
                 logging.warning("lease_service_heartbeat_write_failed")
             self.stopping.wait(1)
+
+    def _publish_heartbeat(self) -> None:
+        _write_float(self.state / "service.alive", time.time())
+        _write_float(self.state / "service.alive.monotonic", time.monotonic())
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
         beat = _read_float(lease_dir / "heartbeat")
@@ -463,6 +466,12 @@ class LeaseService:
                          name="laomedo-lease-refusal").start()
 
     def serve(self) -> None:
+        # A previous instance's publication must not become valid again when
+        # this instance refreshes the heartbeat files on the same state path.
+        (self.state / "service.json").unlink(missing_ok=True)
+        # Refuse startup if either initial heartbeat cannot be published.
+        # Clients may see service.json only after both are fresh.
+        self._publish_heartbeat()
         _write_json(self.state / "service.json", {
             "pid": os.getpid(), "port": self.port, "instance": self.instance,
             "started_at": time.time()})

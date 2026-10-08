@@ -144,6 +144,48 @@ class LeaseServiceTests(unittest.TestCase):
                              {"instance": "one"})
         self.assertEqual(len(attempts), 2)
 
+    def test_serve_publishes_new_heartbeats_before_service_identity(self):
+        (self.state / "service.json").write_text(
+            json.dumps({"instance": "old-instance"}), encoding="utf-8")
+        (self.state / "service.alive").write_text("1.0", encoding="utf-8")
+        (self.state / "service.alive.monotonic").write_text("1.0", encoding="utf-8")
+        original_write = lease_service._write_json
+        publication = []
+
+        def inspect_publication(path, value):
+            if path == self.state / "service.json":
+                publication.append((
+                    lease_service._read_json(path),
+                    lease_service._read_float(self.state / "service.alive"),
+                    lease_service._read_float(self.state / "service.alive.monotonic"),
+                    time.time(), time.monotonic()))
+            original_write(path, value)
+
+        with patch("laomedo.lease_service._write_json",
+                   side_effect=inspect_publication):
+            thread = threading.Thread(target=self.service.serve, daemon=True)
+            thread.start()
+            try:
+                deadline = time.monotonic() + 3
+                while not publication and time.monotonic() < deadline:
+                    time.sleep(.01)
+                self.assertEqual(len(publication), 1)
+                old_identity, wall, monotonic, now_wall, now_monotonic = publication[0]
+                self.assertIsNone(old_identity)
+                self.assertLess(now_wall - wall, 1)
+                self.assertLess(now_monotonic - monotonic, 1)
+            finally:
+                self.service.stopping.set()
+                thread.join(timeout=3)
+            self.assertFalse(thread.is_alive())
+
+    def test_serve_refuses_publication_when_initial_heartbeat_fails(self):
+        with patch("laomedo.lease_service._write_float",
+                   side_effect=OSError("unwritable heartbeat")):
+            with self.assertRaisesRegex(OSError, "unwritable heartbeat"):
+                self.service.serve()
+        self.assertFalse((self.state / "service.json").exists())
+
     def test_accepted_lease_gets_an_active_grant(self):
         lease_dir, secret = self.register()
         accepted = json.loads((lease_dir / "accepted.json").read_text(encoding="utf-8"))
