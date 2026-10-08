@@ -5,9 +5,15 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from experiments.exp22 import phase_c_live, phase_c_kill
+try:
+    from experiments.exp22 import phase_c_live, phase_c_kill
+except ModuleNotFoundError as error:
+    if error.name != "experiments":
+        raise
+    phase_c_live = phase_c_kill = None
 
 
+@unittest.skipUnless(phase_c_live is not None, "experiment source is not installed in the wheel")
 class PhaseCLiveGateTests(unittest.TestCase):
     def test_shared_budget_counts_uncertain_submissions_across_states(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(
