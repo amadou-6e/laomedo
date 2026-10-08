@@ -23,9 +23,8 @@ overwriting evidence.
   M1 reported `missing_prerequisite`.
 - R1, R2, R3, H1, V1, W1, F1, O1 and I1 produced their frozen reason classes.
   Reverse controls for the truncated pack, filtered/object-format headers and
-  missing blob were accepted. The missing-blob fixture would have been missed
-  by a rootless `git fsck`; checking connectivity from the imported commit
-  rejected it at the integrity stage.
+  missing blob were accepted. Checking connectivity from the imported commit
+  rejected the missing-blob fixture at the integrity stage.
 - Positive controls fired for an agent hook, local hostile remote, host global
   trace/rewrite configuration, inherited `GIT_TRACE` and replace ref. The
   verifier's corresponding stage did not execute/contact/use those inputs.
@@ -57,3 +56,8 @@ remains a design comparison only; it was not implemented or measured. No
 transport choice or #100 acceptance follows from this result. Next, review
 the evidence and decide a product-level, bounded adapter experiment before
 any new live write. Keep #100 and draft #119 open until those checks exist.
+
+Development note, not part of the recorded observation: an earlier local
+test without an explicit `git fsck <commit>` root accepted the malformed
+bundle. That is why the recorded verifier roots its integrity check at the
+imported commit; this note is not counted as an S2 observation row.
