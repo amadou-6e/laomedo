@@ -22,6 +22,13 @@ The observation names the exact source SHA, review-record hash, host process,
 container IDs/labels, events and cleanup results. The journal has exactly
 four lines, one per confirmed provider mutation.
 
+Before the live writes, both published `package-and-test` jobs (Python 3.10
+and 3.13) for source `d0d3b25a06835c701a5e294b27eeebfef1d0cdae`
+[passed by 07:00:44 UTC](https://github.com/amadou-6e/laomedo/actions/runs/37740755547).
+The probe's host-startup check found the expected service module and a fresh
+heartbeat, and both runner-import checks matched the reviewed module path and
+their live process IDs. These are pre-run gates, not evidence of model behavior.
+
 ## Acceptance assessment
 
 | Check | Observed result |
