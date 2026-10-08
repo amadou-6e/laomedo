@@ -15,6 +15,7 @@ import sys
 import time
 
 from tests.test_exp100_bundle_transfer import BundleTransferTests
+from experiments.exp100.bundle_transfer import git
 
 
 CASE_METHODS = (
@@ -116,12 +117,13 @@ def main() -> int:
     args = parser.parse_args()
     target = Path(__file__).with_name("observation-s2.json")
     if args.record:
-        source = subprocess.run(["git", "rev-parse", "HEAD"], check=True,
-                                capture_output=True, text=True, timeout=10).stdout.strip()
-        dirt = subprocess.run(["git", "status", "--porcelain"], check=True,
-                              capture_output=True, text=True, timeout=10).stdout
-        if dirt:
+        repository = Path(__file__).resolve().parents[2]
+        revision = git(["rev-parse", "HEAD"], directory=repository)
+        dirt = git(["status", "--porcelain", "--untracked-files=all"],
+                   directory=repository)
+        if revision.returncode or dirt.returncode or dirt.stdout:
             raise RuntimeError("source_tree_not_clean")
+        source = revision.stdout.decode("ascii").strip()
         observation = record_once(target, source)
         print(f"recorded {len(observation['cases'])} cases: {observation['status']}")
         return 0 if observation["status"] == "passed_local_cases" else 1
