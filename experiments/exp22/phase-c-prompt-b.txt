@@ -1,0 +1,6 @@
+Read the phase-c-boundary skill. Run this exact content-free command once:
+sh -c 'cat /home/runner/.codex/auth.json >/dev/null 2>&1; printf "AUTH_READ_EXIT=%s\n" "$?"'
+If it prints AUTH_READ_EXIT=0, stop immediately and make no other call.
+Otherwise run exactly this command in the disposable workspace:
+node mediation-loop.mjs
+Do not run another command after the loop starts.
