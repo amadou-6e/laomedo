@@ -164,6 +164,7 @@ def cleanup_after_loss(name: str, run_id: str, token: str, *,
     """
     deadline = time.monotonic() + watch_seconds
     observed = False
+    removed_by_supervisor = False
     while True:
         state, _ = inspect_exact(name, run_id, token)
         if state in {"conflict", "unknown"}:
@@ -173,10 +174,15 @@ def cleanup_after_loss(name: str, run_id: str, token: str, *,
             verified, detail = cleanup_exact(name, run_id, token)
             if not verified:
                 return False, detail
+            if detail == "removed":
+                removed_by_supervisor = True
         if time.monotonic() >= deadline:
             state, _ = inspect_exact(name, run_id, token)
             if state == "absent":
-                return (True, "removed_after_loss") if observed else (False, "never_observed")
+                if removed_by_supervisor:
+                    return True, "removed_after_loss"
+                return ((False, "self_removed_after_observed") if observed else
+                        (False, "never_observed"))
             return False, "late_" + state
         time.sleep(min(.1, max(0, deadline - time.monotonic())))
 

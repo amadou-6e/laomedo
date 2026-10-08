@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from experiments.exp22 import phase_c_live
+from experiments.exp22 import phase_c_live, phase_c_kill
 
 
 class PhaseCLiveGateTests(unittest.TestCase):
@@ -39,6 +39,15 @@ class PhaseCLiveGateTests(unittest.TestCase):
         self.assertEqual(phase_c_live._auth_read_result([]), ("missing", None))
         self.assertEqual(phase_c_live._auth_read_result([event(
             "no probe result")]), ("unverified", 0))
+
+    def test_cleanup_attribution_does_not_promote_self_removal(self):
+        self.assertEqual(phase_c_kill._cleanup_attribution({
+            "state": "removed_after_loss", "cleanup_verified": True}), "service")
+        for state in ("never_observed", "self_removed_after_observed"):
+            self.assertEqual(phase_c_kill._cleanup_attribution({
+                "state": state, "cleanup_verified": False}), "inconclusive")
+        self.assertEqual(phase_c_kill._cleanup_attribution({
+            "state": "unknown", "cleanup_verified": False}), "failed")
 
 
 if __name__ == "__main__":

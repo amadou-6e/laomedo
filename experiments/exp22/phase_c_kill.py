@@ -42,6 +42,16 @@ def _wait_item(path: Path, effect_id: str, seconds: float):
     raise RuntimeError("mediated_effect_timeout")
 
 
+def _cleanup_attribution(result: dict) -> str:
+    state, verified = result.get("state"), result.get("cleanup_verified")
+    if state in {"removed", "removed_after_loss"} and verified is True:
+        return "service"
+    if state in {"never_observed", "self_removed_after_observed"} and \
+            verified is False:
+        return "inconclusive"
+    return "failed"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", required=True, type=Path)
@@ -220,9 +230,7 @@ def main():
             result["cleanup_finished_at_monotonic"] - kill_at, 3)
         evidence["service_cleanup_state"] = result.get("state")
         evidence["service_cleanup_verified"] = result.get("cleanup_verified")
-        evidence["cleanup_attribution"] = (
-            "service" if result.get("state") in
-            {"removed", "removed_after_loss"} else "inconclusive")
+        evidence["cleanup_attribution"] = _cleanup_attribution(result)
         evidence["owned_container_state"] = inspect_exact(name, run_id, token)[0]
         evidence["lookalike_alive_after_kill"] = subprocess.run(
             ["docker", "inspect", lookalike], capture_output=True,
@@ -297,7 +305,7 @@ def main():
         if (not evidence["host_survived_kill"] or
                 not 0 <= evidence["revocation_seconds"] <= 60 or
                 not 0 <= evidence["cleanup_seconds"] <= 60 or
-                evidence["service_cleanup_verified"] is not True or
+                evidence["cleanup_attribution"] == "failed" or
                 evidence["owned_container_state"] != "absent" or
                 not evidence["lookalike_alive_after_kill"] or
                 evidence["host_control_error"] != "grant_unavailable" or

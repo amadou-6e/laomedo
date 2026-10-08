@@ -40,6 +40,16 @@ class ContainerLeaseTests(unittest.TestCase):
                                                 watch_seconds=.001),
                              (False, "never_observed"))
 
+    def test_self_removed_between_inspection_and_cleanup_is_inconclusive(self):
+        observations = iter([("owned", "exact-id")])
+        with patch("laomedo.container_lease.inspect_exact",
+                   side_effect=lambda *_: next(observations, ("absent", None))), \
+             patch("laomedo.container_lease.cleanup_exact",
+                   return_value=(True, "absent")):
+            self.assertEqual(cleanup_after_loss("exact-name", "run-one", "token-one",
+                                                watch_seconds=.001),
+                             (False, "self_removed_after_observed"))
+
     def test_exact_identity_refuses_lookalike_container(self):
         entry = {"Id": "sha256:unrelated", "Name": "/laomedo-codex-looks-similar",
                  "Config": {"Labels": {"laomedo.run_id": "other",
