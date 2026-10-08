@@ -1,4 +1,4 @@
-"""Single-use, no-model EXP-104 S7 runner-loss probe.
+"""Single-use, no-model EXP-104 S8 runner-loss probe.
 
 This module must be reviewed at an exact commit before ``--run`` is used.
 It never retries a provider mutation after an uncertain result. The selected
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from hashlib import sha256
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -24,13 +25,25 @@ from laomedo.lease_service import LeaseClient
 from laomedo.local_runner import IMAGE, _docker_prefix
 from laomedo.mediation_authority import RunGrantAuthority
 
-from experiments.exp104.live_probe import (
-    BASELINE, REPOSITORY, REPOSITORY_ID, _api, _base_git_environment,
-    _call_count, _git, _kill_runner, _process, _stop, _wait,
-)
+_helper_spec = importlib.util.spec_from_file_location(
+    "exp104_live_probe_helpers", Path(__file__).with_name("live_probe.py"))
+if _helper_spec is None or _helper_spec.loader is None:
+    raise RuntimeError("live_probe_helpers_unavailable")
+_helpers = importlib.util.module_from_spec(_helper_spec)
+_helper_spec.loader.exec_module(_helpers)
+BASELINE, REPOSITORY, REPOSITORY_ID = (
+    _helpers.BASELINE, _helpers.REPOSITORY, _helpers.REPOSITORY_ID)
+_api = _helpers._api
+_base_git_environment = _helpers._base_git_environment
+_call_count = _helpers._call_count
+_git = _helpers._git
+_kill_runner = _helpers._kill_runner
+_process = _helpers._process
+_stop = _helpers._stop
+_wait = _helpers._wait
 
 
-IDENTITY = "exp104-s7-20261007-01"
+IDENTITY = "exp104-s8-20261008-01"
 CONNECTION_ID = IDENTITY + "-connection"
 GENERATION = 1
 BRANCHES = {side: IDENTITY + "-" + side for side in ("a", "b")}
@@ -53,7 +66,7 @@ def _read_list(token: str, path: str) -> list[dict]:
         "Authorization": "Bearer " + token,
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "laomedo-exp104-s7/0.1",
+        "User-Agent": "laomedo-exp104-s8/0.1",
     })
     with request.urlopen(call, timeout=15) as response:
         value = json.load(response)
@@ -121,10 +134,10 @@ def _prepare_commits(checkout: Path) -> dict[str, str]:
     commits = {}
     for side in ("a", "b"):
         _git("checkout", "--quiet", "--detach", BASELINE, cwd=checkout)
-        marker = checkout / ("exp104-s7-" + side + ".txt")
+        marker = checkout / ("exp104-s8-" + side + ".txt")
         marker.write_text(MARKERS[side] + "\n", encoding="utf-8", newline="\n")
         _git("add", marker.name, cwd=checkout)
-        _git("commit", "-qm", "EXP-104 S7 disposable " + side, cwd=checkout)
+        _git("commit", "-qm", "EXP-104 S8 disposable " + side, cwd=checkout)
         commits[side] = _git("rev-parse", "HEAD", cwd=checkout)
     return commits
 
@@ -270,6 +283,14 @@ def _reviewed_record(path: Path, code_sha: str) -> str:
     return sha256(raw).hexdigest()
 
 
+def _require_clean_source(root: Path) -> None:
+    checked = subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
+        env=_base_git_environment(), capture_output=True, timeout=20)
+    if checked.returncode or checked.stdout.strip():
+        raise RuntimeError("reviewed_source_not_clean")
+
+
 def run(state: Path, token_file: Path, code_sha: str, approval: str,
         review_record: Path) -> dict:
     if not approval or approval != IDENTITY:
@@ -281,6 +302,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
         raise RuntimeError("fresh_private_state_outside_checkout_required")
     if _git("rev-parse", "HEAD", cwd=Path(__file__).resolve().parents[2]) != code_sha:
         raise RuntimeError("code_sha_mismatch")
+    _require_clean_source(Path(__file__).resolve().parents[2])
     review_hash = _reviewed_record(review_record, code_sha)
     connection = HostTokenConnection(connection_id=CONNECTION_ID,
                                      generation=GENERATION, repository=REPOSITORY,
@@ -309,6 +331,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
 
     save()
     service = runner_a = runner_b = None
+    capabilities: tuple[str, ...] = ()
     try:
         service = _process("-m", "laomedo.host_services", "--state", str(state),
                            "--repository", REPOSITORY, "--checkout", str(checkout),
@@ -379,16 +402,25 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
              str(state / "runner-b.json")], env=_agent_environment(),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL, **launch_options)
+        ready_by_side = {}
         for side, process in (("a", runner_a), ("b", runner_b)):
             ready = _wait(state / ("runner-" + side + ".json"))
             if ready.get("pid") != process.pid or ready.get("run_id") != RUNS[side]:
                 raise RuntimeError("runner_identity_mismatch")
+            owned, container_id = inspect_exact(NAMES[side], RUNS[side], LEASES[side])
+            if owned != "owned" or not container_id:
+                raise RuntimeError("container_identity_unverified")
+            ready_by_side[side] = ready
+            record.setdefault("containers", {})[side] = {
+                "id": container_id, "name": NAMES[side],
+                "run_label": RUNS[side], "launch_label": LEASES[side]}
+        save()
         capabilities = tuple((state / "lease" / "leases" / LEASES[side] /
                               "grant.secret").read_text(encoding="utf-8")
                              for side in ("a", "b"))
         record["exposure_scan"] = _scan_agent_exposure(state, provider_token, capabilities)
         save()
-        title_a = "EXP-104 S7 A " + IDENTITY
+        title_a = "EXP-104 S8 A " + IDENTITY
         payload_a = {"title": title_a, "body": MARKERS["a"],
                      "head": BRANCHES["a"], "base": "main", "marker": MARKERS["a"]}
         before = _journal_count(state)
@@ -412,6 +444,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
         revoked = _wait(state / "lease" / "leases" / LEASES["a"] / "revoked.json", 40)
         revocation_at = revoked.get("revoked_at_monotonic")
         if (revoked.get("reason") != "heartbeat_lost" or
+                revoked.get("revoked_grants") != [ready_by_side["a"]["grant_id"]] or
                 not isinstance(revocation_at, (int, float)) or
                 revocation_at - killed["completed_monotonic"] > 60 or
                 revocation_at < killed["completed_monotonic"]):
@@ -427,13 +460,22 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                                       "base": "main", "marker": MARKERS["a"],
                                       "title": title_a + " SHOULD NOT APPEAR",
                                   }, IDENTITY + "-pr-update-a-denied")
-        if (status != 403 or _journal_count(state) != before or
+        if (status != 403 or denied.get("error") != "grant_unavailable" or
+                _journal_count(state) != before or
                 _remote_pr(provider_token, number_a, "a", title=title_a)["number"] != number_a):
             raise RuntimeError("post_loss_denial_gate_failed")
         record["events"].append({"name": "a_denied", "http": status,
                                  "error": denied.get("error"), "provider_delta": 0})
+        a_result = _wait(state / "lease" / "leases" / LEASES["a"] / "result.json", 40)
+        absent, _ = inspect_exact(NAMES["a"], RUNS["a"], LEASES["a"])
+        if (a_result.get("cleanup_verified") is not True or
+                a_result.get("revoked_grants") != [ready_by_side["a"]["grant_id"]] or
+                not isinstance(a_result.get("cleanup_finished_at_monotonic"), (int, float)) or
+                absent != "absent"):
+            raise RuntimeError("runner_a_cleanup_unverified")
+        record["runner_a_result"] = a_result
         save()
-        title_b = "EXP-104 S7 B " + IDENTITY
+        title_b = "EXP-104 S8 B " + IDENTITY
         payload_b = {"title": title_b, "body": MARKERS["b"],
                      "head": BRANCHES["b"], "base": "main", "marker": MARKERS["b"]}
         before = _journal_count(state)
@@ -457,7 +499,9 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
         runner_b.wait(timeout=20)
         runner_b = None
         b_result = _wait(state / "lease" / "leases" / LEASES["b"] / "result.json", 20)
-        if b_result.get("reason") != "done":
+        if (b_result.get("reason") != "done" or
+                b_result.get("revoked_grants") != [ready_by_side["b"]["grant_id"]] or
+                b_result.get("cleanup_verified") is not True):
             raise RuntimeError("runner_b_normal_revocation_unverified")
         record["runner_b_result"] = b_result
         record["provider_attempts"] = _journal_count(state)
@@ -472,6 +516,11 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
         record["status"] = "inconclusive_or_failed"
         record["error_class"] = type(failure).__name__
         record["error_code"] = str(failure) if type(failure) is RuntimeError else "probe_error"
+        try:
+            record["failure_exposure_scan"] = _scan_persisted_exposure(
+                state, provider_token, capabilities)
+        except Exception:
+            record["failure_exposure_scan"] = {"status": "unverified"}
         save()
         raise
     finally:
