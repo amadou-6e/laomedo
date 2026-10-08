@@ -67,3 +67,18 @@ mediator and Codex runner together. The earlier A/B mediator check and this
 lease-loss check therefore remain separate evidence; the integrated Phase C
 step 1 and agent-originated results are still unverified. The full host suite
 at `0f04bd4` passed 339 tests with 9 skipped.
+
+## Command-sandbox network check
+
+After the frozen tasks were reviewed at `fefa90a`, a credential-free
+`command/exec` check used the pinned Codex image and `runner-config.toml` to
+fetch a fixed marker from a disposable host-loopback `/health` endpoint. It
+returned exit code 2 and `DENIED`; the endpoint marker was not received. The
+reproducible check is `python -m experiments.exp22.network_preflight`. It made
+no model call, read no credential, and made no mediator or GitHub call.
+
+This confirms that the direct network-mediated task cannot pass through the
+tested command sandbox as configured. It does not by itself prove how a model
+tool call would behave. No Phase C model turn should be spent on the current
+direct-network prompts. A reviewed route that keeps the selected permissions
+or an explicitly approved permission change is required first.

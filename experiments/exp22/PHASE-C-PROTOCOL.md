@@ -23,7 +23,9 @@ not spend them here. No Phase C model turns are authorized by this file.
   and outcome. Obtain an explicit decision for this exact custody mode before
   copying or using the subscription login. The preflight `command/exec`
   `auth_read` result alone does not prove an agent tool call uses the same
-  policy. The first approved model turn must attempt an agent-originated read
+  policy. Before the turn, verify the exact `auth.json` mount path exists from
+  the host side without reading its contents. The first approved model turn
+  must attempt an agent-originated read
   of `auth.json`, record a denial without printing its contents, and confirm
   tool-call network access to the scoped mediator. Stop on a readable login.
 - Start the lease/mediator process independently of the runner's process tree.

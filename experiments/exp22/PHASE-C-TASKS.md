@@ -2,8 +2,8 @@
 
 Use model `gpt-6-luna` with effort `low`, the pinned `phase-c-boundary` skill,
 and a new private runner state outside Git. The host must bind only the fake
-`pr_update` operation for `example/disposable`, PR 7, base `main`, and the
-case's exact branch. The host must verify that the credential-free service is
+`pr_update` operation for `example/disposable`, PR 7 for case A and PR 8 for
+case B, base `main`, and the case's exact branch. The host must verify that the credential-free service is
 the fake transport before starting either turn. These prompts are inputs to
 the reviewed probe, not permission to launch on their own.
 

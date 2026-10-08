@@ -6,7 +6,7 @@ for (let index = 0; index < 120; index += 1) {
   const body = JSON.stringify({
     repository: 'example/disposable',
     operation: 'pr_update',
-    payload: { number: 7, head: 'phase-c-b', base: 'main', marker: 'phase-c' },
+    payload: { number: 8, head: 'phase-c-b', base: 'main', marker: 'phase-c' },
     effect_id: `phase-c-kill-${index}`,
   });
   const call = spawnSync('node', ['/run/laomedo/mediate.mjs'], {
