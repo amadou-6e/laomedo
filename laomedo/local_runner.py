@@ -31,6 +31,8 @@ from .siwc_auth import AuthError, ChatGPTConnection, _outside_git
 
 IMAGE = "laomedo-codex-boundary:0.159.2"
 IMAGE_ID = "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239"
+GIT_IMAGE = "laomedo-codex-git:0.159.2"
+GIT_IMAGE_ID = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78"
 CLI_VERSION = "codex-cli 0.159.2"
 VOLUME = "laomedo-122-docker-auth"
 SPLIT_TOOLS = frozenset({
@@ -229,6 +231,7 @@ def _auth_record_error(exc: AuthError) -> tuple[str, str]:
 
 
 def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
+                   image: str = IMAGE,
                    name: str | None = None, run_id: str | None = None,
                    launch_token: str | None = None,
                    capability: Path | None = None,
@@ -259,7 +262,7 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             "--mount", f"type=bind,source={store_mount},target=/store",
             "--mount", f"type=bind,source={CONFIG},target=/config.toml,readonly",
             *mediation,
-            "--workdir", "/draft", IMAGE, "sh", "-c",
+            "--workdir", "/draft", image, "sh", "-c",
             'cp /config.toml /home/runner/.codex/config.toml && exec codex "$@"',
             "bootstrap", "app-server", "--stdio"]
 
@@ -678,6 +681,8 @@ class LocalRunner:
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
         self.git_workspace = git_workspace
+        self.image = GIT_IMAGE if git_workspace else IMAGE
+        self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
         if not self.source.is_dir() or (self.source / ".git").is_dir() != git_workspace or \
                 (not git_workspace and not _git_tree(self.source)):
             raise RunnerError("source_workspace_must_be_git_tree")
@@ -701,6 +706,8 @@ class LocalRunner:
                                      else supervise_containers)
         if split_executor and self.supervise_containers:
             raise RunnerError("split_executor_lease_unavailable")
+        if git_workspace and split_executor:
+            raise RunnerError("git_workspace_split_unsupported")
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
@@ -767,10 +774,10 @@ class LocalRunner:
         if hashlib.sha256(CONFIG.read_bytes()).hexdigest() not in {CONFIG_SHA256, CONFIG_LF_SHA256}:
             raise RunnerError("permission_config_changed")
         if check_docker:
-            found = subprocess.run(["docker", "image", "inspect", IMAGE,
+            found = subprocess.run(["docker", "image", "inspect", self.image,
                                     "--format", "{{.Id}}"], check=True,
                                    capture_output=True, text=True, timeout=15)
-            if found.stdout.strip() != IMAGE_ID:
+            if found.stdout.strip() != self.image_id:
                 raise RunnerError("docker_image_digest_changed")
             if not split_executor:
                 subprocess.run(["docker", "volume", "inspect", VOLUME], check=True,
@@ -793,7 +800,8 @@ class LocalRunner:
                                   access_token=(access_token if access_token is not None
                                                 else self.split_access_token))
         command = ["docker", *_docker_prefix(
-            workspace, canonical, store_mount, name=name, run_id=run_id,
+            workspace, canonical, store_mount, image=self.image,
+            name=name, run_id=run_id,
             launch_token=launch_token, capability=capability,
             mediator_url=mediator_url,
             mediator_instance=mediator_instance)]
@@ -849,6 +857,13 @@ class LocalRunner:
                         "command": ["sh", "-c", command], "cwd": "/draft",
                         "timeoutMs": 15000}, timeout=25)
                     checks[label] = (response.get("result") or {}).get("exitCode")
+            if self.git_workspace:
+                git_check = server.request("command/exec", {
+                    "command": ["git", "--version"], "cwd": "/draft",
+                    "timeoutMs": 15000}, timeout=25)
+                checks["git_binary"] = (git_check.get("result") or {}).get("exitCode")
+                if checks["git_binary"] != 0:
+                    raise RunnerError("git_image_missing_git")
             if not (checks["workspace_write"] == 0 and
                     all(checks[x] not in (None, 0) for x in
                         ("canonical_write", "store_write", "auth_read")) and
@@ -862,7 +877,8 @@ class LocalRunner:
                     y.get("reasoningEffort") if isinstance(y, dict) else y
                     for y in x.get("supportedReasoningEfforts", [])]}
                 for x in models["result"].get("data", [])],
-                "image": IMAGE, "image_id": IMAGE_ID, "cli_version": CLI_VERSION,
+                "image": self.image, "image_id": self.image_id,
+                "cli_version": CLI_VERSION,
                 "profile": self.profile,
                 "config_sha256": CONFIG_SHA256, "permission_checks": checks,
                 "submitted_turns": 0}
@@ -1043,6 +1059,8 @@ class LocalRunner:
                       "error_category": None, "source_hash": source_hash,
                       "workspace_mode": "git" if self.git_workspace else "files",
                       "git_baseline": baseline,
+                      "post_run_hash_scope": (
+                          "working_files_only" if self.git_workspace else "all_files"),
                       "effective_hash": effective_hash, "post_run_hash": None,
                       "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                       "skill": skills[0] if len(skills) == 1 else None,
@@ -1053,7 +1071,7 @@ class LocalRunner:
                       "effective_model": None, "effective_effort": None,
                       "profile": self.profile,
                       "execution_mode": "split" if self.split_executor else "legacy",
-                      "image": IMAGE, "image_id": IMAGE_ID,
+                      "image": self.image, "image_id": self.image_id,
                       "cli_version": CLI_VERSION,
                       "config_sha256": CONFIG_SHA256, "thread_id": None,
                       "credential": ({"credential_mode": "chatgpt_plan_oauth",
@@ -1175,8 +1193,9 @@ class LocalRunner:
                     "git" if self.git_workspace else "files") or
                 record.get("execution_mode", "legacy") != (
                     "split" if self.split_executor else "legacy") or
-                record["image"] != IMAGE or
-                record["image_id"] != IMAGE_ID or record["cli_version"] != CLI_VERSION or
+                record["image"] != self.image or
+                record["image_id"] != self.image_id or
+                record["cli_version"] != CLI_VERSION or
                 record["config_sha256"] != CONFIG_SHA256):
             raise RunnerError("resume_binding_mismatch")
         run_dir = self._run_dir(run_id)
