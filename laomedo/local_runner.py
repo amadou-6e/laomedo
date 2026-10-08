@@ -25,6 +25,7 @@ from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
 from .lease_service import LeaseClient
 from .mediation_authority import RunGrantAuthority
 from .github_mediation import MediationError
+from .git_workspace import GitWorkspaceError, prepare_git_workspace
 from .siwc_auth import AuthError, ChatGPTConnection, _outside_git
 
 
@@ -105,13 +106,16 @@ def _read(path: Path) -> dict:
     return value
 
 
-def _hash_tree(path: Path) -> str:
+def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     """Hash regular files and directories, including empty directories."""
     if not path.is_dir() or path.is_symlink():
         raise RunnerError("invalid_workspace")
     files = {}
     directories = []
     for parent, dirs, names in os.walk(path, followlinks=False):
+        if exclude_root_git and Path(parent) == path:
+            dirs[:] = [name for name in dirs if name.casefold() != ".git"]
+            names = [name for name in names if name.casefold() != ".git"]
         for name in dirs + names:
             item = Path(parent) / name
             if (item.is_symlink() or
@@ -141,9 +145,11 @@ def _hash_tree(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
-def _copy_tree(source: Path, target: Path) -> str:
-    expected = _hash_tree(source)
-    shutil.copytree(source, target)
+def _copy_tree(source: Path, target: Path, *, exclude_root_git: bool = False) -> str:
+    expected = _hash_tree(source, exclude_root_git=exclude_root_git)
+    ignore = (lambda parent, names: {name for name in names
+               if Path(parent) == source and name.casefold() == ".git"}) if exclude_root_git else None
+    shutil.copytree(source, target, ignore=ignore)
     if _hash_tree(target) != expected:
         raise RunnerError("workspace_copy_mismatch")
     return expected
@@ -653,12 +659,15 @@ class LocalRunner:
                  lease_service: Path | None = None,
                  github_authority: RunGrantAuthority | None = None,
                  mediator_state: Path | None = None,
+                 git_workspace: bool = False,
                  split_executor: bool = False, split_provider_config=(),
                  split_access_token=None, auth_store: Path | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
-        if not self.source.is_dir() or not _git_tree(self.source) or (self.source / ".git").exists():
+        self.git_workspace = git_workspace
+        if not self.source.is_dir() or (self.source / ".git").is_dir() != git_workspace or \
+                (not git_workspace and not _git_tree(self.source)):
             raise RunnerError("source_workspace_must_be_git_tree")
         if self.state == self.store.root or self.state.is_relative_to(self.store.root):
             raise RunnerError("state_overlaps_skill_store")
@@ -999,19 +1008,29 @@ class LocalRunner:
                                 if github_ref is not None else None)
             except MediationError as error:
                 raise RunnerError(error.code) from None
-            source_hash = _copy_tree(source, workspace)
-            # Preserve the tested read-only canonical and sibling store mounts.
-            if _copy_tree(source, canonical) != source_hash:
-                raise RunnerError("source_changed_during_snapshot")
+            if self.git_workspace:
+                try:
+                    baseline = prepare_git_workspace(source, workspace)
+                except GitWorkspaceError as error:
+                    raise RunnerError(str(error)) from error
+                source_hash = _copy_tree(workspace, canonical, exclude_root_git=True)
+            else:
+                baseline = None
+                source_hash = _copy_tree(source, workspace)
+                # Preserve the tested read-only canonical and sibling store mounts.
+                if _copy_tree(source, canonical) != source_hash:
+                    raise RunnerError("source_changed_during_snapshot")
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
             skills = [self._materialize(workspace, ref) for ref in refs]
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
-            effective_hash = _hash_tree(workspace)
+            effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)
             (run_dir / "raw-events.jsonl").touch()
             record = {"schema_version": 1, "run_id": run_id, "status": "prepared",
                       "error_category": None, "source_hash": source_hash,
+                      "workspace_mode": "git" if self.git_workspace else "files",
+                      "git_baseline": baseline,
                       "effective_hash": effective_hash, "post_run_hash": None,
                       "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                       "skill": skills[0] if len(skills) == 1 else None,
@@ -1140,6 +1159,8 @@ class LocalRunner:
                 record["post_run_hash"] != expected_post_run_hash or
                 record["requested_model"] != model or record["requested_effort"] != effort or
                 record["profile"] != self.profile or
+                record.get("workspace_mode", "files") != (
+                    "git" if self.git_workspace else "files") or
                 record.get("execution_mode", "legacy") != (
                     "split" if self.split_executor else "legacy") or
                 record["image"] != IMAGE or
@@ -1151,7 +1172,7 @@ class LocalRunner:
         workspace = run_dir / "workspace"
         if not snapshot.exists() or _hash_tree(snapshot) != expected_post_run_hash:
             raise RunnerError("post_run_snapshot_mismatch")
-        if _hash_tree(workspace) != expected_post_run_hash:
+        if _hash_tree(workspace, exclude_root_git=self.git_workspace) != expected_post_run_hash:
             raise RunnerError("workspace_changed_since_snapshot")
         if (_hash_tree(run_dir / "canonical") != record["source_hash"] or
                 (run_dir / "store/sentinel.txt").read_text(encoding="utf-8") !=
@@ -1386,9 +1407,11 @@ class LocalRunner:
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")
             if status == "completed":
-                post_hash = _hash_tree(run_dir / "workspace")
+                post_hash = _hash_tree(run_dir / "workspace",
+                                       exclude_root_git=self.git_workspace)
                 pending = run_dir / ("post-run-pending-" + uuid4().hex)
-                _copy_tree(run_dir / "workspace", pending)
+                _copy_tree(run_dir / "workspace", pending,
+                           exclude_root_git=self.git_workspace)
                 old = run_dir / "post-run"
                 if old.exists():
                     shutil.rmtree(old)
@@ -1562,6 +1585,8 @@ def main():
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--skill-store", type=Path, required=True)
     parser.add_argument("--source-workspace", type=Path, required=True)
+    parser.add_argument("--git-workspace", action="store_true",
+                        help="Opt-in isolated Git checkout; mediated push remains disabled")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--preflight", action="store_true")
     parser.add_argument("--max-model-turns", type=int, default=0)
@@ -1581,6 +1606,7 @@ def main():
     authority = (RunGrantAuthority(args.github_authority_store)
                  if args.github_authority_store else None)
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
+                         git_workspace=args.git_workspace,
                          max_model_turns=args.max_model_turns,
                          lease_service=args.lease_service,
                          github_authority=authority,

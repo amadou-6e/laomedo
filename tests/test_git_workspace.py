@@ -116,6 +116,15 @@ class GitWorkspaceTests(unittest.TestCase):
         prepare_git_workspace(self.source, self.root / "workspace")
         self.assertFalse(marker.exists())
 
+    def test_tracked_skill_path_is_refused(self):
+        skills = self.source / ".agents" / "skills" / "example"
+        skills.mkdir(parents=True)
+        (skills / "SKILL.md").write_text("tracked", encoding="utf-8")
+        self._git(self.source, "add", ".agents/skills/example/SKILL.md")
+        self._git(self.source, "commit", "-qm", "tracked skill")
+        with self.assertRaisesRegex(GitWorkspaceError, "tracked_skill_path_unsupported"):
+            prepare_git_workspace(self.source, self.root / "workspace")
+
 
 if __name__ == "__main__":
     unittest.main()

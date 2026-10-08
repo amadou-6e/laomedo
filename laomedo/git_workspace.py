@@ -116,6 +116,10 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
             raise GitWorkspaceError("submodule_source_unsupported")
         if b"120000" in modes:
             raise GitWorkspaceError("symlink_source_unsupported")
+        if any((path := row.split(b"\t", 1)[-1].replace(b"\\", b"/").lower())
+               == b".agents/skills" or path.startswith(b".agents/skills/")
+               for row in indexed.stdout.split(b"\0") if row):
+            raise GitWorkspaceError("tracked_skill_path_unsupported")
         config = command("config", "--local", "--get", "core.sparseCheckout",
                          cwd=source, source_side=True)
         if config.returncode == 0 and config.stdout.strip().lower() in {b"true", b"1", b"yes"}:
@@ -140,6 +144,13 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
             removed = command("remote", "remove", "origin", cwd=destination)
             if removed.returncode:
                 raise GitWorkspaceError("git_remote_removal_failed")
+            tracked_skills = command("ls-files", "-z", "--", ".agents/skills",
+                                     cwd=destination)
+            if tracked_skills.returncode or tracked_skills.stdout:
+                raise GitWorkspaceError("tracked_skill_path_unsupported")
+            with (destination / ".git" / "info" / "exclude").open("a", encoding="utf-8",
+                                                             newline="\n") as exclusions:
+                exclusions.write("\n/.agents/skills/\n")
             final = command("rev-parse", "--verify", "HEAD", cwd=destination)
             remotes = command("remote", cwd=destination)
             if final.returncode or final.stdout.strip() != baseline.stdout.strip() or \

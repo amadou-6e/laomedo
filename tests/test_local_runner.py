@@ -559,6 +559,46 @@ class LocalRunnerTests(unittest.TestCase):
                               "revision_id": self.revision["revision_id"],
                               "tree_hash": self.revision["tree_hash"]}}
 
+    def test_opt_in_git_workspace_preserves_agent_history_without_snapshotting_it(self):
+        repository = self.root / "git-source"
+        repository.mkdir()
+        (repository / "task.txt").write_text("source input", encoding="utf-8")
+
+        def git(*args, cwd=repository):
+            result = __import__("subprocess").run(
+                ["git", "-C", str(cwd), *args], capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout.decode().strip()
+
+        git("init", "-q")
+        git("add", "task.txt")
+        git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+            "commit", "-qm", "baseline")
+        baseline = git("rev-parse", "HEAD")
+        runner = LocalRunner(self.runner.state, self.runner.store.root, repository,
+                             transport=FakeServer, check_docker=False,
+                             max_model_turns=6, git_workspace=True)
+        result = runner.start(self.request())
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["workspace_mode"], "git")
+        self.assertEqual(result["git_baseline"], baseline)
+        run_dir = runner._run_dir(result["run_id"])
+        self.assertEqual(git("rev-parse", "HEAD", cwd=run_dir / "workspace"), baseline)
+        self.assertEqual(git("remote", cwd=run_dir / "workspace"), "")
+        self.assertFalse((run_dir / "canonical" / ".git").exists())
+        self.assertFalse((run_dir / "post-run" / ".git").exists())
+        self.assertTrue((run_dir / "workspace" / ".git").is_dir())
+        status = git("status", "--porcelain", cwd=run_dir / "workspace")
+        self.assertIn("agent.txt", status)
+        self.assertNotIn(".agents/skills", status)
+        self.assertFalse((repository / "agent.txt").exists())
+        resumed = runner.resume(result["run_id"], "Continue in the same repository",
+                                expected_post_run_hash=result["post_run_hash"],
+                                expected_thread_id=result["thread_id"],
+                                model="test-model", effort="low")
+        self.assertEqual(resumed["status"], "completed")
+        self.assertTrue((run_dir / "workspace" / ".git").is_dir())
+
     def auth_headers(self, *, content_type="application/json"):
         return {"Authorization": "Bearer " + self.runner.api_token,
                 "Content-Type": content_type}
