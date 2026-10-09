@@ -12,7 +12,7 @@ from uuid import uuid4
 from laomedo.langflow_join import LangflowJoinController
 from laomedo.langflow_join_http import RunnerHTTPTransport, serve_langflow_join
 from laomedo.workflow_run_store import WorkflowRunStore
-from tests.test_langflow_join_controller import FakeRunner
+from test_langflow_join_controller import FakeRunner
 
 
 class LangflowJoinHTTPTests(unittest.TestCase):
