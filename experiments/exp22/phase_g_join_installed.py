@@ -177,6 +177,10 @@ def main():
             bindings = [dict(row) for row in db.execute(
                 "SELECT * FROM langflow_client_requests")]
         traces = [store.trace_snapshot(row["run_id"]) for row in bindings]
+        native = next(iter(records.values()), None)
+        cancel_event = next((item for item in events if item["kind"] == "cancel"), None)
+        click = observation.get("stop_click_begin_epoch")
+        close = observation.get("context_close_begin_epoch")
         summary = {"model_turns": 0, "browser_send_clicked": observation.get("send_clicked"),
                    "browser_stop_clicked": observation.get("stop_clicked"),
                    "native_fake_starts": sum(item["kind"] == "start" for item in events),
@@ -185,12 +189,25 @@ def main():
                    "same_flow": len(bindings) == 1 and bindings[0]["flow_id"] == flow_id,
                    "native_binding_matches": len(bindings) == 1 and
                        bindings[0]["invocation_id"] == events[0]["request_id"] if events else False,
+                   "request_digest_matches": bool(traces and native and
+                       traces[0]["invocation"]["runner_request_hash"] ==
+                       native["request_hash"]),
+                   "stop_cancel_before_close": bool(click and close and cancel_event and
+                       click <= cancel_event["at"] < close),
                    "host_terminal": traces[0]["run_status"] if traces else None,
                    "host_trace_reopened": bool(traces),
                    "executing_graph_verified": False,
                    "langflow_restart_tested": False}
         (state / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
         print(json.dumps(summary, sort_keys=True))
+        if not all(summary[key] for key in (
+                "browser_send_clicked", "browser_stop_clicked", "one_host_binding",
+                "same_flow", "native_binding_matches", "request_digest_matches",
+                "stop_cancel_before_close", "host_trace_reopened")) or \
+                summary["native_fake_starts"] != 1 or \
+                summary["native_fake_cancels"] != 1 or \
+                summary["host_terminal"] != "cancelled":
+            raise RuntimeError("installed_join_probe_failed")
     finally:
         if browser and browser.poll() is None:
             browser.terminate()
