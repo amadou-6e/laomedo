@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { execute, plan, AdapterError } from './gh_adapter.mjs';
+import { execute, plan, readBody, AdapterError } from './gh_adapter.mjs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const context = { repository: 'example/disposable', effect: 'effect-1', marker: 'marker' };
 const body = 'marker\r\nUnicode: λ\n';
@@ -57,4 +60,41 @@ test('ambient token environment neither authorizes nor changes requests', () => 
 test('denial and unknown have different exit categories', async () => {
   for (const [response, exit] of [[{ error: 'grant_unavailable' }, 3], [{ state: 'unknown' }, 4]])
     await assert.rejects(execute(['pr', 'view', '7'], context, { mediate: () => response }), failure => failure.exit === exit);
+});
+test('empty repository flag is refused', () => {
+  assert.throws(() => plan(['pr', 'view', '7', '--repo', ''], context), /unsupported_syntax/);
+});
+test('real body reader preserves BOM and rejects oversized files', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'laomedo-cli-test-'));
+  try {
+    const path = join(directory, 'body');
+    const bytes = Buffer.from('\ufeffmarker\r\nλ\n', 'utf8');
+    writeFileSync(path, bytes);
+    assert.deepEqual(Buffer.from(readBody(path), 'utf8'), bytes);
+    writeFileSync(path, Buffer.alloc(65537, 97));
+    assert.throws(() => readBody(path), /body_file_invalid/);
+  } finally { rmSync(directory, { recursive: true }); }
+});
+test('repeated unknown create never invents an effect', async () => {
+  const calls = [];
+  const dependencies = { mediate: request => { calls.push(request); return { state: 'unknown' }; } };
+  for (let i = 0; i < 2; i++) await assert.rejects(execute(['pr', 'create', '--title', 'Title', '--body', body,
+    '--head', 'branch', '--base', 'main'], context, dependencies), failure => failure.exit === 4);
+  assert.deepEqual(calls[0], calls[1]);
+});
+test('repeated unknown edit retains conflict code, no replacement identity', async () => {
+  const writes = [];
+  let read = 0;
+  const dependencies = { mediate: request => {
+    if (request.operation === 'pr_read') return { state: 'confirmed', result: {
+      number: 7, title: 'Title', body: 'marker current ' + read++, base: 'main',
+      head: { repository: context.repository, branch: 'branch', sha: 'a'.repeat(40) } } };
+    writes.push(request);
+    return writes.length === 1 ? { state: 'unknown' } : { error: 'effect_conflict' };
+  } };
+  const args = ['pr', 'edit', '7', '--title', 'Title', '--body', body];
+  await assert.rejects(execute(args, context, dependencies), failure => failure.exit === 4);
+  await assert.rejects(execute(args, context, dependencies), /mediator_denied:effect_conflict/);
+  assert.equal(writes.length, 2); // two explicit invocations, no internal retry
+  assert.equal(writes[0].effect_id, writes[1].effect_id);
 });

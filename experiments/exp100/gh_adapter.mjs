@@ -1,5 +1,5 @@
 // Experimental partial gh syntax adapter; never invokes gh or reads its login.
-import { readFileSync, statSync } from 'node:fs';
+import { openSync, closeSync, readSync, fstatSync, lstatSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
@@ -14,7 +14,7 @@ function options(args, permitted) {
     if (!arg.startsWith('-')) { positional.push(arg); continue; }
     if (!permitted.includes(arg) || Object.hasOwn(flags, arg)) fail('unsupported_syntax');
     const value = args[++i];
-    if (value === undefined || value.startsWith('--')) fail('unsupported_syntax');
+    if (!value || value.startsWith('--')) fail('unsupported_syntax');
     flags[arg] = value;
   }
   return { flags, positional };
@@ -33,7 +33,10 @@ function body(flags, readBody) {
 }
 function confirmed(value) {
   if (value?.state === 'confirmed') return value.result;
-  if (value?.state === 'rejected' || value?.error) throw new AdapterError('mediator_denied', 3);
+  if (value?.state === 'rejected' || value?.error) {
+    const code = /^[a-z0-9_]{1,128}$/.test(value.error ?? '') ? value.error : 'unspecified';
+    throw new AdapterError('mediator_denied:' + code, 3);
+  }
   throw new AdapterError('effect_unknown_no_retry', 4);
 }
 
@@ -92,11 +95,18 @@ export async function execute(argv, context, dependencies) {
       expected: { title: existing.title, body: existing.body, head_sha: existing.head.sha } } }));
 }
 
-function readBody(path) {
-  const source = path === '-' ? 0 : path;
-  if (path !== '-' && (!statSync(path).isFile() || statSync(path).size > 65536)) fail('body_file_invalid');
-  // Explicit stdin/file supplied by the caller; never inspect gh profiles.
-  return new TextDecoder('utf-8', { fatal: true }).decode(readFileSync(source));
+export function readBody(path) {
+  if (path !== '-' && !lstatSync(path).isFile()) fail('body_file_invalid');
+  const source = path === '-' ? 0 : openSync(path, 'r');
+  try {
+    if (path !== '-' && (!fstatSync(source).isFile() || fstatSync(source).size > 65536)) fail('body_file_invalid');
+    // Read at most limit+1, including stdin; never allocate for all input.
+    const bytes = Buffer.alloc(65537);
+    let length = 0, count;
+    while (length < bytes.length && (count = readSync(source, bytes, length, bytes.length - length, null)) > 0) length += count;
+    if (length > 65536) fail('body_file_invalid');
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes.subarray(0, length));
+  } finally { if (path !== '-') closeSync(source); }
 }
 function mediate(request) {
   try {
