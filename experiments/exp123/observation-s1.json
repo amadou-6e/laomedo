@@ -1,0 +1,1506 @@
+{
+  "capture_verified": true,
+  "cases": {
+    "cap": {
+      "assessment": {
+        "gate_decisions": [
+          "failed",
+          "failed"
+        ],
+        "graph_count": 1,
+        "invocation_count": 2,
+        "terminal_state": "completed"
+      },
+      "raw": {
+        "events": [
+          {
+            "case_name": "cap",
+            "kind": "case_reserved",
+            "monotonic": 43817.201728265,
+            "run_id": "exp123-S1-cap",
+            "sequence": 47,
+            "utc": "2026-10-09T18:54:52.725877+00:00"
+          },
+          {
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "graph_sha256": "4097e6ad69ca14f9daba8c19fc05c7296752b25ec2b8bd80f9f6613ac48bdeea",
+            "kind": "graph_started",
+            "monotonic": 43817.343443964,
+            "run_id": "exp123-S1-cap",
+            "sequence": 48,
+            "utc": "2026-10-09T18:54:52.867593+00:00"
+          },
+          {
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "invocation_id": "exp123-S1-cap:Agent1",
+            "iteration": 1,
+            "kind": "agent_invoked",
+            "monotonic": 43817.347406367,
+            "node_id": "Agent1",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-cap",
+            "sequence": 49,
+            "utc": "2026-10-09T18:54:52.871554+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-cap:gate-1",
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_waiting",
+            "monotonic": 43817.351763206,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-cap",
+            "sequence": 50,
+            "utc": "2026-10-09T18:54:52.875912+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-cap:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-cap",
+              "signature": "2e62223fef8f8cceb381402e9fdded691b2fa1fd7667647f533c4b4b48431be4",
+              "source_check_id": "exp123-S1-cap:check-1",
+              "source_delivery_id": "exp123-S1-cap:delivery-failed-h1",
+              "status": "failed"
+            },
+            "kind": "delivery",
+            "monotonic": 43817.614587135,
+            "run_id": "exp123-S1-cap",
+            "sequence": 51,
+            "utc": "2026-10-09T18:54:53.138736+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-cap:gate-1",
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_decided",
+            "monotonic": 43817.659570349,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-cap",
+            "sequence": 52,
+            "source_check_id": "exp123-S1-cap:check-1",
+            "status": "failed",
+            "utc": "2026-10-09T18:54:53.183719+00:00"
+          },
+          {
+            "chosen": "failure",
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "kind": "branch_selected",
+            "monotonic": 43817.66426757,
+            "node_id": "Router",
+            "run_id": "exp123-S1-cap",
+            "sequence": 53,
+            "utc": "2026-10-09T18:54:53.188416+00:00"
+          },
+          {
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "head_sha": "2222222222222222222222222222222222222222",
+            "invocation_id": "exp123-S1-cap:Agent2",
+            "iteration": 2,
+            "kind": "agent_invoked",
+            "monotonic": 43817.668599295,
+            "node_id": "Agent2",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-cap",
+            "sequence": 54,
+            "utc": "2026-10-09T18:54:53.192748+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-cap:gate-2",
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "head_sha": "2222222222222222222222222222222222222222",
+            "kind": "gate_waiting",
+            "monotonic": 43817.672661705,
+            "node_id": "Gate2",
+            "run_id": "exp123-S1-cap",
+            "sequence": 55,
+            "utc": "2026-10-09T18:54:53.196810+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-cap:gate-2",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-cap",
+              "signature": "134ffa01d1946d1fa20778a42b4532ef0d1d3ed62bd8f39ef280bc311587b86c",
+              "source_check_id": "exp123-S1-cap:check-2",
+              "source_delivery_id": "exp123-S1-cap:delivery-final-h2",
+              "status": "failed"
+            },
+            "kind": "delivery",
+            "monotonic": 43817.924560879,
+            "run_id": "exp123-S1-cap",
+            "sequence": 56,
+            "utc": "2026-10-09T18:54:53.448710+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-cap:gate-2",
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "head_sha": "2222222222222222222222222222222222222222",
+            "kind": "gate_decided",
+            "monotonic": 43817.980730525,
+            "node_id": "Gate2",
+            "run_id": "exp123-S1-cap",
+            "sequence": 57,
+            "source_check_id": "exp123-S1-cap:check-2",
+            "status": "failed",
+            "utc": "2026-10-09T18:54:53.504879+00:00"
+          },
+          {
+            "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+            "kind": "terminal_result",
+            "monotonic": 43817.985361884,
+            "node_id": "Result2",
+            "reason": "iteration_cap_exhausted",
+            "run_id": "exp123-S1-cap",
+            "sequence": 58,
+            "status": "failed",
+            "utc": "2026-10-09T18:54:53.509511+00:00"
+          },
+          {
+            "kind": "case_terminal",
+            "monotonic": 43817.988080134,
+            "run_id": "exp123-S1-cap",
+            "sequence": 59,
+            "state": "completed",
+            "utc": "2026-10-09T18:54:53.512228+00:00"
+          }
+        ],
+        "run_id": "exp123-S1-cap",
+        "state": "completed"
+      }
+    },
+    "crash": {
+      "assessment": {
+        "gate_decisions": [],
+        "graph_count": 1,
+        "invocation_count": 1,
+        "terminal_state": "crashed"
+      },
+      "raw": {
+        "events": [
+          {
+            "case_name": "crash",
+            "kind": "case_reserved",
+            "monotonic": 43820.599052497,
+            "run_id": "exp123-S1-crash",
+            "sequence": 68,
+            "utc": "2026-10-09T18:54:56.123202+00:00"
+          },
+          {
+            "graph_id": "94b8c339-9b79-4075-89b4-bc605fd9a973",
+            "graph_sha256": "95293070510897028ccae12420b9eb510f0efdd367f0531597e95bf5d8337c7e",
+            "kind": "graph_started",
+            "monotonic": 43820.767692923,
+            "run_id": "exp123-S1-crash",
+            "sequence": 69,
+            "utc": "2026-10-09T18:54:56.291843+00:00"
+          },
+          {
+            "graph_id": "94b8c339-9b79-4075-89b4-bc605fd9a973",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "invocation_id": "exp123-S1-crash:Agent1",
+            "iteration": 1,
+            "kind": "agent_invoked",
+            "monotonic": 43820.771149372,
+            "node_id": "Agent1",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-crash",
+            "sequence": 70,
+            "utc": "2026-10-09T18:54:56.295298+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-crash:gate-1",
+            "graph_id": "94b8c339-9b79-4075-89b4-bc605fd9a973",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_waiting",
+            "monotonic": 43820.775284391,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-crash",
+            "sequence": 71,
+            "utc": "2026-10-09T18:54:56.299432+00:00"
+          },
+          {
+            "kind": "case_terminal",
+            "monotonic": 43826.342091846,
+            "reason": "worker_restart",
+            "run_id": "exp123-S1-crash",
+            "sequence": 72,
+            "state": "crashed",
+            "utc": "2026-10-09T18:55:01.866241+00:00"
+          },
+          {
+            "classification": "inactive",
+            "fixture": {
+              "gate_id": "exp123-S1-crash:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-crash",
+              "signature": "cc92f650492baeaee64ccb31d81093e5e1e264d68d6cf7774b31c53124cafa6d",
+              "source_check_id": "exp123-S1-crash:check-1",
+              "source_delivery_id": "exp123-S1-crash:delivery-after-crash",
+              "status": "failed"
+            },
+            "kind": "delivery",
+            "monotonic": 43826.414812157,
+            "run_id": "exp123-S1-crash",
+            "sequence": 73,
+            "utc": "2026-10-09T18:55:01.938962+00:00"
+          }
+        ],
+        "run_id": "exp123-S1-crash",
+        "state": "crashed"
+      }
+    },
+    "early": {
+      "assessment": {
+        "gate_decisions": [
+          "passed"
+        ],
+        "graph_count": 1,
+        "invocation_count": 1,
+        "terminal_state": "completed"
+      },
+      "raw": {
+        "events": [
+          {
+            "case_name": "early",
+            "kind": "case_reserved",
+            "monotonic": 43811.786488127,
+            "run_id": "exp123-S1-early",
+            "sequence": 10,
+            "utc": "2026-10-09T18:54:47.310637+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-early:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-early",
+              "signature": "d2f143ef1f5567197c9190e48b2fb183ebb7d471ccdf6867dcac3ef9ea015903",
+              "source_check_id": "exp123-S1-early:check-1",
+              "source_delivery_id": "exp123-S1-early:delivery-early",
+              "status": "passed"
+            },
+            "kind": "delivery",
+            "monotonic": 43811.790967817,
+            "run_id": "exp123-S1-early",
+            "sequence": 11,
+            "utc": "2026-10-09T18:54:47.315116+00:00"
+          },
+          {
+            "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+            "graph_sha256": "cb683571c04a34844369284c7f37c5f0f92eada0a8ceaaba4df327f66431e697",
+            "kind": "graph_started",
+            "monotonic": 43811.932117744,
+            "run_id": "exp123-S1-early",
+            "sequence": 12,
+            "utc": "2026-10-09T18:54:47.456266+00:00"
+          },
+          {
+            "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "invocation_id": "exp123-S1-early:Agent1",
+            "iteration": 1,
+            "kind": "agent_invoked",
+            "monotonic": 43811.936157387,
+            "node_id": "Agent1",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-early",
+            "sequence": 13,
+            "utc": "2026-10-09T18:54:47.460306+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-early:gate-1",
+            "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_waiting",
+            "monotonic": 43811.940717476,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-early",
+            "sequence": 14,
+            "utc": "2026-10-09T18:54:47.464866+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-early:gate-1",
+            "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_decided",
+            "monotonic": 43811.943844448,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-early",
+            "sequence": 15,
+            "source_check_id": "exp123-S1-early:check-1",
+            "status": "passed",
+            "utc": "2026-10-09T18:54:47.467992+00:00"
+          },
+          {
+            "chosen": "success",
+            "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+            "kind": "branch_selected",
+            "monotonic": 43811.947550837,
+            "node_id": "Router",
+            "run_id": "exp123-S1-early",
+            "sequence": 16,
+            "utc": "2026-10-09T18:54:47.471699+00:00"
+          },
+          {
+            "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+            "kind": "terminal_result",
+            "monotonic": 43811.951971854,
+            "node_id": "Result1",
+            "reason": "checks_passed",
+            "run_id": "exp123-S1-early",
+            "sequence": 17,
+            "status": "passed",
+            "utc": "2026-10-09T18:54:47.476120+00:00"
+          },
+          {
+            "kind": "case_terminal",
+            "monotonic": 43811.954249245,
+            "run_id": "exp123-S1-early",
+            "sequence": 18,
+            "state": "completed",
+            "utc": "2026-10-09T18:54:47.478397+00:00"
+          }
+        ],
+        "run_id": "exp123-S1-early",
+        "state": "completed"
+      }
+    },
+    "pending": {
+      "assessment": {
+        "gate_decisions": [
+          "passed"
+        ],
+        "graph_count": 1,
+        "invocation_count": 1,
+        "terminal_state": "completed"
+      },
+      "raw": {
+        "events": [
+          {
+            "case_name": "pending",
+            "kind": "case_reserved",
+            "monotonic": 43813.255595614,
+            "run_id": "exp123-S1-pending",
+            "sequence": 19,
+            "utc": "2026-10-09T18:54:48.779744+00:00"
+          },
+          {
+            "graph_id": "859f8497-2533-4036-9a47-d3efa75921fd",
+            "graph_sha256": "cd1d83548e559b21697c0cb242da0e15b615234a5271a62ff063cced69cf3304",
+            "kind": "graph_started",
+            "monotonic": 43813.400469775,
+            "run_id": "exp123-S1-pending",
+            "sequence": 20,
+            "utc": "2026-10-09T18:54:48.924619+00:00"
+          },
+          {
+            "graph_id": "859f8497-2533-4036-9a47-d3efa75921fd",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "invocation_id": "exp123-S1-pending:Agent1",
+            "iteration": 1,
+            "kind": "agent_invoked",
+            "monotonic": 43813.4044339,
+            "node_id": "Agent1",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-pending",
+            "sequence": 21,
+            "utc": "2026-10-09T18:54:48.928582+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-pending:gate-1",
+            "graph_id": "859f8497-2533-4036-9a47-d3efa75921fd",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_waiting",
+            "monotonic": 43813.408200621,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-pending",
+            "sequence": 22,
+            "utc": "2026-10-09T18:54:48.932349+00:00"
+          },
+          {
+            "classification": "refused",
+            "fixture": {
+              "gate_id": "exp123-S1-pending:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-pending",
+              "signature": "0000000000000000000000000000000000000000000000000000000000000000",
+              "source_check_id": "exp123-S1-pending:check-1",
+              "source_delivery_id": "exp123-S1-pending:delivery-invalid",
+              "status": "passed"
+            },
+            "kind": "delivery",
+            "monotonic": 43813.7033094,
+            "run_id": "exp123-S1-pending",
+            "sequence": 23,
+            "utc": "2026-10-09T18:54:49.227458+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-pending:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-pending",
+              "signature": "63e20b840ecb18b30ece9b2e5322914b01b3f174ec41a3529fd6edc4ccafced6",
+              "source_check_id": "exp123-S1-pending:check-1",
+              "source_delivery_id": "exp123-S1-pending:delivery-unknown",
+              "status": "unknown"
+            },
+            "kind": "delivery",
+            "monotonic": 43813.70752214,
+            "run_id": "exp123-S1-pending",
+            "sequence": 24,
+            "utc": "2026-10-09T18:54:49.231670+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-pending:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-pending",
+              "signature": "b83027ce1d19dac9a49501a94753c319c5dc5fee5f6ad59b183350acb1eda263",
+              "source_check_id": "exp123-S1-pending:check-1",
+              "source_delivery_id": "exp123-S1-pending:delivery-pending",
+              "status": "pending"
+            },
+            "kind": "delivery",
+            "monotonic": 43813.911550165,
+            "run_id": "exp123-S1-pending",
+            "sequence": 25,
+            "utc": "2026-10-09T18:54:49.435699+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-pending:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-pending",
+              "signature": "53f6fe2614c8700518c1af0548835bbdaa515a3a5f3ff7e56e4b9e93521ff876",
+              "source_check_id": "exp123-S1-pending:check-1",
+              "source_delivery_id": "exp123-S1-pending:delivery-final",
+              "status": "passed"
+            },
+            "kind": "delivery",
+            "monotonic": 43814.11736496,
+            "run_id": "exp123-S1-pending",
+            "sequence": 26,
+            "utc": "2026-10-09T18:54:49.641514+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-pending:gate-1",
+            "graph_id": "859f8497-2533-4036-9a47-d3efa75921fd",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_decided",
+            "monotonic": 43814.122086272,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-pending",
+            "sequence": 27,
+            "source_check_id": "exp123-S1-pending:check-1",
+            "status": "passed",
+            "utc": "2026-10-09T18:54:49.646235+00:00"
+          },
+          {
+            "chosen": "success",
+            "graph_id": "859f8497-2533-4036-9a47-d3efa75921fd",
+            "kind": "branch_selected",
+            "monotonic": 43814.126393024,
+            "node_id": "Router",
+            "run_id": "exp123-S1-pending",
+            "sequence": 28,
+            "utc": "2026-10-09T18:54:49.650541+00:00"
+          },
+          {
+            "graph_id": "859f8497-2533-4036-9a47-d3efa75921fd",
+            "kind": "terminal_result",
+            "monotonic": 43814.130392423,
+            "node_id": "Result1",
+            "reason": "checks_passed",
+            "run_id": "exp123-S1-pending",
+            "sequence": 29,
+            "status": "passed",
+            "utc": "2026-10-09T18:54:49.654541+00:00"
+          },
+          {
+            "kind": "case_terminal",
+            "monotonic": 43814.133064886,
+            "run_id": "exp123-S1-pending",
+            "sequence": 30,
+            "state": "completed",
+            "utc": "2026-10-09T18:54:49.657213+00:00"
+          }
+        ],
+        "run_id": "exp123-S1-pending",
+        "state": "completed"
+      }
+    },
+    "repair": {
+      "assessment": {
+        "gate_decisions": [
+          "failed",
+          "passed"
+        ],
+        "graph_count": 1,
+        "invocation_count": 2,
+        "terminal_state": "completed"
+      },
+      "raw": {
+        "events": [
+          {
+            "case_name": "repair",
+            "kind": "case_reserved",
+            "monotonic": 43815.238979991,
+            "run_id": "exp123-S1-repair",
+            "sequence": 31,
+            "utc": "2026-10-09T18:54:50.763128+00:00"
+          },
+          {
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "graph_sha256": "1a28b43b3af9836d46ea65a399a7705938c00b35b5ef50b5edde1f9bbb5232a5",
+            "kind": "graph_started",
+            "monotonic": 43815.381973432,
+            "run_id": "exp123-S1-repair",
+            "sequence": 32,
+            "utc": "2026-10-09T18:54:50.906123+00:00"
+          },
+          {
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "invocation_id": "exp123-S1-repair:Agent1",
+            "iteration": 1,
+            "kind": "agent_invoked",
+            "monotonic": 43815.386593679,
+            "node_id": "Agent1",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-repair",
+            "sequence": 33,
+            "utc": "2026-10-09T18:54:50.910742+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-repair:gate-1",
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_waiting",
+            "monotonic": 43815.390916642,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-repair",
+            "sequence": 34,
+            "utc": "2026-10-09T18:54:50.915065+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-repair:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-repair",
+              "signature": "51bb5481c280bfcc16907f09df763affe499a8bfdea640eca61a83a652f70ff2",
+              "source_check_id": "exp123-S1-repair:check-1",
+              "source_delivery_id": "exp123-S1-repair:delivery-failed-h1",
+              "status": "failed"
+            },
+            "kind": "delivery",
+            "monotonic": 43815.691100743,
+            "run_id": "exp123-S1-repair",
+            "sequence": 35,
+            "utc": "2026-10-09T18:54:51.215250+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-repair:gate-1",
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_decided",
+            "monotonic": 43815.698857292,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-repair",
+            "sequence": 36,
+            "source_check_id": "exp123-S1-repair:check-1",
+            "status": "failed",
+            "utc": "2026-10-09T18:54:51.223005+00:00"
+          },
+          {
+            "chosen": "failure",
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "kind": "branch_selected",
+            "monotonic": 43815.703657896,
+            "node_id": "Router",
+            "run_id": "exp123-S1-repair",
+            "sequence": 37,
+            "utc": "2026-10-09T18:54:51.227806+00:00"
+          },
+          {
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "head_sha": "2222222222222222222222222222222222222222",
+            "invocation_id": "exp123-S1-repair:Agent2",
+            "iteration": 2,
+            "kind": "agent_invoked",
+            "monotonic": 43815.707775796,
+            "node_id": "Agent2",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-repair",
+            "sequence": 38,
+            "utc": "2026-10-09T18:54:51.231924+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-repair:gate-2",
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "head_sha": "2222222222222222222222222222222222222222",
+            "kind": "gate_waiting",
+            "monotonic": 43815.711713843,
+            "node_id": "Gate2",
+            "run_id": "exp123-S1-repair",
+            "sequence": 39,
+            "utc": "2026-10-09T18:54:51.235862+00:00"
+          },
+          {
+            "classification": "duplicate",
+            "fixture": {
+              "gate_id": "exp123-S1-repair:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-repair",
+              "signature": "51bb5481c280bfcc16907f09df763affe499a8bfdea640eca61a83a652f70ff2",
+              "source_check_id": "exp123-S1-repair:check-1",
+              "source_delivery_id": "exp123-S1-repair:delivery-failed-h1",
+              "status": "failed"
+            },
+            "kind": "delivery",
+            "monotonic": 43816.031671701,
+            "run_id": "exp123-S1-repair",
+            "sequence": 40,
+            "utc": "2026-10-09T18:54:51.555841+00:00"
+          },
+          {
+            "classification": "conflict",
+            "fixture": {
+              "gate_id": "exp123-S1-repair:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-repair",
+              "signature": "a634bde4cf8bfb5923369dbbd0fff05c4f9686250203e9591110f55dbbe635f2",
+              "source_check_id": "exp123-S1-repair:check-1",
+              "source_delivery_id": "exp123-S1-repair:delivery-conflict-h1",
+              "status": "passed"
+            },
+            "kind": "delivery",
+            "monotonic": 43816.037154762,
+            "run_id": "exp123-S1-repair",
+            "sequence": 41,
+            "utc": "2026-10-09T18:54:51.561303+00:00"
+          },
+          {
+            "classification": "refused",
+            "fixture": {
+              "gate_id": "exp123-S1-repair:gate-2",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-repair",
+              "signature": "14a3b27dbeb297e3feeb1263b7d9babd601f3393f2398d7fdb1053a8eff9b5a3",
+              "source_check_id": "exp123-S1-repair:check-2",
+              "source_delivery_id": "exp123-S1-repair:delivery-stale-h1",
+              "status": "passed"
+            },
+            "kind": "delivery",
+            "monotonic": 43816.062616837,
+            "run_id": "exp123-S1-repair",
+            "sequence": 42,
+            "utc": "2026-10-09T18:54:51.586765+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-repair:gate-2",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-repair",
+              "signature": "7de5a7a3bcf68fa7786af002d0f809b9456fd3a9d864c86111a4b99dc003b193",
+              "source_check_id": "exp123-S1-repair:check-2",
+              "source_delivery_id": "exp123-S1-repair:delivery-final-h2",
+              "status": "passed"
+            },
+            "kind": "delivery",
+            "monotonic": 43816.065997516,
+            "run_id": "exp123-S1-repair",
+            "sequence": 43,
+            "utc": "2026-10-09T18:54:51.590145+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-repair:gate-2",
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "head_sha": "2222222222222222222222222222222222222222",
+            "kind": "gate_decided",
+            "monotonic": 43816.121837902,
+            "node_id": "Gate2",
+            "run_id": "exp123-S1-repair",
+            "sequence": 44,
+            "source_check_id": "exp123-S1-repair:check-2",
+            "status": "passed",
+            "utc": "2026-10-09T18:54:51.645986+00:00"
+          },
+          {
+            "graph_id": "50bcd035-50f7-472c-8e17-04658d4f8578",
+            "kind": "terminal_result",
+            "monotonic": 43816.126044297,
+            "node_id": "Result2",
+            "reason": "checks_passed",
+            "run_id": "exp123-S1-repair",
+            "sequence": 45,
+            "status": "passed",
+            "utc": "2026-10-09T18:54:51.650192+00:00"
+          },
+          {
+            "kind": "case_terminal",
+            "monotonic": 43816.128909509,
+            "run_id": "exp123-S1-repair",
+            "sequence": 46,
+            "state": "completed",
+            "utc": "2026-10-09T18:54:51.653057+00:00"
+          }
+        ],
+        "run_id": "exp123-S1-repair",
+        "state": "completed"
+      }
+    },
+    "stop": {
+      "assessment": {
+        "gate_decisions": [],
+        "graph_count": 1,
+        "invocation_count": 1,
+        "terminal_state": "interrupted"
+      },
+      "raw": {
+        "events": [
+          {
+            "case_name": "stop",
+            "kind": "case_reserved",
+            "monotonic": 43819.065621353,
+            "run_id": "exp123-S1-stop",
+            "sequence": 60,
+            "utc": "2026-10-09T18:54:54.589769+00:00"
+          },
+          {
+            "graph_id": "8f496651-15ee-4f82-ae5b-280223994764",
+            "graph_sha256": "afbf70f2d567b8b1ca45a7861a9bd4bc4909307a6b07cf04efde052694d2888d",
+            "kind": "graph_started",
+            "monotonic": 43819.211266717,
+            "run_id": "exp123-S1-stop",
+            "sequence": 61,
+            "utc": "2026-10-09T18:54:54.735416+00:00"
+          },
+          {
+            "graph_id": "8f496651-15ee-4f82-ae5b-280223994764",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "invocation_id": "exp123-S1-stop:Agent1",
+            "iteration": 1,
+            "kind": "agent_invoked",
+            "monotonic": 43819.215096502,
+            "node_id": "Agent1",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-stop",
+            "sequence": 62,
+            "utc": "2026-10-09T18:54:54.739245+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-stop:gate-1",
+            "graph_id": "8f496651-15ee-4f82-ae5b-280223994764",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_waiting",
+            "monotonic": 43819.21935673,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-stop",
+            "sequence": 63,
+            "utc": "2026-10-09T18:54:54.743505+00:00"
+          },
+          {
+            "kind": "stop_requested",
+            "monotonic": 43819.514607663,
+            "run_id": "exp123-S1-stop",
+            "sequence": 64,
+            "utc": "2026-10-09T18:54:55.038757+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-stop:gate-1",
+            "graph_id": "8f496651-15ee-4f82-ae5b-280223994764",
+            "kind": "gate_cancelled",
+            "monotonic": 43819.518284294,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-stop",
+            "sequence": 65,
+            "utc": "2026-10-09T18:54:55.042433+00:00"
+          },
+          {
+            "kind": "case_terminal",
+            "monotonic": 43819.521040813,
+            "run_id": "exp123-S1-stop",
+            "sequence": 66,
+            "state": "interrupted",
+            "utc": "2026-10-09T18:54:55.045189+00:00"
+          },
+          {
+            "classification": "inactive",
+            "fixture": {
+              "gate_id": "exp123-S1-stop:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-stop",
+              "signature": "b4cce4e822f4b3abcb595ede429748b80170e20ac7c7ae6d722d2457c0d1bde0",
+              "source_check_id": "exp123-S1-stop:check-1",
+              "source_delivery_id": "exp123-S1-stop:delivery-after-stop",
+              "status": "failed"
+            },
+            "kind": "delivery",
+            "monotonic": 43819.550781742,
+            "run_id": "exp123-S1-stop",
+            "sequence": 67,
+            "utc": "2026-10-09T18:54:55.074931+00:00"
+          }
+        ],
+        "run_id": "exp123-S1-stop",
+        "state": "interrupted"
+      }
+    },
+    "success": {
+      "assessment": {
+        "gate_decisions": [
+          "passed"
+        ],
+        "graph_count": 1,
+        "invocation_count": 1,
+        "terminal_state": "completed"
+      },
+      "raw": {
+        "events": [
+          {
+            "case_name": "success",
+            "kind": "case_reserved",
+            "monotonic": 43808.903036346,
+            "run_id": "exp123-S1-success",
+            "sequence": 1,
+            "utc": "2026-10-09T18:54:44.427185+00:00"
+          },
+          {
+            "graph_id": "1ffaf520-c3e5-4b23-a213-5715287335af",
+            "graph_sha256": "416447254ab0315afde242c1bd62fa062bab585faf9e13f7d5e82c8e2876a798",
+            "kind": "graph_started",
+            "monotonic": 43810.334210033,
+            "run_id": "exp123-S1-success",
+            "sequence": 2,
+            "utc": "2026-10-09T18:54:45.858362+00:00"
+          },
+          {
+            "graph_id": "1ffaf520-c3e5-4b23-a213-5715287335af",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "invocation_id": "exp123-S1-success:Agent1",
+            "iteration": 1,
+            "kind": "agent_invoked",
+            "monotonic": 43810.381292149,
+            "node_id": "Agent1",
+            "pr_number": 1,
+            "repository": "fixture/repo",
+            "run_id": "exp123-S1-success",
+            "sequence": 3,
+            "utc": "2026-10-09T18:54:45.905442+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-success:gate-1",
+            "graph_id": "1ffaf520-c3e5-4b23-a213-5715287335af",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_waiting",
+            "monotonic": 43810.38667138,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-success",
+            "sequence": 4,
+            "utc": "2026-10-09T18:54:45.910819+00:00"
+          },
+          {
+            "classification": "accepted",
+            "fixture": {
+              "gate_id": "exp123-S1-success:gate-1",
+              "head_sha": "1111111111111111111111111111111111111111",
+              "pr_number": 1,
+              "repository": "fixture/repo",
+              "run_id": "exp123-S1-success",
+              "signature": "4245a5d752ec268d45cef145ef12c1626cba88cab0be3dbbe2107a97c743bd23",
+              "source_check_id": "exp123-S1-success:check-1",
+              "source_delivery_id": "exp123-S1-success:delivery-final",
+              "status": "passed"
+            },
+            "kind": "delivery",
+            "monotonic": 43810.676588455,
+            "run_id": "exp123-S1-success",
+            "sequence": 5,
+            "utc": "2026-10-09T18:54:46.200738+00:00"
+          },
+          {
+            "gate_id": "exp123-S1-success:gate-1",
+            "graph_id": "1ffaf520-c3e5-4b23-a213-5715287335af",
+            "head_sha": "1111111111111111111111111111111111111111",
+            "kind": "gate_decided",
+            "monotonic": 43810.695571731,
+            "node_id": "Gate1",
+            "run_id": "exp123-S1-success",
+            "sequence": 6,
+            "source_check_id": "exp123-S1-success:check-1",
+            "status": "passed",
+            "utc": "2026-10-09T18:54:46.219720+00:00"
+          },
+          {
+            "chosen": "success",
+            "graph_id": "1ffaf520-c3e5-4b23-a213-5715287335af",
+            "kind": "branch_selected",
+            "monotonic": 43810.700666532,
+            "node_id": "Router",
+            "run_id": "exp123-S1-success",
+            "sequence": 7,
+            "utc": "2026-10-09T18:54:46.224818+00:00"
+          },
+          {
+            "graph_id": "1ffaf520-c3e5-4b23-a213-5715287335af",
+            "kind": "terminal_result",
+            "monotonic": 43810.705973166,
+            "node_id": "Result1",
+            "reason": "checks_passed",
+            "run_id": "exp123-S1-success",
+            "sequence": 8,
+            "status": "passed",
+            "utc": "2026-10-09T18:54:46.230121+00:00"
+          },
+          {
+            "kind": "case_terminal",
+            "monotonic": 43810.709255261,
+            "run_id": "exp123-S1-success",
+            "sequence": 9,
+            "state": "completed",
+            "utc": "2026-10-09T18:54:46.233403+00:00"
+          }
+        ],
+        "run_id": "exp123-S1-success",
+        "state": "completed"
+      }
+    }
+  },
+  "cleanup_verified": true,
+  "evidence_hashes": {
+    "cap.flow.json": "4097e6ad69ca14f9daba8c19fc05c7296752b25ec2b8bd80f9f6613ac48bdeea",
+    "cap.json": "2c10dbe4327aa5c74165cc3168ee70a52f6ce0e0ed40b1827c3238cd9a0d0c01",
+    "crash.flow.json": "95293070510897028ccae12420b9eb510f0efdd367f0531597e95bf5d8337c7e",
+    "crash.json": "247cfbb2aec3d62e869d0ef8dd255228f89f13cf13eb1ef1753b91eee4d9f193",
+    "early.flow.json": "cb683571c04a34844369284c7f37c5f0f92eada0a8ceaaba4df327f66431e697",
+    "early.json": "de75f526eb21fb0d0e16f1192e2cbf19ba328b046dc3ecd29bdff0f1e5c7afc9",
+    "journal.jsonl": "ad6501e525535349f403d073350678ffb0117ce9804c7594c60ccc9fae0f7f29",
+    "pending.flow.json": "cd1d83548e559b21697c0cb242da0e15b615234a5271a62ff063cced69cf3304",
+    "pending.json": "d8b284277ef5dba7f8c9eed46fde818222cd63efd53926335dce44b2a3e1864e",
+    "repair.flow.json": "1a28b43b3af9836d46ea65a399a7705938c00b35b5ef50b5edde1f9bbb5232a5",
+    "repair.json": "41c0b1f6151db399a9f8d424d060835fc32a0caa3a2af270065d2fc34df36165",
+    "stop.flow.json": "afbf70f2d567b8b1ca45a7861a9bd4bc4909307a6b07cf04efde052694d2888d",
+    "stop.json": "ff4640e5c283027ba55a41c2eae5240e852c4c20625729bb655ff0f01c175fa1",
+    "success.flow.json": "416447254ab0315afde242c1bd62fa062bab585faf9e13f7d5e82c8e2876a798",
+    "success.json": "386f3c95e15dfcb3830c68bd20db2e2e18206af48be35eb16e82434f7a2fe08e"
+  },
+  "identity": "S1",
+  "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "model_turns": 0,
+  "provider_writes": 0,
+  "requests": [
+    {
+      "finished_monotonic": 43887.062,
+      "path": "/reserve",
+      "request": {
+        "case_name": "success",
+        "run_id": "exp123-S1-success"
+      },
+      "response": {
+        "reserved": true
+      },
+      "started_monotonic": 43887.062
+    },
+    {
+      "finished_monotonic": 43887.062,
+      "path": "/start",
+      "request": {
+        "run_id": "exp123-S1-success"
+      },
+      "response": {
+        "started": true
+      },
+      "started_monotonic": 43887.062
+    },
+    {
+      "finished_monotonic": 43888.843,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-success:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-success",
+        "signature": "4245a5d752ec268d45cef145ef12c1626cba88cab0be3dbbe2107a97c743bd23",
+        "source_check_id": "exp123-S1-success:check-1",
+        "source_delivery_id": "exp123-S1-success:delivery-final",
+        "status": "passed"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43888.843
+    },
+    {
+      "finished_monotonic": 43889.953,
+      "path": "/reserve",
+      "request": {
+        "case_name": "early",
+        "run_id": "exp123-S1-early"
+      },
+      "response": {
+        "reserved": true
+      },
+      "started_monotonic": 43889.953
+    },
+    {
+      "finished_monotonic": 43889.953,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-early:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-early",
+        "signature": "d2f143ef1f5567197c9190e48b2fb183ebb7d471ccdf6867dcac3ef9ea015903",
+        "source_check_id": "exp123-S1-early:check-1",
+        "source_delivery_id": "exp123-S1-early:delivery-early",
+        "status": "passed"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43889.953
+    },
+    {
+      "finished_monotonic": 43889.953,
+      "path": "/start",
+      "request": {
+        "run_id": "exp123-S1-early"
+      },
+      "response": {
+        "started": true
+      },
+      "started_monotonic": 43889.953
+    },
+    {
+      "finished_monotonic": 43891.421,
+      "path": "/reserve",
+      "request": {
+        "case_name": "pending",
+        "run_id": "exp123-S1-pending"
+      },
+      "response": {
+        "reserved": true
+      },
+      "started_monotonic": 43891.421
+    },
+    {
+      "finished_monotonic": 43891.421,
+      "path": "/start",
+      "request": {
+        "run_id": "exp123-S1-pending"
+      },
+      "response": {
+        "started": true
+      },
+      "started_monotonic": 43891.421
+    },
+    {
+      "finished_monotonic": 43891.875,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-pending:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-pending",
+        "signature": "0000000000000000000000000000000000000000000000000000000000000000",
+        "source_check_id": "exp123-S1-pending:check-1",
+        "source_delivery_id": "exp123-S1-pending:delivery-invalid",
+        "status": "passed"
+      },
+      "response": {
+        "classification": "refused"
+      },
+      "started_monotonic": 43891.859
+    },
+    {
+      "finished_monotonic": 43891.875,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-pending:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-pending",
+        "signature": "63e20b840ecb18b30ece9b2e5322914b01b3f174ec41a3529fd6edc4ccafced6",
+        "source_check_id": "exp123-S1-pending:check-1",
+        "source_delivery_id": "exp123-S1-pending:delivery-unknown",
+        "status": "unknown"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43891.875
+    },
+    {
+      "finished_monotonic": 43892.078,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-pending:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-pending",
+        "signature": "b83027ce1d19dac9a49501a94753c319c5dc5fee5f6ad59b183350acb1eda263",
+        "source_check_id": "exp123-S1-pending:check-1",
+        "source_delivery_id": "exp123-S1-pending:delivery-pending",
+        "status": "pending"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43892.078
+    },
+    {
+      "finished_monotonic": 43892.281,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-pending:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-pending",
+        "signature": "53f6fe2614c8700518c1af0548835bbdaa515a3a5f3ff7e56e4b9e93521ff876",
+        "source_check_id": "exp123-S1-pending:check-1",
+        "source_delivery_id": "exp123-S1-pending:delivery-final",
+        "status": "passed"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43892.281
+    },
+    {
+      "finished_monotonic": 43893.406,
+      "path": "/reserve",
+      "request": {
+        "case_name": "repair",
+        "run_id": "exp123-S1-repair"
+      },
+      "response": {
+        "reserved": true
+      },
+      "started_monotonic": 43893.406
+    },
+    {
+      "finished_monotonic": 43893.406,
+      "path": "/start",
+      "request": {
+        "run_id": "exp123-S1-repair"
+      },
+      "response": {
+        "started": true
+      },
+      "started_monotonic": 43893.406
+    },
+    {
+      "finished_monotonic": 43893.859,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-repair:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-repair",
+        "signature": "51bb5481c280bfcc16907f09df763affe499a8bfdea640eca61a83a652f70ff2",
+        "source_check_id": "exp123-S1-repair:check-1",
+        "source_delivery_id": "exp123-S1-repair:delivery-failed-h1",
+        "status": "failed"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43893.843
+    },
+    {
+      "finished_monotonic": 43894.203,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-repair:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-repair",
+        "signature": "51bb5481c280bfcc16907f09df763affe499a8bfdea640eca61a83a652f70ff2",
+        "source_check_id": "exp123-S1-repair:check-1",
+        "source_delivery_id": "exp123-S1-repair:delivery-failed-h1",
+        "status": "failed"
+      },
+      "response": {
+        "classification": "duplicate"
+      },
+      "started_monotonic": 43894.171
+    },
+    {
+      "finished_monotonic": 43894.203,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-repair:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-repair",
+        "signature": "a634bde4cf8bfb5923369dbbd0fff05c4f9686250203e9591110f55dbbe635f2",
+        "source_check_id": "exp123-S1-repair:check-1",
+        "source_delivery_id": "exp123-S1-repair:delivery-conflict-h1",
+        "status": "passed"
+      },
+      "response": {
+        "classification": "conflict"
+      },
+      "started_monotonic": 43894.203
+    },
+    {
+      "finished_monotonic": 43894.218,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-repair:gate-2",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-repair",
+        "signature": "14a3b27dbeb297e3feeb1263b7d9babd601f3393f2398d7fdb1053a8eff9b5a3",
+        "source_check_id": "exp123-S1-repair:check-2",
+        "source_delivery_id": "exp123-S1-repair:delivery-stale-h1",
+        "status": "passed"
+      },
+      "response": {
+        "classification": "refused"
+      },
+      "started_monotonic": 43894.203
+    },
+    {
+      "finished_monotonic": 43894.234,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-repair:gate-2",
+        "head_sha": "2222222222222222222222222222222222222222",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-repair",
+        "signature": "7de5a7a3bcf68fa7786af002d0f809b9456fd3a9d864c86111a4b99dc003b193",
+        "source_check_id": "exp123-S1-repair:check-2",
+        "source_delivery_id": "exp123-S1-repair:delivery-final-h2",
+        "status": "passed"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43894.218
+    },
+    {
+      "finished_monotonic": 43895.359,
+      "path": "/reserve",
+      "request": {
+        "case_name": "cap",
+        "run_id": "exp123-S1-cap"
+      },
+      "response": {
+        "reserved": true
+      },
+      "started_monotonic": 43895.343
+    },
+    {
+      "finished_monotonic": 43895.359,
+      "path": "/start",
+      "request": {
+        "run_id": "exp123-S1-cap"
+      },
+      "response": {
+        "started": true
+      },
+      "started_monotonic": 43895.359
+    },
+    {
+      "finished_monotonic": 43895.781,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-cap:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-cap",
+        "signature": "2e62223fef8f8cceb381402e9fdded691b2fa1fd7667647f533c4b4b48431be4",
+        "source_check_id": "exp123-S1-cap:check-1",
+        "source_delivery_id": "exp123-S1-cap:delivery-failed-h1",
+        "status": "failed"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43895.781
+    },
+    {
+      "finished_monotonic": 43896.093,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-cap:gate-2",
+        "head_sha": "2222222222222222222222222222222222222222",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-cap",
+        "signature": "134ffa01d1946d1fa20778a42b4532ef0d1d3ed62bd8f39ef280bc311587b86c",
+        "source_check_id": "exp123-S1-cap:check-2",
+        "source_delivery_id": "exp123-S1-cap:delivery-final-h2",
+        "status": "failed"
+      },
+      "response": {
+        "classification": "accepted"
+      },
+      "started_monotonic": 43896.078
+    },
+    {
+      "finished_monotonic": 43897.234,
+      "path": "/reserve",
+      "request": {
+        "case_name": "stop",
+        "run_id": "exp123-S1-stop"
+      },
+      "response": {
+        "reserved": true
+      },
+      "started_monotonic": 43897.218
+    },
+    {
+      "finished_monotonic": 43897.234,
+      "path": "/start",
+      "request": {
+        "run_id": "exp123-S1-stop"
+      },
+      "response": {
+        "started": true
+      },
+      "started_monotonic": 43897.234
+    },
+    {
+      "finished_monotonic": 43897.671,
+      "path": "/stop",
+      "request": {
+        "run_id": "exp123-S1-stop"
+      },
+      "response": {
+        "cancel_requested": true
+      },
+      "started_monotonic": 43897.671
+    },
+    {
+      "finished_monotonic": 43897.718,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-stop:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-stop",
+        "signature": "b4cce4e822f4b3abcb595ede429748b80170e20ac7c7ae6d722d2457c0d1bde0",
+        "source_check_id": "exp123-S1-stop:check-1",
+        "source_delivery_id": "exp123-S1-stop:delivery-after-stop",
+        "status": "failed"
+      },
+      "response": {
+        "classification": "inactive"
+      },
+      "started_monotonic": 43897.687
+    },
+    {
+      "finished_monotonic": 43898.765,
+      "path": "/reserve",
+      "request": {
+        "case_name": "crash",
+        "run_id": "exp123-S1-crash"
+      },
+      "response": {
+        "reserved": true
+      },
+      "started_monotonic": 43898.734
+    },
+    {
+      "finished_monotonic": 43898.765,
+      "path": "/start",
+      "request": {
+        "run_id": "exp123-S1-crash"
+      },
+      "response": {
+        "started": true
+      },
+      "started_monotonic": 43898.765
+    },
+    {
+      "finished_monotonic": 43904.578,
+      "path": "/event",
+      "request": {
+        "gate_id": "exp123-S1-crash:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-crash",
+        "signature": "cc92f650492baeaee64ccb31d81093e5e1e264d68d6cf7774b31c53124cafa6d",
+        "source_check_id": "exp123-S1-crash:check-1",
+        "source_delivery_id": "exp123-S1-crash:delivery-after-crash",
+        "status": "failed"
+      },
+      "response": {
+        "classification": "inactive"
+      },
+      "started_monotonic": 43904.562
+    }
+  ],
+  "source_commit": "f5b2e9a257fe59e3f281300358d209c41546b76a",
+  "source_hashes": {
+    "agent.py": "b57e02652d980532f6de3e317c1f659c6055c6fb7039d168612a8ecab38c2b8b",
+    "gate.py": "d52c0972412960b6ad0e7fc54d7d3ca926d0db877f8ee9d4a8fef50d68ae5340",
+    "probe.py": "646054dfb9c49c7e776f68d1341e9cc3167c2e0d3eba457368aab0e8c23c6a3a",
+    "router.py": "802ff5ff6fef55971d5972cca5801284725dcb3d9a7d70e888eb2beeca468da4",
+    "runtime.py": "014600ede5cbe991a65bc4740799595a2c6220e7d376d5f358d50b9d9c1eac23",
+    "terminal.py": "039a7399a3be16b821793006cd9d6442efca4286a45c3afb72ffc4bc0a00b200",
+    "test_probe.py": "9fd044f8796511e6d44790c4665879070e726cb4fd0d94af43899f9da7b38ebb"
+  },
+  "state": "passed"
+}
