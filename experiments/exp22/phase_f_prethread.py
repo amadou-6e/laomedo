@@ -18,7 +18,7 @@ from experiments.exp22.phase_e_ui import (
     BROWSER, CAP, _flow_code_pins, _remove_ui, _reserve, _ui_attribution,
     _wait_ui,
 )
-from laomedo.local_runner import LocalRunner, serve
+from laomedo.local_runner import LocalRunner, RunnerError, serve
 from laomedo.skill_store import SkillStore
 
 
@@ -36,14 +36,47 @@ def _hold_async_ack(server, runner, release):
                     "/v1/runs/async" and code == 202 and
                     value.get("status") == "prepared"):
                 waiting.set()
-                if not release.wait(timeout=90):
-                    # Never release a prepared worker after a failed hold.
-                    runner.cancel(value["run_id"])
-                    release.set()
+                # Only verified host cleanup may open the native worker gate.
+                release.wait()
             return super()._reply(code, value)
 
     server.RequestHandlerClass = HeldHandler
     return waiting
+
+
+def _fence_starts(runner):
+    """Close late-request races around teardown's record enumeration."""
+    runner.request_lock = threading.RLock()
+    closing = threading.Event()
+    original = runner.start_async
+
+    def guarded(request, *, response_gate=None):
+        with runner.request_lock:
+            if closing.is_set():
+                raise RunnerError("probe_stopping")
+            return original(request, response_gate=response_gate)
+
+    runner.start_async = guarded
+    return closing
+
+
+def _fence_cancel_and_release(runner, closing, release, runs_root):
+    with runner.request_lock:
+        closing.set()
+    records = list(runs_root.glob("*/record.json"))
+    prior = []
+    for path in records:
+        try:
+            prior.append(runner.status(path.parent.name).get("status"))
+        except Exception:
+            prior.append("unknown")
+    cleaned = _cleanup_runner_runs(runner, runs_root, None)
+    safe = (len(cleaned) == len(records) and all(
+        item["terminal_status"] == "cancelled" and item["exact_cleanup_verified"]
+        for item in cleaned))
+    if safe:
+        release.set()
+    return safe, any(status != "cancelled" for status in prior), cleaned
 
 
 def main():
@@ -66,6 +99,7 @@ def main():
     skill = SkillStore(state / "skills").import_skill("laomedo-pilot", PILOT / "skill")
     runner = LocalRunner(state / "runner", state / "skills", PILOT / "source",
                          max_model_turns=1, supervise_containers=False)
+    closing = _fence_starts(runner)
     preflight = runner.preflight()
     if (preflight.get("status") != "ready" or preflight.get("image_id") is None or
             not any(item.get("id") == "gpt-6-luna" and "low" in item.get("efforts", [])
@@ -169,12 +203,11 @@ def main():
             if current["status"] not in {"prepared", "running"}:
                 break
             time.sleep(.1)
-        if terminal_epoch is None:
-            current = runner.status(run_id)
-            if current["status"] in {"prepared", "running"}:
-                runner.cancel(run_id)
-                host_fallback_cancel_used = True
-        release_ack.set()
+        safe_release, fallback, _ = _fence_cancel_and_release(
+            runner, closing, release_ack, state / "runner/runs")
+        host_fallback_cancel_used = host_fallback_cancel_used or fallback
+        if not safe_release:
+            raise RuntimeError("prethread_ack_release_unverified")
         browser.wait(timeout=50)
         observed = json.loads((state / "browser-run.json").read_text(encoding="utf-8"))
         time.sleep(.3)
@@ -229,13 +262,11 @@ def main():
             except Exception as exc:
                 teardown["ledger_update_error"] = type(exc).__name__
         try:
-            if run_id and runner.status(run_id)["status"] == "prepared":
-                runner.cancel(run_id)
-            release_ack.set()
-            cleaned = _cleanup_runner_runs(runner, state / "runner/runs", run_id)
+            safe_release, _fallback, cleaned = _fence_cancel_and_release(
+                runner, closing, release_ack, state / "runner/runs")
             teardown["runs"] = cleaned
-            teardown["exact_runner_cleanup_verified"] = all(
-                item["exact_cleanup_verified"] for item in cleaned) if cleaned else True
+            teardown["exact_runner_cleanup_verified"] = safe_release
+            teardown["ack_release_verified"] = safe_release
         except Exception as exc:
             teardown["runner_cleanup_error"] = type(exc).__name__
         try:
