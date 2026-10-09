@@ -17,7 +17,7 @@ from laomedo.bundle_verifier import BundleVerifier
 from laomedo.bundle_stage_ownership import _inspect
 from laomedo.github_git_transport import _base_git_environment
 
-IDENTITY = "exp104-verifier-loss-s1-20261009"
+IDENTITY = "exp104-verifier-loss-s2-20261009"
 
 
 def docker(*args):
