@@ -86,7 +86,12 @@ class BundleVerifierTests(unittest.TestCase):
         self.assertEqual(worker.scan_once(), [])
 
     def test_unexpected_attempt_failure_does_not_abort_worker_scan(self):
-        freeze_run_bundle(self.runner, self.private, run_id="run-a", attempt_id="attempt-b")
+        workspace_b = self.runner / "runs" / "run-b" / "workspace"
+        workspace_b.mkdir(parents=True)
+        (workspace_b.parent / "record.json").write_text(
+            json.dumps({**self.record, "run_id": "run-b"}), encoding="utf-8")
+        (workspace_b / HANDOFF_NAME).write_bytes((self.workspace / HANDOFF_NAME).read_bytes())
+        freeze_run_bundle(self.runner, self.private, run_id="run-b", attempt_id="attempt-b")
         worker = self.worker()
         def broken(*_args, **_kwargs):
             raise TypeError("synthetic-malformed-record")
