@@ -100,4 +100,7 @@ and `restart-summary.json` was
 `d790b6e02004c75c012fd4b8a8583d41e426fd63d3da89c7a2e3a5c46b3834bf`.
 The earlier restart result remains above as historical evidence. The child
 process reopened the host store after bridge shutdown; the parent test harness
-itself stayed alive to preserve the fake runner and observe teardown.
+itself stayed alive to preserve the fake runner and observe teardown. No new
+controller received a same-UUID request after restart, so the zero additional
+starts show only that no stray start occurred during this recheck. The existing
+idempotence tests, rather than this run, cover refusal to redispatch on retry.
