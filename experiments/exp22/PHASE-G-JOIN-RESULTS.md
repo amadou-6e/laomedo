@@ -69,7 +69,7 @@ The private state is under
 | --- | --- |
 | Saved flow reopened | Same saved-flow UUID after stopping and starting the disposable Langflow container |
 | Langflow trace | One trace under the normalized saved-flow UUID, with one reported graph-run ID present in a linked span payload |
-| Host and native binding | One reopened Laomedo host binding, the same invocation/request identity, exactly one fake native start and cancel, terminal `cancelled` |
+| Host and native binding | One Laomedo binding read from the running host store, the same invocation/request identity, exactly one fake native start and cancel, terminal `cancelled`; fresh-process reopen is tested below |
 | Teardown | Langflow container, host bridge and fake runner all stopped |
 | Model turns | Zero; shared ledger remains 6/12 |
 
@@ -77,3 +77,27 @@ The Langflow trace is located by its own trace-to-span foreign key and saved
 flow identity. The graph-run ID match in a span is corroboration, not attestation
 of the executing editor graph. The fake runner means this still does not prove
 a real Codex turn traverses the join. That is the remaining Phase G gate.
+
+### Host-store reopen recheck
+
+Independent review found that the first restart run stopped Langflow but kept
+the host bridge running, so its host binding had only been read from the same
+process. A new probe stopped the bridge, removed and recreated the disposable
+Langflow container, and read the host SQLite binding in a fresh child process.
+The child recovered the same client, host run, trace, invocation, saved-flow,
+reported graph, runner request/digest, provider, native run and raw-event
+reference. The fake runner recorded **one start in total and zero starts after
+restart**. The normalized Langflow trace join and saved-flow reopen also
+passed. All three services were absent or stopped at teardown.
+
+This final zero-turn recheck is at
+`%LOCALAPPDATA%/Laomedo/exp22-phase-g-restart-20261009-d/`. The tested probe
+SHA-256 was
+`6a5fa6d9d58a14ed382043747a9d684814f9d5dc2ac59d3af25d8117719c127c`;
+the sanitized `summary.json` was
+`001b0930901a968caf76ff3828025ca3f05a6601178959baee8f2a818cb7c772`,
+and `restart-summary.json` was
+`d790b6e02004c75c012fd4b8a8583d41e426fd63d3da89c7a2e3a5c46b3834bf`.
+The earlier restart result remains above as historical evidence. The child
+process reopened the host store after bridge shutdown; the parent test harness
+itself stayed alive to preserve the fake runner and observe teardown.

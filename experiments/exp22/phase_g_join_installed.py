@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 from urllib.parse import urlsplit
@@ -34,7 +35,22 @@ def main():
     parser.add_argument("--state", required=True, type=Path)
     parser.add_argument("--restart-langflow", action="store_true",
                         help="Use a private SQLite mount and restart the disposable server")
+    parser.add_argument("--reopen-host", action="store_true",
+                        help="Read the private host binding in a fresh process")
     args = parser.parse_args()
+    if args.reopen_host:
+        host_db = args.state.expanduser().resolve() / "join.sqlite3"
+        with sqlite3.connect(host_db.as_uri() + "?mode=ro", uri=True) as db:
+            db.row_factory = sqlite3.Row
+            rows = [dict(row) for row in db.execute("""SELECT
+                c.client_request_id,c.run_id,c.invocation_id,c.flow_id,
+                c.graph_run_id,r.trace_id,r.status,r.dispatch_attempts,
+                w.runner_request_id,w.runner_request_hash,w.runner_run_id,
+                w.runner_provider,w.runner_raw_event_ref
+                FROM langflow_client_requests c JOIN runs r ON r.run_id=c.run_id
+                JOIN workflow_invocations w ON w.invocation_id=c.invocation_id""")]
+        print(json.dumps(rows))
+        return
     state = _private_empty(args.state)
     (state / "langflow-data").mkdir()
     bridge_token, runner_token = uuid4().hex, uuid4().hex
@@ -185,8 +201,17 @@ def main():
             bindings = [dict(row) for row in db.execute(
                 "SELECT * FROM langflow_client_requests")]
         traces = [store.trace_snapshot(row["run_id"]) for row in bindings]
+        native = next(iter(records.values()), None)
         restart = None
         if args.restart_langflow:
+            starts_before_restart = sum(item["kind"] == "start" for item in events)
+            bridge.shutdown()
+            bridge.server_close()
+            bridge_thread.join(timeout=3)
+            if bridge_thread.is_alive():
+                raise RuntimeError("first_host_bridge_not_stopped")
+            bridge = None
+            teardown["bridge_stopped"] = True
             if not _remove_ui(name):
                 raise RuntimeError("first_langflow_container_not_removed")
             if subprocess.run(command, capture_output=True, timeout=30).returncode:
@@ -200,7 +225,14 @@ def main():
             with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as source:
                 with sqlite3.connect(snapshot_path) as snapshot:
                     source.backup(snapshot)
-            graph_id = bindings[0]["graph_run_id"] if len(bindings) == 1 else ""
+            reopened = subprocess.run(
+                [sys.executable, "-m", "experiments.exp22.phase_g_join_installed",
+                 "--state", str(state), "--reopen-host"],
+                cwd=ROOT, capture_output=True, text=True, timeout=20, check=True)
+            host_rows = json.loads(reopened.stdout)
+            if len(bindings) != 1 or len(host_rows) != 1 or not bindings[0]["graph_run_id"]:
+                raise RuntimeError("private_host_binding_missing")
+            graph_id = bindings[0]["graph_run_id"]
             with sqlite3.connect(snapshot_path.as_uri() + "?mode=ro", uri=True) as db:
                 trace_ids = [row[0] for row in db.execute("""SELECT DISTINCT s.trace_id
                     FROM span s JOIN trace t ON t.id=s.trace_id
@@ -211,13 +243,28 @@ def main():
             restart = {"saved_flow_reopened": fetched.get("id") == flow_id,
                        "one_correlated_langflow_trace": len(trace_ids) == 1,
                        "trace_id_present": bool(trace_ids and trace_ids[0]),
+                       "host_binding_reopened_in_child": bool(native and traces and all(
+                           host_rows[0][key] == bindings[0][key]
+                           for key in ("client_request_id", "run_id", "invocation_id",
+                                       "flow_id", "graph_run_id")) and
+                           host_rows[0]["trace_id"] == traces[0]["trace_id"] and
+                           host_rows[0]["runner_request_hash"] ==
+                           traces[0]["invocation"]["runner_request_hash"] and
+                           host_rows[0]["runner_run_id"] == native["run_id"]
+                           and host_rows[0]["runner_request_id"] == events[0]["request_id"]
+                           and host_rows[0]["runner_raw_event_ref"] == native["raw_event_ref"]
+                           and host_rows[0]["runner_provider"] == "codex"
+                           and host_rows[0]["status"] == "cancelled"
+                           and host_rows[0]["dispatch_attempts"] == 1),
                        "correlation_basis": "reported_graph_id_in_span_payload_with_trace_fk",
                        "executing_graph_attested": False,
+                       "native_starts_total": sum(
+                           item["kind"] == "start" for item in events),
                        "native_starts_after_restart": sum(
-                           item["kind"] == "start" for item in events)}
+                           item["kind"] == "start" for item in events) -
+                           starts_before_restart}
             (state / "restart-summary.json").write_text(
                 json.dumps(restart, indent=2) + "\n", encoding="utf-8")
-        native = next(iter(records.values()), None)
         cancel_event = next((item for item in events if item["kind"] == "cancel"), None)
         click = observation.get("stop_click_begin_epoch")
         close = observation.get("context_close_begin_epoch")
@@ -252,7 +299,9 @@ def main():
                     restart["saved_flow_reopened"] and
                     restart["one_correlated_langflow_trace"] and
                     restart["trace_id_present"] and
-                    restart["native_starts_after_restart"] == 1)):
+                    restart["host_binding_reopened_in_child"] and
+                    restart["native_starts_total"] == 1 and
+                    restart["native_starts_after_restart"] == 0)):
             raise RuntimeError("installed_join_probe_failed")
     finally:
         if browser and browser.poll() is None:
