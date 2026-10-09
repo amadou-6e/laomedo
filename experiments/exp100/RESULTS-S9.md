@@ -19,7 +19,7 @@ capture returned v20.11.1; version is not a field in the machine observation.
 
 The frozen assertions compare requests for bound PR view, create and edit,
 Actions listing and same-repository GET API syntax; preserve CRLF/Unicode/BOM
-body content, reject oversized input, empty/duplicate/unsupported flags and
+body content, reject oversized input, empty `--repo`/duplicate/unsupported flags and
 wrong targets, keep explicit effect IDs across unknown results, and distinguish
 denied from unknown exits. Tests inject mediator replies; repeated-unknown edit
 conflict is simulated, not an integrated SQLite/GitHub execution. The ambient
