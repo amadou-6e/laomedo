@@ -10,7 +10,8 @@ The machine-produced observation is committed unchanged as
 Result: passed within this local integration scope. The real mediation client
 inside a still-owned, still-running scripted container froze the handoff;
 production Docker Git-object verification and the verified-stage policy gate
-preceded the exact-commit push. Host-observed refspec is
+preceded the exact-commit push by code requirement and fixture-reported order
+(no host verification timestamp is captured). Host-observed refspec is
 `ce3a7c7713803b77b9e7b32efa4b8cccd531cadc:refs/heads/run-branch`.
 
 Host-observed fake REST order is POST, GET, GET, GET, PATCH, GET, GET on the
@@ -27,7 +28,8 @@ grant `grant_unavailable`. Completed freeze requires direct freezer
 `run_grant_mismatch`, no new attempt, and retains mediator `unknown` rather
 than calling it confirmed rejection. Provider call count did not change.
 Both agent and verifier cleanup were verified; the saved stage report and
-independent absence check agreed after the verifier thread finished.
+probe-side absence check agreed after the verifier thread finished. The fixture's
+`denied` label denotes an error response, not a distinct mediator state.
 
 ## Limits
 
