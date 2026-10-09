@@ -8,10 +8,11 @@ import json
 import os
 import sys
 import threading
+from types import SimpleNamespace
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 from urllib import error
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "components/laomedo/codex_agent.py"
@@ -57,6 +58,38 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_opt_in_join_uses_saved_flow_identity_and_polls_bridge(self):
+        node = component(bridge_url="http://host.docker.internal:8766")
+        node._vertex = SimpleNamespace(id="agent-stage")
+        native_run = str(__import__("uuid").uuid4())
+        calls = []
+
+        def bridge_open(req, timeout):
+            calls.append((req.full_url, req.get_method(), req.data))
+            if req.full_url.endswith("/v1/invocations"):
+                submitted = json.loads(req.data)
+                self.assertEqual(submitted["flow_id"], "saved-flow")
+                self.assertEqual(submitted["graph_run_id"], "graph-run")
+                self.assertEqual(submitted["stage_id"], "agent-stage")
+                self.assertEqual(submitted["runner_body"]["task"], "Read fixture")
+                value = {"run_id": native_run, "status": "prepared",
+                         "client_request_id": submitted["client_request_id"]}
+            else:
+                value = {**result(run_id=native_run), "client_request_id":
+                         json.loads(calls[0][2])["client_request_id"]}
+            return Response(json.dumps(value).encode())
+
+        with patch.object(type(node), "graph", new_callable=PropertyMock,
+                          return_value=SimpleNamespace(flow_id="saved-flow",
+                                                       run_id="graph-run")), \
+                patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module._HTTP, "open", side_effect=bridge_open):
+            output = (await node.run_output()).data
+        self.assertEqual(output["status"], "completed")
+        self.assertEqual(output["run_id"], native_run)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[1][0].endswith("/v1/runs/" + native_run))
+
     async def test_cancelled_component_resolves_same_request_without_redispatch(self):
         node = component(operation="start", request_id=RUN)
         entered, release = threading.Event(), threading.Event()
@@ -159,6 +192,40 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                                                            "ChatOutput-run-reference"])
             self.assertEqual(http.call_count, 1)
             self.assertIn("amber 3", str(output))
+
+    async def test_pinned_graph_exposes_run_and_stage_ids_without_flow_id(self):
+        from lfx.graph.graph.base import Graph
+        root = Path(__file__).resolve().parents[2]
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        agent = next(node for node in flow["data"]["nodes"]
+                     if node["data"]["type"] == "LaomedoCodexAgent")
+        code = agent["data"]["node"]["template"]["code"]["value"]
+        source = '            return endpoint, payload, "POST"'
+        probe = ('            payload["langflow_probe"] = {"run_id": self.graph.run_id, '
+                 '"flow_id": self.graph.flow_id, "stage_id": self._vertex.id}\n'
+                 + source)
+        self.assertEqual(code.count(source), 1)
+        prefix, separator, suffix = code.rpartition(source)
+        self.assertTrue(separator)
+        agent["data"]["node"]["template"]["code"]["value"] = prefix + probe + suffix
+        observed = []
+
+        def respond(req, **_kwargs):
+            payload = json.loads(req.data)
+            probe = payload["langflow_probe"]
+            observed.append((probe["run_id"], probe["flow_id"], probe["stage_id"]))
+            return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
+        with patch.object(module.request, "urlopen", side_effect=respond):
+            for _ in range(2):
+                await Graph.from_payload(flow).arun(
+                    inputs=[{"input_value": "Read fixture"}], types=["chat"])
+        self.assertEqual(len(observed), 2)
+        self.assertNotEqual(observed[0][0], observed[1][0])
+        self.assertEqual(observed[0][1:], observed[1][1:])
+        self.assertTrue(observed[0][0])
+        self.assertEqual(observed[0][2], "LaomedoCodexAgent-native")
+        # Direct Graph.from_payload runs need not have a saved server flow ID.
+        self.assertIsNone(observed[0][1])
 
     async def test_saved_graph_resume_passes_structured_reference(self):
         from lfx.graph.graph.base import Graph
