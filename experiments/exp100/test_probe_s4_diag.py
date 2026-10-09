@@ -2,6 +2,8 @@
 
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -37,7 +39,27 @@ class ProbeS4DiagnosticTests(unittest.TestCase):
                       "bundle_unbundle", "fsck", "commit_type"):
             self.assertIn(f"stage={stage}", script)
         self.assertIn("S4_FAILED_STAGE=$stage", script)
+        self.assertIn("test -r /trusted/.git/HEAD", script)
         self.assertNotIn("curl ", script)
+
+    def test_mount_checks_against_generated_worktree_fixture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            trusted, bundle, _, _ = probe_s4_diag.probe_s4._fixture(
+                Path(directory))
+            self.assertTrue((trusted / ".git" / "HEAD").is_file())
+            shell = shutil.which("sh")
+            if shell is None and shutil.which("git"):
+                git_root = Path(shutil.which("git")).resolve().parents[1]
+                candidate = git_root / "bin" / "sh.exe"
+                if candidate.is_file():
+                    shell = str(candidate)
+            if shell is None:
+                self.skipTest("POSIX shell unavailable")
+            check = subprocess.run(
+                [shell, "-c", 'test -r "$1/.git/HEAD" && test -r "$2"',
+                 "sh", str(trusted), str(bundle)], capture_output=True,
+                text=True, timeout=10, check=False)
+            self.assertEqual(check.returncode, 0, check.stderr)
 
 
 if __name__ == "__main__":

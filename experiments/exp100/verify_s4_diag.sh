@@ -13,7 +13,7 @@ export GIT_TERMINAL_PROMPT=0
 export GIT_NO_REPLACE_OBJECTS=1
 
 echo "S4_STAGE=$stage"
-test -r /trusted/HEAD
+test -r /trusted/.git/HEAD
 test -r /input.bundle
 test -w /stage
 stage=git_init
