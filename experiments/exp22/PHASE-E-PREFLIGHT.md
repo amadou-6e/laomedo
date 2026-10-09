@@ -1,9 +1,11 @@
 # Phase E: disposable UI and fake-runner gates
 
-The first disposable UI check opened Playground and imported the five-node
-flow with the real runner ready, submitting **zero** model turns. Its result is
-private at `%LOCALAPPDATA%/Laomedo/exp22-phase-e-preflight-02/` and recorded
-`no_model_preflight_passed`. A later attempt to require the installed custom
+The disposable UI check opened Playground and imported the five-node flow
+with the real runner ready, submitting **zero** model turns. Its final result
+is private at `%LOCALAPPDATA%/Laomedo/exp22-phase-e-preflight-05/` and recorded
+`no_model_preflight_passed`. It also checked that the saved flow's embedded
+Codex Agent and Skill code match the pinned component files byte for byte.
+A previous attempt to require the installed custom
 component catalog timed out, then reported `component_absent`. That additional
 catalog condition was withdrawn. The saved flow embeds the component source,
 so catalog presence would be an unreliable gate for this route. Those failed
@@ -12,9 +14,10 @@ preflights did not click Send or change the turn ledger.
 The stronger no-model gate ran the exact saved flow through the disposable
 Langflow UI with a fake runner and a browser click on visible Playground Stop.
 It observed exactly one start, one lookup and one cancel for the same fake run,
-with zero late effects. The browser result did not contain the fake runner
-token. Both the UI container and fake-runner process were absent at teardown.
-Private state: `%LOCALAPPDATA%/Laomedo/exp22-phase-e-fake-01/`.
+with zero late effects even after the six-second effect window. The browser
+result did not contain the fake runner token. Both the UI container and
+fake-runner process were absent at teardown. Private state:
+`%LOCALAPPDATA%/Laomedo/exp22-phase-e-fake-02/`.
 
 | Private sanitized artifact | SHA-256 |
 | --- | --- |
