@@ -1,0 +1,76 @@
+{
+  "events": [
+    {
+      "case_name": "crash",
+      "kind": "case_reserved",
+      "monotonic": 43820.599052497,
+      "run_id": "exp123-S1-crash",
+      "sequence": 68,
+      "utc": "2026-10-09T18:54:56.123202+00:00"
+    },
+    {
+      "graph_id": "94b8c339-9b79-4075-89b4-bc605fd9a973",
+      "graph_sha256": "95293070510897028ccae12420b9eb510f0efdd367f0531597e95bf5d8337c7e",
+      "kind": "graph_started",
+      "monotonic": 43820.767692923,
+      "run_id": "exp123-S1-crash",
+      "sequence": 69,
+      "utc": "2026-10-09T18:54:56.291843+00:00"
+    },
+    {
+      "graph_id": "94b8c339-9b79-4075-89b4-bc605fd9a973",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "invocation_id": "exp123-S1-crash:Agent1",
+      "iteration": 1,
+      "kind": "agent_invoked",
+      "monotonic": 43820.771149372,
+      "node_id": "Agent1",
+      "pr_number": 1,
+      "repository": "fixture/repo",
+      "run_id": "exp123-S1-crash",
+      "sequence": 70,
+      "utc": "2026-10-09T18:54:56.295298+00:00"
+    },
+    {
+      "gate_id": "exp123-S1-crash:gate-1",
+      "graph_id": "94b8c339-9b79-4075-89b4-bc605fd9a973",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "kind": "gate_waiting",
+      "monotonic": 43820.775284391,
+      "node_id": "Gate1",
+      "run_id": "exp123-S1-crash",
+      "sequence": 71,
+      "utc": "2026-10-09T18:54:56.299432+00:00"
+    },
+    {
+      "kind": "case_terminal",
+      "monotonic": 43826.342091846,
+      "reason": "worker_restart",
+      "run_id": "exp123-S1-crash",
+      "sequence": 72,
+      "state": "crashed",
+      "utc": "2026-10-09T18:55:01.866241+00:00"
+    },
+    {
+      "classification": "inactive",
+      "fixture": {
+        "gate_id": "exp123-S1-crash:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-crash",
+        "signature": "cc92f650492baeaee64ccb31d81093e5e1e264d68d6cf7774b31c53124cafa6d",
+        "source_check_id": "exp123-S1-crash:check-1",
+        "source_delivery_id": "exp123-S1-crash:delivery-after-crash",
+        "status": "failed"
+      },
+      "kind": "delivery",
+      "monotonic": 43826.414812157,
+      "run_id": "exp123-S1-crash",
+      "sequence": 73,
+      "utc": "2026-10-09T18:55:01.938962+00:00"
+    }
+  ],
+  "run_id": "exp123-S1-crash",
+  "state": "crashed"
+}
