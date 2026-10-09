@@ -17,6 +17,7 @@ import stat
 
 
 MAX_BUNDLE_BYTES = 4 * 1024 * 1024
+MAX_RECORD_BYTES = 256 * 1024
 HANDOFF_NAME = ".laomedo-handoff.bundle"
 _IDENTITY = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -70,11 +71,18 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
     if _redirected(source) or not source.is_file():
         raise BundleIngestError("run_binding_invalid")
     try:
-        record_bytes = source.read_bytes()
+        with source.open("rb") as stream:
+            record_bytes = stream.read(MAX_RECORD_BYTES + 1)
+        if len(record_bytes) > MAX_RECORD_BYTES:
+            raise BundleIngestError("run_binding_invalid")
         record = json.loads(record_bytes)
     except (OSError, ValueError) as error:
         raise BundleIngestError("run_binding_invalid") from error
+    if not isinstance(record, dict):
+        raise BundleIngestError("run_binding_invalid")
     scope = record.get("github_scope") or {}
+    if not isinstance(scope, dict):
+        raise BundleIngestError("run_binding_invalid")
     branch = scope.get("branch")
     repository = scope.get("repository")
     baseline = record.get("git_baseline")
@@ -137,6 +145,27 @@ def _durable_json(path: Path, value: dict) -> None:
             os.close(descriptor)
 
 
+def _require_reconciled_prior_attempts(run_home: Path) -> None:
+    """Never let an unverified or unknown freeze be superseded silently."""
+    for prior in run_home.iterdir():
+        if _redirected(prior) or not prior.is_dir():
+            raise BundleIngestError("attempt_unreconciled")
+        outcome = prior / "result.json"
+        if _redirected(outcome) or not outcome.is_file():
+            raise BundleIngestError("attempt_unreconciled")
+        try:
+            with outcome.open("rb") as stream:
+                raw = stream.read(MAX_RECORD_BYTES + 1)
+            if len(raw) > MAX_RECORD_BYTES:
+                raise BundleIngestError("attempt_unreconciled")
+            result = json.loads(raw)
+        except (OSError, ValueError) as error:
+            raise BundleIngestError("attempt_unreconciled") from error
+        if (not isinstance(result, dict) or result.get("status") != "refused" or
+                (prior / "input.bundle").exists()):
+            raise BundleIngestError("attempt_unreconciled")
+
+
 def freeze_run_bundle(runner_state: Path, private_root: Path, *, run_id: str,
                       attempt_id: str) -> dict:
     """Save exact agent bytes under a host-private, one-shot run identity.
@@ -164,6 +193,9 @@ def freeze_run_bundle(runner_state: Path, private_root: Path, *, run_id: str,
         raise BundleIngestError("run_transfer_busy_or_unreconciled") from error
     try:
         attempt = run_home / attempt_id
+        if attempt.exists() or attempt.is_symlink():
+            raise BundleIngestError("attempt_already_reserved")
+        _require_reconciled_prior_attempts(run_home)
         try:
             attempt.mkdir(mode=0o700)
         except FileExistsError as error:

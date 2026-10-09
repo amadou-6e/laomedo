@@ -4,8 +4,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from laomedo.bundle_ingest import (BundleIngestError, HANDOFF_NAME,
                                    MAX_BUNDLE_BYTES, freeze_run_bundle)
@@ -71,6 +73,23 @@ class BundleIngestTests(unittest.TestCase):
                                     "run_transfer_busy_or_unreconciled"):
             self._freeze("attempt-2")
 
+    def test_unknown_prior_attempt_blocks_fresh_identity(self):
+        with patch("laomedo.bundle_ingest._bundle_bytes",
+                   side_effect=RuntimeError("unreported disk failure")):
+            with self.assertRaises(RuntimeError):
+                self._freeze()
+        saved = json.loads((self.private / "run-a" / "attempt-1" /
+                            "result.json").read_text())
+        self.assertEqual(saved["status"], "unknown")
+        self.assertFalse((self.private / "run-a.lock").exists())
+        with self.assertRaisesRegex(BundleIngestError, "attempt_unreconciled"):
+            self._freeze("attempt-2")
+
+    def test_frozen_prior_attempt_blocks_fresh_identity(self):
+        self._freeze()
+        with self.assertRaisesRegex(BundleIngestError, "attempt_unreconciled"):
+            self._freeze("attempt-2")
+
     def test_oversized_bundle_is_refused_with_consumed_attempt(self):
         self.bundle.write_bytes(b"x" * (MAX_BUNDLE_BYTES + 1))
         result = self._freeze()
@@ -103,6 +122,30 @@ class BundleIngestTests(unittest.TestCase):
         self.assertEqual(result["status"], "refused")
         self.assertEqual(result["reason"], "bundle_size_or_type")
 
+    def test_reparse_attribute_is_refused_without_real_junction_rights(self):
+        marker = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", None)
+        if marker is None:
+            self.skipTest("OS has no reparse attribute")
+        real_lstat = Path.lstat
+
+        class ReparseStatus:
+            def __init__(self, original):
+                self.original = original
+                self.st_mode = original.st_mode
+                self.st_file_attributes = marker
+
+            def __getattr__(self, name):
+                return getattr(self.original, name)
+
+        def synthetic_lstat(path):
+            original = real_lstat(path)
+            return ReparseStatus(original) if path == self.bundle else original
+
+        with patch.object(Path, "lstat", synthetic_lstat):
+            result = self._freeze()
+        self.assertEqual(result["status"], "refused")
+        self.assertEqual(result["reason"], "bundle_not_regular")
+
     def test_workspace_redirect_and_run_mismatch_refuse_before_attempt(self):
         self.record["run_id"] = "run-b"
         self._save_record()
@@ -116,6 +159,11 @@ class BundleIngestTests(unittest.TestCase):
                                       target_is_directory=True)
         except (OSError, NotImplementedError):
             self.skipTest("host does not permit directory symlinks")
+        with self.assertRaisesRegex(BundleIngestError, "run_binding_invalid"):
+            self._freeze()
+
+    def test_unbounded_saved_run_record_is_refused(self):
+        (self.run_dir / "record.json").write_bytes(b"x" * (256 * 1024 + 1))
         with self.assertRaisesRegex(BundleIngestError, "run_binding_invalid"):
             self._freeze()
 
