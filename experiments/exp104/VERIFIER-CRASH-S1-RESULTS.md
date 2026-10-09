@@ -8,7 +8,8 @@ grant or model turn was used. Do not retry this identity.
 
 The machine observation is preserved unchanged with SHA-256
 8df630dafa61eba8c2020b720a2f20ac21539e5b37cf93fec14b7e25f0617f76.
-Read-only post-diagnosis found verification status failed, exit code 2,
+The separate coordinator read-only post-diagnosis (not fields of the generic
+machine observation) found verification status failed, exit code 2,
 limits_verified true, cleanup_verified true, no stage marker and no export.
 
 Coordinator diagnosis: git ls-files --eol reported index LF, working-tree CRLF,
