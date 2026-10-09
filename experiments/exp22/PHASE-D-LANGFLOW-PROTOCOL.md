@@ -18,6 +18,8 @@ Start a fresh real local runner with a one-turn internal cap, record its token o
 
 Record the graph cancellation signal, runner request ID and early run ID, the component's request lookup and cancel traffic, native `turn/interrupt` or `turn/completed: interrupted`, terminal runner status and `cancel_confirmed`, partial raw-event count/hash, exact Docker container absence and sentinel absence after the original delay. Distinguish a cancel request from confirmed remote cancellation. If any identity is unknown, retain the run as unknown; do not redispatch or reuse another request ID.
 
+The private HTTP route audit must show one start, at least one lookup for the acknowledged request ID, and one cancel for that exact run ID before a graph-originated pass is claimed. On every failure path after reservation, request runner cancellation, wait a bounded time for terminal status, verify or perform exact-labelled container cleanup, remove the disposable graph container, and persist a sanitized teardown record. A host fallback cancel or cleanup can make the boundary safe but cannot count as proof of graph-originated cancellation.
+
 The in-process graph cancellation is a test of Langflow component cancellation propagation, not a visible Playground Stop. The separate EXP-94 synthetic browser test covers visible Stop routing but not a real agent. Full UI-to-real-agent composition and a complete cross-store trace join remain separate unless this probe observes them directly.
 
 Private raw events, runner token and login state stay outside Git. Publish only sanitized categories, hashes, timings and a count of the shared ledger, including failure or inconclusive results. No issue closure follows automatically.
