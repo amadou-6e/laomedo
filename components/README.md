@@ -51,9 +51,30 @@ are single-skill-only and may be empty; use the per-skill `skills` array.
 
 Invalid input fails before HTTP. Runner failures raise errors naming known run ID
 and category; transport timeouts cannot establish whether remote execution stopped.
-Langflow UI Stop is not claimed to cancel a remote start: synchronous runner start
-does not return its run ID until completion. Use explicit cancel with a known run
-ID; never interpret client interruption as sandbox denial or runner cancellation.
+The fresh route uses early native acknowledgement, then read-only polling.
+Bounded installed-runtime tests showed visible Playground Stop cancelling one
+active Codex turn and one prepared turn. Do not infer a remote stop from client
+interruption alone; the runner's exact terminal evidence is required.
+
+## Opt-in Playground join prototype
+
+The optional advanced Join Bridge URL routes a fresh/start component call
+through a host-owned [join service](../laomedo/langflow_join_service.py). The
+checked-in sample flow leaves this field unset, so its current runner route is
+unchanged. The bridge takes a separate read-only token file in Langflow at
+`/run/secrets/laomedo-bridge-token`; the host service reads its own copy, a
+runner API token file and a private run store outside Git. The host independently
+hashes the saved-flow export, reserves the run before its native POST, and binds
+the client UUID, invocation, native request/run and trace. The saved export does
+not attest the executing editor graph. Stop persists by client UUID even when
+the first bridge acknowledgement is missing. The service is opt-in and has not
+been activated for the existing server.
+
+The [installed credential-free check](../experiments/exp22/PHASE-G-JOIN-RESULTS.md)
+observed one visible Send and Stop through this service with a fake native
+runner, with zero model turns. A persistent Langflow database restart and a
+real Codex turn through the bridge remain necessary for #22. Do not treat the
+fake-runner result as production authentication or graph attestation.
 
 ## Checks
 
@@ -62,9 +83,8 @@ image with this repository available. It uses a synthetic runner and no credenti
 or model turns. Run the existing `python -m unittest discover -s tests` on the host as well.
 Real imported-flow acceptance needs a separately authorized model-turn ledger.
 
-Automatic UI Stop propagation is tracked in
-[follow-up #22](https://github.com/amadou-6e/laomedo/issues/22); explicit cancel
-with a known run ID remains available in this node.
+The durable cross-store join and restart checks remain tracked in
+[follow-up #22](https://github.com/amadou-6e/laomedo/issues/22).
 
 Reference: [Langflow custom components](https://docs.langflow.org/components-custom-components).
 Newer documentation features must be checked against the installed 1.12.3 runtime.

@@ -20,6 +20,14 @@ _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 
 
+class _NoRedirect(request.HTTPRedirectHandler):
+    def redirect_request(self, *_):
+        return None
+
+
+_HTTP = request.build_opener(_NoRedirect())
+
+
 class LaomedoCodexAgent(Component):
     display_name = "Laomedo Codex Agent"
     description = "Start, run, resume or cancel a pinned-skill Codex session through the local Docker runner."
@@ -43,6 +51,8 @@ class LaomedoCodexAgent(Component):
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
                  value="http://host.docker.internal:8765"),
+        StrInput(name="bridge_url", display_name="Join Bridge URL", advanced=True,
+                 value="", info="Optional local host bridge for a durable first-call join."),
         IntInput(name="timeout_seconds", display_name="HTTP Timeout", value=210,
                  advanced=True),
     ]
@@ -89,6 +99,8 @@ class LaomedoCodexAgent(Component):
         operation = str(self.operation)
         if operation not in {"fresh", "start", "resume", "status", "cancel"}:
             raise ValueError("invalid_operation")
+        if self._bridge_base() and operation not in {"fresh", "start"}:
+            raise ValueError("join_bridge_requires_fresh_start")
         task = str(getattr(self.task, "text", self.task) or "")
         if operation in {"fresh", "start", "resume"} and not task.strip():
             raise ValueError("task_required")
@@ -135,7 +147,7 @@ class LaomedoCodexAgent(Component):
                     payload = {"task": task, "model": model,
                                "effort": effort, "skill_refs": refs}
                     payload["request_id"] = selected_request_id
-                    return endpoint, payload, "POST"
+                    return self._fresh_route(endpoint, payload, selected_request_id)
                 connected = refs[0]
             revision = str(getattr(self, "revision_id", "") or "")
             skill_id = str(getattr(self, "skill_id", "") or "")
@@ -159,7 +171,7 @@ class LaomedoCodexAgent(Component):
                        "skill_ref": {"skill_id": skill_id,
                                      "revision_id": revision, "tree_hash": revision}}
             payload["request_id"] = selected_request_id
-            return endpoint, payload, "POST"
+            return self._fresh_route(endpoint, payload, selected_request_id)
         prior = getattr(self.run_reference, "data", self.run_reference)
         if prior is None and getattr(self, "run_reference_json", None):
             try:
@@ -188,7 +200,42 @@ class LaomedoCodexAgent(Component):
         return endpoint + "/resume", {"task": task, "model": model, "effort": effort,
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
+    def _bridge_base(self):
+        base = str(getattr(self, "bridge_url", "") or "").rstrip("/")
+        if not base:
+            return ""
+        parsed = urlsplit(base)
+        if (parsed.scheme != "http" or parsed.hostname not in
+                {"127.0.0.1", "localhost", "::1", "host.docker.internal"} or
+                parsed.username or parsed.password or parsed.path or
+                parsed.query or parsed.fragment):
+            raise ValueError("local_bridge_url_required")
+        return base
+
+    def _fresh_route(self, endpoint, payload, client_request_id):
+        bridge = self._bridge_base()
+        if not bridge:
+            return endpoint, payload, "POST"
+        graph = getattr(self, "graph", None)
+        vertex = getattr(self, "_vertex", None)
+        flow_id = getattr(graph, "flow_id", None)
+        graph_run_id = getattr(graph, "run_id", None)
+        stage_id = getattr(vertex, "id", None)
+        if (not isinstance(flow_id, str) or not flow_id or
+                not isinstance(graph_run_id, str) or not graph_run_id or
+                not isinstance(stage_id, str) or not stage_id):
+            raise ValueError("join_bridge_execution_identity_unavailable")
+        return bridge + "/v1/invocations", {
+            "client_request_id": client_request_id,
+            "flow_id": flow_id, "graph_run_id": graph_run_id,
+            "stage_id": stage_id,
+            "runner_body": {key: value for key, value in payload.items()
+                            if key != "request_id"}}, "POST"
+
     def _token_file_path(self):
+        if self._bridge_base():
+            return os.environ.get("LAOMEDO_BRIDGE_TOKEN_FILE",
+                                  "/run/secrets/laomedo-bridge-token")
         return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
                               "/run/secrets/laomedo-runner-token")
 
@@ -207,7 +254,8 @@ class LaomedoCodexAgent(Component):
             headers={"Content-Type": "application/json",
                      "Authorization": "Bearer " + token}, method=method)
         try:
-            with request.urlopen(req, timeout=10) as response:
+            opener = _HTTP.open if self._bridge_base() else request.urlopen
+            with opener(req, timeout=10) as response:
                 value = json.load(response)
         except error.HTTPError as exc:
             if method == "GET" and exc.code == 404:
@@ -268,6 +316,36 @@ class LaomedoCodexAgent(Component):
         except (RuntimeError, ValueError) as exc:
             self.status = f"Laomedo Stop: {exc}; remote outcome unknown"
 
+    def _cancel_after_ui_stop_bridge(self, base, client_request_id):
+        """Persist Stop by client UUID even before the first bridge reply."""
+        try:
+            token = self._token()
+            self._stop_http(base + "/v1/requests/" + client_request_id + "/cancel",
+                            {}, "POST", token)
+            deadline = time.monotonic() + min(240, max(10, int(self.timeout_seconds)))
+            while time.monotonic() < deadline:
+                current = self._stop_http(base + "/v1/requests/" + client_request_id,
+                                          None, "GET", token)
+                if current is None:
+                    time.sleep(.2)
+                    continue
+                if current.get("client_request_id") != client_request_id:
+                    raise RuntimeError("stop_request_binding_conflict")
+                status = current.get("status")
+                if status == "cancelled" and current.get("cancel_confirmed") is True:
+                    self.status = "Laomedo Stop: native cancellation confirmed"
+                    return
+                if status == "cancelled" and current.get("run_id") is None:
+                    self.status = "Laomedo Stop: cancelled before runner dispatch"
+                    return
+                if status in _TERMINAL:
+                    self.status = f"Laomedo Stop: runner {status}; cancellation unconfirmed"
+                    return
+                time.sleep(.2)
+            raise RuntimeError("stop_runner_result_pending")
+        except (RuntimeError, ValueError) as exc:
+            self.status = f"Laomedo Stop: {exc}; remote outcome unknown"
+
     def _http(self, endpoint, payload, method):
         token = self._token()
         req = request.Request(endpoint,
@@ -275,7 +353,8 @@ class LaomedoCodexAgent(Component):
             headers={"Content-Type": "application/json",
                      "Authorization": "Bearer " + token}, method=method)
         try:
-            with request.urlopen(req, timeout=int(self.timeout_seconds)) as response:
+            opener = _HTTP.open if self._bridge_base() else request.urlopen
+            with opener(req, timeout=int(self.timeout_seconds)) as response:
                 result = json.load(response)
         except error.HTTPError as exc:
             try:
@@ -309,8 +388,10 @@ class LaomedoCodexAgent(Component):
                     raise RuntimeError("runner_wait_deadline; remote execution may still be active")
                 time.sleep(.2)
                 try:
-                    with request.urlopen(request.Request(
-                            str(self.runner_url).rstrip("/") + "/v1/runs/" + result["run_id"],
+                    opener = _HTTP.open if self._bridge_base() else request.urlopen
+                    with opener(request.Request(
+                            (self._bridge_base() or str(self.runner_url).rstrip("/")) +
+                            "/v1/runs/" + result["run_id"],
                             headers={"Authorization": "Bearer " + token}, method="GET"),
                             timeout=10) as response:
                         result = json.load(response)
@@ -345,9 +426,13 @@ class LaomedoCodexAgent(Component):
             prepared = self._prepare()
             if self.operation in {"fresh", "start"}:
                 payload = prepared[1]
-                self._stop_request_id = payload["request_id"]
-                canonical = {key: value for key, value in payload.items()
-                             if key != "request_id"}
+                if self._bridge_base():
+                    self._stop_request_id = payload["client_request_id"]
+                    canonical = payload["runner_body"]
+                else:
+                    self._stop_request_id = payload["request_id"]
+                    canonical = {key: value for key, value in payload.items()
+                                 if key != "request_id"}
                 self._stop_request_hash = "sha256:" + hashlib.sha256(
                     json.dumps(canonical, sort_keys=True, separators=(",", ":"),
                                ensure_ascii=False).encode("utf-8")).hexdigest()
@@ -358,10 +443,16 @@ class LaomedoCodexAgent(Component):
         except asyncio.CancelledError:
             self._stop_requested = True
             if self._stop_request_id and self._cancel_task is None:
-                base = str(self.runner_url).rstrip("/")
-                self._cancel_task = asyncio.create_task(asyncio.to_thread(
-                    self._cancel_after_ui_stop, base, self._stop_request_id,
-                    self._stop_request_hash))
+                bridge = self._bridge_base()
+                if bridge:
+                    self._cancel_task = asyncio.create_task(asyncio.to_thread(
+                        self._cancel_after_ui_stop_bridge, bridge,
+                        self._stop_request_id))
+                else:
+                    base = str(self.runner_url).rstrip("/")
+                    self._cancel_task = asyncio.create_task(asyncio.to_thread(
+                        self._cancel_after_ui_stop, base, self._stop_request_id,
+                        self._stop_request_hash))
                 _STOP_TASKS.add(self._cancel_task)
                 self._cancel_task.add_done_callback(_STOP_TASKS.discard)
             self.status = "Laomedo Stop requested; remote outcome unknown"

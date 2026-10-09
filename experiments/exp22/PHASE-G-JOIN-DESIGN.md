@@ -1,9 +1,11 @@
 # Phase G join boundary candidates
 
-This file is a draft technical assessment, not an approved implementation route.
+This file records the candidate before its first installed-runtime check.
 Claude's first review rejected the pre-graph host reservation for visible
 Playground Send. The corrected candidate below moves reservation to the first
-component-to-host bridge call. It has not been implemented or rechecked.
+component-to-host bridge call. A later [credential-free installed probe](PHASE-G-JOIN-RESULTS.md)
+tested that route with a fake native runner; the real-agent and restart gates
+remain open.
 
 It follows the [Phase G protocol](PHASE-G-CORRELATION-PROTOCOL.md) and the
 [zero-model server identity observation](PHASE-G-IDENTITY-RESULTS.md).
