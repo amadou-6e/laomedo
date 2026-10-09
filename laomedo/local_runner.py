@@ -236,7 +236,10 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    launch_token: str | None = None,
                    capability: Path | None = None,
                    mediator_url: str | None = None,
-                   mediator_instance: str | None = None) -> list[str]:
+                   mediator_instance: str | None = None,
+                   command_directory: Path | None = None,
+                   repository: str | None = None,
+                   branch: str | None = None) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
     labels = (["--label", f"{LABEL_RUN}={run_id}",
@@ -252,6 +255,16 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
     if any(value is not None for value in
            (capability, mediator_url, mediator_instance)) and not mediation:
         raise RunnerError("incomplete_mediator_mount")
+    if command_directory is not None:
+        if not mediation or repository is None or branch is None:
+            raise RunnerError("incomplete_command_mount")
+        mediation += [
+            "--mount", f"type=bind,source={command_directory},target=/run/laomedo/bin,readonly",
+            "--mount", f"type=bind,source={MEDIATION_CLIENT.with_name('agent_gh_adapter.mjs')},target=/run/laomedo/gh.mjs,readonly",
+            "--mount", f"type=bind,source={MEDIATION_CLIENT.with_name('agent_git_remote.mjs')},target=/run/laomedo/git-remote.mjs,readonly",
+            "--env", "LAOMEDO_REPOSITORY=" + repository,
+            "--env", "LAOMEDO_RUN_BRANCH=" + branch,
+            "--env", "PATH=/run/laomedo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"]
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -790,7 +803,9 @@ class LocalRunner:
                      launch_token: str | None = None,
                      capability: Path | None = None,
                      mediator_url: str | None = None,
-                     mediator_instance: str | None = None):
+                     mediator_instance: str | None = None,
+                     repository: str | None = None,
+                     branch: str | None = None):
         workspace, canonical, store_mount = (root / name for name in
                                               ("workspace", "canonical", "store"))
         if self.split_executor:
@@ -799,6 +814,15 @@ class LocalRunner:
                                   provider_config=self.split_provider_config,
                                   access_token=(access_token if access_token is not None
                                                 else self.split_access_token))
+        command_directory = None
+        if capability is not None and self.git_workspace:
+            from .agent_cli import prepare_commands, configure_remote
+            if repository is None or branch is None:
+                raise RunnerError("mediated_command_scope_missing")
+            command_directory = prepare_commands(root, repository, branch)
+            # The checkout was prepared without a provider remote. This is a
+            # credential-free helper URL, not an HTTPS fallback.
+            configure_remote(workspace, repository)
         # Launch the opt-in image by its verified ID, not a mutable local tag.
         command = ["docker", *_docker_prefix(
             workspace, canonical, store_mount,
@@ -806,7 +830,8 @@ class LocalRunner:
             name=name, run_id=run_id,
             launch_token=launch_token, capability=capability,
             mediator_url=mediator_url,
-            mediator_instance=mediator_instance)]
+            mediator_instance=mediator_instance, command_directory=command_directory,
+            repository=repository, branch=branch)]
         if capability is not None and self.transport is AppServer:
             return self.transport(command, root, secret_redactions=(
                 capability.read_text(encoding="utf-8").strip(),))
@@ -1303,7 +1328,9 @@ class LocalRunner:
                 run_dir, access_token=access_token, name=name, run_id=run_id,
                 launch_token=launch_token, capability=capability,
                 mediator_url=mediator_url,
-                mediator_instance=mediator_instance)
+                mediator_instance=mediator_instance,
+                repository=(record.get("github_scope") or {}).get("repository"),
+                branch=(record.get("github_scope") or {}).get("branch"))
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
@@ -1368,6 +1395,18 @@ class LocalRunner:
                          "never print or copy that file. A denied or unknown write "
                          "must not be retried automatically. Direct host GitHub "
                          "credentials and ambient gh login are unavailable.")
+                if self.git_workspace:
+                    task += (" Native `git push origin HEAD:refs/heads/" +
+                             record["github_scope"]["branch"] +
+                             "` and `git fetch origin` use the mediated helper. "
+                             "Fetch requires an explicitly granted read operation. "
+                             "The supported `gh pr view/create/edit`, `gh run list`, "
+                             "and GET-only `gh api` adapter is on PATH. "
+                             "PR writes require LAOMEDO_EFFECT_ID and "
+                             "LAOMEDO_RECONCILIATION_MARKER, an explicit title/body "
+                             "and target; unsupported commands fail visibly. "
+                             "Second pushes are not supported yet; never force or "
+                             "fall back to direct HTTPS.")
             turn_params = {"threadId": native_id,
                 "model": record["requested_model"], "effort": record["requested_effort"],
                 "cwd": "/draft", "input": [{"type": "text", "text": task}]}

@@ -9,6 +9,7 @@ uncertain effects: never automatically retry them.
 from __future__ import annotations
 
 from contextlib import ExitStack
+import base64
 import os
 from pathlib import Path
 import re
@@ -281,9 +282,11 @@ class GitHubGitTransport:
     def __call__(self, repository: str, operation: str, payload: dict, *,
                  connection_id: str | None = None,
                  connection_generation: int | None = None,
-                 verified_stage=None) -> dict:
+                 verified_stage=None, allowed_branch: str | None = None) -> dict:
         if repository != self.repository:
             raise KnownRejected("repository_denied")
+        if operation == "git_fetch":
+            return self._fetch(payload, connection_id, connection_generation, allowed_branch)
         if operation != "git_push":
             raise KnownRejected("operation_not_implemented")
         branch, commit = payload.get("branch"), payload.get("commit")
@@ -365,6 +368,75 @@ class GitHubGitTransport:
             result["stage_digest"] = verified_stage.stage_digest
         return result
 
+    def _fetch(self, payload: dict, connection_id: str | None,
+               generation: int | None, branch: str | None) -> dict:
+        """Read selected refs with host custody; bound returned bytes, not disk."""
+        if (not isinstance(branch, str) or not branch or
+                not isinstance(connection_id, str) or not connection_id or
+                type(generation) is not int or generation < 1):
+            raise KnownRejected("connection_binding_required")
+        action = payload.get("action")
+        refs = {"refs/heads/main", "refs/heads/" + branch}
+        if action == "list":
+            if set(payload) != {"action"}:
+                raise KnownRejected("fetch_request_invalid")
+        elif (action != "fetch" or set(payload) != {"action", "ref", "commit"} or
+              payload.get("ref") not in refs or
+              not isinstance(payload.get("commit"), str) or
+              not re.fullmatch(r"[0-9a-f]{40}", payload["commit"])):
+            raise KnownRejected("fetch_request_invalid")
+        try:
+            token = self.token_supplier(connection_id, generation)
+        except (KeyError, TypeError, ValueError):
+            raise KnownRejected("provider_credential_unavailable") from None
+        if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
+            raise KnownRejected("provider_credential_unavailable")
+        environment, helper = _credential_environment(token)
+        remote = "https://github.com/" + self.repository + ".git"
+        credential = ("-c", "credential.helper=", "-c", "credential.helper=" + helper)
+        try:
+            with tempfile.TemporaryDirectory(prefix="laomedo-git-read-") as scratch:
+                bare = Path(scratch)
+                if self._run_git(bare, "init", "--bare", "--template=", "--quiet").returncode:
+                    raise KnownRejected("fetch_initialization_failed")
+                for ref in refs:
+                    if self._run_git(bare, "check-ref-format", ref).returncode:
+                        raise KnownRejected("fetch_ref_invalid")
+                if action == "list":
+                    listed = self._run_git(bare, *credential, "ls-remote", "--heads",
+                                           remote, *sorted(refs), env=environment)
+                    if listed.returncode or len(listed.stdout) > 1024:
+                        raise KnownRejected("fetch_listing_failed")
+                    result, seen = [], set()
+                    for line in listed.stdout.decode("ascii").splitlines():
+                        commit, ref = line.split("\t")
+                        if not re.fullmatch(r"[0-9a-f]{40}", commit) or ref not in refs or ref in seen:
+                            raise KnownRejected("fetch_listing_invalid")
+                        seen.add(ref)
+                        result.append({"ref": ref, "commit": commit})
+                    return {"refs": result}
+                fetched = self._run_git(bare, *credential, "fetch", "--no-tags",
+                    "--no-write-fetch-head", remote,
+                    payload["ref"] + ":refs/heads/laomedo-read", env=environment)
+                environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
+                if fetched.returncode:
+                    raise KnownRejected("fetch_acquisition_failed")
+                actual = self._run_git(bare, "rev-parse", "refs/heads/laomedo-read^{commit}")
+                if actual.returncode or actual.stdout.decode().strip() != payload["commit"]:
+                    raise KnownRejected("fetch_ref_changed")
+                if self._run_git(bare, "fsck", "--full", "--strict").returncode:
+                    raise KnownRejected("fetch_objects_invalid")
+                bundle = bare / "read.bundle"
+                if self._run_git(bare, "bundle", "create", str(bundle), "refs/heads/laomedo-read").returncode:
+                    raise KnownRejected("fetch_bundle_failed")
+                if bundle.stat().st_size > 262144:
+                    raise KnownRejected("fetch_bundle_too_large")
+                data = bundle.read_bytes()
+                return {"ref": payload["ref"], "commit": payload["commit"],
+                        "bundle": base64.b64encode(data).decode("ascii")}
+        finally:
+            environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
+
 
 class GitHubMediatedTransport:
     """Route Git pushes and supported REST calls through one selected identity."""
@@ -376,5 +448,5 @@ class GitHubMediatedTransport:
         self.rest = rest_transport
 
     def __call__(self, repository: str, operation: str, payload: dict, **binding):
-        target = self.git if operation == "git_push" else self.rest
+        target = self.git if operation in {"git_push", "git_fetch"} else self.rest
         return target(repository, operation, payload, **binding)

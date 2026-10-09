@@ -11,6 +11,7 @@ from contextlib import closing
 from hashlib import sha256
 import json
 import math
+import re
 from pathlib import Path
 import secrets
 import sqlite3
@@ -111,6 +112,15 @@ def _validate_effect(operation: str, payload: dict, grant, db,
 
 
 def _validate_read(operation: str, payload: dict, repository: str, grant, db) -> None:
+    if operation == "git_fetch":
+        if payload == {"action": "list"}:
+            return
+        if (set(payload) != {"action", "ref", "commit"} or payload.get("action") != "fetch" or
+                payload.get("ref") not in {"refs/heads/main", "refs/heads/" + grant["branch"]} or
+                not isinstance(payload.get("commit"), str) or
+                not re.fullmatch(r"[0-9a-f]{40}", payload["commit"])):
+            raise MediationError("fetch_target_denied")
+        return
     if operation == "pr_read":
         if set(payload) != {"number"} or type(payload["number"]) is not int or payload["number"] < 1:
             raise MediationError("pr_read_target_invalid")
@@ -594,6 +604,8 @@ class MediationStore:
                            "connection_generation": grant["connection_generation"]}
                 if verified_stage is not None:
                     binding["verified_stage"] = verified_stage
+                if operation == "git_fetch":
+                    binding["allowed_branch"] = grant["branch"]
                 result = transport(repository, operation, payload, **binding)
             if not isinstance(result, dict):
                 raise ValueError("transport_result_invalid")
@@ -606,6 +618,11 @@ class MediationStore:
         if operation in READS:
             if state == "rejected":
                 return {"state": "rejected", "error": error_code}
+            if operation == "git_fetch":
+                # Object acquisition can outlive a lease: never deliver bytes
+                # after its grant or selected connection has disappeared.
+                with closing(self._connect()) as db:
+                    self._grant(db, token, repository, operation)
             if operation == "pr_read":
                 with closing(self._connect()) as db:
                     current = self._grant(db, token, repository, operation)

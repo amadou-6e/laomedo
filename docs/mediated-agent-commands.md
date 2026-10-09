@@ -1,0 +1,62 @@
+# Agent-native mediated commands (draft)
+
+Issue #100 / draft PR #105. User command-surface choice: specs PR
+[312](https://github.com/amadou-6e/specs/pull/312). This is implementation
+guidance, not evidence of full CLI parity or production acceptance.
+
+The opt-in Git workspace plus a trusted GitHub run grant installs command
+wrappers **inside the agent container only**. Its origin is
+`laomedo::OWNER/REPO`. Native Git invokes `git-remote-laomedo`; `gh` invokes
+the supported syntax adapter. Neither receives the provider token or reads
+the host's GitHub login. The mediator's grant remains the authority even if
+the agent changes its environment or wrapper. There is no HTTPS fallback.
+
+## Git
+
+`git push origin HEAD:refs/heads/RUN_BRANCH` captures the matching local branch
+as the fixed handoff bundle, freezes one commit-derived attempt, polls its
+verification read-only, then asks to push that exact commit. One ref only;
+no force, deletion, tags, or other branch. Keep the local RUN_BRANCH ref at
+the outgoing commit. Repeating a confirmed/unknown push reuses its identity;
+an uncertain freeze never schedules another capture automatically. A stale
+handoff lock is a refusal, not proof that its operation is safe to repeat.
+
+The host still requires an absent provider branch for the first push.
+Updating an existing branch remains unsupported pending trusted predecessor
+and fast-forward checks. Do not claim normal multi-push workflow acceptance.
+
+`git fetch origin` uses an explicitly granted `git_fetch` read lane for
+`main` and the run branch. Host credential custody, current ref/hash checks,
+isolated Git, fsck and a grant recheck precede bundle delivery. Returned
+bundles are limited to 256 KiB. Downloaded object disk usage is **not** byte
+bounded by that limit; large-repository acceptance remains open.
+
+## gh
+
+Supported forms are `gh pr view NUMBER`, `gh run list`, GET-only `gh api
+repos/OWNER/REPO/...`, `gh pr create --title TITLE --body BODY --head BRANCH
+--base BASE`, and `gh pr edit NUMBER --title TITLE --body BODY`.
+`--body-file FILE` (or `-` for stdin) replaces `--body`; `--repo OWNER/REPO`
+must match the selected repository. Output is result JSON, not native gh
+table formatting. PR reads/updates are limited to bound targets.
+
+For writes, explicitly set `LAOMEDO_EFFECT_ID` and
+`LAOMEDO_RECONCILIATION_MARKER` and include that marker in the body. A stable
+effect ID identifies the **exact** request, not a command that may be edited
+and resent. PR edits read the bound PR first, then submit its expected
+title/body/head snapshot. A concurrent human-edit race is not eliminated.
+
+Unsupported commands/flags fail before mediation. Exit 2 is unsupported or
+invalid input; exit 3 is a mediated refusal; exit 4 means unknown effect.
+Do not automatically repeat an unknown write, invent another effect ID,
+export a token, or use a host gh login. Full issue/API-write/extension,
+pagination and native formatting coverage is not established.
+
+## Development verification
+
+`python -m pytest tests/test_native_commands.py` runs host Git fixture,
+revocation-before-delivery, wrapper and Node adapter controls. The opt-in
+`LAOMEDO_TEST_NATIVE_DOCKER=1` adds a pinned no-network Docker fixture running
+literal Git/gh commands against a synthetic client. It proves protocol
+wiring, not the production verifier, provider, service lifetime, or model
+behavior. One-shot S10 acceptance capture still requires independent review.
