@@ -33,15 +33,19 @@ def powershell(command):
 
 def processes(configuration):
     command = ("$p = @(Get-CimInstance Win32_Process | Where-Object { "
+               "$_.ProcessId -ne $PID -and $_.Name -eq 'python.exe' -and "
                "$_.CommandLine -and $_.CommandLine.Contains(" + quote(configuration) +
                ") -and $_.CommandLine.Contains('laomedo.managed_service') }); "
                "ConvertTo-Json -Compress -InputObject @($p.ProcessId)")
-    return json.loads(powershell(command))
+    return sorted(json.loads(powershell(command)))
 
 
 def run(private: Path):
     if os.name != "nt":
         raise ValueError("windows_required")
+    if any(key in os.environ for key in
+           ("GH_TOKEN", "GITHUB_TOKEN", "GH", "GH_LAOMEDO", "GIT_ASKPASS")):
+        raise ValueError("ambient_credential_environment_denied")
     source = subprocess.run(["git", "rev-parse", "HEAD"], cwd=CHECKOUT,
                             check=True, capture_output=True).stdout.decode().strip()
     dirty = subprocess.run(["git", "status", "--porcelain"], cwd=CHECKOUT,
@@ -82,10 +86,17 @@ def run(private: Path):
             path = root / (service + ".json")
             path.write_text(json.dumps(configuration), encoding="utf-8")
             installer = CHECKOUT / "scripts" / "Install-LaomedoUserTask.ps1"
-            task = powershell("& " + quote(installer) + " -Service " + quote(service) +
+            task = powershell("'Laomedo-' + [Security.Principal.WindowsIdentity]::GetCurrent().User.Value + '-' + " + quote(service))
+            powershell("if (Get-ScheduledTask -TaskPath '\\' -TaskName " + quote(task) +
+                       " -ErrorAction SilentlyContinue) { throw 'task_already_exists' }")
+            # Record the exact candidate before registration. A lost result
+            # still leaves a bounded lookup and ownership-checked cleanup.
+            owned[service] = (task, path)
+            registered = powershell("& " + quote(installer) + " -Service " + quote(service) +
                               " -Python " + quote(sys.executable) + " -Checkout " +
                               quote(CHECKOUT) + " -Configuration " + quote(path))
-            owned[service] = (task, path)
+            if registered != task:
+                raise RuntimeError("task_registration_unknown")
             powershell("Start-ScheduledTask -TaskPath '\\' -TaskName " + quote(task))
         before = {}
         deadline = time.monotonic() + 20
@@ -99,7 +110,8 @@ def run(private: Path):
             raise RuntimeError("task_readiness_failed")
         mediator = json.loads((root / "state" / "mediator" / "mediator.json").read_text())
         observation["host_module_root_matches"] = (
-            Path(mediator["module_root"]).resolve() == CHECKOUT / "laomedo")
+            os.path.normcase(str(Path(mediator["module_root"]).resolve())) ==
+            os.path.normcase(str(CHECKOUT / "laomedo")))
         if not observation["host_module_root_matches"]:
             raise RuntimeError("host_source_mismatch")
         old_heartbeat = heartbeat.read_text()
@@ -139,12 +151,13 @@ def run(private: Path):
         for service, (task, path) in owned.items():
             try:
                 powershell("$t = Get-ScheduledTask -TaskPath '\\' -TaskName " + quote(task) +
-                           "; if ($t.Description -ne 'Laomedo managed per-user host process v1' "
+                           " -ErrorAction SilentlyContinue; if ($t) { "
+                           "if ($t.Description -ne 'Laomedo managed per-user host process v1' "
                            "-or -not $t.Actions.Arguments.Contains(" + quote(path) +
                            ")) { throw 'task_ownership_changed' }; "
                            "Stop-ScheduledTask -TaskPath '\\' -TaskName " + quote(task) +
                            "; Unregister-ScheduledTask -TaskPath '\\' -TaskName " +
-                           quote(task) + " -Confirm:$false; "
+                           quote(task) + " -Confirm:$false }; "
                            "if (Get-ScheduledTask -TaskPath '\\' -TaskName " + quote(task) +
                            " -ErrorAction SilentlyContinue) { throw 'task_remains' }")
                 time.sleep(1)
