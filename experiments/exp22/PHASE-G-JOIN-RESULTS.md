@@ -40,3 +40,40 @@ editor graph matches the saved flow, or that a runner credential remains
 unreadable to arbitrary component code. #22 remains open. A real-agent turn
 must wait for the persistent Langflow restart gate and retain its approved
 turn cap; an uncertain attempt consumes a slot.
+
+## Disposable SQLite restart amendment
+
+After explicit approval of the test-only database setting, the same
+credential-free browser Send and Stop probe was rerun with a private
+`/app/data` mount and
+`LANGFLOW_DATABASE_URL=sqlite:////app/data/langflow.db`. The checked-in sample
+flow now embeds the current Codex component and exposes an optional blank
+`bridge_url`; its legacy runner URL remains unchanged. No existing Langflow
+instance was reconfigured. The first restart attempt found a real Langflow
+trace but the probe's query wrongly compared a hyphenated flow UUID against
+Langflow's hyphenless database UUID. After correcting the query, a fresh
+disposable run passed.
+
+The passing run used [probe](phase_g_join_installed.py) SHA-256
+`1b836945f4b388ad19937dea637c1ba9e33ec7f3d065a44e6a34ee394c6269d6`
+and [sample flow](../../examples/native-codex-node/flow.json) SHA-256
+`ad2bbf00e4a68aef2e7d45f3a897935e288e03ca5a71bf66bbf329c5d34e2ebc`.
+Its sanitized `summary.json` SHA-256 was
+`262cb52a9435b6fe3882aa0f731d5b4a3c07a5f5061fe7302f391a5983aff659`;
+`restart-summary.json` was
+`8af97fd66913e5f7fd8866776e3c367b372111c827e77de94f6f7b442ccbe5bd`.
+The private state is under
+`%LOCALAPPDATA%/Laomedo/exp22-phase-g-restart-20261009-b/`, outside Git.
+
+| Restart check | Observed |
+| --- | --- |
+| Saved flow reopened | Same saved-flow UUID after stopping and starting the disposable Langflow container |
+| Langflow trace | One trace under the normalized saved-flow UUID, with one reported graph-run ID present in a linked span payload |
+| Host and native binding | One reopened Laomedo host binding, the same invocation/request identity, exactly one fake native start and cancel, terminal `cancelled` |
+| Teardown | Langflow container, host bridge and fake runner all stopped |
+| Model turns | Zero; shared ledger remains 6/12 |
+
+The Langflow trace is located by its own trace-to-span foreign key and saved
+flow identity. The graph-run ID match in a span is corroboration, not attestation
+of the executing editor graph. The fake runner means this still does not prove
+a real Codex turn traverses the join. That is the remaining Phase G gate.

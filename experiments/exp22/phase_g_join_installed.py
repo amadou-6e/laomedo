@@ -10,15 +10,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import threading
 import time
 from urllib.parse import urlsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from experiments.exp22.phase_d_live import LANGFLOW_IMAGE, ROOT, _port, _private_empty
 from experiments.exp22.phase_e_ui import BROWSER, _remove_ui, _wait_ui
 from laomedo.langflow_join_service import build_service
+from laomedo.work_graph.local_launch import LangflowLocalClient
 from laomedo.workflow_run_store import WorkflowRunStore
 
 
@@ -30,6 +32,8 @@ def _digest(value):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", required=True, type=Path)
+    parser.add_argument("--restart-langflow", action="store_true",
+                        help="Use a private SQLite mount and restart the disposable server")
     args = parser.parse_args()
     state = _private_empty(args.state)
     (state / "langflow-data").mkdir()
@@ -137,10 +141,14 @@ def main():
                    "--security-opt", "no-new-privileges",
                    "--mount", f"type=bind,source={ROOT / 'components'},target=/app/custom_components,readonly",
                    "--mount", f"type=bind,source={bridge_token_path},target=/run/secrets/laomedo-bridge-token,readonly",
-                   "--mount", f"type=bind,source={state / 'langflow-data'},target=/app/langflow",
                    "-e", "LANGFLOW_COMPONENTS_PATH=/app/custom_components",
                    "-e", "LANGFLOW_AUTO_LOGIN=true", "-e", "DO_NOT_TRACK=true",
                    LANGFLOW_IMAGE]
+        if args.restart_langflow:
+            command[-1:-1] = ["--mount", f"type=bind,source={state / 'langflow-data'},target=/app/data",
+                              "-e", "LANGFLOW_DATABASE_URL=sqlite:////app/data/langflow.db"]
+        else:
+            command[-1:-1] = ["--mount", f"type=bind,source={state / 'langflow-data'},target=/app/langflow"]
         if subprocess.run(command, capture_output=True, timeout=30).returncode:
             raise RuntimeError("disposable_langflow_start_failed")
         _wait_ui(ui_port)
@@ -177,6 +185,38 @@ def main():
             bindings = [dict(row) for row in db.execute(
                 "SELECT * FROM langflow_client_requests")]
         traces = [store.trace_snapshot(row["run_id"]) for row in bindings]
+        restart = None
+        if args.restart_langflow:
+            if not _remove_ui(name):
+                raise RuntimeError("first_langflow_container_not_removed")
+            if subprocess.run(command, capture_output=True, timeout=30).returncode:
+                raise RuntimeError("disposable_langflow_restart_failed")
+            _wait_ui(ui_port)
+            fetched = LangflowLocalClient(f"http://127.0.0.1:{ui_port}").fetch(flow_id)
+            db_path = state / "langflow-data/langflow.db"
+            if not db_path.is_file():
+                raise RuntimeError("private_langflow_database_missing")
+            snapshot_path = state / "langflow-restart-snapshot.db"
+            with sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True) as source:
+                with sqlite3.connect(snapshot_path) as snapshot:
+                    source.backup(snapshot)
+            graph_id = bindings[0]["graph_run_id"] if len(bindings) == 1 else ""
+            with sqlite3.connect(snapshot_path.as_uri() + "?mode=ro", uri=True) as db:
+                trace_ids = [row[0] for row in db.execute("""SELECT DISTINCT s.trace_id
+                    FROM span s JOIN trace t ON t.id=s.trace_id
+                    WHERE t.flow_id=? AND
+                    (instr(CAST(s.inputs AS TEXT),?)>0 OR
+                     instr(CAST(s.outputs AS TEXT),?)>0)""",
+                    (UUID(flow_id).hex, graph_id, graph_id))]
+            restart = {"saved_flow_reopened": fetched.get("id") == flow_id,
+                       "one_correlated_langflow_trace": len(trace_ids) == 1,
+                       "trace_id_present": bool(trace_ids and trace_ids[0]),
+                       "correlation_basis": "reported_graph_id_in_span_payload_with_trace_fk",
+                       "executing_graph_attested": False,
+                       "native_starts_after_restart": sum(
+                           item["kind"] == "start" for item in events)}
+            (state / "restart-summary.json").write_text(
+                json.dumps(restart, indent=2) + "\n", encoding="utf-8")
         native = next(iter(records.values()), None)
         cancel_event = next((item for item in events if item["kind"] == "cancel"), None)
         click = observation.get("stop_click_begin_epoch")
@@ -197,7 +237,8 @@ def main():
                    "host_terminal": traces[0]["run_status"] if traces else None,
                    "host_trace_reopened": bool(traces),
                    "executing_graph_verified": False,
-                   "langflow_restart_tested": False}
+                   "langflow_restart_tested": args.restart_langflow,
+                   "restart": restart}
         (state / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
         print(json.dumps(summary, sort_keys=True))
         if not all(summary[key] for key in (
@@ -206,7 +247,12 @@ def main():
                 "stop_cancel_before_close", "host_trace_reopened")) or \
                 summary["native_fake_starts"] != 1 or \
                 summary["native_fake_cancels"] != 1 or \
-                summary["host_terminal"] != "cancelled":
+                summary["host_terminal"] != "cancelled" or \
+                (args.restart_langflow and not (
+                    restart["saved_flow_reopened"] and
+                    restart["one_correlated_langflow_trace"] and
+                    restart["trace_id_present"] and
+                    restart["native_starts_after_restart"] == 1)):
             raise RuntimeError("installed_join_probe_failed")
     finally:
         if browser and browser.poll() is None:
