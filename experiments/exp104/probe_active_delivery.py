@@ -15,6 +15,7 @@ import time
 CHECKOUT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(CHECKOUT))
 from laomedo.bundle_stage import PINNED_IMAGE_ID
+from laomedo.bundle_stage_ownership import _inspect, reconcile_orphan
 from laomedo.bundle_verifier import BundleVerifier
 from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
 from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
@@ -26,6 +27,39 @@ from laomedo.verified_git_stage import make_grant_stage_resolver, make_grant_bun
 IDENTITY = "exp104-delivery-s1-20261009"
 REPOSITORY = "example/disposable"
 FIXTURE = Path(__file__).with_name("active_delivery_fixture.mjs")
+
+
+def refusal_code(store, **request):
+    try:
+        response = store.invoke(**request)
+        return response.get("error") if response.get("state") == "rejected" else None
+    except MediationError as failure:
+        return str(failure)
+
+
+def stage_cleanup(stage, thread):
+    """Never remove a live stage; absence needs a finished verified cleanup."""
+    if thread is not None and thread.is_alive():
+        return False, [{"detail": "verifier_still_alive"}]
+    reports = []
+    def docker(args, timeout):
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    for path in sorted(stage.rglob("container-owner.json")):
+        try:
+            owner = json.loads(path.read_bytes())
+            state, _ = _inspect(owner, docker)
+            if state == "absent":
+                verification = path.parent / "verification.json"
+                saved = json.loads(verification.read_bytes()) if verification.exists() else {}
+                container = saved.get("container", {})
+                verified = container.get("cleanup_verified") is True
+                reports.append({"detail": "absent_after_stage", "cleanup_verified": verified})
+            else:
+                reports.append(reconcile_orphan(path.parent, docker=docker) or
+                               {"detail": "stage_locked", "cleanup_verified": False})
+        except Exception:
+            reports.append({"detail": "stage_cleanup_unknown", "cleanup_verified": False})
+    return all(report.get("cleanup_verified") is True for report in reports), reports
 
 
 def git(path, *args):
@@ -81,6 +115,7 @@ def run(private):
     stopped = threading.Event()
     verifier_thread = None
     agent = None
+    stage = root / "private"
     name, launch = "laomedo-codex-" + secrets.token_hex(8), secrets.token_hex(16)
     try:
         trusted, remote, stage, runner = (root / n for n in ("trusted", "remote.git", "private", "runner"))
@@ -143,6 +178,7 @@ def run(private):
                    "--label", LABEL_RUN + "=run-a", "--label", LABEL_TOKEN + "=" + launch,
                    "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                    "--user", "10001:10001", "--pids-limit", "128", "--memory", "1g",
+                   "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
                    "--env", "GIT_CONFIG_GLOBAL=/dev/null", "--env", "GIT_CONFIG_NOSYSTEM=1",
                    "--env", "LAOMEDO_MEDIATOR_URL=http://host.docker.internal:" + str(server.port) + "/v1/mediate",
                    "--env", "LAOMEDO_MEDIATOR_INSTANCE=" + server.instance,
@@ -170,19 +206,36 @@ def run(private):
         before = len(fake.calls) + len(push_calls)
         record["status"] = "completed"
         record_path.write_text(json.dumps(record), encoding="utf-8")
-        def refused(op, payload, effect=None):
-            try:
-                value = store.invoke(token=token, repository=REPOSITORY, operation=op,
-                                     payload=payload, effect_id=effect, transport=transport)
-                return value.get("state") != "confirmed"
-            except MediationError: return True
-        observation["completed_freeze_denied"] = refused("bundle_freeze", {"attempt_id": "late-attempt"})
-        observation["completed_push_denied"] = refused("git_push", {"branch": "run-branch", "commit": result["commit"],
+        def code(op, payload, effect=None):
+            return refusal_code(store, token=token, repository=REPOSITORY, operation=op,
+                                payload=payload, effect_id=effect, transport=transport)
+        try:
+            store.stage_freezer({"run_id": "run-a", "grant_id": grant,
+                "repository": REPOSITORY, "branch": "run-branch"}, {"attempt_id": "late-attempt"})
+            freeze_code = None
+        except Exception as failure:
+            freeze_code = str(failure)
+        freeze_result = store.invoke(token=token, repository=REPOSITORY, operation="bundle_freeze",
+            payload={"attempt_id": "late-attempt"}, effect_id=None, transport=transport)
+        observation["completed_freeze_control"] = {"freezer_error": freeze_code, "state": freeze_result.get("state")}
+        observation["completed_freeze_denied"] = (freeze_code == "run_grant_mismatch" and
+            freeze_result.get("state") == "unknown" and not (stage / "run-a/late-attempt").exists())
+        push_code = code("git_push", {"branch": "run-branch", "commit": result["commit"],
             "stage_attempt_id": "delivery-attempt"}, "late-push")
+        observation["completed_push_error"] = push_code
+        observation["completed_push_denied"] = push_code == "push_stage_unverified"
         connection["current"] = False
-        observation["changed_connection_denied"] = refused("pr_read", {"number": 7})
+        connection_code = code("pr_read", {"number": 7})
+        observation["changed_connection_error"] = connection_code
+        observation["changed_connection_denied"] = connection_code == "connection_unavailable"
+        connection["current"] = True
         store.revoke_run("run-a")
-        observation["revoked_new_write_denied"] = refused("pr_update", {"number": 7}, "revoked-update")
+        revoked_code = code("pr_update", {"number": 7, "head": "run-branch", "base": "main",
+            "title": fake.pr["title"], "body": result["final_body"], "marker": IDENTITY,
+            "expected": {"title": fake.pr["title"], "body": result["final_body"],
+                         "head_sha": result["commit"]}}, "revoked-update")
+        observation["revoked_new_write_error"] = revoked_code
+        observation["revoked_new_write_denied"] = revoked_code == "grant_unavailable"
         observation["provider_count_unchanged_after_controls"] = before == len(fake.calls) + len(push_calls)
         if not all(observation[k] is True for k in ("completed_freeze_denied", "completed_push_denied",
              "changed_connection_denied", "revoked_new_write_denied", "provider_count_unchanged_after_controls")):
@@ -191,12 +244,18 @@ def run(private):
     except Exception as failure:
         observation["failure_class"] = type(failure).__name__
     finally:
-        observation["cleanup_verified"], _ = cleanup_exact(name, "run-a", launch)
+        observation["agent_cleanup_verified"], _ = cleanup_exact(name, "run-a", launch)
         if agent is not None:
             try: agent.wait(timeout=10)
             except subprocess.TimeoutExpired: agent.kill(); agent.wait(timeout=5)
+            # Inspect again once the docker run client cannot still create it.
+            again, _ = cleanup_exact(name, "run-a", launch)
+            observation["agent_cleanup_verified"] = observation["agent_cleanup_verified"] and again
         stopped.set()
         if verifier_thread: verifier_thread.join(timeout=60)
+        observation["stage_cleanup_verified"], observation["stage_cleanup_reports"] = stage_cleanup(stage, verifier_thread)
+        observation["cleanup_verified"] = (observation["agent_cleanup_verified"] and
+                                            observation["stage_cleanup_verified"])
         if server: server.close()
         if not observation["cleanup_verified"]: observation["result"] = "cleanup_unverified"
         with (private / (IDENTITY + ".json")).open("x", encoding="utf-8", newline="\n") as file:
