@@ -20,6 +20,7 @@ from uuid import UUID, uuid4
 
 from experiments.exp22.phase_d_live import LANGFLOW_IMAGE, ROOT, _port, _private_empty
 from experiments.exp22.phase_e_ui import BROWSER, _remove_ui, _wait_ui
+from experiments.exp22.phase_g_join_live import _audit_bridge_requests
 from laomedo.langflow_join_service import build_service
 from laomedo.work_graph.local_launch import LangflowLocalClient
 from laomedo.workflow_run_store import WorkflowRunStore
@@ -174,6 +175,8 @@ def main():
             runner_token_file=runner_token_path,
             langflow_url=f"http://127.0.0.1:{ui_port}",
             runner_url=f"http://127.0.0.1:{runner_port}", port=bridge_port)
+        bridge_routes = state / "bridge-routes.jsonl"
+        _audit_bridge_requests(bridge, bridge_routes)
         bridge_thread = threading.Thread(target=bridge.serve_forever, daemon=True)
         bridge_thread.start()
         browser_args = ["node", str(BROWSER), "prepare", str(state),
@@ -268,6 +271,17 @@ def main():
         cancel_event = next((item for item in events if item["kind"] == "cancel"), None)
         click = observation.get("stop_click_begin_epoch")
         close = observation.get("context_close_begin_epoch")
+        bridge_rows = [json.loads(line) for line in bridge_routes.read_text(
+            encoding="utf-8").splitlines()]
+        bridge_starts = [row for row in bridge_rows if row["kind"] == "start"]
+        bridge_cancels = [row for row in bridge_rows if row["kind"] == "cancel"]
+        bridge_attribution = bool(click and close and cancel_event and
+            len(bindings) == 1 and len(bridge_starts) == 1 and
+            len(bridge_cancels) == 1 and
+            bridge_cancels[0]["path"] ==
+            "/v1/requests/" + bindings[0]["client_request_id"] + "/cancel" and
+            click <= bridge_cancels[0]["at_epoch_seconds"] <=
+            cancel_event["at"] < close)
         summary = {"model_turns": 0, "browser_send_clicked": observation.get("send_clicked"),
                    "browser_stop_clicked": observation.get("stop_clicked"),
                    "native_fake_starts": sum(item["kind"] == "start" for item in events),
@@ -281,6 +295,7 @@ def main():
                        native["request_hash"]),
                    "stop_cancel_before_close": bool(click and close and cancel_event and
                        click <= cancel_event["at"] < close),
+                   "bridge_cancel_before_native_cancel": bridge_attribution,
                    "host_terminal": traces[0]["run_status"] if traces else None,
                    "host_trace_reopened": bool(traces),
                    "executing_graph_verified": False,
@@ -291,7 +306,8 @@ def main():
         if not all(summary[key] for key in (
                 "browser_send_clicked", "browser_stop_clicked", "one_host_binding",
                 "same_flow", "native_binding_matches", "request_digest_matches",
-                "stop_cancel_before_close", "host_trace_reopened")) or \
+                "stop_cancel_before_close", "bridge_cancel_before_native_cancel",
+                "host_trace_reopened")) or \
                 summary["native_fake_starts"] != 1 or \
                 summary["native_fake_cancels"] != 1 or \
                 summary["host_terminal"] != "cancelled" or \

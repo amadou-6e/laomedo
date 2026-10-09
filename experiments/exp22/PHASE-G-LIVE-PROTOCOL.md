@@ -27,8 +27,10 @@ Keep the browser context open until runner terminal observation.
 
 ## Required evidence
 
-- One browser Send, one Stop, and runner cancel after Stop begins but before
-  browser close; no host fallback cancel may count as UI-originated success.
+- One browser Send, one Stop, and authenticated route-only bridge and runner
+  audits showing click, exact client cancel at the bridge, exact native cancel
+  at the runner, terminal observation, then browser close. No host fallback
+  cancel may count as UI-originated success.
 - One host reservation with exact client, invocation, native request/digest,
   native run ID and raw-event reference; one runner start and no second POST.
 - Native `interrupted` event, terminal `cancelled`, exact owned-container

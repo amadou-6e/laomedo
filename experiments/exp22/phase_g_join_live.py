@@ -31,6 +31,27 @@ PROTOCOL = ROOT / "experiments/exp22/PHASE-G-LIVE-PROTOCOL.md"
 TASK = ROOT / "experiments/exp22/PHASE-E-TASK.txt"
 
 
+def _audit_bridge_requests(server, path):
+    """Record only authenticated bridge route identities and receipt time."""
+    original = server.RequestHandlerClass
+    lock = threading.Lock()
+
+    class AuditedHandler(original):
+        def authorized(self):
+            accepted = super().authorized()
+            route = self.path.split("?", 1)[0]
+            kind = ("start" if self.command == "POST" and route == "/v1/invocations"
+                    else "cancel" if self.command == "POST" and route.startswith(
+                        "/v1/requests/") and route.endswith("/cancel") else None)
+            if accepted and kind:
+                with lock, path.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"kind": kind, "path": route,
+                                             "at_epoch_seconds": time.time()}) + "\n")
+            return accepted
+
+    server.RequestHandlerClass = AuditedHandler
+
+
 def _restart_join(state, flow_id, ui_port, command, name, bridge, bridge_thread,
                   runner_rows, host_rows, original_trace):
     """Reopen both stores after closing the bridge; never redispatch a request."""
@@ -114,6 +135,7 @@ def main():
     runner_port, bridge_port, ui_port = _port(), _port(), _port()
     runner_server = serve(runner, port=runner_port)
     routes = state / "runner-routes.jsonl"
+    bridge_routes = state / "bridge-routes.jsonl"
     _audit_requests(runner_server, routes)
     runner_thread = threading.Thread(target=runner_server.serve_forever, daemon=True)
     runner_thread.start()
@@ -147,6 +169,7 @@ def main():
             runner_token_file=state / "runner/api-token",
             langflow_url=f"http://127.0.0.1:{ui_port}",
             runner_url=f"http://127.0.0.1:{runner_port}", port=bridge_port)
+        _audit_bridge_requests(bridge, bridge_routes)
         bridge_thread = threading.Thread(target=bridge.serve_forever, daemon=True)
         bridge_thread.start()
         pins = {"implementation": subprocess.check_output(
@@ -222,6 +245,8 @@ def main():
         if not run_id:
             raise RuntimeError("runner_run_id_missing")
         final = runner.status(run_id)
+        if final["status"] in {"prepared", "running"}:
+            raise RuntimeError("native_not_terminal_before_restart")
         raw = state / "runner/runs" / run_id / "raw-events.jsonl"
         events = _events(raw) if raw.exists() else []
         auth_read, auth_index = _auth_read_result(events)
@@ -233,6 +258,9 @@ def main():
         route_rows = _events(routes)
         starts = [item for item in route_rows if item.get("kind") == "start"]
         cancels = [item for item in route_rows if item.get("kind") == "cancel"]
+        bridge_rows = _events(bridge_routes)
+        bridge_starts = [item for item in bridge_rows if item.get("kind") == "start"]
+        bridge_cancels = [item for item in bridge_rows if item.get("kind") == "cancel"]
         attribution = _ui_attribution(observed, cancels, terminal_seen_at)
         store = WorkflowRunStore(state / "join.sqlite3")
         with store._database() as db:
@@ -254,8 +282,20 @@ def main():
                         host_trace["invocation"]["runner_run_id"] == run_id and
                         host_trace["invocation"]["runner_raw_event_ref"] ==
                         final.get("raw_event_ref"))
+        bridge_attribution = bool(len(bridge_starts) == 1 and
+            len(bridge_cancels) == 1 and len(cancels) == 1 and len(bindings) == 1 and
+            bridge_starts[0]["path"] == "/v1/invocations" and
+            bridge_cancels[0]["path"] ==
+            "/v1/requests/" + bindings[0]["client_request_id"] + "/cancel" and
+            observed.get("stop_click_begin_epoch") and
+            observed.get("context_close_begin_epoch") and terminal_seen_at and
+            observed["stop_click_begin_epoch"] <=
+            bridge_cancels[0]["at_epoch_seconds"] <=
+            cancels[0]["at_epoch_seconds"] < terminal_seen_at <
+            observed["context_close_begin_epoch"])
         passed = (browser.returncode == 0 and observed.get("send_clicked") and
                   observed.get("stop_clicked") and long_started and attribution and
+                  bridge_attribution and
                   len(starts) == 1 and len(cancels) == 1 and identity and
                   auth_read == "denied" and final.get("status") == "cancelled" and
                   final.get("cancel_confirmed") is True and
@@ -271,6 +311,7 @@ def main():
                    "browser_send_clicked": observed.get("send_clicked"),
                    "browser_stop_clicked": observed.get("stop_clicked"),
                    "ui_cancel_attributed_before_disconnect": attribution,
+                   "bridge_cancel_attributed_before_runner": bridge_attribution,
                    "native_long_command_started": long_started,
                    "runner_status": final.get("status"),
                    "cancel_confirmed": final.get("cancel_confirmed"),
@@ -283,6 +324,8 @@ def main():
                    "host_runner_identity_match": identity,
                    "runner_route_starts": len(starts),
                    "runner_route_cancels": len(cancels), "restart": restart,
+                   "bridge_route_starts": len(bridge_starts),
+                   "bridge_route_cancels": len(bridge_cancels),
                    "executing_graph_attested": False}
         (state / "sanitized.json").write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary, sort_keys=True))

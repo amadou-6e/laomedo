@@ -28,3 +28,12 @@ the sanitized result SHA-256 is
 
 These checks establish readiness for an independently reviewed one-turn
 submission. They do not show that a real Codex turn traverses the bridge.
+
+A subsequent zero-turn fake-runner check added authenticated route-only audit
+at the host bridge. Its single visible Stop led to one exact client cancel at
+the bridge before the fake native cancel, with clean teardown and the same
+persisted join after restart. The sanitized result at
+`%LOCALAPPDATA%/Laomedo/exp22-phase-g-bridge-audit-20261009-a/summary.json`
+has SHA-256
+`b535d6b06ff04ce7c0dcb0d3c9c324308a17053beadd598d43ecb7acdd38137b`.
+The shared ledger remained 6/12.
