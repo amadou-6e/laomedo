@@ -1,14 +1,20 @@
 """Local-only preflight for the frozen S7 Docker probe."""
 
+import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from experiments.exp100 import probe_stage_s7
-from experiments.exp100.probe_stage_s7 import fixture
 from laomedo.bundle_stage import (BundleStageError, PINNED_IMAGE_ID,
                                   _read_frozen, verify_frozen_bundle)
+
+PROBE_PATH = (Path(__file__).resolve().parents[1] / "experiments" /
+              "exp100" / "probe_stage_s7.py")
+SPEC = importlib.util.spec_from_file_location("exp100_stage_s7", PROBE_PATH)
+probe_stage_s7 = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(probe_stage_s7)
+fixture = probe_stage_s7.fixture
 
 
 class ProbeS7Preflight(unittest.TestCase):
