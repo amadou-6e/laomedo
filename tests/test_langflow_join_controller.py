@@ -175,6 +175,56 @@ class LangflowJoinControllerTests(unittest.TestCase):
         self.assertEqual(self.store.trace_snapshot(outcome[0]["run_id"])["run_status"],
                          "cancelled")
 
+    def test_stop_wins_before_atomic_begin_and_no_native_post_occurs(self):
+        client = str(uuid4())
+        entered, release = Event(), Event()
+        original = self.store.begin_langflow_client
+        outcome = []
+
+        def delayed_begin(request_id):
+            if not entered.is_set():
+                entered.set()
+                if not release.wait(5):
+                    raise TimeoutError("synthetic_begin_stall")
+            return original(request_id)
+
+        def worker():
+            outcome.append(self.start(client))
+
+        with patch.object(self.store, "begin_langflow_client",
+                          side_effect=delayed_begin):
+            thread = Thread(target=worker)
+            thread.start()
+            try:
+                self.assertTrue(entered.wait(3))
+                self.assertEqual(self.controller.cancel(client)["status"],
+                                 "cancelled")
+            finally:
+                release.set()
+                thread.join(timeout=5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(outcome[0]["status"], "cancelled")
+        self.assertEqual(outcome[0]["dispatch_attempts"], 0)
+        self.assertEqual(self.runner.starts, [])
+
+    def test_mismatched_ack_with_stop_reconciles_exact_native_request(self):
+        client = str(uuid4())
+        original = self.runner.start_async
+
+        def mismatched_ack(body):
+            ack = original(body)
+            self.store.request_langflow_cancel(client)
+            return {**ack, "request_hash": "sha256:" + "0" * 64}
+
+        with patch.object(self.runner, "start_async", side_effect=mismatched_ack):
+            with self.assertRaisesRegex(LaunchError,
+                                        "runner_ack_identity_mismatch"):
+                self.start(client)
+        self.assertEqual(len(self.runner.starts), 1)
+        self.assertEqual(len(self.runner.cancels), 1)
+        self.assertEqual(self.controller.status(client)["native_status"],
+                         "cancelled")
+
     def test_late_native_record_is_cancelled_on_status_reconciliation(self):
         client = str(uuid4())
         with patch.object(self.runner, "start_async",

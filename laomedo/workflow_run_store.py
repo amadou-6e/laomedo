@@ -310,11 +310,11 @@ class WorkflowRunStore:
         """Persist Stop even when the first bridge acknowledgement is absent."""
         client_request_id = self._client_uuid(client_request_id)
         with self._database() as db:
-            db.execute("""INSERT OR IGNORE INTO langflow_cancel_intents
-                (client_request_id) VALUES (?)""", (client_request_id,))
+            inserted = db.execute("""INSERT OR IGNORE INTO langflow_cancel_intents
+                (client_request_id) VALUES (?)""", (client_request_id,)).rowcount == 1
             row = db.execute("""SELECT run_id,invocation_id FROM langflow_client_requests
                 WHERE client_request_id=?""", (client_request_id,)).fetchone()
-            if row is not None:
+            if row is not None and inserted:
                 self._receipt(db, row["run_id"], row["invocation_id"],
                               "langflow_cancel_requested",
                               {"client_request_id": client_request_id})
@@ -330,6 +330,10 @@ class WorkflowRunStore:
         """Atomically choose no POST after Stop, or one permitted POST attempt."""
         client_request_id = self._client_uuid(client_request_id)
         with self._database() as db:
+            # Serialize the first read with request_langflow_cancel's write.
+            # A plain SELECT here can otherwise race a Stop intent and let
+            # both cancellation and dispatch commit for one invocation.
+            db.execute("BEGIN IMMEDIATE")
             row = db.execute("""SELECT c.run_id,c.invocation_id,r.status,
                 r.dispatch_attempts,w.runner_request_hash FROM langflow_client_requests c
                 JOIN runs r ON r.run_id=c.run_id

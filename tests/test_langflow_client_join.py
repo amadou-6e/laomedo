@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event, Thread
 import unittest
 from uuid import uuid4
 
@@ -51,6 +52,31 @@ class LangflowClientJoinTests(unittest.TestCase):
         self.assertEqual(trace["run_status"], "cancelled")
         self.assertEqual(sum(row["kind"] == "client_cancelled_before_dispatch"
                              for row in trace["receipts"]), 1)
+
+    def test_begin_waits_for_concurrent_stop_write_then_refuses_post(self):
+        client = str(uuid4())
+        run, invocation = self.reserve()
+        self.claim(client, run, invocation)
+        entered, finished = Event(), Event()
+        outcome = []
+
+        def begin():
+            entered.set()
+            outcome.append(self.store.begin_langflow_client(client))
+            finished.set()
+
+        with self.store._database() as db:
+            db.execute("BEGIN IMMEDIATE")
+            thread = Thread(target=begin)
+            thread.start()
+            self.assertTrue(entered.wait(3))
+            db.execute("""INSERT INTO langflow_cancel_intents
+                (client_request_id) VALUES (?)""", (client,))
+            self.assertFalse(finished.is_set())
+        thread.join(timeout=5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(outcome, ["cancelled_before_dispatch"])
+        self.assertEqual(self.store.trace_snapshot(run)["dispatch_attempts"], 0)
 
     def test_lost_response_retry_cannot_create_second_attempt(self):
         client = str(uuid4())

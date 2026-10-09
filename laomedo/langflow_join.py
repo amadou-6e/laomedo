@@ -45,6 +45,17 @@ class LangflowJoinController:
         self.resolve_saved_flow = resolve_saved_flow
         self._cancel_lock = RLock()
 
+    def _reconcile_stop_after_failure(self, client_request_id):
+        """Keep an earlier Stop active after an uncertain native response."""
+        if not self.store.langflow_cancel_requested(client_request_id):
+            return
+        try:
+            self.cancel(client_request_id)
+        except Exception:
+            # The original failed start remains unknown. A later status read
+            # retries the exact lookup and cancellation under the saved intent.
+            pass
+
     @staticmethod
     def _saved_graph(exported, flow_id, stage_id):
         if (not isinstance(exported, dict) or exported.get("id") != flow_id or
@@ -161,6 +172,7 @@ class LangflowJoinController:
         except Exception as exc:
             self.store.record_runner_failure(
                 run_id, invocation_id, category="runner_transport_error")
+            self._reconcile_stop_after_failure(client_request_id)
             raise LaunchError("runner_start_unknown") from exc
         if (not isinstance(ack, dict) or
                 ack.get("client_request_id") != invocation_id or
@@ -168,6 +180,7 @@ class LangflowJoinController:
                 ack.get("provider") != "codex"):
             self.store.record_runner_failure(
                 run_id, invocation_id, category="runner_ack_identity_mismatch")
+            self._reconcile_stop_after_failure(client_request_id)
             raise LaunchError("runner_ack_identity_mismatch")
         try:
             self.store.bind_runner_ack(
@@ -177,6 +190,7 @@ class LangflowJoinController:
         except LaunchError:
             self.store.record_runner_failure(
                 run_id, invocation_id, category="runner_binding_conflict")
+            self._reconcile_stop_after_failure(client_request_id)
             raise
         if self.store.langflow_cancel_requested(client_request_id):
             self.cancel(client_request_id)
