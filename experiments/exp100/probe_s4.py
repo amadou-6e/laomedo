@@ -59,7 +59,8 @@ def _fixture(root: Path) -> tuple[Path, Path, str, str]:
     return trusted, bundle, baseline, commit
 
 
-def _docker_case(label: str, command: list[str], mounts: list[Path]) -> dict:
+def _docker_case(label: str, command: list[str], mounts: list[Path],
+                 *, script_path: Path = SCRIPT) -> dict:
     name = "laomedo-s4-" + secrets.token_hex(8)
     started = time.monotonic()
     created = False
@@ -75,7 +76,7 @@ def _docker_case(label: str, command: list[str], mounts: list[Path]) -> dict:
         if mounts:
             args.extend(["--mount", f"type=bind,source={mounts[0]},target=/trusted,readonly",
                          "--mount", f"type=bind,source={mounts[1]},target=/input.bundle,readonly",
-                         "--mount", f"type=bind,source={SCRIPT},target=/verify.sh,readonly"])
+                         "--mount", f"type=bind,source={script_path},target=/verify.sh,readonly"])
         args.extend([IMAGE_ID, *command])
         created = True  # reconcile the exact label even if create loses its reply
         response = _run(args)
@@ -130,6 +131,8 @@ def _docker_case(label: str, command: list[str], mounts: list[Path]) -> dict:
         result["container_git_version"] = next((line.partition("=")[2]
             for line in called.stdout.splitlines()
             if line.startswith("S4_GIT_VERSION=")), None)
+        result["stage_markers"] = [line for line in called.stdout.splitlines()
+                                   if line.startswith(("S4_STAGE=", "S4_FAILED_STAGE="))]
         if label == "valid_import":
             result["marker"] = ("S4_VERIFIED" if "S4_VERIFIED" in
                                 called.stdout.splitlines() else None)
