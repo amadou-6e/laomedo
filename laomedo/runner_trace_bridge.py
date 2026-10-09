@@ -121,3 +121,16 @@ class RunnerTraceBridge:
             payload={"cancel_requested": result.get("cancel_requested"),
                      "cancel_confirmed": result.get("cancel_confirmed")})
         return result
+
+    def observe_terminal(self, run_id, invocation_id):
+        """Explicit authenticated status reconciliation; never starts a turn."""
+        binding = self.store.trace_snapshot(run_id)["invocation"]
+        if binding["invocation_id"] != invocation_id or not binding["runner_run_id"]:
+            raise LaunchError("runner_observation_not_correlated")
+        native = self.adapter.status(binding["runner_provider"], binding["runner_run_id"])
+        if native.get("status") in {"completed", "cancelled", "failed", "timeout", "interrupted"}:
+            self.store.record_runner_terminal(
+                run_id, invocation_id, provider=binding["runner_provider"],
+                runner_run_id=binding["runner_run_id"], status=native["status"],
+                cancel_confirmed=native.get("cancel_confirmed") is True)
+        return native

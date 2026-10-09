@@ -112,7 +112,10 @@ def serve_langflow_join(controller, token, *, port, host="127.0.0.1"):
                     "invocation_id": snapshot["invocation_id"],
                     "provider": snapshot["runner_provider"] or "codex",
                     "raw_event_ref": snapshot["runner_raw_event_ref"],
-                    "status": snapshot.get("native_status") or snapshot["status"],
+                    "status": ("incomplete" if snapshot.get("native_status") == "cancelled"
+                               and snapshot.get("cancel_confirmed") is not True else
+                               snapshot.get("native_status") or snapshot["status"]),
+                    "native_status": snapshot.get("native_status"),
                     "cancel_requested": snapshot.get("cancel_requested", False),
                     "cancel_confirmed": snapshot.get("cancel_confirmed", False),
                     "executing_graph_verified": False,

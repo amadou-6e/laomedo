@@ -144,8 +144,13 @@ class RunnerAdapter:
                 if time.monotonic() >= deadline:
                     raise HandoffError("runner_result_pending")
                 poll = Request(endpoint, headers=headers, method="GET")
-                with urlopen(poll, timeout=max(.001, min(5, deadline - time.monotonic()))) as response:
-                    raw = json.load(response)
+                try:
+                    with urlopen(poll, timeout=max(.001, min(5, deadline - time.monotonic()))) as response:
+                        raw = json.load(response)
+                except TimeoutError as exc:
+                    if time.monotonic() >= deadline:
+                        raise HandoffError("runner_result_pending") from exc
+                    raise
                 if not isinstance(raw, dict) or raw.get("run_id") != self.active[handoff["execution_id"]][1]:
                     raise HandoffError("runner_poll_identity_mismatch")
                 if raw.get("status") in {"prepared", "running"}:
@@ -156,6 +161,19 @@ class RunnerAdapter:
                 "post_run_hash": raw.get("post_run_hash"), "model": raw.get("requested_model"),
                 "effort": raw.get("requested_effort"), "skills": raw.get("skills"),
                 "error_category": raw.get("error_category")}
+
+    def status(self, provider, run_id):
+        """Read one exact native run without returning its task or transcript."""
+        if provider not in self.endpoints or str(UUID(run_id)) != run_id:
+            raise HandoffError("invalid_runner_status_identity")
+        req = Request(self.endpoints[provider] + "/v1/runs/" + run_id,
+                      headers=self._headers(provider), method="GET")
+        with urlopen(req, timeout=10) as response:
+            value = json.load(response)
+        if not isinstance(value, dict) or value.get("run_id") != run_id:
+            raise HandoffError("runner_status_identity_mismatch")
+        return {key: value.get(key) for key in
+                ("run_id", "status", "cancel_requested", "cancel_confirmed")}
 
     def cancel(self, execution_id):
         active = self.active.get(execution_id)
