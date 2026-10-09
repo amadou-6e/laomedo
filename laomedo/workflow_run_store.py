@@ -430,6 +430,7 @@ class WorkflowRunStore:
         projected = ("incomplete" if status == "cancelled" and not confirmed else
                      "failed" if status in {"timeout", "interrupted"} else status)
         with self._database() as db:
+            db.execute("BEGIN IMMEDIATE")
             row = db.execute("""SELECT r.status AS run_status,r.terminal_reason
                 FROM runs r JOIN workflow_invocations w ON w.run_id=r.run_id
                 WHERE r.run_id=? AND w.invocation_id=? AND

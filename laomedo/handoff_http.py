@@ -164,7 +164,11 @@ class RunnerAdapter:
 
     def status(self, provider, run_id):
         """Read one exact native run without returning its task or transcript."""
-        if provider not in self.endpoints or str(UUID(run_id)) != run_id:
+        try:
+            valid = provider in self.endpoints and str(UUID(run_id)) == run_id
+        except (TypeError, ValueError, AttributeError):
+            valid = False
+        if not valid:
             raise HandoffError("invalid_runner_status_identity")
         req = Request(self.endpoints[provider] + "/v1/runs/" + run_id,
                       headers=self._headers(provider), method="GET")
