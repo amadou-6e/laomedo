@@ -43,7 +43,8 @@ def make_grant_stage_resolver(runner_state: Path, private_root: Path,
             runner_state, private_root, run_id=grant["run_id"],
             repository=repository, branch=grant["branch"],
             commit=payload.get("commit"),
-            stage_attempt_id=payload.get("stage_attempt_id"))
+            stage_attempt_id=payload.get("stage_attempt_id"),
+            expected_grant_id=grant["grant_id"])
     return resolve
 
 

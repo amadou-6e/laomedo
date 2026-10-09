@@ -105,6 +105,54 @@ class VerifiedStageTests(unittest.TestCase):
             with self.subTest(scope=scope), self.assertRaises(VerifiedStageError):
                 self.resolve(**scope)
 
+    def test_live_stage_tracks_stable_grant_and_refuses_after_completion(self):
+        live_workspace = self.runner / "runs" / "run-live" / "workspace"
+        live_workspace.mkdir(parents=True)
+        live_record = live_workspace.parent / "record.json"
+        owner = {"name": "laomedo-codex-live", "launch_token": "launch-live",
+                 "grant_id": "grant-live", "supervised": True,
+                 "cleanup_verified": False}
+        record = {"run_id": "run-live", "status": "running",
+                  "workspace_mode": "git", "git_baseline": self.baseline,
+                  "github_scope": {"repository": "example/disposable",
+                                   "branch": "run-branch"},
+                  "container_ownership": owner}
+        live_record.write_text(json.dumps(record), encoding="utf-8")
+        (live_workspace / HANDOFF_NAME).write_bytes(
+            (self.workspace / HANDOFF_NAME).read_bytes())
+        frozen = freeze_run_bundle(self.runner, self.private, run_id="run-live",
+                                   attempt_id="attempt-live")
+        attempt = self.private / "run-live" / "attempt-live"
+        (attempt / "verified.bundle").write_bytes(self.verified.read_bytes())
+        verification = json.loads(self.verification.read_text())
+        verification.update(run_id="run-live", attempt_id="attempt-live",
+                            source_bundle_sha256=frozen["bundle_sha256"])
+        (attempt / "verification.json").write_text(json.dumps(verification),
+                                                     encoding="utf-8")
+        scope = {"run_id": "run-live", "repository": "example/disposable",
+                 "branch": "run-branch", "commit": self.commit,
+                 "stage_attempt_id": "attempt-live",
+                 "expected_grant_id": "grant-live"}
+        first = resolve_verified_stage(self.runner, self.private, **scope)
+        record["thread_id"] = "native-thread"
+        record["turns"] = [{"status": "running"}]
+        live_record.write_text(json.dumps(record), encoding="utf-8")
+        self.assertEqual(resolve_verified_stage(self.runner, self.private,
+                                                **scope).stage_digest,
+                         first.stage_digest)
+        with self.assertRaisesRegex(VerifiedStageError, "stage_grant_mismatch"):
+            resolve_verified_stage(self.runner, self.private,
+                                   **{**scope, "expected_grant_id": "grant-other"})
+        owner["grant_id"] = "grant-other"
+        live_record.write_text(json.dumps(record), encoding="utf-8")
+        with self.assertRaises(VerifiedStageError):
+            resolve_verified_stage(self.runner, self.private, **scope)
+        owner["grant_id"] = "grant-live"
+        record["status"] = "completed"
+        live_record.write_text(json.dumps(record), encoding="utf-8")
+        with self.assertRaises(VerifiedStageError):
+            resolve_verified_stage(self.runner, self.private, **scope)
+
     def test_changed_record_or_frozen_source_refuses(self):
         original = self.record.read_bytes()
         self.record.write_bytes(original + b" ")
@@ -280,10 +328,38 @@ class VerifiedStageTests(unittest.TestCase):
             verified_stage_resolver=make_grant_stage_resolver(
                 self.runner, self.private, self.root / "agent-mount"),
             verified_workflow_classifier=classifier)
-        _, token = store.issue(run_id=run_id, invocation_id="invocation-a",
+        grant_id, token = store.issue(run_id=run_id, invocation_id="invocation-a",
             repository="example/disposable", branch="run-branch",
             operations={"git_push"}, ttl_seconds=60)
+        if run_id == "run-a":
+            record = json.loads(self.record.read_text())
+            record.update(status="running", container_ownership={
+                "name": "laomedo-codex-a", "launch_token": "launch-a",
+                "grant_id": grant_id, "supervised": True,
+                "cleanup_verified": False})
+            self.record.write_text(json.dumps(record), encoding="utf-8")
+            from laomedo.bundle_ingest import _record
+            binding = _record(self.runner, "run-a")[1]
+            frozen = json.loads((self.attempt / "result.json").read_text())
+            frozen.pop("run_record_sha256")
+            frozen.update(binding)
+            (self.attempt / "result.json").write_text(json.dumps(frozen),
+                                                       encoding="utf-8")
         return store, token
+
+    def test_mediator_refuses_completed_run_even_with_unexpired_grant(self):
+        store, token = self.mediator()
+        record = json.loads(self.record.read_text())
+        record["status"] = "completed"
+        self.record.write_text(json.dumps(record), encoding="utf-8")
+        calls = []
+        with self.assertRaisesRegex(MediationError, "push_stage_unverified"):
+            store.invoke(token=token, repository="example/disposable",
+                operation="git_push", payload={"branch": "run-branch",
+                    "commit": self.commit, "stage_attempt_id": "attempt-1"},
+                effect_id="effect-after-completion",
+                transport=lambda *_args, **_kwargs: calls.append(1))
+        self.assertEqual(calls, [])
 
     def test_mediator_binds_snapshot_digest_and_never_redispatches(self):
         store, token = self.mediator()

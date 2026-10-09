@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.bundle_ingest import (BundleIngestError, HANDOFF_NAME,
-                                   MAX_BUNDLE_BYTES, freeze_run_bundle)
+                                   MAX_BUNDLE_BYTES, _record, freeze_run_bundle)
 
 
 class BundleIngestTests(unittest.TestCase):
@@ -59,6 +59,37 @@ class BundleIngestTests(unittest.TestCase):
         saved = json.loads((frozen.parent / "result.json").read_text())
         self.assertEqual(saved, result)
         self.assertFalse((self.private / "run-a.lock").exists())
+
+    def test_running_run_uses_stable_lease_binding_not_mutable_record_hash(self):
+        self.record.update(status="running", container_ownership={
+            "name": "laomedo-codex-a", "launch_token": "launch-a",
+            "grant_id": "grant-a", "supervised": True,
+            "cleanup_verified": False})
+        self._save_record()
+        frozen = self._freeze()
+        self.assertEqual(frozen["status"], "frozen")
+        self.assertEqual(frozen["binding_mode"], "active")
+        self.assertNotIn("run_record_sha256", frozen)
+        self.record.update(thread_id="thread-a", turns=[{"status": "running"}])
+        self._save_record()
+        self.assertEqual(_record(self.runner, "run-a")[1], {
+            key: frozen[key] for key in
+            ("run_id", "repository", "branch", "baseline", "binding_mode",
+             "grant_id", "run_binding_sha256")})
+        self.record["container_ownership"]["grant_id"] = "grant-b"
+        self._save_record()
+        self.assertNotEqual(_record(self.runner, "run-a")[1][
+            "run_binding_sha256"], frozen["run_binding_sha256"])
+        self.record["status"] = "completed"
+        self._save_record()
+        self.assertNotIn("run_binding_sha256", _record(self.runner, "run-a")[1])
+
+    def test_running_run_without_supervised_grant_refuses_before_attempt(self):
+        self.record["status"] = "running"
+        self._save_record()
+        with self.assertRaisesRegex(BundleIngestError, "run_binding_invalid"):
+            self._freeze()
+        self.assertFalse((self.private / "run-a").exists())
 
     def test_same_attempt_never_overwrites_frozen_bytes(self):
         self._freeze()

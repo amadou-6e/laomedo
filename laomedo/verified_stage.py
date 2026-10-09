@@ -63,7 +63,8 @@ def _read_regular(path: Path, limit: int) -> bytes:
 
 def resolve_verified_stage(runner_state: Path, private_root: Path, *,
                            run_id: str, repository: str, branch: str,
-                           commit: str, stage_attempt_id: str) -> VerifiedStage:
+                           commit: str, stage_attempt_id: str,
+                           expected_grant_id: str | None = None) -> VerifiedStage:
     """Return exact verified bytes, bound to the trusted grant scope.
 
     This is a credential-free local read. The caller must take ``run_id``,
@@ -80,6 +81,12 @@ def resolve_verified_stage(runner_state: Path, private_root: Path, *,
                                        stage_attempt_id)
     except (BundleIngestError, BundleStageError, OSError) as error:
         raise VerifiedStageError("stage_binding_invalid") from error
+    if (expected_grant_id is not None and
+            binding.get("binding_mode") != "active"):
+        raise VerifiedStageError("stage_run_not_active")
+    if (binding.get("binding_mode") == "active" and
+            binding.get("grant_id") != expected_grant_id):
+        raise VerifiedStageError("stage_grant_mismatch")
     if (binding["repository"] != repository or binding["branch"] != branch or
             frozen["advertised_commit"] != commit or
             frozen["baseline"] != binding["baseline"]):
@@ -121,8 +128,11 @@ def resolve_verified_stage(runner_state: Path, private_root: Path, *,
         raise VerifiedStageError("stage_bundle_invalid") from error
     if advertised != commit:
         raise VerifiedStageError("stage_commit_mismatch")
+    binding_identity = ({"run_binding_sha256": binding["run_binding_sha256"]}
+                        if binding.get("binding_mode") == "active" else
+                        {"run_record_sha256": binding["run_record_sha256"]})
     identity = {"run_id": run_id, "attempt_id": stage_attempt_id,
-                "run_record_sha256": binding["run_record_sha256"],
+                **binding_identity,
                 "repository": repository, "branch": branch,
                 "baseline": binding["baseline"], "commit": commit,
                 "source_bundle_sha256": frozen["bundle_sha256"],

@@ -86,8 +86,9 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
     branch = scope.get("branch")
     repository = scope.get("repository")
     baseline = record.get("git_baseline")
+    status = record.get("status")
     if (record.get("run_id") != run_id or
-            record.get("status") != "completed" or
+            status not in {"running", "completed"} or
             record.get("workspace_mode") != "git" or
             not isinstance(branch, str) or not _BRANCH.fullmatch(branch) or
             branch.startswith("/") or ".." in branch or
@@ -99,10 +100,31 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
     if (_redirected(workspace) or not workspace.is_dir() or
             workspace.resolve(strict=True).parent != run_dir.resolve(strict=True)):
         raise BundleIngestError("run_binding_invalid")
-    return run_dir, {"run_id": run_id,
-                     "run_record_sha256": hashlib.sha256(record_bytes).hexdigest(),
-                     "repository": repository,
-                     "branch": branch, "baseline": baseline}
+    binding = {"run_id": run_id, "repository": repository,
+               "branch": branch, "baseline": baseline}
+    if status == "running":
+        # record.json gains thread, turn and credential observations during a
+        # live invocation. Bind only the host-owned launch/lease identity;
+        # the mediator separately rechecks that this grant is still valid.
+        owner = record.get("container_ownership")
+        if (not isinstance(owner, dict) or owner.get("supervised") is not True or
+                owner.get("cleanup_verified") is not False or
+                any(not isinstance(owner.get(key), str) or
+                    not _IDENTITY.fullmatch(owner[key]) for key in
+                    ("name", "launch_token", "grant_id"))):
+            raise BundleIngestError("run_binding_invalid")
+        stable = {**binding, "workspace_mode": "git",
+                  "grant_id": owner["grant_id"],
+                  "launch_token": owner["launch_token"],
+                  "container_name": owner["name"]}
+        encoded = json.dumps(stable, sort_keys=True,
+                             separators=(",", ":")).encode("utf-8")
+        binding.update(binding_mode="active", grant_id=owner["grant_id"],
+                       run_binding_sha256=hashlib.sha256(encoded).hexdigest())
+    else:
+        # Preserve the completed-record format of the earlier local probes.
+        binding["run_record_sha256"] = hashlib.sha256(record_bytes).hexdigest()
+    return run_dir, binding
 
 
 def _bundle_bytes(path: Path) -> bytes:
