@@ -18,7 +18,8 @@ from .github_git_transport import (_base_git_environment, _run_bounded_tree,
                                    GIT_COMMAND_TIMEOUT_SECONDS)
 from .verified_stage import VerifiedStage
 from .verified_stage import resolve_verified_stage
-from .bundle_ingest import _bound_roots
+from .bundle_ingest import (_bound_roots, _record, freeze_run_bundle,
+                            BundleIngestError)
 
 
 _COMMIT = re.compile(r"[0-9a-f]{40}\Z")
@@ -46,6 +47,40 @@ def make_grant_stage_resolver(runner_state: Path, private_root: Path,
             stage_attempt_id=payload.get("stage_attempt_id"),
             expected_grant_id=grant["grant_id"])
     return resolve
+
+
+def make_grant_bundle_freezer(runner_state: Path, private_root: Path,
+                              agent_mount: Path):
+    """Bind an agent's fixed handoff file to its still-running run grant.
+
+    This copies bytes only; Docker verification and provider effects remain
+    separate. No request field selects a host path or a run identity.
+    """
+    runner_state, private_root = _bound_roots(Path(runner_state),
+                                               Path(private_root))
+    mounted = Path(agent_mount).resolve()
+    if (private_root == mounted or private_root.is_relative_to(mounted) or
+            mounted.is_relative_to(private_root)):
+        raise ValueError("stage_root_overlaps_agent_mount")
+
+    def freeze(grant, payload: dict) -> dict:
+        if set(payload) != {"attempt_id"}:
+            raise BundleIngestError("freeze_request_invalid")
+        _, before = _record(runner_state, grant["run_id"])
+        if (before.get("binding_mode") != "active" or
+                before.get("grant_id") != grant["grant_id"] or
+                before["repository"] != grant["repository"] or
+                before["branch"] != grant["branch"]):
+            raise BundleIngestError("run_grant_mismatch")
+        result = freeze_run_bundle(runner_state, private_root,
+                                   run_id=grant["run_id"],
+                                   attempt_id=payload["attempt_id"])
+        _, after = _record(runner_state, grant["run_id"])
+        if (after != before or
+                any(result.get(key) != value for key, value in before.items())):
+            raise BundleIngestError("run_changed_during_freeze")
+        return result
+    return freeze
 
 
 def classify_verified_workflow(snapshot: VerifiedStage) -> bool:

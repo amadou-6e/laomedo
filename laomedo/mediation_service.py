@@ -23,6 +23,7 @@ from .github_rest_transport import GitHubRestTransport
 from .host_token_connection import HostTokenConnection
 from .lease_service import _handler
 from .verified_git_stage import (make_grant_stage_resolver,
+                                 make_grant_bundle_freezer,
                                  classify_verified_workflow)
 
 
@@ -106,6 +107,9 @@ def main() -> None:
     resolver = (make_grant_stage_resolver(args.runner_state, args.private_stage,
                                          args.agent_mount)
                 if args.runner_state is not None else None)
+    freezer = (make_grant_bundle_freezer(args.runner_state, args.private_stage,
+                                        args.agent_mount)
+               if args.runner_state is not None else None)
     git_transport = GitHubGitTransport(args.repository, args.checkout,
                                        args.baseline, connection.token,
                                        require_verified_stage=True)
@@ -113,6 +117,7 @@ def main() -> None:
     store = MediationStore(
         state / "mediator.sqlite",
         verified_stage_resolver=resolver,
+        stage_freezer=freezer,
         verified_workflow_classifier=(classify_verified_workflow
                                       if resolver is not None else None),
         connection_is_current=connection.current)

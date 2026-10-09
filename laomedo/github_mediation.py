@@ -128,7 +128,7 @@ class MediationStore:
                  monotonic: Callable[[], float] = time.monotonic,
                  workflow_change_classifier=None, connection_is_current=None,
                  verified_stage_resolver=None,
-                 verified_workflow_classifier=None):
+                 verified_workflow_classifier=None, stage_freezer=None):
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
             raise MediationError("store_path_invalid")
@@ -142,6 +142,7 @@ class MediationStore:
         self.workflow_change_classifier = workflow_change_classifier
         self.verified_stage_resolver = verified_stage_resolver
         self.verified_workflow_classifier = verified_workflow_classifier
+        self.stage_freezer = stage_freezer
         self.connection_is_current = connection_is_current
         with closing(self._connect()) as db, db:
             db.executescript("""
@@ -407,7 +408,7 @@ class MediationStore:
     def invoke(self, *, token: str, repository: str, operation: str,
                payload: dict, effect_id: str | None,
                transport: Callable[[str, str, dict], dict]) -> dict:
-        if operation not in OPERATIONS:
+        if operation not in OPERATIONS and operation != "bundle_freeze":
             raise MediationError("unsupported_operation")
         if not isinstance(payload, dict):
             raise MediationError("request_invalid")
@@ -418,6 +419,29 @@ class MediationStore:
                                             allow_nan=False))
         except (TypeError, ValueError) as error:
             raise MediationError("request_not_serializable") from error
+        if operation == "bundle_freeze":
+            if effect_id is not None or set(payload) != {"attempt_id"}:
+                raise MediationError("freeze_request_invalid")
+            if self.stage_freezer is None:
+                raise MediationError("bundle_freeze_unavailable")
+            with closing(self._connect()) as db:
+                grant = self._grant(db, token, repository, "git_push")
+                grant_id = grant["grant_id"]
+            try:
+                frozen = self.stage_freezer(grant, payload)
+            except Exception:
+                # A one-shot attempt may already exist. Never create another
+                # identity as an automatic response to this uncertainty.
+                return {"state": "unknown", "resent": False}
+            with closing(self._connect()) as db:
+                current = self._grant(db, token, repository, "git_push")
+                if current["grant_id"] != grant_id:
+                    raise MediationError("grant_changed_during_freeze")
+            if frozen.get("status") == "frozen":
+                return {"state": "confirmed", "result": frozen}
+            if frozen.get("status") == "refused":
+                return {"state": "rejected", "error": frozen.get("reason")}
+            return {"state": "unknown", "resent": False}
         if operation in WRITES:
             if not isinstance(effect_id, str) or not 0 < len(effect_id) <= 128:
                 raise MediationError("effect_id_required")

@@ -18,6 +18,7 @@ from laomedo.github_git_transport import _run_bounded_tree
 from laomedo.github_git_transport import GitHubGitTransport
 from laomedo.github_mediation import MediationStore, MediationError, KnownRejected
 from laomedo.verified_git_stage import (make_grant_stage_resolver,
+                                        make_grant_bundle_freezer,
                                         classify_verified_workflow)
 
 
@@ -152,6 +153,45 @@ class VerifiedStageTests(unittest.TestCase):
         live_record.write_text(json.dumps(record), encoding="utf-8")
         with self.assertRaises(VerifiedStageError):
             resolve_verified_stage(self.runner, self.private, **scope)
+
+    def test_agent_freeze_uses_only_active_grant_and_fixed_handoff(self):
+        workspace = self.runner / "runs" / "run-freeze" / "workspace"
+        workspace.mkdir(parents=True)
+        (workspace / HANDOFF_NAME).write_bytes(
+            (self.workspace / HANDOFF_NAME).read_bytes())
+        store = MediationStore(self.root / "freeze-effects.sqlite",
+            stage_freezer=make_grant_bundle_freezer(
+                self.runner, self.private, self.root / "agent-mount"))
+        grant_id, token = store.issue(run_id="run-freeze",
+            invocation_id="invocation-freeze", repository="example/disposable",
+            branch="run-branch", operations={"git_push"}, ttl_seconds=60)
+        record_path = workspace.parent / "record.json"
+        record = {"run_id": "run-freeze", "status": "running",
+                  "workspace_mode": "git", "git_baseline": self.baseline,
+                  "github_scope": {"repository": "example/disposable",
+                                   "branch": "run-branch"},
+                  "container_ownership": {
+                      "name": "laomedo-codex-freeze", "launch_token": "launch-freeze",
+                      "grant_id": grant_id, "supervised": True,
+                      "cleanup_verified": False}}
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+        provider_calls = []
+        def invoke(payload, supplied=token):
+            return store.invoke(token=supplied, repository="example/disposable",
+                operation="bundle_freeze", payload=payload, effect_id=None,
+                transport=lambda *_args: provider_calls.append(1))
+        with self.assertRaisesRegex(MediationError, "freeze_request_invalid"):
+            invoke({"attempt_id": "attempt-a", "path": str(self.repo)})
+        result = invoke({"attempt_id": "attempt-a"})
+        self.assertEqual(result["state"], "confirmed")
+        self.assertEqual(result["result"]["status"], "frozen")
+        self.assertEqual(result["result"]["grant_id"], grant_id)
+        self.assertEqual(provider_calls, [])
+        self.assertEqual(invoke({"attempt_id": "attempt-a"})["state"], "unknown")
+        store.revoke_run("run-freeze")
+        with self.assertRaisesRegex(MediationError, "grant_unavailable"):
+            invoke({"attempt_id": "attempt-b"})
+        self.assertFalse((self.private / "run-freeze" / "attempt-b").exists())
 
     def test_changed_record_or_frozen_source_refuses(self):
         original = self.record.read_bytes()

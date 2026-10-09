@@ -88,7 +88,7 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
     baseline = record.get("git_baseline")
     status = record.get("status")
     if (record.get("run_id") != run_id or
-            status not in {"running", "completed"} or
+            (status != "running" and status != "completed") or
             record.get("workspace_mode") != "git" or
             not isinstance(branch, str) or not _BRANCH.fullmatch(branch) or
             branch.startswith("/") or ".." in branch or

@@ -603,6 +603,24 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(resumed["status"], "completed")
         self.assertTrue((run_dir / "workspace" / ".git").is_dir())
 
+        authority = RunGrantAuthority(self.runner.state / "git-authority.sqlite")
+        reference = authority.approve(
+            invocation_id="approved-git", repository="example/disposable",
+            branch="run-branch", operations={"git_push"},
+            reviewed_by="test-operator")
+        mediated = LocalRunner(
+            self.runner.state, self.runner.store.root, repository,
+            transport=FakeServer, check_docker=False, max_model_turns=6,
+            git_workspace=True, supervise_containers=True,
+            lease_service=self.runner.state / "lease-state",
+            github_authority=authority,
+            mediator_state=self.runner.state / "mediator-state")
+        request = self.request()
+        request["github_authorization_ref"] = reference
+        prepared = mediated._prepare(request)
+        self.assertEqual(prepared["github_scope"]["branch"], "run-branch")
+        self.assertEqual(prepared["workspace_mode"], "git")
+
     def test_git_workspace_snapshot_refuses_oversized_file_before_reading_it(self):
         root = self.root / "oversized"
         root.mkdir()

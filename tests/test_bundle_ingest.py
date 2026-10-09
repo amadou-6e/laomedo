@@ -91,6 +91,12 @@ class BundleIngestTests(unittest.TestCase):
             self._freeze()
         self.assertFalse((self.private / "run-a").exists())
 
+    def test_malformed_status_fails_closed(self):
+        self.record["status"] = {"running": True}
+        self._save_record()
+        with self.assertRaisesRegex(BundleIngestError, "run_binding_invalid"):
+            self._freeze()
+
     def test_same_attempt_never_overwrites_frozen_bytes(self):
         self._freeze()
         with self.assertRaisesRegex(BundleIngestError, "attempt_already_reserved"):

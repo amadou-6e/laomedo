@@ -23,6 +23,7 @@ from .lease_service import LeaseService
 from .mediation_authority import RunGrantAuthority
 from .mediation_service import JournaledTransport, MediationHTTPService
 from .verified_git_stage import (make_grant_stage_resolver,
+                                 make_grant_bundle_freezer,
                                  classify_verified_workflow)
 
 
@@ -43,6 +44,9 @@ def build_services(*, state: Path, repository: str, checkout: Path,
     resolver = (make_grant_stage_resolver(runner_state, private_stage,
                                          agent_mount)
                 if runner_state is not None else None)
+    freezer = (make_grant_bundle_freezer(runner_state, private_stage,
+                                        agent_mount)
+               if runner_state is not None else None)
     git_transport = GitHubGitTransport(repository, checkout, baseline,
                                        connection.token,
                                        require_verified_stage=True)
@@ -50,6 +54,7 @@ def build_services(*, state: Path, repository: str, checkout: Path,
     store = MediationStore(
         state / "mediator" / "mediator.sqlite",
         verified_stage_resolver=resolver,
+        stage_freezer=freezer,
         verified_workflow_classifier=(classify_verified_workflow
                                       if resolver is not None else None),
         connection_is_current=connection.current)
