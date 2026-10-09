@@ -60,7 +60,8 @@ def _fixture(root: Path) -> tuple[Path, Path, str, str]:
 
 
 def _docker_case(label: str, command: list[str], mounts: list[Path],
-                 *, script_path: Path = SCRIPT) -> dict:
+                 *, script_path: Path = SCRIPT,
+                 trusted_target: str = "/trusted") -> dict:
     name = "laomedo-s4-" + secrets.token_hex(8)
     started = time.monotonic()
     created = False
@@ -74,7 +75,7 @@ def _docker_case(label: str, command: list[str], mounts: list[Path],
                 "32", "--memory", "128m", "--tmpfs",
                 "/stage:rw,nosuid,noexec,size=32m,mode=1777"]
         if mounts:
-            args.extend(["--mount", f"type=bind,source={mounts[0]},target=/trusted,readonly",
+            args.extend(["--mount", f"type=bind,source={mounts[0]},target={trusted_target},readonly",
                          "--mount", f"type=bind,source={mounts[1]},target=/input.bundle,readonly",
                          "--mount", f"type=bind,source={script_path},target=/verify.sh,readonly"])
         args.extend([IMAGE_ID, *command])
@@ -115,7 +116,7 @@ def _docker_case(label: str, command: list[str], mounts: list[Path],
                 not any(value.startswith("no-new-privileges") for value in
                         limits["security_opt"]) or not limits["bind_mounts_read_only"] or
                 limits["bind_targets"] !=
-                    (sorted(["/trusted", "/input.bundle", "/verify.sh"])
+                    (sorted([trusted_target, "/input.bundle", "/verify.sh"])
                      if mounts else [])):
             result["status"] = "limit_mismatch"
             return result
