@@ -268,6 +268,28 @@ class MediationTests(unittest.TestCase):
         self.assertEqual(self.invoke(token, "pr_update", payload, "effect-1")["state"],
                          "confirmed")
 
+    def test_pr_read_is_limited_to_bound_target_and_current_head(self):
+        _, token = self.grant(operations={"pr_read"}, target_prs={7: "main"})
+        self.assert_code("pr_read_target_denied", lambda: self.invoke(
+            token, "pr_read", {"number": 8}))
+        self.assert_code("pr_read_target_invalid", lambda: self.invoke(
+            token, "pr_read", {"number": 7, "path": "/repos/other/repo"}))
+        self.assertEqual(self.calls, [])
+
+        def fetched(*_):
+            return {"number": 7, "title": "Title", "body": "Body", "base": "main",
+                    "head": {"repository": REPO, "branch": "run-a-branch",
+                             "sha": "a" * 40}}
+
+        result = self.invoke(token, "pr_read", {"number": 7}, transport=fetched)
+        self.assertEqual(result["state"], "confirmed")
+        self.assertEqual(result["result"]["body"], "Body")
+        changed = dict(fetched())
+        changed["head"] = {**changed["head"], "branch": "unapproved"}
+        self.assertEqual(self.invoke(
+            token, "pr_read", {"number": 7}, transport=lambda *_: changed),
+            {"state": "rejected", "error": "pr_target_changed"})
+
     def test_read_labels_cannot_hide_mutations(self):
         _, token = self.grant(operations={"api_rest_read"}, branch=None)
         for payload in ({"path": "/repos/example/disposable/issues/1", "method": "POST"},

@@ -97,6 +97,21 @@ class GitHubRestTransportTests(unittest.TestCase):
         self.adapter("example/disposable", "pr_update", payload)
         self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET", "PATCH"])
 
+    def test_pr_read_returns_normalized_bound_readback(self):
+        self.opener.responses = [json.dumps({"number": 7, "title": "Ready",
+            "body": "Reviewed body", "state": "open",
+            "head": {"ref": "branch-a", "sha": "a" * 40,
+                     "repo": {"full_name": "example/disposable"}},
+            "base": {"ref": "main"}}).encode()]
+        result = self.adapter("example/disposable", "pr_read", {"number": 7})
+        self.assertEqual(result["body"], "Reviewed body")
+        self.assertEqual(result["head"]["sha"], "a" * 40)
+        self.assertEqual(self.opener.calls[0][0].get_method(), "GET")
+        self.assertEqual(self.opener.calls[0][0].full_url,
+                         "https://api.github.com/repos/example/disposable/pulls/7")
+        with self.assertRaisesRegex(KnownRejected, "pr_read_target_invalid"):
+            self.adapter("example/disposable", "pr_read", {"number": 7, "path": "evil"})
+
     def test_complete_rejection_and_ambiguous_error_are_distinct(self):
         self.opener.failure = error.HTTPError("https://api.github.com", 403,
                                                "Forbidden", None, None)

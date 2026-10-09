@@ -1034,7 +1034,7 @@ class LocalRunner:
                 github_scope = (self.github_authority.bind_run(
                     github_ref, run_id,
                     allowed_operations=frozenset(
-                        {"actions_read", "pr_create", "pr_update"} |
+                        {"actions_read", "pr_create", "pr_update", "pr_read"} |
                         ({"git_push"} if self.git_workspace else set())))
                                 if github_ref is not None else None)
             except MediationError as error:
@@ -1357,7 +1357,7 @@ class LocalRunner:
                 return record
             if record.get("github_scope") is not None:
                 task += ("\n\nThis run has approved, bounded GitHub mediation "
-                         "for its selected Actions reads, PR create/update, and "
+                         "for its selected Actions reads, bound PR read/create/update, and "
                          "verified-commit branch push operations. A "
                          "bundle_freeze request only captures the fixed in-run "
                          "Git bundle; it does not verify or push it. "

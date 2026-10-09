@@ -49,6 +49,26 @@ class GitHubRestTransport:
             method, path = "POST", prefix + "/pulls"
             body = {k: payload[k] for k in ("title", "body", "head", "base")}
             body["draft"] = payload.get("draft", False) is True
+        elif operation == "pr_read":
+            if set(payload) != {"number"} or type(payload["number"]) is not int or payload["number"] < 1:
+                raise KnownRejected("pr_read_target_invalid")
+            existing = self._call("GET", prefix + f"/pulls/{payload['number']}", None,
+                                  connection_id, connection_generation)
+            head = existing.get("head") or {}
+            head_repo = head.get("repo") or {}
+            base = existing.get("base") or {}
+            if (existing.get("number") != payload["number"] or
+                    head.get("repo") is None or head_repo.get("full_name") != repository or
+                    not isinstance(head.get("ref"), str) or
+                    not isinstance(head.get("sha"), str) or
+                    not isinstance(base.get("ref"), str) or
+                    not isinstance(existing.get("title"), str) or
+                    not isinstance(existing.get("body"), str)):
+                raise KnownRejected("pr_target_denied")
+            return {"number": existing.get("number"), "title": existing.get("title"),
+                    "body": existing.get("body"), "state": existing.get("state"),
+                    "head": {"repository": repository, "branch": head["ref"],
+                             "sha": head["sha"]}, "base": base["ref"]}
         elif operation == "pr_update":
             if type(payload.get("number")) is not int or payload["number"] < 1:
                 raise KnownRejected("pr_payload_invalid")

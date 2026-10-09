@@ -18,7 +18,7 @@ import time
 from typing import Callable
 
 
-READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read"})
+READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read", "pr_read"})
 WRITES = frozenset({"git_push", "pr_create", "pr_update", "issue_create", "api_rest_write", "api_graphql_mutation"})
 OPERATIONS = READS | WRITES
 
@@ -110,7 +110,15 @@ def _validate_effect(operation: str, payload: dict, grant, db,
         raise MediationError("api_write_unsupported")
 
 
-def _validate_read(operation: str, payload: dict, repository: str) -> None:
+def _validate_read(operation: str, payload: dict, repository: str, grant, db) -> None:
+    if operation == "pr_read":
+        if set(payload) != {"number"} or type(payload["number"]) is not int or payload["number"] < 1:
+            raise MediationError("pr_read_target_invalid")
+        target = db.execute("SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
+                            (grant["grant_id"], payload["number"])).fetchone()
+        if target is None:
+            raise MediationError("pr_read_target_denied")
+        return
     if operation != "api_rest_read":
         return
     path = payload.get("path")
@@ -499,7 +507,7 @@ class MediationStore:
             db.execute("BEGIN IMMEDIATE")
             grant = self._grant(db, token, repository, operation)
             if operation in READS:
-                _validate_read(operation, payload, repository)
+                _validate_read(operation, payload, repository, grant, db)
             if operation in WRITES:
                 _validate_effect(operation, payload, grant, db, changes_workflow)
                 prior = db.execute("SELECT * FROM effects WHERE run_id=? AND effect_id=?",
@@ -570,6 +578,21 @@ class MediationStore:
         if operation in READS:
             if state == "rejected":
                 return {"state": "rejected", "error": error_code}
+            if operation == "pr_read":
+                with closing(self._connect()) as db:
+                    current = self._grant(db, token, repository, operation)
+                    target = db.execute(
+                        "SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
+                        (current["grant_id"], payload["number"])).fetchone()
+                head = result.get("head") or {}
+                if (target is None or result.get("number") != payload["number"] or
+                        head.get("repository") != repository or
+                        head.get("branch") != current["branch"] or
+                        not isinstance(head.get("sha"), str) or
+                        head["sha"] == "" or result.get("base") != target["base"] or
+                        not isinstance(result.get("title"), str) or
+                        not isinstance(result.get("body"), str)):
+                    return {"state": "rejected", "error": "pr_target_changed"}
             return {"state": "confirmed", "result": result}
         with closing(self._connect()) as db, db:
             if state == "confirmed" and operation == "pr_create" and \
