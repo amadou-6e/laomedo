@@ -43,7 +43,8 @@ async function main() {
       skill.data.node.template.revision_id.value = revision;
       agent.data.node.template.runner_url.value = `http://host.docker.internal:${Number(runnerPortArg)}`;
       agent.data.node.template.timeout_seconds.value = 120;
-      agent.data.node.template.operation.value = 'fresh';
+      agent.data.node.template.operation.value = process.env.PHASE_E_PRETHREAD === '1'
+        ? 'start' : 'fresh';
       const response = await fetch(`${base}/api/v1/flows/`, {
         method: 'POST', headers: { Authorization: `Bearer ${auth.access_token}`,
                                    'Content-Type': 'application/json' },
@@ -71,7 +72,8 @@ async function main() {
     if (mode === 'run') {
       const task = process.env.PHASE_E_FAKE_PREFLIGHT === '1'
         ? 'CASE_B synthetic stop probe'
-        : fs.readFileSync(path.join(ROOT, 'experiments/exp22/PHASE-E-TASK.txt'), 'utf8');
+        : fs.readFileSync(path.join(ROOT, 'experiments/exp22',
+            process.env.PHASE_E_PRETHREAD === '1' ? 'PHASE-F-TASK.txt' : 'PHASE-E-TASK.txt'), 'utf8');
       await page.getByTestId('input-chat-playground').fill(task);
       observation.send_clicked_utc = utc();
       await page.getByTestId('button-send').click();

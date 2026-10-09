@@ -194,7 +194,7 @@ def main():
         category = "submitted_unknown"
         output = (state / "browser.log").open("w", encoding="utf-8")
         browser_env = {key: value for key, value in os.environ.items()
-                       if key != "PHASE_E_FAKE_PREFLIGHT"}
+                       if key not in {"PHASE_E_FAKE_PREFLIGHT", "PHASE_E_PRETHREAD"}}
         browser = subprocess.Popen(["node", str(BROWSER), "run", str(state),
                                     str(ui_port), str(runner_port), skill["revision_id"]],
                                    stdout=output, stderr=subprocess.STDOUT, cwd=ROOT,
