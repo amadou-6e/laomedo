@@ -1,0 +1,46 @@
+"""Local-only preflight for the frozen S7 Docker probe."""
+
+from pathlib import Path
+import tempfile
+import unittest
+
+from experiments.exp100.probe_stage_s7 import fixture
+from laomedo.bundle_stage import (BundleStageError, PINNED_IMAGE_ID,
+                                  _read_frozen, verify_frozen_bundle)
+
+
+class ProbeS7Preflight(unittest.TestCase):
+    def test_two_synthetic_fixtures_and_wrong_commit_refusal(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            positive = fixture(root, "positive")
+            negative = fixture(root, "wrong-commit")
+            self.assertNotEqual(positive["commit"], positive["baseline"])
+            self.assertNotEqual(negative["commit"], negative["baseline"])
+            self.assertNotEqual(positive["run_id"], negative["run_id"])
+            attempt, frozen = _read_frozen(
+                positive["runner"], positive["private"],
+                positive["run_id"], positive["attempt_id"])
+            self.assertTrue(attempt.is_dir())
+            self.assertEqual(frozen["advertised_commit"], positive["commit"])
+            calls = []
+
+            def no_docker(*args, **kwargs):
+                calls.append((args, kwargs))
+                raise AssertionError("negative case reached Docker")
+
+            with self.assertRaisesRegex(BundleStageError,
+                                        "candidate_commit_mismatch"):
+                verify_frozen_bundle(
+                    negative["runner"], negative["private"],
+                    run_id=negative["run_id"],
+                    attempt_id=negative["attempt_id"],
+                    baseline_bundle=negative["baseline_bundle"],
+                    expected_baseline_sha256=negative["baseline_sha256"],
+                    commit=negative["baseline"], image_id=PINNED_IMAGE_ID,
+                    docker=no_docker)
+            self.assertEqual(calls, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
