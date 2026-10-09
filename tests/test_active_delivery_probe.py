@@ -13,6 +13,19 @@ spec.loader.exec_module(probe)
 
 
 class FakeConnectorTests(unittest.TestCase):
+    def test_committed_observation_hash_and_controls(self):
+        from hashlib import sha256
+        raw = path.with_name("ACTIVE-DELIVERY-OBSERVATION.json").read_bytes()
+        self.assertEqual(sha256(raw).hexdigest(), "2c649c2d3d3eb0f178c261d7146b721973a353305c0e9266a8131f7e9c10bef8")
+        result = json.loads(raw)
+        self.assertEqual(result["source_sha"], "f9705522a2a2804943b4c262c1d9c306f6e3029b")
+        self.assertEqual(result["result"], "passed")
+        for key in ("cleanup_verified", "stage_cleanup_verified", "agent_cleanup_verified",
+                    "completed_freeze_denied", "completed_push_denied", "changed_connection_denied",
+                    "revoked_new_write_denied", "provider_count_unchanged_after_controls"):
+            self.assertIs(result[key], True)
+        self.assertEqual(result["revoked_new_write_error"], "grant_unavailable")
+
     def test_unknown_is_not_a_specific_refusal(self):
         from unittest.mock import Mock
         store = Mock()
