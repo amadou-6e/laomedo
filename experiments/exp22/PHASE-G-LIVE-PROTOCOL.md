@@ -2,7 +2,7 @@
 
 This local single-user probe extends the credential-free Phase G restart test.
 It uses the existing user-approved private Codex subscription-login volume and
-the shared EXP-22 ledger, currently 6/12. Reserve one entry immediately before
+the shared EXP-22 ledger, 6/12 at the original freeze. Reserve one entry immediately before
 the visible Playground Send. An uncertain submission or timeout consumes that
 entry. Use one native turn maximum, `gpt-6-luna` at low effort. No GitHub grant,
 push credential, or external write is provided.
