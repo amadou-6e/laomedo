@@ -1,5 +1,6 @@
 examples/skill-agent-pilot/** text eol=lf
 experiments/** text eol=lf
+laomedo/resources/*.sh text eol=lf
 experiments/exp22/prethread.json -text whitespace=cr-at-eol
 experiments/exp22/active.json -text whitespace=cr-at-eol
 experiments/exp104/live-provider-attempts-d2-02.jsonl -text whitespace=cr-at-eol

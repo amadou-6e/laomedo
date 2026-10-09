@@ -20,4 +20,4 @@ where = ["."]
 include = ["laomedo*"]
 
 [tool.setuptools.package-data]
-laomedo = ["runner-config.toml", "agent_mediation_client.mjs"]
+laomedo = ["runner-config.toml", "agent_mediation_client.mjs", "resources/bundle_stage.sh"]
