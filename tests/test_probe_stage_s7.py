@@ -3,13 +3,32 @@
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
+from experiments.exp100 import probe_stage_s7
 from experiments.exp100.probe_stage_s7 import fixture
 from laomedo.bundle_stage import (BundleStageError, PINNED_IMAGE_ID,
                                   _read_frozen, verify_frozen_bundle)
 
 
 class ProbeS7Preflight(unittest.TestCase):
+    def test_unknown_positive_preserves_case_without_key_error(self):
+        observation = {"status": "unknown"}
+        checkpoints = []
+
+        def checkpoint():
+            checkpoints.append(observation["cases"].copy())
+
+        with patch.object(probe_stage_s7, "verify_frozen_bundle",
+                          return_value={"status": "unknown"}), \
+             patch.object(probe_stage_s7, "_run") as inspect:
+            inspect.return_value.returncode = 1
+            probe_stage_s7.run_once(observation, checkpoint)
+        self.assertEqual(observation["status"], "failed")
+        self.assertEqual(observation["cases"]["positive"]["result"],
+                         {"status": "unknown"})
+        self.assertGreaterEqual(len(checkpoints), 2)
+
     def test_two_synthetic_fixtures_and_wrong_commit_refusal(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

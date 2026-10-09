@@ -100,10 +100,9 @@ def verify_export(root: Path, positive: dict, output: Path) -> dict:
             "object_type": kind, "fsck": "passed", "ancestry": "passed"}
 
 
-def run_once() -> dict:
-    output = {"identity": IDENTITY, "status": "unknown",
-              "image_id": PINNED_IMAGE_ID, "provider_calls": 0,
-              "model_turns": 0, "cases": {}}
+def run_once(output: dict, checkpoint) -> None:
+    output.update(image_id=PINNED_IMAGE_ID, provider_calls=0,
+                  model_turns=0, cases={})
     with tempfile.TemporaryDirectory(prefix="laomedo-exp100-s7-") as temporary:
         root = Path(temporary)
         positive = fixture(root, "positive")
@@ -118,25 +117,39 @@ def run_once() -> dict:
                 created.append(args[args.index("--name") + 1])
             return _run(args, timeout)
 
-        result = verify_frozen_bundle(
-            positive["runner"], positive["private"],
-            run_id=positive["run_id"], attempt_id=positive["attempt_id"],
-            baseline_bundle=positive["baseline_bundle"],
-            expected_baseline_sha256=positive["baseline_sha256"],
-            commit=positive["commit"], image_id=PINNED_IMAGE_ID,
-            docker=traced_docker)
-        output["cases"]["positive"]["result"] = result
+        try:
+            result = verify_frozen_bundle(
+                positive["runner"], positive["private"],
+                run_id=positive["run_id"], attempt_id=positive["attempt_id"],
+                baseline_bundle=positive["baseline_bundle"],
+                expected_baseline_sha256=positive["baseline_sha256"],
+                commit=positive["commit"], image_id=PINNED_IMAGE_ID,
+                docker=traced_docker)
+            output["cases"]["positive"]["result"] = result
+        except Exception as error:
+            output["cases"]["positive"]["error_class"] = type(error).__name__
         output["cases"]["positive"]["create_count"] = len(created)
-        output["cases"]["positive"]["container_present_after"] = [
-            _run(["docker", "inspect", name], 10).returncode == 0
-            for name in created]
+        presence = []
+        for name in created:
+            try:
+                presence.append(_run(["docker", "inspect", name],
+                                     10).returncode == 0)
+            except Exception:
+                presence.append(None)
+        output["cases"]["positive"]["container_present_after"] = presence
+        checkpoint()
         verified = (positive["private"] / positive["run_id"] /
                     positive["attempt_id"] / "verified.bundle")
         if verified.is_file():
             output["cases"]["positive"]["output_sha256"] = digest(
                 verified.read_bytes())
-            output["cases"]["positive"]["independent"] = verify_export(
-                root, positive, verified)
+            try:
+                output["cases"]["positive"]["independent"] = verify_export(
+                    root, positive, verified)
+            except Exception as error:
+                output["cases"]["positive"]["independent"] = {
+                    "status": "failed", "error_class": type(error).__name__}
+            checkpoint()
 
         negative = fixture(root, "wrong-commit")
         before = len(created)
@@ -156,23 +169,30 @@ def run_once() -> dict:
             "verified_output_exists": (negative["private"] /
                 negative["run_id"] / negative["attempt_id"] /
                 "verified.bundle").exists()}
+        checkpoint()
 
     good = output["cases"]["positive"]
     bad = output["cases"]["wrong_commit"]
+    product = good.get("result", {})
+    container = product.get("container", {})
+    independent = good.get("independent", {})
     output["status"] = "passed" if (
-        good["result"]["status"] == "verified" and
-        good["result"]["policy_approved"] is False and
-        good["result"]["container"]["cleanup_verified"] and
+        product.get("status") == "verified" and
+        product.get("policy_approved") is False and
+        container.get("cleanup_verified") is True and
         good["create_count"] == 1 and
         good["container_present_after"] == [False] and
-        good.get("output_sha256") == good["result"]["container"]["output_sha256"] and
-        good.get("independent", {}).get("commit_matches") and
-        good["independent"]["object_type"] == "commit" and
+        good.get("output_sha256") is not None and
+        good["output_sha256"] == container.get("output_sha256") and
+        independent.get("commit_matches") is True and
+        independent.get("object_type") == "commit" and
+        independent.get("fsck") == "passed" and
+        independent.get("ancestry") == "passed" and
         bad["result"] == "candidate_commit_mismatch" and
         bad["new_create_count"] == 0 and
         not bad["verified_output_exists"]
     ) else "failed"
-    return output
+
 
 
 def main() -> int:
@@ -182,6 +202,14 @@ def main() -> int:
     del args
     if EVIDENCE.exists() or PENDING.exists():
         raise SystemExit("S7 identity already consumed")
+    if git(HERE, "status", "--porcelain", "--untracked-files=all"):
+        raise SystemExit("S7 source tree is not clean")
+    source_files = [Path("laomedo/bundle_stage.py"),
+                    Path("laomedo/bundle_ingest.py"),
+                    Path("laomedo/resources/bundle_stage.sh")]
+    repo_root = HERE.parents[1]
+    source_hashes = {path.as_posix(): digest((repo_root / path).read_bytes())
+                     for path in source_files}
     with PENDING.open("xb") as marker:
         marker.write((IDENTITY + "\n").encode("ascii"))
         marker.flush()
@@ -189,17 +217,22 @@ def main() -> int:
     observation = {"identity": IDENTITY, "status": "unknown",
                    "started_at_unix": time.time(),
                    "source_revision": git(HERE, "rev-parse", "HEAD"),
-                   "probe_sha256": digest(Path(__file__).read_bytes())}
+                   "probe_sha256": digest(Path(__file__).read_bytes()),
+                   "source_sha256": source_hashes}
+    def checkpoint() -> None:
+        with PENDING.open("wb") as stream:
+            stream.write((json.dumps(observation, indent=2, sort_keys=True) +
+                          "\n").encode("utf-8"))
+            stream.flush()
+            os.fsync(stream.fileno())
+
+    checkpoint()
     try:
-        observation.update(run_once())
+        run_once(observation, checkpoint)
     except Exception as error:
         observation["error_class"] = type(error).__name__
     observation["finished_at_unix"] = time.time()
-    with PENDING.open("wb") as stream:
-        stream.write((json.dumps(observation, indent=2, sort_keys=True) +
-                      "\n").encode("utf-8"))
-        stream.flush()
-        os.fsync(stream.fileno())
+    checkpoint()
     os.replace(PENDING, EVIDENCE)
     print(json.dumps({"identity": IDENTITY, "status": observation["status"]}))
     return 0 if observation["status"] == "passed" else 1
