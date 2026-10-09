@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -60,12 +61,12 @@ class CaseResult(unittest.TestResult):
     def addFailure(self, test, err):
         super().addFailure(test, err)
         self.rows.append({"case": test._testMethodName,
-                          "status": "failed", "detail": self._exc_info_to_string(err, test)})
+                          "status": "failed", "error_class": err[0].__name__})
 
     def addError(self, test, err):
         super().addError(test, err)
         self.rows.append({"case": test._testMethodName,
-                          "status": "error", "detail": self._exc_info_to_string(err, test)})
+                          "status": "error", "error_class": err[0].__name__})
 
 
 def run() -> dict:
@@ -73,9 +74,15 @@ def run() -> dict:
                              text=True, timeout=10, check=True).stdout.strip()
     checks = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
               for name in SOURCES}
+    source_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                                   capture_output=True, text=True, timeout=10,
+                                   check=True).stdout.strip()
     suite = unittest.defaultTestLoader.loadTestsFromName(
-        "experiments.exp100.test_handoff_s3")
+        "experiments.exp100.test_handoff_s3.HandoffS3Tests")
+    s2_suite = unittest.defaultTestLoader.loadTestsFromName(
+        "experiments.exp100.test_bundle_transfer")
     result = CaseResult()
+    s2_result = CaseResult()
     provider_calls = []
     model_turns = []
 
@@ -91,24 +98,55 @@ def run() -> dict:
             patch.object(GitHubRestTransport, "__call__", side_effect=forbid_provider), \
             patch.object(LocalRunner, "start", side_effect=forbid_model):
         suite.run(result)
+        s2_suite.run(s2_result)
     rows = sorted(result.rows, key=lambda row: row["case"])
+    s2_rows = sorted(s2_result.rows, key=lambda row: row["case"])
     statuses = {row["case"]: row["status"] for row in rows}
-    if (set(statuses) != REQUIRED_CASES or
+    passed = not (set(statuses) != REQUIRED_CASES or
             any(statuses[name] != "passed" for name in REQUIRED_CASES - {
                 "test_symlink_handoff_is_refused_where_supported",
                 "test_windows_junction_handoff_is_refused"}) or
             not any(statuses[name] == "passed" for name in (
                 "test_symlink_handoff_is_refused_where_supported",
                 "test_windows_junction_handoff_is_refused")) or
-            provider_calls or model_turns):
-        raise RuntimeError("s3_case_failure")
+            provider_calls or model_turns or not s2_rows or
+            any(row["status"] != "passed" for row in s2_rows))
     return {"schema_version": 1, "identity": "EXP-100-S3-01",
+            "status": "passed" if passed else "failed",
+            "source_commit": source_commit,
             "git_version": version, "source_sha256": checks,
-            "cases": rows, "provider_transport_calls": len(provider_calls),
+            "cases": rows, "reused_s2_case_results": s2_rows,
+            "provider_transport_calls": len(provider_calls),
             "model_turn_attempts": len(model_turns),
+            "reused_s2_controls": [
+                "missing_object_integrity", "bundle_filter_and_object_format",
+                "host_global_config_isolation", "hostile_remote_and_hook_nonuse"],
+            "new_s3_controls": sorted(REQUIRED_CASES),
             "provider_count_scope": "instrumented Git/REST transport entrypoints",
             "model_count_scope": "instrumented LocalRunner.start entrypoint",
             "actual_git_or_gh_remote_calls": "not independently packet-captured"}
+
+
+def record_once(path: Path, source_commit: str, run_probe=run) -> dict:
+    """Consume the evidence identity before running, including on failure."""
+    with path.open("x", encoding="utf-8", newline="\n") as output:
+        output.write(json.dumps({"identity": "EXP-100-S3-01", "status": "unknown",
+                                 "source_commit": source_commit}) + "\n")
+        output.flush()
+        os.fsync(output.fileno())
+    try:
+        observation = run_probe()
+    except Exception as error:
+        observation = {"schema_version": 1, "identity": "EXP-100-S3-01",
+                       "status": "failed", "source_commit": source_commit,
+                       "error_class": type(error).__name__, "cases": []}
+    pending = path.with_suffix(".pending")
+    with pending.open("x", encoding="utf-8", newline="\n") as output:
+        output.write(json.dumps(observation, indent=2, sort_keys=True) + "\n")
+        output.flush()
+        os.fsync(output.fileno())
+    os.replace(pending, path)
+    return observation
 
 
 def main() -> None:
@@ -123,14 +161,16 @@ def main() -> None:
                                 capture_output=True, text=True, timeout=10, check=True)
         if status.stdout:
             raise SystemExit("source tree must be clean before recording")
-    observation = run()
-    encoded = json.dumps(observation, indent=2, sort_keys=True) + "\n"
     if args.record:
-        with OBSERVATION.open("x", encoding="utf-8", newline="\n") as output:
-            output.write(encoded)
-            output.flush()
+        source_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                                       capture_output=True, text=True,
+                                       timeout=10, check=True).stdout.strip()
+        observation = record_once(OBSERVATION, source_commit)
     else:
-        print(encoded, end="")
+        observation = run()
+        print(json.dumps(observation, indent=2, sort_keys=True))
+    if observation.get("status") != "passed":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

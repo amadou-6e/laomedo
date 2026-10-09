@@ -92,7 +92,7 @@ def _durable_json(path: Path, value: dict) -> None:
 
 def _accepted_head(private_root: Path, run_id: str, branch: str) -> dict | None:
     accepted = {}
-    for attempt in private_root.glob(run_id + "-*"):
+    for attempt in (private_root / run_id).glob("*"):
         path = attempt / "result.json"
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
@@ -156,7 +156,11 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
     except FileExistsError as error:
         raise HandoffError("run_transfer_busy_or_unreconciled") from error
     try:
-        attempt = private_root / f"{run_id}-{attempt_id}"
+        # A stale lock is a crash/unknown signal, not a lock to steal. An
+        # operator must inspect the run journal before manual reconciliation.
+        run_home = private_root / run_id
+        run_home.mkdir(exist_ok=True, mode=0o700)
+        attempt = run_home / attempt_id
         if attempt.exists():
             raise HandoffError("attempt_already_reserved")
         head = _accepted_head(private_root, run_id, branch)
@@ -169,7 +173,7 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
             confirmed_commit = head.get("commit")
             if not isinstance(confirmed_commit, str) or not _SHA.fullmatch(confirmed_commit):
                 raise HandoffError("confirmed_stage_invalid")
-            source = (private_root / f"{run_id}-{confirmed_attempt_id}" / "stage.git")
+            source = run_home / confirmed_attempt_id / "stage.git"
             if not source.is_dir() or source.is_symlink():
                 raise HandoffError("confirmed_stage_invalid")
         try:

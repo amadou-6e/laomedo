@@ -12,6 +12,7 @@ from unittest.mock import patch
 from experiments.exp100 import bundle_transfer as verifier_module
 from experiments.exp100 import handoff_s3 as handoff_module
 from experiments.exp100.handoff_s3 import HANDOFF_NAME, _plain_file, transfer
+from experiments.exp100.probe_s3 import record_once
 
 
 class HandoffS3Tests(unittest.TestCase):
@@ -69,7 +70,7 @@ class HandoffS3Tests(unittest.TestCase):
                           attempt_id="first")
         self.assertEqual(result["reason"], "accepted")
         self.assertEqual(result["commit"], commit)
-        self.assertTrue((self.private / "run-a-first" / "frozen.bundle").is_file())
+        self.assertTrue((self.private / "run-a" / "first" / "frozen.bundle").is_file())
         self.assertEqual(self.git("cat-file", "-t", commit,
                                   cwd=Path(result["stage"])), "commit")
         moved_agent = self.agent.with_name("agent-no-longer-at-run-path")
@@ -82,7 +83,7 @@ class HandoffS3Tests(unittest.TestCase):
             transfer(self.record, self.runner_state, self.private, self.trusted,
                      attempt_id="first")
         self.assertEqual(__import__("json").loads(
-            (self.private / "run-a-first" / "result.json").read_text())
+            (self.private / "run-a" / "first" / "result.json").read_text())
                          ["bundle_sha256"], original_hash)
 
     def test_thin_bundle_requires_host_confirmed_stage(self):
@@ -162,7 +163,7 @@ class HandoffS3Tests(unittest.TestCase):
             result = transfer(self.record, self.runner_state, self.private,
                               self.trusted, attempt_id=attempt)
             self.assertNotEqual(result["reason"], "accepted")
-            saved = self.private / f"run-a-{attempt}" / "result.json"
+            saved = self.private / "run-a" / attempt / "result.json"
             self.assertEqual(__import__("json").loads(saved.read_text())["reason"],
                              result["reason"])
             self.assertEqual(result["bundle_sha256"], hashlib.sha256(payload).hexdigest())
@@ -174,15 +175,16 @@ class HandoffS3Tests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "private_stage_boundary_invalid"):
             transfer(self.record, self.runner_state, another_mount,
                      self.trusted, attempt_id="bad-placement")
-        self.assertFalse((another_mount / "run-a-bad-placement").exists())
+        self.assertFalse((another_mount / "run-a" / "bad-placement").exists())
 
     def test_incomplete_prior_attempt_blocks_new_transfer(self):
         self.commit_and_bundle("agent.txt")
-        (self.private / "run-a-crashed-before-result").mkdir()
+        (self.private / "run-a").mkdir()
+        (self.private / "run-a" / "crashed-before-result").mkdir()
         with self.assertRaisesRegex(RuntimeError, "attempt_unreconciled"):
             transfer(self.record, self.runner_state, self.private, self.trusted,
                      attempt_id="second")
-        self.assertFalse((self.private / "run-a-second").exists())
+        self.assertFalse((self.private / "run-a" / "second").exists())
 
     def test_divergent_later_commit_is_not_accepted_as_fast_forward(self):
         self.commit_and_bundle("first.txt")
@@ -322,6 +324,30 @@ class HandoffS3Tests(unittest.TestCase):
         refused = transfer(self.record, self.runner_state, self.private,
                            self.trusted, attempt_id="junction")
         self.assertEqual(refused["reason"], "handoff_not_regular")
+
+
+class ProbeReservationTests(unittest.TestCase):
+    def test_failed_first_record_consumes_identity(self):
+        with tempfile.TemporaryDirectory() as root:
+            output = Path(root) / "observation-s3.json"
+            result = record_once(output, "a" * 40, lambda: {
+                "identity": "EXP-100-S3-01", "status": "failed",
+                "cases": [{"case": "control", "status": "failed"}]})
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(__import__("json").loads(output.read_text())["cases"],
+                             [{"case": "control", "status": "failed"}])
+            with self.assertRaises(FileExistsError):
+                record_once(output, "a" * 40, lambda: {"status": "passed"})
+
+    def test_unexpected_error_still_records_failure_without_private_text(self):
+        with tempfile.TemporaryDirectory() as root:
+            output = Path(root) / "observation-s3.json"
+            def fail():
+                raise RuntimeError("private path that must not be recorded")
+            result = record_once(output, "b" * 40, fail)
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["error_class"], "RuntimeError")
+            self.assertNotIn("private path", output.read_text())
 
 
 if __name__ == "__main__":
