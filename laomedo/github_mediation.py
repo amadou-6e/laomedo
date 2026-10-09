@@ -416,7 +416,7 @@ class MediationStore:
     def invoke(self, *, token: str, repository: str, operation: str,
                payload: dict, effect_id: str | None,
                transport: Callable[[str, str, dict], dict]) -> dict:
-        if operation not in OPERATIONS and operation != "bundle_freeze":
+        if operation not in OPERATIONS and operation not in {"bundle_freeze", "bundle_status"}:
             raise MediationError("unsupported_operation")
         if not isinstance(payload, dict):
             raise MediationError("request_invalid")
@@ -427,6 +427,29 @@ class MediationStore:
                                             allow_nan=False))
         except (TypeError, ValueError) as error:
             raise MediationError("request_not_serializable") from error
+        if operation == "bundle_status":
+            if effect_id is not None or set(payload) != {"stage_attempt_id", "commit"}:
+                raise MediationError("bundle_status_request_invalid")
+            if self.verified_stage_resolver is None:
+                raise MediationError("bundle_status_unavailable")
+            with closing(self._connect()) as db:
+                grant = self._grant(db, token, repository, "git_push")
+            try:
+                stage = self.verified_stage_resolver(grant, repository, payload)
+                if (stage.run_id != grant["run_id"] or stage.repository != repository or
+                        stage.branch != grant["branch"] or stage.commit != payload["commit"] or
+                        stage.attempt_id != payload["stage_attempt_id"]):
+                    raise ValueError("stage_binding_mismatch")
+                with closing(self._connect()) as db:
+                    current = self._grant(db, token, repository, "git_push")
+                    if current["grant_id"] != grant["grant_id"]:
+                        return {"state": "unknown", "resent": False}
+            except Exception:
+                # A status lookup never schedules or retries verification.
+                return {"state": "unknown", "resent": False}
+            return {"state": "confirmed", "result": {
+                "stage_attempt_id": stage.attempt_id, "commit": stage.commit,
+                "stage_digest": stage.stage_digest}}
         if operation == "bundle_freeze":
             if effect_id is not None or set(payload) != {"attempt_id"}:
                 raise MediationError("freeze_request_invalid")

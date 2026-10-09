@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from contextlib import closing
+from types import SimpleNamespace
 import sqlite3
 import tempfile
 import threading
@@ -305,10 +306,35 @@ class MediationTests(unittest.TestCase):
         self.assertEqual(self.invoke(token, "bundle_freeze", {"attempt_id": "once"}),
                          {"state": "unknown", "resent": False})
         self.assertEqual(captures, ["once"])
+
         self.assertEqual(self.calls, [])
         self.assert_code("grant_unavailable", lambda: self.invoke(
             token, "bundle_freeze", {"attempt_id": "once"}))
         self.assertEqual(captures, ["once"])
+
+    def test_bundle_status_is_lookup_only_and_rechecks_exact_grant(self):
+        _, token = self.grant(operations={"git_push"})
+        payload = {"stage_attempt_id": "attempt-a", "commit": "a" * 40}
+        lookups = []
+        def resolve(grant, repository, request):
+            lookups.append(request)
+            return SimpleNamespace(run_id=grant["run_id"], repository=repository,
+                branch=grant["branch"], commit=request["commit"],
+                attempt_id=request["stage_attempt_id"], stage_digest="digest")
+        self.store.verified_stage_resolver = resolve
+        self.assertEqual(self.invoke(token, "bundle_status", payload)["state"], "confirmed")
+        self.assertEqual(self.invoke(token, "bundle_status", payload)["state"], "confirmed")
+        self.assertEqual(self.calls, [])
+        self.assertEqual(len(lookups), 2)
+        def revoke(grant, repository, request):
+            value = resolve(grant, repository, request)
+            self.store.revoke_run(grant["run_id"])
+            return value
+        self.store.verified_stage_resolver = revoke
+        self.assertEqual(self.invoke(token, "bundle_status", payload),
+                         {"state": "unknown", "resent": False})
+        self.assert_code("grant_unavailable", lambda: self.invoke(token, "bundle_status", payload))
+        self.assertEqual(self.calls, [])
 
     def test_read_labels_cannot_hide_mutations(self):
         _, token = self.grant(operations={"api_rest_read"}, branch=None)

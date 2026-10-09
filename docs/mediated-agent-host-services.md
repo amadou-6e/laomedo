@@ -63,9 +63,24 @@ mode prepares an isolated repository and permits that grant. The agent can
 request `bundle_freeze` with only an `attempt_id`, capturing the fixed
 `.laomedo-handoff.bundle` while the run and grant remain active. Host roots
 come from `--runner-state` and `--private-stage`, never from the agent.
-This capture does not verify Git objects or authorize a push. The trusted
-in-run verification worker is still missing, so complete agent delivery
-remains unproven. `pr_read` accepts only a PR number bound by creation or
+This capture does not verify Git objects or authorize a push. A separate
+credential-free foreground worker, `python -m laomedo.bundle_verifier`, now
+scans frozen attempts under trusted host roots. Configure `--runner-state`,
+`--private-root`, `--agent-mount`, `--baseline-bundle` and its trusted
+`--baseline-sha256`; none comes from an agent request. Its baseline must not
+be inside the agent mount. It refuses ambient provider credential environment
+variables and never loads a token or calls GitHub. Each verification uses the
+existing pinned, network-disabled Docker object verifier, and a reserved
+verification identity is never rerun. It rechecks the active run binding
+afterward. `bundle_status` takes only a commit and stage attempt ID, checks
+the exact live grant and verified immutable bytes, and returns a digest rather
+than a host path or bundle. Polling status never schedules or retries work.
+
+The worker must be independently started alongside the foreground host
+services; it is not an installed service manager. Its crash cleanup and
+end-to-end agent delivery remain unproven. An unknown verification is not
+permission to automatically freeze another attempt. `pr_read` accepts only a
+PR number bound by creation or
 trusted approval and returns the displayed title/body/base/head for agent
 inspection while the run is alive. Reviewed `issue_create` needs a trusted
 reviewed-payload binding.
@@ -80,7 +95,7 @@ remain #100 work. An agent must not fall back to ambient credentials.
 | --- | --- | --- |
 | Edit files in `/draft` | Default snapshot has no history; opt-in Git workspace has isolated history | `test_local_runner.py` |
 | Literal `git fetch` / `git push` | No CLI-compatible agent transport yet | `test_local_runner.py`; Git grants require opt-in Git mode |
-| Normalized host `git_push` | Requires bytes from a trusted verified stage; active capture is wired, in-run verification is unfinished | `test_verified_stage.py`, `test_github_git_transport.py` |
+| Normalized host `git_push` | Requires bytes from a trusted verified stage; active capture and a separate credential-free worker exist, end-to-end delivery unverified | `test_bundle_verifier.py`, `test_verified_stage.py`, `test_github_git_transport.py` |
 | Literal `gh pr` / `gh issue` / `gh run` | Unsupported; no CLI-compatible adapter yet | Client accepts JSON only; unsupported operations fail in `test_github_mediation.py` |
 | Normalized PR create/update | Granted branch/PR/base/marker checks, with provider target verification | `test_github_mediation.py`, `test_github_rest_transport.py` |
 | Bound PR readback | Granted PR number, repository, branch and base; title/body and actual head SHA returned | `test_github_mediation.py`, `test_github_rest_transport.py`; synthetic transport only |
