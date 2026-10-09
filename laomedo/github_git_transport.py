@@ -8,6 +8,7 @@ uncertain effects: never automatically retry them.
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 import os
 from pathlib import Path
 import re
@@ -157,7 +158,8 @@ class GitHubGitTransport:
     """Push a locally present commit to a new remote branch, without host login."""
 
     def __init__(self, repository: str, checkout: str | Path, baseline: str,
-                 token_supplier, *, run=subprocess.run):
+                 token_supplier, *, run=subprocess.run,
+                 require_verified_stage: bool = False):
         if not isinstance(repository, str) or not _REPOSITORY.fullmatch(repository):
             raise ValueError("repository_invalid")
         if not isinstance(baseline, str) or not _SHA.fullmatch(baseline):
@@ -171,6 +173,7 @@ class GitHubGitTransport:
         self.checkout = checkout
         self.baseline = baseline
         self.token_supplier = token_supplier
+        self.require_verified_stage = require_verified_stage
         self.run = _run_bounded_tree if run is subprocess.run else run
 
     def _run_git(self, directory: Path, *args: str, env: dict | None = None):
@@ -277,7 +280,8 @@ class GitHubGitTransport:
 
     def __call__(self, repository: str, operation: str, payload: dict, *,
                  connection_id: str | None = None,
-                 connection_generation: int | None = None) -> dict:
+                 connection_generation: int | None = None,
+                 verified_stage=None) -> dict:
         if repository != self.repository:
             raise KnownRejected("repository_denied")
         if operation != "git_push":
@@ -286,14 +290,16 @@ class GitHubGitTransport:
         if not isinstance(branch, str) or not branch or branch.startswith("refs/"):
             raise KnownRejected("push_branch_invalid")
         ref = "refs/heads/" + branch
-        try:
-            branch_valid = self._git("check-ref-format", ref).returncode == 0
-        except subprocess.TimeoutExpired:
-            branch_valid = False
-        if not branch_valid:
-            raise KnownRejected("push_branch_invalid")
         if not isinstance(commit, str) or not _SHA.fullmatch(commit):
             raise KnownRejected("push_commit_unverified")
+        if self.require_verified_stage and verified_stage is None:
+            raise KnownRejected("push_stage_required")
+        if verified_stage is not None and (
+                verified_stage.repository != repository or
+                verified_stage.branch != branch or
+                verified_stage.commit != commit or
+                verified_stage.baseline != self.baseline):
+            raise KnownRejected("push_stage_scope_mismatch")
         if not isinstance(connection_id, str) or not connection_id or \
                 type(connection_generation) is not int or connection_generation < 1:
             raise KnownRejected("connection_binding_required")
@@ -302,11 +308,32 @@ class GitHubGitTransport:
         # replace refs or alternates there can describe different objects from
         # those sent by upload-pack. Classify the very staging repository that
         # will push, and do not expose the provider token during the fetch.
-        with tempfile.TemporaryDirectory(prefix="laomedo-git-push-") as scratch:
-            bare = Path(scratch)
-            if not self._stage(bare, commit) or \
-                    self._classify_staged(bare, commit) is not False:
-                raise KnownRejected("push_commit_unverified")
+        with ExitStack() as stack:
+            if verified_stage is None:
+                bare = Path(stack.enter_context(tempfile.TemporaryDirectory(
+                    prefix="laomedo-git-push-")))
+                if not self._stage(bare, commit) or \
+                        self._classify_staged(bare, commit) is not False:
+                    raise KnownRejected("push_commit_unverified")
+            else:
+                # Local import and classification use the exact same bare
+                # repository that the push below sends. Never fetch checkout
+                # objects after a verified snapshot has been supplied.
+                from .verified_git_stage import (stage_verified_git,
+                                                 VerifiedGitStageError)
+                try:
+                    staged = stack.enter_context(stage_verified_git(verified_stage))
+                    if staged.classify_workflow_change() is not False:
+                        raise KnownRejected("workflow_approval_required")
+                except VerifiedGitStageError as error:
+                    raise KnownRejected("push_stage_invalid") from error
+                bare = staged.bare
+            try:
+                branch_valid = self._run_git(bare, "check-ref-format", ref).returncode == 0
+            except subprocess.TimeoutExpired:
+                branch_valid = False
+            if not branch_valid:
+                raise KnownRejected("push_branch_invalid")
             try:
                 token = self.token_supplier(connection_id, connection_generation)
             except (KeyError, TypeError, ValueError):
@@ -333,7 +360,10 @@ class GitHubGitTransport:
             raise PushOutcomeUnknown(_push_failure_category(pushed.stderr,
                                                              pushed.stdout),
                                      pushed.returncode)
-        return {"branch": branch, "commit": commit}
+        result = {"branch": branch, "commit": commit}
+        if verified_stage is not None:
+            result["stage_digest"] = verified_stage.stage_digest
+        return result
 
 
 class GitHubMediatedTransport:

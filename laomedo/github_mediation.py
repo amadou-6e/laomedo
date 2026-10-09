@@ -126,7 +126,9 @@ class MediationStore:
 
     def __init__(self, path: str | Path, *, now: Callable[[], float] = time.time,
                  monotonic: Callable[[], float] = time.monotonic,
-                 workflow_change_classifier=None, connection_is_current=None):
+                 workflow_change_classifier=None, connection_is_current=None,
+                 verified_stage_resolver=None,
+                 verified_workflow_classifier=None):
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
             raise MediationError("store_path_invalid")
@@ -138,6 +140,8 @@ class MediationStore:
         self.now = now
         self.monotonic = monotonic
         self.workflow_change_classifier = workflow_change_classifier
+        self.verified_stage_resolver = verified_stage_resolver
+        self.verified_workflow_classifier = verified_workflow_classifier
         self.connection_is_current = connection_is_current
         with closing(self._connect()) as db, db:
             db.executescript("""
@@ -157,6 +161,7 @@ class MediationStore:
                     result_json TEXT, error_code TEXT,
                     grant_id TEXT, invocation_id TEXT,
                     approval_identity TEXT,
+                    payload_hash TEXT, stage_digest TEXT,
                     PRIMARY KEY(run_id,effect_id));
                 CREATE TABLE IF NOT EXISTS retry_approvals (
                     prior_run_id TEXT NOT NULL, prior_effect_id TEXT NOT NULL,
@@ -183,7 +188,8 @@ class MediationStore:
             if "expires_monotonic" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN expires_monotonic REAL")
             effect_columns = {row[1] for row in db.execute("PRAGMA table_info(effects)")}
-            for name in ("grant_id", "invocation_id", "approval_identity"):
+            for name in ("grant_id", "invocation_id", "approval_identity",
+                         "payload_hash", "stage_digest"):
                 if name not in effect_columns:
                     db.execute(f"ALTER TABLE effects ADD COLUMN {name} TEXT")
             # An old grant has no monotonic proof of its remaining lifetime.
@@ -415,7 +421,8 @@ class MediationStore:
         if operation in WRITES:
             if not isinstance(effect_id, str) or not 0 < len(effect_id) <= 128:
                 raise MediationError("effect_id_required")
-        digest = _request_hash(repository, operation, payload)
+        payload_hash = _request_hash(repository, operation, payload)
+        verified_stage = None
         changes_workflow = None
         if operation == "git_push":
             # A Git fetch may take longer than SQLite's busy timeout. Verify
@@ -425,12 +432,45 @@ class MediationStore:
                 preflight_grant = self._grant(preflight_db, token, repository, operation)
                 if payload.get("branch") != preflight_grant["branch"]:
                     raise MediationError("push_branch_denied")
-            if self.workflow_change_classifier is not None:
+                if self.verified_stage_resolver is not None:
+                    prior = preflight_db.execute(
+                        "SELECT * FROM effects WHERE run_id=? AND effect_id=?",
+                        (preflight_grant["run_id"], effect_id)).fetchone()
+                    if prior is not None and prior["payload_hash"] is not None:
+                        if prior["payload_hash"] != payload_hash:
+                            raise MediationError("effect_conflict")
+                        # A confirmed or uncertain effect is never sent again,
+                        # even if its original stage files were later removed.
+                        if prior["state"] == "confirmed":
+                            return {"state": "confirmed", "resent": False,
+                                    "result": json.loads(prior["result_json"])}
+                        if prior["state"] == "rejected":
+                            return {"state": "rejected", "resent": False,
+                                    "error": prior["error_code"]}
+                        return {"state": "unknown", "resent": False}
+            if self.verified_stage_resolver is not None:
+                try:
+                    verified_stage = self.verified_stage_resolver(
+                        preflight_grant, repository, payload)
+                    if (verified_stage.run_id != preflight_grant["run_id"] or
+                            verified_stage.repository != repository or
+                            verified_stage.branch != preflight_grant["branch"] or
+                            verified_stage.commit != payload.get("commit") or
+                            self.verified_workflow_classifier is None):
+                        raise ValueError("stage_binding_mismatch")
+                    changes_workflow = self.verified_workflow_classifier(
+                        verified_stage)
+                except Exception as error:
+                    raise MediationError("push_stage_unverified") from error
+            elif self.workflow_change_classifier is not None:
                 try:
                     changes_workflow = self.workflow_change_classifier(
                         repository, payload.get("branch"), payload.get("commit"))
                 except Exception:
                     pass
+        digest = _request_hash(repository, operation,
+            {**payload, "_verified_stage_digest": verified_stage.stage_digest}
+            if verified_stage is not None else payload)
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             grant = self._grant(db, token, repository, operation)
@@ -473,20 +513,28 @@ class MediationStore:
                                (self.now(), grant["run_id"], effect_id))
                 db.execute("""INSERT INTO effects
                     (run_id,effect_id,request_hash,repository,operation,target_key,
-                     state,result_json,error_code,grant_id,invocation_id,approval_identity)
-                    VALUES (?,?,?,?,?,?,'unknown',NULL,NULL,?,?,?)""",
+                     state,result_json,error_code,grant_id,invocation_id,
+                     approval_identity,payload_hash,stage_digest)
+                    VALUES (?,?,?,?,?,?,'unknown',NULL,NULL,?,?,?,?,?)""",
                            (grant["run_id"], effect_id, digest, repository,
                             operation, target_key, grant["grant_id"],
-                            grant["invocation_id"], grant["approval_identity"]))
+                            grant["invocation_id"], grant["approval_identity"],
+                            payload_hash if verified_stage is not None else None,
+                            verified_stage.stage_digest if verified_stage is not None
+                            else None))
         # The intent is committed before entering the untrusted remote call.
         # After any ambiguous failure, an exact repeat returns unknown.
         try:
             if grant["connection_id"] is None:
-                result = transport(repository, operation, payload)
-            else:
                 result = transport(repository, operation, payload,
-                                   connection_id=grant["connection_id"],
-                                   connection_generation=grant["connection_generation"])
+                    verified_stage=verified_stage) if verified_stage is not None else \
+                    transport(repository, operation, payload)
+            else:
+                binding = {"connection_id": grant["connection_id"],
+                           "connection_generation": grant["connection_generation"]}
+                if verified_stage is not None:
+                    binding["verified_stage"] = verified_stage
+                result = transport(repository, operation, payload, **binding)
             if not isinstance(result, dict):
                 raise ValueError("transport_result_invalid")
         except KnownRejected as error:

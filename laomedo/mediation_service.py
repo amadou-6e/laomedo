@@ -22,6 +22,8 @@ from .github_git_transport import (GitHubGitTransport, GitHubMediatedTransport,
 from .github_rest_transport import GitHubRestTransport
 from .host_token_connection import HostTokenConnection
 from .lease_service import _handler
+from .verified_git_stage import (make_grant_stage_resolver,
+                                 classify_verified_workflow)
 
 
 class MediationHTTPService:
@@ -85,11 +87,15 @@ def main() -> None:
                         help="pinned baseline SHA for workflow-file classification")
     parser.add_argument("--agent-mount", type=Path, required=True,
                         help="source tree mounted or copied into the agent")
+    parser.add_argument("--runner-state", type=Path)
+    parser.add_argument("--private-stage", type=Path)
     parser.add_argument("--connection-id", required=True)
     parser.add_argument("--connection-generation", type=int, required=True)
     parser.add_argument("--token-file", type=Path, required=True)
     parser.add_argument("--token-key", default="GH")
     args = parser.parse_args()
+    if (args.runner_state is None) != (args.private_stage is None):
+        parser.error("both --runner-state and --private-stage are required together")
     state = args.state.resolve()
     state.mkdir(parents=True, exist_ok=True)
     connection = HostTokenConnection(
@@ -97,12 +103,18 @@ def main() -> None:
         generation=args.connection_generation,
         repository=args.repository, token_file=args.token_file,
         key=args.token_key, forbidden_mount=args.agent_mount)
+    resolver = (make_grant_stage_resolver(args.runner_state, args.private_stage,
+                                         args.agent_mount)
+                if args.runner_state is not None else None)
     git_transport = GitHubGitTransport(args.repository, args.checkout,
-                                       args.baseline, connection.token)
+                                       args.baseline, connection.token,
+                                       require_verified_stage=True)
     rest_transport = GitHubRestTransport(args.repository, connection.token)
     store = MediationStore(
         state / "mediator.sqlite",
-        workflow_change_classifier=git_transport.classify_workflow_diff,
+        verified_stage_resolver=resolver,
+        verified_workflow_classifier=(classify_verified_workflow
+                                      if resolver is not None else None),
         connection_is_current=connection.current)
     transport = GitHubMediatedTransport(git_transport, rest_transport)
     service = MediationHTTPService(

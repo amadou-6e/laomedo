@@ -17,6 +17,8 @@ from .bundle_stage import _single_bundle_commit, BundleStageError
 from .github_git_transport import (_base_git_environment, _run_bounded_tree,
                                    GIT_COMMAND_TIMEOUT_SECONDS)
 from .verified_stage import VerifiedStage
+from .verified_stage import resolve_verified_stage
+from .bundle_ingest import _bound_roots
 
 
 _COMMIT = re.compile(r"[0-9a-f]{40}\Z")
@@ -24,6 +26,30 @@ _COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 
 class VerifiedGitStageError(RuntimeError):
     """Local Git staging or classification failed before provider contact."""
+
+
+def make_grant_stage_resolver(runner_state: Path, private_root: Path,
+                              agent_mount: Path):
+    """Create a host-only resolver; the request never selects filesystem roots."""
+    runner_state, private_root = _bound_roots(Path(runner_state),
+                                               Path(private_root))
+    mounted = Path(agent_mount).resolve()
+    if (private_root == mounted or private_root.is_relative_to(mounted) or
+            mounted.is_relative_to(private_root)):
+        raise ValueError("stage_root_overlaps_agent_mount")
+
+    def resolve(grant, repository: str, payload: dict) -> VerifiedStage:
+        return resolve_verified_stage(
+            runner_state, private_root, run_id=grant["run_id"],
+            repository=repository, branch=grant["branch"],
+            commit=payload.get("commit"),
+            stage_attempt_id=payload.get("stage_attempt_id"))
+    return resolve
+
+
+def classify_verified_workflow(snapshot: VerifiedStage) -> bool:
+    with stage_verified_git(snapshot) as staged:
+        return staged.classify_workflow_change()
 
 
 class VerifiedGitStage:

@@ -15,6 +15,10 @@ from laomedo.verified_stage import VerifiedStageError, resolve_verified_stage
 from laomedo.verified_git_stage import (VerifiedGitStageError,
                                         stage_verified_git)
 from laomedo.github_git_transport import _run_bounded_tree
+from laomedo.github_git_transport import GitHubGitTransport
+from laomedo.github_mediation import MediationStore, MediationError, KnownRejected
+from laomedo.verified_git_stage import (make_grant_stage_resolver,
+                                        classify_verified_workflow)
 
 
 class VerifiedStageTests(unittest.TestCase):
@@ -269,3 +273,102 @@ class VerifiedStageTests(unittest.TestCase):
                                   VerifiedGitStageError):
                 with stage_verified_git(changed):
                     pass
+
+    def mediator(self, *, run_id="run-a", classifier=classify_verified_workflow):
+        store = MediationStore(
+            self.root / "effects.sqlite",
+            verified_stage_resolver=make_grant_stage_resolver(
+                self.runner, self.private, self.root / "agent-mount"),
+            verified_workflow_classifier=classifier)
+        _, token = store.issue(run_id=run_id, invocation_id="invocation-a",
+            repository="example/disposable", branch="run-branch",
+            operations={"git_push"}, ttl_seconds=60)
+        return store, token
+
+    def test_mediator_binds_snapshot_digest_and_never_redispatches(self):
+        store, token = self.mediator()
+        calls = []
+        payload = {"branch": "run-branch", "commit": self.commit,
+                   "stage_attempt_id": "attempt-1"}
+        def transport(repository, operation, outgoing, *, verified_stage):
+            calls.append((repository, operation, verified_stage.stage_digest))
+            self.verified.write_bytes(b"changed after preflight")
+            self.assertEqual(verified_stage.bundle_sha256, hashlib.sha256(
+                verified_stage.bundle).hexdigest())
+            return {"stage_digest": verified_stage.stage_digest}
+        result = store.invoke(token=token, repository="example/disposable",
+            operation="git_push", payload=payload, effect_id="effect-a",
+            transport=transport)
+        self.assertEqual(result["state"], "confirmed")
+        self.assertEqual(len(calls), 1)
+        effect = store.effect("run-a", "effect-a")
+        self.assertEqual(effect["state"], "confirmed")
+        # An exact repeat returns the saved outcome without rereading a
+        # changed/removed stage or sending a second provider request.
+        repeated = store.invoke(token=token, repository="example/disposable",
+            operation="git_push", payload=payload, effect_id="effect-a",
+            transport=transport)
+        self.assertEqual(repeated["state"], "confirmed")
+        with self.assertRaisesRegex(MediationError, "effect_conflict"):
+            store.invoke(token=token, repository="example/disposable",
+                operation="git_push",
+                payload={**payload, "stage_attempt_id": "attempt-2"},
+                effect_id="effect-a", transport=transport)
+        self.assertEqual(len(calls), 1)
+
+    def test_wrong_grant_or_workflow_change_never_journals_push(self):
+        payload = {"branch": "run-branch", "commit": self.commit,
+                   "stage_attempt_id": "attempt-1"}
+        for run, classifier in (("run-b", classify_verified_workflow),
+                                ("run-a", lambda _stage: True)):
+            with self.subTest(run=run, classifier=classifier):
+                if (self.root / "effects.sqlite").exists():
+                    (self.root / "effects.sqlite").unlink()
+                store, token = self.mediator(run_id=run, classifier=classifier)
+                calls = []
+                with self.assertRaises(MediationError):
+                    store.invoke(token=token, repository="example/disposable",
+                        operation="git_push", payload=payload, effect_id="effect-a",
+                        transport=lambda *_args, **_kwargs: calls.append(1))
+                self.assertEqual(calls, [])
+                self.assertIsNone(store.effect(run, "effect-a"))
+
+    def test_configured_transport_cannot_fallback_to_checkout(self):
+        supplied = []
+        transport = GitHubGitTransport("example/disposable", self.repo,
+            self.baseline, lambda *_args: supplied.append(1) or "unused",
+            require_verified_stage=True)
+        with self.assertRaisesRegex(KnownRejected, "push_stage_required"):
+            transport("example/disposable", "git_push",
+                {"branch": "run-branch", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(supplied, [])
+
+    def test_synthetic_push_classifies_and_sends_same_bare_repository(self):
+        snapshot = self.resolve()
+        seen = []
+        def fake_git(args, **options):
+            if "push" not in args:
+                return _run_bounded_tree(args, **options)
+            bare = Path(args[args.index("-C") + 1])
+            verified = subprocess.run(
+                ["git", "-C", str(bare), "rev-parse", "refs/stage/validated"],
+                capture_output=True, check=True).stdout.strip()
+            self.assertEqual(verified, snapshot.commit.encode())
+            seen.append((bare, args))
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        credentials = []
+        transport = GitHubGitTransport("example/disposable", self.repo,
+            self.baseline, lambda *_args: credentials.append(1) or "synthetic-only",
+            run=fake_git, require_verified_stage=True)
+        transport._stage = lambda *_args: self.fail("checkout fallback used")
+        self.verified.write_bytes(b"changed after resolution")
+        result = transport("example/disposable", "git_push",
+            {"branch": "run-branch", "commit": self.commit,
+             "stage_attempt_id": "attempt-1"},
+            connection_id="connection-a", connection_generation=1,
+            verified_stage=snapshot)
+        self.assertEqual(result["stage_digest"], snapshot.stage_digest)
+        self.assertEqual(credentials, [1])
+        self.assertEqual(len(seen), 1)
+        self.assertFalse(seen[0][0].exists())
