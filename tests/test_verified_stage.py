@@ -1,6 +1,7 @@
 """Credential-free local checks for a grant-bound verified bundle snapshot."""
 
 import hashlib
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,8 @@ import unittest
 from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
 from laomedo.bundle_stage import PINNED_IMAGE_ID
 from laomedo.verified_stage import VerifiedStageError, resolve_verified_stage
+from laomedo.verified_git_stage import (VerifiedGitStageError,
+                                        stage_verified_git)
 
 
 class VerifiedStageTests(unittest.TestCase):
@@ -198,3 +201,55 @@ class VerifiedStageTests(unittest.TestCase):
         second = self.resolve(stage_attempt_id="attempt-2")
         self.assertNotEqual(first.stage_digest, second.stage_digest)
         self.assertEqual(first.bundle_sha256, second.bundle_sha256)
+
+    def test_snapshot_is_the_only_git_object_source(self):
+        snapshot = self.resolve()
+        self.verified.write_bytes(b"changed on host after resolution")
+        (self.repo / "change").write_text("changed by agent", encoding="ascii")
+        with stage_verified_git(snapshot) as staged:
+            self.assertFalse(staged.classify_workflow_change())
+            self.assertEqual(staged.git("cat-file", "-t", snapshot.commit).stdout.strip(),
+                             b"commit")
+            self.assertTrue(staged.bare.is_dir())
+        self.assertFalse(staged.bare.exists())
+
+    def test_workflow_change_and_missing_baseline_are_distinguished(self):
+        snapshot = self.resolve()
+        workflow = self.repo / ".github" / "workflows" / "test.yml"
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text("name: test\n", encoding="ascii")
+        self.git("add", ".github/workflows/test.yml")
+        self.git("-c", "user.name=Test", "-c", "user.email=t@example.invalid",
+                 "commit", "--quiet", "-m", "workflow")
+        changed_commit = self.git("rev-parse", "HEAD")
+        self.git("branch", "-f", "validated", changed_commit)
+        changed_bundle = self.root / "changed.bundle"
+        self.git("bundle", "create", str(changed_bundle), "refs/heads/validated")
+        payload = changed_bundle.read_bytes()
+        changed = replace(snapshot, commit=changed_commit, bundle=payload,
+                          bundle_sha256=hashlib.sha256(payload).hexdigest())
+        with stage_verified_git(changed) as staged:
+            self.assertTrue(staged.classify_workflow_change())
+        with stage_verified_git(replace(snapshot, baseline="0" * 40)) as staged:
+            with self.assertRaises(VerifiedGitStageError):
+                staged.classify_workflow_change()
+
+    def test_bad_bundle_identity_or_integrity_refuses(self):
+        snapshot = self.resolve()
+        invalid = [
+            replace(snapshot, commit="0" * 40),
+            replace(snapshot, bundle=snapshot.bundle + b"tamper"),
+            replace(snapshot, bundle=snapshot.bundle[:-20],
+                    bundle_sha256=hashlib.sha256(
+                        snapshot.bundle[:-20]).hexdigest()),
+        ]
+        alternate = snapshot.bundle.replace(b"refs/heads/validated",
+                                            b"refs/heads/untrusted", 1)
+        invalid.append(replace(snapshot, bundle=alternate,
+                               bundle_sha256=hashlib.sha256(alternate).hexdigest()))
+        for changed in invalid:
+            with self.subTest(commit=changed.commit,
+                              length=len(changed.bundle)), self.assertRaises(
+                                  VerifiedGitStageError):
+                with stage_verified_git(changed):
+                    pass
