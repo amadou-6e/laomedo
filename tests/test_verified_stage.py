@@ -14,6 +14,7 @@ from laomedo.bundle_stage import PINNED_IMAGE_ID
 from laomedo.verified_stage import VerifiedStageError, resolve_verified_stage
 from laomedo.verified_git_stage import (VerifiedGitStageError,
                                         stage_verified_git)
+from laomedo.github_git_transport import _run_bounded_tree
 
 
 class VerifiedStageTests(unittest.TestCase):
@@ -208,10 +209,25 @@ class VerifiedStageTests(unittest.TestCase):
         (self.repo / "change").write_text("changed by agent", encoding="ascii")
         with stage_verified_git(snapshot) as staged:
             self.assertFalse(staged.classify_workflow_change())
+            self.assertEqual(staged.git("rev-parse", "refs/stage/validated").stdout.strip(),
+                             snapshot.commit.encode())
             self.assertEqual(staged.git("cat-file", "-t", snapshot.commit).stdout.strip(),
                              b"commit")
             self.assertTrue(staged.bare.is_dir())
         self.assertFalse(staged.bare.exists())
+
+    def test_connectivity_check_rejects_a_broken_anchored_ref(self):
+        snapshot = self.resolve()
+        def inject_broken_ref(args, **options):
+            if "fsck" in args:
+                bare = Path(args[args.index("-C") + 1])
+                broken = bare / "refs" / "stage" / "broken"
+                broken.parent.mkdir(parents=True, exist_ok=True)
+                broken.write_text("0" * 40 + "\n", encoding="ascii")
+            return _run_bounded_tree(args, **options)
+        with self.assertRaises(VerifiedGitStageError):
+            with stage_verified_git(snapshot, run=inject_broken_ref):
+                pass
 
     def test_workflow_change_and_missing_baseline_are_distinguished(self):
         snapshot = self.resolve()

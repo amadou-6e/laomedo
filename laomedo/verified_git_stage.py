@@ -98,7 +98,10 @@ def stage_verified_git(snapshot: VerifiedStage, *, run=_run_bounded_tree):
         try:
             if (stage.git("init", "--bare", "--quiet").returncode or
                     stage.git("fetch", "--no-tags", "--no-write-fetch-head",
-                              str(bundle), "refs/heads/validated").returncode or
+                              str(bundle),
+                              "refs/heads/validated:refs/stage/validated").returncode or
+                    stage.git("rev-parse", "refs/stage/validated").stdout.strip() !=
+                    snapshot.commit.encode("ascii") or
                     stage.git("fsck", "--full", "--strict", "--no-reflogs").returncode):
                 raise VerifiedGitStageError("stage_import_invalid")
         except (OSError, subprocess.TimeoutExpired) as error:
