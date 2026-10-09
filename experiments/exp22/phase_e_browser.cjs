@@ -42,13 +42,18 @@ async function main() {
       if (process.env.PHASE_G_JOIN === '1') {
         agent.data.node.template.code.value = fs.readFileSync(
           path.join(ROOT, 'components/laomedo/codex_agent.py'), 'utf8');
-        agent.data.node.template.bridge_url = {
-          ...agent.data.node.template.runner_url,
-          name: 'bridge_url', display_name: 'Join Bridge URL',
-          value: `http://host.docker.internal:${Number(runnerPortArg)}`,
-        };
-        agent.data.node.field_order.splice(
-          agent.data.node.field_order.indexOf('runner_url') + 1, 0, 'bridge_url');
+        if (!agent.data.node.template.bridge_url) {
+          agent.data.node.template.bridge_url = {
+            ...agent.data.node.template.runner_url,
+            name: 'bridge_url', display_name: 'Join Bridge URL', value: '',
+          };
+        }
+        agent.data.node.template.bridge_url.value =
+          `http://host.docker.internal:${Number(runnerPortArg)}`;
+        if (!agent.data.node.field_order.includes('bridge_url')) {
+          agent.data.node.field_order.splice(
+            agent.data.node.field_order.indexOf('runner_url') + 1, 0, 'bridge_url');
+        }
       }
       skill.data.node.template.skill_id.value = 'laomedo-pilot';
       skill.data.node.template.revision_id.value = revision;
