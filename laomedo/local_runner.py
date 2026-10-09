@@ -119,8 +119,8 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     total_bytes = 0
     for parent, dirs, names in os.walk(path, followlinks=False):
         if exclude_root_git and Path(parent) == path:
-            dirs[:] = [name for name in dirs if name.casefold() != ".git"]
-            names = [name for name in names if name.casefold() != ".git"]
+            dirs[:] = [name for name in dirs if name != ".git"]
+            names = [name for name in names if name != ".git"]
         for name in dirs + names:
             item = Path(parent) / name
             if (item.is_symlink() or
@@ -162,7 +162,7 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
 def _copy_tree(source: Path, target: Path, *, exclude_root_git: bool = False) -> str:
     expected = _hash_tree(source, exclude_root_git=exclude_root_git)
     ignore = (lambda parent, names: {name for name in names
-               if Path(parent) == source and name.casefold() == ".git"}) if exclude_root_git else None
+               if Path(parent) == source and name == ".git"}) if exclude_root_git else None
     shutil.copytree(source, target, ignore=ignore)
     if _hash_tree(target) != expected:
         raise RunnerError("workspace_copy_mismatch")
@@ -799,8 +799,10 @@ class LocalRunner:
                                   provider_config=self.split_provider_config,
                                   access_token=(access_token if access_token is not None
                                                 else self.split_access_token))
+        # Launch the opt-in image by its verified ID, not a mutable local tag.
         command = ["docker", *_docker_prefix(
-            workspace, canonical, store_mount, image=self.image,
+            workspace, canonical, store_mount,
+            image=self.image_id if self.git_workspace else self.image,
             name=name, run_id=run_id,
             launch_token=launch_token, capability=capability,
             mediator_url=mediator_url,

@@ -16,7 +16,8 @@ from unittest.mock import Mock, patch
 from urllib import request as http_request, error as http_error
 
 from laomedo.local_runner import (AppServer, SplitAppServer, LocalRunner, RunnerError,
-                                  _docker_prefix, _hash_tree, _native_error_summary,
+                                  _docker_prefix, _hash_tree, _copy_tree,
+                                  _native_error_summary,
                                   serve)
 from laomedo.siwc_auth import AuthError
 from laomedo.skill_store import SkillStore
@@ -582,7 +583,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["workspace_mode"], "git")
         self.assertEqual(result["image"], "laomedo-codex-git:0.159.2")
-        self.assertIn("laomedo-codex-git:0.159.2", FakeServer.calls[-1])
+        self.assertIn("sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78", FakeServer.calls[-1])
         self.assertEqual(result["git_baseline"], baseline)
         self.assertEqual(result["post_run_hash_scope"], "working_files_only")
         run_dir = runner._run_dir(result["run_id"])
@@ -609,6 +610,20 @@ class LocalRunnerTests(unittest.TestCase):
             stream.truncate(65 * 1024 * 1024)
         with self.assertRaisesRegex(RunnerError, "git_workspace_snapshot_limit"):
             _hash_tree(root, exclude_root_git=True)
+
+    def test_git_snapshot_excludes_only_exact_metadata_directory(self):
+        root = self.root / "case-variant"
+        root.mkdir()
+        variant = root / ".GIT"
+        variant.mkdir()
+        payload = variant / "ordinary.txt"
+        payload.write_text("one", encoding="utf-8")
+        first = _hash_tree(root, exclude_root_git=True)
+        payload.write_text("two", encoding="utf-8")
+        self.assertNotEqual(first, _hash_tree(root, exclude_root_git=True))
+        copied = self.root / "case-variant-copy"
+        _copy_tree(root, copied, exclude_root_git=True)
+        self.assertEqual((copied / ".GIT" / "ordinary.txt").read_text(), "two")
 
     def auth_headers(self, *, content_type="application/json"):
         return {"Authorization": "Bearer " + self.runner.api_token,
