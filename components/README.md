@@ -72,11 +72,14 @@ been activated for the existing server. While a Stop intent is pending, a
 bridge status GET may reconcile the exact native request and send its cancel;
 it never starts another native request.
 
-The [installed credential-free check](../experiments/exp22/PHASE-G-JOIN-RESULTS.md)
-observed one visible Send and Stop through this service with a fake native
-runner, with zero model turns. A persistent Langflow database restart and a
-real Codex turn through the bridge remain necessary for #22. Do not treat the
-fake-runner result as production authentication or graph attestation.
+The [develop-based checks](../experiments/exp117/RESULTS.md) compose visible
+Stop with the durable host/native/Langflow join at both prepared and active
+points, including a disposable SQLite restart with no redispatch. The active
+probe retains an inconclusive classifier result plus a separately reviewed
+retrospective denied-read explanation. Earlier independent results remain
+archived. This bounded local observation does not attest the executing graph,
+production authentication or orphan cleanup. The service remains opt-in; no
+existing server is silently reconfigured.
 
 ## Checks
 
