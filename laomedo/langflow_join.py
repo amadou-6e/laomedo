@@ -98,7 +98,7 @@ class LangflowJoinController:
                 "executing_graph_verified": False}
 
     def status(self, client_request_id):
-        """Read one native status without dispatching or inferring completion."""
+        """Read native status; a pending Stop may reconcile and cancel exactly once."""
         client_request_id = _uuid(client_request_id, "invalid_client_request_id")
         snapshot = self._snapshot(client_request_id)
         if (snapshot is not None and snapshot["runner_run_id"] is None and

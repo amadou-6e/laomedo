@@ -68,7 +68,9 @@ hashes the saved-flow export, reserves the run before its native POST, and binds
 the client UUID, invocation, native request/run and trace. The saved export does
 not attest the executing editor graph. Stop persists by client UUID even when
 the first bridge acknowledgement is missing. The service is opt-in and has not
-been activated for the existing server.
+been activated for the existing server. While a Stop intent is pending, a
+bridge status GET may reconcile the exact native request and send its cancel;
+it never starts another native request.
 
 The [installed credential-free check](../experiments/exp22/PHASE-G-JOIN-RESULTS.md)
 observed one visible Send and Stop through this service with a fake native
