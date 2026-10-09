@@ -7,6 +7,7 @@ import unittest
 
 from laomedo.bundle_ingest import freeze_run_bundle, HANDOFF_NAME, _durable_json
 from laomedo.bundle_verifier import BundleVerifier
+from laomedo.bundle_stage import BundleStageError
 
 
 class BundleVerifierTests(unittest.TestCase):
@@ -73,6 +74,27 @@ class BundleVerifierTests(unittest.TestCase):
         (attempt / "verifier-claim.json").write_bytes(b"crashed-worker-claim")
         self.assertEqual(self.worker().scan_once(), [])
         self.assertEqual(self.calls, [])
+
+    def test_prejournal_rejection_is_recorded_without_retry(self):
+        worker = self.worker()
+        def refuse(*_args, **_kwargs):
+            raise BundleStageError("baseline_bundle_changed")
+        worker.verify = refuse
+        self.assertEqual(worker.scan_once()[0]["status"], "failed")
+        attempt = self.private / "run-a" / "attempt-a"
+        self.assertEqual(json.loads((attempt / "verification.json").read_bytes())["error_class"], "BundleStageError")
+        self.assertEqual(worker.scan_once(), [])
+
+    def test_unexpected_attempt_failure_does_not_abort_worker_scan(self):
+        freeze_run_bundle(self.runner, self.private, run_id="run-a", attempt_id="attempt-b")
+        worker = self.worker()
+        def broken(*_args, **_kwargs):
+            raise TypeError("synthetic-malformed-record")
+        worker.verify = broken
+        statuses = worker.scan_once()
+        self.assertEqual(len(statuses), 2)
+        self.assertEqual({item["status"] for item in statuses}, {"unknown"})
+        self.assertEqual(worker.scan_once(), [])
 
     def test_tampered_frozen_bytes_or_completed_run_never_reaches_stage(self):
         attempt = self.private / "run-a" / "attempt-a"

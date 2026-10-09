@@ -52,11 +52,23 @@ class BundleVerifier:
                                      "pid": os.getpid()}) + "\n").encode())
             claim.flush()
             os.fsync(claim.fileno())
-        result = self.verify(self.runner_state, self.private_root,
-            run_id=run_id, attempt_id=attempt_id,
-            baseline_bundle=self.baseline,
-            expected_baseline_sha256=self.baseline_sha256,
-            commit=frozen["advertised_commit"], image_id=PINNED_IMAGE_ID)
+        try:
+            result = self.verify(self.runner_state, self.private_root,
+                run_id=run_id, attempt_id=attempt_id,
+                baseline_bundle=self.baseline,
+                expected_baseline_sha256=self.baseline_sha256,
+                commit=frozen["advertised_commit"], image_id=PINNED_IMAGE_ID)
+        except Exception as failure:
+            journal = attempt / "verification.json"
+            if not journal.exists() and not journal.with_name(journal.name + ".pending").exists():
+                # Known validation rejection is pre-dispatch. Unexpected or
+                # partially journaled failure must not be called a safe retry.
+                result = {"run_id": run_id, "attempt_id": attempt_id,
+                          "status": "failed" if isinstance(failure, BundleStageError) else "unknown",
+                          "error_class": type(failure).__name__}
+                _durable_json(journal, result)
+                return result
+            raise
         try:
             _, after = _record(self.runner_state, run_id)
             unchanged = before == after
@@ -84,7 +96,7 @@ class BundleVerifier:
                     # Do not publish paths, untrusted text or provider secrets.
                     results.append({"run_id": run.name, "attempt_id": attempt.name,
                                     "status": result.get("status", "unknown")})
-                except (BundleStageError, BundleIngestError, OSError, ValueError):
+                except Exception:
                     # A not-yet-frozen attempt may become ready later. A
                     # verification.json reservation, however, is never retried.
                     continue

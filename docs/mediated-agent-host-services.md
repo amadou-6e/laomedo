@@ -75,6 +75,12 @@ verification identity is never rerun. It rechecks the active run binding
 afterward. `bundle_status` takes only a commit and stage attempt ID, checks
 the exact live grant and verified immutable bytes, and returns a digest rather
 than a host path or bundle. Polling status never schedules or retries work.
+Status remains `unknown` for pending, failed or partial verification. The
+agent must use its configured bounded wait and then report incomplete delivery,
+not invent success or automatically create another attempt. The verifier's
+own failure journal distinguishes pre-dispatch validation rejection from
+unexpected uncertainty. The resolver checks the live binding even if a
+worker died before rewriting a briefly verified outcome after a binding change.
 
 The worker must be independently started alongside the foreground host
 services; it is not an installed service manager. Its crash cleanup and
