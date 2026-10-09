@@ -30,6 +30,7 @@ _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 _OBJECT_ID = re.compile(rb"[0-9a-f]{40}\Z")
 SCRIPT = Path(__file__).parent / "resources" / "bundle_stage.sh"
+SCRIPT_LF_SHA256 = "5a7c32be96594c5a5ee3341f2870e85d83673860ec515996928e6badfb4368f5"
 PINNED_IMAGE_ID = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78"
 MEMORY_BYTES = 128 * 1024 * 1024
 MAX_OUTPUT_BYTES = 32 * 1024 * 1024
@@ -202,6 +203,17 @@ def _container_stage(attempt: Path, frozen: dict, image_id: str,
 
 def _locked_container_stage(attempt: Path, frozen: dict, image_id: str,
                             *, docker, export) -> dict:
+    # Git's clean checkout status does not attest effective line endings.
+    # Normalize only the trusted resource, hash-check it, and mount a private
+    # LF copy rather than a mutable checkout path or an agent-selected script.
+    script = SCRIPT.read_bytes().replace(b"\r\n", b"\n")
+    if hashlib.sha256(script).hexdigest() != SCRIPT_LF_SHA256:
+        raise BundleStageError("stage_script_changed")
+    staged_script = attempt / "verify.sh"
+    with staged_script.open("xb") as file:
+        file.write(script)
+        file.flush()
+        os.fsync(file.fileno())
     name = "laomedo-bundle-stage-" + secrets.token_hex(8)
     launch_token = secrets.token_hex(32)
     owner = {"name": name, "token": launch_token, "image_id": image_id}
@@ -215,7 +227,7 @@ def _locked_container_stage(attempt: Path, frozen: dict, image_id: str,
     try:
         mounts = [(attempt / "baseline.bundle", "/baseline.bundle"),
                   (attempt / "input.bundle", "/input.bundle"),
-                  (SCRIPT, "/verify.sh")]
+                  (staged_script, "/verify.sh")]
         args = ["docker", "create", "--name", name, "--label",
                 "laomedo.bundle-stage=" + name, "--label",
                 "laomedo.bundle-stage-token=" + launch_token,

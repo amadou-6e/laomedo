@@ -13,7 +13,7 @@ from laomedo.bundle_stage import (BundleStageError, MEMORY_BYTES, SCRIPT,
                                   PINNED_IMAGE_ID,
                                   _export_binary, _read_frozen,
                                   _single_bundle_commit,
-                                  verify_frozen_bundle)
+                                  verify_frozen_bundle, SCRIPT_LF_SHA256)
 
 
 IMAGE_ID = PINNED_IMAGE_ID
@@ -195,6 +195,10 @@ class BundleStageTests(unittest.TestCase):
         self.assertIn("target=/baseline.bundle,readonly", create)
         self.assertNotIn("GH_TOKEN", create)
         self.assertTrue(SCRIPT.is_file())
+        staged_script = self.private / "run-a" / "attempt-1" / "verify.sh"
+        self.assertNotIn(b"\r", staged_script.read_bytes())
+        self.assertEqual(hashlib.sha256(staged_script.read_bytes()).hexdigest(),
+                         SCRIPT_LF_SHA256)
         with self.assertRaisesRegex(BundleStageError,
                                     "verification_identity_consumed"):
             self._verify(docker, export)
