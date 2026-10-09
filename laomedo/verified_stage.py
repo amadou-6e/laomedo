@@ -6,7 +6,7 @@ repository and branch; no path from an agent request is consulted here.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 import os
@@ -16,7 +16,7 @@ import stat
 from .bundle_ingest import (_bound_roots, _record, _redirected,
                             BundleIngestError, MAX_RECORD_BYTES, _IDENTITY)
 from .bundle_stage import (_read_frozen, _single_bundle_commit,
-                           BundleStageError, MAX_OUTPUT_BYTES)
+                           BundleStageError, MAX_OUTPUT_BYTES, PINNED_IMAGE_ID)
 
 
 class VerifiedStageError(RuntimeError):
@@ -33,7 +33,7 @@ class VerifiedStage:
     commit: str
     bundle_sha256: str
     stage_digest: str
-    bundle: bytes
+    bundle: bytes = field(repr=False)
 
 
 def _read_regular(path: Path, limit: int) -> bytes:
@@ -97,6 +97,11 @@ def resolve_verified_stage(runner_state: Path, private_root: Path, *,
             verification.get("source_bundle_sha256") != frozen["bundle_sha256"] or
             verification.get("baseline") != binding["baseline"] or
             verification.get("commit") != commit or
+            verification.get("image_id") != PINNED_IMAGE_ID or
+            not isinstance(verification.get("baseline_bundle_sha256"), str) or
+            len(verification["baseline_bundle_sha256"]) != 64 or
+            any(character not in "0123456789abcdef" for character in
+                verification["baseline_bundle_sha256"]) or
             verification.get("policy_approved") is not False or
             container.get("status") != "verified" or
             container.get("cleanup_verified") is not True or

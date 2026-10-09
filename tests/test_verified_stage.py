@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
+from laomedo.bundle_stage import PINNED_IMAGE_ID
 from laomedo.verified_stage import VerifiedStageError, resolve_verified_stage
 
 
@@ -56,6 +57,8 @@ class VerifiedStageTests(unittest.TestCase):
             "run_id": "run-a", "attempt_id": "attempt-1",
             "status": "verified", "source_bundle_sha256": frozen["bundle_sha256"],
             "baseline": self.baseline, "commit": self.commit,
+            "image_id": PINNED_IMAGE_ID,
+            "baseline_bundle_sha256": "a" * 64,
             "policy_approved": False,
             "container": {"status": "verified", "cleanup_verified": True,
                           "success_marker_seen": True, "limits_verified": True,
@@ -83,6 +86,7 @@ class VerifiedStageTests(unittest.TestCase):
         self.assertEqual(stage.bundle, original)
         self.assertEqual(stage.bundle_sha256, hashlib.sha256(original).hexdigest())
         self.assertNotIn(str(self.private), repr(stage))
+        self.assertNotIn(repr(original), repr(stage))
         with self.assertRaises(VerifiedStageError):
             self.resolve()
 
@@ -105,7 +109,16 @@ class VerifiedStageTests(unittest.TestCase):
 
     def test_unverified_or_unclean_attempt_refuses(self):
         for section, key, value in (("top", "status", "unknown"),
+                                    ("top", "run_id", "run-b"),
+                                    ("top", "attempt_id", "attempt-2"),
+                                    ("top", "policy_approved", True),
+                                    ("top", "image_id", "sha256:" + "0" * 64),
+                                    ("top", "baseline_bundle_sha256", "bad"),
                                     ("container", "cleanup_verified", False),
+                                    ("container", "success_marker_seen", False),
+                                    ("container", "limits_verified", False),
+                                    ("container", "export_class", "failed"),
+                                    ("container", "output_bytes", 0),
                                     ("container", "output_sha256", "0" * 64),
                                     ("top", "source_bundle_sha256", "0" * 64)):
             original = self.verification.read_bytes()
@@ -126,6 +139,48 @@ class VerifiedStageTests(unittest.TestCase):
         self.verified.write_bytes(b"x" * (32 * 1024 * 1024 + 1))
         with self.assertRaises(VerifiedStageError):
             self.resolve()
+
+    def test_symlinked_stage_files_refuse(self):
+        for target in (self.verification, self.verified):
+            original = target.read_bytes()
+            other = self.root / "other-file"
+            other.write_bytes(original)
+            target.unlink()
+            try:
+                target.symlink_to(other)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable")
+            with self.assertRaises(VerifiedStageError):
+                self.resolve()
+            target.unlink()
+            target.write_bytes(original)
+            other.unlink()
+
+    def test_real_second_run_cannot_be_reached_by_first_run_scope(self):
+        other = self.runner / "runs" / "run-b"
+        (other / "workspace").mkdir(parents=True)
+        record = json.loads(self.record.read_text())
+        record["run_id"] = "run-b"
+        (other / "record.json").write_text(json.dumps(record))
+        second_home = self.private / "run-b" / "exclusive-b"
+        second_home.mkdir(parents=True)
+        frozen = json.loads((self.attempt / "result.json").read_text())
+        frozen["run_id"] = "run-b"
+        frozen["attempt_id"] = "exclusive-b"
+        frozen["run_record_sha256"] = hashlib.sha256(
+            (other / "record.json").read_bytes()).hexdigest()
+        (second_home / "result.json").write_text(json.dumps(frozen))
+        (second_home / "input.bundle").write_bytes(
+            (self.attempt / "input.bundle").read_bytes())
+        (second_home / "verified.bundle").write_bytes(self.verified.read_bytes())
+        verification = json.loads(self.verification.read_text())
+        verification.update(run_id="run-b", attempt_id="exclusive-b")
+        (second_home / "verification.json").write_text(json.dumps(verification))
+        other_stage = self.resolve(run_id="run-b", stage_attempt_id="exclusive-b")
+        self.assertEqual(other_stage.run_id, "run-b")
+        # The first run grant cannot reach the other run's unique attempt.
+        with self.assertRaises(VerifiedStageError):
+            self.resolve(stage_attempt_id="exclusive-b")
 
     def test_distinct_attempt_changes_stage_digest(self):
         first = self.resolve()
