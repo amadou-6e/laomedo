@@ -31,6 +31,11 @@ a new empty directory, using the shared 12-entry ledger, initially 8/12:
    absent delayed sentinel and preserved partial events. Reopen the exact host
    binding and one linked Langflow trace after restarting disposable Langflow.
 
+Require a cancelled host projection, no runner_failure receipt, exactly one
+dispatch_started and one runner_cancel receipt. Reserve only at expected shared
+counts 8 (pre-thread) and 9 (active); record case kind and refuse repeats or
+out-of-order invocation. Pre-thread container non-launch is record-based.
+
 Exactly one Send and one native runner start per case; no automatic redispatch.
 The pre-thread case is designed to submit zero native model calls, but still
 reserves an entry conservatively. At most one actual model turn in this protocol;

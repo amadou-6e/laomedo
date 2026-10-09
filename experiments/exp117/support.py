@@ -146,7 +146,7 @@ def _audit_requests(server, path):
     server.RequestHandlerClass = AuditedHandler
 
 
-def _reserve(state, attempt_id=None, result=None):
+def _reserve(state, attempt_id=None, result=None, *, expected_count=None, case_kind=None):
     """Use the shared lock and cap, preserving all historical entries."""
     lock = LEDGER.with_suffix(".lock")
     descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -156,11 +156,17 @@ def _reserve(state, attempt_id=None, result=None):
         if ledger.get("cap") != CAP or len(ledger.get("attempts", [])) < 4:
             raise RuntimeError("extended_ledger_unavailable")
         if attempt_id is None:
+            if case_kind not in {"prethread", "active"} or expected_count != {"prethread": 8, "active": 9}[case_kind]:
+                raise RuntimeError("verification_case_invalid")
+            if len(ledger["attempts"]) != expected_count:
+                raise RuntimeError("verification_case_already_used_or_out_of_order")
+            if any(item.get("case_kind") == case_kind for item in ledger["attempts"]):
+                raise RuntimeError("verification_case_already_used")
             if len(ledger["attempts"]) >= CAP:
                 raise RuntimeError("extended_ledger_exhausted")
             attempt_id = uuid4().hex
             ledger["attempts"].append({"id": attempt_id, "state_dir": str(state),
-                                       "submitted_at": time.time(),
+                                       "submitted_at": time.time(), "case_kind": case_kind,
                                        "result": "submitted_unknown"})
         else:
             matches = [item for item in ledger["attempts"] if item.get("id") == attempt_id]

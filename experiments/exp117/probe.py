@@ -184,7 +184,7 @@ def main():
         bridge_thread.start()
         pins = {"implementation": subprocess.check_output(
                     ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-                "protocol": _hash(PROTOCOL), "task": _hash(TASK),
+                "protocol": _hash(PROTOCOL), "task": _hash(ROOT / "experiments/exp117/PHASE-F-TASK.txt" if args.prethread else TASK),
                 "browser": _hash(BROWSER),
                 "flow": _hash(ROOT / "examples/native-codex-node/flow.json"),
                 "component_code": component_pins,
@@ -215,7 +215,8 @@ def main():
             (state / "sanitized.json").write_text(json.dumps(summary, indent=2))
             print(json.dumps(summary))
             return
-        attempt_id, used = _reserve(state)
+        attempt_id, used = _reserve(state, expected_count=8 if args.prethread else 9,
+                                    case_kind="prethread" if args.prethread else "active")
         category = "submitted_unknown"
         browser_log = (state / "browser.log").open("w", encoding="utf-8")
         base[2] = "run"
@@ -314,7 +315,12 @@ def main():
             bridge_cancels[0]["at_epoch_seconds"] <=
             cancels[0]["at_epoch_seconds"] < terminal_seen_at <
             observed["context_close_begin_epoch"])
-        passed = (browser.returncode == 0 and observed.get("send_clicked") and
+        receipt_kinds = [receipt["kind"] for receipt in host_trace["receipts"]] if host_trace else []
+        host_terminal_clean = bool(host_trace and host_trace["run_status"] == "cancelled"
+            and "runner_failure" not in receipt_kinds
+            and receipt_kinds.count("dispatch_started") == 1
+            and receipt_kinds.count("runner_cancel") == 1)
+        passed = (host_terminal_clean and browser.returncode == 0 and observed.get("send_clicked") and
                   observed.get("stop_clicked") and attribution and
                   (long_started or args.prethread) and
                   bridge_attribution and
@@ -347,8 +353,10 @@ def main():
                    "native_completion_statuses": native,
                    "raw_event_count": len(events),
                    "raw_event_sha256": _hash(raw) if raw.exists() else None,
-                   "exact_container_absent": _owned_container_absent(final) if not args.prethread else
-                       not final.get("container_ownership"),
+                   "exact_container_absent": _owned_container_absent(final) if not args.prethread else None,
+                   "container_never_launched_record_based": not final.get("container_ownership") if args.prethread else None,
+                   "host_terminal_clean": host_terminal_clean,
+                   "host_receipt_kinds": receipt_kinds,
                    "prethread": args.prethread,
                    "thread_id_absent": not final.get("thread_id"),
                    "runner_turn_ledger_absent": not (state / "runner/turn-ledger.json").exists(),
