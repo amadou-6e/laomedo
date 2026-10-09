@@ -5,7 +5,8 @@ Executed once on 2026-10-09 after independent pre-run approval posted on PR #124
 Source `f5b2e9a257fe59e3f281300358d209c41546b76a`, pre-run record
 `029c9e0`, amendment `44a6d238`, merged governing specs
 `86d6fcff5c6d51e6ad106daf59f3f7036c7f9e8b`. Protocol and source preceded
-execution. No case retry, model turn, GitHub request or provider write occurred.
+execution. No case retry or model turn occurred. The probe has no GitHub request
+or provider-write path and no credentials; outbound traffic was not captured.
 
 ## Observations
 
@@ -59,7 +60,8 @@ paths; only synthetic fixtures, component code and generated IDs are retained.
 - The worker had default bridge outbound access, a loopback-published port and
   no credentials. Langflow telemetry was not explicitly disabled. The source
   directory was mounted read-only, including any cached bytecode; the pinned
-  image used Python 3.14, unlike the local test Python 3.12.
+  image used Python 3.14 according to a coordinator build-only observation,
+  not a field captured by S1, unlike the local test Python 3.12.
 - Flow JSON was captured after Graph.from_payload, so it may contain mutations
   of the original construction payload. It is nevertheless hashed before arun
   and captured unchanged. Synthetic node ingress is not authenticated; no
