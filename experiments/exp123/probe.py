@@ -178,6 +178,46 @@ def run_case(name, captures):
     return final, assess(name, final)
 
 
+def validate_capture(cases, journal, flows):
+    """Reject summaries that cannot be reconstructed from captured bytes."""
+    rows = [json.loads(line) for line in journal.splitlines()]
+    if [row["sequence"] for row in rows] != list(range(1, len(rows) + 1)):
+        raise AssertionError("journal_sequence")
+    for name, case in cases.items():
+        run = case["raw"]["run_id"]
+        recorded = [row for row in rows if row["run_id"] == run]
+        if recorded != case["raw"]["events"]:
+            raise AssertionError("journal_snapshot_mismatch")
+        started = [row for row in recorded if row["kind"] == "graph_started"]
+        if len(started) != 1 or hashlib.sha256(flows[name]).hexdigest() != started[0]["graph_sha256"]:
+            raise AssertionError("flow_snapshot_mismatch")
+        if assess(name, case["raw"]) != case["assessment"]:
+            raise AssertionError("assessment_mismatch")
+
+
+def owned_container():
+    entries = json.loads(docker("inspect", NAME))
+    item = entries[0]
+    if (len(entries) != 1 or item["Name"] != "/" + NAME or
+            (item["Config"].get("Labels") or {}).get("laomedo.exp123") != "S1"):
+        raise RuntimeError("container_ownership_unverified")
+    return item["Id"]
+
+
+def cleanup_owned():
+    """Never remove a name-matching resource without checking its label."""
+    if docker("ps", "-a", "--filter", "name=^" + NAME + "$", "--format", "{{.Names}}"):
+        docker("rm", "--force", owned_container())
+    volumes = json.loads(docker("volume", "inspect", NAME))
+    if (len(volumes) != 1 or volumes[0]["Name"] != NAME or
+            (volumes[0].get("Labels") or {}).get("laomedo.exp123") != "S1"):
+        raise RuntimeError("volume_ownership_unverified")
+    docker("volume", "rm", NAME)
+    if (docker("ps", "-a", "--filter", "name=^" + NAME + "$", "--format", "{{.Names}}") or
+            docker("volume", "ls", "--filter", "name=^" + NAME + "$", "--format", "{{.Name}}")):
+        raise RuntimeError("cleanup_not_verified")
+
+
 def main(source_commit):
     if not re_full_sha(source_commit):
         raise ValueError("source_commit_invalid")
@@ -202,7 +242,7 @@ def main(source_commit):
         if docker("ps", "-a", "--filter", "name=^" + NAME + "$", "--format", "{{.Names}}") or docker(
             "volume", "ls", "--filter", "name=^" + NAME + "$", "--format", "{{.Name}}"):
             raise RuntimeError("disposable_identity_in_use")
-        docker("volume", "create", NAME)
+        docker("volume", "create", "--label", "laomedo.exp123=S1", NAME)
         owned = True
         docker("run", "--rm", "--network", "none", "--user", "0", "-v", NAME + ":/state",
                "--entrypoint", "chown", IMAGE, "1000:0", "/state")
@@ -222,24 +262,42 @@ def main(source_commit):
         report["error_class"] = type(failure).__name__
         report["error"] = str(failure)[:1000]
     finally:
-        evidence = HERE / "evidence" / "S1"
-        evidence.mkdir(parents=True, exist_ok=False)
-        if owned:
-            journal = subprocess.run(["docker", "exec", NAME, "cat", "/state/journal.jsonl"],
-                                     capture_output=True, check=False, timeout=15)
-            if journal.returncode == 0:
-                (evidence / "journal.jsonl").write_bytes(journal.stdout)
-                report["journal_sha256"] = hashlib.sha256(journal.stdout).hexdigest()
-            for name in CASES:
-                run = "exp123-S1-" + name
-                try:
+        report["evidence_hashes"] = {}
+        try:
+            evidence = HERE / "evidence" / "S1"
+            evidence.mkdir(parents=True, exist_ok=False)
+            def save(filename, data):
+                (evidence / filename).write_bytes(data)
+                report["evidence_hashes"][filename] = hashlib.sha256(data).hexdigest()
+            if owned:
+                container_id = owned_container()
+                journal = subprocess.run(["docker", "exec", container_id, "cat", "/state/journal.jsonl"],
+                                         capture_output=True, check=True, timeout=15).stdout
+                save("journal.jsonl", journal)
+                flows = {}
+                for name, case in report["cases"].items():
+                    run = case["raw"]["run_id"]
                     raw = snapshot(run)
-                    (evidence / (name + ".json")).write_text(
-                        json.dumps(raw, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
-                except (OSError, ValueError):
-                    pass
-            docker("rm", "--force", NAME, check=False)
-            docker("volume", "rm", NAME, check=False)
+                    if raw != case["raw"]:
+                        raise AssertionError("case_changed_during_capture")
+                    save(name + ".json", (json.dumps(raw, indent=2, sort_keys=True) + "\n").encode())
+                    flows[name] = subprocess.run(["docker", "exec", container_id, "cat",
+                        "/state/" + run + ".flow.json"], capture_output=True, check=True, timeout=15).stdout
+                    save(name + ".flow.json", flows[name])
+                validate_capture(report["cases"], journal, flows)
+                report["capture_verified"] = True
+        except Exception as capture_failure:
+            report["state"] = "failed"
+            report["capture_error"] = type(capture_failure).__name__ + ":" + str(capture_failure)[:600]
+        finally:
+            if owned:
+                try:
+                    cleanup_owned()
+                    report["cleanup_verified"] = True
+                except Exception as cleanup_failure:
+                    report["state"] = "failed"
+                    report["cleanup_verified"] = False
+                    report["cleanup_error"] = type(cleanup_failure).__name__ + ":" + str(cleanup_failure)[:600]
         destination.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
                                encoding="utf-8", newline="\n")
     print(json.dumps({"identity": "S1", "state": report["state"],

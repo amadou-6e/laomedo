@@ -1,9 +1,11 @@
 """Controls for source identity, event transitions and falsifiable assessment."""
 from copy import deepcopy
 import tempfile
+import hashlib
+import json
 from pathlib import Path
 import unittest
-from experiments.exp123.probe import assess, fixture
+from experiments.exp123.probe import assess, fixture, validate_capture
 from experiments.exp123.runtime import FixtureStore, HEADS
 
 
@@ -34,6 +36,18 @@ class ProbeTests(unittest.TestCase):
              "source_check_id": run + ":check-1", "status": "passed"},
             {"kind": "terminal_result", "node_id": "Result1", "graph_id": "graph", "status": "passed"}]}
         assess("success", base)
+        flow = b'{"synthetic_control":true}\n'
+        base["events"][0]["graph_sha256"] = hashlib.sha256(flow).hexdigest()
+        for index, row in enumerate(base["events"], 1):
+            row["sequence"] = index
+            row["run_id"] = run
+        journal = b"\n".join(json.dumps(row).encode() for row in base["events"]) + b"\n"
+        cases = {"success": {"raw": base, "assessment": assess("success", base)}}
+        validate_capture(cases, journal, {"success": flow})
+        with self.assertRaisesRegex(AssertionError, "flow_snapshot_mismatch"):
+            validate_capture(cases, journal, {"success": b"changed"})
+        with self.assertRaisesRegex(AssertionError, "journal_snapshot_mismatch"):
+            validate_capture(cases, journal.replace(b"Agent1", b"Other1"), {"success": flow})
         for mutation in ("extra_agent", "wrong_graph", "stale_head", "invented_terminal"):
             changed = deepcopy(base)
             if mutation == "extra_agent":
