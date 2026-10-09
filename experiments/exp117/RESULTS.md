@@ -22,7 +22,7 @@ the active case submitted exactly one `gpt-6-luna`/low turn at entry ten.
 | Delayed sentinel absent | Passed | Passed |
 | Host binding reopened in fresh child and one Langflow trace after restart | Passed | Passed |
 | Native dispatch after restart | Zero | Zero |
-| Credential-read gate | Not applicable: no model or tool | Original classifier unverified; retrospective exact denied marker below |
+| Credential-read gate | Not applicable: no model or tool | Original classifier unverified; retrospective exact read-exit marker below |
 | Teardown | Exact runner cleanup, Langflow absent, both servers stopped | Same |
 
 ## Retrospective classifier amendment
@@ -37,12 +37,12 @@ read therefore failed; no credential contents were emitted. The known public
 fixture line caused the classifier mismatch. A separate retrospective
 amendment records equality checks and an output digest, without publishing the
 raw event. It does not overwrite the frozen result or ledger, relax the probe
-before running, rerun the case, or spend another turn. Independent review must
-accept this explanation before treating the bounded active route as verified.
+before running, rerun the case, or spend another turn. The same Claude reviewer independently accepted this retrospective explanation
+at bounded scope before merge. Exit 1 establishes that the login read failed;
+it does not distinguish a permission denial from an absent file.
 
-The original source, task and outcomes remain pinned. Both native/API tokens
-and host login values were checked against published sanitized bytes with zero
-matches. Private logs, raw transcripts, browser profiles, tokens and databases
+The original source, task and outcomes remain pinned. Both local API tokens and the private runner/host login values were checked
+against all 31 changed public files with zero matches. Private logs, raw transcripts, browser profiles, tokens and databases
 remain outside Git under `%LOCALAPPDATA%/Laomedo/exp117-*-20261009-a/`.
 
 This is local Stop and identity-correlation evidence only. The saved-flow UUID

@@ -76,7 +76,7 @@ The [develop-based checks](../experiments/exp117/RESULTS.md) compose visible
 Stop with the durable host/native/Langflow join at both prepared and active
 points, including a disposable SQLite restart with no redispatch. The active
 probe retains an inconclusive classifier result plus a separately reviewed
-retrospective denied-read explanation. Earlier independent results remain
+retrospective failed-read explanation. Earlier independent results remain
 archived. This bounded local observation does not attest the executing graph,
 production authentication or orphan cleanup. The service remains opt-in; no
 existing server is silently reconfigured.
