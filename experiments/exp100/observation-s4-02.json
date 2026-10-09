@@ -1,0 +1,54 @@
+{
+  "baseline": "f1a11655fe475ddc96adb25b7b235890f8495672",
+  "bundle_sha256": "6c47bb192cf76b2c14aa1475128c321df8dd4a6a555309c2a94103be2f3bff9e",
+  "bundle_unchanged": true,
+  "case": {
+    "case": "positive_stage_diagnostic",
+    "cleanup_verified": true,
+    "container_git_version": null,
+    "elapsed_seconds": 0.453,
+    "exit_code": 128,
+    "inspected_limits": {
+      "bind_mounts_read_only": true,
+      "bind_targets": [
+        "/input.bundle",
+        "/trusted",
+        "/verify.sh"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+      "memory_bytes": 134217728,
+      "network_mode": "none",
+      "pids_limit": 32,
+      "read_only": true,
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "tmpfs_stage": "rw,nosuid,noexec,size=32m,mode=1777",
+      "user": "10001:10001"
+    },
+    "marker": "S4_STAGE=mount_access",
+    "stage_markers": [
+      "S4_STAGE=mount_access",
+      "S4_STAGE=git_init",
+      "S4_STAGE=baseline_fetch",
+      "S4_FAILED_STAGE=baseline_fetch"
+    ],
+    "status": "start_unknown"
+  },
+  "commit": "d46c8fa39a8571a375f44ed95f59ebec893e9146",
+  "count_scope": "no provider/model component instantiated",
+  "identity": "EXP-100-S4-02",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "model_turns": 0,
+  "probe_sha256": "1d84b3ad55b15dc644792338e39ea9f0bc4e763ac6cbceaba9e990d2f0a47140",
+  "protocol_sha256": "c3d2ea41fee9473a703a43c79b3dcd0ff778b8b0c32faa8f55a48daa785f3e1e",
+  "provider_calls": 0,
+  "schema_version": 1,
+  "script_sha256": "8ceff70e99d703376d23684686703a70b11e179933dfdf2f8578ad93a4b292f6",
+  "source_commit": "c190b2e72dac2bc3323aeaa838d41c35f79ffdc0",
+  "source_unchanged": true,
+  "status": "diagnosed"
+}
