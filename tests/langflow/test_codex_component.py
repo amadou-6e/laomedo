@@ -160,6 +160,40 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(http.call_count, 1)
             self.assertIn("amber 3", str(output))
 
+    async def test_pinned_graph_exposes_run_and_stage_ids_without_flow_id(self):
+        from lfx.graph.graph.base import Graph
+        root = Path(__file__).resolve().parents[2]
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        agent = next(node for node in flow["data"]["nodes"]
+                     if node["data"]["type"] == "LaomedoCodexAgent")
+        code = agent["data"]["node"]["template"]["code"]["value"]
+        source = '            return endpoint, payload, "POST"'
+        probe = ('            payload["langflow_probe"] = {"run_id": self.graph.run_id, '
+                 '"flow_id": self.graph.flow_id, "stage_id": self._vertex.id}\n'
+                 + source)
+        self.assertEqual(code.count(source), 2)
+        prefix, separator, suffix = code.rpartition(source)
+        self.assertTrue(separator)
+        agent["data"]["node"]["template"]["code"]["value"] = prefix + probe + suffix
+        observed = []
+
+        def respond(req, **_kwargs):
+            payload = json.loads(req.data)
+            probe = payload["langflow_probe"]
+            observed.append((probe["run_id"], probe["flow_id"], probe["stage_id"]))
+            return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
+        with patch.object(module.request, "urlopen", side_effect=respond):
+            for _ in range(2):
+                await Graph.from_payload(flow).arun(
+                    inputs=[{"input_value": "Read fixture"}], types=["chat"])
+        self.assertEqual(len(observed), 2)
+        self.assertNotEqual(observed[0][0], observed[1][0])
+        self.assertEqual(observed[0][1:], observed[1][1:])
+        self.assertTrue(observed[0][0])
+        self.assertEqual(observed[0][2], "LaomedoCodexAgent-native")
+        # Direct Graph.from_payload runs need not have a saved server flow ID.
+        self.assertIsNone(observed[0][1])
+
     async def test_saved_graph_resume_passes_structured_reference(self):
         from lfx.graph.graph.base import Graph
         root = Path(__file__).resolve().parents[2]
