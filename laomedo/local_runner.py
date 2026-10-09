@@ -20,6 +20,8 @@ from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 from .artifacts import ArtifactError, import_selected, relative_path, selections
+from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
+from .lease_service import LeaseClient
 from .siwc_auth import AuthError, ChatGPTConnection, _outside_git
 
 
@@ -204,9 +206,15 @@ def _auth_record_error(exc: AuthError) -> tuple[str, str]:
     return "auth_mode_unavailable", code.removeprefix("auth_")
 
 
-def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path) -> list[str]:
+def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
+                   name: str | None = None, run_id: str | None = None,
+                   launch_token: str | None = None) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
-    return ["run", "--rm", "-i", "--name", "laomedo-codex-" + uuid4().hex,
+    name = name or "laomedo-codex-" + uuid4().hex
+    labels = (["--label", f"{LABEL_RUN}={run_id}",
+               "--label", f"{LABEL_TOKEN}={launch_token}"]
+              if run_id and launch_token else [])
+    return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--pids-limit", "128", "--memory", "1g", "--user", "10001:10001",
@@ -225,6 +233,14 @@ class AppServer:
         self.events = []
         self.messages = queue.Queue()
         self.container_name = command[command.index("--name") + 1]
+        self.run_id = None
+        self.launch_token = None
+        for value in (command[index + 1] for index, item in enumerate(command[:-1])
+                      if item == "--label"):
+            if value.startswith(LABEL_RUN + "="):
+                self.run_id = value.split("=", 1)[1]
+            elif value.startswith(LABEL_TOKEN + "="):
+                self.launch_token = value.split("=", 1)[1]
         self.active_thread_id = None
         self.interrupt_acknowledged = False
         self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
@@ -309,12 +325,17 @@ class AppServer:
 
     def close(self) -> None:
         verified = False
+        exact = (getattr(self, "run_id", None) is not None and
+                 getattr(self, "launch_token", None) is not None)
         try:
             # Stop the owned container promptly, then repeat after the docker
             # client exits to close the startup race before the first removal.
             try:
-                subprocess.run(["docker", "rm", "-f", self.container_name],
-                               capture_output=True, timeout=15)
+                if exact:
+                    cleanup_exact(self.container_name, self.run_id, self.launch_token)
+                else:
+                    subprocess.run(["docker", "rm", "-f", self.container_name],
+                                   capture_output=True, timeout=15)
             except (OSError, subprocess.TimeoutExpired):
                 pass
             if self.process.poll() is None:
@@ -325,15 +346,19 @@ class AppServer:
                     self.process.kill()
                     self.process.wait()
             try:
-                subprocess.run(["docker", "rm", "-f", self.container_name],
-                               capture_output=True, timeout=15)
-                probe = subprocess.run(["docker", "inspect", self.container_name],
-                                       capture_output=True, timeout=10)
-                stderr = probe.stderr or b""
-                if isinstance(stderr, str):
-                    stderr = stderr.encode()
-                verified = (probe.returncode != 0 and
-                            (b"No such object:" in stderr or b"No such container:" in stderr))
+                if exact:
+                    verified, _ = cleanup_exact(self.container_name, self.run_id,
+                                                self.launch_token)
+                else:
+                    subprocess.run(["docker", "rm", "-f", self.container_name],
+                                   capture_output=True, timeout=15)
+                    probe = subprocess.run(["docker", "inspect", self.container_name],
+                                           capture_output=True, timeout=10)
+                    stderr = probe.stderr or b""
+                    if isinstance(stderr, str):
+                        stderr = stderr.encode()
+                    verified = (probe.returncode != 0 and
+                                (b"No such object:" in stderr or b"No such container:" in stderr))
             except (OSError, subprocess.TimeoutExpired):
                 verified = False
         finally:
@@ -590,8 +615,10 @@ def _answer(events: list[dict]) -> str | None:
 class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
                  check_docker: bool = True, max_model_turns: int = 0,
+                 supervise_containers: bool | None = None,
                  split_executor: bool = False, split_provider_config=(),
-                 split_access_token=None, auth_store: Path | None = None):
+                 split_access_token=None, auth_store: Path | None = None,
+                 lease_service: Path | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -612,11 +639,25 @@ class LocalRunner:
         if not re.fullmatch(r"[0-9a-f]{64}", self.api_token):
             raise RunnerError("invalid_runner_api_token")
         (self.state / "runs").mkdir(exist_ok=True)
+        self.supervise_containers = (transport is AppServer and not split_executor
+                                     if supervise_containers is None
+                                     else supervise_containers)
+        # The lease service is started independently of this runner, so a
+        # whole-process-tree kill of the runner cannot also kill it.
+        self.lease_service = Path(lease_service).resolve() if lease_service else None
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
                 record["status"] = "interrupted"
                 record["error_category"] = "runner_restarted"
+                owner = record.get("container_ownership") or {}
+                if owner.get("supervised"):
+                    verified, detail = cleanup_exact(owner["name"], record["run_id"],
+                                                     owner["launch_token"])
+                    owner["cleanup_verified"] = verified
+                    owner["cleanup_detail"] = detail
+                    if not verified:
+                        record["error_category"] = "container_cleanup_unverified"
                 _json(record_path, record)
         self.transport = transport
         self.split_executor = split_executor
@@ -676,7 +717,9 @@ class LocalRunner:
             else:
                 _ensure_split_profile(self.profile)
 
-    def _open_server(self, root: Path, *, access_token=None):
+    def _open_server(self, root: Path, *, access_token=None,
+                     name: str | None = None, run_id: str | None = None,
+                     launch_token: str | None = None):
         workspace, canonical, store_mount = (root / name for name in
                                               ("workspace", "canonical", "store"))
         if self.split_executor:
@@ -686,7 +729,8 @@ class LocalRunner:
                                   access_token=(access_token if access_token is not None
                                                 else self.split_access_token))
         return self.transport(["docker", *_docker_prefix(
-            workspace, canonical, store_mount)], root)
+            workspace, canonical, store_mount, name=name, run_id=run_id,
+            launch_token=launch_token)], root)
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
@@ -1058,7 +1102,7 @@ class LocalRunner:
     def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
-        run_dir, record, cancelled, server = None, None, None, None
+        run_dir, record, cancelled, server, lease = None, None, None, None, None
         try:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
@@ -1071,7 +1115,25 @@ class LocalRunner:
                 cancelled = threading.Event()
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
+                name = "laomedo-codex-" + uuid4().hex
+                launch_token = uuid4().hex
+                record["container_ownership"] = {
+                    "name": name, "launch_token": launch_token,
+                    "supervised": self.supervise_containers,
+                    "cleanup_verified": False}
                 _json(run_dir / "record.json", record)
+            if self.supervise_containers:
+                if self.lease_service is None:
+                    raise RunnerError("lease_service_required")
+                try:
+                    lease = LeaseClient(self.lease_service, run_id=run_id, name=name,
+                                        token=launch_token, cancelled=cancelled)
+                except (OSError, RuntimeError):
+                    raise RunnerError("lease_service_unavailable") from None
+                record["container_ownership"]["lease_instance"] = lease.instance
+                record["container_ownership"]["grant_id"] = lease.grant_id
+                with self.control_lock:
+                    _json(run_dir / "record.json", record)
             access_token, auth_summary = self.auth.access_token() if self.auth else (None, None)
             if resume and self.auth:
                 prior = record.get("credential") or {}
@@ -1080,7 +1142,9 @@ class LocalRunner:
                     raise RunnerError("resume_auth_identity_mismatch")
             record["credential"] = auth_summary
             _json(run_dir / "record.json", record)
-            server = self._open_server(run_dir, access_token=access_token)
+            server = self._open_server(run_dir, access_token=access_token,
+                                       name=name, run_id=run_id,
+                                       launch_token=launch_token)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
@@ -1221,6 +1285,8 @@ class LocalRunner:
                     (run_dir / "store/sentinel.txt").read_text(encoding="utf-8") !=
                     "STORE-ORIGINAL"):
                 raise RunnerError("protected_mount_changed")
+            if lease is not None and lease.lost.is_set():
+                raise RunnerError("lease_service_lost")
         except Exception as exc:
             if record is None:
                 raise
@@ -1235,16 +1301,35 @@ class LocalRunner:
                     record["error_category"] = (str(exc) if isinstance(exc, RunnerError)
                                                 else type(exc).__name__)
         finally:
+            close_error = False
             try:
                 if server is not None:
                     server.close()
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
             except Exception:
+                close_error = True
                 if record is not None:
                     record.update(status="failed", error_category="container_termination_unverified")
             finally:
                 try:
+                    if record is not None and self.supervise_containers:
+                        verified, detail = cleanup_exact(name, run_id, launch_token)
+                        if lease is not None:
+                            try:
+                                lease.finish()
+                            except Exception:
+                                verified = False
+                                detail = "lease_service_unverified"
+                        # A failed normal close may have been completed by the
+                        # independent supervisor after its pipe closed.
+                        if not verified:
+                            verified, detail = cleanup_exact(name, run_id, launch_token)
+                        record["container_ownership"]["cleanup_verified"] = verified
+                        record["container_ownership"]["cleanup_detail"] = detail
+                        if not verified:
+                            record.update(status="failed",
+                                          error_category="container_termination_unverified")
                     with self.control_lock:
                         if record is not None:
                             if cancelled is not None and cancelled.is_set():
@@ -1358,11 +1443,14 @@ def main():
                         help="Credential-free experimental split controller/executor")
     parser.add_argument("--auth-store", type=Path,
                         help="Private app-owned ChatGPT OAuth store; requires --split-executor")
+    parser.add_argument("--lease-service", type=Path,
+                        help="State directory of an independently started lease service")
     args = parser.parse_args()
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
                          max_model_turns=args.max_model_turns,
                          split_executor=args.split_executor,
-                         auth_store=args.auth_store)
+                         auth_store=args.auth_store,
+                         lease_service=args.lease_service)
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return

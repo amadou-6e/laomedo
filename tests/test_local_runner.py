@@ -67,6 +67,55 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
+    def test_container_identity_is_saved_before_transport_launch(self):
+        class InspectReservation(FakeServer):
+            def __init__(self, command, evidence):
+                saved = json.loads((evidence / "record.json").read_text(encoding="utf-8"))
+                owner = saved["container_ownership"]
+                assert saved["status"] == "running"
+                assert command[command.index("--name") + 1] == owner["name"]
+                assert "laomedo.run_id=" + saved["run_id"] in command
+                assert "laomedo.launch_token=" + owner["launch_token"] in command
+                super().__init__(command, evidence)
+
+        self.runner.transport = InspectReservation
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["container_ownership"]["supervised"], False)
+
+    def test_supervised_launch_refuses_without_independent_lease_service(self):
+        launched = []
+
+        class Recording(FakeServer):
+            def __init__(self, command, evidence):
+                launched.append(command)
+                super().__init__(command, evidence)
+
+        self.runner.transport = Recording
+        self.runner.supervise_containers = True
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["error_category"], "lease_service_required")
+        self.assertEqual(launched, [])
+
+    def test_restart_sweep_preserves_unverified_cleanup(self):
+        record = self.runner._prepare(self.request())
+        path = self.runner._run_dir(record["run_id"]) / "record.json"
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        saved["status"] = "running"
+        saved["container_ownership"] = {"name": "exact-name",
+                                         "launch_token": "token-one", "supervised": True,
+                                         "cleanup_verified": False}
+        path.write_text(json.dumps(saved), encoding="utf-8")
+        with patch("laomedo.local_runner.cleanup_exact", return_value=(False, "conflict")) as cleanup:
+            restarted = LocalRunner(self.runner.state, self.runner.store.root, self.source,
+                                    transport=FakeServer, check_docker=False)
+        after = restarted.status(record["run_id"])
+        self.assertEqual(after["status"], "interrupted")
+        self.assertEqual(after["error_category"], "container_cleanup_unverified")
+        self.assertFalse(after["container_ownership"]["cleanup_verified"])
+        cleanup.assert_called_once_with("exact-name", record["run_id"], "token-one")
+
     def test_native_error_summary_only_exposes_schema_codes(self):
         secret = "SECRET_LOGIN_TOKEN_and_https://private.example/path"
         events = [

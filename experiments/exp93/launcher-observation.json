@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "model_turns": 0,
+  "kill_scope": "taskkill_exact_runner_tree",
+  "launcher_exited_before_kill": true,
+  "supervisor_alive_after_kill": true,
+  "classification": "survived_tree_kill"
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "model_turns": 0,
+  "kill_scope": "taskkill_exact_child_tree",
+  "result_written": false,
+  "result_reason": null,
+  "result_cleanup_verified": null,
+  "classification": "killed_with_runner",
+  "elapsed_to_result_seconds": 8.609
+}
