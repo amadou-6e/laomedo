@@ -18,6 +18,9 @@ single-user test of visible Stop composition, not a hosted isolation claim.
   disposable server, open the editor's Playground, submit the frozen task, and
   click the visible `button-stop` after a native long command has started. A
   direct runner or in-process graph cancel cannot substitute for that click.
+  Before dispatch, compare the embedded Codex Agent and Skill component code
+  in the saved flow with their mounted source byte for byte. Refuse a mismatch;
+  pin both hashes. The live browser must clear the fake-preflight task switch.
 - The task first attempts a content-free read of `auth.json` and stops if
   readable. It then runs an observable 30-second command that writes a sentinel
   only after the delay. No credential value enters output or committed files.

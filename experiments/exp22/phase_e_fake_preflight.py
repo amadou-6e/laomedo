@@ -94,6 +94,8 @@ def main():
             time.sleep(.1)
         browser.wait(timeout=50)
         observed = json.loads((state / "browser-run.json").read_text(encoding="utf-8"))
+        # CASE_B schedules its synthetic effect six seconds after start.
+        time.sleep(7)
         rows = _rows(journal)
         kinds = [row.get("kind") for row in rows]
         starts = [row for row in rows if row.get("kind") == "post_received"]

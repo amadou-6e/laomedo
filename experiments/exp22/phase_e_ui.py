@@ -87,6 +87,23 @@ def _ui_attribution(observed, cancels, terminal_observed_epoch):
                 click <= route < terminal_observed_epoch < close)
 
 
+def _flow_code_pins():
+    flow = json.loads((ROOT / "examples/native-codex-node/flow.json").read_text(
+        encoding="utf-8"))
+    expected = {"LaomedoCodexAgent": ROOT / "components/laomedo/codex_agent.py",
+                "LaomedoSkill": ROOT / "components/laomedo/skill.py"}
+    pins = {}
+    for kind, source in expected.items():
+        matches = [node for node in flow["data"]["nodes"] if node["data"]["type"] == kind]
+        if len(matches) != 1:
+            raise RuntimeError("flow_component_count_mismatch:" + kind)
+        embedded = matches[0]["data"]["node"]["template"]["code"]["value"]
+        if embedded != source.read_text(encoding="utf-8"):
+            raise RuntimeError("flow_component_code_mismatch:" + kind)
+        pins[kind] = _hash(source)
+    return pins
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, required=True)
@@ -99,6 +116,7 @@ def main():
             ["git", "status", "--porcelain", "--untracked-files=all"],
             cwd=ROOT, text=True).strip():
         parser.error("reviewed_source_must_be_committed_and_clean")
+    code_pins = _flow_code_pins()
     state = _private_empty(args.state)
     (state / "langflow-data").mkdir()
     if not _auth_mount_exists():
@@ -147,6 +165,7 @@ def main():
                 "browser": _hash(BROWSER),
                 "flow": _hash(ROOT / "examples/native-codex-node/flow.json"),
                 "component": _hash(ROOT / "components/laomedo/codex_agent.py"),
+                "embedded_component_code": code_pins,
                 "skill_revision": skill["revision_id"],
                 "skill": _hash(PILOT / "skill/SKILL.md"),
                 "source": _hash(PILOT / "source/fixture.txt"),
@@ -174,9 +193,12 @@ def main():
         attempt_id, used = _reserve(state)
         category = "submitted_unknown"
         output = (state / "browser.log").open("w", encoding="utf-8")
+        browser_env = {key: value for key, value in os.environ.items()
+                       if key != "PHASE_E_FAKE_PREFLIGHT"}
         browser = subprocess.Popen(["node", str(BROWSER), "run", str(state),
                                     str(ui_port), str(runner_port), skill["revision_id"]],
-                                   stdout=output, stderr=subprocess.STDOUT, cwd=ROOT)
+                                   stdout=output, stderr=subprocess.STDOUT, cwd=ROOT,
+                                   env=browser_env)
         deadline = time.monotonic() + 55
         long_started = False
         while time.monotonic() < deadline:

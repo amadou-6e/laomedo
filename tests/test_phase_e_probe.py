@@ -65,6 +65,26 @@ class PhaseELedgerTests(unittest.TestCase):
         self.assertFalse(phase_e_ui._ui_attribution(
             observed, [{"at_epoch_seconds": 11.0}], 12.0))
 
+    def test_embedded_component_mismatch_refuses_before_reservation(self):
+        root = self.path.parent
+        flow_path = root / "examples/native-codex-node/flow.json"
+        flow_path.parent.mkdir(parents=True)
+        component_dir = root / "components/laomedo"
+        component_dir.mkdir(parents=True)
+        nodes = []
+        for kind, filename in (("LaomedoCodexAgent", "codex_agent.py"),
+                               ("LaomedoSkill", "skill.py")):
+            (component_dir / filename).write_text("pinned code", encoding="utf-8")
+            nodes.append({"data": {"type": kind, "node": {"template": {
+                "code": {"value": "pinned code"}}}}})
+        flow_path.write_text(json.dumps({"data": {"nodes": nodes}}), encoding="utf-8")
+        with mock.patch.object(phase_e_ui, "ROOT", root):
+            self.assertEqual(len(phase_e_ui._flow_code_pins()), 2)
+            nodes[0]["data"]["node"]["template"]["code"]["value"] = "stale code"
+            flow_path.write_text(json.dumps({"data": {"nodes": nodes}}), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "flow_component_code_mismatch"):
+                phase_e_ui._flow_code_pins()
+
 
 if __name__ == "__main__":
     unittest.main()
