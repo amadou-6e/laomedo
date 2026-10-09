@@ -344,6 +344,53 @@ class VerifiedStageTests(unittest.TestCase):
                 connection_id="connection-a", connection_generation=1)
         self.assertEqual(supplied, [])
 
+    def test_unknown_staged_push_blocks_new_effect_on_same_branch(self):
+        store, token = self.mediator()
+        payload = {"branch": "run-branch", "commit": self.commit,
+                   "stage_attempt_id": "attempt-1"}
+        calls = []
+        def uncertain(_repository, _operation, _payload, *, verified_stage):
+            calls.append(verified_stage.stage_digest)
+            raise RuntimeError("synthetic lost reply")
+        first = store.invoke(token=token, repository="example/disposable",
+            operation="git_push", payload=payload, effect_id="effect-a",
+            transport=uncertain)
+        self.assertEqual(first["state"], "unknown")
+        self.assertEqual(store.invoke(token=token, repository="example/disposable",
+            operation="git_push", payload=payload, effect_id="effect-a",
+            transport=uncertain), {"state": "unknown", "resent": False})
+        with self.assertRaisesRegex(MediationError, "prior_effect_unknown"):
+            store.invoke(token=token, repository="example/disposable",
+                operation="git_push", payload=payload, effect_id="effect-b",
+                transport=uncertain)
+        self.assertEqual(len(calls), 1)
+
+    def test_transport_rechecks_real_workflow_diff_before_credential(self):
+        snapshot = self.resolve()
+        workflow = self.repo / ".github" / "workflows" / "test.yml"
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text("name: test\n", encoding="ascii")
+        self.git("add", ".github/workflows/test.yml")
+        self.git("-c", "user.name=Test", "-c", "user.email=t@example.invalid",
+                 "commit", "--quiet", "-m", "workflow")
+        changed_commit = self.git("rev-parse", "HEAD")
+        self.git("branch", "-f", "validated", changed_commit)
+        changed_bundle = self.root / "changed.bundle"
+        self.git("bundle", "create", str(changed_bundle), "refs/heads/validated")
+        bytes_ = changed_bundle.read_bytes()
+        changed = replace(snapshot, commit=changed_commit, bundle=bytes_,
+                          bundle_sha256=hashlib.sha256(bytes_).hexdigest())
+        credentials = []
+        transport = GitHubGitTransport("example/disposable", self.repo,
+            self.baseline, lambda *_args: credentials.append(1) or "unused",
+            require_verified_stage=True)
+        with self.assertRaisesRegex(KnownRejected, "workflow_approval_required"):
+            transport("example/disposable", "git_push",
+                {"branch": "run-branch", "commit": changed_commit},
+                connection_id="connection-a", connection_generation=1,
+                verified_stage=changed)
+        self.assertEqual(credentials, [])
+
     def test_synthetic_push_classifies_and_sends_same_bare_repository(self):
         snapshot = self.resolve()
         seen = []
