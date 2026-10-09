@@ -56,27 +56,34 @@ an agent run.
 ## Current operation boundary
 
 The mediator accepts normalized `git_push`, `pr_create`, `pr_update`,
-`actions_read`, and a separately diagnostic `api_rest_read` when the grant
-allows them. **The current agent runner refuses a `git_push` authorization**:
-its `/draft` snapshot has no Git history and cannot supply a commit to the
-mediator's fixed trusted checkout. Agent-stage grants are limited to Actions
-reads and approved PR create/update for branches prepared outside the stage.
-Reviewed `issue_create` needs a trusted reviewed-payload binding.
+bound `pr_read`, `actions_read`, and a separately diagnostic `api_rest_read`
+when the trusted grant allows them. The runner's default `/draft` snapshot
+has no Git history and refuses a `git_push` grant. Its opt-in `--git-workspace`
+mode prepares an isolated repository and permits that grant. The agent can
+request `bundle_freeze` with only an `attempt_id`, capturing the fixed
+`.laomedo-handoff.bundle` while the run and grant remain active. Host roots
+come from `--runner-state` and `--private-stage`, never from the agent.
+This capture does not verify Git objects or authorize a push. The trusted
+in-run verification worker is still missing, so complete agent delivery
+remains unproven. `pr_read` accepts only a PR number bound by creation or
+trusted approval and returns the displayed title/body/base/head for agent
+inspection while the run is alive. Reviewed `issue_create` needs a trusted
+reviewed-payload binding.
 It refuses arbitrary REST writes, GraphQL, credential export and unsupported
-commands. Local editing remains ordinary container activity, but this copied
-`/draft` workspace has no Git history, so it cannot create a pushable commit;
-this client is **not** a drop-in `git` or `gh` executable. In particular,
+commands. Local editing remains ordinary container activity. The mediation
+client is **not** a drop-in `git` or `gh` executable. In particular,
 literal `git fetch`, `gh pr`, `gh issue`, and general `gh api` parity, input
 files/stdin flags, output formatting, and safe host-checkout commit transfer
 remain #100 work. An agent must not fall back to ambient credentials.
 
 | Requested surface | Current agent-stage result | Local evidence |
 | --- | --- | --- |
-| Edit files in `/draft` | Works; no `.git` history is copied | `test_local_runner.py` |
-| Literal `git fetch` / `git push` | Unsupported; no agent-side Git transport or transferable commit | `test_local_runner.py` rejects `git_push` grants |
-| Normalized host `git_push` | Broker can push a verified host commit, but not one made inside the agent snapshot | `test_github_git_transport.py` |
+| Edit files in `/draft` | Default snapshot has no history; opt-in Git workspace has isolated history | `test_local_runner.py` |
+| Literal `git fetch` / `git push` | No CLI-compatible agent transport yet | `test_local_runner.py`; Git grants require opt-in Git mode |
+| Normalized host `git_push` | Requires bytes from a trusted verified stage; active capture is wired, in-run verification is unfinished | `test_verified_stage.py`, `test_github_git_transport.py` |
 | Literal `gh pr` / `gh issue` / `gh run` | Unsupported; no CLI-compatible adapter yet | Client accepts JSON only; unsupported operations fail in `test_github_mediation.py` |
 | Normalized PR create/update | Granted branch/PR/base/marker checks, with provider target verification | `test_github_mediation.py`, `test_github_rest_transport.py` |
+| Bound PR readback | Granted PR number, repository, branch and base; title/body and actual head SHA returned | `test_github_mediation.py`, `test_github_rest_transport.py`; synthetic transport only |
 | Normalized Actions read | Granted repository target only | `test_github_rest_transport.py`, no-model Docker client check |
 | Reviewed issue create | Broker requires a trusted reviewed-payload binding; not granted to this agent runner | `test_github_mediation.py` |
 | General `gh api` REST/GraphQL | Arbitrary writes and GraphQL denied; same-repository REST GET is diagnostic-only | `test_github_mediation.py`, `test_github_rest_transport.py` |

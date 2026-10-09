@@ -289,6 +289,26 @@ class MediationTests(unittest.TestCase):
         self.assertEqual(self.invoke(
             token, "pr_read", {"number": 7}, transport=lambda *_: changed),
             {"state": "rejected", "error": "pr_target_changed"})
+        for malformed in ("unexpected", ["unexpected"], 42):
+            self.assertEqual(self.invoke(token, "pr_read", {"number": 7},
+                transport=lambda *_: {**fetched(), "head": malformed}),
+                {"state": "rejected", "error": "pr_target_changed"})
+
+    def test_revocation_after_local_freeze_preserves_uncertainty(self):
+        _, token = self.grant(operations={"git_push"})
+        captures = []
+        def capture(grant, payload):
+            captures.append(payload["attempt_id"])
+            self.store.revoke_run(grant["run_id"])
+            return {"status": "frozen"}
+        self.store.stage_freezer = capture
+        self.assertEqual(self.invoke(token, "bundle_freeze", {"attempt_id": "once"}),
+                         {"state": "unknown", "resent": False})
+        self.assertEqual(captures, ["once"])
+        self.assertEqual(self.calls, [])
+        self.assert_code("grant_unavailable", lambda: self.invoke(
+            token, "bundle_freeze", {"attempt_id": "once"}))
+        self.assertEqual(captures, ["once"])
 
     def test_read_labels_cannot_hide_mutations(self):
         _, token = self.grant(operations={"api_rest_read"}, branch=None)

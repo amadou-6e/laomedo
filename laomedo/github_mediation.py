@@ -441,10 +441,15 @@ class MediationStore:
                 # A one-shot attempt may already exist. Never create another
                 # identity as an automatic response to this uncertainty.
                 return {"state": "unknown", "resent": False}
-            with closing(self._connect()) as db:
-                current = self._grant(db, token, repository, "git_push")
-                if current["grant_id"] != grant_id:
-                    raise MediationError("grant_changed_during_freeze")
+            try:
+                with closing(self._connect()) as db:
+                    current = self._grant(db, token, repository, "git_push")
+                    if current["grant_id"] != grant_id:
+                        return {"state": "unknown", "resent": False}
+            except MediationError:
+                # The one-shot local capture may already exist, even though
+                # authority disappeared before its acknowledgement.
+                return {"state": "unknown", "resent": False}
             if frozen.get("status") == "frozen":
                 return {"state": "confirmed", "result": frozen}
             if frozen.get("status") == "refused":
@@ -585,7 +590,8 @@ class MediationStore:
                         "SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
                         (current["grant_id"], payload["number"])).fetchone()
                 head = result.get("head") or {}
-                if (target is None or result.get("number") != payload["number"] or
+                if (not isinstance(head, dict) or
+                        target is None or result.get("number") != payload["number"] or
                         head.get("repository") != repository or
                         head.get("branch") != current["branch"] or
                         not isinstance(head.get("sha"), str) or
