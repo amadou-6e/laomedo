@@ -42,6 +42,7 @@ def main():
     store = WorkflowRunStore(state / "join.sqlite3")
     seen = {}
     calls = []
+    route_times = {}
     lock = threading.RLock()
 
     class FakeBridge(BaseHTTPRequestHandler):
@@ -107,7 +108,7 @@ def main():
                             "request_hash": body_hash, "laomedo_run_id": run["run_id"],
                             "invocation_id": invocation_id, "run_id": native_run_id,
                             "status": "running", "cancel_confirmed": False}
-                        calls.append("durable_binding_before_emulated_start")
+                        calls.append("synthetic_binding_written")
                     item = seen[client_id]
                     self.respond(202, {"run_id": item["run_id"],
                         "client_request_id": client_id, "status": item["status"],
@@ -129,6 +130,7 @@ def main():
                         provider="codex", runner_run_id=item["run_id"],
                         kind="runner_cancel",
                         payload={"cancel_requested": True, "cancel_confirmed": True})
+                    route_times.setdefault("exact_cancel", time.time())
                     calls.append("exact_cancel")
                     self.respond(202, {"run_id": item["run_id"],
                                        "status": "cancelled", "cancel_confirmed": True})
@@ -146,6 +148,7 @@ def main():
                         self.respond(404, {"error_category": "unknown_request"})
                         return
                     calls.append("client_request_lookup")
+                    route_times.setdefault("client_request_lookup", time.time())
                     self.respond(200, {"run_id": item["run_id"],
                         "client_request_id": item["client_id"],
                         "request_hash": item["request_hash"],
@@ -229,27 +232,34 @@ def main():
         changed = {**item["body"], "task": "different synthetic request"}
         conflict_status = replay(changed)
         saved = WorkflowRunStore(store.path).trace_snapshot(item["laomedo_run_id"])
+        click = observation.get("stop_click_begin_epoch")
+        close = observation.get("context_close_begin_epoch")
+        lookup = route_times.get("client_request_lookup")
+        cancel = route_times.get("exact_cancel")
         result = {"model_turns": 0, "client_requests": len(seen),
-                  "emulated_runner_starts": calls.count("durable_binding_before_emulated_start"),
-                  "persisted_before_start": calls[:1] == ["durable_binding_before_emulated_start"],
-                  "same_body_retry_status": duplicate_status,
-                  "changed_body_retry_status": conflict_status,
+                  "synthetic_binding_count": calls.count("synthetic_binding_written"),
+                  "fake_same_body_retry_status": duplicate_status,
+                  "fake_changed_body_retry_status": conflict_status,
                   "client_and_invocation_ids_differ": item["client_id"] != item["invocation_id"],
                   "browser_send_clicked": observation.get("send_clicked"),
                   "browser_stop_clicked": observation.get("stop_clicked"),
                   "client_uuid_lookup_seen": "client_request_lookup" in calls,
                   "exact_cancel_seen": "exact_cancel" in calls,
+                  "stop_attribution_ordered": bool(click and lookup and cancel and close and
+                                                   click <= lookup <= cancel < close),
                   "host_trace_reopened": saved["invocation"]["runner_run_id"] == item["run_id"],
                   "cancel_receipt_reopened": any(
                       row["kind"] == "runner_cancel" for row in saved["receipts"]),
+                  "host_graph_basis": "repository_fixture",
                   "langflow_graph_attested": False,
                   "langflow_restart_tested": False}
         result["passed"] = all(result[key] for key in (
-            "persisted_before_start", "browser_send_clicked", "browser_stop_clicked",
+            "browser_send_clicked", "browser_stop_clicked",
             "client_uuid_lookup_seen", "exact_cancel_seen", "host_trace_reopened",
-            "cancel_receipt_reopened", "client_and_invocation_ids_differ")) and (
+            "cancel_receipt_reopened", "client_and_invocation_ids_differ",
+            "stop_attribution_ordered")) and (
                 duplicate_status == 202 and conflict_status == 409 and
-                result["emulated_runner_starts"] == 1)
+                result["synthetic_binding_count"] == 1)
         (state / "sanitized.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
         print(json.dumps(result))
         if not result["passed"]:
