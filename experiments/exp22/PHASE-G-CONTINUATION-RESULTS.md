@@ -48,3 +48,6 @@ result does not establish semantic task success, hosted isolation, timeout
 effects, runner/lease joint-outage behavior or real GitHub push-credential
 revocation under #93. The copied-login lifecycle remains unresolved under
 specs #129. No issue state changed.
+
+The earlier pre-thread Stop result is separate: pre-thread Stop was not composed
+with the durable join in this active-command continuation.
