@@ -70,14 +70,55 @@ def _stage_git(stage: Path, source: Path, baseline: str,
         raise HandoffError("stage_import_failed")
     if git(["fsck", "--strict", "--no-reflogs", commit], directory=stage).returncode:
         raise HandoffError("stage_integrity_failed")
+    if confirmed_commit and git(["merge-base", "--is-ancestor",
+                                 confirmed_commit, commit], directory=stage).returncode:
+        raise HandoffError("confirmed_ancestry_invalid")
+
+
+def _durable_json(path: Path, value: dict) -> None:
+    temporary = path.with_name(path.name + ".pending")
+    with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+        stream.write(json.dumps(value, sort_keys=True) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+    if os.name != "nt":
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+
+def _accepted_head(private_root: Path, run_id: str, branch: str) -> dict | None:
+    accepted = {}
+    for attempt in private_root.glob(run_id + "-*"):
+        path = attempt / "result.json"
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise HandoffError("attempt_unreconciled") from error
+        if value.get("run_id") != run_id or value.get("reason") == "unknown":
+            raise HandoffError("attempt_unreconciled")
+        if (value.get("run_id") == run_id and value.get("branch") == branch and
+                value.get("reason") == "accepted"):
+            accepted[value["attempt_id"]] = value
+    if not accepted:
+        return None
+    predecessors = {value.get("previous_attempt_id") for value in accepted.values()}
+    heads = [value for key, value in accepted.items() if key not in predecessors]
+    if len(heads) != 1:
+        raise HandoffError("confirmed_history_ambiguous")
+    return heads[0]
 
 
 def transfer(record: dict, runner_state: Path, private_root: Path,
              trusted_source: Path, *, attempt_id: str,
-             confirmed: dict | None = None) -> dict:
+             confirmed_attempt_id: str | None = None) -> dict:
     """Freeze exact bytes and stage only a verified, run-bound commit.
 
-    ``confirmed`` is host-private prior-stage metadata, never agent input.
+    ``confirmed_attempt_id`` selects a host-private prior-stage record, never
+    an agent path or a dict supplied by the agent.
     The caller owns the run record, runner state, private root and trusted
     source selection. No agent-supplied path selects the handoff file.
     """
@@ -102,49 +143,67 @@ def transfer(record: dict, runner_state: Path, private_root: Path,
         raise HandoffError("run_binding_invalid")
     private_root = private_root.resolve(strict=True)
     trusted_source = trusted_source.resolve(strict=True)
-    if (private_root == run_dir or private_root.is_relative_to(run_dir) or
-            run_dir.is_relative_to(private_root) or
+    if (private_root == runner_state or private_root.is_relative_to(runner_state) or
+            runner_state.is_relative_to(private_root) or
             trusted_source.is_relative_to(run_dir)):
         raise HandoffError("private_stage_boundary_invalid")
-    source = trusted_source
-    confirmed_commit = None
-    if confirmed is not None:
-        if (confirmed.get("run_id") != run_id or confirmed.get("branch") != branch or
-                not isinstance(confirmed.get("commit"), str) or
-                not _SHA.fullmatch(confirmed["commit"]) or
-                not isinstance(confirmed.get("stage"), str)):
-            raise HandoffError("confirmed_stage_invalid")
-        source = Path(confirmed["stage"]).resolve(strict=True)
-        if not source.is_relative_to(private_root) or not source.is_dir():
-            raise HandoffError("confirmed_stage_invalid")
-        confirmed_commit = confirmed["commit"]
-    attempt = private_root / f"{run_id}-{attempt_id}"
-    attempt.mkdir(mode=0o700)  # a repeated/uncertain attempt is never overwritten
-    result = {"run_id": run_id, "attempt_id": attempt_id, "branch": branch,
-              "baseline": record["git_baseline"], "reason": "unknown",
-              "commit": None, "tree": None, "stage": None}
+    lock = private_root / f"{run_id}.lock"
     try:
-        payload = _bytes_from_agent(run_dir / "workspace" / HANDOFF_NAME)
-        frozen = attempt / "frozen.bundle"
-        with frozen.open("xb") as stream:
-            stream.write(payload)
-        result["bundle_sha256"] = hashlib.sha256(payload).hexdigest()
-        checked = verify_bundle(payload, trusted_source=source,
-                                baseline=record["git_baseline"],
-                                expected_ref="refs/heads/" + branch,
-                                confirmed_commit=confirmed_commit)
-        result.update(reason=checked["reason"], commit=checked["commit"],
-                      tree=checked["tree"])
-        if checked["reason"] == "accepted":
-            stage = attempt / "stage.git"
-            _stage_git(stage, source, record["git_baseline"],
-                       confirmed_commit, frozen, checked["commit"])
-            result["stage"] = str(stage)
-    except HandoffError as error:
-        result["reason"] = str(error)
+        with lock.open("x", encoding="ascii") as stream:
+            stream.write(attempt_id + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+    except FileExistsError as error:
+        raise HandoffError("run_transfer_busy_or_unreconciled") from error
+    try:
+        attempt = private_root / f"{run_id}-{attempt_id}"
+        if attempt.exists():
+            raise HandoffError("attempt_already_reserved")
+        head = _accepted_head(private_root, run_id, branch)
+        if (head is None and confirmed_attempt_id is not None) or \
+                (head is not None and confirmed_attempt_id != head["attempt_id"]):
+            raise HandoffError("confirmed_stage_required")
+        source = trusted_source
+        confirmed_commit = None
+        if head is not None:
+            confirmed_commit = head.get("commit")
+            if not isinstance(confirmed_commit, str) or not _SHA.fullmatch(confirmed_commit):
+                raise HandoffError("confirmed_stage_invalid")
+            source = (private_root / f"{run_id}-{confirmed_attempt_id}" / "stage.git")
+            if not source.is_dir() or source.is_symlink():
+                raise HandoffError("confirmed_stage_invalid")
+        try:
+            attempt.mkdir(mode=0o700)  # repeat identity cannot overwrite evidence
+        except FileExistsError as error:
+            raise HandoffError("attempt_already_reserved") from error
+        result = {"run_id": run_id, "attempt_id": attempt_id, "branch": branch,
+                  "baseline": record["git_baseline"], "reason": "unknown",
+                  "previous_attempt_id": confirmed_attempt_id,
+                  "commit": None, "tree": None, "stage": None}
+        _durable_json(attempt / "result.json", result)
+        try:
+            payload = _bytes_from_agent(run_dir / "workspace" / HANDOFF_NAME)
+            frozen = attempt / "frozen.bundle"
+            with frozen.open("xb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            result["bundle_sha256"] = hashlib.sha256(payload).hexdigest()
+            checked = verify_bundle(payload, trusted_source=source,
+                                    baseline=record["git_baseline"],
+                                    expected_ref="refs/heads/" + branch,
+                                    confirmed_commit=confirmed_commit)
+            result.update(reason=checked["reason"], commit=checked["commit"],
+                          tree=checked["tree"])
+            if checked["reason"] == "accepted":
+                stage = attempt / "stage.git"
+                _stage_git(stage, source, record["git_baseline"],
+                           confirmed_commit, frozen, checked["commit"])
+                result["stage"] = str(stage)
+        except HandoffError as error:
+            result["reason"] = str(error)
+        finally:
+            _durable_json(attempt / "result.json", result)
+        return result
     finally:
-        temporary = attempt / "result.pending"
-        temporary.write_text(json.dumps(result, sort_keys=True) + "\n",
-                             encoding="utf-8")
-        os.replace(temporary, attempt / "result.json")
-    return result
+        lock.unlink()
