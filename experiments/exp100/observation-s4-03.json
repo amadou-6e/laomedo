@@ -1,0 +1,58 @@
+{
+  "baseline": "49a8f553c16a72e76f568e61b572bf04aa5c7f85",
+  "baseline_bundle_sha256": "2936ddbd7d182bdad790e592e00638871b3952c802b058acd12d21e4170c1167",
+  "baseline_bundle_unchanged": true,
+  "candidate_bundle_sha256": "fa424a5979e7589abccd86e9a2865d7a72e36cdae6c237d4caa93292af5feb80",
+  "candidate_bundle_unchanged": true,
+  "case": {
+    "case": "valid_import",
+    "cleanup_verified": true,
+    "container_git_version": "git version 2.39.5",
+    "elapsed_seconds": 0.672,
+    "exit_code": 0,
+    "inspected_limits": {
+      "bind_mounts_read_only": true,
+      "bind_targets": [
+        "/baseline.bundle",
+        "/input.bundle",
+        "/verify.sh"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+      "memory_bytes": 134217728,
+      "network_mode": "none",
+      "pids_limit": 32,
+      "read_only": true,
+      "security_opt": [
+        "no-new-privileges"
+      ],
+      "tmpfs_stage": "rw,nosuid,noexec,size=32m,mode=1777",
+      "user": "10001:10001"
+    },
+    "marker": "S4_VERIFIED",
+    "stage_markers": [
+      "S4_STAGE=mount_access",
+      "S4_STAGE=git_init",
+      "S4_STAGE=baseline_unbundle",
+      "S4_STAGE=candidate_unbundle",
+      "S4_STAGE=fsck",
+      "S4_STAGE=ancestry"
+    ],
+    "status": "completed"
+  },
+  "commit": "2a17684d0190ed35eaed9dac3caa641d240b1957",
+  "count_scope": "no provider/model component instantiated",
+  "identity": "EXP-100-S4-03",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "local_preflight": "passed",
+  "model_turns": 0,
+  "probe_sha256": "ff485c8503cf83aa7abe0faa87ca4b08bd797af0c3492634fadbd916a218dd2b",
+  "protocol_sha256": "bd0e5a2d2ba66b518aa1d792eafbabd70e248fd0eba88d19e0f4c5817e38557b",
+  "provider_calls": 0,
+  "schema_version": 1,
+  "script_sha256": "927eb58b01e4050ccc2fe7c3ff040e63665f0ab0a589bf4cfa24196254008e28",
+  "source_commit": "79533a262799479f7eb1ee86fad055075308e205",
+  "status": "passed"
+}
