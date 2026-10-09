@@ -26,8 +26,11 @@ single-user test of visible Stop composition, not a hosted isolation claim.
 
 Before reservation, verify clean reviewed source, private empty state, pinned
 images, runner preflight, provider login volume, disposable Langflow health,
-component catalog, flow import and browser Playground availability without
-clicking Send. A failed preflight spends zero turns. Commit this protocol and
+flow import and browser Playground availability without clicking Send. The
+installed custom-component catalog is not present in this disposable server;
+the saved flow embeds the component code, so a separate fake-runner browser
+case must prove the component executes before the live turn. A failed gate
+spends zero turns. Commit this protocol and
 probe, run focused tests, and obtain one independent substantive review before
 the first real submission.
 

@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import threading
 import time
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 from uuid import uuid4
 
 from experiments.exp22.phase_c_live import _auth_read_result, _events, _is_long_command, _stop
@@ -63,17 +63,12 @@ def _wait_ui(port, seconds=90):
         try:
             with urlopen(f"http://127.0.0.1:{port}/api/v1/auto_login", timeout=3) as response:
                 if response.status == 200:
-                    token = json.loads(response.read())["access_token"]
-                    catalog_request = Request(
-                        f"http://127.0.0.1:{port}/api/v1/all",
-                        headers={"Authorization": "Bearer " + token})
-                    with urlopen(catalog_request, timeout=15) as catalog:
-                        if b"LaomedoCodexAgent" in catalog.read():
-                            return
+                    if "access_token" in json.loads(response.read()):
+                        return
         except Exception:
             pass
         time.sleep(.5)
-    raise RuntimeError("disposable_langflow_catalog_not_ready")
+    raise RuntimeError("disposable_langflow_not_ready")
 
 
 def _remove_ui(name):

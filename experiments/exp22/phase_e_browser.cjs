@@ -69,7 +69,9 @@ async function main() {
     await page.getByTestId('input-chat-playground').waitFor({ timeout: 30000 });
     observation.playground_available = true;
     if (mode === 'run') {
-      const task = fs.readFileSync(path.join(ROOT, 'experiments/exp22/PHASE-E-TASK.txt'), 'utf8');
+      const task = process.env.PHASE_E_FAKE_PREFLIGHT === '1'
+        ? 'CASE_B synthetic stop probe'
+        : fs.readFileSync(path.join(ROOT, 'experiments/exp22/PHASE-E-TASK.txt'), 'utf8');
       await page.getByTestId('input-chat-playground').fill(task);
       observation.send_clicked_utc = utc();
       await page.getByTestId('button-send').click();
