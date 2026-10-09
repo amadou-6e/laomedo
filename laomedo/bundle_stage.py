@@ -28,6 +28,7 @@ _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 _OBJECT_ID = re.compile(rb"[0-9a-f]{40}\Z")
 SCRIPT = Path(__file__).parent / "resources" / "bundle_stage.sh"
+PINNED_IMAGE_ID = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78"
 MEMORY_BYTES = 128 * 1024 * 1024
 MAX_OUTPUT_BYTES = 32 * 1024 * 1024
 
@@ -167,17 +168,34 @@ def _container_stage(attempt: Path, frozen: dict, image_id: str,
             result["status"] = "limit_unverified"
             return result
         result["limits_verified"] = True
-        started_container = docker(["docker", "start", "--attach", name], 45)
-        state = docker(["docker", "inspect", name], 30)
-        if state.returncode:
+        if docker(["docker", "start", name], 30).returncode:
+            result["status"] = "start_unknown"
             return result
-        result["exit_code"] = json.loads(state.stdout)[0]["State"]["ExitCode"]
-        result["stage_markers"] = [line for line in started_container.stdout.splitlines()
-                                   if line.startswith("STAGE_FAILED=")]
-        if (started_container.returncode != 0 or result["exit_code"] != 0 or
-                "STAGE_VERIFIED" not in
-                started_container.stdout.splitlines()):
-            result["status"] = "verification_failed"
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            logs = docker(["docker", "logs", "--tail", "20", name], 10)
+            state = docker(["docker", "inspect", name], 10)
+            if logs.returncode or state.returncode:
+                return result
+            lines = logs.stdout.splitlines()
+            current = json.loads(state.stdout)[0]["State"]
+            result["exit_code"] = current["ExitCode"]
+            result["stage_markers"] = [line for line in lines
+                                       if line.startswith("STAGE_FAILED=")]
+            if result["stage_markers"]:
+                result["status"] = "verification_failed"
+                return result
+            if "STAGE_VERIFIED" in lines:
+                if current["Running"] is not True:
+                    result["status"] = "output_unavailable"
+                    return result
+                break
+            if current["Running"] is not True:
+                result["status"] = "verification_failed"
+                return result
+            time.sleep(.1)
+        else:
+            result["status"] = "stage_timeout"
             return result
         pending = attempt / "verified.bundle.pending"
         if pending.exists() or (attempt / "verified.bundle").exists():
@@ -239,6 +257,7 @@ def verify_frozen_bundle(runner_state: Path, private_root: Path, *,
                          commit: str, image_id: str, docker=_run) -> dict:
     """One-shot verify/export from already frozen bytes; no provider write."""
     if (not isinstance(image_id, str) or not _IMAGE.fullmatch(image_id) or
+            image_id != PINNED_IMAGE_ID or
             not isinstance(commit, str) or not _COMMIT.fullmatch(commit) or
             not isinstance(expected_baseline_sha256, str) or
             not _SHA.fullmatch(expected_baseline_sha256)):
@@ -262,7 +281,7 @@ def verify_frozen_bundle(runner_state: Path, private_root: Path, *,
               "status": "unknown", "source_bundle_sha256": frozen["bundle_sha256"],
               "baseline_bundle_sha256": expected_baseline_sha256,
               "baseline": frozen["baseline"], "commit": commit,
-              "image_id": image_id}
+              "image_id": image_id, "policy_approved": False}
     journal = attempt / "verification.json"
     _durable_json(journal, result)
     try:

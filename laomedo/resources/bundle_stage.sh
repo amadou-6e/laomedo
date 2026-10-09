@@ -32,3 +32,11 @@ git -C /stage/repository.git update-ref refs/heads/validated "$commit" >/dev/nul
 git -C /stage/repository.git bundle create /stage/verified.bundle refs/heads/validated >/dev/null 2>&1
 trap - EXIT
 echo STAGE_VERIFIED
+# Keep the capped tmpfs mounted while the trusted host copies the exact
+# verified file. The host removes this labelled container after copying.
+# This watchdog bounds a lost host copy/cleanup path; it is not a success exit.
+elapsed=0
+while [ "$elapsed" -lt 450 ]; do
+    sleep 0.1
+    elapsed=$((elapsed + 1))
+done

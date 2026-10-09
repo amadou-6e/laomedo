@@ -9,11 +9,12 @@ import unittest
 
 from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
 from laomedo.bundle_stage import (BundleStageError, MEMORY_BYTES, SCRIPT,
+                                  PINNED_IMAGE_ID,
                                   _read_frozen, _single_bundle_commit,
                                   verify_frozen_bundle)
 
 
-IMAGE_ID = "sha256:" + "e" * 64
+IMAGE_ID = PINNED_IMAGE_ID
 
 
 class BundleStageTests(unittest.TestCase):
@@ -70,8 +71,8 @@ class BundleStageTests(unittest.TestCase):
     def _fake_docker(self, *, network="none", cleanup=True,
                      success=True, output=None):
         commands = []
-        inspections = 0
         removed = False
+        started = False
         exported = self.exported_bytes if output is None else output
         config = {"Image": IMAGE_ID,
                   "HostConfig": {"NetworkMode": network, "ReadonlyRootfs": True,
@@ -84,24 +85,30 @@ class BundleStageTests(unittest.TestCase):
                   "Mounts": [{"Type": "bind", "RW": False,
                               "Destination": target} for target in
                              ("/baseline.bundle", "/input.bundle", "/verify.sh")],
-                  "State": {"ExitCode": 0 if success else 128}}
+                  "State": {"Running": False, "ExitCode": 0}}
 
         def run(args, timeout=30):
-            nonlocal inspections, removed
+            nonlocal removed, started
             commands.append(args)
             operation = args[1]
             if operation == "inspect":
-                inspections += 1
+                config["State"] = {"Running": started and success and not removed,
+                                   "ExitCode": 0 if success else 128}
                 config["Config"]["Labels"]["laomedo.bundle-stage"] = \
                     commands[0][commands[0].index("--name") + 1]
                 return subprocess.CompletedProcess(
                     args, 1 if (removed and cleanup) else 0,
                     json.dumps([config]), "")
             if operation == "start":
+                started = True
+                return subprocess.CompletedProcess(args, 0, "", "")
+            if operation == "logs":
                 return subprocess.CompletedProcess(
-                    args, 0 if success else 128,
-                    "STAGE_VERIFIED\n" if success else "STAGE_FAILED=integrity\n", "")
+                    args, 0, "STAGE_VERIFIED\n" if success else
+                    "STAGE_FAILED=integrity\n", "")
             if operation == "cp":
+                if not config["State"]["Running"]:
+                    return subprocess.CompletedProcess(args, 1, "", "not running")
                 Path(args[3]).write_bytes(exported)
             if operation == "rm":
                 removed = True
@@ -138,6 +145,11 @@ class BundleStageTests(unittest.TestCase):
         self.assertIn("--network none", create)
         self.assertIn("--read-only", create)
         self.assertIn(IMAGE_ID, create)
+        self.assertFalse(result["policy_approved"])
+        self.assertLess(next(i for i, call in enumerate(commands)
+                             if call[1] == "cp"),
+                        next(i for i, call in enumerate(commands)
+                             if call[1] == "rm"))
         self.assertIn("target=/baseline.bundle,readonly", create)
         self.assertNotIn("GH_TOKEN", create)
         self.assertTrue(SCRIPT.is_file())
@@ -175,6 +187,25 @@ class BundleStageTests(unittest.TestCase):
         result = self._verify(docker)
         self.assertEqual(result["status"], "unknown")
         self.assertFalse(result["container"]["cleanup_verified"])
+
+    def test_container_exiting_before_copy_cannot_verify_output(self):
+        docker, commands = self._fake_docker(success=False)
+        result = self._verify(docker)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["container"]["status"], "verification_failed")
+        self.assertFalse(any(call[1] == "cp" for call in commands))
+        self.assertFalse((self.private / "run-a" / "attempt-1" /
+                          "verified.bundle").exists())
+
+    def test_unreviewed_image_is_refused_before_docker(self):
+        docker, commands = self._fake_docker()
+        with self.assertRaisesRegex(BundleStageError, "stage_identity_invalid"):
+            verify_frozen_bundle(
+                self.runner, self.private, run_id="run-a", attempt_id="attempt-1",
+                baseline_bundle=self.baseline_bundle,
+                expected_baseline_sha256=self.baseline_hash, commit=self.commit,
+                image_id="sha256:" + "e" * 64, docker=docker)
+        self.assertEqual(commands, [])
 
     def test_exported_wrong_ref_is_not_verified(self):
         candidate = (self.workspace / HANDOFF_NAME).read_bytes()
