@@ -36,9 +36,19 @@ class ProbeS4Tests(unittest.TestCase):
                      "HostConfig": {"NetworkMode": "none", "ReadonlyRootfs": True,
                                     "Memory": probe_s4.MEMORY_BYTES,
                                     "PidsLimit": 32,
-                                    "Tmpfs": {"/stage": "rw,size=32m"}},
+                                    "Tmpfs": {"/stage": "rw,size=32m"},
+                                    "CapDrop": ["ALL"],
+                                    "SecurityOpt": ["no-new-privileges:true"]},
                      "State": {"ExitCode": 0},
-                     "Config": {"Labels": {"laomedo.experiment": "s4"}}}
+                     "Config": {"Labels": {"laomedo.experiment": "s4"},
+                                "User": "10001:10001"},
+                     "Mounts": [{"Type": "bind", "RW": False,
+                                 "Destination": "/trusted"},
+                                {"Type": "bind", "RW": False,
+                                 "Destination": "/input.bundle"},
+                                {"Type": "bind", "RW": False,
+                                 "Destination": "/verify.sh"},
+                                {"Type": "tmpfs", "RW": True}]}
         calls = []
         inspect_count = 0
 
@@ -68,6 +78,27 @@ class ProbeS4Tests(unittest.TestCase):
                        "--pids-limit", "32", probe_s4.IMAGE_ID):
             self.assertIn(option, command)
         self.assertEqual(calls[-2], ["docker", "rm", "--force", "laomedo-s4-abc"])
+
+    def test_disk_control_keeps_error_out_of_full_tmpfs(self):
+        source = Path(probe_s4.__file__).read_text(encoding="utf-8")
+        self.assertIn("if output=$(dd if=/dev/zero", source)
+        self.assertNotIn("2>/stage/dd.err", source)
+
+    def test_malformed_cleanup_inspection_is_not_accepted(self):
+        calls = []
+
+        def fake_run(args, **_kwargs):
+            calls.append(args)
+            if args[1] == "create":
+                return subprocess.CompletedProcess(args, 1, "", "")
+            return subprocess.CompletedProcess(args, 0, "malformed", "")
+
+        with patch.object(probe_s4.secrets, "token_hex", return_value="abc"), \
+                patch.object(probe_s4, "_run", side_effect=fake_run):
+            result = probe_s4._docker_case("valid_import", ["true"], [])
+        self.assertEqual(result["status"], "create_failed")
+        self.assertFalse(result["cleanup_verified"])
+        self.assertEqual(len(calls), 2)
 
 
 if __name__ == "__main__":

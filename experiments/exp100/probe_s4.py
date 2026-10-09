@@ -88,18 +88,34 @@ def _docker_case(label: str, command: list[str], mounts: list[Path]) -> dict:
             return result
         config = json.loads(inspected.stdout)[0]
         host = config["HostConfig"]
+        bind_mounts = [mount for mount in config["Mounts"]
+                       if mount["Type"] == "bind"]
         limits = {"image_id": config["Image"],
                   "network_mode": host["NetworkMode"],
                   "read_only": host["ReadonlyRootfs"],
                   "memory_bytes": host["Memory"],
                   "pids_limit": host["PidsLimit"],
-                  "tmpfs_stage": host["Tmpfs"].get("/stage")}
+                  "tmpfs_stage": host["Tmpfs"].get("/stage"),
+                  "user": config["Config"]["User"],
+                  "cap_drop": host["CapDrop"],
+                  "security_opt": host["SecurityOpt"],
+                  "bind_mounts_read_only": all(not mount["RW"] for mount in
+                                               bind_mounts),
+                  "bind_targets": sorted(mount["Destination"] for mount in
+                                         bind_mounts)}
         result["inspected_limits"] = limits
         if (limits["image_id"] != IMAGE_ID or limits["network_mode"] != "none" or
                 limits["read_only"] is not True or
                 limits["memory_bytes"] != MEMORY_BYTES or
                 limits["pids_limit"] != 32 or
-                not limits["tmpfs_stage"] or "size=32m" not in limits["tmpfs_stage"]):
+                not limits["tmpfs_stage"] or "size=32m" not in limits["tmpfs_stage"] or
+                limits["user"] != "10001:10001" or
+                "ALL" not in limits["cap_drop"] or
+                not any(value.startswith("no-new-privileges") for value in
+                        limits["security_opt"]) or not limits["bind_mounts_read_only"] or
+                limits["bind_targets"] !=
+                    (sorted(["/trusted", "/input.bundle", "/verify.sh"])
+                     if mounts else [])):
             result["status"] = "limit_mismatch"
             return result
         called = _run(["docker", "start", "--attach", name], timeout=40)
@@ -125,14 +141,17 @@ def _docker_case(label: str, command: list[str], mounts: list[Path]) -> dict:
     finally:
         result["elapsed_seconds"] = round(time.monotonic() - started, 3)
         if created:
-            inspected = _run(["docker", "inspect", name])
-            if inspected.returncode == 0:
-                found = json.loads(inspected.stdout)[0]
-                if found.get("Config", {}).get("Labels", {}).get(
-                        "laomedo.experiment") == "s4":
-                    removed = _run(["docker", "rm", "--force", name])
-                    result["cleanup_verified"] = removed.returncode == 0 and \
-                        _run(["docker", "inspect", name]).returncode != 0
+            try:
+                inspected = _run(["docker", "inspect", name])
+                if inspected.returncode == 0:
+                    found = json.loads(inspected.stdout)[0]
+                    if found.get("Config", {}).get("Labels", {}).get(
+                            "laomedo.experiment") == "s4":
+                        removed = _run(["docker", "rm", "--force", name])
+                        result["cleanup_verified"] = removed.returncode == 0 and \
+                            _run(["docker", "inspect", name]).returncode != 0
+            except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, IndexError):
+                result["cleanup_verified"] = False
 
 
 def run() -> dict:
@@ -156,9 +175,10 @@ def run() -> dict:
                                     ["sh", "/verify.sh", baseline, commit],
                                     [trusted, bundle])
             disk = _docker_case("tmpfs_quota",
-                                ["sh", "-c", "dd if=/dev/zero of=/stage/fill "
-                                 "bs=1M count=40 2>/stage/dd.err && exit 91; "
-                                 "grep -q 'No space left on device' /stage/dd.err "
+                                ["sh", "-c", "if output=$(dd if=/dev/zero "
+                                 "of=/stage/fill bs=1M count=40 2>&1); "
+                                 "then exit 91; fi; printf '%s' \"$output\" "
+                                 "| grep -q 'No space left on device' "
                                  "&& echo S4_DISK_LIMIT"], [])
             script = ("const net=require('net');const s=net.createConnection({"
                       "host:'host.docker.internal',port:" + str(port) + "});"
@@ -199,7 +219,8 @@ def run() -> dict:
                 "trusted_source_unchanged": source_unchanged,
                 "bundle_unchanged": bundle_unchanged,
                 "provider_calls": 0, "model_turns": 0,
-                "count_scope": "no provider/model component instantiated; no packet capture"}
+                "count_scope": "no provider/model component instantiated; no packet capture",
+                "network_evidence_limit": "listener failure is diagnostic only; isolation rests on inspected NetworkMode=none"}
 
 
 def record_once(path: Path, source_commit: str) -> dict:
