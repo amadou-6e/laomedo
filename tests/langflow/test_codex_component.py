@@ -204,7 +204,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         probe = ('            payload["langflow_probe"] = {"run_id": self.graph.run_id, '
                  '"flow_id": self.graph.flow_id, "stage_id": self._vertex.id}\n'
                  + source)
-        self.assertEqual(code.count(source), 2)
+        self.assertEqual(code.count(source), 1)
         prefix, separator, suffix = code.rpartition(source)
         self.assertTrue(separator)
         agent["data"]["node"]["template"]["code"]["value"] = prefix + probe + suffix
@@ -388,3 +388,4 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
