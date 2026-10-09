@@ -31,13 +31,23 @@ def powershell(command):
     return result.stdout.decode("utf-8-sig").strip()
 
 
+def parse_processes(encoded):
+    """Only a real positive PID array can establish process readiness."""
+    value = json.loads(encoded)
+    if not isinstance(value, list):
+        raise ValueError("process_observation_invalid")
+    if any(type(item) is not int or item < 1 for item in value):
+        raise ValueError("process_observation_invalid")
+    return sorted(value)
+
+
 def processes(configuration):
     command = ("$p = @(Get-CimInstance Win32_Process | Where-Object { "
                "$_.ProcessId -ne $PID -and $_.Name -eq 'python.exe' -and "
                "$_.CommandLine -and $_.CommandLine.Contains(" + quote(configuration) +
                ") -and $_.CommandLine.Contains('laomedo.managed_service') }); "
-               "ConvertTo-Json -Compress -InputObject @($p.ProcessId)")
-    return sorted(json.loads(powershell(command)))
+               "ConvertTo-Json -Compress -InputObject @($p | ForEach-Object { [int]$_.ProcessId })")
+    return parse_processes(powershell(command))
 
 
 def run(private: Path):
