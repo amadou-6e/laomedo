@@ -4,13 +4,15 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
 from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
 from laomedo.bundle_stage import (BundleStageError, MEMORY_BYTES, SCRIPT,
                                   PINNED_IMAGE_ID,
-                                  _read_frozen, _single_bundle_commit,
+                                  _export_binary, _read_frozen,
+                                  _single_bundle_commit,
                                   verify_frozen_bundle)
 
 
@@ -18,6 +20,30 @@ IMAGE_ID = PINNED_IMAGE_ID
 
 
 class BundleStageTests(unittest.TestCase):
+    def test_export_stream_keeps_binary_bytes_and_rejects_oversize(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "stream.bundle"
+            result = _export_binary(
+                [sys.executable, "-c",
+                 "import sys;sys.stdout.buffer.write(bytes([0,255,10,13]))"],
+                output)
+            self.assertEqual(result, {"class": "ok", "returncode": 0,
+                                      "bytes": 4})
+            self.assertEqual(output.read_bytes(), bytes([0, 255, 10, 13]))
+            too_large = Path(temporary) / "oversize.bundle"
+            result = _export_binary(
+                [sys.executable, "-c",
+                 "import sys;sys.stdout.buffer.write(b'x'*(32*1024*1024+1))"],
+                too_large)
+            self.assertEqual(result["class"], "oversized")
+            self.assertFalse(too_large.exists())
+            timed = Path(temporary) / "timed.bundle"
+            result = _export_binary(
+                [sys.executable, "-c", "import time;time.sleep(2)"],
+                timed, timeout=.2)
+            self.assertEqual(result["class"], "timeout")
+            self.assertFalse(timed.exists())
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -69,7 +95,7 @@ class BundleStageTests(unittest.TestCase):
         return result.stdout.decode().strip()
 
     def _fake_docker(self, *, network="none", cleanup=True,
-                     success=True, output=None):
+                     success=True, output=None, export_class="ok"):
         commands = []
         removed = False
         started = False
@@ -106,22 +132,28 @@ class BundleStageTests(unittest.TestCase):
                 return subprocess.CompletedProcess(
                     args, 0, "STAGE_VERIFIED\n" if success else
                     "STAGE_FAILED=integrity\n", "")
-            if operation == "cp":
-                if not config["State"]["Running"]:
-                    return subprocess.CompletedProcess(args, 1, "", "not running")
-                Path(args[3]).write_bytes(exported)
             if operation == "rm":
                 removed = True
             return subprocess.CompletedProcess(args, 0, "", "")
 
-        return run, commands
+        def export_stream(args, destination, timeout=30):
+            commands.append(args)
+            if export_class != "ok":
+                return {"class": export_class, "returncode": 1}
+            if not config["State"]["Running"]:
+                return {"class": "command_failed", "returncode": 1}
+            Path(destination).write_bytes(exported)
+            return {"class": "ok", "returncode": 0, "bytes": len(exported)}
 
-    def _verify(self, docker):
+        return run, export_stream, commands
+
+    def _verify(self, docker, export):
         return verify_frozen_bundle(
             self.runner, self.private, run_id="run-a", attempt_id="attempt-1",
             baseline_bundle=self.baseline_bundle,
             expected_baseline_sha256=self.baseline_hash,
-            commit=self.commit, image_id=IMAGE_ID, docker=docker)
+            commit=self.commit, image_id=IMAGE_ID, docker=docker,
+            export=export)
 
     def test_bundle_header_is_exactly_one_expected_ref(self):
         self.assertEqual(_single_bundle_commit(
@@ -132,12 +164,14 @@ class BundleStageTests(unittest.TestCase):
                                   "refs/heads/other")
 
     def test_exact_frozen_bundle_exports_private_verified_artifact(self):
-        docker, commands = self._fake_docker()
-        result = self._verify(docker)
+        docker, export, commands = self._fake_docker()
+        result = self._verify(docker, export)
         self.assertEqual(result["status"], "verified")
         self.assertTrue(result["container"]["cleanup_verified"])
         self.assertEqual(result["container"]["output_sha256"],
                          hashlib.sha256(self.exported_bytes).hexdigest())
+        self.assertTrue(result["container"]["success_marker_seen"])
+        self.assertEqual(result["container"]["export_class"], "ok")
         self.assertEqual((self.private / "run-a" / "attempt-1" /
                           "verified.bundle").read_bytes(), self.exported_bytes)
         self.assertEqual(len([call for call in commands if call[1] == "create"]), 1)
@@ -146,8 +180,11 @@ class BundleStageTests(unittest.TestCase):
         self.assertIn("--read-only", create)
         self.assertIn(IMAGE_ID, create)
         self.assertFalse(result["policy_approved"])
+        self.assertTrue(any(call[1:4] == ["exec", "--user", "10001:10001"]
+                            and call[-2:] == ["cat", "/stage/verified.bundle"]
+                            for call in commands))
         self.assertLess(next(i for i, call in enumerate(commands)
-                             if call[1] == "cp"),
+                             if call[1] == "exec"),
                         next(i for i, call in enumerate(commands)
                              if call[1] == "rm"))
         self.assertIn("target=/baseline.bundle,readonly", create)
@@ -155,11 +192,11 @@ class BundleStageTests(unittest.TestCase):
         self.assertTrue(SCRIPT.is_file())
         with self.assertRaisesRegex(BundleStageError,
                                     "verification_identity_consumed"):
-            self._verify(docker)
+            self._verify(docker, export)
         self.assertEqual(len([call for call in commands if call[1] == "create"]), 1)
 
     def test_wrong_baseline_hash_refuses_before_docker(self):
-        docker, commands = self._fake_docker()
+        docker, _, commands = self._fake_docker()
         with self.assertRaisesRegex(BundleStageError, "baseline_bundle_changed"):
             verify_frozen_bundle(
                 self.runner, self.private, run_id="run-a", attempt_id="attempt-1",
@@ -170,35 +207,48 @@ class BundleStageTests(unittest.TestCase):
 
     def test_changed_frozen_bytes_refuse_before_docker(self):
         (self.private / "run-a" / "attempt-1" / "input.bundle").write_bytes(b"changed")
-        docker, commands = self._fake_docker()
+        docker, export, commands = self._fake_docker()
         with self.assertRaisesRegex(BundleStageError, "frozen_bundle_changed"):
-            self._verify(docker)
+            self._verify(docker, export)
         self.assertEqual(commands, [])
 
     def test_unverified_network_config_never_starts_container(self):
-        docker, commands = self._fake_docker(network="bridge")
-        result = self._verify(docker)
+        docker, export, commands = self._fake_docker(network="bridge")
+        result = self._verify(docker, export)
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["container"]["status"], "limit_unverified")
         self.assertFalse(any(call[1] == "start" for call in commands))
 
     def test_cleanup_failure_keeps_outcome_unknown(self):
-        docker, _ = self._fake_docker(cleanup=False)
-        result = self._verify(docker)
+        docker, export, _ = self._fake_docker(cleanup=False)
+        result = self._verify(docker, export)
         self.assertEqual(result["status"], "unknown")
         self.assertFalse(result["container"]["cleanup_verified"])
 
     def test_container_exiting_before_copy_cannot_verify_output(self):
-        docker, commands = self._fake_docker(success=False)
-        result = self._verify(docker)
+        docker, export, commands = self._fake_docker(success=False)
+        result = self._verify(docker, export)
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["container"]["status"], "verification_failed")
-        self.assertFalse(any(call[1] == "cp" for call in commands))
+        self.assertFalse(any(call[1] == "exec" for call in commands))
         self.assertFalse((self.private / "run-a" / "attempt-1" /
                           "verified.bundle").exists())
 
+    def test_failed_binary_stream_never_verifies_output(self):
+        docker, export, commands = self._fake_docker(
+            export_class="command_failed")
+        result = self._verify(docker, export)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["container"]["status"], "stream_failed")
+        self.assertEqual(result["container"]["export_class"],
+                         "command_failed")
+        self.assertTrue(result["container"]["cleanup_verified"])
+        self.assertFalse((self.private / "run-a" / "attempt-1" /
+                          "verified.bundle").exists())
+        self.assertTrue(any(call[1] == "rm" for call in commands))
+
     def test_unreviewed_image_is_refused_before_docker(self):
-        docker, commands = self._fake_docker()
+        docker, _, commands = self._fake_docker()
         with self.assertRaisesRegex(BundleStageError, "stage_identity_invalid"):
             verify_frozen_bundle(
                 self.runner, self.private, run_id="run-a", attempt_id="attempt-1",
@@ -209,8 +259,8 @@ class BundleStageTests(unittest.TestCase):
 
     def test_exported_wrong_ref_is_not_verified(self):
         candidate = (self.workspace / HANDOFF_NAME).read_bytes()
-        docker, commands = self._fake_docker(output=candidate)
-        result = self._verify(docker)
+        docker, export, commands = self._fake_docker(output=candidate)
+        result = self._verify(docker, export)
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["container"]["status"], "output_invalid")
         self.assertTrue(any(call[1] == "rm" for call in commands))

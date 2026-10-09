@@ -16,6 +16,7 @@ import re
 import secrets
 import stat
 import subprocess
+import threading
 import time
 
 from .bundle_ingest import (_bound_roots, _bundle_bytes, _durable_json,
@@ -68,6 +69,58 @@ def _single_bundle_commit(data: bytes, expected_ref: str) -> str:
 def _run(args: list[str], timeout: float = 30) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, capture_output=True, text=True, check=False,
                           timeout=timeout)
+
+
+def _export_binary(args: list[str], destination: Path,
+                   timeout: float = 30) -> dict:
+    """Capture one fixed Docker exec stream without text conversion.
+
+    The source is one file inside a 32 MiB tmpfs. The host nevertheless reads
+    at most MAX_OUTPUT_BYTES + 1 and kills any oversized or timed-out stream.
+    No untrusted stderr or host path is exposed in the result.
+    """
+    try:
+        process = subprocess.Popen(args, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL)
+    except OSError:
+        return {"class": "start_failed", "returncode": None}
+    expired = threading.Event()
+
+    def terminate_late() -> None:
+        if process.poll() is None:
+            expired.set()
+            process.kill()
+
+    watchdog = threading.Timer(timeout, terminate_late)
+    watchdog.daemon = True
+    watchdog.start()
+    try:
+        assert process.stdout is not None
+        payload = process.stdout.read(MAX_OUTPUT_BYTES + 1)
+        if len(payload) > MAX_OUTPUT_BYTES:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)
+            return {"class": "oversized", "returncode": process.returncode}
+        process.wait(timeout=5)
+        if expired.is_set():
+            return {"class": "timeout", "returncode": process.returncode}
+        if process.returncode:
+            return {"class": "command_failed", "returncode": process.returncode}
+        with destination.open("xb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        return {"class": "ok", "returncode": 0, "bytes": len(payload)}
+    except (OSError, subprocess.TimeoutExpired):
+        if process.poll() is None:
+            process.kill()
+        process.wait(timeout=5)
+        return {"class": "other", "returncode": process.returncode}
+    finally:
+        watchdog.cancel()
+        if process.stdout is not None:
+            process.stdout.close()
 
 
 def _read_frozen(runner_state: Path, private_root: Path,
@@ -137,11 +190,12 @@ def _inspect_limits(config: dict, image_id: str) -> bool:
 
 
 def _container_stage(attempt: Path, frozen: dict, image_id: str,
-                     *, docker=_run) -> dict:
+                     *, docker=_run, export=_export_binary) -> dict:
     name = "laomedo-bundle-stage-" + secrets.token_hex(8)
     result = {"status": "unknown", "exit_code": None,
               "cleanup_verified": False, "output_sha256": None,
-              "output_bytes": None, "stage_markers": []}
+              "output_bytes": None, "stage_markers": [],
+              "success_marker_seen": False, "export_class": None}
     started = time.monotonic()
     created = False
     try:
@@ -179,15 +233,17 @@ def _container_stage(attempt: Path, frozen: dict, image_id: str,
                 return result
             lines = logs.stdout.splitlines()
             current = json.loads(state.stdout)[0]["State"]
-            result["exit_code"] = current["ExitCode"]
+            result["exit_code"] = (None if current["Running"] is True else
+                                   current["ExitCode"])
             result["stage_markers"] = [line for line in lines
                                        if line.startswith("STAGE_FAILED=")]
             if result["stage_markers"]:
                 result["status"] = "verification_failed"
                 return result
             if "STAGE_VERIFIED" in lines:
+                result["success_marker_seen"] = True
                 if current["Running"] is not True:
-                    result["status"] = "output_unavailable"
+                    result["status"] = "exited_after_marker"
                     return result
                 break
             if current["Running"] is not True:
@@ -201,10 +257,12 @@ def _container_stage(attempt: Path, frozen: dict, image_id: str,
         if pending.exists() or (attempt / "verified.bundle").exists():
             result["status"] = "output_conflict"
             return result
-        copied = docker(["docker", "cp", name + ":/stage/verified.bundle",
-                         str(pending)], 30)
-        if copied.returncode:
-            result["status"] = "output_unavailable"
+        streamed = export(["docker", "exec", "--user", "10001:10001", name,
+                           "cat", "/stage/verified.bundle"], pending, 30)
+        result["export_class"] = streamed["class"]
+        result["export_returncode"] = streamed.get("returncode")
+        if streamed["class"] != "ok":
+            result["status"] = "stream_failed"
             return result
         metadata = pending.lstat()
         if (_redirected(pending) or not stat.S_ISREG(metadata.st_mode) or
@@ -254,7 +312,8 @@ def _container_stage(attempt: Path, frozen: dict, image_id: str,
 def verify_frozen_bundle(runner_state: Path, private_root: Path, *,
                          run_id: str, attempt_id: str,
                          baseline_bundle: Path, expected_baseline_sha256: str,
-                         commit: str, image_id: str, docker=_run) -> dict:
+                         commit: str, image_id: str, docker=_run,
+                         export=_export_binary) -> dict:
     """One-shot verify/export from already frozen bytes; no provider write."""
     if (not isinstance(image_id, str) or not _IMAGE.fullmatch(image_id) or
             image_id != PINNED_IMAGE_ID or
@@ -291,7 +350,7 @@ def verify_frozen_bundle(runner_state: Path, private_root: Path, *,
             output.flush()
             os.fsync(output.fileno())
         result["container"] = _container_stage(attempt, frozen, image_id,
-                                               docker=docker)
+                                               docker=docker, export=export)
         if (result["container"]["status"] == "verified" and
                 result["container"]["cleanup_verified"]):
             result["status"] = "verified"

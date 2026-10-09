@@ -21,6 +21,9 @@ IDENTITY = "exp100-s7-20261009-a"
 HERE = Path(__file__).resolve().parent
 EVIDENCE = HERE / "observation-s7.json"
 PENDING = HERE / "observation-s7.json.pending"
+DRIVER_PATH = Path(__file__)
+POSITIVE_SUFFIX = "positive"
+NEGATIVE_SUFFIX = "wrong-commit"
 
 
 def digest(data: bytes) -> str:
@@ -105,7 +108,7 @@ def run_once(output: dict, checkpoint) -> None:
                   model_turns=0, cases={})
     with tempfile.TemporaryDirectory(prefix="laomedo-exp100-s7-") as temporary:
         root = Path(temporary)
-        positive = fixture(root, "positive")
+        positive = fixture(root, POSITIVE_SUFFIX)
         output["cases"]["positive"] = {
             "baseline": positive["baseline"], "commit": positive["commit"],
             "source_sha256": positive["source_sha256"],
@@ -151,7 +154,7 @@ def run_once(output: dict, checkpoint) -> None:
                     "status": "failed", "error_class": type(error).__name__}
             checkpoint()
 
-        negative = fixture(root, "wrong-commit")
+        negative = fixture(root, NEGATIVE_SUFFIX)
         before = len(created)
         try:
             verify_frozen_bundle(
@@ -217,7 +220,8 @@ def main() -> int:
     observation = {"identity": IDENTITY, "status": "unknown",
                    "started_at_unix": time.time(),
                    "source_revision": git(HERE, "rev-parse", "HEAD"),
-                   "probe_sha256": digest(Path(__file__).read_bytes()),
+                   "probe_sha256": digest(DRIVER_PATH.read_bytes()),
+                   "probe_core_sha256": digest(Path(__file__).read_bytes()),
                    "source_sha256": source_hashes}
     def checkpoint() -> None:
         with PENDING.open("wb") as stream:
