@@ -2,6 +2,7 @@
 import io
 import json
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -48,6 +49,19 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
         receipt = next(r for r in trace["receipts"] if r["kind"] == "runner_terminal")
         self.assertTrue(receipt["payload"]["workflow_outcome_preserved"])
         return trace
+
+    def test_concurrent_same_terminal_observation_has_one_durable_receipt(self):
+        self.store.record_runner_wait_uncertain(self.run, self.inv)
+        gate = threading.Barrier(2)
+        def observe(_):
+            gate.wait(timeout=5)
+            return self.terminal()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(observe, range(2)))
+        self.assertEqual(sorted(outcomes), [False, True])
+        rows = [r for r in self.store.trace_snapshot(self.run)["receipts"]
+                if r["kind"] == "runner_terminal"]
+        self.assertEqual(len(rows), 1)
 
     def test_server_timeout_then_late_effect_and_confirmed_cancel_survive_restart(self):
         self.store.record_timeout(self.run, self.inv, http_status=408,
