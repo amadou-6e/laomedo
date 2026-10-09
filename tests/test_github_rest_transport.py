@@ -86,16 +86,51 @@ class GitHubRestTransportTests(unittest.TestCase):
 
     def test_pr_update_checks_real_head_before_patch(self):
         payload = {"number": 7, "title": "Changed", "head": "branch-a",
-                   "base": "main", "marker": "marker-1"}
+                   "base": "main", "marker": "marker-1",
+                   "expected": {"title": "Old", "body": "Old body",
+                                "head_sha": "a" * 40}}
         with self.assertRaisesRegex(KnownRejected, "pr_target_denied"):
             self.adapter("example/disposable", "pr_update", payload)
         self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET"])
         self.opener.calls.clear()
-        self.opener.responses = [json.dumps({"head": {"ref": "branch-a",
+        existing = {"number": 7, "title": "Old", "body": "Old body",
+            "head": {"ref": "branch-a", "sha": "a" * 40,
             "repo": {"full_name": "example/disposable"}},
-            "base": {"ref": "main"}}).encode()]
+            "base": {"ref": "main"}}
+        updated = dict(existing, title="Changed")
+        self.opener.responses = [json.dumps(item).encode()
+                                 for item in (existing, updated, updated)]
         self.adapter("example/disposable", "pr_update", payload)
-        self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET", "PATCH"])
+        self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET", "PATCH", "GET"])
+
+    def test_pr_update_refuses_stale_snapshot_without_patch(self):
+        existing = {"number": 7, "title": "Human edit", "body": "Old body",
+                    "head": {"ref": "branch-a", "sha": "a" * 40,
+                             "repo": {"full_name": "example/disposable"}},
+                    "base": {"ref": "main"}}
+        self.opener.responses = [json.dumps(existing).encode()]
+        with self.assertRaisesRegex(KnownRejected, "pr_snapshot_changed"):
+            self.adapter("example/disposable", "pr_update", {
+                "number": 7, "title": "Changed", "head": "branch-a",
+                "base": "main", "marker": "m",
+                "expected": {"title": "Old", "body": "Old body",
+                             "head_sha": "a" * 40}})
+        self.assertEqual([c.get_method() for c, _ in self.opener.calls], ["GET"])
+
+    def test_pr_update_readback_mismatch_is_unknown_not_rejected(self):
+        existing = {"number": 7, "title": "Old", "body": "Old body",
+                    "head": {"ref": "branch-a", "sha": "a" * 40,
+                             "repo": {"full_name": "example/disposable"}},
+                    "base": {"ref": "main"}}
+        self.opener.responses = [json.dumps(existing).encode()] * 3
+        with self.assertRaisesRegex(ValueError, "pr_update_readback_unknown"):
+            self.adapter("example/disposable", "pr_update", {
+                "number": 7, "title": "Changed", "head": "branch-a",
+                "base": "main", "marker": "m",
+                "expected": {"title": "Old", "body": "Old body",
+                             "head_sha": "a" * 40}})
+        self.assertEqual([c.get_method() for c, _ in self.opener.calls],
+                         ["GET", "PATCH", "GET"])
 
     def test_pr_read_returns_normalized_bound_readback(self):
         self.opener.responses = [json.dumps({"number": 7, "title": "Ready",

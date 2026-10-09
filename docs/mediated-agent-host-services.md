@@ -123,3 +123,26 @@ The synthetic integrated runner test starts a real independent lease and
 mediator process, checks an authorized launch and a stale-mediator refusal,
 and verifies lease finish without a model or GitHub call. It does not replace
 the frozen live runner-loss test.
+# Windows managed startup (implementation draft)
+
+`scripts/Install-LaomedoUserTask.ps1` registers one per-user task for
+`host-services` and a separate task for `bundle-verifier`. Supply an absolute
+Python executable, checkout and host-only JSON configuration file. Use
+`-WhatIf` to inspect registration first. Registration does not start the task;
+start the exact returned name only after reviewing its definition. Existing
+names are refused rather than overwritten. Tasks use an interactive, limited
+principal, logon trigger, IgnoreNew and three bounded restarts. Logout and
+machine failure survival are not claimed. Configuration files belong outside
+agent mounts; the verifier configuration cannot include a token reference.
+The host configuration contains only explicitly selected token-file/key
+references, never token values. Keep those files host-only and retain grant
+expiry even if Task Scheduler itself fails. No production task has been
+installed or survival probe executed by this implementation change.
+
+PR updates now require an `expected` snapshot containing `title`, `body` and
+`head_sha`. The adapter compares a fresh GET before PATCH, verifies the bound
+target, then checks another GET after PATCH. It refuses stale input before
+writing and returns uncertainty on any failed/mismatching post-write readback.
+The read/PATCH gap is not atomic; a concurrent edit can still be overwritten,
+as accepted by the user. Never resend an unknown update automatically.
+

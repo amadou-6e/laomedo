@@ -77,6 +77,12 @@ class GitHubRestTransport:
                     if isinstance(payload.get(k), str)}
             if not body or ("body" in body and payload.get("marker") not in body["body"]):
                 raise KnownRejected("pr_payload_invalid")
+            expected = payload.get("expected")
+            if (not isinstance(expected, dict) or
+                    set(expected) != {"title", "body", "head_sha"} or
+                    not all(isinstance(expected[k], str) for k in expected) or
+                    not re.fullmatch(r"[0-9a-f]{40}", expected["head_sha"])):
+                raise KnownRejected("pr_expected_snapshot_required")
             # The number alone is not authority: inspect the existing PR and
             # prove that its head is this run's approved branch in this repo.
             existing = self._call("GET", path, None, connection_id,
@@ -87,6 +93,31 @@ class GitHubRestTransport:
                     head_repo.get("full_name") != repository or
                     (existing.get("base") or {}).get("ref") != payload.get("base")):
                 raise KnownRejected("pr_target_denied")
+            if (existing.get("title") != expected["title"] or
+                    existing.get("body") != expected["body"] or
+                    head.get("sha") != expected["head_sha"]):
+                raise KnownRejected("pr_snapshot_changed")
+            # GitHub offers no atomic compare-and-PATCH for this endpoint.
+            # This catches preceding edits, not simultaneous ones. Verify by
+            # a fresh read, never by trusting the PATCH response alone.
+            self._call(method, path, body, connection_id, connection_generation)
+            try:
+                observed = self._call("GET", path, None, connection_id,
+                                      connection_generation)
+                observed_head = observed.get("head") or {}
+                if (observed.get("number") != payload["number"] or
+                        any(observed.get(k) != v for k, v in body.items()
+                            if k != "base") or
+                        (observed.get("base") or {}).get("ref") != payload["base"] or
+                        observed_head.get("ref") != payload["head"] or
+                        (observed_head.get("repo") or {}).get("full_name") != repository or
+                        observed_head.get("sha") != expected["head_sha"]):
+                    raise ValueError("pr_update_readback_mismatch")
+                return observed
+            except Exception:
+                # Even a complete GET rejection cannot prove the earlier
+                # PATCH had no effect. Preserve uncertainty in the journal.
+                raise ValueError("pr_update_readback_unknown") from None
         elif operation == "issue_create":
             if not all(isinstance(payload.get(k), str) and payload[k]
                        for k in ("title", "body", "marker")) or \
