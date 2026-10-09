@@ -4,7 +4,7 @@ Protocol draft for [Laomedo #123](https://github.com/amadou-6e/laomedo/issues/12
 Source base: Laomedo `develop` at
 `a0ea0d8252841cde21647bdefc0a04d068b6b2fb`. Target contract:
 [specs #297](https://github.com/amadou-6e/specs/pull/297) at
-`9b6c4102b2731ececcff3d646184790099874ddc` (draft, **not merged**).
+`7ee646f0531dc297444df79b7cdfc46a7e9f3700` (draft, **not merged**).
 Before execution, pin the exact probe/component commit and the cached
 Langflow 1.12.3 image
 `langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0`.
