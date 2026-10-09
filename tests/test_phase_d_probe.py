@@ -6,9 +6,15 @@ import tempfile
 import unittest
 from unittest import mock
 
-from experiments.exp22 import phase_d_live
+try:
+    from experiments.exp22 import phase_d_live
+except ModuleNotFoundError as error:
+    if error.name != "experiments":
+        raise
+    phase_d_live = None
 
 
+@unittest.skipUnless(phase_d_live is not None, "experiment source is not installed in the wheel")
 class PhaseDCleanupTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
