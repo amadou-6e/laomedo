@@ -137,7 +137,9 @@ agent mounts; the verifier configuration cannot include a token reference.
 The host configuration contains only explicitly selected token-file/key
 references, never token values. Keep those files host-only and retain grant
 expiry even if Task Scheduler itself fails. No production task has been
-installed or survival probe executed by this implementation change.
+installed by default. The separately frozen task S1 diagnostic passed and
+removed its two exact tasks; see `experiments/exp104/MANAGED-STARTUP-RESULTS.md`.
+This does not establish production, logout or in-flight verifier cleanup.
 
 PR updates now require an `expected` snapshot containing `title`, `body` and
 `head_sha`. The adapter compares a fresh GET before PATCH, verifies the bound
@@ -145,4 +147,15 @@ target, then checks another GET after PATCH. It refuses stale input before
 writing and returns uncertainty on any failed/mismatching post-write readback.
 The read/PATCH gap is not atomic; a concurrent edit can still be overwritten,
 as accepted by the user. Never resend an unknown update automatically.
+
+The verifier now reserves its exact Docker stage name, random ownership token
+and pinned image before creating anything, while holding an OS file lock.
+Subsequent worker scans can reconcile a claimed attempt only after that lock
+is free. They check name/labels/image and recheck the ID before ID-only removal;
+an absent or unavailable daemon is not proof of cleanup. A container appearing
+late can be removed on a later scan, without redispatching verification. This
+is local implementation with synthetic controls; real worker-loss cleanup
+still requires a frozen independently reviewed diagnostic. The manager must
+be alive or restart for this reconciliation; power loss and manager failure
+are not safe-cleanup guarantees.
 

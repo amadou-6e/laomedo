@@ -22,6 +22,7 @@ import time
 from .bundle_ingest import (_bound_roots, _bundle_bytes, _durable_json,
                             _record, _redirected, BundleIngestError,
                             MAX_BUNDLE_BYTES, _IDENTITY)
+from .bundle_stage_ownership import reserve_container, stage_lock, _inspect
 
 
 _IMAGE = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -191,7 +192,20 @@ def _inspect_limits(config: dict, image_id: str) -> bool:
 
 def _container_stage(attempt: Path, frozen: dict, image_id: str,
                      *, docker=_run, export=_export_binary) -> dict:
+    with stage_lock(attempt) as acquired:
+        if not acquired:
+            return {"status": "unknown", "cleanup_verified": False,
+                    "error_class": "stage_already_active"}
+        return _locked_container_stage(attempt, frozen, image_id,
+                                       docker=docker, export=export)
+
+
+def _locked_container_stage(attempt: Path, frozen: dict, image_id: str,
+                            *, docker, export) -> dict:
     name = "laomedo-bundle-stage-" + secrets.token_hex(8)
+    launch_token = secrets.token_hex(32)
+    owner = {"name": name, "token": launch_token, "image_id": image_id}
+    reserve_container(attempt, owner)
     result = {"status": "unknown", "exit_code": None,
               "cleanup_verified": False, "output_sha256": None,
               "output_bytes": None, "stage_markers": [],
@@ -203,7 +217,9 @@ def _container_stage(attempt: Path, frozen: dict, image_id: str,
                   (attempt / "input.bundle", "/input.bundle"),
                   (SCRIPT, "/verify.sh")]
         args = ["docker", "create", "--name", name, "--label",
-                "laomedo.bundle-stage=" + name, "--pull=never", "--network", "none",
+                "laomedo.bundle-stage=" + name, "--label",
+                "laomedo.bundle-stage-token=" + launch_token,
+                "--pull=never", "--network", "none",
                 "--read-only", "--cap-drop", "ALL", "--security-opt",
                 "no-new-privileges", "--user", "10001:10001",
                 "--pids-limit", "32", "--memory", "128m", "--tmpfs",
@@ -295,14 +311,12 @@ def _container_stage(attempt: Path, frozen: dict, image_id: str,
         result["elapsed_seconds"] = round(time.monotonic() - started, 3)
         if created:
             try:
-                inspected = docker(["docker", "inspect", name], 30)
-                if inspected.returncode == 0:
-                    found = json.loads(inspected.stdout)[0]
-                    if found.get("Config", {}).get("Labels", {}).get(
-                            "laomedo.bundle-stage") == name:
-                        removed = docker(["docker", "rm", "--force", name], 30)
-                        result["cleanup_verified"] = (removed.returncode == 0 and
-                            docker(["docker", "inspect", name], 30).returncode != 0)
+                state, container_id = _inspect(owner, docker)
+                again, current_id = _inspect(owner, docker)
+                if state == again == "owned" and container_id == current_id:
+                    removed = docker(["docker", "rm", "--force", container_id], 30)
+                    result["cleanup_verified"] = (removed.returncode == 0 and
+                                                   _inspect(owner, docker)[0] == "absent")
             except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, IndexError):
                 result["cleanup_verified"] = False
         if not result["cleanup_verified"] and result["status"] == "verified":

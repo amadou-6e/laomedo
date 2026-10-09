@@ -16,7 +16,8 @@ import threading
 from .bundle_ingest import (_bound_roots, _record, _redirected, _durable_json,
                             BundleIngestError, _IDENTITY)
 from .bundle_stage import (verify_frozen_bundle, _read_frozen,
-                           PINNED_IMAGE_ID, BundleStageError)
+                           PINNED_IMAGE_ID, BundleStageError, _run)
+from .bundle_stage_ownership import reconcile_orphan
 
 
 class BundleVerifier:
@@ -86,8 +87,22 @@ class BundleVerifier:
                 continue
             for attempt in run.iterdir():
                 if (_redirected(attempt) or not attempt.is_dir() or
-                        not _IDENTITY.fullmatch(attempt.name) or
-                        (attempt / "verifier-claim.json").exists() or
+                        not _IDENTITY.fullmatch(attempt.name)):
+                    continue
+                # Claimed attempts remain one-shot, but orphan lookup/cleanup
+                # is independent of verification and never re-dispatches it.
+                if (attempt / "container-owner.json").exists():
+                    completed = False
+                    try:
+                        saved = json.loads((attempt / "verification.json").read_bytes())
+                        cleanup = json.loads((attempt / "orphan-cleanup.json").read_bytes()) if (attempt / "orphan-cleanup.json").exists() else {}
+                        completed = (saved.get("container", {}).get("cleanup_verified") is True or
+                                     cleanup.get("cleanup_verified") is True)
+                    except (OSError, ValueError, TypeError, AttributeError):
+                        pass
+                    if not completed:
+                        reconcile_orphan(attempt, docker=_run)
+                if ((attempt / "verifier-claim.json").exists() or
                         (attempt / "verification.json").exists() or
                         (attempt / "verification.json.pending").exists()):
                     continue
