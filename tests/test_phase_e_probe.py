@@ -49,6 +49,22 @@ class PhaseELedgerTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             phase_e_ui._reserve(self.path.parent)
 
+    def test_disconnect_cannot_count_as_visible_stop(self):
+        observed = {"stop_click_begin_epoch": 10.0,
+                    "context_close_begin_epoch": 13.0,
+                    "runner_terminal_signal_seen": True}
+        self.assertTrue(phase_e_ui._ui_attribution(
+            observed, [{"at_epoch_seconds": 11.0}], 12.0))
+        for cancel, terminal, close in [(9.0, 12.0, 13.0),
+                                        (14.0, 15.0, 13.0),
+                                        (11.0, 14.0, 13.0)]:
+            observed["context_close_begin_epoch"] = close
+            self.assertFalse(phase_e_ui._ui_attribution(
+                observed, [{"at_epoch_seconds": cancel}], terminal))
+        observed["runner_terminal_signal_seen"] = False
+        self.assertFalse(phase_e_ui._ui_attribution(
+            observed, [{"at_epoch_seconds": 11.0}], 12.0))
+
 
 if __name__ == "__main__":
     unittest.main()

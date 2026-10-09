@@ -10,7 +10,7 @@ import time
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from experiments.exp22.phase_c_live import _auth_read_result, _events, _is_long_command
+from experiments.exp22.phase_c_live import _auth_read_result, _events, _is_long_command, _stop
 from experiments.exp22.phase_d_live import (
     LANGFLOW_IMAGE, PILOT, ROOT, _audit_requests,
     _auth_mount_exists, _cleanup_runner_runs, _hash, _owned_container_absent,
@@ -80,6 +80,16 @@ def _remove_ui(name):
     subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=20)
     inspected = subprocess.run(["docker", "inspect", name], capture_output=True, timeout=12)
     return inspected.returncode != 0 and b"No such" in inspected.stderr
+
+
+def _ui_attribution(observed, cancels, terminal_observed_epoch):
+    if len(cancels) != 1 or not observed.get("runner_terminal_signal_seen"):
+        return False
+    click = observed.get("stop_click_begin_epoch")
+    close = observed.get("context_close_begin_epoch")
+    route = cancels[0].get("at_epoch_seconds")
+    return bool(click and route and terminal_observed_epoch and close and
+                click <= route < terminal_observed_epoch < close)
 
 
 def main():
@@ -191,16 +201,21 @@ def main():
                 break
             time.sleep(.1)
         (state / "stop-now.signal").write_text("stop", encoding="ascii")
-        browser.wait(timeout=45)
+        terminal_observed_epoch = None
+        final = None
+        if run_id:
+            terminal_deadline = time.monotonic() + 35
+            while time.monotonic() < terminal_deadline:
+                final = runner.status(run_id)
+                if final["status"] not in {"prepared", "running"}:
+                    terminal_observed_epoch = time.time()
+                    (state / "runner-terminal.signal").write_text("terminal", encoding="ascii")
+                    break
+                time.sleep(.1)
+        browser.wait(timeout=50)
         observed = json.loads((state / "browser-run.json").read_text(encoding="utf-8"))
         if not run_id:
             raise RuntimeError("runner_run_id_missing")
-        terminal_deadline = time.monotonic() + 30
-        while time.monotonic() < terminal_deadline:
-            final = runner.status(run_id)
-            if final["status"] not in {"prepared", "running"}:
-                break
-            time.sleep(.1)
         final = runner.status(run_id)
         raw = state / "runner/runs" / run_id / "raw-events.jsonl"
         events = _events(raw)
@@ -210,10 +225,15 @@ def main():
         time.sleep(31)
         marker = state / "runner/runs" / run_id / "workspace/cancel-marker.txt"
         traffic = _route_summary(routes, run_id, final.get("client_request_id"))
+        cancels = [row for row in _events(routes) if row.get("kind") == "cancel"]
+        attributed = _ui_attribution(observed, cancels, terminal_observed_epoch)
         summary = {"category": None, "shared_turn_count": used,
                    "flow_id": observed.get("flow_id"),
                    "browser_send_clicked": observed.get("send_clicked"),
                    "browser_stop_clicked": observed.get("stop_clicked"),
+                   "browser_stop_signal_seen": observed.get("stop_signal_seen"),
+                   "browser_terminal_signal_seen": observed.get("runner_terminal_signal_seen"),
+                   "ui_cancel_attributed_before_disconnect": attributed,
                    "browser_stop_control_visible": observed.get("stop_control_visible"),
                    "browser_requests": observed.get("browser_requests"),
                    "long_command_started": long_started,
@@ -227,6 +247,7 @@ def main():
                    "late_sentinel_absent": not marker.exists()}
         category = ("visible_stop_native_cancel_passed" if browser.returncode == 0
                     and observed.get("send_clicked") and observed.get("stop_clicked")
+                    and observed.get("stop_signal_seen") and attributed
                     and long_started and traffic["exact_identity_match"]
                     and auth_result == "denied" and final.get("status") == "cancelled"
                     and final.get("cancel_confirmed") is True
@@ -239,6 +260,12 @@ def main():
         print(json.dumps(summary))
     finally:
         teardown["category"] = category
+        if browser and browser.poll() is None:
+            try:
+                _stop(browser, tree=True)
+                teardown["browser_stopped"] = browser.poll() is not None
+            except Exception as exc:
+                teardown["browser_stop_error"] = type(exc).__name__
         if attempt_id:
             try:
                 _reserve(state, attempt_id=attempt_id, result=category)

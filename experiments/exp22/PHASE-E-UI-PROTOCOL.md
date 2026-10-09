@@ -39,6 +39,10 @@ identity and time, Langflow request/job identity if exposed, runner request/run
 identity, authenticated lookup/cancel traffic, native interruption, runner
 terminal status, partial-event hash/count, exact container absence and sentinel
 absence after the original delay. An HTTP 202 alone is not confirmation.
+Keep the browser context open until the host observes the runner terminal state.
+Require the authenticated cancel to occur after the visible Stop click begins and
+before both terminal observation and browser-context closure. A cancel first
+seen after disconnect is inconclusive, even if the runner eventually stops.
 
 On every failure after submission, use a host fallback cancel for safety and
 exact-owner cleanup, but never count that fallback as UI-originated proof. Do

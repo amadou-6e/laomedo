@@ -86,7 +86,8 @@ def _audit_requests(server, path):
             if kind:
                 with lock, path.open("a", encoding="utf-8") as stream:
                     stream.write(json.dumps({"kind": kind, "path": route,
-                                             "at_monotonic": time.monotonic()}) + "\n")
+                                             "at_monotonic": time.monotonic(),
+                                             "at_epoch_seconds": time.time()}) + "\n")
 
         def _authorized(self):
             authorized = super()._authorized()

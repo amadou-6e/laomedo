@@ -16,6 +16,7 @@ const base = `http://127.0.0.1:${Number(uiPortArg)}`;
 const flowFile = path.join(state, 'flow-id.txt');
 const resultFile = path.join(state, `browser-${mode}.json`);
 const signalFile = path.join(state, 'stop-now.signal');
+const doneFile = path.join(state, 'runner-terminal.signal');
 const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 function pause(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function utc() { return new Date().toISOString(); }
@@ -80,16 +81,20 @@ async function main() {
       observation.stop_control_visible = await stop.isVisible().catch(() => false);
       observation.stop_control_enabled = observation.stop_control_visible && await stop.isEnabled();
       if (observation.stop_control_enabled) {
+        observation.stop_click_begin_epoch = Date.now() / 1000;
         await stop.click({ timeout: 3000 });
         observation.stop_clicked = true;
         observation.stop_clicked_utc = utc();
       }
-      await pause(9000);
+      const terminalDeadline = Date.now() + 45000;
+      while (Date.now() < terminalDeadline && !fs.existsSync(doneFile)) await pause(100);
+      observation.runner_terminal_signal_seen = fs.existsSync(doneFile);
     }
   } catch (error) {
     observation.error_class = error.constructor.name;
     observation.error_message = String(error.message).slice(0, 200);
   } finally {
+    observation.context_close_begin_epoch = Date.now() / 1000;
     await context.close();
     observation.finished_utc = utc();
     fs.writeFileSync(resultFile, JSON.stringify(observation, null, 2) + '\n',
