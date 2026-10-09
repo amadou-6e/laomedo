@@ -46,3 +46,28 @@ If a gate fails after submission, attempt exact host fallback cancel and
 cleanup, record the result as inconclusive, and do not retry the ambiguous
 request. This test does not prove hosted isolation, semantic task success,
 real GitHub credential revocation or the joint-outage bound in #93.
+
+## Authorized continuation after login repair, 2026-10-09
+
+The original failed attempt is retained without reinterpretation. The user
+subsequently authorized diagnosing the disconnect, repairing the private login
+copy, and continuing. The [zero-model diagnosis](PHASE-G-LOGIN-DIAGNOSTIC.md)
+found an unauthorized response in the private native error details: the old
+runner copy returned HTTP 401, while the current host login returned HTTP 200
+from the same endpoint in the same pinned Docker image and bridge network.
+After replacing only the private runner auth cache, the service check returned
+HTTP 200 with usage allowed. No refresh was requested and the host login file
+was unchanged.
+
+This amendment permits one new submitted turn from the existing shared 12-turn
+cap, starting at 7/12. Use a new empty private state directory, never the failed
+attempt's directory or request identity. Retain the exact frozen route, model,
+prompt, Stop checks and teardown above. Review this amendment before dispatch,
+run the credential-free Playground preflight, and then reserve immediately
+before Send. An uncertain submission or timeout counts. Do not submit a second
+turn under this amendment if the fresh attempt is inconclusive.
+
+The copied-login lifecycle remains a limitation: the handoff fixes the tested
+rejected credential, but does not establish why it became invalid or prevent
+future divergence. A read-only HTTP 200 usage check is a precondition, not proof
+that the next model stream will succeed.
