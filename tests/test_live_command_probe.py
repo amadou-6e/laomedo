@@ -6,7 +6,9 @@ import tempfile
 import unittest
 from urllib import request
 
-from experiments.exp100.probe_live import BoundedOpener, DISPOSABLE, PUBLIC, ISSUE, JOB
+from experiments.exp100.probe_live import (BoundedOpener, DISPOSABLE, PUBLIC, ISSUE, JOB,
+    revoke_and_verify, run_overlap, list_fields)
+from laomedo.github_mediation import MediationStore
 from laomedo.github_rest_transport import ISSUE_GRAPHQL_QUERY
 
 
@@ -18,6 +20,28 @@ class FakeProvider:
 
 
 class LiveCommandProbeTests(unittest.TestCase):
+    def test_real_store_cleanup_path_can_pass_and_refuses_unknown_grant(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = MediationStore(Path(folder) / 'store.sqlite')
+            grant, _ = store.issue(run_id='fixture', invocation_id='fixture-invocation',
+                repository=DISPOSABLE, operations={'issue_list'}, ttl_seconds=60)
+            self.assertTrue(revoke_and_verify(store, 'fixture', grant))
+            self.assertTrue(revoke_and_verify(store, 'fixture', grant))
+            self.assertFalse(revoke_and_verify(store, 'fixture', 'absent'))
+
+    def test_current_listing_not_historical_membership_and_nonvacuous(self):
+        def value(*ids): return {'workflow_runs': [{'id': number} for number in ids]}
+        self.assertEqual(run_overlap(value(8, 9), value(9, 10)), [9])
+        with self.assertRaises(ValueError): run_overlap(value(), value())
+        with self.assertRaises(ValueError): run_overlap(value(1), value(2))
+
+    def test_list_comparison_ignores_only_unselected_volatile_fields(self):
+        first = {'items': [{'number': 1, 'title': 'title', 'body': 'body', 'state': 'open', 'updated_at': 'before'}]}
+        second = deepcopy(first); second['items'][0]['updated_at'] = 'after'
+        self.assertEqual(list_fields(first), list_fields(second))
+        second['items'][0]['title'] = 'changed'
+        self.assertNotEqual(list_fields(first), list_fields(second))
+
     def test_issue_limit_and_exact_bytes_independent_of_store(self):
         with tempfile.TemporaryDirectory() as folder:
             fake = FakeProvider(); path = Path(folder) / 'journal.json'

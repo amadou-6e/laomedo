@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from laomedo.agent_cli import prepare_commands
 from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_mediation import MediationStore, _request_hash
+from laomedo.github_mediation import MediationStore, MediationError, _request_hash
 from laomedo.github_rest_transport import GitHubRestTransport, ISSUE_GRAPHQL_QUERY, _NoRedirect
 from laomedo.host_token_connection import HostTokenConnection
 from laomedo.local_runner import GIT_IMAGE_ID
@@ -35,7 +35,7 @@ ISSUE = {'title': 'Laomedo EXP-100 S12 reviewed integration test',
          'marker': IDENTITY + '-reviewed-issue', 'reviewed_proposal_id': IDENTITY + '-proposal'}
 REQUIRED = {'pr_list', 'issue_list_preflight', 'graphql_preflight', 'rest_get',
             'actions_runs', 'actions_job', 'unsupported', 'credential_export',
-            'wrong_repository', 'altered_issue', 'issue_create', 'issue_view',
+            'wrong_repository', 'host_wrong_repository', 'altered_issue', 'issue_create', 'issue_view',
             'issue_list_positive', 'graphql_positive', 'confirmed_replay', 'revoked'}
 
 
@@ -96,6 +96,25 @@ def digest(value):
                              ensure_ascii=False).encode()).hexdigest()
 
 
+def revoke_and_verify(store, run_id, grant_id):
+    store.revoke_run(run_id)
+    with closing(sqlite3.connect(store.path)) as db:
+        row = db.execute('SELECT revoked_at FROM grants WHERE grant_id=?', (grant_id,)).fetchone()
+    return row is not None and row[0] is not None and store.renew_grant(grant_id, 60) is False
+
+
+def list_fields(value):
+    return sorted(({key: item.get(key) for key in ('number', 'title', 'body', 'state')}
+                   for item in value['items']), key=lambda item: item['number'])
+
+
+def run_overlap(value, baseline):
+    actual = {item['id'] for item in value['workflow_runs']}
+    expected = {item['id'] for item in baseline['workflow_runs']}
+    if not actual or not actual & expected: raise ValueError('action_listing_positive_missing')
+    return sorted(actual & expected)
+
+
 def check(observed):
     rows = observed['cases']
     if len(rows) != len(REQUIRED) or {row['case'] for row in rows} != REQUIRED:
@@ -103,13 +122,14 @@ def check(observed):
     for row in rows:
         if row.get('passed') is not True: raise ValueError('case_failed')
         if row['case'] not in {'unsupported', 'credential_export', 'wrong_repository',
-                               'altered_issue', 'revoked', 'confirmed_replay'} and (
+                               'host_wrong_repository', 'altered_issue', 'revoked', 'confirmed_replay'} and (
                 row.get('exit') != 0 or row['calls'] < 1 or
                 not re.fullmatch(r'[0-9a-f]{64}', row.get('output_hash', ''))):
             raise ValueError('positive_not_observed')
     refusals = {'unsupported': (2, 'unsupported_command'),
                 'credential_export': (2, 'unsupported_command'),
                 'wrong_repository': (2, 'repository_mismatch'),
+                'host_wrong_repository': (None, 'connection_unavailable'),
                 'altered_issue': (3, 'mediator_denied:issue_review_denied'),
                 'revoked': (3, 'mediator_denied:grant_unavailable')}
     for name, expected in refusals.items():
@@ -132,6 +152,8 @@ def check(observed):
         raise ValueError('replay_invalid')
     if not observed['cleanup']['verified'] or observed['cleanup']['elapsed'] > 30:
         raise ValueError('cleanup_unverified')
+    if observed['cleanup']['grants'] != {'disposable': True, 'public': True}:
+        raise ValueError('grant_cleanup_unverified')
     if observed['model_turns'] != 0: raise ValueError('unexpected_model_use')
     job = observed['job']
     if job['id'] != JOB or job['run_id'] != ACTION_RUN or job['status'] != 'completed':
@@ -246,8 +268,11 @@ def run(token_file, source_sha, review_file):
                 connection_id=connection.connection_id, connection_generation=1)
         def match(value, expected):
             if value != expected: raise ValueError('baseline_mismatch')
-        match(m('pr_list', ['pr', 'list']), baseline('disposable', 'pr_list', {}))
-        match(m('issue_list_preflight', ['issue', 'list']), baseline('disposable', 'issue_list', {}))
+        prs = m('pr_list', ['pr', 'list'])
+        match(list_fields(prs), list_fields(baseline('disposable', 'pr_list', {})))
+        issues = m('issue_list_preflight', ['issue', 'list'])
+        match(list_fields(issues), list_fields(baseline('disposable', 'issue_list', {})))
+        observed['preflight_counts'] = {'prs': len(prs['items']), 'rest_issues': len(issues['items'])}
         graphql = json.dumps({'query': ISSUE_GRAPHQL_QUERY,
                              'variables': dict(zip(('owner', 'name'), DISPOSABLE.split('/')))}).encode()
         def query(name):
@@ -255,15 +280,15 @@ def run(token_file, source_sha, review_file):
             match(value['data']['repository']['issues']['nodes'],
                   baseline('disposable', 'issue_list', {'format': 'fixed_graphql'})['items'])
             return value['data']['repository']['issues']['nodes']
-        query('graphql_preflight')
+        nodes = query('graphql_preflight')
+        observed['preflight_counts']['graphql_issues'] = len(nodes)
+        if len(nodes) >= 30: raise ValueError('graphql_capacity_unavailable_before_write')
         path = '/repos/' + DISPOSABLE + '/branches/main'
         match(m('rest_get', ['api', path]), baseline('disposable', 'api_rest_read', {'path': path}))
         runs = m('actions_runs', ['run', 'list'], 'public')
         # Job state/ID are stable; run-list timestamps can change between reads.
         baseline_runs = baseline('public', 'actions_read', {'resource': 'runs'})
-        if not any(row['id'] == ACTION_RUN for row in runs['workflow_runs']) or not any(
-                row['id'] == ACTION_RUN for row in baseline_runs['workflow_runs']):
-            raise ValueError('fixed_action_run_missing')
+        observed['action_listing_overlap'] = run_overlap(runs, baseline_runs)
         job = m('actions_job', ['api', '/repos/' + PUBLIC + '/actions/jobs/' + str(JOB)], 'public')
         expected_job = baseline('public', 'actions_read', {'job_id': JOB})
         fields = ('id', 'run_id', 'status', 'conclusion')
@@ -274,6 +299,17 @@ def run(token_file, source_sha, review_file):
         m('unsupported', ['extension', 'list'], expected=(2, 'unsupported_command'))
         m('credential_export', ['auth', 'token'], expected=(2, 'unsupported_command'))
         m('wrong_repository', ['issue', 'list', '--repo', PUBLIC], expected=(2, 'repository_mismatch'))
+        before = len(opener.rows)
+        try:
+            store.invoke(token=capabilities['disposable'], repository=PUBLIC, operation='issue_list',
+                         payload={}, effect_id=None, transport=transports['disposable'])
+        except MediationError as denied:
+            reason = denied.code
+        else: reason = 'unexpected_authorization'
+        observed['cases'].append({'case': 'host_wrong_repository', 'exit': None, 'reason': reason,
+            'calls': len(opener.rows) - before, 'passed': reason == 'connection_unavailable' and len(opener.rows) == before})
+        if reason != 'connection_unavailable' or len(opener.rows) != before:
+            raise ValueError('host_cross_repository_refusal_missing')
         m('altered_issue', ['issue', 'create', '--title', 'Altered title', '--body', ISSUE['body']],
           effect='altered', expected=(3, 'mediator_denied:issue_review_denied'))
         created = m('issue_create', ['issue', 'create', '--title', ISSUE['title'], '--body', ISSUE['body']], effect='reviewed-issue')
@@ -324,15 +360,13 @@ def run(token_file, source_sha, review_file):
     finally:
         stopped.set()
         if renewal: renewal.join(timeout=10)
-        start = time.monotonic(); verified = True; cleaned = {}
+        start = time.monotonic(); verified = True; cleaned = {}; grant_cleanup = {}
         if store:
             for side in grants:
                 try:
-                    store.revoke_run(IDENTITY + '-' + side)
-                    with closing(sqlite3.connect(store.path)) as db:
-                        row = db.execute('SELECT revoked FROM grants WHERE grant_id=?', (grants[side],)).fetchone()
-                        verified = verified and row is not None and row[0] == 1
-                except Exception: verified = False
+                    grant_cleanup[side] = revoke_and_verify(store, IDENTITY + '-' + side, grants[side])
+                except Exception: grant_cleanup[side] = False
+                verified = verified and grant_cleanup[side]
         for side, owner in owners.items():
             try: ok, detail = cleanup_exact(**owner)
             except Exception: ok, detail = False, 'cleanup_error'
@@ -341,7 +375,7 @@ def run(token_file, source_sha, review_file):
             try: service.close()
             except Exception: verified = False
         observed['cleanup'] = {'verified': bool(verified and len(owners) == 2 and len(grants) == 2),
-                               'containers': cleaned, 'elapsed': time.monotonic() - start}
+                               'containers': cleaned, 'grants': grant_cleanup, 'elapsed': time.monotonic() - start}
         observed['provider_calls'] = opener.rows
         try:
             check(observed)

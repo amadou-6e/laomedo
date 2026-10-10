@@ -7,8 +7,8 @@
   "source_hashes": {
     "experiments/exp100/LIVE-PROTOCOL.md": "30efa3608cbe13f8517ad859e7a51747a01be470543d5a77baeadda65e36d01d",
     "experiments/exp100/LIVE-AMENDMENT-01.md": "cc5da10c4bdf68026e9aa628b584111d6be7b7e94e66a9018f69a7eb52be6031",
-    "experiments/exp100/probe_live.py": "538381d3fc5c5fd7221894e982d15e4d09ac59b08cd82f8420bee4721f00d6ed",
-    "tests/test_live_command_probe.py": "98fdae34a8adcebe312b931bd15bb16e2317cb739a8c2492b21fd8940d7c2122",
+    "experiments/exp100/probe_live.py": "a669e9f26fcac1ed90872304c869d3891cc710435f22f3dd3c9d9a7644af869d",
+    "tests/test_live_command_probe.py": "b52b7e826b2d6504fafceaf07c1aeb71a67b49bad9be73fce33c68d050ba28cf",
     "laomedo/agent_cli.py": "3c6d2ce119d5711e3796032c6f054d82c061e452a5472bb36a5deb485b0d2056",
     "laomedo/agent_gh_adapter.mjs": "80e9f4b371105add34c0c877ab40875aee8f31b714df7ed82e7deb2056d8202e",
     "laomedo/agent_mediation_client.mjs": "320b99bdcaa70081c19b7121a158e6ac91b58844053b23cb26970e720cc4d181",
