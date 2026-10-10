@@ -1,0 +1,135 @@
+{
+  "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+  "cleanup": {
+    "a": true,
+    "b": true,
+    "grants": true,
+    "processes": true,
+    "stages": true,
+    "tasks": true
+  },
+  "delivery": {
+    "a": {
+      "base": "main",
+      "branch": "exp104-native-managed-s12-20261010-b-a",
+      "commands_confirmed": true,
+      "commit": "a82bdd8dad29a3c2676a6729a7b8f84b0b52e936",
+      "container_owned_alive": true,
+      "create_effect_id": "exp104-native-managed-s12-20261010-b-pr-create-a",
+      "grant_id": "67e04b9f7354e69a61119c476afba2df",
+      "marker": "laomedo:exp104-native-managed-s12-20261010-b:pr:a",
+      "pr_number": 3,
+      "readback_commit": "a82bdd8dad29a3c2676a6729a7b8f84b0b52e936",
+      "readback_matches": true,
+      "runner_pid": 27984
+    },
+    "b": {
+      "base": "main",
+      "branch": "exp104-native-managed-s12-20261010-b-b",
+      "commands_confirmed": true,
+      "commit": "ed2eeceaee74b6f9702b464b5e58ebbee2cea314",
+      "container_owned_alive": true,
+      "create_effect_id": "exp104-native-managed-s12-20261010-b-pr-create-b",
+      "grant_id": "77304453d03a1485d861354bb3bc0750",
+      "marker": "laomedo:exp104-native-managed-s12-20261010-b:pr:b",
+      "pr_number": 4,
+      "readback_commit": "ed2eeceaee74b6f9702b464b5e58ebbee2cea314",
+      "readback_matches": true,
+      "runner_pid": 16712
+    }
+  },
+  "heartbeat_advanced": true,
+  "identity": "exp104-native-managed-s12-20261010-b",
+  "loss": {
+    "attempts_after_denial": 6,
+    "attempts_before_denial": 6,
+    "b_create_after_denial": true,
+    "b_create_intent_monotonic": 90872.859,
+    "b_grant_active": true,
+    "denial_error": "grant_unavailable",
+    "denial_status": 403,
+    "denied": 90872.062,
+    "kill_completed": 90866.39,
+    "pr_unchanged": true,
+    "revoked": 90871.375
+  },
+  "model_turns": 0,
+  "phase": "runner_loss",
+  "provider_mutations": [
+    {
+      "at_monotonic": 90854.531,
+      "at_wall": 1791619051.8982666,
+      "branch": "exp104-native-managed-s12-20261010-b-a",
+      "commit": "a82bdd8dad29a3c2676a6729a7b8f84b0b52e936",
+      "operation": "git_push",
+      "repository": "ga84jog/laomedo-exp104-disposable-20261007"
+    },
+    {
+      "at_monotonic": 90856.625,
+      "at_wall": 1791619053.9917133,
+      "operation": "pr_create",
+      "repository": "ga84jog/laomedo-exp104-disposable-20261007"
+    },
+    {
+      "at_monotonic": 90863.765,
+      "at_wall": 1791619061.1342611,
+      "branch": "exp104-native-managed-s12-20261010-b-b",
+      "commit": "ed2eeceaee74b6f9702b464b5e58ebbee2cea314",
+      "operation": "git_push",
+      "repository": "ga84jog/laomedo-exp104-disposable-20261007"
+    },
+    {
+      "at_monotonic": 90872.859,
+      "at_wall": 1791619070.2284234,
+      "operation": "pr_create",
+      "repository": "ga84jog/laomedo-exp104-disposable-20261007"
+    }
+  ],
+  "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+  "result": "passed",
+  "review_record_sha256": "7d0e5c47292e869728168f23703d9de3932c63883e48a0ac75e05dc69bf0039d",
+  "scanned_files": 103,
+  "source_sha": "b2042452aab17b1e5a040633053e404a4b194c54",
+  "spec_sha": "ea2558e910d640b802b7b197d2a90b8d14e3249c",
+  "stage_cleanup_reports": [
+    {
+      "cleanup_verified": true,
+      "detail": "absent_after_stage"
+    },
+    {
+      "cleanup_verified": true,
+      "detail": "absent_after_stage"
+    }
+  ],
+  "tasks": {
+    "bundle-verifier": {
+      "after": [
+        3112,
+        31160
+      ],
+      "before": [
+        3112,
+        31160
+      ],
+      "ignore_new": true,
+      "interactive": true,
+      "limited": true,
+      "ownership_matches": true
+    },
+    "host-services": {
+      "after": [
+        12828,
+        15364
+      ],
+      "before": [
+        12828,
+        15364
+      ],
+      "ignore_new": true,
+      "interactive": true,
+      "limited": true,
+      "ownership_matches": true
+    }
+  },
+  "unexpected_secret_hits": 0
+}
