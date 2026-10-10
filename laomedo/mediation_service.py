@@ -108,7 +108,9 @@ def main() -> None:
                                          args.agent_mount)
                 if args.runner_state is not None else None)
     freezer = (make_grant_bundle_freezer(args.runner_state, args.private_stage,
-                                        args.agent_mount)
+                                        args.agent_mount,
+                                        confirmed_stage_authorizer=lambda grant, snapshot:
+                                            store.confirmed_stage(grant, snapshot))
                if args.runner_state is not None else None)
     git_transport = GitHubGitTransport(args.repository, args.checkout,
                                        args.baseline, connection.token,

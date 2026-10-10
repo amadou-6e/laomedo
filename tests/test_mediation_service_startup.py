@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo import lease_service, mediation_service
+from laomedo import host_services, lease_service, mediation_service
 from laomedo.github_git_transport import PushOutcomeUnknown
 from laomedo.github_mediation import MediationStore
 
@@ -65,6 +65,63 @@ class MediationServiceStartupTests(unittest.TestCase):
         self.assertIsNotNone(seen[0].mediator)
         self.assertIsNotNone(seen[0].mediation_authority)
         self.assertEqual(seen[0].server.server_address[0], "127.0.0.1")
+
+    def test_both_service_entries_use_their_host_store_for_prior_stage_confirmation(self):
+        # Composition regression only: stage integrity/journal authorization
+        # have their real-Git controls in test_verified_stage.py. No provider
+        # operation, acceptance probe or service loop is executed here.
+        (self.path / "runner").mkdir()
+        (self.path / "stages").mkdir()
+        for entry in (host_services, mediation_service):
+            with self.subTest(entry=entry.__name__):
+                captured = {}
+
+                def factory(*_args, **kwargs):
+                    captured.update(kwargs)
+                    return lambda *_args: None
+
+                def store_factory(*args, **kwargs):
+                    store = MediationStore(*args, **kwargs)
+                    captured["store"] = store
+                    return store
+
+                def close(instance):
+                    instance.server.server_close()
+
+                state = self.state / entry.__name__.split(".")[-1]
+                with patch.object(entry, "make_grant_bundle_freezer", factory), \
+                        patch.object(entry, "MediationStore", store_factory):
+                    if entry is host_services:
+                        lease, mediator = entry.build_services(
+                            state=state, repository="example/disposable",
+                            checkout=self.checkout, baseline="a" * 40,
+                            agent_mount=self.agent_mount, connection_id="selected",
+                            connection_generation=1, token_file=self.token_file,
+                            runner_state=self.path / "runner",
+                            private_stage=self.path / "stages")
+                        lease.server.server_close()
+                        mediator.server.server_close()
+                    else:
+                        args = ["mediation_service", "--state", str(state),
+                            "--repository", "example/disposable", "--checkout",
+                            str(self.checkout), "--baseline", "a" * 40,
+                            "--agent-mount", str(self.agent_mount),
+                            "--connection-id", "selected", "--connection-generation", "1",
+                            "--token-file", str(self.token_file),
+                            "--runner-state", str(self.path / "runner"),
+                            "--private-stage", str(self.path / "stages")]
+                        with patch.object(sys, "argv", args), patch.object(
+                                entry.MediationHTTPService, "serve", lambda _instance: None), \
+                                patch.object(entry.MediationHTTPService, "close", close):
+                            entry.main()
+                callback = captured.get("confirmed_stage_authorizer")
+                self.assertTrue(callable(callback), "host confirmation gate missing")
+                grant, snapshot = {"grant_id": "host-grant"}, object()
+                for permitted in (False, True):
+                    with patch.object(captured["store"], "confirmed_stage",
+                                      return_value=permitted) as confirmed:
+                        self.assertIs(callback(grant, snapshot), permitted)
+                        confirmed.assert_called_once_with(grant, snapshot)
 
     def test_provider_journal_counts_attempts_without_secret_payload(self):
         journal = self.path / "attempts.jsonl"
