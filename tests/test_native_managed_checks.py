@@ -13,7 +13,7 @@ def observation():
     return {"identity": IDENTITY, "repository": REPOSITORY, "baseline": BASELINE,
         "source_sha": "c" * 40, "model_turns": 0, "result": "passed",
         "delivery": delivery,
-        "provider_attempts": [{"operation": op, "branch": delivery[side]["branch"],
+        "provider_mutations": [{"operation": op, "branch": delivery[side]["branch"],
             "commit": delivery[side]["commit"]} for side, op in
             (("a", "git_push"), ("a", "pr_create"), ("b", "git_push"), ("b", "pr_create"))],
         "loss": {"kill_completed": 100, "revoked": 105, "denied": 106,
@@ -34,9 +34,9 @@ def test_complete_synthetic_fixture_validates():
 @pytest.mark.parametrize("case", range(12))
 def test_false_success_controls_are_rejected(case):
     value = deepcopy(observation())
-    if case == 0: value["provider_attempts"].append({"operation": "pr_update"})
-    elif case == 1: value["provider_attempts"].pop()
-    elif case == 2: value["provider_attempts"][0]["branch"] = "wrong-run"
+    if case == 0: value["provider_mutations"].append({"operation": "pr_update"})
+    elif case == 1: value["provider_mutations"].pop()
+    elif case == 2: value["provider_mutations"][0]["branch"] = "wrong-run"
     elif case == 3: value["loss"]["revoked"] = 161
     elif case == 4: value["loss"]["denial_status"] = 200
     elif case == 5: value["loss"]["attempts_after_denial"] = 4
