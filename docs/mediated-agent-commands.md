@@ -61,6 +61,14 @@ repos/OWNER/REPO/...`, `gh pr create --title TITLE --body BODY --head BRANCH
 must match the selected repository. Output is result JSON, not native gh
 table formatting. PR reads/updates are limited to bound targets.
 
+`gh api repos/OWNER/REPO/pulls --method POST --input FILE` (or `-` for stdin)
+is a classified alias of `pr_create`, not a generic REST-write lane. The JSON
+must contain exactly string `title`, `body`, `head`, `base` fields; the body
+must contain the configured reconciliation marker. Existing PR-create grant,
+effect identity, branch/base and duplicate-write checks apply unchanged.
+Extra fields, missing identity, other endpoints/methods, GraphQL and arbitrary
+writes fail explicitly. Input uses the same bounded UTF-8 body reader.
+
 The adapter/transport also recognize `gh pr list` and `gh issue list` as
 explicit `pr_list`/`issue_list` reads, returning `{ "items": [...] }` for the
 provider's first default open-items page. Issue listing excludes PR entries.
