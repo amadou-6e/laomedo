@@ -27,6 +27,7 @@ from .mediation_authority import RunGrantAuthority
 from .github_mediation import MediationError
 from .git_workspace import GitWorkspaceError, prepare_git_workspace
 from .siwc_auth import AuthError, ChatGPTConnection, _outside_git
+from .output_contract import verify_requirements, evaluate, dynamic_tool, precheck_response
 
 
 IMAGE = "laomedo-codex-boundary:0.159.2"
@@ -361,12 +362,30 @@ class AppServer:
                 continue
             if msg.get("id") == request_id and "method" not in msg:
                 return msg
-            self.events.append(msg)
+            self._observe(msg)
         raise RunnerError("request_timeout:" + method)
 
     def notify(self, method: str, params: dict) -> None:
         self.process.stdin.write(json.dumps({"method": method, "params": params}) + "\n")
         self.process.stdin.flush()
+
+    def _observe(self, msg):
+        self.events.append(msg)
+        reference = getattr(self, "output_requirements", None)
+        if reference is not None and msg.get("method") == "item/tool/call" and "id" in msg:
+            params = msg.get("params") or {}
+            response = precheck_response(reference, params, self.active_thread_id)
+            if (params.get("tool") == "laomedo_output_precheck" and params.get("namespace") is None and
+                    params.get("threadId") == self.active_thread_id):
+                self.precheck_call_count = getattr(self, "precheck_call_count", 0) + 1
+                result = json.loads(response["contentItems"][0]["text"])
+                if not any(error["code"] == "precheck_binding_mismatch" for error in result["errors"]):
+                    calls = getattr(self, "verified_precheck_calls", set())
+                    if isinstance(params.get("callId"), str):
+                        calls.add(params["callId"])
+                    self.verified_precheck_calls = calls
+            self.process.stdin.write(json.dumps({"id": msg["id"], "result": response}) + "\n")
+            self.process.stdin.flush()
 
     def wait_turn(self, turn_id: str, timeout: float, cancelled: threading.Event) -> tuple[str, str | None]:
         deadline = time.monotonic() + timeout
@@ -393,7 +412,7 @@ class AppServer:
                     return (("cancelled", "cancel_native_unconfirmed") if interrupt_sent else
                             ("failed", "app_server_exited"))
                 continue
-            self.events.append(msg)
+            self._observe(msg)
         if interrupt_sent:
             return "cancelled", "cancel_native_unconfirmed"
         self.interrupt(turn_id)
@@ -662,7 +681,7 @@ class SplitAppServer(AppServer):
                 if self.process.poll() is not None:
                     return "unknown", "controller_exited"
                 continue
-            self.events.append(msg)
+            self._observe(msg)
         self.interrupt(turn_id)
         return "timeout", "turn_timeout"
 
@@ -1092,6 +1111,12 @@ class LocalRunner:
         model, effort = request.get("model"), request.get("effort")
         if not all(isinstance(x, str) and x for x in (model, effort)):
             raise RunnerError("model_and_effort_required")
+        output_requirements = request.get("output_requirements")
+        if output_requirements is not None:
+            output_requirements = verify_requirements(output_requirements)
+        output_retries = request.get("output_retries", 1)
+        if type(output_retries) is not int or not 0 <= output_retries <= 8:
+            raise RunnerError("invalid_output_retry_count")
         if "skill_refs" in request and "skill_ref" in request:
             raise RunnerError("conflicting_skill_inputs")
         refs = request.get("skill_refs", [request.get("skill_ref")])
@@ -1187,6 +1212,10 @@ class LocalRunner:
                       "turns": [], "answer": None, "output_ref": None,
                       "raw_event_ref": f"laomedo:run:{run_id}:events",
                       "client_request_id": client_request_id,
+                      "output_requirements": output_requirements,
+                      "requirements_revision": (output_requirements or {}).get("requirements_revision"),
+                      "output_retries": output_retries,
+                      "precheck": {"installed": False, "call_count": 0},
                       "request_hash": request_hash,
                       "cancel_requested": False, "cancel_confirmed": False}
             if github_scope is not None:
@@ -1357,6 +1386,7 @@ class LocalRunner:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
                 record = self.status(run_id)
+                record.setdefault("precheck", {"installed": False, "call_count": 0})
                 if record["status"] == "cancelled" and record.get("cancel_confirmed"):
                     return record
                 if (not resume and record["status"] != "prepared") or (
@@ -1430,7 +1460,7 @@ class LocalRunner:
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
                 **({"capabilities": {"experimentalApi": True}}
-                   if self.split_executor else {})})
+                   if self.split_executor or record.get("output_requirements") else {})})
             if "result" not in initialized:
                 raise RunnerError("initialize_rejected")
             server.notify("initialized", {})
@@ -1452,6 +1482,10 @@ class LocalRunner:
             params = ({"threadId": record["thread_id"], "cwd": "/draft"} if resume else
                       {"model": record["requested_model"], "cwd": "/draft",
                        "approvalPolicy": "never"})
+            if record.get("output_requirements"):
+                server.output_requirements = verify_requirements(record["output_requirements"])
+                if not resume:
+                    params["dynamicTools"] = [dynamic_tool(server.output_requirements)]
             if self.split_executor:
                 params["environments"] = server.thread_environment()
                 server.assert_executor_selection(params["environments"])
@@ -1462,6 +1496,8 @@ class LocalRunner:
             if not native_id or (resume and native_id != record["thread_id"]):
                 raise RunnerError("thread_identity_mismatch")
             record["thread_id"] = native_id
+            server.active_thread_id = native_id
+            record["precheck"]["installed"] = "dynamicTools" in params
             record["effective_model"] = thread.get("model") or result.get("model")
             record["effective_effort"] = (result.get("reasoningEffort") or
                                           thread.get("reasoningEffort"))
@@ -1506,6 +1542,12 @@ class LocalRunner:
             turn_params = {"threadId": native_id,
                 "model": record["requested_model"], "effort": record["requested_effort"],
                 "cwd": "/draft", "input": [{"type": "text", "text": task}]}
+            if record.get("output_requirements"):
+                turn_params["input"][0]["text"] += (
+                    "\nReturn your final submission as a JSON object with explicit task_outcome "
+                    "success or failure. Use laomedo_output_precheck on your form before "
+                    "handoff and correct rejected fields within this request. Requirements: " +
+                    json.dumps(record["output_requirements"], sort_keys=True))
             if self.split_executor:
                 server.assert_controller_isolated()
                 turn_params["environments"] = server.turn_environment()
@@ -1553,17 +1595,80 @@ class LocalRunner:
                 server.authorization_probe = still_authorized
                 if not still_authorized():
                     raise AuthError(auth_failure["code"])
+            turn_event_offset = len(server.events)
             sent = server.request("turn/start", turn_params)
             turn_id = ((sent.get("result") or {}).get("turn") or {}).get("id")
             if not turn_id:
                 raise RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
+            # Correction is a continuation of this native thread, never a new
+            # dispatch of the original task. Any mediated scope or tool effect
+            # blocks automatic continuation because safe repetition is unknown.
+            correction_count = 0
+            while record.get("output_requirements") and status == "completed":
+                try:
+                    submission = json.loads(_answer(server.events[turn_event_offset:]) or "null")
+                except (ValueError, TypeError):
+                    submission = None
+                validation = evaluate(record["output_requirements"], submission)
+                record["output_validation"] = validation
+                if (validation["contract_status"] == "accepted" or
+                        isinstance(submission, dict) and submission.get("task_outcome") == "failure" or
+                        correction_count >= record["output_retries"]):
+                    break
+                commands_before = _command_summary(server.events, turn_id)
+                def effect_event(event):
+                    if event.get("method") not in {"item/started", "item/completed"}:
+                        return False
+                    item = event.get("params", {}).get("item") or {}
+                    if item.get("type") in {"userMessage", "agentMessage", "reasoning"}:
+                        return False
+                    return not (item.get("type") == "dynamicToolCall" and
+                                item.get("tool") == "laomedo_output_precheck" and
+                                item.get("namespace") is None and
+                                item.get("id") in getattr(server, "verified_precheck_calls", set()))
+                tool_effect = any(effect_event(event) for event in server.events)
+                if record.get("github_scope") or tool_effect or commands_before["commands"] or commands_before["identity_incomplete"]:
+                    record["output_correction_blocked"] = "side_effect_safety_unverified"
+                    break
+                if cancelled.is_set():
+                    status, error = "cancelled", "cancelled_by_user"
+                    break
+                try:
+                    attempt = self._reserve_turn()
+                except RunnerError:
+                    record["output_correction_blocked"] = "model_turn_cap_reached"
+                    break
+                record["turns"].append({"turn_id": turn_id, "status": status,
+                                        "correction_pending": True,
+                                        "output_validation": validation})
+                correction_count += 1
+                record["attempt_number"] = attempt
+                record["output_correction_count"] = correction_count
+                _json(run_dir / "record.json", record)
+                feedback = ("Continue this same session by correcting only your output form. "
+                            "Do not repeat the original task or any external writes. "
+                            "Use the existing output precheck. Validation feedback: " +
+                            json.dumps(validation, sort_keys=True))
+                turn_params["input"] = [{"type": "text", "text": feedback}]
+                if self.split_executor:
+                    server.assert_controller_isolated()
+                    server.assert_executor_selection(turn_params["environments"])
+                if self.auth and not still_authorized():
+                    raise AuthError(auth_failure["code"])
+                turn_event_offset = len(server.events)
+                next_turn = server.request("turn/start", turn_params)
+                turn_id = ((next_turn.get("result") or {}).get("turn") or {}).get("id")
+                if not turn_id:
+                    raise RunnerError("turn_dispatch_rejected")
+                status, error = server.wait_turn(turn_id, 180, cancelled)
             native_status = status
             commands = _command_summary(server.events, turn_id)
             record["native_turn_status"] = native_status
+            record["precheck"]["call_count"] = getattr(server, "precheck_call_count", 0)
             record["command_summary"] = commands
-            record["native_answer"] = _answer(server.events) if native_status == "completed" else None
+            record["native_answer"] = _answer(server.events[turn_event_offset:]) if native_status == "completed" else None
             if status == "completed" and (commands["outstanding_ids"] or commands["identity_incomplete"]):
                 status, error = "unknown", "outstanding_command_completion_unknown"
             if self.auth and error == "auth_revoked_during_turn":
@@ -1588,7 +1693,7 @@ class LocalRunner:
             if status == "cancelled":
                 record["cancel_requested"] = True
             record["native_error_summary"] = native_errors
-            record["answer"] = _answer(server.events) if status == "completed" else None
+            record["answer"] = _answer(server.events[turn_event_offset:]) if status == "completed" else None
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")
             if status == "completed":
@@ -1633,6 +1738,12 @@ class LocalRunner:
             close_error = False
             try:
                 if server is not None:
+                    if record is not None:
+                        count = getattr(server, "precheck_call_count", 0)
+                        record["precheck"]["call_count"] = count
+                        record["precheck"]["installed"] = (
+                            record["precheck"]["installed"] or
+                            bool(getattr(server, "verified_precheck_calls", set())))
                     server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"

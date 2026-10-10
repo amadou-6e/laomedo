@@ -18,6 +18,14 @@ from lfx.schema import Data, Message
 
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
+_ROUTABLE_ERRORS = {
+    "runner_api_token_file_unavailable", "runner_api_token_file_empty",
+    "runner_transport_failed", "runner_invalid_response", "runner_invalid_error_response",
+    "runner_response_identity_mismatch", "runner_response_thread_mismatch",
+    "runner_request_identity_mismatch", "runner_status_identity_mismatch",
+    "runner_wait_deadline", "runner_status_unknown", "turn_timeout",
+    "outstanding_command_completion_unknown", "post_run_snapshot_mismatch",
+}
 
 
 class RunnerResultError(RuntimeError):
@@ -56,6 +64,9 @@ class LaomedoCodexAgent(Component):
         StrInput(name="request_id", display_name="Request ID", advanced=True,
                  info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
+        DataInput(name="output_requirements", display_name="Output Requirements"),
+        IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
+                 advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
         StrInput(name="skill_id", display_name="Skill ID", advanced=True),
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True),
@@ -74,6 +85,8 @@ class LaomedoCodexAgent(Component):
     outputs = [
         Output(name="answer", display_name="Answer", method="answer_output", group_outputs=True),
         Output(name="run", display_name="Run Reference", method="run_output", group_outputs=True),
+        Output(name="submission", display_name="Submission / Outcome",
+               method="submission_output", group_outputs=True),
     ]
 
     def _pre_run_setup(self):
@@ -88,9 +101,22 @@ class LaomedoCodexAgent(Component):
         self._reference_run_id = None
         self._reference_thread_id = None
         self._prior_trace_ref = None
+        self._last_reference = None
 
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
+        connected = getattr(self, "output_requirements", None)
+        if connected not in (None, "", []):
+            from laomedo.output_contract import verify_requirements
+            if self.operation not in {"fresh", "start"}:
+                raise ValueError("output_requirements_require_fresh_start")
+            selected = verify_requirements(getattr(connected, "data", connected))
+            retries = getattr(self, "output_retries", 1)
+            if type(retries) is not int or not 0 <= retries <= 8:
+                raise ValueError("invalid_output_retry_count")
+            target = payload.get("runner_body", payload)
+            target["output_requirements"] = selected
+            target["output_retries"] = retries
         provenance = getattr(self, "handoff_reference", None)
         if provenance not in (None, "", []):
             if self.operation not in {"fresh", "start"}:
@@ -426,6 +452,7 @@ class LaomedoCodexAgent(Component):
             if result.get("client_request_id") != self._stop_request_id:
                 raise RuntimeError("runner_request_identity_mismatch")
             self._active_run_id = result["run_id"]
+        self._last_reference = self._run_reference(result)
         if self.operation == "fresh":
             deadline = time.monotonic() + int(self.timeout_seconds)
             while not _terminal_record(result) and not self._stop_requested:
@@ -445,6 +472,7 @@ class LaomedoCodexAgent(Component):
                     raise RuntimeError("runner_status_unknown; remote execution may still be active") from None
                 if not isinstance(result, dict) or result.get("run_id") != self._active_run_id:
                     raise RuntimeError("runner_status_identity_mismatch")
+                self._last_reference = self._run_reference(result)
         if (self.operation in {"fresh", "resume"} and not self._stop_requested and
                 result.get("status") != "completed"):
             raise RunnerResultError(self._run_reference(result))
@@ -455,6 +483,19 @@ class LaomedoCodexAgent(Component):
         skills = result.get("skills") or ([skill] if skill else [])
         return {"answer": result.get("answer"), "run_id": result["run_id"],
             "request_id": result.get("client_request_id"),
+            "invocation_id": result.get("invocation_id"),
+            "laomedo_run_id": result.get("laomedo_run_id"),
+            "trace_id": result.get("trace_id"),
+            "evidence_complete": (result.get("evidence_complete") if
+                                  type(result.get("evidence_complete")) is bool else "unknown"),
+            "completion_basis": result.get("completion_basis"),
+            "requirements_revision": result.get("requirements_revision"),
+            "precheck": {key: (result.get("precheck", {}).get(key) if
+                         isinstance(result.get("precheck"), dict) and
+                         (type(result["precheck"].get(key)) is bool if key != "call_count"
+                          else type(result["precheck"].get(key)) is int and
+                          result["precheck"][key] >= 0) else "unknown")
+                         for key in ("installed", "call_count")},
             "provider": result.get("provider", "codex"),
             "handoff": result.get("handoff"), "imported_artifacts": result.get("imported_artifacts", []),
             "thread_id": result.get("thread_id"), "status": result.get("status"),
@@ -515,3 +556,61 @@ class LaomedoCodexAgent(Component):
     async def answer_output(self) -> Message:
         result = await self._result()
         return Message(text=result.get("answer") or "")
+
+    async def submission_output(self) -> Data:
+        """Route known runtime failures; legacy outputs retain their exceptions."""
+        try:
+            reference = await self._result()
+        except RunnerResultError as exc:
+            reference = dict(exc.run_reference)
+            if (self.operation in {"fresh", "start"} and
+                    reference.get("request_id") != self._stop_request_id):
+                # Legacy exceptions can contain an unbound HTTP error record.
+                # A graph output must not adopt its unsolicited run/trace identity.
+                reference = dict(self._last_reference or {})
+                reference.update(status="unknown", evidence_complete=False,
+                    artifact_ref=None, error_category="runner_request_identity_mismatch")
+                reference.setdefault("run_id", self._active_run_id)
+                reference.setdefault("request_id", self._stop_request_id)
+        except RuntimeError as exc:
+            # Input ValueErrors and framework cancellation still refuse/abort.
+            # Never put raw exception text, HTTP bodies or exception paths in Data.
+            code = str(exc).split(";", 1)[0]
+            if code not in _ROUTABLE_ERRORS:
+                code = "runner_runtime_unknown"
+            reference = dict(self._last_reference or {})
+            reference.update(status="unknown", evidence_complete=False,
+                             artifact_ref=None, error_category=code)
+            reference.setdefault("run_id", self._reference_run_id)
+            reference.setdefault("trace_ref", self._prior_trace_ref)
+            reference.setdefault("request_id", self._stop_request_id)
+        category = reference.get("error_category")
+        if category is not None and (not isinstance(category, str) or category not in _ROUTABLE_ERRORS):
+            reference = {**reference, "error_category": "runner_runtime_unknown"}
+        answer = reference.get("answer")
+        submission = None
+        if isinstance(answer, str):
+            try:
+                parsed = json.loads(answer)
+            except (ValueError, TypeError):
+                parsed = None
+            if isinstance(parsed, dict):
+                submission = parsed
+        reported = (submission or {}).get("task_outcome")
+        outcome = (reported if isinstance(reported, str) and
+                   reported in {"success", "failure"} else "unknown")
+        # Even an explicit claim of success cannot promote an incomplete executor.
+        if outcome == "success" and reference.get("status") != "completed":
+            outcome = "unknown"
+        value = {"schema_version": "laomedo.agent-submission.v1",
+                 "submission": submission, "answer": answer,
+                 "requirements_revision": reference.get("requirements_revision"),
+                 "precheck": reference.get("precheck", {"installed": "unknown",
+                                                       "call_count": "unknown"}),
+                 "task_outcome": outcome,
+                 "executor_status": reference.get("status") or "unknown",
+                 "evidence_complete": reference.get("evidence_complete", "unknown"),
+                 "run_reference": reference,
+                 "error_category": reference.get("error_category")}
+        self.status = "Laomedo outcome: " + value["executor_status"]
+        return Data(data=value)
