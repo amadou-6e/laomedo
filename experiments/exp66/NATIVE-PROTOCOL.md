@@ -45,3 +45,12 @@ record clock resolution, effective five-second adapter deadline, polling and
 credentials, grants, writes or agentviz involvement. This establishes only the
 bounded local cancellation cases and does not accept outage/revocation under
 #93, semantic success, global effect completeness or production login lifecycle.
+
+## Pre-run cleanup amendment, 2026-10-10
+
+Claude blocker B1: ledger finalization could skip native cleanup on lock or I/O
+failure. Always attempt exact native cleanup and server shutdown first, then
+update the ledger under a guarded call. Record sanitized exception classes in
+teardown.json without hiding the original failure or claiming a clean teardown.
+Credential-free fault injection must show that a locked ledger cannot skip
+cleanup. No task, timing, pass condition or turn budget changes.

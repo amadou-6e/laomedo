@@ -68,6 +68,30 @@ def long_started(events):
                for e in events)
 
 
+def finish(state, case, entry, category, runner, native_id, server, thread, teardown):
+    """Always attempt exact cleanup before a possibly contended ledger update."""
+    try:
+        teardown['runs'] = _cleanup_runner_runs(runner, state/'runner/runs', native_id)
+        teardown['exact_cleanup_verified'] = all(
+            row['exact_cleanup_verified'] for row in teardown['runs'])
+    except Exception as exc:
+        teardown['cleanup_error_class'] = type(exc).__name__
+    for name, operation in (
+            ('server_shutdown', server.shutdown), ('server_close', server.server_close),
+            ('thread_join', lambda: thread.join(timeout=3))):
+        try:
+            operation()
+        except Exception as exc:
+            teardown[name + '_error_class'] = type(exc).__name__
+    teardown['runner_server_stopped'] = not thread.is_alive()
+    if entry:
+        try:
+            reserve_entry(state, case, entry=entry, result=category)
+        except Exception as exc:
+            teardown['ledger_update_error_class'] = type(exc).__name__
+    (state/'teardown.json').write_text(json.dumps(teardown, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--state', required=True, type=Path)
@@ -218,18 +242,7 @@ def main():
         (state/'trace-after-reopen.json').write_text(json.dumps(after,indent=2))
         print(json.dumps(summary))
     finally:
-        if entry:
-            reserve_entry(state,args.case,entry=entry,result=category)
-        try:
-            teardown['runs']=_cleanup_runner_runs(runner,state/'runner/runs',native_id)
-            teardown['exact_cleanup_verified']=all(r['exact_cleanup_verified'] for r in teardown['runs'])
-        except Exception as exc:
-            teardown['cleanup_error_class']=type(exc).__name__
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=3)
-        teardown['runner_server_stopped']=not thread.is_alive()
-        (state/'teardown.json').write_text(json.dumps(teardown,indent=2))
+        finish(state, args.case, entry, category, runner, native_id, server, thread, teardown)
 
 if __name__ == '__main__':
     main()
