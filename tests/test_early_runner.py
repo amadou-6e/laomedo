@@ -25,6 +25,7 @@ class BlockingServer(FakeServer):
     entered = threading.Event()
     closed = threading.Event()
     turn_starts = 0
+    wait_seconds = 4
 
     def request(self, method, params, timeout=30):
         if method == "turn/start":
@@ -35,7 +36,7 @@ class BlockingServer(FakeServer):
         self.log.write('{"method":"item/started"}\n')
         self.log.flush()
         type(self).entered.set()
-        if not cancelled.wait(4):
+        if not cancelled.wait(type(self).wait_seconds):
             return "timeout", "synthetic_timeout"
         return "cancelled", "cancelled_by_user"
 
@@ -70,6 +71,7 @@ class EarlyRunnerTests(unittest.TestCase):
         BlockingServer.entered = threading.Event()
         BlockingServer.closed = threading.Event()
         BlockingServer.turn_starts = 0
+        BlockingServer.wait_seconds = 4
         self.body = {"request_id": str(uuid4()), "task": "Synthetic task",
                      "model": "test-model", "effort": "low",
                      "skill_ref": {"skill_id": "fixture",
@@ -288,6 +290,10 @@ class EarlyRunnerTests(unittest.TestCase):
             worker.join(5)
 
     def test_lost_ack_reconciles_by_get_without_second_start(self):
+        # This test checks lost acknowledgement reconciliation, not a provider
+        # timeout. Keep the fake turn alive through the bounded database/HTTP
+        # checks and explicitly cancel it, with a finite failsafe.
+        BlockingServer.wait_seconds = 30
         base = self.start_http()
         class DroppedAckAdapter(RunnerAdapter):
             def dispatch(self, handoff, **kwargs):
@@ -309,7 +315,7 @@ class EarlyRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(HandoffError, "runner_result_pending"):
                 bridge.dispatch(run["run_id"], "agent", handoff,
                                 # Leave room for CI database writes and HTTP setup;
-                                # the synthetic turn remains blocked for four seconds.
+                                # the synthetic turn remains blocked until cancellation.
                                 deadline=time.monotonic() + 3,
                                 cancelled=threading.Event())
             before = WorkflowRunStore(trace_path).trace_snapshot(run["run_id"])
