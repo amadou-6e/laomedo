@@ -12,6 +12,7 @@ from urllib.parse import urlencode, urlsplit
 
 from .local_runner import LocalRunner, RunnerError, _copy_tree, _hash_tree, _json
 from .skill_store import SkillStoreError, inventory, tree_hash
+from . import workspace_skills
 
 CLI_VERSION = "1.18.33"
 
@@ -164,6 +165,11 @@ class OpenCodeRunner(LocalRunner):
                     raise RunnerError("pinned_skill_workspace_changed")
         except (OSError, SkillStoreError) as exc:
             raise RunnerError("pinned_skill_workspace_changed") from exc
+        try:
+            workspace_skills.verify(workspace, skills,
+                                   record.get("skill_git_exclusion", {"enabled": False}))
+        except ValueError as exc:
+            raise RunnerError(str(exc)) from None
 
     def resume(self, run_id, task, *, expected_post_run_hash, expected_thread_id, model, effort):
         self._validate_provider(model, effort)
@@ -250,7 +256,7 @@ class OpenCodeRunner(LocalRunner):
                 post_hash = _copy_tree(root / "workspace", pending)
                 old = root / "post-run"
                 if old.exists():
-                    shutil.rmtree(old)
+                    workspace_skills.remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record.update(post_run_hash=post_hash, output_ref=f"laomedo:run:{run_id}:workspace")
             record["turns"].append({"turn_id": normalized["native_turn_id"], "status": record["status"],
