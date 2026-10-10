@@ -130,7 +130,7 @@ class RunGrantAuthority:
             db.execute("UPDATE authorizations SET run_id=? WHERE ref_hash=?", (run_id, digest))
             scope = {"invocation_id": row["invocation_id"],
                      "repository": row["repository"], "branch": row["branch"]}
-            if "git_fetch" in json.loads(row["operations"]):
+            if {"git_fetch", "pr_create", "pr_update"} & set(json.loads(row["operations"])):
                 scope["base_branch"] = row["base_branch"]
             return scope
 
@@ -145,7 +145,7 @@ class RunGrantAuthority:
             if row is None or row["lease_token"] not in (None, token):
                 return None
             expected = {key: row[key] for key in ("invocation_id", "repository", "branch")}
-            if "git_fetch" in json.loads(row["operations"]):
+            if {"git_fetch", "pr_create", "pr_update"} & set(json.loads(row["operations"])):
                 expected["base_branch"] = row["base_branch"]
             if request != expected:
                 return None

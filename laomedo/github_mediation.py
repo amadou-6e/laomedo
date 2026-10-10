@@ -97,6 +97,8 @@ def _validate_effect(operation: str, payload: dict, grant, db,
                 raise MediationError("target_pr_denied")
         if operation == "pr_create" and payload["head"] != grant["branch"]:
             raise MediationError("pr_head_denied")
+        if operation == "pr_create" and payload["base"] != grant["base_branch"]:
+            raise MediationError("pr_base_denied")
     if operation == "issue_create":
         if not all(isinstance(payload.get(key), str) and payload[key]
                    for key in ("reviewed_proposal_id", "marker")):

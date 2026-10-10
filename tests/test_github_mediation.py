@@ -66,6 +66,14 @@ class MediationTests(unittest.TestCase):
             token, "git_push", {"branch": "run-a-branch", "commit": "b" * 40}, "effect-1"))
         self.assertEqual(len(self.calls), 1)
 
+    def test_create_cannot_choose_an_unapproved_base(self):
+        _, token = self.grant()
+        payload = {'head': 'run-a-branch', 'base': 'other-base', 'title': 'T',
+                   'body': 'marker body', 'marker': 'marker'}
+        self.assert_code('pr_base_denied', lambda: self.invoke(
+            token, 'pr_create', payload, 'wrong-base'))
+        self.assertEqual(self.calls, [])
+
     def test_legacy_effect_table_adds_attribution_without_rewriting_history(self):
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("DROP TABLE effects")
