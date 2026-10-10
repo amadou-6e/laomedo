@@ -171,3 +171,13 @@ class WorkspaceSkillGitTests(unittest.TestCase):
                 runner.start(self.request())
         server.assert_not_called()
         self.assertEqual(list((runner.state/'runs').iterdir()), [])
+
+    def test_linked_git_root_refuses_without_reading_metadata(self):
+        runner = self.runner()
+        record = runner._prepare(self.request())
+        with patch('laomedo.workspace_skills._is_link',
+                   side_effect=lambda path: path.name == '.git'), patch.object(
+                runner, '_open_server') as server:
+            result = runner._execute(record['run_id'], 'fixture', resume=False)
+        server.assert_not_called()
+        self.assertEqual(result['error_category'], 'external_git_directory_unsupported')
