@@ -11,13 +11,35 @@ import argparse
 import json
 import os
 from pathlib import Path
+import secrets
 import threading
+import time
 
 from .bundle_ingest import (_bound_roots, _record, _redirected, _durable_json,
                             BundleIngestError, _IDENTITY)
 from .bundle_stage import (verify_frozen_bundle, _read_frozen,
                            PINNED_IMAGE_ID, BundleStageError, _run)
 from .bundle_stage_ownership import reconcile_orphan
+
+
+def _publish_status(path: Path, value: dict) -> None:
+    # Diagnostic writes must not reuse a pending path left by a killed
+    # process. Verification reservations still use their immutable one-shot
+    # journals; this status cannot authorize/restart an attempt.
+    pending = path.with_name(path.name + ".pending-" + secrets.token_hex(8))
+    try:
+        with pending.open("x", encoding="utf-8", newline="\n") as output:
+            output.write(json.dumps(value, sort_keys=True) + "\n")
+        for attempt in range(20):
+            try:
+                os.replace(pending, path)
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(.01)
+    finally:
+        pending.unlink(missing_ok=True)
 
 
 class BundleVerifier:
@@ -118,9 +140,26 @@ class BundleVerifier:
         return results
 
     def serve(self, stopping: threading.Event) -> None:
-        while not stopping.is_set():
-            self.scan_once()
-            stopping.wait(.2)
+        # Host-only readiness diagnostic, not an authorization or proof that
+        # a long-running scan/remote effect has stopped. A monitor must also
+        # verify exact task/process ownership and freshness. No token/run
+        # paths or untrusted record text are published here.
+        status = {"instance": secrets.token_hex(16), "pid": os.getpid(),
+                  "module_root": str(Path(__file__).resolve().parent),
+                  "started_monotonic": time.monotonic(),
+                  "scan_started_monotonic": None, "scan_completed_monotonic": None}
+        path = self.private_root / "service-status.json"
+        try:
+            while not stopping.is_set():
+                status.update(phase="scanning", scan_started_monotonic=time.monotonic())
+                _publish_status(path, status)
+                self.scan_once()
+                status.update(phase="idle", scan_completed_monotonic=time.monotonic())
+                _publish_status(path, status)
+                stopping.wait(.2)
+        finally:
+            status.update(phase="stopped")
+            _publish_status(path, status)
 
 
 def main():
