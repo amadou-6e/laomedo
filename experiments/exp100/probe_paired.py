@@ -73,6 +73,7 @@ def run(private, source_sha, review_record):
     stopped = threading.Event()
     stage = root / 'private'
     mediated = None
+    store = None
     git_calls = []
     def command(args, *, cwd=None, env=None, stdin=None):
         if time.monotonic() >= deadline: raise TimeoutError('overall_deadline_no_retry')
@@ -192,14 +193,16 @@ def run(private, source_sha, review_record):
         worker = threading.Thread(target=verifier.serve, args=(stopped,), daemon=True)
         worker.start(); verifiers.append(worker)
         revoked = set()
+        revocation_lock = threading.Lock()
         def renew():
             while not stopped.wait(5):
-                for key, grant in grants.items():
-                    if key in revoked: continue
-                    owner = containers[key]
-                    state, _ = inspect_exact(owner['name'], owner['run_id'], owner['token'])
-                    if state != 'owned' or not store.renew_grant(grant, 60):
-                        stopped.set(); return
+                with revocation_lock:
+                    for key, grant in grants.items():
+                        if key in revoked: continue
+                        owner = containers[key]
+                        state, _ = inspect_exact(owner['name'], owner['run_id'], owner['token'])
+                        if state != 'owned' or not store.renew_grant(grant, 60):
+                            stopped.set(); return
         threading.Thread(target=renew, daemon=True).start()
         def m(argv, key='a', *, effect=None, body=None, reviewed=True):
             if stopped.is_set(): raise RuntimeError('renewal_or_verifier_stopped')
@@ -372,7 +375,9 @@ def run(private, source_sha, review_record):
             operation='pr_update', payload=request_payload, effect_id='lost-response', transport=transport)
         add('unknown_replay', {'exit': 4 if reply['state'] == 'unknown' else 0, 'value': reply['state']},
             classification='unknown', key='b', before=before)
-        store.revoke_run(IDENTITY + '-a'); revoked.add('a')
+        with revocation_lock:
+            revoked.add('a')
+            store.revoke_run(IDENTITY + '-a')
         deny('revoked_a', ['gh', 'issue', 'list'], kind='denied')
         pair('live_b', ['gh', 'issue', 'list'], '/repos/' + REPOSITORY + '/issues', key='b')
         # Actual inspected env/mount destinations, not just the launch configuration.
@@ -410,6 +415,13 @@ def run(private, source_sha, review_record):
     finally:
         cleanup_started = time.monotonic()
         stopped.set()
+        revoked_grants = []
+        for key, grant in grants.items():
+            try:
+                store.revoke_run(IDENTITY + '-' + key)
+                revoked_grants.append({'run': key, 'verified': store.renew_grant(grant, 60) is False})
+            except Exception:
+                revoked_grants.append({'run': key, 'verified': False})
         reports = []
         for key, owner in containers.items():
             try:
@@ -423,8 +435,10 @@ def run(private, source_sha, review_record):
             else: server.shutdown(); server.server_close()
         cleanup_elapsed = time.monotonic() - cleanup_started
         observation.update(cleanup_reports=reports, stage_cleanup_reports=stage_reports,
+            grant_cleanup_reports=revoked_grants,
             cleanup_elapsed_seconds=cleanup_elapsed,
-            cleanup_verified=len(reports) == 2 and all(row['verified'] for row in reports) and stage_ok and cleanup_elapsed <= 30)
+            cleanup_verified=len(reports) == 2 and len(revoked_grants) == 2 and
+                all(row['verified'] for row in reports + revoked_grants) and stage_ok and cleanup_elapsed <= 30)
         if 'failure_class' not in observation:
             try: check(observation); observation['result'] = 'passed'
             except Exception as failure:
