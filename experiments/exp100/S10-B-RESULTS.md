@@ -33,7 +33,8 @@ negative controls and cleanup. No bearer, host path or credential is recorded.
   read, revoked read and revoked new PR update all refused. Provider counts
   did not change across these host controls.
 - Exact agent and both verifier-stage cleanup reports are verified. No B
-  container remained in the independent post-run Docker query. Synthetic
+  container remained in the coordinator's separate post-run Docker query
+  (a coordinator observation, not a captured machine field). Synthetic
   renewal was permitted only under exact ownership but was not needed in
   this run (`synthetic_grant_renewals_seconds` is empty).
 
@@ -57,5 +58,7 @@ existing remote branch remains unavailable. Unpushed/definitely rejected frozen
 stages block later captures; CAS mismatches remain conservatively unknown.
 
 No #100/#104/#93/Q11 acceptance or full #97/#105 merge follows from this result.
-Independent post-run review is required before recording it as reviewed specs
-evidence. Never execute either S10 identity again.
+[Independent post-run review](https://github.com/amadou-6e/laomedo/pull/105#pullrequestreview-5478075079)
+approved the bounded evidence at `f897774`, not full draft promotion. The
+reviewer read the prepared diffs and raw observation but did not independently
+hash bytes or execute probes. Never execute either S10 identity again.
