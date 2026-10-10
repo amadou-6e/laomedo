@@ -51,6 +51,9 @@ NATIVE_HTTP_ERROR_KINDS = frozenset({
 })
 
 
+from . import workspace_skills
+
+
 class RunnerError(ValueError):
     pass
 
@@ -904,7 +907,9 @@ class LocalRunner:
                 raise RunnerError("source_changed_during_snapshot")
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
+            workspace_skills.initialize(workspace)
             skills = [self._materialize(workspace, ref) for ref in refs]
+            git_exclusion = workspace_skills.install(workspace, skills)
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
             effective_hash = _hash_tree(workspace)
@@ -914,7 +919,7 @@ class LocalRunner:
                       "effective_hash": effective_hash, "post_run_hash": None,
                       "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                       "skill": skills[0] if len(skills) == 1 else None,
-                      "skills": skills,
+                      "skills": skills, "skill_git_exclusion": git_exclusion,
                       "provider": getattr(self, "provider", "codex"),
                       "handoff": handoff, "imported_artifacts": artifacts,
                       "requested_model": model, "requested_effort": effort,
@@ -936,7 +941,10 @@ class LocalRunner:
                       "cancel_requested": False, "cancel_confirmed": False}
             _json(run_dir / "record.json", record)
         except Exception:
-            shutil.rmtree(run_dir)
+            try:
+                workspace_skills.remove_owned_tree(run_dir, self.state)
+            except OSError:
+                raise RunnerError("run_preparation_cleanup_unverified") from None
             raise
         return record
 
@@ -1081,6 +1089,11 @@ class LocalRunner:
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
                 _json(run_dir / "record.json", record)
+            try:
+                workspace_skills.verify(run_dir / "workspace", record["skills"],
+                                       record.get("skill_git_exclusion", {"enabled": False}))
+            except ValueError as exc:
+                raise RunnerError(str(exc)) from None
             access_token, auth_summary = self.auth.access_token() if self.auth else (None, None)
             if resume and self.auth:
                 prior = record.get("credential") or {}
@@ -1224,12 +1237,18 @@ class LocalRunner:
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")
             if status == "completed":
+                try:
+                    workspace_skills.verify(run_dir / "workspace", record["skills"],
+                                           record.get("skill_git_exclusion", {"enabled": False}))
+                except ValueError as exc:
+                    record["answer"] = None
+                    raise RunnerError(str(exc)) from None
                 post_hash = _hash_tree(run_dir / "workspace")
                 pending = run_dir / ("post-run-pending-" + uuid4().hex)
                 _copy_tree(run_dir / "workspace", pending)
                 old = run_dir / "post-run"
                 if old.exists():
-                    shutil.rmtree(old)
+                    workspace_skills.remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record["post_run_hash"] = post_hash
                 record["output_ref"] = f"laomedo:run:{run_id}:workspace"
