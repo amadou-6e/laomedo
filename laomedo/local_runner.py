@@ -588,6 +588,48 @@ class SplitAppServer(AppServer):
             raise error
 
 
+def _command_summary(events: list[dict], turn_id: str) -> dict:
+    """Project observed command lifetimes, never infer completion from shutdown."""
+    commands = {}
+    incomplete = False
+    for index, event in enumerate(events):
+        params = event.get("params") or {}
+        if params.get("turnId") not in (None, turn_id):
+            continue
+        method = event.get("method")
+        item = params.get("item") or {}
+        if method == "item/commandExecution/outputDelta":
+            identity = params.get("itemId")
+        elif method in {"item/started", "item/completed"} and item.get("type") == "commandExecution":
+            identity = item.get("id")
+        else:
+            continue
+        if not isinstance(identity, str) or not identity:
+            incomplete = True
+            continue
+        command = commands.setdefault(identity, {"id": identity, "status": "unknown",
+            "completion_observed": False, "exit_code": None, "event_indices": [],
+            "output_event_indices": []})
+        command["event_indices"].append(index)
+        if method == "item/commandExecution/outputDelta" or item.get("aggregatedOutput"):
+            command["output_event_indices"].append(index)
+        if method == "item/completed" and item.get("status") != "inProgress":
+            observed = item.get("status") or "completed"
+            terminal = {"completed", "failed", "declined", "cancelled", "interrupted"}
+            command["completion_observed"] = observed in terminal
+            command["status"] = observed if observed in terminal else "unknown"
+            code = item.get("exitCode")
+            command["exit_code"] = code if type(code) is int else None
+        elif method == "item/started":
+            # A later start with the same identity is ambiguous, not a new success.
+            command["completion_observed"] = False
+            command["status"] = "unknown"
+            command["exit_code"] = None
+    rows = list(commands.values())
+    return {"commands": rows, "identity_incomplete": incomplete,
+            "outstanding_ids": [row["id"] for row in rows if not row["completion_observed"]]}
+
+
 def _answer(events: list[dict]) -> str | None:
     answers = []
     for event in events:
@@ -1088,6 +1130,10 @@ class LocalRunner:
                 cancelled = threading.Event()
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
+                record["snapshot_ready"] = False
+                record["post_run_hash"] = None
+                record["output_ref"] = None
+                record["controller_cleanup"] = "not_started"
                 _json(run_dir / "record.json", record)
             try:
                 workspace_skills.verify(run_dir / "workspace", record["skills"],
@@ -1103,6 +1149,7 @@ class LocalRunner:
             record["credential"] = auth_summary
             _json(run_dir / "record.json", record)
             server = self._open_server(run_dir, access_token=access_token)
+            record["controller_cleanup"] = "pending"
             if getattr(server, "container_name", None):
                 record["container_ownership"] = {"name": server.container_name}
                 _json(run_dir / "record.json", record)
@@ -1213,6 +1260,13 @@ class LocalRunner:
                 raise RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
+            native_status = status
+            commands = _command_summary(server.events, turn_id)
+            record["native_turn_status"] = native_status
+            record["command_summary"] = commands
+            record["native_answer"] = _answer(server.events) if native_status == "completed" else None
+            if status == "completed" and (commands["outstanding_ids"] or commands["identity_incomplete"]):
+                status, error = "unknown", "outstanding_command_completion_unknown"
             if self.auth and error == "auth_revoked_during_turn":
                 error = auth_failure["error"]
                 record["credential"]["auth_outcome"] = auth_failure["outcome"]
@@ -1220,6 +1274,8 @@ class LocalRunner:
             if status == "failed" and error is None and native_errors["last_category"]:
                 error = "codex_" + native_errors["last_category"]
             record["turns"].append({"turn_id": turn_id, "status": status,
+                                    "native_turn_status": native_status,
+                                    "command_summary": commands,
                                     "error_category": error,
                                     "native_completion_status": getattr(
                                         server, "native_completion_status", None),
@@ -1252,6 +1308,7 @@ class LocalRunner:
                 pending.rename(old)
                 record["post_run_hash"] = post_hash
                 record["output_ref"] = f"laomedo:run:{run_id}:workspace"
+                record["snapshot_ready"] = True
             if (_hash_tree(run_dir / "canonical") != record["source_hash"] or
                     (run_dir / "store/sentinel.txt").read_text(encoding="utf-8") !=
                     "STORE-ORIGINAL"):
@@ -1273,15 +1330,22 @@ class LocalRunner:
             try:
                 if server is not None:
                     server.close()
+                    if record is not None:
+                        record["controller_cleanup"] = "confirmed"
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
             except Exception:
                 if record is not None:
                     record.update(status="failed", error_category="container_termination_unverified")
+                    record["controller_cleanup"] = "unverified"
             finally:
                 try:
                     with self.control_lock:
                         if record is not None:
+                            if record.get("status") != "completed":
+                                record["snapshot_ready"] = False
+                                record["post_run_hash"] = None
+                                record["output_ref"] = None
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             _json(run_dir / "record.json", record)
