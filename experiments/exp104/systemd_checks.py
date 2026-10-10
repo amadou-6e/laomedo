@@ -20,7 +20,10 @@ def assess(value):
     for side in ('a', 'b'):
         require(value[side + '_initial']['body']['state'] == 'confirmed', 'positive_failed')
     require(value['initial_count'] == value['replay_count'] == 2 and
-            value['a_replay'] == value['a_initial'], 'confirmed_redispatched')
+            value['a_replay']['http'] == value['a_initial']['http'] == 200 and
+            value['a_replay']['body']['state'] == 'confirmed' and
+            value['a_replay']['body'].get('result') == value['a_initial']['body'].get('result'),
+            'confirmed_redispatched')
     require(value['a_parent_child_gone'] is True, 'tree_kill_missing')
     require(0 <= value['revoked']['revoked_at_monotonic'] - value['kill_finished'] <= 60 and
             value['runners']['a']['grant_id'] in value['revoked']['revoked_grants'],

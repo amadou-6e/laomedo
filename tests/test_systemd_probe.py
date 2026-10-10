@@ -38,6 +38,24 @@ def positive():
 
 
 class SystemdProbeTests(unittest.TestCase):
+    def test_actual_replay_metadata_and_changed_result_control(self):
+        candidate = deepcopy(positive())
+        candidate['a_initial']['body']['result'] = {'number': 1}
+        candidate['a_replay'] = {'http': 200, 'body': {
+            'state': 'confirmed', 'result': {'number': 1}, 'resent': False}}
+        self.assertEqual(assess(candidate), {'systemd_synthetic_boundary': 'passed'})
+        candidate['a_replay']['body']['result'] = {'number': 999}
+        with self.assertRaisesRegex(ValueError, 'confirmed_redispatched'):
+            assess(candidate)
+
+    def test_original_capture_retains_incomplete_outcome(self):
+        path = Path(__file__).resolve().parents[1] / 'experiments/exp104/systemd-observation.json'
+        recorded = json.loads(path.read_text(encoding='utf-8'))
+        self.assertEqual(recorded['status'], 'incomplete')
+        self.assertEqual(recorded['error_class'], 'ValueError')
+        self.assertTrue(recorded['cleanup_verified'])
+        self.assertEqual(assess(recorded['capture']), {'systemd_synthetic_boundary': 'passed'})
+
     def test_complete_fixture_and_each_missing_boundary(self):
         self.assertEqual(assess(positive()), {'systemd_synthetic_boundary': 'passed'})
         for field, replacement in [('pid1', 'init'), ('a_parent_child_gone', False),
