@@ -1,0 +1,580 @@
+{
+  "agent_alive": true,
+  "agent_cleanup_verified": true,
+  "agent_owned": true,
+  "baseline": "7806a67300de84975a04665a2f83a30265b09ccc",
+  "checkoutClean": true,
+  "cleanup_verified": true,
+  "command_progress": [
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "fetch",
+        "origin"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "rev-parse",
+        "refs/remotes/origin/develop"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "add",
+        "change.txt"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "first scripted native change"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "rev-parse",
+        "HEAD"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "add",
+        "change.txt"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "second scripted native change"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "rev-parse",
+        "HEAD"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "create",
+        "--title",
+        "Native fixture PR",
+        "--body",
+        "exp100-native-s10-20261010-b\nInitial body",
+        "--head",
+        "run-branch",
+        "--base",
+        "develop"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "view",
+        "7"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "edit",
+        "7",
+        "--title",
+        "Native fixture PR",
+        "--body",
+        "exp100-native-s10-20261010-b\nChecked native PR body"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "view",
+        "7"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "--force",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 1
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/other"
+      ],
+      "command": "git",
+      "status": 1
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch",
+        "HEAD:refs/heads/other"
+      ],
+      "command": "git",
+      "status": 1
+    },
+    {
+      "args": [
+        "auth",
+        "token"
+      ],
+      "command": "gh",
+      "status": 2
+    },
+    {
+      "args": [
+        "pr",
+        "view",
+        "999"
+      ],
+      "command": "gh",
+      "status": 3
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "status",
+        "--porcelain"
+      ],
+      "command": "git",
+      "status": 0
+    }
+  ],
+  "fetchedBase": "30f56e73fac72bc1c9a2066dd2f14fd22efa5b45",
+  "finalBody": "exp100-native-s10-20261010-b\nChecked native PR body",
+  "first": "7f4cb0aff17f1d458466716aa63d8fc33035f1e5",
+  "git_calls": [
+    {
+      "command": "ls-remote",
+      "target": "refs/heads/run-branch"
+    },
+    {
+      "command": "fetch",
+      "target": "refs/heads/develop:refs/heads/laomedo-read"
+    },
+    {
+      "command": "push",
+      "target": "7f4cb0aff17f1d458466716aa63d8fc33035f1e5:refs/heads/run-branch"
+    },
+    {
+      "command": "push",
+      "target": "a1fc883ec8cd39d3b6bc140855be76f26dd8491c:refs/heads/run-branch"
+    }
+  ],
+  "identity": "exp100-native-s10-20261010-b",
+  "image": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "model_turns": 0,
+  "negative_controls": {
+    "changed_connection": "connection_unavailable",
+    "completed_freeze_created": false,
+    "completed_freeze_error": "run_grant_mismatch",
+    "completed_freeze_state": "unknown",
+    "completed_push": "push_stage_unverified",
+    "provider_count_unchanged": true,
+    "revoked_read": "grant_unavailable",
+    "revoked_update": "grant_unavailable"
+  },
+  "number": 7,
+  "outcomes": [
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "fetch",
+        "origin"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "rev-parse",
+        "refs/remotes/origin/develop"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "add",
+        "change.txt"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "first scripted native change"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "rev-parse",
+        "HEAD"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "add",
+        "change.txt"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "second scripted native change"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "rev-parse",
+        "HEAD"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "create",
+        "--title",
+        "Native fixture PR",
+        "--body",
+        "exp100-native-s10-20261010-b\nInitial body",
+        "--head",
+        "run-branch",
+        "--base",
+        "develop"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "view",
+        "7"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "edit",
+        "7",
+        "--title",
+        "Native fixture PR",
+        "--body",
+        "exp100-native-s10-20261010-b\nChecked native PR body"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "pr",
+        "view",
+        "7"
+      ],
+      "command": "gh",
+      "status": 0
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "--force",
+        "origin",
+        "HEAD:refs/heads/run-branch"
+      ],
+      "command": "git",
+      "status": 1
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/other"
+      ],
+      "command": "git",
+      "status": 1
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "push",
+        "origin",
+        "HEAD:refs/heads/run-branch",
+        "HEAD:refs/heads/other"
+      ],
+      "command": "git",
+      "status": 1
+    },
+    {
+      "args": [
+        "auth",
+        "token"
+      ],
+      "command": "gh",
+      "status": 2
+    },
+    {
+      "args": [
+        "pr",
+        "view",
+        "999"
+      ],
+      "command": "gh",
+      "status": 3
+    },
+    {
+      "args": [
+        "-c",
+        "safe.directory=/draft",
+        "status",
+        "--porcelain"
+      ],
+      "command": "git",
+      "status": 0
+    }
+  ],
+  "provider_base": "30f56e73fac72bc1c9a2066dd2f14fd22efa5b45",
+  "provider_base_absent_before_fetch": true,
+  "provider_body": "exp100-native-s10-20261010-b\nChecked native PR body",
+  "provider_commit": "a1fc883ec8cd39d3b6bc140855be76f26dd8491c",
+  "push_effects": [
+    {
+      "effect_id": "native-294be3367226ac7b4ea4928a83c86343186dfdb1fcd688087e8f408e1d175e94",
+      "error_code": null,
+      "result_json": "{\"branch\": \"run-branch\", \"commit\": \"7f4cb0aff17f1d458466716aa63d8fc33035f1e5\", \"stage_digest\": \"f849136cb1b723eb4168719eef5c450ea08ef92dbc4a8be54eb36d6c26c611f9\"}",
+      "state": "confirmed"
+    },
+    {
+      "effect_id": "native-24ce91cb7a0c678f8a97e13d639e8e23441cccd1029f7fcfc176e4559b793bb4",
+      "error_code": null,
+      "result_json": "{\"branch\": \"run-branch\", \"commit\": \"a1fc883ec8cd39d3b6bc140855be76f26dd8491c\", \"stage_digest\": \"41bdbdaa0de7c0a97139c1beb0fc57c30a5425caddb03b23be0b0a1a5816976c\"}",
+      "state": "confirmed"
+    }
+  ],
+  "real_provider_calls": 0,
+  "rest_calls": [
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/pulls"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "PATCH",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    }
+  ],
+  "result": "passed",
+  "second": "a1fc883ec8cd39d3b6bc140855be76f26dd8491c",
+  "source_sha": "824046dc7fd6870310d4c75db8b6e522d0d4f6d0",
+  "spec_sha": "484451161e957f2d7cfafead9a92e27e43493d6e",
+  "stage_cleanup_reports": [
+    {
+      "cleanup_verified": true,
+      "detail": "absent_after_stage"
+    },
+    {
+      "cleanup_verified": true,
+      "detail": "absent_after_stage"
+    }
+  ],
+  "stage_cleanup_verified": true,
+  "synthetic_grant_renewals_seconds": []
+}

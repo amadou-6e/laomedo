@@ -1,5 +1,6 @@
 """Mutation controls of capture assessment, not campaign execution/evidence."""
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -12,6 +13,24 @@ spec.loader.exec_module(capture)
 
 
 class NativeCaptureChecks(unittest.TestCase):
+    def test_committed_observations_are_pinned_and_never_reexecuted(self):
+        cases = [("A", "a37d176dc91b216e904d597ead1434002468cb5cc19b52a824a3b2698b90af99"),
+                 ("B", "99122e350db228ef1e40c0efd42582a73753e809946db2dcacc74e651eddec34")]
+        for case, digest in cases:
+            data = (ROOT / f"experiments/exp100/S10-{case}-OBSERVATION.json").read_bytes()
+            self.assertEqual(hashlib.sha256(data).hexdigest(), digest)
+            observation = json.loads(data)
+            self.assertEqual(observation["model_turns"], 0)
+            self.assertEqual(observation["real_provider_calls"], 0)
+            self.assertTrue(observation["cleanup_verified"])
+            if case == "B":
+                capture.validate_observation(observation)
+                self.assertEqual(observation["result"], "passed")
+            else:
+                self.assertEqual(observation["result"], "failed")
+                self.assertEqual(len(observation["git_calls"]), 2)
+                self.assertEqual(observation["rest_calls"], [])
+
     def fixture(self):
         first, second = "a" * 40, "b" * 40
         return {"first": first, "second": second, "baseline": "c" * 40, "fetchedBase": "c" * 40,
