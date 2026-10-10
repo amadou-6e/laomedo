@@ -51,6 +51,12 @@ are single-skill-only and may be empty; use the per-skill `skills` array.
 
 Invalid input fails before HTTP. Runner failures raise errors naming known run ID
 and category; transport timeouts cannot establish whether remote execution stopped.
+For a known failed invocation, `RunnerResultError.run_reference` retains the
+public run/thread identity, state and partial trace reference. It omits private
+profile/workspace fields and does not turn failure into an Answer. A resume
+transport timeout retains the known run/trace with an unknown outcome, without
+retrying. Status and cancel remain available using that reference. Responses for
+another run, or a completed resume naming another native thread, are refused.
 The fresh route uses early native acknowledgement, then read-only polling.
 Bounded installed-runtime tests showed visible Playground Stop cancelling one
 active Codex turn and one prepared turn. Do not infer a remote stop from client

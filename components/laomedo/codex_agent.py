@@ -20,6 +20,15 @@ _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 
 
+class RunnerResultError(RuntimeError):
+    """Failed invocation with the public run reference retained for recovery."""
+
+    def __init__(self, reference, message=None):
+        self.run_reference = reference
+        super().__init__(message or f"Laomedo run {reference['run_id']} failed: "
+                         f"{reference.get('error_category') or reference.get('status') or 'unknown'}")
+
+
 def _terminal_record(record):
     # Standalone component mirrors the runner API, without a package dependency.
     return (record.get("status") in _TERMINAL or
@@ -76,6 +85,9 @@ class LaomedoCodexAgent(Component):
         self._stop_request_hash = None
         self._stop_requested = False
         self._cancel_task = None
+        self._reference_run_id = None
+        self._reference_thread_id = None
+        self._prior_trace_ref = None
 
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
@@ -193,16 +205,20 @@ class LaomedoCodexAgent(Component):
         except ValueError:
             raise ValueError("invalid_run_id") from None
         endpoint = base + "/v1/runs/" + run_id
+        self._reference_run_id = run_id
+        self._prior_trace_ref = prior.get("trace_ref")
         if operation == "status":
             return endpoint, None, "GET"
         if operation == "cancel":
             return endpoint + "/cancel", {}, "POST"
         snapshot, thread = prior.get("post_run_hash"), prior.get("thread_id")
         if (prior.get("status") != "completed" or not isinstance(snapshot, str) or
-                not re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot) or not thread):
+                not re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot) or
+                not isinstance(thread, str) or not thread.strip()):
             raise ValueError("completed_snapshot_and_thread_required")
         if prior.get("model") != model or prior.get("effort") != effort:
             raise ValueError("resume_model_effort_mismatch")
+        self._reference_thread_id = thread
         return endpoint + "/resume", {"task": task, "model": model, "effort": effort,
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
@@ -369,11 +385,25 @@ class LaomedoCodexAgent(Component):
                 raise RuntimeError("runner_invalid_error_response") from None
             if not isinstance(result, dict):
                 raise RuntimeError("runner_invalid_error_response")
+            if self._reference_run_id and result.get("run_id", self._reference_run_id) != self._reference_run_id:
+                raise RuntimeError("runner_response_identity_mismatch") from None
             if not (self.operation == "cancel" and result.get("run_id") and
                     result.get("status") in {"completed", "cancelled", "failed", "timeout"}):
+                if result.get("run_id") or self._reference_run_id:
+                    result.setdefault("run_id", self._reference_run_id)
+                    result.setdefault("status", "unknown")
+                    result.setdefault("raw_event_ref", self._prior_trace_ref)
+                    raise RunnerResultError(self._run_reference(result)) from None
                 raise RuntimeError("Laomedo run " + str(result.get("run_id") or "unknown") +
                     " failed: " + str(result.get("error_category") or result.get("status") or "unknown")) from None
         except (error.URLError, TimeoutError, OSError):
+            if self._reference_run_id:
+                reference = self._run_reference({"run_id": self._reference_run_id,
+                    "status": "unknown", "raw_event_ref": self._prior_trace_ref,
+                    "error_category": "runner_transport_failed"})
+                raise RunnerResultError(reference,
+                    f"runner_transport_failed; Laomedo run {self._reference_run_id}; "
+                    "remote execution may still be active") from None
             if self.operation == "start":
                 raise RuntimeError("runner_transport_failed; start outcome unknown; "
                                    "retry only with request_id " +
@@ -383,6 +413,11 @@ class LaomedoCodexAgent(Component):
             raise RuntimeError("runner_invalid_response") from None
         if not isinstance(result, dict) or not result.get("run_id"):
             raise RuntimeError("runner_invalid_response")
+        if self._reference_run_id and result["run_id"] != self._reference_run_id:
+            raise RuntimeError("runner_response_identity_mismatch")
+        if (self.operation == "resume" and result.get("status") == "completed" and
+                result.get("thread_id") != self._reference_thread_id):
+            raise RuntimeError("runner_response_thread_mismatch")
         if self.operation in {"fresh", "start"}:
             if result.get("client_request_id") != self._stop_request_id:
                 raise RuntimeError("runner_request_identity_mismatch")
@@ -408,8 +443,10 @@ class LaomedoCodexAgent(Component):
                     raise RuntimeError("runner_status_identity_mismatch")
         if (self.operation in {"fresh", "resume"} and not self._stop_requested and
                 result.get("status") != "completed"):
-            raise RuntimeError(f"Laomedo run {result['run_id']} failed: "
-                               f"{result.get('error_category') or result.get('status') or 'unknown'}")
+            raise RunnerResultError(self._run_reference(result))
+        return self._run_reference(result)
+
+    def _run_reference(self, result):
         skill = result.get("skill") or {}
         skills = result.get("skills") or ([skill] if skill else [])
         return {"answer": result.get("answer"), "run_id": result["run_id"],

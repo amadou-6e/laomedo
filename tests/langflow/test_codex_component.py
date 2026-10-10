@@ -304,6 +304,45 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                                                 types=["chat"])
             self.assertEqual(http.call_count, 1)
 
+    async def test_saved_graph_wires_fresh_run_reference_into_resume(self):
+        from lfx.graph.graph.base import Graph
+        root = Path(__file__).resolve().parents[2]
+        builder_spec = importlib.util.spec_from_file_location(
+            "resume_flow_builder", root / "examples/native-codex-node/build_flow.py")
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        first = next(n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent")
+        second = deepcopy(first)
+        second["id"] = second["data"]["id"] = "LaomedoCodexAgent-resume"
+        fields = second["data"]["node"]["template"]
+        fields["operation"]["value"] = "resume"
+        fields["task"]["value"] = "Continue fixture"
+        flow["data"]["nodes"].append(second)
+        outputs = [e for e in flow["data"]["edges"] if e["source"] == first["id"]]
+        flow["data"]["edges"] = [e for e in flow["data"]["edges"] if e not in outputs]
+        by_id = {n["id"]: n for n in flow["data"]["nodes"]}
+        for old in outputs:
+            flow["data"]["edges"].append(builder.edge(second,
+                old["data"]["sourceHandle"]["name"], by_id[old["target"]], "input_value"))
+        flow["data"]["edges"].append(builder.edge(first, "run", second, "run_reference"))
+        calls = []
+        def respond(req, **_kwargs):
+            calls.append(req.full_url)
+            payload = json.loads(req.data)
+            if req.full_url.endswith("/resume"):
+                self.assertEqual(payload["expected_thread_id"], "native-thread")
+                self.assertEqual(payload["expected_post_run_hash"], HASH)
+                self.assertEqual(payload["task"], "Continue fixture")
+                return Response(json.dumps(result(answer="continued fixture")).encode())
+            self.assertTrue(req.full_url.endswith("/v1/runs/async"))
+            return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
+        with patch.object(module.request, "urlopen", side_effect=respond):
+            output = await Graph.from_payload(flow).arun(inputs=[{"input_value": "Read fixture"}], types=["chat"])
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[1].endswith(f"/{RUN}/resume"))
+        self.assertIn("continued fixture", str(output))
+
     async def test_two_connected_skill_nodes_dispatch_one_skill_list(self):
         from lfx.graph.graph.base import Graph
         root = Path(__file__).resolve().parents[2]
@@ -399,6 +438,89 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             await component(operation="resume", run_reference=module.Data(data=prior)).run_output()
             with self.assertRaisesRegex(ValueError, "resume_model_effort_mismatch"):
                 await component(operation="resume", run_reference=prior, effort="high").run_output()
+            self.assertEqual(http.call_count, 1)
+
+    async def test_resume_rejects_incomplete_or_noncompleted_reference_before_http(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low"}
+        changes = [{"post_run_hash": None}, {"post_run_hash": "latest"},
+                   {"thread_id": None}, {"thread_id": {"private": "path"}},
+                   {"status": "cancelled"}, {"status": "unknown"},
+                   {"model": "different"}, {"effort": "high"}]
+        with patch.object(module.request, "urlopen") as http:
+            for change in changes:
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    await component(operation="resume", run_reference={**prior, **change}).run_output()
+            http.assert_not_called()
+
+    async def test_resume_status_and_cancel_refuse_another_run_response(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low"}
+        other = "00000000-0000-4000-8000-000000000001"
+        for operation in ("resume", "status", "cancel"):
+            for http_error in (False, True):
+                response = Response(json.dumps(result(run_id=other)).encode())
+                failure = error.HTTPError("http://localhost", 502, "failure", {}, response)
+                with self.subTest(operation=operation, http_error=http_error), \
+                        patch.object(module.request, "urlopen", side_effect=failure if http_error else None,
+                                     return_value=response):
+                    with self.assertRaisesRegex(RuntimeError, "runner_response_identity_mismatch"):
+                        await component(operation=operation, run_reference=prior).run_output()
+
+    async def test_resume_refuses_changed_native_thread_without_fresh_fallback(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low"}
+        with patch.object(module.request, "urlopen", return_value=Response(
+                json.dumps(result(thread_id="another-thread")).encode())) as http:
+            with self.assertRaisesRegex(RuntimeError, "runner_response_thread_mismatch"):
+                await component(operation="resume", run_reference=prior).run_output()
+            self.assertEqual(http.call_count, 1)
+            self.assertTrue(http.call_args.args[0].full_url.endswith("/resume"))
+
+    async def test_failed_resume_retains_public_identity_and_partial_trace(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low",
+                 "trace_ref": f"laomedo:run:{RUN}:events"}
+        for status in ("failed", "timeout", "cancelled"):
+            payload = json.dumps(result(status=status, answer=None, post_run_hash=None,
+                output_ref=None, error_category="synthetic_" + status,
+                profile="PRIVATE_PROFILE_PATH", workspace="PRIVATE_WORKSPACE_PATH")).encode()
+            with self.subTest(status=status), patch.object(module.request, "urlopen", side_effect=
+                    error.HTTPError("http://localhost", 502, "failure", {}, Response(payload))) as http:
+                with self.assertRaises(module.RunnerResultError) as caught:
+                    await component(operation="resume", run_reference=prior).run_output()
+                reference = caught.exception.run_reference
+                self.assertEqual(reference["run_id"], RUN)
+                self.assertEqual(reference["trace_ref"], prior["trace_ref"])
+                self.assertEqual(reference["status"], status)
+                self.assertIsNone(reference["artifact_ref"])
+                self.assertNotIn("PRIVATE_", json.dumps(reference))
+                self.assertEqual(http.call_count, 1)
+
+        # Pre-dispatch refusal has no new result: retain the known run/trace,
+        # without relabelling the previous completed turn as this turn's success.
+        payload = json.dumps({"error_category": "post_run_snapshot_mismatch"}).encode()
+        with patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                "http://localhost", 400, "refused", {}, Response(payload))) as http:
+            with self.assertRaises(module.RunnerResultError) as caught:
+                await component(operation="resume", run_reference=prior).run_output()
+            self.assertEqual(caught.exception.run_reference["run_id"], RUN)
+            self.assertEqual(caught.exception.run_reference["trace_ref"], prior["trace_ref"])
+            self.assertEqual(caught.exception.run_reference["status"], "unknown")
+            self.assertEqual(http.call_count, 1)
+
+    async def test_resume_transport_timeout_keeps_known_identity_without_retry(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low",
+                 "trace_ref": f"laomedo:run:{RUN}:events"}
+        with patch.object(module.request, "urlopen", side_effect=TimeoutError()) as http:
+            with self.assertRaises(module.RunnerResultError) as caught:
+                await component(operation="resume", run_reference=prior).run_output()
+            self.assertIn("remote execution may still be active", str(caught.exception))
+            self.assertEqual(caught.exception.run_reference["run_id"], RUN)
+            self.assertEqual(caught.exception.run_reference["trace_ref"], prior["trace_ref"])
+            self.assertEqual(caught.exception.run_reference["status"], "unknown")
+            self.assertIsNone(caught.exception.run_reference["artifact_ref"])
             self.assertEqual(http.call_count, 1)
 
     async def test_failed_run_preserves_identity_and_category(self):
