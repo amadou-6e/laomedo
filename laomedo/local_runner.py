@@ -239,7 +239,8 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    mediator_instance: str | None = None,
                    command_directory: Path | None = None,
                    repository: str | None = None,
-                   branch: str | None = None) -> list[str]:
+                   branch: str | None = None,
+                   base_branch: str = "main") -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
     labels = (["--label", f"{LABEL_RUN}={run_id}",
@@ -264,6 +265,7 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             "--mount", f"type=bind,source={MEDIATION_CLIENT.with_name('agent_git_remote.mjs')},target=/run/laomedo/git-remote.mjs,readonly",
             "--env", "LAOMEDO_REPOSITORY=" + repository,
             "--env", "LAOMEDO_RUN_BRANCH=" + branch,
+            "--env", "LAOMEDO_BASE_BRANCH=" + base_branch,
             "--env", "PATH=/run/laomedo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"]
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
@@ -814,7 +816,8 @@ class LocalRunner:
                      mediator_url: str | None = None,
                      mediator_instance: str | None = None,
                      repository: str | None = None,
-                     branch: str | None = None):
+                     branch: str | None = None,
+                     base_branch: str = "main"):
         workspace, canonical, store_mount = (root / name for name in
                                               ("workspace", "canonical", "store"))
         if self.split_executor:
@@ -840,7 +843,7 @@ class LocalRunner:
             launch_token=launch_token, capability=capability,
             mediator_url=mediator_url,
             mediator_instance=mediator_instance, command_directory=command_directory,
-            repository=repository, branch=branch)]
+            repository=repository, branch=branch, base_branch=base_branch)]
         if capability is not None and self.transport is AppServer:
             return self.transport(command, root, secret_redactions=(
                 capability.read_text(encoding="utf-8").strip(),))
@@ -1069,7 +1072,7 @@ class LocalRunner:
                     github_ref, run_id,
                     allowed_operations=frozenset(
                         {"actions_read", "pr_create", "pr_update", "pr_read"} |
-                        ({"git_push"} if self.git_workspace else set())))
+                        ({"git_push", "git_fetch"} if self.git_workspace else set())))
                                 if github_ref is not None else None)
             except MediationError as error:
                 raise RunnerError(error.code) from None
@@ -1339,7 +1342,8 @@ class LocalRunner:
                 mediator_url=mediator_url,
                 mediator_instance=mediator_instance,
                 repository=(record.get("github_scope") or {}).get("repository"),
-                branch=(record.get("github_scope") or {}).get("branch"))
+                branch=(record.get("github_scope") or {}).get("branch"),
+                base_branch=(record.get("github_scope") or {}).get("base_branch", "main"))
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
@@ -1414,8 +1418,9 @@ class LocalRunner:
                              "PR writes require LAOMEDO_EFFECT_ID and "
                              "LAOMEDO_RECONCILIATION_MARKER, an explicit title/body "
                              "and target; unsupported commands fail visibly. "
-                             "Second pushes are not supported yet; never force or "
-                             "fall back to direct HTTPS.")
+                             "Updates require a fast-forward from this run's "
+                             "last confirmed push; never force or fall back "
+                             "to direct HTTPS.")
             turn_params = {"threadId": native_id,
                 "model": record["requested_model"], "effort": record["requested_effort"],
                 "cwd": "/draft", "input": [{"type": "text", "text": task}]}

@@ -49,3 +49,12 @@ def configure_remote(workspace: Path, repository: str) -> None:
                 raise ValueError("mediated_remote_install_failed")
         else:
             raise ValueError("mediated_remote_invalid")
+        # Only host-private exclude metadata; do not alter project .gitignore.
+        exclude = workspace / ".git" / "info" / "exclude"
+        if exclude.is_symlink() or not exclude.is_file():
+            raise ValueError("git_exclude_invalid")
+        content = exclude.read_bytes()
+        rule = b"/.laomedo-handoff.bundle"
+        if rule not in content.splitlines():
+            with exclude.open("ab") as output:
+                output.write(b"\n" + rule + b"\n")

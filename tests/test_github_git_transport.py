@@ -58,6 +58,18 @@ class GitHubGitTransportTests(unittest.TestCase):
         return subprocess.run(["git", "-C", str(self.checkout), *args],
                               check=True, capture_output=True)
 
+    def test_trusted_predecessor_cas_and_fast_forward_check_before_provider(self):
+        result = self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.commit},
+            connection_id="connection-a", connection_generation=1, expected_remote_commit=self.baseline)
+        self.assertEqual(result["commit"], self.commit)
+        self.assertIn("--force-with-lease=refs/heads/probe-a:" + self.baseline, self.push_calls[0][0])
+        count = len(self.push_calls)
+        self.transport.token_supplier = lambda *_args: self.fail("credential requested for non-fast-forward")
+        with self.assertRaisesRegex(KnownRejected, "push_not_fast_forward"):
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.baseline},
+                connection_id="connection-a", connection_generation=1, expected_remote_commit=self.commit)
+        self.assertEqual(len(self.push_calls), count)
+
     def test_exact_commit_push_uses_new_branch_lease_and_no_host_login(self):
         with patch.dict(os.environ, {"GH_TOKEN": "ambient-token",
                                           "GIT_CONFIG_COUNT": "1",
@@ -77,6 +89,41 @@ class GitHubGitTransportTests(unittest.TestCase):
         self.assertNotIn("GIT_CONFIG_COUNT", options["env"])
         self.assertNotIn("GCM_TEST", options["env"])
         self.assertEqual(options["timeout"], GIT_COMMAND_TIMEOUT_SECONDS)
+
+    def test_local_provider_accepts_fast_forward_and_refuses_remote_drift(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            remote = Path(temporary) / "provider.git"
+            subprocess.run(["git", "init", "--bare", "--quiet", str(remote)],
+                           check=True, capture_output=True)
+            pushes = []
+            def local_provider(args, **options):
+                rewritten = [str(remote) if value == "https://github.com/" + REPOSITORY + ".git"
+                             else value for value in args]
+                if "push" in args:
+                    pushes.append(args)
+                return subprocess.run(rewritten, **options)
+            self.transport.run = local_provider
+            binding = {"connection_id": "connection-a", "connection_generation": 1}
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.baseline},
+                           **binding)
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.commit},
+                           expected_remote_commit=self.baseline, **binding)
+            observed = subprocess.run(["git", "--git-dir", str(remote), "rev-parse",
+                                       "refs/heads/probe-a"], check=True,
+                                      capture_output=True).stdout.decode().strip()
+            self.assertEqual(observed, self.commit)
+            # An external ref change must not be overwritten by the trusted CAS.
+            subprocess.run(["git", "--git-dir", str(remote), "update-ref",
+                            "refs/heads/probe-a", self.baseline], check=True,
+                           capture_output=True)
+            with self.assertRaises(PushOutcomeUnknown):
+                self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.commit},
+                               expected_remote_commit=self.commit, **binding)
+            after = subprocess.run(["git", "--git-dir", str(remote), "rev-parse",
+                                    "refs/heads/probe-a"], check=True,
+                                   capture_output=True).stdout.decode().strip()
+            self.assertEqual(after, self.baseline)
+            self.assertEqual(len(pushes), 3)
 
     def test_old_git_cannot_inherit_host_global_config_or_trace(self):
         hostile_home = self.checkout / "host-home"

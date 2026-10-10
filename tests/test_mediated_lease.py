@@ -67,7 +67,8 @@ class MediatedLeaseTests(unittest.TestCase):
         self.addCleanup(self.service.server.server_close)
 
     def register(self, run_id, lease_token, *, operations=None, target_prs=None,
-                 connection_id=None, connection_generation=None, authority=None):
+                 connection_id=None, connection_generation=None, authority=None,
+                 base_branch="main"):
         approver = authority or self.authority
         reference = approver.approve(
             invocation_id="invocation-" + run_id, repository="example/disposable",
@@ -75,8 +76,8 @@ class MediatedLeaseTests(unittest.TestCase):
             operations=operations or {"git_push", "pr_create", "actions_read"},
             target_prs=target_prs, reviewed_by="test-operator",
             connection_id=connection_id,
-            connection_generation=connection_generation)
-        approver.bind_run(reference, run_id)
+            connection_generation=connection_generation, base_branch=base_branch)
+        scope = approver.bind_run(reference, run_id)
         directory = self.state / "leases" / lease_token
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
@@ -84,13 +85,31 @@ class MediatedLeaseTests(unittest.TestCase):
             repr(time.monotonic()), encoding="utf-8")
         (directory / "lease.json").write_text(json.dumps({
             "token": lease_token, "run_id": run_id, "name": "container-" + run_id,
-            "mediation": {"invocation_id": "invocation-" + run_id,
-                          "repository": "example/disposable", "branch": "branch-" + run_id}
+            "mediation": scope
         }), encoding="utf-8")
         self.service.tick()
         accepted = json.loads((directory / "accepted.json").read_text(encoding="utf-8"))
         secret = (directory / "grant.secret").read_text(encoding="utf-8")
         return directory, accepted, secret
+
+    def test_configured_base_flows_from_approval_through_lease_to_mediator(self):
+        self.generations["connection-a"] = 1
+        _, _, token = self.register("fetch", "fetch-lease", operations={"git_fetch"},
+            connection_id="connection-a", connection_generation=1, base_branch="develop")
+        calls = []
+        def fetch(repository, operation, payload, **binding):
+            calls.append(binding)
+            return {"fixture": True}
+        result = self.store.invoke(token=token, repository="example/disposable", operation="git_fetch",
+            payload={"action": "fetch", "ref": "refs/heads/develop", "commit": "a" * 40},
+            effect_id=None, transport=fetch)
+        self.assertEqual(result["state"], "confirmed")
+        self.assertEqual(calls[0]["allowed_base_branch"], "develop")
+        with self.assertRaisesRegex(MediationError, "fetch_target_denied"):
+            self.store.invoke(token=token, repository="example/disposable", operation="git_fetch",
+                payload={"action": "fetch", "ref": "refs/heads/main", "commit": "a" * 40},
+                effect_id=None, transport=fetch)
+        self.assertEqual(len(calls), 1)
 
     def read(self, token):
         return self.store.invoke(

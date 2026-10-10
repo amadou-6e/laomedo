@@ -21,12 +21,22 @@ the outgoing commit. Repeating a confirmed/unknown push reuses its identity;
 an uncertain freeze never schedules another capture automatically. A stale
 handoff lock is a refusal, not proof that its operation is safe to repeat.
 
-The host still requires an absent provider branch for the first push.
-Updating an existing branch remains unsupported pending trusted predecessor
-and fast-forward checks. Do not claim normal multi-push workflow acceptance.
+The host requires an absent provider branch for the first push. Later pushes
+use this run's last confirmed push from the trusted mediator journal as the
+provider compare-and-swap predecessor, after a staged-object fast-forward
+check. The agent cannot supply that predecessor. A remote mismatch after
+dispatch remains unknown and fences the branch. Local controls are not live
+multi-push acceptance evidence.
+
+Stale locks and a frozen/capture-uncertain journal fail closed. Do not delete
+them, generate a different identity or make a new commit to bypass them:
+those actions do not resolve the preceding uncertainty. Automatic capture
+recovery is not implemented; use the recorded attempt for diagnosis.
 
 `git fetch origin` uses an explicitly granted `git_fetch` read lane for
-`main` and the run branch. Host credential custody, current ref/hash checks,
+the trusted configured base branch and the run branch. New approvals may
+select these reads explicitly; existing grants are not enlarged. Host
+credential custody, current ref/hash checks,
 isolated Git, fsck and a grant recheck precede bundle delivery. Returned
 bundles are limited to 256 KiB. Downloaded object disk usage is **not** byte
 bounded by that limit; large-repository acceptance remains open.

@@ -116,7 +116,7 @@ def _validate_read(operation: str, payload: dict, repository: str, grant, db) ->
         if payload == {"action": "list"}:
             return
         if (set(payload) != {"action", "ref", "commit"} or payload.get("action") != "fetch" or
-                payload.get("ref") not in {"refs/heads/main", "refs/heads/" + grant["branch"]} or
+                payload.get("ref") not in {"refs/heads/" + grant["base_branch"], "refs/heads/" + grant["branch"]} or
                 not isinstance(payload.get("commit"), str) or
                 not re.fullmatch(r"[0-9a-f]{40}", payload["commit"])):
             raise MediationError("fetch_target_denied")
@@ -206,6 +206,8 @@ class MediationStore:
                 db.execute("ALTER TABLE grants ADD COLUMN issued_monotonic REAL")
             if "expires_monotonic" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN expires_monotonic REAL")
+            if "base_branch" not in columns:
+                db.execute("ALTER TABLE grants ADD COLUMN base_branch TEXT NOT NULL DEFAULT 'main'")
             effect_columns = {row[1] for row in db.execute("PRAGMA table_info(effects)")}
             for name in ("grant_id", "invocation_id", "approval_identity",
                          "payload_hash", "stage_digest"):
@@ -229,15 +231,20 @@ class MediationStore:
               connection_id: str | None = None,
               connection_generation: int | None = None,
                expires_not_after: float | None = None,
-               expires_not_after_monotonic: float | None = None) -> tuple[str, str]:
+               expires_not_after_monotonic: float | None = None,
+               base_branch: str = "main") -> tuple[str, str]:
         reviewed_issue_requests = reviewed_issue_requests or {}
         target_prs = target_prs or {}
+        if (not isinstance(base_branch, str) or
+                not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]{0,127}", base_branch) or
+                ".." in base_branch or base_branch.startswith("refs/")):
+            raise MediationError("grant_request_invalid")
         if (not all(isinstance(v, str) and v for v in (run_id, invocation_id, repository)) or
                 not isinstance(operations, set) or not operations or
                 (approval_identity is not None and
                  (not isinstance(approval_identity, str) or not approval_identity)) or
                 not operations <= OPERATIONS or not 0 < ttl_seconds <= 60 or
-                (operations & {"git_push", "pr_create"} and not branch) or
+                (operations & {"git_push", "git_fetch", "pr_create"} and not branch) or
                 (branch is not None and (not isinstance(branch, str) or not branch)) or
                 not isinstance(reviewed_issue_requests, dict) or
                 any(not isinstance(k, str) or not k or not isinstance(v, dict) or
@@ -282,13 +289,13 @@ class MediationStore:
                 (token_hash,grant_id,run_id,invocation_id,repository,operations,
                  branch,reviewed_issue_hashes,expires_at,revoked_at,
                   connection_id,connection_generation,issued_monotonic,expires_monotonic,
-                  approval_identity)
-                 VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?,?,?)""",
+                  approval_identity,base_branch)
+                 VALUES (?,?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?)""",
                        (sha256(token.encode()).hexdigest(), grant_id, run_id,
                         invocation_id, repository, json.dumps(sorted(operations)), branch,
                         json.dumps(reviewed_hashes, sort_keys=True),
                          expiry, connection_id, connection_generation,
-                         issued_monotonic, expiry_monotonic, approval_identity))
+                         issued_monotonic, expiry_monotonic, approval_identity, base_branch))
             if lease_token is not None:
                 db.execute("INSERT INTO lease_bindings VALUES (?,?,?,?,?)",
                            (grant_id, run_id, lease_token, lease_scope, service_instance))
@@ -494,6 +501,7 @@ class MediationStore:
         payload_hash = _request_hash(repository, operation, payload)
         verified_stage = None
         changes_workflow = None
+        expected_remote_commit = None
         if operation == "git_push":
             # A Git fetch may take longer than SQLite's busy timeout. Verify
             # the capability without a write lock, classify immutable commit
@@ -581,6 +589,18 @@ class MediationStore:
                     db.execute("UPDATE retry_approvals SET used_at=? WHERE next_run_id=? "
                                "AND next_effect_id=? AND used_at IS NULL",
                                (self.now(), grant["run_id"], effect_id))
+                if operation == "git_push" and grant["connection_id"] is not None:
+                    predecessor = db.execute(
+                        "SELECT result_json FROM effects WHERE run_id=? AND target_key=? "
+                        "AND operation='git_push' AND state='confirmed' ORDER BY rowid DESC LIMIT 1",
+                        (grant["run_id"], target_key)).fetchone()
+                    if predecessor is not None:
+                        confirmed = json.loads(predecessor["result_json"])
+                        expected_remote_commit = confirmed.get("commit")
+                        if (confirmed.get("branch") != grant["branch"] or
+                                not isinstance(expected_remote_commit, str) or
+                                not re.fullmatch(r"[0-9a-f]{40}", expected_remote_commit)):
+                            raise MediationError("push_predecessor_invalid")
                 db.execute("""INSERT INTO effects
                     (run_id,effect_id,request_hash,repository,operation,target_key,
                      state,result_json,error_code,grant_id,invocation_id,
@@ -606,6 +626,9 @@ class MediationStore:
                     binding["verified_stage"] = verified_stage
                 if operation == "git_fetch":
                     binding["allowed_branch"] = grant["branch"]
+                    binding["allowed_base_branch"] = grant["base_branch"]
+                if operation == "git_push" and expected_remote_commit is not None:
+                    binding["expected_remote_commit"] = expected_remote_commit
                 result = transport(repository, operation, payload, **binding)
             if not isinstance(result, dict):
                 raise ValueError("transport_result_invalid")

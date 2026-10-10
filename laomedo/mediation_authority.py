@@ -12,6 +12,7 @@ from __future__ import annotations
 from contextlib import closing
 from hashlib import sha256
 import json
+import re
 from pathlib import Path
 import secrets
 import sqlite3
@@ -19,7 +20,7 @@ import sqlite3
 from .github_mediation import MediationError
 
 
-FIRST_SLICE_OPERATIONS = frozenset({"git_push", "pr_create", "pr_update", "pr_read", "actions_read"})
+FIRST_SLICE_OPERATIONS = frozenset({"git_push", "git_fetch", "pr_create", "pr_update", "pr_read", "actions_read"})
 
 
 class RunGrantAuthority:
@@ -53,6 +54,8 @@ class RunGrantAuthority:
                 db.execute("ALTER TABLE authorizations ADD COLUMN connection_id TEXT")
             if "connection_generation" not in columns:
                 db.execute("ALTER TABLE authorizations ADD COLUMN connection_generation INTEGER")
+            if "base_branch" not in columns:
+                db.execute("ALTER TABLE authorizations ADD COLUMN base_branch TEXT NOT NULL DEFAULT 'main'")
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=10)
@@ -63,9 +66,14 @@ class RunGrantAuthority:
                 operations: set[str], reviewed_by: str,
                 target_prs: dict[int, str] | None = None,
                 connection_id: str | None = None,
-                connection_generation: int | None = None) -> str:
+                connection_generation: int | None = None,
+                base_branch: str = "main") -> str:
         """Trusted controller records an explicit operator-approved scope."""
         target_prs = target_prs or {}
+        if (not isinstance(base_branch, str) or
+                not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]{0,127}", base_branch) or
+                ".." in base_branch or base_branch.startswith("refs/")):
+            raise MediationError("authorization_invalid")
         if (not all(isinstance(v, str) and v for v in
                     (invocation_id, repository, branch, reviewed_by)) or
                 not isinstance(operations, set) or not operations or
@@ -95,11 +103,14 @@ class RunGrantAuthority:
                 raise MediationError("connection_unavailable")
         reference = secrets.token_urlsafe(32)
         with closing(self._connect()) as db, db:
-            db.execute("INSERT INTO authorizations VALUES (?,NULL,?,?,?,?,?,NULL,?,?,?)",
+            db.execute("""INSERT INTO authorizations
+                (ref_hash,run_id,invocation_id,repository,branch,operations,reviewed_by,
+                 lease_token,target_prs,connection_id,connection_generation,base_branch)
+                VALUES (?,NULL,?,?,?,?,?,NULL,?,?,?,?)""",
                        (sha256(reference.encode()).hexdigest(), invocation_id,
                         repository, branch, json.dumps(sorted(operations)), reviewed_by,
                         json.dumps(target_prs, sort_keys=True), connection_id,
-                        connection_generation))
+                        connection_generation, base_branch))
         return reference
 
     def bind_run(self, reference: str, run_id: str, *,
@@ -117,8 +128,11 @@ class RunGrantAuthority:
                     row["operations"])) <= allowed_operations:
                 raise MediationError("operation_unavailable_in_runner")
             db.execute("UPDATE authorizations SET run_id=? WHERE ref_hash=?", (run_id, digest))
-            return {"invocation_id": row["invocation_id"],
-                    "repository": row["repository"], "branch": row["branch"]}
+            scope = {"invocation_id": row["invocation_id"],
+                     "repository": row["repository"], "branch": row["branch"]}
+            if "git_fetch" in json.loads(row["operations"]):
+                scope["base_branch"] = row["base_branch"]
+            return scope
 
     def authorize_lease(self, lease: dict, request: dict) -> dict | None:
         """Return the canonical scope, atomically fixing its first lease token."""
@@ -131,6 +145,8 @@ class RunGrantAuthority:
             if row is None or row["lease_token"] not in (None, token):
                 return None
             expected = {key: row[key] for key in ("invocation_id", "repository", "branch")}
+            if "git_fetch" in json.loads(row["operations"]):
+                expected["base_branch"] = row["base_branch"]
             if request != expected:
                 return None
             db.execute("UPDATE authorizations SET lease_token=? WHERE run_id=?", (token, run_id))

@@ -281,6 +281,7 @@ class LeaseService:
                 connection_id=scope.get("connection_id"),
                 connection_generation=scope.get("connection_generation"),
                 target_prs=scope.get("target_prs", {}),
+                base_branch=scope.get("base_branch", "main"),
                 ttl_seconds=GRANT_TTL_SECONDS, lease_token=lease["token"],
                 lease_scope=self.lease_scope, service_instance=self.instance,
                 expires_not_after=expiry_cap,

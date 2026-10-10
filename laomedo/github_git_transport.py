@@ -282,11 +282,14 @@ class GitHubGitTransport:
     def __call__(self, repository: str, operation: str, payload: dict, *,
                  connection_id: str | None = None,
                  connection_generation: int | None = None,
-                 verified_stage=None, allowed_branch: str | None = None) -> dict:
+                 verified_stage=None, allowed_branch: str | None = None,
+                 allowed_base_branch: str = "main",
+                 expected_remote_commit: str | None = None) -> dict:
         if repository != self.repository:
             raise KnownRejected("repository_denied")
         if operation == "git_fetch":
-            return self._fetch(payload, connection_id, connection_generation, allowed_branch)
+            return self._fetch(payload, connection_id, connection_generation,
+                               allowed_branch, allowed_base_branch)
         if operation != "git_push":
             raise KnownRejected("operation_not_implemented")
         branch, commit = payload.get("branch"), payload.get("commit")
@@ -295,6 +298,10 @@ class GitHubGitTransport:
         ref = "refs/heads/" + branch
         if not isinstance(commit, str) or not _SHA.fullmatch(commit):
             raise KnownRejected("push_commit_unverified")
+        if expected_remote_commit is not None and (
+                not isinstance(expected_remote_commit, str) or
+                not re.fullmatch(r"[0-9a-f]{40}", expected_remote_commit)):
+            raise KnownRejected("push_predecessor_invalid")
         if self.require_verified_stage and verified_stage is None:
             raise KnownRejected("push_stage_required")
         if verified_stage is not None and (
@@ -337,6 +344,14 @@ class GitHubGitTransport:
                 branch_valid = False
             if not branch_valid:
                 raise KnownRejected("push_branch_invalid")
+            if expected_remote_commit is not None:
+                try:
+                    fast_forward = self._run_git(bare, "merge-base", "--is-ancestor",
+                                                 expected_remote_commit, commit).returncode == 0
+                except subprocess.TimeoutExpired:
+                    fast_forward = False
+                if not fast_forward:
+                    raise KnownRejected("push_not_fast_forward")
             try:
                 token = self.token_supplier(connection_id, connection_generation)
             except (KeyError, TypeError, ValueError):
@@ -349,7 +364,8 @@ class GitHubGitTransport:
                     pushed = self._run_git(
                         bare, "-c", "credential.helper=", "-c",
                         "credential.helper=" + helper_command,
-                        "push", "--porcelain", "--force-with-lease=" + ref + ":",
+                        "push", "--porcelain", "--force-with-lease=" + ref + ":" +
+                        (expected_remote_commit or ""),
                         remote, commit + ":" + ref, env=environment)
                 except subprocess.TimeoutExpired as error:
                     # The remote may have accepted the push before Git was killed.
@@ -369,14 +385,17 @@ class GitHubGitTransport:
         return result
 
     def _fetch(self, payload: dict, connection_id: str | None,
-               generation: int | None, branch: str | None) -> dict:
+               generation: int | None, branch: str | None, base_branch: str) -> dict:
         """Read selected refs with host custody; bound returned bytes, not disk."""
         if (not isinstance(branch, str) or not branch or
                 not isinstance(connection_id, str) or not connection_id or
                 type(generation) is not int or generation < 1):
             raise KnownRejected("connection_binding_required")
         action = payload.get("action")
-        refs = {"refs/heads/main", "refs/heads/" + branch}
+        if (not isinstance(base_branch, str) or not base_branch or base_branch.startswith("refs/") or
+                ".." in base_branch):
+            raise KnownRejected("fetch_ref_invalid")
+        refs = {"refs/heads/" + base_branch, "refs/heads/" + branch}
         if action == "list":
             if set(payload) != {"action"}:
                 raise KnownRejected("fetch_request_invalid")

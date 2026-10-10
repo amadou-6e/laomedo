@@ -103,7 +103,8 @@ async function push(commands, context) {
   } finally { closeSync(descriptor); unlinkSync(lock); }
 }
 async function main() {
-  const context = { repository: process.env.LAOMEDO_REPOSITORY, branch: process.env.LAOMEDO_RUN_BRANCH };
+  const context = { repository: process.env.LAOMEDO_REPOSITORY, branch: process.env.LAOMEDO_RUN_BRANCH,
+                    base: process.env.LAOMEDO_BASE_BRANCH || 'main' };
   target(process.argv[3], context);
   let batch = [], advertised = new Map();
   const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -117,7 +118,7 @@ async function main() {
       if (!Array.isArray(result?.refs) || result.refs.length > 2) fail('fetch_readback_invalid');
       advertised = new Map();
       for (const item of result.refs) {
-        if (!sha(item.commit) || !['refs/heads/main', 'refs/heads/' + context.branch].includes(item.ref) ||
+        if (!sha(item.commit) || !['refs/heads/' + context.base, 'refs/heads/' + context.branch].includes(item.ref) ||
             advertised.has(item.ref)) fail('fetch_readback_invalid');
         advertised.set(item.ref, item.commit);
       }

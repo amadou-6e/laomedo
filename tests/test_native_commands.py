@@ -12,6 +12,7 @@ from laomedo.agent_cli import prepare_commands, configure_remote
 from laomedo.github_git_transport import GitHubGitTransport, _base_git_environment
 from laomedo.github_mediation import MediationStore, MediationError, KnownRejected
 from laomedo.local_runner import _docker_prefix
+from laomedo.mediation_authority import RunGrantAuthority, FIRST_SLICE_OPERATIONS
 
 
 REPO = "example/disposable"
@@ -84,9 +85,86 @@ class NativeCommandsTests(unittest.TestCase):
             subprocess.run(["git", "-C", str(root), "init", "--quiet"], check=True)
             configure_remote(root, REPO)
             configure_remote(root, REPO)
+            (root / ".laomedo-handoff.bundle").write_bytes(b"fixture bundle")
+            status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"],
+                check=True, capture_output=True).stdout
+            self.assertNotIn(b".laomedo-handoff.bundle", status)
             subprocess.run(["git", "-C", str(root), "remote", "set-url", "origin", "https://other.invalid"], check=True)
             with self.assertRaisesRegex(ValueError, "mediated_remote_changed"):
                 configure_remote(root, REPO)
+
+    def test_fetch_approval_carries_trusted_base_and_preserves_old_permissions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            authority = RunGrantAuthority(Path(temporary) / "authority.sqlite")
+            ref = authority.approve(invocation_id="invocation", repository=REPO, branch="run-branch",
+                base_branch="develop", operations={"git_fetch"}, reviewed_by="operator")
+            scope = authority.bind_run(ref, "run", allowed_operations=FIRST_SLICE_OPERATIONS)
+            self.assertEqual(scope["base_branch"], "develop")
+            lease = {"run_id": "run", "token": "lease"}
+            altered = {**scope, "base_branch": "other"}
+            self.assertIsNone(authority.authorize_lease(lease, altered))
+            approved = authority.authorize_lease(lease, scope)
+            self.assertEqual(approved["operations"], {"git_fetch"})
+            self.assertEqual(approved["base_branch"], "develop")
+            old = authority.approve(invocation_id="old", repository=REPO, branch="old-branch",
+                operations={"actions_read"}, reviewed_by="operator")
+            authority.bind_run(old, "old-run")
+            old_scope = {"invocation_id": "old", "repository": REPO, "branch": "old-branch"}
+            self.assertEqual(authority.authorize_lease({"run_id": "old-run", "token": "old-lease"},
+                old_scope)["operations"], {"actions_read"})
+
+    def test_fetch_scope_uses_configured_base_not_hardcoded_main(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = MediationStore(Path(temporary) / "store.sqlite")
+            _, token = store.issue(run_id="run", invocation_id="invocation", repository=REPO,
+                branch="run-branch", base_branch="develop", operations={"git_fetch"}, ttl_seconds=60)
+            calls = []
+            def provider(*args):
+                calls.append(args)
+                return {"fixture": True}
+            for branch in ("develop", "run-branch"):
+                result = store.invoke(token=token, repository=REPO, operation="git_fetch",
+                    payload={"action": "fetch", "ref": "refs/heads/" + branch, "commit": "a" * 40},
+                    effect_id=None, transport=provider)
+                self.assertEqual(result["state"], "confirmed")
+            with self.assertRaises(MediationError) as found:
+                store.invoke(token=token, repository=REPO, operation="git_fetch",
+                    payload={"action": "fetch", "ref": "refs/heads/main", "commit": "a" * 40},
+                    effect_id=None, transport=provider)
+            self.assertEqual(found.exception.code, "fetch_target_denied")
+            self.assertEqual(len(calls), 2)
+
+    def test_push_predecessor_is_taken_from_confirmed_journal_not_request(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = MediationStore(Path(temporary) / "store.sqlite",
+                connection_is_current=lambda *_args: True,
+                workflow_change_classifier=lambda *_args: False)
+            _, token = store.issue(run_id="run", invocation_id="invocation", repository=REPO,
+                branch="run-branch", operations={"git_push"}, ttl_seconds=60,
+                connection_id="connection", connection_generation=1)
+            calls = []
+            def provider(repo, op, payload, **binding):
+                calls.append(binding)
+                return {"branch": payload["branch"], "commit": payload["commit"]}
+            for index, commit in enumerate(("a" * 40, "b" * 40)):
+                result = store.invoke(token=token, repository=REPO, operation="git_push",
+                    payload={"branch": "run-branch", "commit": commit}, effect_id=f"effect-{index}",
+                    transport=provider)
+                self.assertEqual(result["state"], "confirmed")
+            self.assertNotIn("expected_remote_commit", calls[0])
+            self.assertEqual(calls[1]["expected_remote_commit"], "a" * 40)
+            # Unknown predecessor effects still fence all fresh identities.
+            def uncertain(*args, **kwargs):
+                raise TimeoutError("synthetic")
+            self.assertEqual(store.invoke(token=token, repository=REPO, operation="git_push",
+                payload={"branch": "run-branch", "commit": "c" * 40}, effect_id="unknown",
+                transport=uncertain)["state"], "unknown")
+            with self.assertRaises(MediationError) as found:
+                store.invoke(token=token, repository=REPO, operation="git_push",
+                    payload={"branch": "run-branch", "commit": "d" * 40}, effect_id="fresh",
+                    transport=provider)
+            self.assertEqual(found.exception.code, "prior_effect_unknown")
+            self.assertEqual(len(calls), 2)
 
     @unittest.skipUnless(shutil.which("git"), "Git unavailable")
     def test_host_fetch_objects_and_exact_scope_without_network(self):
