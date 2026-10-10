@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
+from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle, _record
 from laomedo.bundle_stage import PINNED_IMAGE_ID
 from laomedo.verified_stage import VerifiedStageError, resolve_verified_stage
 from laomedo.verified_git_stage import (VerifiedGitStageError,
@@ -98,6 +98,77 @@ class VerifiedStageTests(unittest.TestCase):
         self.assertNotIn(repr(original), repr(stage))
         with self.assertRaises(VerifiedStageError):
             self.resolve()
+
+    def progression_store(self, *, unknown=False, confirm=True):
+        store = MediationStore(self.root / "effects.sqlite",
+            verified_stage_resolver=make_grant_stage_resolver(self.runner, self.private, self.runner),
+            verified_workflow_classifier=classify_verified_workflow)
+        gid, token = store.issue(run_id="run-a", invocation_id="inv-a", repository="example/disposable",
+            branch="run-branch", operations={"git_push"}, ttl_seconds=60)
+        record = json.loads(self.record.read_bytes())
+        record.update(status="running", container_ownership={"name": "owned-a", "launch_token": "launch-a",
+            "grant_id": gid, "supervised": True, "cleanup_verified": False})
+        self.record.write_text(json.dumps(record), encoding="utf-8")
+        # Synthetic existing stage: change its binding to the live fixture.
+        manifest = self.attempt / "result.json"
+        frozen = json.loads(manifest.read_bytes())
+        frozen.update(_record(self.runner, "run-a")[1])
+        frozen.pop("run_record_sha256", None)
+        manifest.write_text(json.dumps(frozen), encoding="utf-8")
+        store.stage_freezer = make_grant_bundle_freezer(self.runner, self.private, self.runner,
+            confirmed_stage_authorizer=store.confirmed_stage)
+        def transport(*args, **kwargs):
+            if unknown:
+                raise TimeoutError("synthetic")
+            return {"branch": "run-branch", "commit": self.commit}
+        if confirm:
+            store.invoke(token=token, repository="example/disposable", operation="git_push",
+                payload={"branch": "run-branch", "commit": self.commit, "stage_attempt_id": "attempt-1"},
+                effect_id="first", transport=transport)
+        return store, token
+
+    def next_capture(self, store, token):
+        return store.invoke(token=token, repository="example/disposable", operation="bundle_freeze",
+            payload={"attempt_id": "attempt-2"}, effect_id=None,
+            transport=lambda *_args: self.fail("freeze must not contact provider"))
+
+    def test_confirmed_clean_same_grant_stage_allows_next_capture(self):
+        store, token = self.progression_store()
+        self.assertEqual(self.next_capture(store, token)["state"], "confirmed")
+        self.assertTrue((self.private / "run-a/attempt-2/input.bundle").is_file())
+
+    def test_verified_but_unconfirmed_stage_does_not_allow_next_capture(self):
+        store, token = self.progression_store(confirm=False)
+        self.assertEqual(self.next_capture(store, token)["state"], "unknown")
+        self.assertFalse((self.private / "run-a/attempt-2").exists())
+
+    def test_unknown_push_blocks_next_capture_before_reservation(self):
+        store, token = self.progression_store(unknown=True)
+        with self.assertRaisesRegex(MediationError, "prior_effect_unknown"):
+            self.next_capture(store, token)
+        self.assertFalse((self.private / "run-a/attempt-2").exists())
+
+    def test_changed_verified_bytes_block_next_capture(self):
+        store, token = self.progression_store()
+        self.verified.write_bytes(b"changed")
+        self.assertEqual(self.next_capture(store, token)["state"], "unknown")
+        self.assertFalse((self.private / "run-a/attempt-2").exists())
+
+    def test_unclean_verified_stage_blocks_next_capture(self):
+        store, token = self.progression_store()
+        value = json.loads(self.verification.read_bytes())
+        value["container"]["cleanup_verified"] = False
+        self.verification.write_text(json.dumps(value), encoding="utf-8")
+        self.assertEqual(self.next_capture(store, token)["state"], "unknown")
+        self.assertFalse((self.private / "run-a/attempt-2").exists())
+
+    def test_changed_live_grant_blocks_next_capture(self):
+        store, token = self.progression_store()
+        value = json.loads(self.record.read_bytes())
+        value["container_ownership"]["grant_id"] = "other-grant"
+        self.record.write_text(json.dumps(value), encoding="utf-8")
+        self.assertEqual(self.next_capture(store, token)["state"], "unknown")
+        self.assertFalse((self.private / "run-a/attempt-2").exists())
 
     def test_wrong_grant_scope_or_commit_refuses(self):
         for scope in ({"run_id": "run-b"}, {"repository": "other/disposable"},

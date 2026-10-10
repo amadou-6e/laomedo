@@ -33,7 +33,7 @@ git('push', 'origin', 'HEAD:refs/heads/run-branch');
 git('push', 'origin', 'HEAD:refs/heads/run-branch');
 const second = commit('second scripted native change');
 git('push', 'origin', 'HEAD:refs/heads/run-branch');
-const marker = 'exp100-native-s10-20261010-a';
+const marker = 'exp100-native-s10-20261010-b';
 const context = { LAOMEDO_RECONCILIATION_MARKER: marker };
 const created = JSON.parse(invoke('gh', ['pr', 'create', '--title', 'Native fixture PR',
   '--body', marker + '\nInitial body', '--head', 'run-branch', '--base', 'develop'],

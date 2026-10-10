@@ -475,6 +475,10 @@ class MediationStore:
             with closing(self._connect()) as db:
                 grant = self._grant(db, token, repository, "git_push")
                 grant_id = grant["grant_id"]
+                target_key = _target_key(repository, "git_push", {"branch": grant["branch"]})
+                if db.execute("SELECT 1 FROM effects WHERE target_key=? AND state='unknown'",
+                              (target_key,)).fetchone():
+                    raise MediationError("prior_effect_unknown")
             try:
                 frozen = self.stage_freezer(grant, payload)
             except Exception:
@@ -674,6 +678,16 @@ class MediationStore:
                         error_code, grant["run_id"], effect_id))
         return ({"state": "confirmed", "result": result} if state == "confirmed"
                 else {"state": "rejected", "error": error_code})
+
+    def confirmed_stage(self, grant, snapshot) -> bool:
+        """Host-only next-capture gate; never exposed as an agent operation."""
+        if (snapshot.run_id != grant["run_id"] or snapshot.repository != grant["repository"] or
+                snapshot.branch != grant["branch"]):
+            return False
+        with closing(self._connect()) as db:
+            return db.execute("SELECT 1 FROM effects WHERE run_id=? AND grant_id=? "
+                "AND operation='git_push' AND state='confirmed' AND stage_digest=?",
+                (grant["run_id"], grant["grant_id"], snapshot.stage_digest)).fetchone() is not None
 
     def effect(self, run_id: str, effect_id: str) -> dict | None:
         with closing(self._connect()) as db:

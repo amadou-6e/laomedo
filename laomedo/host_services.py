@@ -45,7 +45,8 @@ def build_services(*, state: Path, repository: str, checkout: Path,
                                          agent_mount)
                 if runner_state is not None else None)
     freezer = (make_grant_bundle_freezer(runner_state, private_stage,
-                                        agent_mount)
+                                        agent_mount, confirmed_stage_authorizer=lambda grant, snapshot:
+                                            store.confirmed_stage(grant, snapshot))
                if runner_state is not None else None)
     git_transport = GitHubGitTransport(repository, checkout, baseline,
                                        connection.token,

@@ -2,8 +2,9 @@
 
 Identity `exp100-native-s10-20261010-a`, exact reviewed executable `6db1dff`.
 Frozen amendments 08/09 preceded execution; pre-run review approved the corrected
-executable. The probe-produced observation is committed unchanged apart from
-JSON presentation/field ordering (same values); the private original is retained.
+executable. The probe-produced observation is committed byte-for-byte unchanged;
+SHA-256 `a37d176dc91b216e904d597ead1434002468cb5cc19b52a824a3b2698b90af99`
+matches the retained private original and Git-stored LF bytes.
 Zero model turns and zero real provider calls. This is not successful acceptance.
 
 Literal configured-base fetch and the first push succeeded. An exact repeated

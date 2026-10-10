@@ -167,7 +167,7 @@ def _durable_json(path: Path, value: dict) -> None:
             os.close(descriptor)
 
 
-def _require_reconciled_prior_attempts(run_home: Path) -> None:
+def _require_reconciled_prior_attempts(run_home: Path, prior_attempt_authorizer=None) -> None:
     """Never let an unverified or unknown freeze be superseded silently."""
     for prior in run_home.iterdir():
         if _redirected(prior) or not prior.is_dir():
@@ -183,13 +183,20 @@ def _require_reconciled_prior_attempts(run_home: Path) -> None:
             result = json.loads(raw)
         except (OSError, ValueError) as error:
             raise BundleIngestError("attempt_unreconciled") from error
+        if isinstance(result, dict) and result.get("status") == "frozen" and prior_attempt_authorizer is not None:
+            try:
+                authorized = prior_attempt_authorizer(prior.name) is True
+            except Exception:
+                authorized = False
+            if authorized:
+                continue
         if (not isinstance(result, dict) or result.get("status") != "refused" or
                 (prior / "input.bundle").exists()):
             raise BundleIngestError("attempt_unreconciled")
 
 
 def freeze_run_bundle(runner_state: Path, private_root: Path, *, run_id: str,
-                      attempt_id: str) -> dict:
+                      attempt_id: str, prior_attempt_authorizer=None) -> dict:
     """Save exact agent bytes under a host-private, one-shot run identity.
 
     A returned ``frozen`` status is **not** Git verification or push approval.
@@ -217,7 +224,9 @@ def freeze_run_bundle(runner_state: Path, private_root: Path, *, run_id: str,
         attempt = run_home / attempt_id
         if attempt.exists() or attempt.is_symlink():
             raise BundleIngestError("attempt_already_reserved")
-        _require_reconciled_prior_attempts(run_home)
+        # Only a trusted host callback may recognize a fully verified and
+        # confirmed prior delivery; no agent request can set this callback.
+        _require_reconciled_prior_attempts(run_home, prior_attempt_authorizer)
         try:
             attempt.mkdir(mode=0o700)
         except FileExistsError as error:

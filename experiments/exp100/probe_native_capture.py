@@ -25,7 +25,8 @@ from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService
 from laomedo.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
 
-IDENTITY = "exp100-native-s10-20261010-a"
+IDENTITY = "exp100-native-s10-20261010-b"
+RUN_ID = IDENTITY + "-run"
 REPOSITORY = "example/disposable"
 SPEC_SHA = "484451161e957f2d7cfafead9a92e27e43493d6e"
 
@@ -93,7 +94,7 @@ def run(private, source_sha):
         git(trusted, "bundle", "create", str(bundle), "refs/heads/develop")
         git(remote, "init", "--bare", "--quiet")
         git(trusted, "push", str(remote), "HEAD:refs/heads/develop")
-        workspace = runner / "runs/run-a/workspace"
+        workspace = runner / "runs" / RUN_ID / "workspace"
         workspace.parent.mkdir(parents=True)
         subprocess.run(["git", "clone", "--quiet", "--no-local", str(trusted), str(workspace)],
                        check=True, capture_output=True, env=_base_git_environment())
@@ -120,25 +121,26 @@ def run(private, source_sha):
             GitHubRestTransport(REPOSITORY, credential, opener=fake))
         store = MediationStore(root / "effects.sqlite",
             verified_stage_resolver=make_grant_stage_resolver(runner, stage, runner),
-            stage_freezer=make_grant_bundle_freezer(runner, stage, runner),
+            stage_freezer=make_grant_bundle_freezer(runner, stage, runner,
+                confirmed_stage_authorizer=lambda grant, snapshot: store.confirmed_stage(grant, snapshot)),
             verified_workflow_classifier=classify_verified_workflow,
             connection_is_current=lambda cid, gen, repo: current["value"] and
                 (cid, gen, repo) == (IDENTITY, 1, REPOSITORY))
         # Trusted approval is consumed once. Synthetic connection, no account login.
         authority = RunGrantAuthority(root / "authority.sqlite",
             connection_authorizer=lambda *_: True)
-        approval = authority.approve(invocation_id="invocation-a", repository=REPOSITORY,
+        approval = authority.approve(invocation_id=IDENTITY + "-invocation", repository=REPOSITORY,
             branch="run-branch", base_branch="develop", reviewed_by="scripted-controller",
             operations={"git_push", "git_fetch", "pr_create", "pr_update", "pr_read"},
             connection_id=IDENTITY, connection_generation=1)
-        scope = authority.bind_run(approval, "run-a")
-        selected = authority.authorize_lease({"run_id": "run-a", "token": "synthetic-lease"}, scope)
-        grant, token = store.issue(run_id="run-a", invocation_id=selected["invocation_id"],
+        scope = authority.bind_run(approval, RUN_ID)
+        selected = authority.authorize_lease({"run_id": RUN_ID, "token": IDENTITY + "-lease"}, scope)
+        grant, token = store.issue(run_id=RUN_ID, invocation_id=selected["invocation_id"],
             repository=selected["repository"], branch=selected["branch"], base_branch=selected["base_branch"],
             operations=selected["operations"], ttl_seconds=60, connection_id=IDENTITY,
             connection_generation=1)
         record_path = workspace.parent / "record.json"
-        record = {"run_id": "run-a", "status": "running", "workspace_mode": "git",
+        record = {"run_id": RUN_ID, "status": "running", "workspace_mode": "git",
             "git_baseline": baseline, "github_scope": scope,
             "container_ownership": {"name": name, "launch_token": launch, "grant_id": grant,
                 "supervised": True, "cleanup_verified": False}}
@@ -152,7 +154,7 @@ def run(private, source_sha):
         verifier_thread = threading.Thread(target=verifier.serve, args=(stopped,), daemon=True)
         verifier_thread.start()
         command = ["docker", "run", "--name", name, "--pull=never", "--network=bridge",
-            "--label", LABEL_RUN + "=run-a", "--label", LABEL_TOKEN + "=" + launch,
+            "--label", LABEL_RUN + "=" + RUN_ID, "--label", LABEL_TOKEN + "=" + launch,
             "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--user=10001:10001",
             "--pids-limit=128", "--memory=1g", "--tmpfs=/tmp:rw,noexec,nosuid,size=64m",
             "--env=GIT_CONFIG_GLOBAL=/dev/null", "--env=GIT_CONFIG_NOSYSTEM=1",
@@ -181,7 +183,7 @@ def run(private, source_sha):
             if agent.poll() is not None:
                 raise RuntimeError("fixture_exited_no_retry")
             if time.monotonic() >= next_renewal:
-                state, _ = inspect_exact(name, "run-a", launch)
+                state, _ = inspect_exact(name, RUN_ID, launch)
                 if state != "owned" or not store.renew_grant(grant, 60):
                     raise RuntimeError("synthetic_owned_grant_renewal_failed")
                 observation["synthetic_grant_renewals_seconds"].append(time.monotonic() - started)
@@ -190,7 +192,7 @@ def run(private, source_sha):
         if not result_file.exists():
             raise RuntimeError("capture_pending_no_retry")
         result = json.loads(result_file.read_bytes())
-        owned, _ = inspect_exact(name, "run-a", launch)
+        owned, _ = inspect_exact(name, RUN_ID, launch)
         pushes = [entry for entry in git_calls if entry["command"] == "push"]
         observation.update(result, baseline=baseline, agent_owned=owned == "owned",
             agent_alive=agent.poll() is None, git_calls=git_calls, rest_calls=list(fake.calls),
@@ -198,7 +200,7 @@ def run(private, source_sha):
             provider_body=fake.pr["body"],
             push_effects=[{"effect_id": "native-" + sha256(
                 (REPOSITORY + "\nrun-branch\n" + commit).encode()).hexdigest(),
-                **store.effect("run-a", "native-" + sha256(
+                **store.effect(RUN_ID, "native-" + sha256(
                 (REPOSITORY + "\nrun-branch\n" + commit).encode()).hexdigest())}
                 for commit in (result["first"], result["second"])])
         if (owned != "owned" or agent.poll() is not None or len(pushes) != 2 or
@@ -213,7 +215,7 @@ def run(private, source_sha):
             return refusal_code(store, token=token, repository=REPOSITORY, operation=op,
                                 payload=payload, effect_id=effect, transport=transport)
         try:
-            store.stage_freezer({"run_id": "run-a", "grant_id": grant,
+            store.stage_freezer({"run_id": RUN_ID, "grant_id": grant,
                 "repository": REPOSITORY, "branch": "run-branch"}, {"attempt_id": "completed-freeze"})
             freeze_error = None
         except Exception as failure:
@@ -225,7 +227,7 @@ def run(private, source_sha):
         current["value"] = False
         connection_error = code("pr_read", {"number": 7})
         current["value"] = True
-        store.revoke_run("run-a")
+        store.revoke_run(RUN_ID)
         revoke_error = code("pr_read", {"number": 7})
         update_error = code("pr_update", {"number": 7, "head": "run-branch", "base": "develop",
             "title": fake.pr["title"], "body": result["finalBody"], "marker": IDENTITY,
@@ -234,7 +236,7 @@ def run(private, source_sha):
         observation["negative_controls"] = {"completed_push": push_error,
             "changed_connection": connection_error, "revoked_read": revoke_error,
             "completed_freeze_error": freeze_error, "completed_freeze_state": freeze_result.get("state"),
-            "completed_freeze_created": (stage / "run-a/completed-freeze").exists(),
+            "completed_freeze_created": (stage / RUN_ID / "completed-freeze").exists(),
             "revoked_update": update_error,
             "provider_count_unchanged": before == len(fake.calls) + len(git_calls)}
         if (push_error != "push_stage_unverified" or connection_error != "connection_unavailable" or
@@ -249,13 +251,13 @@ def run(private, source_sha):
         observation["rest_calls"] = list(fake.calls) if fake is not None else []
         if workspace is not None and (workspace / ".git/native-progress.json").is_file():
             observation["command_progress"] = json.loads((workspace / ".git/native-progress.json").read_bytes())
-        observation["agent_cleanup_verified"], _ = cleanup_exact(name, "run-a", launch)
+        observation["agent_cleanup_verified"], _ = cleanup_exact(name, RUN_ID, launch)
         if agent is not None:
             try:
                 agent.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 agent.kill(); agent.wait(timeout=5)
-            again, _ = cleanup_exact(name, "run-a", launch)
+            again, _ = cleanup_exact(name, RUN_ID, launch)
             observation["agent_cleanup_verified"] = observation["agent_cleanup_verified"] and again
         stopped.set()
         if verifier_thread:

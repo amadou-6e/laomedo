@@ -13,7 +13,7 @@ import re
 import subprocess
 import tempfile
 
-from .bundle_stage import _single_bundle_commit, BundleStageError
+from .bundle_stage import _single_bundle_commit, _read_frozen, BundleStageError
 from .github_git_transport import (_base_git_environment, _run_bounded_tree,
                                    GIT_COMMAND_TIMEOUT_SECONDS)
 from .verified_stage import VerifiedStage
@@ -50,7 +50,7 @@ def make_grant_stage_resolver(runner_state: Path, private_root: Path,
 
 
 def make_grant_bundle_freezer(runner_state: Path, private_root: Path,
-                              agent_mount: Path):
+                              agent_mount: Path, *, confirmed_stage_authorizer=None):
     """Bind an agent's fixed handoff file to its still-running run grant.
 
     This copies bytes only; Docker verification and provider effects remain
@@ -72,9 +72,20 @@ def make_grant_bundle_freezer(runner_state: Path, private_root: Path,
                 before["repository"] != grant["repository"] or
                 before["branch"] != grant["branch"]):
             raise BundleIngestError("run_grant_mismatch")
+        def confirm_prior(attempt_id):
+            # The normal resolver checks immutable bytes, verification and
+            # cleanup, the current run binding and this exact grant first.
+            _, prior = _read_frozen(runner_state, private_root, grant["run_id"], attempt_id)
+            snapshot = resolve_verified_stage(runner_state, private_root,
+                run_id=grant["run_id"], repository=grant["repository"], branch=grant["branch"],
+                commit=prior["advertised_commit"], stage_attempt_id=attempt_id,
+                expected_grant_id=grant["grant_id"])
+            return confirmed_stage_authorizer(grant, snapshot) is True
         result = freeze_run_bundle(runner_state, private_root,
                                    run_id=grant["run_id"],
-                                   attempt_id=payload["attempt_id"])
+                                   attempt_id=payload["attempt_id"],
+                                   prior_attempt_authorizer=(confirm_prior
+                                       if confirmed_stage_authorizer is not None else None))
         _, after = _record(runner_state, grant["run_id"])
         if (after != before or
                 any(result.get(key) != value for key, value in before.items())):
