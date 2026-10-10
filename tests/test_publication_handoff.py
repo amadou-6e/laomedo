@@ -309,6 +309,28 @@ class PublicationHandoffTests(unittest.TestCase):
                 PublicationController(self.store, lifetime_seconds=lifetime,
                     artifact_resolver=None, transport=None, readback=None, describe=None)
 
+    def test_controller_ends_known_non_success_without_waiting_for_publisher(self):
+        for answer, complete in (("failure", True), ("success", "unknown")):
+            with self.subTest(answer=answer, complete=complete):
+                self.setUp()
+                finished = []
+                lease = SimpleNamespace(grant_id=self.grant, grant_secret=lambda: self.token,
+                    lost=threading.Event(), stop_event=threading.Event(), finish=lambda: finished.append(True))
+                def forbidden(*_):
+                    self.fail("invalid result must not resolve artifact or contact provider")
+                controller = PublicationController(self.store, lifetime_seconds=30,
+                    artifact_resolver=forbidden, transport=forbidden, readback=forbidden, describe=forbidden)
+                record = {"run_id": "run-a", "github_scope": {"repository": self.repository},
+                    "output_requirements": self.reference, "requirements_revision": self.reference["requirements_revision"],
+                    "status": "completed", "snapshot_ready": True, "controller_cleanup": "confirmed",
+                    "container_ownership": {"cleanup_verified": True}, "evidence_complete": complete,
+                    "answer": '{"task_outcome":"' + answer + '","report":"done"}'}
+                controller.register(lease, record)
+                self.assertFalse(controller.finish_agent(record))
+                self.assertEqual(self.store.publication_handoff(self.grant)["phase"], "rejected")
+                self.assertEqual(finished, [True])
+                self.assertNotIn("run-a", controller.owned)
+
     def test_runner_publication_api_requires_auth_and_empty_graph_body(self):
         from laomedo.local_runner import LocalRunner, serve
         from urllib import request, error

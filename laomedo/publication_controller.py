@@ -10,6 +10,7 @@ import math
 import threading
 
 from .github_mediation import MediationError
+from .output_contract import evaluate_envelope
 
 
 class PublicationController:
@@ -44,6 +45,7 @@ class PublicationController:
                 self.store.end_publication_handoff(handoff_id, "failed")
                 raise MediationError("handoff_lease_mismatch")
             self.owned[record["run_id"]] = (lease, token, repository, handoff_id)
+            record["publication_handoff"] = {"handoff_id": handoff_id, "phase": "agent_active"}
         # This waits only on the original deadline. It never extends the lease
         # when the graph takes longer or when the agent finishes.
         timer = threading.Timer(self.lifetime, self.cancel,
@@ -75,6 +77,16 @@ class PublicationController:
                             # an independently verified completeness closure.
                             "evidence_complete": record.get("evidence_complete", "unknown"),
                             "requirements_revision": record.get("requirements_revision")}
+                checked = evaluate_envelope(record["output_requirements"], envelope)
+                if (checked["contract_status"] != "accepted" or
+                        envelope["task_outcome"] != "success" or
+                        envelope["evidence_complete"] is not True):
+                    # Failure/rejection routes need not call the publisher at
+                    # all. Revoke now, rather than keep a known invalid result
+                    # alive until the graph invokes a success-only node.
+                    self.cancel(record["run_id"], "rejected")
+                    record["publication_handoff"]["phase"] = "rejected"
+                    return False
                 artifact = self.artifact_resolver(deepcopy(record), handoff_id)
                 title, body = self.describe(deepcopy(record))
                 frozen = self.store.freeze_publication_handoff(
@@ -83,6 +95,7 @@ class PublicationController:
                 if frozen["phase"] != "validation_pending":
                     self.cancel(record["run_id"], "unknown")
                     return False
+                record["publication_handoff"]["phase"] = "validation_pending"
             except Exception:
                 self.cancel(record["run_id"], "failed")
                 return False
