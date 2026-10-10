@@ -28,6 +28,11 @@ check. The agent cannot supply that predecessor. A remote mismatch after
 dispatch remains unknown and fences the branch. Local controls are not live
 multi-push acceptance evidence.
 
+A new run has no predecessor from another run. It cannot yet adopt an
+already-existing provider branch for a corrective invocation; that path
+still fails conservatively and can fence the branch. S10 uses an absent
+run branch and cannot establish cross-run corrective-push support.
+
 Stale locks and a frozen/capture-uncertain journal fail closed. Do not delete
 them, generate a different identity or make a new commit to bypass them:
 those actions do not resolve the preceding uncertainty. Automatic capture
