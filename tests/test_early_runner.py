@@ -450,6 +450,8 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertLessEqual(BlockingServer.turn_starts, 1)
 
     def test_poll_deadline_retains_early_identity_and_does_not_cancel(self):
+        # Test the acknowledged wait deadline, not a subsecond HTTP-start race.
+        BlockingServer.wait_seconds = 30
         base = self.start_http()
         adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
                                 {"codex": self.state / "api-token"})
@@ -458,7 +460,7 @@ class EarlyRunnerTests(unittest.TestCase):
                            skills=[self.body["skill_ref"]])
         acknowledged = []
         with self.assertRaisesRegex(HandoffError, "runner_result_pending"):
-            adapter.dispatch(handoff, deadline=time.monotonic() + .3,
+            adapter.dispatch(handoff, deadline=time.monotonic() + 3,
                              cancelled=threading.Event(), early_start=True,
                              on_ack=acknowledged.append)
         self.assertEqual(len(acknowledged), 1)

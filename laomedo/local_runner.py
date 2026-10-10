@@ -1142,6 +1142,12 @@ class LocalRunner:
             # with preserved history; do not replace it with a fresh baseline.
             if not self.git_workspace:
                 workspace_skills.initialize(workspace)
+            elif github_scope is not None:
+                # Install trusted remote/handoff metadata before the immutable
+                # skill exclusion digest. _open_server then verifies this same
+                # remote and leaves the already-present rule unchanged.
+                from .agent_cli import configure_remote
+                configure_remote(workspace, github_scope["repository"])
             skills = [self._materialize(workspace, ref) for ref in refs]
             git_exclusion = workspace_skills.install(workspace, skills)
             artifacts = import_selected(request.get("artifact_refs", []), workspace,

@@ -621,6 +621,31 @@ class LocalRunnerTests(unittest.TestCase):
         prepared = mediated._prepare(request)
         self.assertEqual(prepared["github_scope"]["branch"], "run-branch")
         self.assertEqual(prepared["workspace_mode"], "git")
+        private_lease = self.runner.state / "fixture-lease"
+        private_lease.mkdir()
+        (private_lease / "grant.secret").write_text("synthetic-capability", encoding="utf-8")
+        lease = SimpleNamespace(instance="fixture-instance", grant_id="fixture-grant",
+                                dir=private_lease, lost=threading.Event(), finish=Mock())
+        with patch("laomedo.local_runner.LeaseClient", return_value=lease), \
+                patch.object(mediated, "_mediator_route",
+                             return_value=("http://host.docker.internal:1234/v1/mediate", "fixture-instance")), \
+                patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+            completed = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
+            self.assertEqual(completed["status"], "completed", completed.get("error_category"))
+            exclusion = completed["skill_git_exclusion"]
+            self.assertTrue(exclusion["enabled"])
+            owned_workspace = mediated._run_dir(completed["run_id"]) / "workspace"
+            before = (owned_workspace / ".git/info/exclude").read_bytes()
+            self.assertIn(b"/.laomedo-handoff.bundle", before.splitlines())
+            self.assertEqual(completed["container_ownership"]["grant_id"], "fixture-grant")
+            resumed = mediated.resume(completed["run_id"], "Continue synthetic task",
+                expected_post_run_hash=completed["post_run_hash"],
+                expected_thread_id=completed["thread_id"], model="test-model", effort="low")
+            self.assertEqual(resumed["status"], "completed", resumed.get("error_category"))
+            self.assertEqual(resumed["skill_git_exclusion"], exclusion)
+            self.assertEqual((owned_workspace / ".git/info/exclude").read_bytes(), before)
+        # These are mocked grants/transports, not acceptance of real renewed
+        # mediated grants or a model invocation's resume lifecycle.
 
     def test_git_workspace_snapshot_refuses_oversized_file_before_reading_it(self):
         root = self.root / "oversized"
