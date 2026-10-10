@@ -59,3 +59,15 @@ Transport limits: input bodies are capped at 65,536 UTF-8 bytes, responses at
 refused. Git bundles remain bounded by existing transport limits, not an
 assertion about large repository disk usage. Synthetic providers do not prove
 all GitHub validation rules, rate limiting, paging or live provider behaviour.
+
+Post-capture integration: S11 was executed once at `2b93124` and its original
+observation is retained at `c7dbed4`; see PAIRED-RESULTS.md. The pre-capture
+"not yet run" statements above describe that historical development stage.
+Independent post-run review approves this scoped implementation, not #100
+closure. Evidence specs merged as
+`04fade6d88cc4c6d5c494c7e566c5cacbad93b09` (specs PR #342), in
+`projects/laomedo/subsystems/agent-execution/validation.md`, section
+"EXP-100 paired S11 command comparison, 2026-10-10".
+The clean develop merge preserves the reviewed mediation/authority/test diff;
+output-contract additions in the parent remain separately owned. The original
+manifest/source hashes and machine observation are unchanged and not rerun.
