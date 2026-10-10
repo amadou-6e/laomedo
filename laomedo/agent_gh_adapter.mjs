@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 export class AdapterError extends Error {
   constructor(code, exit = 2) { super(code); this.exit = exit; }
 }
+export const ISSUE_GRAPHQL_QUERY = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}';
 const fail = code => { throw new AdapterError(code); };
 function options(args, permitted) {
   const flags = {}, positional = [];
@@ -50,7 +51,8 @@ export function plan(argv, context, readBody) {
     kind = argv.slice(0, 2).join(' '); tail = argv.slice(2);
     if (kind === 'pr create') permitted.push('--title', '--body', '--body-file', '--head', '--base');
     else if (kind === 'pr edit') permitted.push('--title', '--body', '--body-file');
-    else if (!['pr view', 'pr list', 'issue list', 'run list'].includes(kind)) fail('unsupported_command');
+    else if (kind === 'issue create') permitted.push('--title', '--body', '--body-file');
+    else if (!['pr view', 'pr list', 'issue view', 'issue list', 'run list'].includes(kind)) fail('unsupported_command');
   }
   const { flags, positional } = options(tail, permitted);
   if (flags['--repo'] && flags['--repo'] !== repository) fail('repository_mismatch');
@@ -63,12 +65,31 @@ export function plan(argv, context, readBody) {
     if (positional.length !== 1) fail('unsupported_syntax');
     return { request: request('pr_read', { number: positive(positional[0]) }) };
   }
+  if (kind === 'issue view') {
+    if (positional.length !== 1) fail('unsupported_syntax');
+    const number = positive(positional[0]);
+    return { request: request('api_rest_read', {
+      method: 'GET', path: '/repos/' + repository + '/issues/' + number }), issueView: number };
+  }
   if (kind === 'run list') {
     if (positional.length) fail('unsupported_syntax');
     return { request: request('actions_read', { resource: 'runs' }) };
   }
   if (kind === 'api') {
     if (positional.length !== 1) fail('unsupported_api');
+    if (positional[0] === 'graphql') {
+      if (flags['--method'] !== 'POST' || !flags['--input']) fail('unsupported_graphql');
+      let input;
+      try { input = JSON.parse(bounded(readBody(flags['--input']))); }
+      catch { fail('graphql_input_invalid'); }
+      const variables = input?.variables;
+      if (!input || Array.isArray(input) || Object.keys(input).sort().join(',') !== 'query,variables' ||
+          input.query !== ISSUE_GRAPHQL_QUERY || !variables || Array.isArray(variables) ||
+          typeof variables !== 'object' || Object.keys(variables).sort().join(',') !== 'name,owner' ||
+          typeof variables.owner !== 'string' || typeof variables.name !== 'string' ||
+          variables.owner + '/' + variables.name !== repository) fail('unsupported_graphql');
+      return { request: request('issue_list', { format: 'fixed_graphql' }), graphqlIssues: true };
+    }
     const path = positional[0].startsWith('/') ? positional[0] : '/' + positional[0];
     if (!path.startsWith('/repos/' + repository + '/') || /\.\.|\/\/|[\\%?#]/.test(path)) fail('unsupported_api');
     if (flags['--method'] === 'POST' && path === '/repos/' + repository + '/pulls') {
@@ -93,10 +114,15 @@ export function plan(argv, context, readBody) {
   }
   if (!/^[A-Za-z0-9_.-]{1,128}$/.test(context.effect ?? '') || !context.marker) fail('durable_effect_required');
   if (!flags['--title']) fail('explicit_title_required');
+  if (kind === 'issue create' && (positional.length ||
+      !/^[A-Za-z0-9_.-]{1,128}$/.test(context.reviewedProposal ?? ''))) fail('reviewed_proposal_required');
   if (kind === 'pr create' && (positional.length || !flags['--head'] || !flags['--base'])) fail('explicit_target_required');
   if (kind === 'pr edit' && positional.length !== 1) fail('unsupported_syntax');
   const content = body(flags, readBody), title = bounded(flags['--title']);
   if (!content.includes(context.marker)) fail('reconciliation_marker_required');
+  if (kind === 'issue create') return { request: {
+    ...request('issue_create', { title, body: content, marker: context.marker,
+      reviewed_proposal_id: context.reviewedProposal }), effect_id: context.effect } };
   if (kind === 'pr create') return { request: {
     ...request('pr_create', { title, body: content, head: flags['--head'], base: flags['--base'], marker: context.marker }),
     effect_id: context.effect } };
@@ -106,7 +132,19 @@ export function plan(argv, context, readBody) {
 
 export async function execute(argv, context, dependencies) {
   const planned = plan(argv, context, dependencies.readBody);
-  if (planned.request) return confirmed(await dependencies.mediate(planned.request));
+  if (planned.request) {
+    const result = confirmed(await dependencies.mediate(planned.request));
+    if (planned.graphqlIssues) {
+      if (!Array.isArray(result?.items) || result.items.length > 30 || result.items.some(item =>
+          !item || typeInvalidNumber(item.number) || Object.hasOwn(item, 'pull_request') ||
+          typeof item.title !== 'string' || typeof item.body !== 'string')) fail('graphql_readback_invalid');
+      return { data: { repository: { issues: { nodes: result.items.map(item => ({
+        number: item.number, title: bounded(item.title), body: bounded(item.body) })) } } } };
+    }
+    if (planned.issueView && (result?.number !== planned.issueView ||
+        Object.hasOwn(result, 'pull_request'))) fail('issue_readback_invalid');
+    return result;
+  }
   const existing = confirmed(await dependencies.mediate({ repository: planned.repository,
     operation: 'pr_read', payload: { number: planned.edit.number } }));
   if (existing?.number !== planned.edit.number || existing?.head?.repository !== planned.repository ||
@@ -116,6 +154,8 @@ export async function execute(argv, context, dependencies) {
     effect_id: planned.effect, payload: { ...planned.edit, head: existing.head.branch, base: existing.base,
       expected: { title: existing.title, body: existing.body, head_sha: existing.head.sha } } }));
 }
+
+function typeInvalidNumber(value) { return !Number.isSafeInteger(value) || value < 1; }
 
 export function readBody(path) {
   if (path !== '-' && !lstatSync(path).isFile()) fail('body_file_invalid');
@@ -144,7 +184,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const result = await execute(process.argv.slice(2), {
       repository: process.env.LAOMEDO_REPOSITORY, effect: process.env.LAOMEDO_EFFECT_ID,
-      marker: process.env.LAOMEDO_RECONCILIATION_MARKER }, { readBody, mediate });
+      marker: process.env.LAOMEDO_RECONCILIATION_MARKER,
+      reviewedProposal: process.env.LAOMEDO_REVIEWED_PROPOSAL_ID }, { readBody, mediate });
     process.stdout.write(JSON.stringify(result) + '\n');
   } catch (failure) {
     process.stderr.write((failure instanceof AdapterError ? failure.message : 'adapter_input_failed') + '\n');
