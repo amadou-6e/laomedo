@@ -7,7 +7,7 @@
   "github_writes": 0,
   "real_credentials": false,
   "publication": "simulated_only",
-  "source_commit": "cc449c58e883308fb672bd6541f64dc06b94fdf9",
+  "source_commit": "98bd0cebd4db44919a6eedaebbacff3afa663716",
   "artifact_sha256": {
     "examples/langflow-workgraph-demo/flow.json": "631581c9ebd8f772a83361abe07fd6af607b8277e3fea9167033696fdbe86536",
     "examples/langflow-workgraph-demo/fixtures.json": "a6843d91e8acef7456f5eed05562c451d3e4a741e0bce59e5d73e8d37e1ea167",
@@ -67,7 +67,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\", \"report\": \"fixture complete\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "42674663-eb6d-43fa-9ffe-fccdd842f4d1",
+                "request_id": "e1a38805-8a97-413f-aa29-f21d34e0ad57",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -180,7 +180,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"failure\", \"report\": \"cannot finish fixture\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "26d2c28b-183d-4e61-8a3e-e059e9ec440a",
+                "request_id": "168d479e-e97f-4139-9c02-3ca52347b87e",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -293,7 +293,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "00f56e6b-8f31-4353-bcff-f89071271679",
+                "request_id": "8b729721-91e7-4127-915e-1071c9d88b7e",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -402,7 +402,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\", \"report\": \"corrected fixture\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "219c1a94-3bc7-4045-b406-61a04c2c15ad",
+                "request_id": "337b25b0-0828-4dca-8992-320ae44fd43f",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -537,7 +537,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "8dc3b459-a1cc-411c-b2c9-f9d4774c44d2",
+                "request_id": "5c49372c-de0a-4e75-ab0d-183c43afa51a",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -677,7 +677,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"unknown\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "0685d7b1-bd77-4bda-aba6-e3a3fe2595fe",
+                "request_id": "30d4fcf9-26bb-4579-8ade-cf3c95448ed9",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
