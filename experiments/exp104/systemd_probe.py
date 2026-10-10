@@ -16,9 +16,14 @@ from experiments.exp104.systemd_checks import assess
 ROOT = Path(__file__).resolve().parents[2]
 IDENTITY = 'exp104-systemd-s14-20261010-a'
 IMAGE = 'sha256:48b88125a5e7e0b03bb166468b3449ad46c263c4c148f9999098f41768dba793'
+DEADLINE = None
 
 
 def command(args, *, input=None, timeout=30, check=True):
+    if DEADLINE is not None:
+        timeout = min(timeout, DEADLINE - time.monotonic())
+        if timeout <= 0:
+            raise TimeoutError('overall_deadline')
     result = subprocess.run(args, input=input, capture_output=True, timeout=timeout)
     if check and result.returncode:
         raise RuntimeError('command_failed')
@@ -28,11 +33,14 @@ def command(args, *, input=None, timeout=30, check=True):
 def inspect(name):
     result = command(['docker', 'inspect', name], check=False)
     if result.returncode:
-        return None
+        if ('Error: No such object: ' + name).encode() in result.stderr:
+            return None
+        raise RuntimeError('inspection_unavailable')
     return json.loads(result.stdout)[0]
 
 
 def run(destination, source, review):
+    global DEADLINE
     if destination.resolve() != (Path(tempfile.gettempdir()) / IDENTITY).resolve():
         raise ValueError('identity_root_mismatch')
     if (command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']).stdout.decode().strip() != source or
@@ -46,6 +54,7 @@ def run(destination, source, review):
     descriptor = os.open(claim, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     os.close(descriptor)
     destination.mkdir(parents=True, exist_ok=False)
+    DEADLINE = time.monotonic() + 240
     result = {'identity': IDENTITY, 'source': source, 'image': IMAGE,
               'review_sha256': sha256(review.read_bytes()).hexdigest(), 'status': 'incomplete',
               'stage': 'create', 'model_turns': 0, 'provider_credentials': 0}
@@ -92,23 +101,31 @@ def run(destination, source, review):
     except Exception as failure:
         result['error_class'] = type(failure).__name__
         if container_id:
-            log = command(['docker', 'logs', '--tail', '40', container_id], check=False)
-            result['boot_log'] = (log.stdout + log.stderr).decode('utf-8', errors='replace')[-8000:]
+            try:
+                log = command(['docker', 'logs', '--tail', '40', container_id], check=False)
+                result['boot_log'] = (log.stdout + log.stderr).decode('utf-8', errors='replace')[-8000:]
+            except Exception:
+                result['boot_log_unavailable'] = True
     finally:
-        current = inspect(name)
-        if current is None:
-            result['cleanup_verified'] = container_id is None
-        elif (current['Name'] == '/' + name and current['Image'] == IMAGE and
-              current['Config']['Labels'].get('laomedo.s14') == token and
-              (container_id is None or current['Id'] == container_id)):
-            fresh = inspect(current['Id'])
-            if fresh and fresh['Name'] == current['Name'] and fresh['Config']['Labels'].get('laomedo.s14') == token:
-                command(['docker', 'rm', '-f', current['Id']])
-                result['cleanup_verified'] = inspect(current['Id']) is None
+        DEADLINE = time.monotonic() + 30
+        try:
+            current = inspect(name)
+            if current is None:
+                result['cleanup_verified'] = True
+            elif (current['Name'] == '/' + name and current['Image'] == IMAGE and
+                  current['Config']['Labels'].get('laomedo.s14') == token and
+                  (container_id is None or current['Id'] == container_id)):
+                fresh = inspect(current['Id'])
+                if fresh and fresh['Name'] == current['Name'] and fresh['Config']['Labels'].get('laomedo.s14') == token:
+                    command(['docker', 'rm', '-f', current['Id']])
+                    result['cleanup_verified'] = inspect(current['Id']) is None
+        except Exception as failure:
+            result['cleanup_error_class'] = type(failure).__name__
         if result.get('cleanup_verified') is not True:
             result['status'] = 'incomplete'
         (destination / 'observation.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n',
                                                      encoding='utf-8', newline='\n')
+        DEADLINE = None
     return result
 
 

@@ -65,6 +65,12 @@ class SystemdProbeTests(unittest.TestCase):
                 systemd_probe.run(Path('/unrelated'), 'source', Path('review'))
             command.assert_not_called()
 
+    def test_daemon_failure_is_not_absence(self):
+        failure = type('R', (), {'returncode': 1, 'stderr': b'daemon unavailable'})()
+        with patch.object(systemd_probe, 'command', return_value=failure):
+            with self.assertRaisesRegex(RuntimeError, 'inspection_unavailable'):
+                systemd_probe.inspect('owned-name')
+
     def test_wrong_review_never_claims_identity(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
