@@ -68,5 +68,12 @@ first 412 bytes of their retained logs. Each final log is 523 bytes after later
 `remoteControl/status/changed` and `account/updated` notifications; the hashes
 are not whole-final-log hashes. No thread or turn request was sent.
 
-Independent post-run evidence/promotion assessment is pending. Keep #105/#97
-draft and #100/#104/#93/#22/Q11 open until their actual scope is accepted.
+The [independent post-run assessment](https://github.com/amadou-6e/laomedo/pull/105#pullrequestreview-5478364389)
+approved this bounded evidence, resolved the production-launch blocker, and
+approved #105 as the documented Windows mediated first slice after final CI.
+The reviewer read originals/source, but did not execute hashes, tests or CI.
+Coordinator verified original/working/committed hashes and regression checks.
+Canonical evidence is merged in [specs #325](https://github.com/amadou-6e/specs/pull/325)
+at `5a8fbc9c248bb263f57bdc4fb5f2bb3023c55810`; this does not replace the
+capture's historical governing spec SHA above. Broader #100/#104/#93/#22/Q11
+remain open; no full capability/model/Linux acceptance or #97 promotion follows.
