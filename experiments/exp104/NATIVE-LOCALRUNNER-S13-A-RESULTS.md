@@ -63,6 +63,10 @@ the model login); the scan does **not** cover that volume. Public `token`
 fields are container ownership nonces/labels, not GitHub tokens or mediator
 bearer capabilities. Native event and running-record hashes refer to private
 capture-time bytes; those full private records are not public evidence.
+Read-only post-run inspection found that both native event hashes match the
+first 412 bytes of their retained logs. Each final log is 523 bytes after later
+`remoteControl/status/changed` and `account/updated` notifications; the hashes
+are not whole-final-log hashes. No thread or turn request was sent.
 
 Independent post-run evidence/promotion assessment is pending. Keep #105/#97
 draft and #100/#104/#93/#22/Q11 open until their actual scope is accepted.
