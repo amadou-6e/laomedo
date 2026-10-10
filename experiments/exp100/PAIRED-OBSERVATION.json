@@ -1,0 +1,1696 @@
+{
+  "cases": [
+    {
+      "case": "git_push_first",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": "9547b4ba88d3946a036dcbe7182e7fd0dd5ccdb8"
+      },
+      "direct_git_write_delta": 1,
+      "git_write_delta": 1,
+      "mediated": {
+        "exit": 0,
+        "normalized": "9547b4ba88d3946a036dcbe7182e7fd0dd5ccdb8",
+        "reason": "unclassified"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "git_push_second",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+      },
+      "direct_git_write_delta": 1,
+      "git_write_delta": 1,
+      "mediated": {
+        "exit": 0,
+        "normalized": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4",
+        "reason": "unclassified"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "git_local",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": [
+          {
+            "command": [
+              "status",
+              "--porcelain"
+            ],
+            "exit": 0,
+            "output_sha256": "751546e66b804250ade786340b66b04ec19ebf2b0fd06e3cfba9e2a2db9f824b"
+          },
+          {
+            "command": [
+              "diff",
+              "--",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "add",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "-c",
+              "user.name=Fixture",
+              "-c",
+              "user.email=fixture@example.invalid",
+              "commit",
+              "-qm",
+              "first"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "status",
+              "--porcelain"
+            ],
+            "exit": 0,
+            "output_sha256": "8405c55b44b707db966faae55277b4f64f0bf1baa656c92ee47e7540d1a54a55"
+          },
+          {
+            "command": [
+              "diff",
+              "--",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "f7c53768538ae252212bf73e0e376d1886443ffa0135cd68045044fce22ae8c6"
+          },
+          {
+            "command": [
+              "add",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "-c",
+              "user.name=Fixture",
+              "-c",
+              "user.email=fixture@example.invalid",
+              "commit",
+              "-qm",
+              "second"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          }
+        ]
+      },
+      "mediated": {
+        "exit": 0,
+        "normalized": [
+          {
+            "command": [
+              "status",
+              "--porcelain"
+            ],
+            "exit": 0,
+            "output_sha256": "751546e66b804250ade786340b66b04ec19ebf2b0fd06e3cfba9e2a2db9f824b"
+          },
+          {
+            "command": [
+              "diff",
+              "--",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "add",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "-c",
+              "user.name=Fixture",
+              "-c",
+              "user.email=fixture@example.invalid",
+              "commit",
+              "-qm",
+              "first"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "status",
+              "--porcelain"
+            ],
+            "exit": 0,
+            "output_sha256": "8405c55b44b707db966faae55277b4f64f0bf1baa656c92ee47e7540d1a54a55"
+          },
+          {
+            "command": [
+              "diff",
+              "--",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "f7c53768538ae252212bf73e0e376d1886443ffa0135cd68045044fce22ae8c6"
+          },
+          {
+            "command": [
+              "add",
+              "change.txt"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          },
+          {
+            "command": [
+              "-c",
+              "user.name=Fixture",
+              "-c",
+              "user.email=fixture@example.invalid",
+              "commit",
+              "-qm",
+              "second"
+            ],
+            "exit": 0,
+            "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+          }
+        ],
+        "reason": "unclassified"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "git_fetch_base",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": "6342dacccb99a2f7be31a3476038d7ffacf1bc43"
+      },
+      "mediated": {
+        "exit": 0,
+        "normalized": "6342dacccb99a2f7be31a3476038d7ffacf1bc43",
+        "reason": "unclassified"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "git_fetch_run",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+      },
+      "mediated": {
+        "exit": 0,
+        "normalized": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4",
+        "reason": "unclassified"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "force_refused",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 1,
+        "normalized": "",
+        "reason": "push_target_denied"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "other_ref_refused",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 1,
+        "normalized": "",
+        "reason": "push_target_denied"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "multi_ref_refused",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 1,
+        "normalized": "",
+        "reason": "multiple_refs_unsupported"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "pr_create_file",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nInitial PR body",
+          "head": {
+            "branch": "run-branch",
+            "repository": "example/disposable",
+            "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+          },
+          "number": 7,
+          "title": "Paired PR"
+        }
+      },
+      "direct_write_delta": 1,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nInitial PR body",
+          "head": {
+            "branch": "run-branch",
+            "repository": "example/disposable",
+            "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+          },
+          "number": 7,
+          "title": "Paired PR"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 1,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "pr_read",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nInitial PR body",
+          "head": {
+            "branch": "run-branch",
+            "repository": "example/disposable",
+            "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+          },
+          "number": 7,
+          "title": "Paired PR"
+        }
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nInitial PR body",
+          "head": {
+            "branch": "run-branch",
+            "repository": "example/disposable",
+            "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+          },
+          "number": 7,
+          "title": "Paired PR"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "pr_edit_stdin",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+          "head": {
+            "branch": "run-branch",
+            "repository": "example/disposable",
+            "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+          },
+          "number": 7,
+          "title": "Paired PR"
+        }
+      },
+      "direct_write_delta": 1,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+          "head": {
+            "branch": "run-branch",
+            "repository": "example/disposable",
+            "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+          },
+          "number": 7,
+          "title": "Paired PR"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 4,
+      "provider_write_delta": 1,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "pr_list",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": [
+          {
+            "base": "develop",
+            "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+            "head": {
+              "branch": "run-branch",
+              "repository": "example/disposable",
+              "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+            },
+            "number": 7,
+            "title": "Paired PR"
+          }
+        ]
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": [
+          {
+            "base": "develop",
+            "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+            "head": {
+              "branch": "run-branch",
+              "repository": "example/disposable",
+              "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+            },
+            "number": 7,
+            "title": "Paired PR"
+          }
+        ],
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "pr_api_create",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nInitial PR body",
+          "head": {
+            "branch": "api-branch",
+            "repository": "example/disposable",
+            "sha": "6342dacccb99a2f7be31a3476038d7ffacf1bc43"
+          },
+          "number": 8,
+          "title": "Paired API PR"
+        }
+      },
+      "direct_write_delta": 1,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "base": "develop",
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nInitial PR body",
+          "head": {
+            "branch": "api-branch",
+            "repository": "example/disposable",
+            "sha": "6342dacccb99a2f7be31a3476038d7ffacf1bc43"
+          },
+          "number": 8,
+          "title": "Paired API PR"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 1,
+      "run": "b",
+      "run_id": "exp100-paired-s11-20261010-a-b"
+    },
+    {
+      "case": "issue_read",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "body": "Existing body",
+          "number": 9,
+          "title": "Existing issue"
+        }
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "body": "Existing body",
+          "number": 9,
+          "title": "Existing issue"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "issue_list",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": [
+          {
+            "body": "Existing body",
+            "number": 9,
+            "title": "Existing issue"
+          }
+        ]
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": [
+          {
+            "body": "Existing body",
+            "number": 9,
+            "title": "Existing issue"
+          }
+        ],
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "issue_create",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+          "number": 10,
+          "title": "Paired reviewed issue"
+        }
+      },
+      "direct_write_delta": 1,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+          "number": 10,
+          "title": "Paired reviewed issue"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 1,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "graphql_read",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "data": {
+            "repository": {
+              "issues": {
+                "nodes": [
+                  {
+                    "body": "Existing body",
+                    "number": 9,
+                    "title": "Existing issue"
+                  },
+                  {
+                    "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+                    "number": 10,
+                    "title": "Paired reviewed issue"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "data": {
+            "repository": {
+              "issues": {
+                "nodes": [
+                  {
+                    "body": "Existing body",
+                    "number": 9,
+                    "title": "Existing issue"
+                  },
+                  {
+                    "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+                    "number": 10,
+                    "title": "Paired reviewed issue"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "actions_list",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "total_count": 1,
+          "workflow_runs": [
+            {
+              "id": 21,
+              "status": "completed"
+            }
+          ]
+        }
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "total_count": 1,
+          "workflow_runs": [
+            {
+              "id": 21,
+              "status": "completed"
+            }
+          ]
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "actions_job",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "conclusion": "success",
+          "id": 21,
+          "status": "completed"
+        }
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "conclusion": "success",
+          "id": 21,
+          "status": "completed"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "rest_get",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": {
+          "body": "Existing body",
+          "number": 9,
+          "title": "Existing issue"
+        }
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "body": "Existing body",
+          "number": 9,
+          "title": "Existing issue"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "wrong_repository",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "repository_mismatch"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "wrong_base",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 3,
+        "normalized": "",
+        "reason": "mediator_denied:pr_base_denied"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "wrong_pr",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 3,
+        "normalized": "",
+        "reason": "mediator_denied:pr_read_target_denied"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "arbitrary_write",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_api"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "api_default_post",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_api"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "credential_export",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_command"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "auth_login",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_command"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "alias",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_command"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "extension",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_command"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "paging",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_syntax"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "unreviewed_issue",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 3,
+        "normalized": "",
+        "reason": "mediator_denied:issue_review_denied"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "edited_issue",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 3,
+        "normalized": "",
+        "reason": "mediator_denied:issue_review_denied"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "graphql_mutation",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_graphql"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "graphql_crossrepo",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_graphql"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "graphql_paging",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "unsupported_graphql"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "api_extra_fields",
+      "classification": "unsupported",
+      "direct": null,
+      "mediated": {
+        "exit": 2,
+        "normalized": "",
+        "reason": "json_input_invalid"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "b",
+      "run_id": "exp100-paired-s11-20261010-a-b"
+    },
+    {
+      "case": "confirmed_replay",
+      "classification": "different-but-authorized",
+      "direct": null,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+          "number": 10,
+          "title": "Paired reviewed issue"
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "altered_effect",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 3,
+        "normalized": "",
+        "reason": "mediator_denied:effect_conflict"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "changed_pr_snapshot",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 3,
+        "normalized": "",
+        "reason": "mediator_denied:pr_snapshot_changed"
+      },
+      "provider_delta": 2,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "lost_response",
+      "classification": "unknown",
+      "direct": {
+        "exit": 1,
+        "normalized": ""
+      },
+      "direct_write_delta": 1,
+      "mediated": {
+        "exit": 4,
+        "normalized": "",
+        "reason": "effect_unknown_no_retry"
+      },
+      "provider_delta": 3,
+      "provider_write_delta": 1,
+      "run": "b",
+      "run_id": "exp100-paired-s11-20261010-a-b"
+    },
+    {
+      "case": "unknown_replay",
+      "classification": "unknown",
+      "direct": null,
+      "mediated": {
+        "exit": null,
+        "normalized": "unknown",
+        "reason": "unclassified",
+        "source": "host_saved_request"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "b",
+      "run_id": "exp100-paired-s11-20261010-a-b"
+    },
+    {
+      "case": "revoked_a",
+      "classification": "denied",
+      "direct": null,
+      "mediated": {
+        "exit": 3,
+        "normalized": "",
+        "reason": "mediator_denied:grant_unavailable"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "case": "live_b",
+      "classification": "equivalent",
+      "direct": {
+        "exit": 0,
+        "normalized": [
+          {
+            "body": "Existing body",
+            "number": 9,
+            "title": "Existing issue"
+          },
+          {
+            "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+            "number": 10,
+            "title": "Paired reviewed issue"
+          }
+        ]
+      },
+      "direct_write_delta": 0,
+      "mediated": {
+        "exit": 0,
+        "normalized": [
+          {
+            "body": "Existing body",
+            "number": 9,
+            "title": "Existing issue"
+          },
+          {
+            "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+            "number": 10,
+            "title": "Paired reviewed issue"
+          }
+        ],
+        "reason": "unclassified"
+      },
+      "provider_delta": 1,
+      "provider_write_delta": 0,
+      "run": "b",
+      "run_id": "exp100-paired-s11-20261010-a-b"
+    },
+    {
+      "case": "credential_inventory",
+      "classification": "different-but-authorized",
+      "direct": null,
+      "mediated": {
+        "exit": 0,
+        "normalized": {
+          "capability_mount_readonly": true,
+          "env_keys": [
+            "GIT_AUTHOR_DATE",
+            "GIT_COMMITTER_DATE",
+            "GIT_CONFIG_GLOBAL",
+            "GIT_CONFIG_NOSYSTEM",
+            "HOME",
+            "LAOMEDO_BASE_BRANCH",
+            "LAOMEDO_CAPABILITY_FILE",
+            "LAOMEDO_MEDIATOR_INSTANCE",
+            "LAOMEDO_MEDIATOR_URL",
+            "LAOMEDO_REPOSITORY",
+            "LAOMEDO_RUN_BRANCH",
+            "NODE_VERSION",
+            "PATH",
+            "YARN_VERSION"
+          ],
+          "host_config_present": false,
+          "mount_destinations": [
+            "/draft",
+            "/run/laomedo/bin",
+            "/run/laomedo/capability",
+            "/run/laomedo/gh.mjs",
+            "/run/laomedo/git-remote.mjs",
+            "/run/laomedo/mediate.mjs"
+          ],
+          "reusable_credential_present": false
+        },
+        "reason": "unclassified"
+      },
+      "provider_delta": 0,
+      "provider_write_delta": 0,
+      "run": "a",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    }
+  ],
+  "cleanup_elapsed_seconds": 1.9060000000026776,
+  "cleanup_reports": [
+    {
+      "run": "a",
+      "verified": true
+    },
+    {
+      "run": "b",
+      "verified": true
+    }
+  ],
+  "cleanup_verified": true,
+  "direct_git_receives": [
+    [
+      "0000000000000000000000000000000000000000",
+      "9547b4ba88d3946a036dcbe7182e7fd0dd5ccdb8",
+      "refs/heads/run-branch"
+    ],
+    [
+      "9547b4ba88d3946a036dcbe7182e7fd0dd5ccdb8",
+      "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4",
+      "refs/heads/run-branch"
+    ]
+  ],
+  "direct_provider_state": {
+    "issues": {
+      "9": {
+        "body": "Existing body",
+        "number": 9,
+        "title": "Existing issue"
+      },
+      "10": {
+        "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+        "number": 10,
+        "title": "Paired reviewed issue"
+      }
+    },
+    "prs": {
+      "7": {
+        "base": {
+          "ref": "develop"
+        },
+        "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+        "head": {
+          "ref": "run-branch",
+          "repo": {
+            "full_name": "example/disposable"
+          },
+          "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+        },
+        "number": 7,
+        "state": "open",
+        "title": "Paired PR"
+      },
+      "8": {
+        "base": {
+          "ref": "develop"
+        },
+        "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+        "head": {
+          "ref": "api-branch",
+          "repo": {
+            "full_name": "example/disposable"
+          },
+          "sha": "6342dacccb99a2f7be31a3476038d7ffacf1bc43"
+        },
+        "number": 8,
+        "state": "open",
+        "title": "Lost response PR"
+      }
+    }
+  },
+  "direct_rest_calls": [
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/pulls",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls",
+      "write": false
+    },
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/pulls",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues/9",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues",
+      "write": false
+    },
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/issues",
+      "write": true
+    },
+    {
+      "method": "POST",
+      "path": "/graphql",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/actions/runs",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/actions/jobs/21",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues/9",
+      "write": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/repos/example/disposable/pulls/8",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues",
+      "write": false
+    }
+  ],
+  "direct_write_count": 7,
+  "effect_records": [
+    {
+      "effect_id": "changed-snapshot",
+      "grant_id": "fc1f7c5a63bf88c13114035655732f47",
+      "invocation_id": "exp100-paired-s11-20261010-a-a-invocation",
+      "operation": "pr_update",
+      "run_id": "exp100-paired-s11-20261010-a-a",
+      "state": "rejected"
+    },
+    {
+      "effect_id": "issue-create",
+      "grant_id": "fc1f7c5a63bf88c13114035655732f47",
+      "invocation_id": "exp100-paired-s11-20261010-a-a-invocation",
+      "operation": "issue_create",
+      "run_id": "exp100-paired-s11-20261010-a-a",
+      "state": "confirmed"
+    },
+    {
+      "effect_id": "native-484b63ac1d7ab3bd915706b9803af97415de759ba5a4f0d5470f3935e636d39b",
+      "grant_id": "fc1f7c5a63bf88c13114035655732f47",
+      "invocation_id": "exp100-paired-s11-20261010-a-a-invocation",
+      "operation": "git_push",
+      "run_id": "exp100-paired-s11-20261010-a-a",
+      "state": "confirmed"
+    },
+    {
+      "effect_id": "native-8c44f32ff7c7421a7112a24e483edd58d7e2e40b2d66e9d54c6366aa33bb1686",
+      "grant_id": "fc1f7c5a63bf88c13114035655732f47",
+      "invocation_id": "exp100-paired-s11-20261010-a-a-invocation",
+      "operation": "git_push",
+      "run_id": "exp100-paired-s11-20261010-a-a",
+      "state": "confirmed"
+    },
+    {
+      "effect_id": "pr-create",
+      "grant_id": "fc1f7c5a63bf88c13114035655732f47",
+      "invocation_id": "exp100-paired-s11-20261010-a-a-invocation",
+      "operation": "pr_create",
+      "run_id": "exp100-paired-s11-20261010-a-a",
+      "state": "confirmed"
+    },
+    {
+      "effect_id": "pr-edit",
+      "grant_id": "fc1f7c5a63bf88c13114035655732f47",
+      "invocation_id": "exp100-paired-s11-20261010-a-a-invocation",
+      "operation": "pr_update",
+      "run_id": "exp100-paired-s11-20261010-a-a",
+      "state": "confirmed"
+    },
+    {
+      "effect_id": "api-create",
+      "grant_id": "ef8a1a4705125c029422204fd71c79b9",
+      "invocation_id": "exp100-paired-s11-20261010-a-b-invocation",
+      "operation": "pr_create",
+      "run_id": "exp100-paired-s11-20261010-a-b",
+      "state": "confirmed"
+    },
+    {
+      "effect_id": "lost-response",
+      "grant_id": "ef8a1a4705125c029422204fd71c79b9",
+      "invocation_id": "exp100-paired-s11-20261010-a-b-invocation",
+      "operation": "pr_update",
+      "run_id": "exp100-paired-s11-20261010-a-b",
+      "state": "unknown"
+    }
+  ],
+  "git_calls": [
+    {
+      "command": "push",
+      "target": "9547b4ba88d3946a036dcbe7182e7fd0dd5ccdb8:refs/heads/run-branch"
+    },
+    {
+      "command": "push",
+      "target": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4:refs/heads/run-branch"
+    },
+    {
+      "command": "ls-remote",
+      "target": "refs/heads/run-branch"
+    },
+    {
+      "command": "ls-remote",
+      "target": "refs/heads/run-branch"
+    }
+  ],
+  "git_local_steps": {
+    "direct": [
+      {
+        "command": [
+          "status",
+          "--porcelain"
+        ],
+        "exit": 0,
+        "output_sha256": "751546e66b804250ade786340b66b04ec19ebf2b0fd06e3cfba9e2a2db9f824b"
+      },
+      {
+        "command": [
+          "diff",
+          "--",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "add",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "-c",
+          "user.name=Fixture",
+          "-c",
+          "user.email=fixture@example.invalid",
+          "commit",
+          "-qm",
+          "first"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "status",
+          "--porcelain"
+        ],
+        "exit": 0,
+        "output_sha256": "8405c55b44b707db966faae55277b4f64f0bf1baa656c92ee47e7540d1a54a55"
+      },
+      {
+        "command": [
+          "diff",
+          "--",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "f7c53768538ae252212bf73e0e376d1886443ffa0135cd68045044fce22ae8c6"
+      },
+      {
+        "command": [
+          "add",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "-c",
+          "user.name=Fixture",
+          "-c",
+          "user.email=fixture@example.invalid",
+          "commit",
+          "-qm",
+          "second"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      }
+    ],
+    "mediated": [
+      {
+        "command": [
+          "status",
+          "--porcelain"
+        ],
+        "exit": 0,
+        "output_sha256": "751546e66b804250ade786340b66b04ec19ebf2b0fd06e3cfba9e2a2db9f824b"
+      },
+      {
+        "command": [
+          "diff",
+          "--",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "add",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "-c",
+          "user.name=Fixture",
+          "-c",
+          "user.email=fixture@example.invalid",
+          "commit",
+          "-qm",
+          "first"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "status",
+          "--porcelain"
+        ],
+        "exit": 0,
+        "output_sha256": "8405c55b44b707db966faae55277b4f64f0bf1baa656c92ee47e7540d1a54a55"
+      },
+      {
+        "command": [
+          "diff",
+          "--",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "f7c53768538ae252212bf73e0e376d1886443ffa0135cd68045044fce22ae8c6"
+      },
+      {
+        "command": [
+          "add",
+          "change.txt"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      },
+      {
+        "command": [
+          "-c",
+          "user.name=Fixture",
+          "-c",
+          "user.email=fixture@example.invalid",
+          "commit",
+          "-qm",
+          "second"
+        ],
+        "exit": 0,
+        "output_sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+      }
+    ]
+  },
+  "grant_cleanup_reports": [
+    {
+      "run": "a",
+      "verified": true
+    },
+    {
+      "run": "b",
+      "verified": true
+    }
+  ],
+  "grants": [
+    {
+      "connection_generation": 1,
+      "connection_id": "exp100-paired-s11-20261010-a",
+      "grant_id": "fc1f7c5a63bf88c13114035655732f47",
+      "run_id": "exp100-paired-s11-20261010-a-a"
+    },
+    {
+      "connection_generation": 1,
+      "connection_id": "exp100-paired-s11-20261010-a",
+      "grant_id": "ef8a1a4705125c029422204fd71c79b9",
+      "run_id": "exp100-paired-s11-20261010-a-b"
+    }
+  ],
+  "identity": "exp100-paired-s11-20261010-a",
+  "image": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "manifest_sha256": "c15b68968444cfe8ec1cfd60aa61f0ef5c16c8f7f10bb40abe900bb78d82126c",
+  "mediated_provider_state": {
+    "issues": {
+      "9": {
+        "body": "Existing body",
+        "number": 9,
+        "title": "Existing issue"
+      },
+      "10": {
+        "body": "exp100-paired-s11-20261010-a-reviewed-request\nReviewed fixture body",
+        "number": 10,
+        "title": "Paired reviewed issue"
+      }
+    },
+    "prs": {
+      "7": {
+        "base": {
+          "ref": "develop"
+        },
+        "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+        "head": {
+          "ref": "run-branch",
+          "repo": {
+            "full_name": "example/disposable"
+          },
+          "sha": "c13d5d93dceda90ae9e13d4d4b90a0445b1048c4"
+        },
+        "number": 7,
+        "state": "open",
+        "title": "Paired PR"
+      },
+      "8": {
+        "base": {
+          "ref": "develop"
+        },
+        "body": "exp100-paired-s11-20261010-a-reviewed-request\nFinal checked body",
+        "head": {
+          "ref": "api-branch",
+          "repo": {
+            "full_name": "example/disposable"
+          },
+          "sha": "6342dacccb99a2f7be31a3476038d7ffacf1bc43"
+        },
+        "number": 8,
+        "state": "open",
+        "title": "Lost response PR"
+      }
+    }
+  },
+  "mediated_rest_calls": [
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/pulls",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls",
+      "write": false
+    },
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/pulls",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues/9",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues",
+      "write": false
+    },
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/issues",
+      "write": true
+    },
+    {
+      "method": "POST",
+      "path": "/graphql",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/actions/runs",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/actions/jobs/21",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues/9",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/8",
+      "write": false
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/8",
+      "write": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/repos/example/disposable/pulls/8",
+      "write": true
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/issues",
+      "write": false
+    }
+  ],
+  "mediated_write_count": 7,
+  "model_turns": 0,
+  "real_provider_calls": 0,
+  "result": "passed",
+  "source_sha": "2b931242fc34c65746cfb3a98deb118ed821b2a1",
+  "spec_sha": "193fdfb2c31e71745943039c05e14d5d72e8309e",
+  "stage_cleanup_reports": [
+    {
+      "cleanup_verified": true,
+      "detail": "absent_after_stage"
+    },
+    {
+      "cleanup_verified": true,
+      "detail": "absent_after_stage"
+    }
+  ],
+  "unknown_effect": {
+    "effect_id": "lost-response",
+    "run_id": "exp100-paired-s11-20261010-a-b",
+    "state": "unknown"
+  }
+}

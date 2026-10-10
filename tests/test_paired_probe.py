@@ -14,6 +14,24 @@ from pathlib import Path
 
 
 class PairedProbeTests(unittest.TestCase):
+    def test_committed_original_observation_and_actual_negative_controls(self):
+        source = Path(__file__).resolve().parents[1] / 'experiments/exp100/PAIRED-OBSERVATION.json'
+        raw = source.read_bytes()
+        self.assertEqual(sha256(raw).hexdigest(), '4165c588ccf3e5251322a4baaa3e8e0d8bb2d30d8753850f8d782acaa715b1af')
+        observed = json.loads(raw); check(observed)
+        self.assertEqual(observed['result'], 'passed')
+        for change in ('wrong-grant', 'balanced-writes', 'false-refusal', 'confirmed-unknown'):
+            invalid = deepcopy(observed)
+            if change == 'wrong-grant': invalid['effect_records'][0]['grant_id'] = 'other-grant'
+            elif change == 'balanced-writes':
+                next(row for row in invalid['cases'] if row['case'] == 'pr_create_file')['provider_write_delta'] = 0
+                next(row for row in invalid['cases'] if row['case'] == 'pr_edit_stdin')['provider_write_delta'] = 2
+            elif change == 'false-refusal':
+                next(row for row in invalid['cases'] if row['case'] == 'altered_effect')['mediated']['reason'] = 'unclassified'
+            else:
+                next(row for row in invalid['effect_records'] if row['effect_id'] == 'lost-response')['state'] = 'confirmed'
+            with self.subTest(change=change), self.assertRaises(ValueError): check(invalid)
+
     @unittest.skipUnless(shutil.which('git'), 'Git unavailable')
     def test_receiver_journal_measures_actual_updates_not_repeat(self):
         with tempfile.TemporaryDirectory() as folder:
