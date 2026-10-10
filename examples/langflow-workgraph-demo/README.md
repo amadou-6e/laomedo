@@ -38,6 +38,14 @@ this fake runner preserved physical files during interruption; the graph retains
 the supplied partial-evidence references. A live Codex run and verified real
 draft PR remain separate gates under #138 and #139.
 
+The evidence amendment incorporates #135's reviewed continuation and precheck
+preservation fixes, freezes the combined source again, and reruns the same six
+handwritten expectations. The original evidence remains in Git history at
+`cd4201c`; the current evidence names the amended frozen source. Native runner
+responses do not yet establish `evidence_complete=true`, so the live publication
+gate remains unresolved under #139. This demo's explicit fixture value must not
+be taken as evidence that the live gate already passes.
+
 For interactive inspection, import `flow.json` into the pinned Langflow editor.
 The exported runner URL is a loopback fixture endpoint, not a live configured
 service. Do not point the demo at a real runner and treat simulated publication
