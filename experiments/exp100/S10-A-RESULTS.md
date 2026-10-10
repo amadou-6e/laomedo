@@ -13,6 +13,11 @@ push failed. One local provider push, zero REST calls, no PR. The helper journal
 for the first commit is confirmed; the second is freeze_requested. Exact agent
 and stage cleanup verified. The identity is consumed and will never run again.
 
+Post-run review clarified the fetch limit: the agent clone already contained
+the base object, so only provider ref listing occurred. There is no host
+transport fetch in the observation. A does not prove object acquisition,
+bundle import or the fetch delivery recheck; B must explicitly exercise them.
+
 Read-only diagnosis: `bundle_ingest._require_reconciled_prior_attempts` permits
 only refused/no-input predecessors. It rejects a frozen predecessor even after
 verification and a confirmed push; the native helper's second freeze therefore

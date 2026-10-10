@@ -33,6 +33,12 @@ already-existing provider branch for a corrective invocation; that path
 still fails conservatively and can fence the branch. S10 uses an absent
 run branch and cannot establish cross-run corrective-push support.
 
+An earlier frozen stage without a confirmed push still blocks all later
+captures in that run, even after a definite push rejection. A later capture
+is eligible only after the host revalidates its preceding stage and matches
+a confirmed same-run/same-grant push digest. Unknown writes remain fenced
+before any new capture. Automatic corrective-stage recovery is not implemented.
+
 Stale locks and a frozen/capture-uncertain journal fail closed. Do not delete
 them, generate a different identity or make a new commit to bypass them:
 those actions do not resolve the preceding uncertainty. Automatic capture

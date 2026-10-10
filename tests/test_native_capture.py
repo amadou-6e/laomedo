@@ -15,8 +15,10 @@ class NativeCaptureChecks(unittest.TestCase):
     def fixture(self):
         first, second = "a" * 40, "b" * 40
         return {"first": first, "second": second, "baseline": "c" * 40, "fetchedBase": "c" * 40,
+            "provider_base": "c" * 40, "provider_base_absent_before_fetch": True,
             "git_calls": [{"command": "push", "target": commit + ":refs/heads/run-branch"}
-                          for commit in (first, second)],
+                          for commit in (first, second)] + [{"command": "fetch",
+                              "target": "refs/heads/develop:refs/heads/laomedo-read"}],
             "rest_calls": [{"method": "POST"}], "provider_commit": second,
             "provider_body": "checked", "finalBody": "checked", "checkoutClean": True,
             "agent_owned": True, "agent_alive": True,
@@ -46,6 +48,8 @@ class NativeCaptureChecks(unittest.TestCase):
                      lambda v: v.update(provider_commit="d" * 40),
                      lambda v: v.update(provider_body="unchecked"),
                      lambda v: v.update(agent_alive=False),
+                     lambda v: v.update(provider_base_absent_before_fetch=False),
+                     lambda v: v["git_calls"].pop(),
                      lambda v: v["outcomes"][0].update(status=0),
                      lambda v: v["push_effects"][1].update(state="unknown"),
                      lambda v: v["negative_controls"].update(completed_freeze_created=True),

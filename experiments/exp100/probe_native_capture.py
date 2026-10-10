@@ -39,7 +39,10 @@ def validate_observation(observation):
             sum(call["method"] == "POST" for call in observation["rest_calls"]) != 1 or
             observation["provider_commit"] != observation["second"] or
             observation["provider_body"] != observation["finalBody"] or
-            observation["fetchedBase"] != observation["baseline"] or
+            observation["fetchedBase"] != observation["provider_base"] or
+            observation["provider_base_absent_before_fetch"] is not True or
+            [call["target"] for call in observation["git_calls"] if call["command"] == "fetch"] !=
+                ["refs/heads/develop:refs/heads/laomedo-read"] or
             observation["agent_owned"] is not True or observation["agent_alive"] is not True or
             observation["checkoutClean"] is not True):
         raise ValueError("positive_capture_mismatch")
@@ -99,6 +102,18 @@ def run(private, source_sha):
         subprocess.run(["git", "clone", "--quiet", "--no-local", str(trusted), str(workspace)],
                        check=True, capture_output=True, env=_base_git_environment())
         git(workspace, "checkout", "--quiet", "-b", "run-branch")
+        # The provider advances only after the clone, forcing object acquisition.
+        (trusted / "provider-only.txt").write_text("new provider base\n", encoding="ascii", newline="\n")
+        git(trusted, "add", "provider-only.txt")
+        git(trusted, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+            "commit", "--quiet", "-m", "provider-only base")
+        provider_base = git(trusted, "rev-parse", "HEAD")
+        git(trusted, "push", str(remote), "HEAD:refs/heads/develop")
+        absent = subprocess.run(["git", "-C", str(workspace), "cat-file", "-e",
+            provider_base + "^{commit}"], capture_output=True, env=_base_git_environment()).returncode != 0
+        observation.update(provider_base=provider_base, provider_base_absent_before_fetch=absent)
+        if not absent:
+            raise RuntimeError("provider_read_object_already_present")
         git(workspace, "remote", "remove", "origin")
         configure_remote(workspace, REPOSITORY)
         wrappers = prepare_commands(root, REPOSITORY, "run-branch")
@@ -204,7 +219,7 @@ def run(private, source_sha):
                 (REPOSITORY + "\nrun-branch\n" + commit).encode()).hexdigest())}
                 for commit in (result["first"], result["second"])])
         if (owned != "owned" or agent.poll() is not None or len(pushes) != 2 or
-                result["fetchedBase"] != baseline or git(remote, "rev-parse", "refs/heads/run-branch") != result["second"] or
+                result["fetchedBase"] != provider_base or git(remote, "rev-parse", "refs/heads/run-branch") != result["second"] or
                 fake.pr["body"] != result["finalBody"] or fake.pr["base"]["ref"] != "develop" or
                 sum(call["method"] == "POST" for call in fake.calls) != 1):
             raise RuntimeError("positive_control_failed")
