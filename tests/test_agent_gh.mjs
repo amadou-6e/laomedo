@@ -7,6 +7,31 @@ import { join } from 'node:path';
 
 const context = { repository: 'example/disposable', effect: 'effect-1', marker: 'marker' };
 const body = 'marker\r\nUnicode: λ\n';
+test('issue view uses fixed selected REST read and rejects a PR or mismatched identity', async () => {
+  const calls = [];
+  const args = ['issue', 'view', '7'];
+  const deps = { mediate: request => { calls.push(request);
+    return { state: 'confirmed', result: { number: 7, title: 'Issue' } }; } };
+  assert.equal((await execute(args, context, deps)).number, 7);
+  assert.deepEqual(calls[0], { repository: context.repository, operation: 'api_rest_read',
+    payload: { method: 'GET', path: '/repos/example/disposable/issues/7' } });
+  for (const result of [{ number: 8 }, { number: 7, pull_request: {} }, null]) {
+    await assert.rejects(execute(args, context, { mediate: () => ({ state: 'confirmed', result }) }),
+      /issue_readback_invalid/);
+  }
+});
+test('issue create carries review identity without granting or trusting it', async () => {
+  const args = ['issue', 'create', '--title', 'Title', '--body-file', '-'];
+  const planned = plan(args, { ...context, reviewedProposal: 'review-7' }, () => body);
+  assert.deepEqual(planned.request, { repository: context.repository, operation: 'issue_create',
+    payload: { title: 'Title', body, marker: 'marker', reviewed_proposal_id: 'review-7' }, effect_id: 'effect-1' });
+  let calls = 0;
+  await assert.rejects(execute(args, context, { readBody: () => body, mediate: () => { calls++; } }),
+    /reviewed_proposal_required/);
+  assert.equal(calls, 0);
+  await assert.rejects(execute(args, { ...context, reviewedProposal: 'review-7' }, {
+    readBody: () => body, mediate: () => ({ error: 'issue_review_denied' }) }), failure => failure.exit === 3);
+});
 test('classified API POST is identical to the authorized PR create request', () => {
   const input = { title: 'Title', body, head: 'branch', base: 'main' };
   const viaApi = plan(['api', 'repos/example/disposable/pulls', '--method', 'POST', '--input', '-'],

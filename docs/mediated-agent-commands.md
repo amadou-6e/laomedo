@@ -77,6 +77,17 @@ guarantee. These operations require their own trusted grants. The current
 first-slice authority and LocalRunner do not issue them: adding the command
 does not enlarge any existing approval or claim agent-stage acceptance.
 
+`gh issue view NUMBER` is an exact selected-repository issue GET through an
+explicitly granted `api_rest_read`; it rejects a mismatched issue number or a
+PR returned by GitHub's issues endpoint. `gh issue create --title TITLE --body
+BODY` (or `--body-file FILE`/stdin) emits the existing `issue_create` operation
+only with `LAOMEDO_REVIEWED_PROPOSAL_ID`, effect identity and body marker. The
+proposal label is not authorization: the host compares the full request to its
+exact reviewed snapshot. Edited/unreviewed drafts are refused before publication.
+These commands require a trusted separately issued scope; existing authority
+and LocalRunner first-slice sets still do not issue issue-publication grants.
+This does not bypass review, grant defaults, or claim paired acceptance evidence.
+
 For writes, explicitly set `LAOMEDO_EFFECT_ID` and
 `LAOMEDO_RECONCILIATION_MARKER` and include that marker in the body. A stable
 effect ID identifies the **exact** request, not a command that may be edited

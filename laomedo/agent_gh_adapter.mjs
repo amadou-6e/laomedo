@@ -50,7 +50,8 @@ export function plan(argv, context, readBody) {
     kind = argv.slice(0, 2).join(' '); tail = argv.slice(2);
     if (kind === 'pr create') permitted.push('--title', '--body', '--body-file', '--head', '--base');
     else if (kind === 'pr edit') permitted.push('--title', '--body', '--body-file');
-    else if (!['pr view', 'pr list', 'issue list', 'run list'].includes(kind)) fail('unsupported_command');
+    else if (kind === 'issue create') permitted.push('--title', '--body', '--body-file');
+    else if (!['pr view', 'pr list', 'issue view', 'issue list', 'run list'].includes(kind)) fail('unsupported_command');
   }
   const { flags, positional } = options(tail, permitted);
   if (flags['--repo'] && flags['--repo'] !== repository) fail('repository_mismatch');
@@ -62,6 +63,12 @@ export function plan(argv, context, readBody) {
   if (kind === 'pr view') {
     if (positional.length !== 1) fail('unsupported_syntax');
     return { request: request('pr_read', { number: positive(positional[0]) }) };
+  }
+  if (kind === 'issue view') {
+    if (positional.length !== 1) fail('unsupported_syntax');
+    const number = positive(positional[0]);
+    return { request: request('api_rest_read', {
+      method: 'GET', path: '/repos/' + repository + '/issues/' + number }), issueView: number };
   }
   if (kind === 'run list') {
     if (positional.length) fail('unsupported_syntax');
@@ -93,10 +100,15 @@ export function plan(argv, context, readBody) {
   }
   if (!/^[A-Za-z0-9_.-]{1,128}$/.test(context.effect ?? '') || !context.marker) fail('durable_effect_required');
   if (!flags['--title']) fail('explicit_title_required');
+  if (kind === 'issue create' && (positional.length ||
+      !/^[A-Za-z0-9_.-]{1,128}$/.test(context.reviewedProposal ?? ''))) fail('reviewed_proposal_required');
   if (kind === 'pr create' && (positional.length || !flags['--head'] || !flags['--base'])) fail('explicit_target_required');
   if (kind === 'pr edit' && positional.length !== 1) fail('unsupported_syntax');
   const content = body(flags, readBody), title = bounded(flags['--title']);
   if (!content.includes(context.marker)) fail('reconciliation_marker_required');
+  if (kind === 'issue create') return { request: {
+    ...request('issue_create', { title, body: content, marker: context.marker,
+      reviewed_proposal_id: context.reviewedProposal }), effect_id: context.effect } };
   if (kind === 'pr create') return { request: {
     ...request('pr_create', { title, body: content, head: flags['--head'], base: flags['--base'], marker: context.marker }),
     effect_id: context.effect } };
@@ -106,7 +118,12 @@ export function plan(argv, context, readBody) {
 
 export async function execute(argv, context, dependencies) {
   const planned = plan(argv, context, dependencies.readBody);
-  if (planned.request) return confirmed(await dependencies.mediate(planned.request));
+  if (planned.request) {
+    const result = confirmed(await dependencies.mediate(planned.request));
+    if (planned.issueView && (result?.number !== planned.issueView ||
+        Object.hasOwn(result, 'pull_request'))) fail('issue_readback_invalid');
+    return result;
+  }
   const existing = confirmed(await dependencies.mediate({ repository: planned.repository,
     operation: 'pr_read', payload: { number: planned.edit.number } }));
   if (existing?.number !== planned.edit.number || existing?.head?.repository !== planned.repository ||
@@ -144,7 +161,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const result = await execute(process.argv.slice(2), {
       repository: process.env.LAOMEDO_REPOSITORY, effect: process.env.LAOMEDO_EFFECT_ID,
-      marker: process.env.LAOMEDO_RECONCILIATION_MARKER }, { readBody, mediate });
+      marker: process.env.LAOMEDO_RECONCILIATION_MARKER,
+      reviewedProposal: process.env.LAOMEDO_REVIEWED_PROPOSAL_ID }, { readBody, mediate });
     process.stdout.write(JSON.stringify(result) + '\n');
   } catch (failure) {
     process.stderr.write((failure instanceof AdapterError ? failure.message : 'adapter_input_failed') + '\n');
