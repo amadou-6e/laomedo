@@ -40,6 +40,14 @@ class ProjectionTests(unittest.TestCase):
             result = _command_summary(events, "turn-1")
             self.assertTrue(result["identity_incomplete"] or result["outstanding_ids"])
 
+    def test_missing_status_needs_integer_exit_code(self):
+        for fields, outstanding in (({}, ["exec-1"]), ({"exitCode": True}, ["exec-1"]),
+                                    ({"exitCode": 0}, []), ({"exitCode": 1}, []),
+                                    ({"status": {"unexpected": "shape"}}, ["exec-1"])):
+            with self.subTest(fields=fields):
+                result = _command_summary([command("item/completed", **fields)], "turn-1")
+                self.assertEqual(result["outstanding_ids"], outstanding)
+
 
 class RunnerTests(unittest.TestCase):
     setUp = fixtures.LocalRunnerTests.setUp

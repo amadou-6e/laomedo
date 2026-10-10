@@ -614,10 +614,13 @@ def _command_summary(events: list[dict], turn_id: str) -> dict:
         if method == "item/commandExecution/outputDelta" or item.get("aggregatedOutput"):
             command["output_event_indices"].append(index)
         if method == "item/completed" and item.get("status") != "inProgress":
-            observed = item.get("status") or "completed"
+            observed = item.get("status")
+            if observed is None and type(item.get("exitCode")) is int:
+                observed = "completed"
             terminal = {"completed", "failed", "declined", "cancelled", "interrupted"}
-            command["completion_observed"] = observed in terminal
-            command["status"] = observed if observed in terminal else "unknown"
+            terminal_observed = isinstance(observed, str) and observed in terminal
+            command["completion_observed"] = terminal_observed
+            command["status"] = observed if terminal_observed else "unknown"
             code = item.get("exitCode")
             command["exit_code"] = code if type(code) is int else None
         elif method == "item/started":
