@@ -570,7 +570,7 @@ class LaomedoCodexAgent(Component):
             reference.setdefault("trace_ref", self._prior_trace_ref)
             reference.setdefault("request_id", self._stop_request_id)
         category = reference.get("error_category")
-        if category and category not in _ROUTABLE_ERRORS:
+        if category is not None and (not isinstance(category, str) or category not in _ROUTABLE_ERRORS):
             reference = {**reference, "error_category": "runner_runtime_unknown"}
         answer = reference.get("answer")
         submission = None
