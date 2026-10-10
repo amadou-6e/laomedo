@@ -466,6 +466,29 @@ class LocalRunnerTests(unittest.TestCase):
                                expected_thread_id=first["thread_id"],
                                model="test-model", effort="low")
 
+    def test_resume_binding_refusals_do_not_open_transport_or_spend_a_turn(self):
+        first = self.runner.start(self.request())
+        args = dict(expected_post_run_hash=first["post_run_hash"],
+                    expected_thread_id=first["thread_id"], model="test-model", effort="low")
+        record_path = self.runner._run_dir(first["run_id"]) / "record.json"
+        original = record_path.read_bytes()
+        ledger_before = (self.runner.state / "turn-ledger.json").read_bytes()
+        calls_before = len(FakeServer.calls)
+        for field, replacement in (("profile", "another-private-profile"),
+                                   ("thread_id", "another-thread"),
+                                   ("post_run_hash", "sha256:" + "0" * 64)):
+            with self.subTest(field=field):
+                record = json.loads(original)
+                record[field] = replacement
+                record_path.write_text(json.dumps(record))
+                try:
+                    with self.assertRaisesRegex(RunnerError, "resume_binding_mismatch"):
+                        self.runner.resume(first["run_id"], "continue", **args)
+                    self.assertEqual(len(FakeServer.calls), calls_before)
+                    self.assertEqual((self.runner.state / "turn-ledger.json").read_bytes(), ledger_before)
+                finally:
+                    record_path.write_bytes(original)
+
     def test_empty_directory_change_invalidates_workspace_hash(self):
         first = self.runner.start(self.request())
         snapshot = self.runner._run_dir(first["run_id"]) / "post-run"
