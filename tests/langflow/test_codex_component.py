@@ -172,6 +172,17 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(output["error_category"], "runner_request_identity_mismatch")
         self.assertNotIn("foreign", json.dumps(output))
 
+    async def test_submission_does_not_echo_unstructured_error_category(self):
+        for category in ({"secret": "NOT_A_PUBLIC_CODE"}, [], False, 99):
+            node = component(request_id=RUN)
+            native = result(status="failed", client_request_id=RUN, answer=None,
+                            error_category=category)
+            with self.subTest(category=category), patch.object(node, "_token", return_value="synthetic"), \
+                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(native).encode())):
+                output = (await node.submission_output()).data
+            self.assertEqual(output["error_category"], "runner_runtime_unknown")
+            self.assertNotIn("NOT_A_PUBLIC_CODE", json.dumps(output))
+
     async def test_all_three_outputs_share_dispatch(self):
         node = component(request_id=RUN)
         with patch.object(node, "_token", return_value="synthetic"), \
