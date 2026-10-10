@@ -14,7 +14,8 @@ def assess(value):
         require(int(units[side]['MainPID']) == runner['pid'] and
                 type(runner['child']) is int and runner['child'] != runner['pid'] and
                 bool(runner['grant_id']), 'runner_binding_missing')
-        require(all(units[side]['ControlGroup'] in value['membership'][side][key]
+        require(all(units[side]['ControlGroup'] in
+                    {line.split(':', 2)[-1] for line in value['membership'][side][key].splitlines()}
                     for key in ('pid', 'child')), 'child_membership_missing')
     for side in ('a', 'b'):
         require(value[side + '_initial']['body']['state'] == 'confirmed', 'positive_failed')
