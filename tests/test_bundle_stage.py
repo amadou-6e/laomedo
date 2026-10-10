@@ -13,7 +13,7 @@ from laomedo.bundle_stage import (BundleStageError, MEMORY_BYTES, SCRIPT,
                                   PINNED_IMAGE_ID,
                                   _export_binary, _read_frozen,
                                   _single_bundle_commit,
-                                  verify_frozen_bundle)
+                                  verify_frozen_bundle, SCRIPT_LF_SHA256)
 
 
 IMAGE_ID = PINNED_IMAGE_ID
@@ -100,7 +100,7 @@ class BundleStageTests(unittest.TestCase):
         removed = False
         started = False
         exported = self.exported_bytes if output is None else output
-        config = {"Image": IMAGE_ID,
+        config = {"Image": IMAGE_ID, "Id": "c" * 64,
                   "HostConfig": {"NetworkMode": network, "ReadonlyRootfs": True,
                                  "Memory": MEMORY_BYTES, "PidsLimit": 32,
                                  "Tmpfs": {"/stage": "rw,nosuid,noexec,size=32m"},
@@ -118,13 +118,18 @@ class BundleStageTests(unittest.TestCase):
             commands.append(args)
             operation = args[1]
             if operation == "inspect":
+                name = commands[0][commands[0].index("--name") + 1]
+                config["Name"] = "/" + name
+                label = next(value for value in commands[0]
+                             if value.startswith("laomedo.bundle-stage-token="))
+                config["Config"]["Labels"]["laomedo.bundle-stage-token"] = label.split("=", 1)[1]
                 config["State"] = {"Running": started and success and not removed,
                                    "ExitCode": 0 if success else 128}
                 config["Config"]["Labels"]["laomedo.bundle-stage"] = \
                     commands[0][commands[0].index("--name") + 1]
                 return subprocess.CompletedProcess(
                     args, 1 if (removed and cleanup) else 0,
-                    json.dumps([config]), "")
+                    json.dumps([config]), "No such object: removed" if removed and cleanup else "")
             if operation == "start":
                 started = True
                 return subprocess.CompletedProcess(args, 0, "", "")
@@ -190,6 +195,10 @@ class BundleStageTests(unittest.TestCase):
         self.assertIn("target=/baseline.bundle,readonly", create)
         self.assertNotIn("GH_TOKEN", create)
         self.assertTrue(SCRIPT.is_file())
+        staged_script = self.private / "run-a" / "attempt-1" / "verify.sh"
+        self.assertNotIn(b"\r", staged_script.read_bytes())
+        self.assertEqual(hashlib.sha256(staged_script.read_bytes()).hexdigest(),
+                         SCRIPT_LF_SHA256)
         with self.assertRaisesRegex(BundleStageError,
                                     "verification_identity_consumed"):
             self._verify(docker, export)

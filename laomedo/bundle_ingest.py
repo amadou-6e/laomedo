@@ -86,8 +86,9 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
     branch = scope.get("branch")
     repository = scope.get("repository")
     baseline = record.get("git_baseline")
+    status = record.get("status")
     if (record.get("run_id") != run_id or
-            record.get("status") != "completed" or
+            (status != "running" and status != "completed") or
             record.get("workspace_mode") != "git" or
             not isinstance(branch, str) or not _BRANCH.fullmatch(branch) or
             branch.startswith("/") or ".." in branch or
@@ -99,10 +100,31 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
     if (_redirected(workspace) or not workspace.is_dir() or
             workspace.resolve(strict=True).parent != run_dir.resolve(strict=True)):
         raise BundleIngestError("run_binding_invalid")
-    return run_dir, {"run_id": run_id,
-                     "run_record_sha256": hashlib.sha256(record_bytes).hexdigest(),
-                     "repository": repository,
-                     "branch": branch, "baseline": baseline}
+    binding = {"run_id": run_id, "repository": repository,
+               "branch": branch, "baseline": baseline}
+    if status == "running":
+        # record.json gains thread, turn and credential observations during a
+        # live invocation. Bind only the host-owned launch/lease identity;
+        # the mediator separately rechecks that this grant is still valid.
+        owner = record.get("container_ownership")
+        if (not isinstance(owner, dict) or owner.get("supervised") is not True or
+                owner.get("cleanup_verified") is not False or
+                any(not isinstance(owner.get(key), str) or
+                    not _IDENTITY.fullmatch(owner[key]) for key in
+                    ("name", "launch_token", "grant_id"))):
+            raise BundleIngestError("run_binding_invalid")
+        stable = {**binding, "workspace_mode": "git",
+                  "grant_id": owner["grant_id"],
+                  "launch_token": owner["launch_token"],
+                  "container_name": owner["name"]}
+        encoded = json.dumps(stable, sort_keys=True,
+                             separators=(",", ":")).encode("utf-8")
+        binding.update(binding_mode="active", grant_id=owner["grant_id"],
+                       run_binding_sha256=hashlib.sha256(encoded).hexdigest())
+    else:
+        # Preserve the completed-record format of the earlier local probes.
+        binding["run_record_sha256"] = hashlib.sha256(record_bytes).hexdigest()
+    return run_dir, binding
 
 
 def _bundle_bytes(path: Path) -> bytes:
@@ -145,7 +167,7 @@ def _durable_json(path: Path, value: dict) -> None:
             os.close(descriptor)
 
 
-def _require_reconciled_prior_attempts(run_home: Path) -> None:
+def _require_reconciled_prior_attempts(run_home: Path, prior_attempt_authorizer=None) -> None:
     """Never let an unverified or unknown freeze be superseded silently."""
     for prior in run_home.iterdir():
         if _redirected(prior) or not prior.is_dir():
@@ -161,13 +183,20 @@ def _require_reconciled_prior_attempts(run_home: Path) -> None:
             result = json.loads(raw)
         except (OSError, ValueError) as error:
             raise BundleIngestError("attempt_unreconciled") from error
+        if isinstance(result, dict) and result.get("status") == "frozen" and prior_attempt_authorizer is not None:
+            try:
+                authorized = prior_attempt_authorizer(prior.name) is True
+            except Exception:
+                authorized = False
+            if authorized:
+                continue
         if (not isinstance(result, dict) or result.get("status") != "refused" or
                 (prior / "input.bundle").exists()):
             raise BundleIngestError("attempt_unreconciled")
 
 
 def freeze_run_bundle(runner_state: Path, private_root: Path, *, run_id: str,
-                      attempt_id: str) -> dict:
+                      attempt_id: str, prior_attempt_authorizer=None) -> dict:
     """Save exact agent bytes under a host-private, one-shot run identity.
 
     A returned ``frozen`` status is **not** Git verification or push approval.
@@ -195,7 +224,9 @@ def freeze_run_bundle(runner_state: Path, private_root: Path, *, run_id: str,
         attempt = run_home / attempt_id
         if attempt.exists() or attempt.is_symlink():
             raise BundleIngestError("attempt_already_reserved")
-        _require_reconciled_prior_attempts(run_home)
+        # Only a trusted host callback may recognize a fully verified and
+        # confirmed prior delivery; no agent request can set this callback.
+        _require_reconciled_prior_attempts(run_home, prior_attempt_authorizer)
         try:
             attempt.mkdir(mode=0o700)
         except FileExistsError as error:

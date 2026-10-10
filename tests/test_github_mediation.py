@@ -1,8 +1,12 @@
 """Zero-credential checks of the durable mediated-write boundary."""
 
 from pathlib import Path
+from contextlib import closing
+from types import SimpleNamespace
+import sqlite3
 import tempfile
 import threading
+import time
 import unittest
 
 from laomedo.github_mediation import KnownRejected, MediationError, MediationStore
@@ -61,6 +65,100 @@ class MediationTests(unittest.TestCase):
         self.assert_code("effect_conflict", lambda: self.invoke(
             token, "git_push", {"branch": "run-a-branch", "commit": "b" * 40}, "effect-1"))
         self.assertEqual(len(self.calls), 1)
+
+    def test_legacy_effect_table_adds_attribution_without_rewriting_history(self):
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("DROP TABLE effects")
+            db.execute("""CREATE TABLE effects (
+                run_id TEXT NOT NULL, effect_id TEXT NOT NULL,
+                request_hash TEXT NOT NULL, repository TEXT NOT NULL,
+                operation TEXT NOT NULL, target_key TEXT NOT NULL,
+                state TEXT NOT NULL, result_json TEXT, error_code TEXT,
+                PRIMARY KEY(run_id,effect_id))""")
+            db.execute("INSERT INTO effects VALUES (?,?,?,?,?,?,?,?,?)",
+                       ("historic", "old", "hash", REPO, "pr_create", "target",
+                        "unknown", None, None))
+        reopened = MediationStore(self.path, now=lambda: self.clock[0])
+        _, token = reopened.issue(
+            run_id="new", invocation_id="new-invocation", repository=REPO,
+            operations={"pr_create"}, branch="new-branch", ttl_seconds=60,
+            approval_identity="test-operator")
+        result = reopened.invoke(
+            token=token, repository=REPO, operation="pr_create",
+            payload={"head": "new-branch", "base": "main", "marker": "new"},
+            effect_id="new", transport=self.transport)
+        self.assertEqual(result["state"], "confirmed")
+        with closing(sqlite3.connect(self.path)) as db:
+            rows = db.execute(
+                "SELECT run_id,grant_id,invocation_id,approval_identity FROM effects "
+                "ORDER BY run_id").fetchall()
+        self.assertEqual(rows[0], ("historic", None, None, None))
+        self.assertEqual(rows[1][0], "new")
+        self.assertEqual(rows[1][2:], ("new-invocation", "test-operator"))
+        self.assertTrue(rows[1][1])
+
+    def test_slow_workflow_classification_does_not_lock_lease_renewal(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def classify(*_):
+            started.set()
+            if not release.wait(3):
+                raise AssertionError("classification not released")
+            return False
+
+        store = MediationStore(self.path, now=lambda: self.clock[0],
+                               workflow_change_classifier=classify)
+        _, token = store.issue(
+            run_id="slow", invocation_id="invocation-slow", repository=REPO,
+            branch="slow-branch", operations={"git_push"}, ttl_seconds=50,
+            lease_token="lease-slow", lease_scope="service", service_instance="one")
+        outcome = []
+
+        def push():
+            try:
+                outcome.append(store.invoke(
+                    token=token, repository=REPO, operation="git_push",
+                    payload={"branch": "slow-branch", "commit": "a" * 40},
+                    effect_id="slow-effect", transport=self.transport))
+            except Exception as failure:
+                outcome.append(failure)
+
+        worker = threading.Thread(target=push)
+        worker.start()
+        try:
+            self.assertTrue(started.wait(1))
+            began = time.monotonic()
+            self.assertTrue(store.renew_lease(
+                run_id="slow", lease_token="lease-slow",
+                lease_scope="service", ttl_seconds=50))
+            self.assertLess(time.monotonic() - began, 1)
+        finally:
+            release.set()
+            worker.join(3)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(outcome[0]["state"], "confirmed")
+
+    def test_lease_expiry_cannot_extend_past_last_heartbeat_cap(self):
+        store = MediationStore(self.path, now=lambda: self.clock[0])
+        _, token = store.issue(
+            run_id="bounded", invocation_id="invocation-bounded", repository=REPO,
+            operations={"pr_list"}, ttl_seconds=50,
+            lease_token="lease-bounded", lease_scope="service",
+            service_instance="one", expires_not_after=1005)
+        self.clock[0] = 1004
+        self.assertTrue(store.renew_lease(
+            run_id="bounded", lease_token="lease-bounded",
+            lease_scope="service", ttl_seconds=50,
+            expires_not_after=1005))
+        self.clock[0] = 1006
+        self.assert_code("grant_unavailable", lambda: store.invoke(
+            token=token, repository=REPO, operation="pr_list", payload={},
+            effect_id=None, transport=self.transport))
+        self.assertFalse(store.renew_lease(
+            run_id="bounded", lease_token="lease-bounded",
+            lease_scope="service", ttl_seconds=50,
+            expires_not_after=1005))
 
     def test_lost_response_survives_reopen_without_resend(self):
         _, token = self.grant()
@@ -171,6 +269,73 @@ class MediationTests(unittest.TestCase):
         self.assertEqual(self.invoke(token, "pr_update", payload, "effect-1")["state"],
                          "confirmed")
 
+    def test_pr_read_is_limited_to_bound_target_and_current_head(self):
+        _, token = self.grant(operations={"pr_read"}, target_prs={7: "main"})
+        self.assert_code("pr_read_target_denied", lambda: self.invoke(
+            token, "pr_read", {"number": 8}))
+        self.assert_code("pr_read_target_invalid", lambda: self.invoke(
+            token, "pr_read", {"number": 7, "path": "/repos/other/repo"}))
+        self.assertEqual(self.calls, [])
+
+        def fetched(*_):
+            return {"number": 7, "title": "Title", "body": "Body", "base": "main",
+                    "head": {"repository": REPO, "branch": "run-a-branch",
+                             "sha": "a" * 40}}
+
+        result = self.invoke(token, "pr_read", {"number": 7}, transport=fetched)
+        self.assertEqual(result["state"], "confirmed")
+        self.assertEqual(result["result"]["body"], "Body")
+        changed = dict(fetched())
+        changed["head"] = {**changed["head"], "branch": "unapproved"}
+        self.assertEqual(self.invoke(
+            token, "pr_read", {"number": 7}, transport=lambda *_: changed),
+            {"state": "rejected", "error": "pr_target_changed"})
+        for malformed in ("unexpected", ["unexpected"], 42):
+            self.assertEqual(self.invoke(token, "pr_read", {"number": 7},
+                transport=lambda *_: {**fetched(), "head": malformed}),
+                {"state": "rejected", "error": "pr_target_changed"})
+
+    def test_revocation_after_local_freeze_preserves_uncertainty(self):
+        _, token = self.grant(operations={"git_push"})
+        captures = []
+        def capture(grant, payload):
+            captures.append(payload["attempt_id"])
+            self.store.revoke_run(grant["run_id"])
+            return {"status": "frozen"}
+        self.store.stage_freezer = capture
+        self.assertEqual(self.invoke(token, "bundle_freeze", {"attempt_id": "once"}),
+                         {"state": "unknown", "resent": False})
+        self.assertEqual(captures, ["once"])
+
+        self.assertEqual(self.calls, [])
+        self.assert_code("grant_unavailable", lambda: self.invoke(
+            token, "bundle_freeze", {"attempt_id": "once"}))
+        self.assertEqual(captures, ["once"])
+
+    def test_bundle_status_is_lookup_only_and_rechecks_exact_grant(self):
+        _, token = self.grant(operations={"git_push"})
+        payload = {"stage_attempt_id": "attempt-a", "commit": "a" * 40}
+        lookups = []
+        def resolve(grant, repository, request):
+            lookups.append(request)
+            return SimpleNamespace(run_id=grant["run_id"], repository=repository,
+                branch=grant["branch"], commit=request["commit"],
+                attempt_id=request["stage_attempt_id"], stage_digest="digest")
+        self.store.verified_stage_resolver = resolve
+        self.assertEqual(self.invoke(token, "bundle_status", payload)["state"], "confirmed")
+        self.assertEqual(self.invoke(token, "bundle_status", payload)["state"], "confirmed")
+        self.assertEqual(self.calls, [])
+        self.assertEqual(len(lookups), 2)
+        def revoke(grant, repository, request):
+            value = resolve(grant, repository, request)
+            self.store.revoke_run(grant["run_id"])
+            return value
+        self.store.verified_stage_resolver = revoke
+        self.assertEqual(self.invoke(token, "bundle_status", payload),
+                         {"state": "unknown", "resent": False})
+        self.assert_code("grant_unavailable", lambda: self.invoke(token, "bundle_status", payload))
+        self.assertEqual(self.calls, [])
+
     def test_read_labels_cannot_hide_mutations(self):
         _, token = self.grant(operations={"api_rest_read"}, branch=None)
         for payload in ({"path": "/repos/example/disposable/issues/1", "method": "POST"},
@@ -201,6 +366,29 @@ class MediationTests(unittest.TestCase):
     def test_expiry_denies_use_without_any_revocation(self):
         _, token = self.grant(operations={"pr_list"})
         self.clock[0] += 61
+        self.assert_code("grant_unavailable", lambda: self.invoke(token, "pr_list"))
+        self.assertEqual(self.calls, [])
+
+    def test_wall_clock_rollback_cannot_extend_grant(self):
+        wall, mono = [1000.0], [500.0]
+        store = MediationStore(self.path, now=lambda: wall[0],
+                               monotonic=lambda: mono[0])
+        grant_id, token = store.issue(
+            run_id="clock-run", invocation_id="clock-invocation",
+            repository=REPO, operations={"pr_list"}, ttl_seconds=50)
+        wall[0] = 900.0  # A backward wall-clock step cannot extend access.
+        mono[0] = 551.0
+        self.assert_code("grant_unavailable", lambda: store.invoke(
+            token=token, repository=REPO, operation="pr_list", payload={},
+            effect_id=None, transport=self.transport))
+        self.assertFalse(store.renew_grant(grant_id, 50))
+        self.assertEqual(self.calls, [])
+
+    def test_old_grant_without_monotonic_deadline_fails_closed(self):
+        _, token = self.grant(operations={"pr_list"})
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("UPDATE grants SET issued_monotonic=NULL, "
+                       "expires_monotonic=NULL")
         self.assert_code("grant_unavailable", lambda: self.invoke(token, "pr_list"))
         self.assertEqual(self.calls, [])
 

@@ -1,0 +1,16 @@
+{
+  "baseline": "6d4a4507a48b94fee0f17ea2e432f2018e9e332b",
+  "baseline_bundle_sha256": "76bd95e6cd82ab853fece76b04e5645138cd98872e0e40f71963f6129d233449",
+  "cleanup": {
+    "control": true,
+    "stage": true
+  },
+  "commit": "688a308d112b671288f2046ca35f64ab2e0e49a2",
+  "declared_model_turns": 0,
+  "declared_provider_operations": 0,
+  "failure_class": "RuntimeError",
+  "identity": "exp104-verifier-loss-s1-20261009",
+  "input_bundle_sha256": "0b37abe7423ae78a794c897a1daf275c66a6c97808e42e87ad8619d97f1f1ff4",
+  "result": "failed",
+  "source_sha": "f0ba073a8f5fce6356dc7784543d147bb4e14f11"
+}

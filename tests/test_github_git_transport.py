@@ -1,0 +1,462 @@
+"""No-network checks of exact-commit pushes and host-credential isolation."""
+
+from pathlib import Path
+import os
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from unittest.mock import patch
+
+from laomedo.github_git_transport import (GitHubGitTransport,
+                                          PushOutcomeUnknown,
+                                          GIT_COMMAND_TIMEOUT_SECONDS,
+                                          GitTreeTimeout,
+                                          _credential_environment,
+                                          _run_bounded_tree)
+from laomedo.github_mediation import KnownRejected
+from laomedo.github_mediation import MediationStore
+from laomedo.mediation_service import JournaledTransport
+from laomedo import git_credential_helper
+
+
+REPOSITORY = "example/disposable"
+
+
+class GitHubGitTransportTests(unittest.TestCase):
+    def setUp(self):
+        self.root = tempfile.TemporaryDirectory()
+        self.addCleanup(self.root.cleanup)
+        self.checkout = Path(self.root.name)
+        self._git("init", "-q")
+        self._git("config", "user.name", "Test")
+        self._git("config", "user.email", "test@example.invalid")
+        (self.checkout / "file.txt").write_text("base\n", encoding="utf-8")
+        self._git("add", "file.txt")
+        self._git("commit", "-qm", "base")
+        self.baseline = self._git("rev-parse", "HEAD").stdout.decode().strip()
+        (self.checkout / "file.txt").write_text("next\n", encoding="utf-8")
+        self._git("commit", "-qam", "next")
+        self.commit = self._git("rev-parse", "HEAD").stdout.decode().strip()
+        self.push_calls = []
+
+        def runner(args, **kwargs):
+            if "push" in args:
+                self.push_calls.append((args, kwargs))
+                return subprocess.CompletedProcess(args, 0, b"ok", b"")
+            return subprocess.run(args, **kwargs)
+
+        self.transport = GitHubGitTransport(
+            REPOSITORY, self.checkout, self.baseline,
+            lambda connection_id, generation: "synthetic-secret"
+            if (connection_id, generation) == ("connection-a", 1) else None,
+            run=runner)
+
+    def _git(self, *args):
+        return subprocess.run(["git", "-C", str(self.checkout), *args],
+                              check=True, capture_output=True)
+
+    def test_trusted_predecessor_cas_and_fast_forward_check_before_provider(self):
+        result = self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.commit},
+            connection_id="connection-a", connection_generation=1, expected_remote_commit=self.baseline)
+        self.assertEqual(result["commit"], self.commit)
+        self.assertIn("--force-with-lease=refs/heads/probe-a:" + self.baseline, self.push_calls[0][0])
+        count = len(self.push_calls)
+        self.transport.token_supplier = lambda *_args: self.fail("credential requested for non-fast-forward")
+        with self.assertRaisesRegex(KnownRejected, "push_not_fast_forward"):
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.baseline},
+                connection_id="connection-a", connection_generation=1, expected_remote_commit=self.commit)
+        self.assertEqual(len(self.push_calls), count)
+
+    def test_exact_commit_push_uses_new_branch_lease_and_no_host_login(self):
+        with patch.dict(os.environ, {"GH_TOKEN": "ambient-token",
+                                          "GIT_CONFIG_COUNT": "1",
+                                          "GCM_TEST": "ambient"}):
+            value = self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(value, {"branch": "probe-a", "commit": self.commit})
+        self.assertEqual(len(self.push_calls), 1)
+        args, options = self.push_calls[0]
+        self.assertIn("--force-with-lease=refs/heads/probe-a:", args)
+        self.assertIn(self.commit + ":refs/heads/probe-a", args)
+        self.assertIn("https://github.com/example/disposable.git", args)
+        self.assertNotIn("synthetic-secret", " ".join(args))
+        self.assertNotIn("ambient-token", " ".join(args))
+        self.assertNotIn("GH_TOKEN", options["env"])
+        self.assertNotIn("GIT_CONFIG_COUNT", options["env"])
+        self.assertNotIn("GCM_TEST", options["env"])
+        self.assertEqual(options["timeout"], GIT_COMMAND_TIMEOUT_SECONDS)
+
+    def test_local_provider_accepts_fast_forward_and_refuses_remote_drift(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            remote = Path(temporary) / "provider.git"
+            subprocess.run(["git", "init", "--bare", "--quiet", str(remote)],
+                           check=True, capture_output=True)
+            pushes = []
+            def local_provider(args, **options):
+                rewritten = [str(remote) if value == "https://github.com/" + REPOSITORY + ".git"
+                             else value for value in args]
+                if "push" in args:
+                    pushes.append(args)
+                return subprocess.run(rewritten, **options)
+            self.transport.run = local_provider
+            binding = {"connection_id": "connection-a", "connection_generation": 1}
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.baseline},
+                           **binding)
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.commit},
+                           expected_remote_commit=self.baseline, **binding)
+            observed = subprocess.run(["git", "--git-dir", str(remote), "rev-parse",
+                                       "refs/heads/probe-a"], check=True,
+                                      capture_output=True).stdout.decode().strip()
+            self.assertEqual(observed, self.commit)
+            # An external ref change must not be overwritten by the trusted CAS.
+            subprocess.run(["git", "--git-dir", str(remote), "update-ref",
+                            "refs/heads/probe-a", self.baseline], check=True,
+                           capture_output=True)
+            with self.assertRaises(PushOutcomeUnknown):
+                self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.commit},
+                               expected_remote_commit=self.commit, **binding)
+            after = subprocess.run(["git", "--git-dir", str(remote), "rev-parse",
+                                    "refs/heads/probe-a"], check=True,
+                                   capture_output=True).stdout.decode().strip()
+            self.assertEqual(after, self.baseline)
+            self.assertEqual(len(pushes), 3)
+
+    def test_old_git_cannot_inherit_host_global_config_or_trace(self):
+        hostile_home = self.checkout / "host-home"
+        hostile_home.mkdir()
+        global_trace = self.checkout / "global-trace.log"
+        inherited_trace = self.checkout / "inherited-trace.log"
+        (hostile_home / ".gitconfig").write_text(
+            "[trace2]\n\tnormalTarget = " + global_trace.as_posix() + "\n",
+            encoding="utf-8")
+        ambient = os.environ.copy()
+        ambient.update({"HOME": str(hostile_home), "USERPROFILE": str(hostile_home),
+                        "XDG_CONFIG_HOME": str(hostile_home),
+                        "GIT_TRACE": str(inherited_trace)})
+        ambient.pop("GIT_CONFIG_GLOBAL", None)
+        control = subprocess.run(["git", "-C", str(self.checkout), "status",
+                                  "--porcelain"], env=ambient, check=False,
+                                 capture_output=True)
+        self.assertEqual(control.returncode, 0, control.stderr)
+        self.assertTrue(global_trace.exists(), "host config control did not fire")
+        self.assertTrue(inherited_trace.exists(), "inherited trace control did not fire")
+        global_trace.unlink()
+        inherited_trace.unlink()
+        with patch.dict(os.environ, ambient):
+            checked = self.transport._git("status", "--porcelain")
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertFalse(global_trace.exists())
+        self.assertFalse(inherited_trace.exists())
+
+    def test_isolated_git_home_keeps_only_mediated_credential_helper(self):
+        environment, helper = _credential_environment("synthetic-only")
+        homes = []
+
+        def fill_with_input(args, **options):
+            homes.append(options["env"]["HOME"])
+            self.assertEqual(options["env"]["USERPROFILE"], homes[-1])
+            self.assertEqual(options["env"]["XDG_CONFIG_HOME"], homes[-1])
+            return subprocess.run(
+                args, input=b"protocol=https\nhost=github.com\n\n",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                env=options["env"], timeout=options["timeout"], check=False)
+
+        self.transport.run = fill_with_input
+        filled = self.transport._git("-c", "credential.helper=", "-c",
+                                     "credential.helper=" + helper,
+                                     "credential", "fill", env=environment)
+        self.assertEqual(filled.returncode, 0, filled.stderr)
+        self.assertIn(b"password=synthetic-only", filled.stdout)
+        self.assertEqual(len(homes), 1)
+        self.assertFalse(Path(homes[0]).exists())
+
+    def test_staging_timeout_refuses_push_before_credential(self):
+        def timed_out_fetch(args, **kwargs):
+            if "fetch" in args:
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = timed_out_fetch
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
+    def test_object_alternates_refuse_before_provider_contact(self):
+        other_root = tempfile.TemporaryDirectory()
+        self.addCleanup(other_root.cleanup)
+        other = Path(other_root.name)
+        subprocess.run(["git", "clone", "--quiet", "--no-hardlinks",
+                        str(self.checkout), str(other)], check=True,
+                       capture_output=True)
+        subprocess.run(["git", "-C", str(other), "config", "user.name", "Test"],
+                       check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(other), "config", "user.email",
+                        "test@example.invalid"], check=True, capture_output=True)
+        (other / "file.txt").write_text("outside source\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(other), "commit", "-qam", "outside"],
+                       check=True, capture_output=True)
+        outside_commit = subprocess.run(
+            ["git", "-C", str(other), "rev-parse", "HEAD"], check=True,
+            capture_output=True).stdout.decode().strip()
+        alternate = self.checkout / ".git" / "objects" / "info" / "alternates"
+        alternate.write_text((other / ".git" / "objects").as_posix() + "\n",
+                             encoding="utf-8", newline="\n")
+        visibility = subprocess.run(
+            ["git", "-C", str(self.checkout), "cat-file", "-t", outside_commit],
+            capture_output=True)
+        self.assertEqual(visibility.stdout.strip(), b"commit",
+                         visibility.stderr.decode(errors="replace"))
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        self.assertIsNone(self.transport.classify_workflow_diff(
+            REPOSITORY, "probe-a", outside_commit))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": outside_commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
+    def test_loose_object_symlink_refuses_before_provider_contact(self):
+        objects = self.checkout / ".git" / "objects"
+        fanout = next(objects / f"{value:02x}" for value in range(256)
+                      if not (objects / f"{value:02x}").exists())
+        outside = self.checkout / "external-fanout"
+        outside.mkdir()
+        try:
+            fanout.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("host does not permit directory symlinks")
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
+    def test_gitdir_redirect_refuses_before_provider_contact(self):
+        git_dir = self.checkout / ".git"
+        git_dir.rename(self.checkout / ".git-real")
+        git_dir.write_text("gitdir: .git-real\n", encoding="utf-8")
+        self.assertEqual(self._git("rev-parse", "HEAD").stdout.decode().strip(),
+                         self.commit)
+        credential_calls = []
+        self.transport.token_supplier = lambda *_args: credential_calls.append(True)
+        self.assertIsNone(self.transport.classify_workflow_diff(
+            REPOSITORY, "probe-a", self.commit))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(credential_calls, [])
+        self.assertEqual(self.push_calls, [])
+
+    def test_classification_timeout_refuses_push_before_credential(self):
+        def timed_out_diff(args, **kwargs):
+            if "diff" in args:
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = timed_out_diff
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
+    def test_push_timeout_is_unknown_without_secret_in_error(self):
+        calls = []
+
+        def timed_out_push(args, **kwargs):
+            if "push" in args:
+                calls.append(args)
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"],
+                                                stderr=b"synthetic-secret")
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = timed_out_push
+        with self.assertRaisesRegex(PushOutcomeUnknown,
+                                    "push_outcome_unknown") as found:
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": self.commit},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(found.exception.category, "timeout_cleanup_unverified")
+        self.assertIsNone(found.exception.exit_code)
+        self.assertNotIn("synthetic-secret", str(found.exception))
+
+    def test_bounded_runner_stops_descendant_before_late_effect(self):
+        sentinel = self.checkout / "late-child-effect.txt"
+        child = ("import time; from pathlib import Path; "
+                 f"time.sleep(2); Path({str(sentinel)!r}).write_text('late')")
+        parent = ("import subprocess,time,sys; "
+                  f"subprocess.Popen([sys.executable,'-c',{child!r}]); "
+                  "time.sleep(10)")
+        started = time.monotonic()
+        with self.assertRaises(GitTreeTimeout) as found:
+            _run_bounded_tree([sys.executable, "-c", parent],
+                              capture_output=True, check=False, timeout=.5,
+                              env=os.environ.copy())
+        self.assertLess(time.monotonic() - started, 8,
+                        "timed-out command waited for the sleeping parent")
+        time.sleep(2.2)
+        if not found.exception.cleanup_verified:
+            self.skipTest("OS denied process-tree kill; result remains unverified")
+        self.assertFalse(sentinel.exists(), "timed-out command left a live child")
+
+    def test_workflow_file_change_is_detected_and_never_pushed(self):
+        workflows = self.checkout / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "ci.yml").write_text("name: test\n", encoding="utf-8")
+        self._git("add", ".github/workflows/ci.yml")
+        self._git("commit", "-qm", "workflow")
+        changed = self._git("rev-parse", "HEAD").stdout.decode().strip()
+        self.assertTrue(self.transport.classify_workflow_diff(REPOSITORY,
+                                                               "probe-a", changed))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a",
+                "commit": changed}, connection_id="connection-a",
+                connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
+    def test_replace_ref_cannot_hide_outgoing_workflow(self):
+        workflows = self.checkout / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "ci.yml").write_text("name: hidden\n", encoding="utf-8")
+        self._git("add", ".github/workflows/ci.yml")
+        self._git("commit", "-qm", "real workflow commit")
+        real = self._git("rev-parse", "HEAD").stdout.decode().strip()
+        self._git("checkout", "-q", self.baseline)
+        (self.checkout / "file.txt").write_text("harmless\n", encoding="utf-8")
+        self._git("commit", "-qam", "harmless replacement")
+        harmless = self._git("rev-parse", "HEAD").stdout.decode().strip()
+        self._git("replace", real, harmless)
+        # An ordinary checkout diff now sees the replacement, but the
+        # isolated staging repository must inspect the real pushed objects.
+        ordinary = self._git("diff", "--name-only", self.baseline, real).stdout
+        self.assertNotIn(b".github/workflows/", ordinary)
+        self.assertTrue(self.transport.classify_workflow_diff(REPOSITORY,
+                                                               "probe-a", real))
+        with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+            self.transport(REPOSITORY, "git_push", {
+                "branch": "probe-a", "commit": real},
+                connection_id="connection-a", connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
+    def test_missing_or_unbound_commit_is_refused_before_credential(self):
+        for commit in ("a" * 40, "HEAD", "", self.baseline[:20]):
+            with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
+                self.transport(REPOSITORY, "git_push", {"branch": "probe-a",
+                    "commit": commit}, connection_id="connection-a",
+                    connection_generation=1)
+        with self.assertRaisesRegex(KnownRejected, "connection_binding_required"):
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a",
+                "commit": self.commit})
+        with self.assertRaisesRegex(KnownRejected, "push_branch_invalid"):
+            self.transport(REPOSITORY, "git_push", {"branch": "../other",
+                "commit": self.commit}, connection_id="connection-a",
+                connection_generation=1)
+        self.assertEqual(self.push_calls, [])
+
+    def test_transport_failure_is_uncertain_not_safe_to_retry(self):
+        self.transport.run = lambda args, **kwargs: (
+            subprocess.CompletedProcess(
+                args, 1, b"synthetic-secret", b"error: 403 synthetic-secret")
+            if "push" in args else subprocess.run(args, **kwargs))
+        with self.assertRaisesRegex(PushOutcomeUnknown,
+                                    "push_outcome_unknown") as found:
+            self.transport(REPOSITORY, "git_push", {"branch": "probe-a",
+                "commit": self.commit}, connection_id="connection-a",
+                connection_generation=1)
+        self.assertEqual(found.exception.category,
+                         "authentication_or_authorization")
+        self.assertEqual(found.exception.exit_code, 1)
+        self.assertNotIn("synthetic-secret", str(found.exception))
+
+    def test_secret_bearing_git_failure_stays_private_end_to_end(self):
+        secret = "synthetic-secret"
+        seen_pushes = []
+
+        def failing_git(args, **kwargs):
+            if "push" in args:
+                seen_pushes.append(args)
+                return subprocess.CompletedProcess(
+                    args, 1, ("[remote rejected] " + secret).encode(),
+                    ("fatal: " + secret).encode())
+            return subprocess.run(args, **kwargs)
+
+        self.transport.run = failing_git
+        private = tempfile.TemporaryDirectory()
+        self.addCleanup(private.cleanup)
+        store_path = Path(private.name) / "effects.sqlite"
+        attempts = Path(private.name) / "attempts.jsonl"
+        diagnostics = Path(private.name) / "diagnostics.jsonl"
+        store = MediationStore(
+            store_path,
+            workflow_change_classifier=self.transport.classify_workflow_diff,
+            connection_is_current=lambda *_args: True)
+        _, bearer = store.issue(
+            run_id="run-a", invocation_id="invocation-a", repository=REPOSITORY,
+            branch="probe-a", operations={"git_push"}, ttl_seconds=60,
+            connection_id="connection-a", connection_generation=1)
+        transport = JournaledTransport(self.transport, attempts, diagnostics)
+        payload = {"branch": "probe-a", "commit": self.commit}
+        first = store.invoke(token=bearer, repository=REPOSITORY,
+                             operation="git_push", payload=payload,
+                             effect_id="effect-a", transport=transport)
+        second = store.invoke(token=bearer, repository=REPOSITORY,
+                              operation="git_push", payload=payload,
+                              effect_id="effect-a", transport=transport)
+        self.assertEqual(first, {"state": "unknown", "resent": False})
+        self.assertEqual(second, first)
+        self.assertEqual(len(seen_pushes), 1)
+        self.assertEqual(len(attempts.read_text(encoding="utf-8").splitlines()), 1)
+        diagnostic = diagnostics.read_text(encoding="utf-8")
+        self.assertIn("remote_rejected", diagnostic)
+        for artifact in (attempts.read_bytes(), diagnostics.read_bytes(),
+                         store_path.read_bytes()):
+            self.assertNotIn(secret.encode(), artifact)
+        self.assertNotIn(secret, repr(store.effect("run-a", "effect-a")))
+
+    def test_commit_digits_do_not_misclassify_remote_rejection_as_auth(self):
+        from laomedo.github_git_transport import _push_failure_category
+        self.assertEqual(_push_failure_category(
+            b"", b"!\t403abc:refs/heads/probe\t[remote rejected]"),
+            "remote_rejected")
+
+    def test_git_credential_helper_ignores_host_credentials(self):
+        helper = "!" + shlex.quote(sys.executable) + " " + shlex.quote(
+            str(Path(git_credential_helper.__file__)))
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.startswith(("GIT_CONFIG_", "GCM_")) and
+                       key not in {"GH", "GH_TOKEN", "GITHUB_TOKEN"}}
+        environment.update({"LAOMEDO_MEDIATED_GIT_TOKEN": "synthetic-only",
+                            "GIT_CONFIG_GLOBAL": os.devnull,
+                            "GIT_CONFIG_NOSYSTEM": "1",
+                            "GIT_TERMINAL_PROMPT": "0"})
+        filled = subprocess.run(
+            ["git", "-c", "credential.helper=", "-c",
+             "credential.helper=" + helper, "credential", "fill"],
+            input=b"protocol=https\nhost=github.com\n\n", capture_output=True,
+            env=environment, check=False)
+        self.assertEqual(filled.returncode, 0)
+        self.assertIn(b"password=synthetic-only", filled.stdout)
+        refused = subprocess.run(
+            ["git", "-c", "credential.helper=", "-c",
+             "credential.helper=" + helper, "credential", "fill"],
+            input=b"protocol=https\nhost=not-github.invalid\n\n",
+            capture_output=True, env=environment, check=False)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertNotIn(b"synthetic-only", refused.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

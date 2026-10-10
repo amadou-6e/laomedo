@@ -1,0 +1,152 @@
+{
+  "actual_git_or_gh_remote_calls": "not independently packet-captured",
+  "cases": [
+    {
+      "case": "test_agent_hook_and_hostile_remote_are_not_used",
+      "status": "passed"
+    },
+    {
+      "case": "test_bound_bundle_is_imported_into_private_stage",
+      "status": "passed"
+    },
+    {
+      "case": "test_divergent_later_commit_is_not_accepted_as_fast_forward",
+      "status": "passed"
+    },
+    {
+      "case": "test_hardlink_and_oversize_are_refused_before_git",
+      "status": "passed"
+    },
+    {
+      "case": "test_host_git_guard_rejects_agent_repository_and_local_git_still_works",
+      "status": "passed"
+    },
+    {
+      "case": "test_incomplete_prior_attempt_blocks_new_transfer",
+      "status": "passed"
+    },
+    {
+      "case": "test_private_stage_must_be_disjoint_from_all_runner_mounts",
+      "status": "passed"
+    },
+    {
+      "case": "test_replacement_detected_after_open_is_not_staged",
+      "status": "passed"
+    },
+    {
+      "case": "test_symlink_handoff_is_refused_where_supported",
+      "reason": "symlinks unavailable",
+      "status": "skipped"
+    },
+    {
+      "case": "test_thin_bundle_requires_host_confirmed_stage",
+      "status": "passed"
+    },
+    {
+      "case": "test_valid_bundle_from_another_run_cannot_bind_to_this_run",
+      "status": "passed"
+    },
+    {
+      "case": "test_windows_junction_handoff_is_refused",
+      "status": "passed"
+    },
+    {
+      "case": "test_windows_reparse_attribute_is_refused_even_for_regular_file",
+      "status": "passed"
+    },
+    {
+      "case": "test_workflow_change_and_extra_ref_never_reach_stage",
+      "status": "passed"
+    },
+    {
+      "case": "test_wrong_baseline_truncated_and_malformed_leave_failure_records",
+      "status": "passed"
+    },
+    {
+      "case": "test_wrong_branch_and_run_are_refused",
+      "status": "passed"
+    }
+  ],
+  "git_version": "git version 2.31.1.windows.1",
+  "identity": "EXP-100-S3-01",
+  "model_count_scope": "instrumented LocalRunner.start entrypoint",
+  "model_turn_attempts": 0,
+  "new_s3_controls": [
+    "test_agent_hook_and_hostile_remote_are_not_used",
+    "test_bound_bundle_is_imported_into_private_stage",
+    "test_divergent_later_commit_is_not_accepted_as_fast_forward",
+    "test_hardlink_and_oversize_are_refused_before_git",
+    "test_host_git_guard_rejects_agent_repository_and_local_git_still_works",
+    "test_incomplete_prior_attempt_blocks_new_transfer",
+    "test_private_stage_must_be_disjoint_from_all_runner_mounts",
+    "test_replacement_detected_after_open_is_not_staged",
+    "test_symlink_handoff_is_refused_where_supported",
+    "test_thin_bundle_requires_host_confirmed_stage",
+    "test_valid_bundle_from_another_run_cannot_bind_to_this_run",
+    "test_windows_junction_handoff_is_refused",
+    "test_windows_reparse_attribute_is_refused_even_for_regular_file",
+    "test_workflow_change_and_extra_ref_never_reach_stage",
+    "test_wrong_baseline_truncated_and_malformed_leave_failure_records",
+    "test_wrong_branch_and_run_are_refused"
+  ],
+  "provider_count_scope": "instrumented Git/REST transport entrypoints",
+  "provider_transport_calls": 0,
+  "reused_s2_case_results": [
+    {
+      "case": "test_agent_hook_detector_fires_only_in_agent",
+      "status": "passed"
+    },
+    {
+      "case": "test_bundle_capabilities_and_tag_object",
+      "status": "passed"
+    },
+    {
+      "case": "test_complete_pack_with_missing_object_is_rejected_at_integrity",
+      "status": "passed"
+    },
+    {
+      "case": "test_extra_ref_and_truncated_pack_are_not_accepted",
+      "status": "passed"
+    },
+    {
+      "case": "test_first_commit_import_and_exact_ref",
+      "status": "passed"
+    },
+    {
+      "case": "test_host_global_and_inherited_trace_controls",
+      "status": "passed"
+    },
+    {
+      "case": "test_host_never_contacts_agent_remote",
+      "status": "passed"
+    },
+    {
+      "case": "test_post_export_agent_alternates_and_replace_refs_do_not_change_stage",
+      "status": "passed"
+    },
+    {
+      "case": "test_second_commit_requires_host_confirmed_seed",
+      "status": "passed"
+    },
+    {
+      "case": "test_unrelated_history_and_workflow_diff",
+      "status": "passed"
+    }
+  ],
+  "reused_s2_controls": [
+    "missing_object_integrity",
+    "bundle_filter_and_object_format",
+    "host_global_config_isolation",
+    "hostile_remote_and_hook_nonuse"
+  ],
+  "schema_version": 1,
+  "source_commit": "09166ad60f36140d0b1dc3d7754cf89415e02675",
+  "source_sha256": {
+    "experiments/exp100/AMENDMENT-04.md": "8c923d788aec54587b4f31fd549eca07d7119919a6a8ccc8b96cc57916b071b4",
+    "experiments/exp100/PROTOCOL-03.md": "e40b949f7b2c290919707916edefd2d69972ee2762ddc0f2d22d25516b9c11fc",
+    "experiments/exp100/bundle_transfer.py": "79f87eb3d145ef2b3ee1cf2ef31555f61d5ab758e28d0425ceb74a56f60ce825",
+    "experiments/exp100/handoff_s3.py": "ae1305004aa8b1de7e0ea2efe66fa0e27c37d9ffddb85303dac7e6271a4b1612",
+    "experiments/exp100/test_handoff_s3.py": "0e5ccb2b8eec8cecf50006b61481317e0e4f1b77c8fe4e0a00fd7d5f431484a1"
+  },
+  "status": "passed"
+}
