@@ -7,6 +7,43 @@ import { join } from 'node:path';
 
 const context = { repository: 'example/disposable', effect: 'effect-1', marker: 'marker' };
 const body = 'marker\r\nUnicode: λ\n';
+test('classified API POST is identical to the authorized PR create request', () => {
+  const input = { title: 'Title', body, head: 'branch', base: 'main' };
+  const viaApi = plan(['api', 'repos/example/disposable/pulls', '--method', 'POST', '--input', '-'],
+    context, file => { assert.equal(file, '-'); return JSON.stringify(input); });
+  const viaPr = plan(['pr', 'create', '--title', input.title, '--body', body, '--head', input.head,
+    '--base', input.base], context);
+  assert.deepEqual(viaApi, viaPr);
+});
+test('classified API POST refuses wider operations and malformed bodies before mediation', async () => {
+  let calls = 0;
+  const args = ['api', 'repos/example/disposable/pulls', '--method', 'POST', '--input', 'body.json'];
+  for (const input of ['[]', '{}', 'null', '{', JSON.stringify({ title: 'T', body, head: 'b', base: 'main', draft: true }),
+    JSON.stringify({ title: 'T', body: 'missing', head: 'b', base: 'main' }),
+    JSON.stringify({ title: 'T', body, head: 42, base: 'main' })]) {
+    await assert.rejects(execute(args, context, { readBody: () => input, mediate: () => { calls++; } }), AdapterError);
+  }
+  for (const path of ['repos/other/repo/pulls', 'repos/example/disposable/issues',
+    'repos/example/disposable/pulls/7', 'graphql']) {
+    await assert.rejects(execute(['api', path, '--method', 'POST', '--input', '-'], context, {
+      readBody: () => { throw new Error('unexpected body read'); }, mediate: () => { calls++; }
+    }), AdapterError);
+  }
+  await assert.rejects(execute(args, { ...context, effect: undefined }, {
+    readBody: () => { throw new Error('unexpected body read'); }, mediate: () => { calls++; }
+  }), /durable_effect_required/);
+  assert.equal(calls, 0);
+});
+test('classified API POST preserves single-dispatch unknown and grant denials', async () => {
+  const calls = [], args = ['api', 'repos/example/disposable/pulls', '--method', 'POST', '--input', '-'];
+  const dependencies = { readBody: () => JSON.stringify({ title: 'T', body, head: 'b', base: 'main' }),
+    mediate: request => { calls.push(request); return { state: 'unknown' }; } };
+  await assert.rejects(execute(args, context, dependencies), failure => failure.exit === 4);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].operation, 'pr_create');
+  await assert.rejects(execute(args, context, { ...dependencies,
+    mediate: () => ({ error: 'operation_denied' }) }), failure => failure.exit === 3);
+});
 test('explicit same-repository list forms map to read-only operations', async () => {
   const calls = [];
   for (const [noun, operation] of [['pr', 'pr_list'], ['issue', 'issue_list']]) {

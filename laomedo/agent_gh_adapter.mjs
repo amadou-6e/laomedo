@@ -45,7 +45,7 @@ export function plan(argv, context, readBody) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? '')) fail('repository_required');
   let kind, tail, permitted = ['--repo'];
   if (argv[0] === 'api') {
-    kind = 'api'; tail = argv.slice(1); permitted.push('--method');
+    kind = 'api'; tail = argv.slice(1); permitted.push('--method', '--input');
   } else {
     kind = argv.slice(0, 2).join(' '); tail = argv.slice(2);
     if (kind === 'pr create') permitted.push('--title', '--body', '--body-file', '--head', '--base');
@@ -68,9 +68,27 @@ export function plan(argv, context, readBody) {
     return { request: request('actions_read', { resource: 'runs' }) };
   }
   if (kind === 'api') {
-    if (positional.length !== 1 || (flags['--method'] ?? 'GET') !== 'GET') fail('unsupported_api');
+    if (positional.length !== 1) fail('unsupported_api');
     const path = positional[0].startsWith('/') ? positional[0] : '/' + positional[0];
     if (!path.startsWith('/repos/' + repository + '/') || /\.\.|\/\/|[\\%?#]/.test(path)) fail('unsupported_api');
+    if (flags['--method'] === 'POST' && path === '/repos/' + repository + '/pulls') {
+      if (!flags['--input']) fail('explicit_json_input_required');
+      if (!/^[A-Za-z0-9_.-]{1,128}$/.test(context.effect ?? '') ||
+          typeof context.marker !== 'string' || !context.marker) fail('durable_effect_required');
+      let input;
+      try { input = JSON.parse(bounded(readBody(flags['--input']))); }
+      catch { fail('json_input_invalid'); }
+      if (!input || Array.isArray(input) || typeof input !== 'object' ||
+          Object.keys(input).sort().join(',') !== 'base,body,head,title' ||
+          ['title', 'body', 'head', 'base'].some(key => typeof input[key] !== 'string' || !input[key])) fail('json_input_invalid');
+      for (const key of ['title', 'body', 'head', 'base']) bounded(input[key]);
+      if (!input.body.includes(context.marker)) fail('reconciliation_marker_required');
+      // Exact classified alias, not an arbitrary method/path proxy. The host
+      // still applies the existing pr_create grant, branch/base and Q16 rules.
+      return { request: { ...request('pr_create', { ...input, marker: context.marker }),
+                           effect_id: context.effect } };
+    }
+    if ((flags['--method'] ?? 'GET') !== 'GET' || flags['--input']) fail('unsupported_api');
     return { request: request('api_rest_read', { method: 'GET', path }) };
   }
   if (!/^[A-Za-z0-9_.-]{1,128}$/.test(context.effect ?? '') || !context.marker) fail('durable_effect_required');
