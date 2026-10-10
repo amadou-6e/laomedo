@@ -2,12 +2,13 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+from hashlib import sha256
 import tempfile
 import unittest
 from urllib import request
 
 from experiments.exp100.probe_live import (BoundedOpener, DISPOSABLE, PUBLIC, ISSUE, JOB,
-    revoke_and_verify, run_overlap, list_fields)
+    revoke_and_verify, run_overlap, list_fields, check)
 from laomedo.github_mediation import MediationStore
 from laomedo.github_rest_transport import ISSUE_GRAPHQL_QUERY
 
@@ -20,6 +21,22 @@ class FakeProvider:
 
 
 class LiveCommandProbeTests(unittest.TestCase):
+    def test_original_observation_and_nonvacuous_checks_without_writes(self):
+        path = Path(__file__).resolve().parents[1] / 'experiments/exp100/LIVE-OBSERVATION.json'
+        raw = path.read_bytes()
+        self.assertEqual(sha256(raw).hexdigest(), '54f45affa640cebfe995942152f9923300e8ecd16d3cfdf4fda70a01647a3b13')
+        observed = json.loads(raw); check(observed)
+        self.assertEqual(observed['result'], 'passed')
+        for mutation in ('extra-write', 'bad-grant', 'false-refusal', 'missing-case', 'bad-cleanup', 'bad-job'):
+            invalid = deepcopy(observed)
+            if mutation == 'extra-write': invalid['provider_calls'].append(next(row for row in invalid['provider_calls'] if row['write']))
+            elif mutation == 'bad-grant': invalid['effect']['grant_id'] = 'other'
+            elif mutation == 'false-refusal': next(row for row in invalid['cases'] if row['case'] == 'altered_issue')['reason'] = 'unclassified'
+            elif mutation == 'missing-case': invalid['cases'].pop()
+            elif mutation == 'bad-cleanup': invalid['cleanup']['grants']['disposable'] = False
+            else: invalid['job']['id'] = 1
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError): check(invalid)
+
     def test_real_store_cleanup_path_can_pass_and_refuses_unknown_grant(self):
         with tempfile.TemporaryDirectory() as folder:
             store = MediationStore(Path(folder) / 'store.sqlite')
