@@ -120,6 +120,8 @@ def serve_langflow_join(controller, token, *, port, host="127.0.0.1"):
                     "cancel_confirmed": snapshot.get("cancel_confirmed", False),
                     "executing_graph_verified": False,
                     "answer": native.get("answer"),
+                    "attempt_finished": native.get("attempt_finished", False),
+                    "snapshot_ready": native.get("snapshot_ready", False),
                     "thread_id": native.get("thread_id"),
                     "post_run_hash": native.get("post_run_hash"),
                     "requested_model": native.get("requested_model"),

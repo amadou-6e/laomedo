@@ -146,6 +146,32 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
                 bridge.observe_terminal(self.run, str(uuid4()))
             status.assert_not_called()
 
+    def test_unknown_receipt_requires_finished_attempt_and_survives_restart(self):
+        for marker in (False, "true", 1):
+            with self.subTest(marker=marker):
+                with self.assertRaisesRegex(LaunchError, "invalid_runner_terminal_status"):
+                    self.store.record_runner_terminal(self.run, self.inv,
+                        provider="codex", runner_run_id=self.native,
+                        status="unknown", attempt_finished=marker)
+        self.assertTrue(self.store.record_runner_terminal(self.run, self.inv,
+            provider="codex", runner_run_id=self.native, status="unknown", attempt_finished=True))
+        restarted = WorkflowRunStore(self.path)
+        self.assertEqual(restarted.get(self.run)["status"], "unknown")
+        self.assertFalse(restarted.get(self.run)["evidence_complete"])
+        self.assertFalse(restarted.record_runner_terminal(self.run, self.inv,
+            provider="codex", runner_run_id=self.native, status="unknown", attempt_finished=True))
+
+    def test_bridge_passes_finished_marker_through_authenticated_status_allowlist(self):
+        adapter = self.adapter()
+        bridge = RunnerTraceBridge(self.store, adapter)
+        raw = {"run_id": self.native, "status": "unknown", "attempt_finished": True,
+               "task": "PRIVATE", "auth": "SECRET"}
+        with patch("laomedo.handoff_http.urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
+            result = bridge.observe_terminal(self.run, self.inv)
+        self.assertIs(result["attempt_finished"], True)
+        self.assertNotIn("SECRET", str(result))
+        self.assertEqual(self.store.get(self.run)["status"], "unknown")
+
     def test_poll_timeout_maps_to_wait_expiry_only_when_deadline_passed(self):
         handoff = envelope(None, {"provider": "codex", "model": "fixture", "effort": "low"},
                            "task", skills=[{"skill_id": "fixture", "revision_id": "sha256:" + "a"*64}])

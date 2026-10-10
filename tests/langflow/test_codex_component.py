@@ -58,6 +58,64 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_finished_unknown_stops_fresh_polling_without_success(self):
+        node = component(request_id=RUN)
+        replies = [result(status="prepared", client_request_id=RUN),
+                   result(status="unknown", attempt_finished=True, snapshot_ready=False,
+                          answer=None, post_run_hash=None, client_request_id=RUN,
+                          error_category="outstanding_command_completion_unknown")]
+        calls = []
+        def opened(req, **_kwargs):
+            calls.append(req.get_method())
+            self.assertLessEqual(len(calls), 2)
+            return Response(json.dumps(replies.pop(0)).encode())
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=opened):
+            with self.assertRaisesRegex(RuntimeError, "outstanding_command_completion_unknown"):
+                await node.run_output()
+        self.assertEqual(calls, ["POST", "GET"])
+
+    async def test_unknown_without_finished_marker_keeps_polling(self):
+        node = component(request_id=RUN)
+        replies = [result(status="prepared", client_request_id=RUN),
+                   result(status="unknown", attempt_finished=False, client_request_id=RUN),
+                   result(client_request_id=RUN)]
+        calls = []
+        def opened(req, **_kwargs):
+            calls.append(req.get_method())
+            self.assertLessEqual(len(calls), 3)
+            return Response(json.dumps(replies.pop(0)).encode())
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=opened):
+            output = (await node.run_output()).data
+        self.assertEqual(output["status"], "completed")
+        self.assertEqual(calls, ["POST", "GET", "GET"])
+
+    async def test_stop_does_not_cancel_a_finished_unknown_attempt(self):
+        node = component(operation="start", request_id=RUN)
+        expected_hash = "sha256:" + "c" * 64
+        native = result(status="unknown", attempt_finished=True,
+                        client_request_id=RUN, request_hash=expected_hash)
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(node, "_stop_http", return_value=native) as http:
+            node._cancel_after_ui_stop("http://host.docker.internal:8765", RUN, expected_hash)
+        self.assertEqual(http.call_count, 1)
+        self.assertIn("no cancel sent", node.status)
+
+    async def test_status_retains_finished_unknown_identity_and_trace(self):
+        node = component(operation="status", run_reference={"run_id": RUN})
+        value = result(status="unknown", attempt_finished=True, snapshot_ready=False,
+                       answer=None, post_run_hash=None, output_ref=None,
+                       error_category="outstanding_command_completion_unknown")
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", return_value=Response(json.dumps(value).encode())):
+            output = (await node.run_output()).data
+        self.assertEqual(output["run_id"], RUN)
+        self.assertIs(output["attempt_finished"], True)
+        self.assertIs(output["snapshot_ready"], False)
+        self.assertEqual(output["trace_ref"], f"laomedo:run:{RUN}:events")
+        self.assertIsNone(output["artifact_ref"])
+
     async def test_opt_in_join_uses_saved_flow_identity_and_polls_bridge(self):
         node = component(bridge_url="http://host.docker.internal:8766")
         node._vertex = SimpleNamespace(id="agent-stage")

@@ -82,6 +82,7 @@ class RunnerTests(unittest.TestCase):
             transport=fixtures.FakeServer, check_docker=False, max_model_turns=6)
         self.assertEqual(restarted.status(result["run_id"])["command_summary"]["outstanding_ids"], ["exec-1"])
         self.assertEqual(result["controller_cleanup"], "confirmed")
+        self.assertTrue(result["attempt_finished"])
         with self.assertRaises(ArtifactError):
             self.runner.select_artifacts(result["run_id"], ["agent.txt"])
         with self.assertRaises(RunnerError):

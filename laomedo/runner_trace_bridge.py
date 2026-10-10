@@ -5,7 +5,7 @@ and correlates one fresh native invocation; it never retries an uncertain POST.
 """
 
 from .handoffs import HandoffError
-from .workflow_run_store import LaunchError
+from .workflow_run_store import LaunchError, runner_attempt_terminal
 
 
 class RunnerTraceBridge:
@@ -128,9 +128,10 @@ class RunnerTraceBridge:
         if binding["invocation_id"] != invocation_id or not binding["runner_run_id"]:
             raise LaunchError("runner_observation_not_correlated")
         native = self.adapter.status(binding["runner_provider"], binding["runner_run_id"])
-        if native.get("status") in {"completed", "cancelled", "failed", "timeout", "interrupted"}:
+        if runner_attempt_terminal(native):
             self.store.record_runner_terminal(
                 run_id, invocation_id, provider=binding["runner_provider"],
                 runner_run_id=binding["runner_run_id"], status=native["status"],
-                cancel_confirmed=native.get("cancel_confirmed") is True)
+                cancel_confirmed=native.get("cancel_confirmed") is True,
+                attempt_finished=native.get("attempt_finished") is True)
         return native

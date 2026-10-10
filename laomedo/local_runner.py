@@ -1137,6 +1137,7 @@ class LocalRunner:
                 record["post_run_hash"] = None
                 record["output_ref"] = None
                 record["controller_cleanup"] = "not_started"
+                record["attempt_finished"] = False
                 _json(run_dir / "record.json", record)
             try:
                 workspace_skills.verify(run_dir / "workspace", record["skills"],
@@ -1345,6 +1346,7 @@ class LocalRunner:
                 try:
                     with self.control_lock:
                         if record is not None:
+                            record["attempt_finished"] = True
                             if record.get("status") != "completed":
                                 record["snapshot_ready"] = False
                                 record["post_run_hash"] = None
