@@ -14,7 +14,8 @@ const invoke = (command, args, extra = {}, expected = 0) => {
   }
   outcomes.push({ command, args, status: result.status });
   writeFileSync('/draft/.git/native-progress.json', JSON.stringify(outcomes) + '\n');
-  if (result.status !== expected) throw new Error('unexpected_command_outcome_no_retry');
+  if (expected === 'nonzero' ? !Number.isInteger(result.status) || result.status === 0
+                            : result.status !== expected) throw new Error('unexpected_command_outcome_no_retry');
   return result.stdout;
 };
 const git = (...args) => invoke('git', ['-c', 'safe.directory=/draft', ...args]);
@@ -44,9 +45,9 @@ invoke('gh', ['pr', 'edit', String(created.number), '--title', 'Native fixture P
   '--body', finalBody], { ...context, LAOMEDO_EFFECT_ID: 'native-edit' });
 const final = JSON.parse(invoke('gh', ['pr', 'view', String(created.number)]));
 if (final.body !== finalBody || final.head.sha !== second) throw new Error('pr_final_readback');
-invoke('git', ['-c', 'safe.directory=/draft', 'push', '--force', 'origin', 'HEAD:refs/heads/run-branch'], {}, 1);
-invoke('git', ['-c', 'safe.directory=/draft', 'push', 'origin', 'HEAD:refs/heads/other'], {}, 1);
-invoke('git', ['-c', 'safe.directory=/draft', 'push', 'origin', 'HEAD:refs/heads/run-branch', 'HEAD:refs/heads/other'], {}, 1);
+invoke('git', ['-c', 'safe.directory=/draft', 'push', '--force', 'origin', 'HEAD:refs/heads/run-branch'], {}, 'nonzero');
+invoke('git', ['-c', 'safe.directory=/draft', 'push', 'origin', 'HEAD:refs/heads/other'], {}, 'nonzero');
+invoke('git', ['-c', 'safe.directory=/draft', 'push', 'origin', 'HEAD:refs/heads/run-branch', 'HEAD:refs/heads/other'], {}, 'nonzero');
 invoke('gh', ['auth', 'token'], {}, 2);
 invoke('gh', ['pr', 'view', '999'], {}, 3);
 const status = git('status', '--porcelain');

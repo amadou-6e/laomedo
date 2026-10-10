@@ -49,12 +49,15 @@ def validate_observation(observation):
         raise ValueError("push_effect_mismatch")
     commands = observation["outcomes"]
     refusals = [item for item in commands if item["status"] != 0]
-    if ([item["status"] for item in refusals] != [1, 1, 1, 2, 3] or
+    if (len(refusals) != 5 or any(type(item["status"]) is not int or item["status"] == 0
+            for item in refusals[:3]) or [item["status"] for item in refusals[3:]] != [2, 3] or
             not all(any(item["command"] == "git" and word in item["args"] for item in refusals)
                     for word in ("--force", "HEAD:refs/heads/other"))):
         raise ValueError("refusal_capture_mismatch")
     if observation["negative_controls"] != {"completed_push": "push_stage_unverified",
             "changed_connection": "connection_unavailable", "revoked_read": "grant_unavailable",
+            "completed_freeze_error": "run_grant_mismatch", "completed_freeze_state": "unknown",
+            "completed_freeze_created": False, "revoked_update": "grant_unavailable",
             "provider_count_unchanged": True}:
         raise ValueError("negative_capture_mismatch")
 
@@ -169,11 +172,20 @@ def run(private, source_sha):
                             (",readonly" if readonly else "")])
         command.extend([GIT_IMAGE_ID, "node", "/run/laomedo/fixture.mjs"])
         agent = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        deadline = time.monotonic() + 180
+        started = time.monotonic()
+        deadline = started + 180
+        next_renewal = started + 10
+        observation["synthetic_grant_renewals_seconds"] = []
         result_file = workspace / ".git/native-result.json"
         while not result_file.exists() and time.monotonic() < deadline:
             if agent.poll() is not None:
                 raise RuntimeError("fixture_exited_no_retry")
+            if time.monotonic() >= next_renewal:
+                state, _ = inspect_exact(name, "run-a", launch)
+                if state != "owned" or not store.renew_grant(grant, 60):
+                    raise RuntimeError("synthetic_owned_grant_renewal_failed")
+                observation["synthetic_grant_renewals_seconds"].append(time.monotonic() - started)
+                next_renewal = time.monotonic() + 10
             time.sleep(.1)
         if not result_file.exists():
             raise RuntimeError("capture_pending_no_retry")
@@ -200,6 +212,14 @@ def run(private, source_sha):
         def code(op, payload, effect=None):
             return refusal_code(store, token=token, repository=REPOSITORY, operation=op,
                                 payload=payload, effect_id=effect, transport=transport)
+        try:
+            store.stage_freezer({"run_id": "run-a", "grant_id": grant,
+                "repository": REPOSITORY, "branch": "run-branch"}, {"attempt_id": "completed-freeze"})
+            freeze_error = None
+        except Exception as failure:
+            freeze_error = str(failure)
+        freeze_result = store.invoke(token=token, repository=REPOSITORY, operation="bundle_freeze",
+            payload={"attempt_id": "completed-freeze"}, effect_id=None, transport=transport)
         push_error = code("git_push", {"branch": "run-branch", "commit": result["second"],
             "stage_attempt_id": observation["push_effects"][1]["effect_id"]}, "completed-push")
         current["value"] = False
@@ -207,8 +227,15 @@ def run(private, source_sha):
         current["value"] = True
         store.revoke_run("run-a")
         revoke_error = code("pr_read", {"number": 7})
+        update_error = code("pr_update", {"number": 7, "head": "run-branch", "base": "develop",
+            "title": fake.pr["title"], "body": result["finalBody"], "marker": IDENTITY,
+            "expected": {"title": fake.pr["title"], "body": result["finalBody"],
+                         "head_sha": result["second"]}}, "revoked-update")
         observation["negative_controls"] = {"completed_push": push_error,
             "changed_connection": connection_error, "revoked_read": revoke_error,
+            "completed_freeze_error": freeze_error, "completed_freeze_state": freeze_result.get("state"),
+            "completed_freeze_created": (stage / "run-a/completed-freeze").exists(),
+            "revoked_update": update_error,
             "provider_count_unchanged": before == len(fake.calls) + len(git_calls)}
         if (push_error != "push_stage_unverified" or connection_error != "connection_unavailable" or
                 revoke_error != "grant_unavailable" or before != len(fake.calls) + len(git_calls)):

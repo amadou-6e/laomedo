@@ -29,10 +29,16 @@ class NativeCaptureChecks(unittest.TestCase):
                          {"command": "gh", "args": [], "status": 3}],
             "negative_controls": {"completed_push": "push_stage_unverified",
                 "changed_connection": "connection_unavailable", "revoked_read": "grant_unavailable",
+                "completed_freeze_error": "run_grant_mismatch", "completed_freeze_state": "unknown",
+                "completed_freeze_created": False, "revoked_update": "grant_unavailable",
                 "provider_count_unchanged": True}}
 
     def test_assessment_accepts_matching_synthetic_control(self):
         capture.validate_observation(self.fixture())
+        values = self.fixture()
+        for item in values["outcomes"][:3]:
+            item["status"] = 128
+        capture.validate_observation(values)
 
     def test_assessment_rejects_mutated_provider_and_command_observations(self):
         mutations = [lambda v: v["git_calls"].append(copy.deepcopy(v["git_calls"][0])),
@@ -42,6 +48,8 @@ class NativeCaptureChecks(unittest.TestCase):
                      lambda v: v.update(agent_alive=False),
                      lambda v: v["outcomes"][0].update(status=0),
                      lambda v: v["push_effects"][1].update(state="unknown"),
+                     lambda v: v["negative_controls"].update(completed_freeze_created=True),
+                     lambda v: v["negative_controls"].update(revoked_update=None),
                      lambda v: v["negative_controls"].update(provider_count_unchanged=False)]
         for mutate in mutations:
             with self.subTest(mutation=mutations.index(mutate)):
