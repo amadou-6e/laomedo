@@ -94,7 +94,7 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
-    def _output_run(self, answers, *, effects=False, cap=6, retry_count=1, native_item=None):
+    def _output_run(self, answers, *, effects=False, cap=6, retry_count=1, native_item=None, native_precheck=False, failed_wait=False):
         from laomedo.output_contract import requirements
         pinned = requirements({"schema_version": 1, "fields": [
             {"name": "report", "type": "string", "required": True}]})
@@ -108,6 +108,19 @@ class LocalRunnerTests(unittest.TestCase):
                     return {"result": {"turn": {"id": "output-" + str(len(inner.inputs))}}}
                 return super().request(method, params, timeout)
             def wait_turn(inner, turn_id, timeout, cancelled):
+                if native_precheck:
+                    inner.events.append({"method": "item/completed", "params": {"turnId": turn_id,
+                        "item": {"type": "userMessage", "id": "user-message", "content": []}}})
+                    inner.process = SimpleNamespace(stdin=io.StringIO())
+                    AppServer._observe(inner, {"id": "rpc-" + turn_id, "method": "item/tool/call",
+                        "params": {"threadId": "native-thread", "turnId": turn_id, "callId": "precheck-" + turn_id,
+                            "tool": "laomedo_output_precheck", "namespace": None, "arguments": {
+                                "requirements_revision": pinned["requirements_revision"], "submission": {}}}})
+                    inner.events.append({"method": "item/completed", "params": {"turnId": turn_id,
+                        "item": {"type": "dynamicToolCall", "id": "precheck-" + turn_id,
+                                 "tool": "laomedo_output_precheck", "namespace": None}}})
+                if failed_wait:
+                    raise RunnerError("request_timeout:turn/start")
                 if native_item:
                     inner.events.append({"method": "item/completed", "params": {"turnId": turn_id, "item": native_item}})
                 if effects:
@@ -170,6 +183,28 @@ class LocalRunnerTests(unittest.TestCase):
             "type": "dynamicToolCall", "tool": "unrecognized_write", "id": "call"})
         self.assertEqual(len(transport.inputs), 1)
         self.assertEqual(record["output_correction_blocked"], "side_effect_safety_unverified")
+
+    def test_realistic_user_message_bound_precheck_then_agent_can_continue(self):
+        record, transport = self._output_run([{}, {"report": "fixed", "task_outcome": "success"}], native_precheck=True)
+        self.assertEqual(len(transport.inputs), 2)
+        self.assertEqual(record["output_correction_count"], 1)
+        self.assertEqual(record["precheck"], {"installed": True, "call_count": 2})
+        self.assertEqual(record["output_validation"]["contract_status"], "accepted")
+
+    def test_failed_native_wait_keeps_observed_precheck_count(self):
+        record, transport = self._output_run([{}], native_precheck=True, failed_wait=True)
+        self.assertEqual(len(transport.inputs), 1)
+        self.assertEqual(record["status"], "failed")
+        self.assertEqual(record["precheck"], {"installed": True, "call_count": 1})
+
+    def test_legacy_prepared_record_without_precheck_fields_is_dispatchable(self):
+        record = self.runner._prepare(self.request())
+        record.pop("precheck")
+        path = self.runner._run_dir(record["run_id"]) / "record.json"
+        path.write_text(json.dumps(record), encoding="utf-8")
+        result = self.runner._execute(record["run_id"], "Use the sample skill", resume=False)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["precheck"], {"installed": False, "call_count": 0})
 
     def test_zero_correction_count_and_no_fabricated_precheck_call(self):
         record, transport = self._output_run([{}], retry_count=0)
