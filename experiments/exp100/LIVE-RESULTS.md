@@ -80,3 +80,14 @@ S10 acquisition, S11 paired synthetic controls and accepted #104 service-loss
 evidence remain separate; this capture does not re-prove them. Independent
 post-run assessment and merged specs evidence are still required before #100
 closure. #22/Q11/#93/#97 remain separate open gates.
+
+Post-capture integration note: the
+[independent post-run review](https://github.com/amadou-6e/laomedo/pull/143#pullrequestreview-5479313106)
+approved the evidence and original selected #100 closure after integration.
+The canonical evidence specs merged in
+[specs #344](https://github.com/amadou-6e/specs/pull/344) as
+`56642addc7b634b41ea4cc9808124438f239e24b`, at
+`projects/laomedo/subsystems/agent-execution/validation.md`, section
+"EXP-100 S12 real-provider integration, 2026-10-10". The earlier assessment
+paragraph describes the gates at initial report creation, not a new experiment.
+This note changes no original observation, executed source, manifest or criteria.
