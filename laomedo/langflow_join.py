@@ -10,7 +10,7 @@ import json
 from threading import RLock
 from uuid import UUID
 
-from .workflow_run_store import LaunchError, WorkflowRunStore
+from .workflow_run_store import LaunchError, WorkflowRunStore, runner_attempt_terminal
 
 
 def _digest(value):
@@ -114,13 +114,13 @@ class LangflowJoinController:
         if (not isinstance(native, dict) or
                 native.get("run_id") != snapshot["runner_run_id"]):
             raise LaunchError("runner_status_identity_mismatch")
-        if native.get("status") in {"completed", "cancelled", "failed",
-                                    "timeout", "interrupted"}:
+        if runner_attempt_terminal(native):
             self.store.record_runner_terminal(
                 snapshot["run_id"], snapshot["invocation_id"],
                 provider="codex", runner_run_id=snapshot["runner_run_id"],
                 status=native["status"],
-                cancel_confirmed=native.get("cancel_confirmed") is True)
+                cancel_confirmed=native.get("cancel_confirmed") is True,
+                attempt_finished=native.get("attempt_finished") is True)
             snapshot = self._snapshot(client_request_id)
         return {**snapshot, "native_status": native.get("status"),
                 "native_record": native,
@@ -231,8 +231,7 @@ class LangflowJoinController:
                     raw_event_ref=found.get("raw_event_ref"))
                 runner_run_id = found["run_id"]
             status = self.runner.status(runner_run_id)
-            if status.get("status") in {"completed", "cancelled", "failed",
-                                        "timeout", "interrupted"}:
+            if runner_attempt_terminal(status):
                 self.store.record_runner_observation(
                     run_id, invocation_id, provider="codex",
                     runner_run_id=runner_run_id, kind="runner_status",

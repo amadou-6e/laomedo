@@ -176,8 +176,9 @@ class RunnerAdapter:
             value = json.load(response)
         if not isinstance(value, dict) or value.get("run_id") != run_id:
             raise HandoffError("runner_status_identity_mismatch")
-        return {key: value.get(key) for key in
-                ("run_id", "status", "cancel_requested", "cancel_confirmed")}
+        return {**{key: value.get(key) for key in
+                ("run_id", "status", "cancel_requested", "cancel_confirmed")},
+                "attempt_finished": value.get("attempt_finished") is True}
 
     def cancel(self, execution_id):
         active = self.active.get(execution_id)

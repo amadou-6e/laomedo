@@ -24,6 +24,12 @@ class LaunchError(RuntimeError):
     pass
 
 
+def runner_attempt_terminal(record):
+    """End of a runner attempt is separate from an unknown work outcome."""
+    return (record.get("status") in {"completed", "cancelled", "failed", "timeout", "interrupted"}
+            or record.get("status") == "unknown" and record.get("attempt_finished") is True)
+
+
 class ExternalOutcomeUnknown(RuntimeError):
     """A dispatched external call may have run, but its result is unconfirmed."""
 
@@ -422,9 +428,9 @@ class WorkflowRunStore:
                            "observation": payload})
 
     def record_runner_terminal(self, run_id, invocation_id, *, provider,
-                               runner_run_id, status, cancel_confirmed=False):
+                               runner_run_id, status, cancel_confirmed=False, attempt_finished=False):
         """Retain native termination separately from a workflow wait/crash outcome."""
-        if status not in {"completed", "cancelled", "failed", "timeout", "interrupted"}:
+        if not runner_attempt_terminal({"status": status, "attempt_finished": attempt_finished}):
             raise LaunchError("invalid_runner_terminal_status")
         confirmed = status == "cancelled" and cancel_confirmed is True
         projected = ("incomplete" if status == "cancelled" and not confirmed else
@@ -458,12 +464,13 @@ class WorkflowRunStore:
                     WHERE run_id=?""", (projected, "native_runner_" + status, run_id))
                 db.execute("""UPDATE workflow_invocations SET status=?,error_class=?
                     WHERE run_id=? AND invocation_id=?""",
-                    ("completed" if status == "completed" else "failed",
+                    ("completed" if status == "completed" else "unknown" if status == "unknown" else "failed",
                      None if status == "completed" else "native_runner_" + status,
                      run_id, invocation_id))
             self._receipt(db, run_id, invocation_id, "runner_terminal",
                           {"runner_provider": provider, "runner_run_id": runner_run_id,
                            "native_status": status, "cancel_confirmed": confirmed,
+                           "attempt_finished": attempt_finished is True,
                            "workflow_outcome_preserved": preserve,
                            "semantic_output_verified": False})
             return True

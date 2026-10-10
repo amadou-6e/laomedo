@@ -20,6 +20,12 @@ _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 
 
+def _terminal_record(record):
+    # Standalone component mirrors the runner API, without a package dependency.
+    return (record.get("status") in _TERMINAL or
+            record.get("status") == "unknown" and record.get("attempt_finished") is True)
+
+
 class _NoRedirect(request.HTTPRedirectHandler):
     def redirect_request(self, *_):
         return None
@@ -292,7 +298,7 @@ class LaomedoCodexAgent(Component):
             if run_id is None:
                 raise RuntimeError("stop_runner_identity_unknown")
             self._active_run_id = run_id
-            if status in _TERMINAL:
+            if _terminal_record(candidate):
                 self.status = f"Laomedo run {run_id}: already {status}; no cancel sent"
                 return
             if status not in {"prepared", "running"}:
@@ -304,7 +310,7 @@ class LaomedoCodexAgent(Component):
                                           None, "GET", token)
                 if current is None or current.get("run_id") != run_id:
                     raise RuntimeError("stop_runner_status_unknown")
-                if current.get("status") in _TERMINAL:
+                if _terminal_record(current):
                     confirmed = (current.get("status") == "cancelled" and
                                  current.get("cancel_confirmed") is True)
                     self.status = (f"Laomedo run {run_id}: cancellation confirmed" if confirmed
@@ -338,7 +344,7 @@ class LaomedoCodexAgent(Component):
                 if status == "cancelled" and current.get("run_id") is None:
                     self.status = "Laomedo Stop: cancelled before runner dispatch"
                     return
-                if status in _TERMINAL:
+                if _terminal_record(current):
                     self.status = f"Laomedo Stop: runner {status}; cancellation unconfirmed"
                     return
                 time.sleep(.2)
@@ -383,7 +389,7 @@ class LaomedoCodexAgent(Component):
             self._active_run_id = result["run_id"]
         if self.operation == "fresh":
             deadline = time.monotonic() + int(self.timeout_seconds)
-            while result.get("status") not in _TERMINAL and not self._stop_requested:
+            while not _terminal_record(result) and not self._stop_requested:
                 if time.monotonic() >= deadline:
                     raise RuntimeError("runner_wait_deadline; remote execution may still be active")
                 time.sleep(.2)
@@ -418,6 +424,8 @@ class LaomedoCodexAgent(Component):
             "skills": skills,
             "artifact_ref": result.get("output_ref"), "trace_ref": result.get("raw_event_ref"),
             "error_category": result.get("error_category"),
+            "attempt_finished": result.get("attempt_finished", False),
+            "snapshot_ready": result.get("snapshot_ready", False),
             "cancel_requested": result.get("cancel_requested", False),
             "usage": result.get("usage") if isinstance(result.get("usage"), dict) else "unknown"}
 
