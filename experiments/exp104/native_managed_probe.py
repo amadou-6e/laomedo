@@ -40,6 +40,16 @@ def save(path, value):
     os.replace(pending, path)
 
 
+def configure_owned_clone(workspace, trusted):
+    """Only replace the exact local origin that this controller cloned."""
+    origin = git("remote", "get-url", "origin", cwd=workspace)
+    if (not Path(origin).is_absolute() or
+            os.path.normcase(os.path.normpath(origin)) != os.path.normcase(os.path.normpath(str(trusted)))):
+        raise ValueError("owned_clone_origin_changed")
+    git("remote", "remove", "origin", cwd=workspace)
+    configure_remote(workspace, REPOSITORY)
+
+
 def api(token, path):
     # Read-only, no caller URL or redirect fallback; credentials stay host-side.
     from laomedo.github_rest_transport import _NoRedirect
@@ -208,7 +218,8 @@ def run(root, token_file, source, review_record, approval):
         output.write(IDENTITY)
     observation = {"identity": IDENTITY, "source_sha": source, "spec_sha": SPEC_SHA,
         "review_record_sha256": review_hash, "repository": REPOSITORY, "baseline": BASELINE,
-        "model_turns": 0, "result": "incomplete", "delivery": {}, "cleanup": {}}
+        "model_turns": 0, "result": "incomplete", "delivery": {}, "cleanup": {},
+        "phase": "preflight"}
     owned, workers, capabilities = {}, {}, {}
     token, authority = None, None
     save(root / "observation.json", observation)
@@ -264,21 +275,25 @@ def run(root, token_file, source, review_record, approval):
             cwd=CHECKOUT, env=_base_git_environment(), capture_output=True, timeout=15)
         if checked.returncode:
             raise ValueError("task_interpreter_dependencies_missing")
+        observation["phase"] = "managed_services"
         tasks.register(root, sys.executable, owned)
         mediator, verifier, before, initial_heartbeat = readiness(root, owned)
         authority = RunGrantAuthority(root / "host/authority.sqlite", connection_authorizer=connection.authorize)
         for side in ("a", "b"):
+            observation["phase"] = "owned_workspace_" + side
             selected = identities(side)
             workspace = root / "runner/runs" / selected["run_id"] / "workspace"
             workspace.parent.mkdir(parents=True)
             git("clone", "--quiet", "--no-local", trusted, workspace)
             git("checkout", "--quiet", "-b", selected["branch"], BASELINE, cwd=workspace)
-            configure_remote(workspace, REPOSITORY)
+            configure_owned_clone(workspace, trusted)
+            observation["phase"] = "grant_" + side
             reference = authority.approve(invocation_id=selected["invocation_id"], repository=REPOSITORY,
                 branch=selected["branch"], base_branch="main", reviewed_by="operator-approved-S12",
                 operations={"git_push", "git_fetch", "pr_create", "pr_update", "pr_read"},
                 connection_id=IDENTITY + "-connection", connection_generation=1)
             authority.bind_run(reference, selected["run_id"])
+            observation["phase"] = "worker_" + side
             workers[side] = subprocess.Popen([sys.executable, "-m", "experiments.exp104.native_managed_worker",
                 "--root", str(root), "--side", side], cwd=CHECKOUT, env=_base_git_environment(),
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -286,6 +301,7 @@ def run(root, token_file, source, review_record, approval):
             capabilities[side] = (root / "host/lease/leases" / selected["token"] / "grant.secret").read_text()
             marker = "laomedo:" + IDENTITY + ":pr:" + side
             command = lambda args, **kw: agent_command(root, side, args, token, capabilities[side], **kw)
+            observation["phase"] = "native_delivery_" + side
             command(["git", "fetch", "origin"])
             file = workspace / ("exp104-native-managed-" + side + ".txt")
             file.write_text(marker + "\n", encoding="utf-8", newline="\n")
@@ -300,6 +316,7 @@ def run(root, token_file, source, review_record, approval):
             if side == "a":
                 deliver_pr(root, side, command, observation)
         # B push is confirmed, B PR creation deliberately waits until A denial.
+        observation["phase"] = "runner_loss"
         ready_a = json.loads((root / "a-ready.json").read_bytes())
         killed = kill_worker(workers["a"], ready_a, root, "a")
         revoked = wait_json(root / "host/lease/leases" / identities("a")["token"] / "revoked.json", timeout=60)

@@ -1,11 +1,12 @@
-# S12 executable review candidate (UNEXECUTED)
+# S12 B executable review candidate (UNEXECUTED)
 
 The prospective `NATIVE-MANAGED-PROTOCOL.md` was committed as `e4942d2`
 before this controller. Its independent design verdict permits implementation,
 not execution. The verifier diagnostics received a separate bounded review;
 status-write failure is deliberately fail-closed and stops its task. The
 actual final executable still requires independent positive pre-run review
-and green final-head CI. No S12 claim/task/container/provider call has started.
+and green final-head CI. S12 A is consumed (see its results); no S12 B
+claim/task/container/provider call has started. Amendment01 was frozen first.
 
 Sources: `native_managed_probe.py` controller; `native_managed_worker.py`
 scripted real-lease runner; `native_managed_tasks.py` exact task helpers;
@@ -16,7 +17,7 @@ approval, selected token-file reference and a private positive review record
 matching identity/source. Invoke only as the module, not by path:
 
 ```text
-python -m experiments.exp104.native_managed_probe --run --root <fresh-private-parent>/exp104-native-managed-s12-20261010-a --token-file <explicit-file> --source-sha <reviewed-final-head> --review-record <private-approved-record> --approval-id exp104-native-managed-s12-20261010-a
+python -m experiments.exp104.native_managed_probe --run --root <fresh-private-parent>/exp104-native-managed-s12-20261010-b --token-file <explicit-file> --source-sha <reviewed-final-head> --review-record <private-approved-record> --approval-id exp104-native-managed-s12-20261010-b
 ```
 
 Both tasks use the exact invoking interpreter/checkout; an import preflight

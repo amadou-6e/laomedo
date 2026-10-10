@@ -9,6 +9,24 @@ from experiments.exp104 import native_managed_probe as probe
 
 
 class NativeManagedProbeTests(unittest.TestCase):
+    def test_owned_local_clone_origin_is_replaced_but_other_origin_refused(self):
+        with tempfile.TemporaryDirectory(prefix="laomedo-managed-clone-test-") as directory:
+            root = Path(directory)
+            trusted = root / "trusted source"
+            workspace = root / "workspace"
+            other = root / "other"
+            probe.git("init", "--quiet", trusted)
+            probe.git("clone", "--quiet", "--no-local", trusted, workspace)
+            probe.configure_owned_clone(workspace, trusted)
+            self.assertEqual(probe.git("remote", "get-url", "origin", cwd=workspace),
+                             "laomedo::" + probe.REPOSITORY)
+            probe.git("clone", "--quiet", "--no-local", trusted, other)
+            probe.git("remote", "set-url", "origin", "https://example.invalid/unowned", cwd=other)
+            with self.assertRaisesRegex(ValueError, "owned_clone_origin_changed"):
+                probe.configure_owned_clone(other, trusted)
+            self.assertEqual(probe.git("remote", "get-url", "origin", cwd=other),
+                             "https://example.invalid/unowned")
+
     def test_exec_trusts_only_fixture_mount_including_helper_children(self):
         with tempfile.TemporaryDirectory(prefix="laomedo-managed-command-test-") as directory:
             root = Path(directory)

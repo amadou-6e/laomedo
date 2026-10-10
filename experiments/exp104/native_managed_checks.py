@@ -2,7 +2,7 @@
 import math
 import re
 
-IDENTITY = "exp104-native-managed-s12-20261010-a"
+IDENTITY = "exp104-native-managed-s12-20261010-b"
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"
 BASELINE = "1f1a505f2fbd31993a7946924a9bec5a27bb15c1"
 
