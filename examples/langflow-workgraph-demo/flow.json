@@ -1,282 +1,146 @@
 {
-  "id": "ff9a1b5d-9e91-5779-b744-ffa9929c6fe1",
-  "name": "Laomedo Skill and Codex Agent",
-  "description": "Fresh/resume Codex custom component with shared answer/run outputs.",
+  "id": "7a4a9e62-9b93-558a-a6c4-db71780ff32a",
+  "name": "Laomedo issue to contract routes (simulated publication)",
+  "description": "Credential-free fixture. All publication references are simulated; no GitHub writes or model turns.",
   "last_tested_version": "1.12.3",
   "flow_type": "workflow",
   "access_type": "PRIVATE",
   "data": {
     "nodes": [
       {
-        "data": {
-          "description": "Get chat inputs from the Playground.",
-          "display_name": "Chat Input",
-          "id": "ChatInput-laomedo",
-          "node": {
-            "base_classes": [
-              "Message"
-            ],
-            "beta": false,
-            "conditional_paths": [],
-            "custom_fields": {},
-            "description": "Get chat inputs from the Playground.",
-            "display_name": "Chat Input",
-            "documentation": "",
-            "edited": false,
-            "field_order": [
-              "input_value",
-              "should_store_message",
-              "sender",
-              "sender_name",
-              "session_id",
-              "context_id",
-              "files"
-            ],
-            "frozen": false,
-            "icon": "MessagesSquare",
-            "legacy": false,
-            "lf_version": "1.7.0",
-            "metadata": {
-              "code_hash": "45974e6b1909",
-              "dependencies": {
-                "dependencies": [
-                  {
-                    "name": "lfx",
-                    "version": null
-                  }
-                ],
-                "total_dependencies": 1
-              },
-              "module": "lfx.components.input_output.chat.ChatInput"
-            },
-            "output_types": [],
-            "outputs": [
-              {
-                "allows_loop": false,
-                "cache": true,
-                "display_name": "Chat Message",
-                "group_outputs": false,
-                "method": "message_response",
-                "name": "message",
-                "selected": "Message",
-                "tool_mode": true,
-                "types": [
-                  "Message"
-                ],
-                "value": "__UNDEFINED__"
-              }
-            ],
-            "pinned": false,
-            "template": {
-              "_type": "Component",
-              "code": {
-                "advanced": true,
-                "api_editable": false,
-                "dynamic": true,
-                "fileTypes": [],
-                "file_path": "",
-                "info": "",
-                "list": false,
-                "load_from_db": false,
-                "multiline": true,
-                "name": "code",
-                "password": false,
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "type": "code",
-                "value": "from lfx.base.data.utils import IMG_FILE_TYPES, TEXT_FILE_TYPES\nfrom lfx.base.io.chat import ChatComponent\nfrom lfx.inputs.inputs import BoolInput\nfrom lfx.io import (\n    DropdownInput,\n    FileInput,\n    MessageTextInput,\n    MultilineInput,\n    Output,\n)\nfrom lfx.schema.image import get_file_paths\nfrom lfx.schema.message import Message\nfrom lfx.services.deps import get_settings_service\nfrom lfx.utils.constants import (\n    MESSAGE_SENDER_AI,\n    MESSAGE_SENDER_NAME_USER,\n    MESSAGE_SENDER_USER,\n)\nfrom lfx.utils.file_path_security import (\n    component_file_access_scopes,\n    enforce_local_file_access,\n    is_local_file_access_restricted,\n)\n\n\nclass ChatInput(ChatComponent):\n    display_name = \"Chat Input\"\n    description = \"Get chat inputs from the Playground.\"\n    documentation: str = \"https://docs.langflow.org/chat-input-and-output\"\n    icon = \"MessagesSquare\"\n    name = \"ChatInput\"\n    minimized = True\n\n    inputs = [\n        MultilineInput(\n            name=\"input_value\",\n            display_name=\"Input Text\",\n            value=\"\",\n            info=\"Message to be passed as input.\",\n            input_types=[],\n        ),\n        BoolInput(\n            name=\"should_store_message\",\n            display_name=\"Store Messages\",\n            info=\"Store the message in the history.\",\n            value=True,\n            advanced=True,\n        ),\n        DropdownInput(\n            name=\"sender\",\n            display_name=\"Sender Type\",\n            options=[MESSAGE_SENDER_AI, MESSAGE_SENDER_USER],\n            value=MESSAGE_SENDER_USER,\n            info=\"Type of sender.\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"sender_name\",\n            display_name=\"Sender Name\",\n            info=\"Name of the sender.\",\n            value=MESSAGE_SENDER_NAME_USER,\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"session_id\",\n            display_name=\"Session ID\",\n            info=\"The session ID of the chat. If empty, the current session ID parameter will be used.\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"context_id\",\n            display_name=\"Context ID\",\n            info=\"The context ID of the chat. Adds an extra layer to the local memory.\",\n            value=\"\",\n            advanced=True,\n        ),\n        FileInput(\n            name=\"files\",\n            display_name=\"Files\",\n            file_types=TEXT_FILE_TYPES + IMG_FILE_TYPES,\n            info=\"Files to be sent with the message.\",\n            advanced=True,\n            is_list=True,\n            temp_file=True,\n        ),\n    ]\n    outputs = [\n        Output(display_name=\"Chat Message\", name=\"message\", method=\"message_response\"),\n    ]\n\n    async def message_response(self) -> Message:\n        # Ensure files is a list and filter out empty/None values\n        files = self.files if self.files else []\n        if files and not isinstance(files, list):\n            files = [files]\n        # Filter out None/empty values\n        files = [f for f in files if f is not None and f != \"\"]\n\n        # Build endpoints inject caller-controlled file references directly into\n        # ChatInput. Resolve and validate local references before the Message can\n        # later read them while constructing model attachment content.\n        if files:\n            settings_service = get_settings_service()\n            storage_type = getattr(getattr(settings_service, \"settings\", None), \"storage_type\", \"local\")\n            # The storage factory falls back to local storage for unsupported\n            # values, so only the explicitly configured S3 backend may bypass\n            # filesystem containment.\n            if str(storage_type).lower() != \"s3\" and is_local_file_access_restricted():\n                scope_ids = list(component_file_access_scopes(self))\n                # Public executions replace graph.flow_id with a per-visitor\n                # virtual ID. Only the server-populated source provenance may\n                # restore the already-validated public attachment namespace.\n                source_flow_id = getattr(self.graph, \"source_flow_id\", None)\n                if source_flow_id:\n                    scope_ids.append(source_flow_id)\n                for file_path in get_file_paths(files):\n                    enforce_local_file_access(file_path, scope_ids=scope_ids)\n\n        session_id = self.session_id or self.graph.session_id or \"\"\n        message = await Message.create(\n            text=self.input_value,\n            sender=self.sender,\n            sender_name=self.sender_name,\n            session_id=session_id,\n            context_id=self.context_id,\n            files=files,\n        )\n        if session_id and isinstance(message, Message) and self.should_store_message:\n            stored_message = await self.send_message(\n                message,\n            )\n            self.message.value = stored_message\n            message = stored_message\n\n        self.status = message\n        return message\n"
-              },
-              "context_id": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Context ID",
-                "dynamic": false,
-                "info": "The context ID of the chat. Adds an extra layer to the local memory.",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "list_add_label": "Add More",
-                "load_from_db": false,
-                "name": "context_id",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
-              },
-              "files": {
-                "advanced": true,
-                "display_name": "Files",
-                "dynamic": false,
-                "fileTypes": [
-                  "csv",
-                  "json",
-                  "pdf",
-                  "txt",
-                  "md",
-                  "mdx",
-                  "yaml",
-                  "yml",
-                  "xml",
-                  "html",
-                  "htm",
-                  "docx",
-                  "py",
-                  "sh",
-                  "sql",
-                  "js",
-                  "ts",
-                  "tsx",
-                  "jpg",
-                  "jpeg",
-                  "png",
-                  "bmp",
-                  "image"
-                ],
-                "file_path": "",
-                "info": "Files to be sent with the message.",
-                "list": true,
-                "name": "files",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "temp_file": true,
-                "title_case": false,
-                "trace_as_metadata": true,
-                "type": "file",
-                "value": ""
-              },
-              "input_value": {
-                "advanced": false,
-                "display_name": "Input Text",
-                "dynamic": false,
-                "info": "Message to be passed as input.",
-                "input_types": [],
-                "list": false,
-                "load_from_db": false,
-                "multiline": true,
-                "name": "input_value",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "Hello"
-              },
-              "sender": {
-                "advanced": true,
-                "display_name": "Sender Type",
-                "dynamic": false,
-                "info": "Type of sender.",
-                "name": "sender",
-                "options": [
-                  "Machine",
-                  "User"
-                ],
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "User"
-              },
-              "sender_name": {
-                "advanced": true,
-                "display_name": "Sender Name",
-                "dynamic": false,
-                "info": "Name of the sender.",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "load_from_db": false,
-                "name": "sender_name",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "User"
-              },
-              "session_id": {
-                "advanced": true,
-                "display_name": "Session ID",
-                "dynamic": false,
-                "info": "The session ID of the chat. If empty, the current session ID parameter will be used.",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "load_from_db": false,
-                "name": "session_id",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
-              },
-              "should_store_message": {
-                "_input_type": "BoolInput",
-                "advanced": true,
-                "display_name": "Store Messages",
-                "dynamic": false,
-                "info": "Store the message in the history.",
-                "list": false,
-                "name": "should_store_message",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "trace_as_metadata": true,
-                "type": "bool",
-                "value": true
-              }
-            }
-          },
-          "selected_output": "message",
-          "type": "ChatInput"
-        },
-        "dragging": false,
-        "id": "ChatInput-laomedo",
-        "measured": {
-          "height": 234,
-          "width": 320
-        },
-        "position": {
-          "x": 0,
-          "y": 120
-        },
-        "positionAbsolute": {
-          "x": 689.5720422421635,
-          "y": 765.155834131403
-        },
-        "selected": false,
-        "type": "genericNode"
-      },
-      {
-        "id": "LaomedoSkill-native",
+        "id": "issue",
         "type": "genericNode",
         "position": {
           "x": 0,
-          "y": 420
+          "y": 0
         },
         "data": {
-          "id": "LaomedoSkill-native",
+          "id": "issue",
+          "type": "FixtureIssue",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Credential-free issue source, using the production context parser.\"\"\"\nimport hashlib\nimport json\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import Output, StrInput\nfrom lfx.schema import Data, Message\nfrom laomedo.issue_context import fetch_context\n\n\nclass FixtureIssue(Component):\n    display_name = \"Fixture issue snapshot\"\n    description = \"Frozen fixture only. Never reads ambient GitHub credentials.\"\n    name = \"FixtureIssue\"\n    inputs = [StrInput(name=\"issue_json\", display_name=\"Fixture issue JSON\", required=True)]\n    outputs = [Output(name=\"task\", display_name=\"Task\", method=\"task_output\", group_outputs=True),\n               Output(name=\"snapshot\", display_name=\"Frozen issue\", method=\"snapshot_output\", group_outputs=True)]\n\n    def _snapshot(self):\n        fixture = json.loads(self.issue_json)\n        issue = fixture[\"issue\"]\n        repository = fixture[\"repository\"]\n        number = issue[\"number\"]\n        def request(path):\n            if path == f\"repos/{repository}/issues/{number}\":\n                return issue\n            if path == f\"repos/{repository}/issues/{number}/timeline?per_page=100&page=1\":\n                return []\n            raise ValueError(\"fixture_request_outside_allowlist\")\n        context = fetch_context(repository, number, request=request,\n                                fetched_at=fixture[\"fetched_at\"])\n        canonical = json.dumps(context, sort_keys=True, separators=(\",\", \":\")).encode()\n        return {\"source\": \"fixture\", \"context\": context,\n                \"snapshot_id\": \"sha256:\" + hashlib.sha256(canonical).hexdigest(),\n                \"body_sha256\": hashlib.sha256(issue[\"body\"].encode()).hexdigest()}\n\n    def snapshot_output(self) -> Data:\n        return Data(data=self._snapshot())\n\n    def task_output(self) -> Message:\n        snapshot = self._snapshot()\n        return Message(text=json.dumps({\"task\": \"Implement fixture issue; submit the configured output form. Do not publish.\",\n                                        \"frozen_issue\": snapshot}, sort_keys=True))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "issue_json": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "issue_json",
+                "value": "{\n  \"repository\": \"laomedo-fixture/workgraph\",\n  \"fetched_at\": \"2026-10-10T00:00:00Z\",\n  \"issue\": {\n    \"number\": 1,\n    \"node_id\": \"FIXTURE_ISSUE_1\",\n    \"repository_url\": \"https://api.github.com/repos/laomedo-fixture/workgraph\",\n    \"html_url\": \"https://github.com/laomedo-fixture/workgraph/issues/1\",\n    \"title\": \"Produce the fixture report\",\n    \"body\": \"Implement a deterministic fixture report. Do not contact GitHub.\",\n    \"state\": \"open\",\n    \"updated_at\": \"2026-10-10T00:00:00Z\"\n  }\n}\n",
+                "display_name": "Fixture issue JSON",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "description": "Frozen fixture only. Never reads ambient GitHub credentials.",
+            "base_classes": [
+              "JSON",
+              "Message"
+            ],
+            "display_name": "Fixture issue snapshot",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "task",
+                "display_name": "Task",
+                "method": "task_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "snapshot",
+                "display_name": "Frozen issue",
+                "method": "snapshot_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "issue_json"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.fixture_issue_snapshot",
+              "code_hash": "147da8f8f664",
+              "dependencies": {
+                "total_dependencies": 2,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  },
+                  {
+                    "name": "laomedo",
+                    "version": null
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "skill",
+        "type": "genericNode",
+        "position": {
+          "x": 0,
+          "y": 300
+        },
+        "data": {
+          "id": "skill",
           "type": "LaomedoSkill",
           "node": {
             "template": {
@@ -311,7 +175,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "revision_id",
-                "value": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+                "value": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
                 "display_name": "Skill Revision",
                 "advanced": false,
                 "api_editable": false,
@@ -333,7 +197,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "skill_id",
-                "value": "laomedo-pilot",
+                "value": "demo-report",
                 "display_name": "Skill ID",
                 "advanced": false,
                 "api_editable": false,
@@ -395,19 +259,178 @@
               }
             },
             "tool_mode": false
-          },
-          "selected_output": "skill"
+          }
         }
       },
       {
-        "id": "LaomedoCodexAgent-native",
+        "id": "requirements",
         "type": "genericNode",
         "position": {
-          "x": 420,
-          "y": 100
+          "x": 0,
+          "y": 600
         },
         "data": {
-          "id": "LaomedoCodexAgent-native",
+          "id": "requirements",
+          "type": "LaomedoOutputContract",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "agent_submission": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "agent_submission",
+                "value": "",
+                "display_name": "Agent Submission",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Output Contract node backed by the installed Laomedo shared evaluator.\"\"\"\n\nimport json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, MultilineInput, Output\nfrom lfx.schema import Data\nfrom laomedo.output_contract import evaluate_envelope, requirements\n\n\nclass LaomedoOutputContract(Component):\n    display_name = \"Laomedo Output Contract\"\n    description = \"Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.\"\n    icon = \"ClipboardCheck\"\n    name = \"LaomedoOutputContract\"\n    inputs = [MultilineInput(name=\"requirements_json\", display_name=\"Output Form\", value='{\"schema_version\":1,\"fields\":[]}'),\n              DataInput(name=\"agent_submission\", display_name=\"Agent Submission\")]\n    outputs = [Output(name=\"requirements\", display_name=\"Precheck Requirements\", method=\"requirements_output\", group_outputs=True),\n               Output(name=\"validation\", display_name=\"Validation Outcome\", method=\"validation_output\", group_outputs=True)]\n\n    def requirements_output(self) -> Data:\n        try:\n            specification = json.loads(self.requirements_json)\n        except (TypeError, ValueError):\n            raise ValueError(\"invalid_output_requirements_json\") from None\n        return Data(data=requirements(specification))\n\n    def validation_output(self) -> Data:\n        reference = self.requirements_output().data\n        envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n        result = evaluate_envelope(reference, envelope)\n        self.status = result[\"contract_status\"]\n        return Data(data=result)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "requirements_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "requirements_json",
+                "value": "{\"schema_version\": 1, \"fields\": [{\"name\": \"task_outcome\", \"type\": \"string\", \"required\": true, \"checks\": {\"enum\": [\"success\", \"failure\"]}}, {\"name\": \"report\", \"type\": \"string\", \"required\": true, \"checks\": {\"nonempty\": true}}]}",
+                "display_name": "Output Form",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.",
+            "icon": "ClipboardCheck",
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Laomedo Output Contract",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "requirements",
+                "display_name": "Precheck Requirements",
+                "method": "requirements_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "validation",
+                "display_name": "Validation Outcome",
+                "method": "validation_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "requirements_json",
+              "agent_submission"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.laomedo_output_contract",
+              "code_hash": "dc315aeffb1c",
+              "dependencies": {
+                "total_dependencies": 2,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  },
+                  {
+                    "name": "laomedo",
+                    "version": null
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "agent",
+        "type": "genericNode",
+        "position": {
+          "x": 400,
+          "y": 0
+        },
+        "data": {
+          "id": "agent",
           "type": "LaomedoCodexAgent",
           "node": {
             "template": {
@@ -590,7 +613,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "model",
-                "value": "gpt-6-luna",
+                "value": "fixture",
                 "display_name": "Model",
                 "advanced": false,
                 "api_editable": false,
@@ -730,7 +753,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "runner_url",
-                "value": "http://host.docker.internal:8765",
+                "value": "http://127.0.0.1:8765",
                 "display_name": "Runner URL",
                 "advanced": true,
                 "api_editable": false,
@@ -908,588 +931,976 @@
               }
             },
             "tool_mode": false
-          },
-          "selected_output": "answer"
+          }
         }
       },
       {
+        "id": "contract",
+        "type": "genericNode",
+        "position": {
+          "x": 800,
+          "y": 0
+        },
         "data": {
-          "id": "ChatOutput-laomedo",
+          "id": "contract",
+          "type": "LaomedoOutputContract",
           "node": {
-            "base_classes": [
-              "Message"
-            ],
-            "beta": false,
-            "conditional_paths": [],
-            "custom_fields": {},
-            "description": "Display a chat message in the Playground.",
-            "display_name": "Chat Output",
-            "documentation": "",
-            "edited": false,
-            "field_order": [
-              "input_value",
-              "should_store_message",
-              "sender",
-              "sender_name",
-              "session_id",
-              "context_id",
-              "data_template",
-              "clean_data"
-            ],
-            "frozen": false,
-            "icon": "MessagesSquare",
-            "legacy": false,
-            "lf_version": "1.7.0",
-            "metadata": {
-              "code_hash": "84009527d08c",
-              "dependencies": {
-                "dependencies": [
-                  {
-                    "name": "orjson",
-                    "version": "3.11.9"
-                  },
-                  {
-                    "name": "fastapi",
-                    "version": "0.139.2"
-                  },
-                  {
-                    "name": "lfx",
-                    "version": null
-                  }
-                ],
-                "total_dependencies": 3
-              },
-              "module": "lfx.components.input_output.chat_output.ChatOutput"
-            },
-            "output_types": [],
-            "outputs": [
-              {
-                "allows_loop": false,
-                "cache": true,
-                "display_name": "Output Message",
-                "group_outputs": false,
-                "method": "message_response",
-                "name": "message",
-                "selected": "Message",
-                "tool_mode": true,
-                "types": [
-                  "Message"
-                ],
-                "value": "__UNDEFINED__"
-              }
-            ],
-            "pinned": false,
             "template": {
               "_type": "Component",
-              "clean_data": {
-                "_input_type": "BoolInput",
-                "advanced": true,
-                "display_name": "Basic Clean Data",
-                "dynamic": false,
-                "info": "Whether to clean data before converting to string.",
-                "list": false,
-                "list_add_label": "Add More",
-                "name": "clean_data",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
+              "agent_submission": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
-                "type": "bool",
-                "value": true
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "agent_submission",
+                "value": "",
+                "display_name": "Agent Submission",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
               },
               "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Output Contract node backed by the installed Laomedo shared evaluator.\"\"\"\n\nimport json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, MultilineInput, Output\nfrom lfx.schema import Data\nfrom laomedo.output_contract import evaluate_envelope, requirements\n\n\nclass LaomedoOutputContract(Component):\n    display_name = \"Laomedo Output Contract\"\n    description = \"Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.\"\n    icon = \"ClipboardCheck\"\n    name = \"LaomedoOutputContract\"\n    inputs = [MultilineInput(name=\"requirements_json\", display_name=\"Output Form\", value='{\"schema_version\":1,\"fields\":[]}'),\n              DataInput(name=\"agent_submission\", display_name=\"Agent Submission\")]\n    outputs = [Output(name=\"requirements\", display_name=\"Precheck Requirements\", method=\"requirements_output\", group_outputs=True),\n               Output(name=\"validation\", display_name=\"Validation Outcome\", method=\"validation_output\", group_outputs=True)]\n\n    def requirements_output(self) -> Data:\n        try:\n            specification = json.loads(self.requirements_json)\n        except (TypeError, ValueError):\n            raise ValueError(\"invalid_output_requirements_json\") from None\n        return Data(data=requirements(specification))\n\n    def validation_output(self) -> Data:\n        reference = self.requirements_output().data\n        envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n        result = evaluate_envelope(reference, envelope)\n        self.status = result[\"contract_status\"]\n        return Data(data=result)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
                 "advanced": true,
                 "api_editable": false,
                 "dynamic": true,
-                "fileTypes": [],
-                "file_path": "",
                 "info": "",
-                "list": false,
                 "load_from_db": false,
-                "multiline": true,
-                "name": "code",
-                "password": false,
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "type": "code",
-                "value": "from collections.abc import Generator\nfrom typing import Any\n\nimport orjson\nfrom fastapi.encoders import jsonable_encoder\n\nfrom lfx.base.io.chat import ChatComponent\nfrom lfx.helpers.data import safe_convert\nfrom lfx.inputs.inputs import BoolInput, DropdownInput, HandleInput, MessageTextInput\nfrom lfx.schema.data import Data\nfrom lfx.schema.dataframe import DataFrame\nfrom lfx.schema.message import Message\nfrom lfx.schema.properties import Source\nfrom lfx.template.field.base import Output\nfrom lfx.utils.constants import (\n    MESSAGE_SENDER_AI,\n    MESSAGE_SENDER_NAME_AI,\n    MESSAGE_SENDER_USER,\n)\n\n\nclass ChatOutput(ChatComponent):\n    display_name = \"Chat Output\"\n    description = \"Display a chat message in the Playground.\"\n    documentation: str = \"https://docs.langflow.org/chat-input-and-output\"\n    icon = \"MessagesSquare\"\n    name = \"ChatOutput\"\n    minimized = True\n\n    inputs = [\n        HandleInput(\n            name=\"input_value\",\n            display_name=\"Inputs\",\n            info=\"Message to be passed as output.\",\n            input_types=[\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"],\n            required=True,\n        ),\n        BoolInput(\n            name=\"should_store_message\",\n            display_name=\"Store Messages\",\n            info=\"Store the message in the history.\",\n            value=True,\n            advanced=True,\n        ),\n        DropdownInput(\n            name=\"sender\",\n            display_name=\"Sender Type\",\n            options=[MESSAGE_SENDER_AI, MESSAGE_SENDER_USER],\n            value=MESSAGE_SENDER_AI,\n            advanced=True,\n            info=\"Type of sender.\",\n        ),\n        MessageTextInput(\n            name=\"sender_name\",\n            display_name=\"Sender Name\",\n            info=\"Name of the sender.\",\n            value=MESSAGE_SENDER_NAME_AI,\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"session_id\",\n            display_name=\"Session ID\",\n            info=\"The session ID of the chat. If empty, the current session ID parameter will be used.\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"context_id\",\n            display_name=\"Context ID\",\n            info=\"The context ID of the chat. Adds an extra layer to the local memory.\",\n            value=\"\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"data_template\",\n            display_name=\"Data Template\",\n            value=\"{text}\",\n            advanced=True,\n            info=\"Template to convert Data to Text. If left empty, it will be dynamically set to the Data's text key.\",\n        ),\n        BoolInput(\n            name=\"clean_data\",\n            display_name=\"Basic Clean Data\",\n            value=True,\n            advanced=True,\n            info=\"Whether to clean data before converting to string.\",\n        ),\n    ]\n    outputs = [\n        Output(\n            display_name=\"Output Message\",\n            name=\"message\",\n            method=\"message_response\",\n        ),\n    ]\n\n    def _build_source(self, id_: str | None, display_name: str | None, source: str | None) -> Source:\n        source_dict = {}\n        if id_:\n            source_dict[\"id\"] = id_\n        if display_name:\n            source_dict[\"display_name\"] = display_name\n        if source:\n            # Handle case where source is a ChatOpenAI object\n            if hasattr(source, \"model_name\"):\n                source_dict[\"source\"] = source.model_name\n            elif hasattr(source, \"model\"):\n                source_dict[\"source\"] = str(source.model)\n            else:\n                source_dict[\"source\"] = str(source)\n        return Source(**source_dict)\n\n    async def message_response(self) -> Message:\n        # First convert the input to string if needed\n        text = self.convert_to_string()\n\n        # Get source properties\n        source, _, display_name, source_id = self.get_properties_from_source_component()\n\n        # Create or use existing Message object\n        if isinstance(self.input_value, Message) and not self.is_connected_to_chat_input():\n            message = self.input_value\n            # Update message properties\n            message.text = text\n            # Preserve existing session_id from the incoming message if it exists\n            existing_session_id = message.session_id\n        else:\n            message = Message(text=text)\n            existing_session_id = None\n\n        # Set message properties\n        message.sender = self.sender\n        message.sender_name = self.sender_name\n        # Preserve session_id from incoming message, or use component/graph session_id\n        message.session_id = (\n            self.session_id or existing_session_id or (self.graph.session_id if hasattr(self, \"graph\") else None) or \"\"\n        )\n        message.context_id = self.context_id\n        message.flow_id = self.graph.flow_id if hasattr(self, \"graph\") else None\n        message.properties.source = self._build_source(source_id, display_name, source)\n\n        # Store message if needed\n        if message.session_id and self.should_store_message:\n            stored_message = await self.send_message(message)\n            self.message.value = stored_message\n            message = stored_message\n\n        # Set accumulated token usage from all upstream LLM vertices.\n        # This must happen AFTER send_message() because streaming captures\n        # usage from chunks and would overwrite accumulated totals.\n        if hasattr(self, \"_vertex\") and self._vertex is not None:\n            accumulated_usage = self._vertex._accumulate_upstream_token_usage()  # noqa: SLF001\n            if accumulated_usage:\n                message.properties.usage = accumulated_usage\n                if self.should_store_message and message.get_id():\n                    message = await self._update_stored_message(message)\n                    await self._send_message_event(message, id_=message.get_id())\n\n        self.status = message\n        return message\n\n    def _serialize_data(self, data: Data) -> str:\n        \"\"\"Serialize Data object to JSON string.\"\"\"\n        # Convert data.data to JSON-serializable format\n        serializable_data = jsonable_encoder(data.data)\n        # Serialize with orjson, enabling pretty printing with indentation\n        json_bytes = orjson.dumps(serializable_data, option=orjson.OPT_INDENT_2)\n        # Convert bytes to string and wrap in Markdown code blocks\n        return \"```json\\n\" + json_bytes.decode(\"utf-8\") + \"\\n```\"\n\n    def _validate_input(self) -> None:\n        \"\"\"Validate the input data and raise ValueError if invalid.\"\"\"\n        if self.input_value is None:\n            msg = \"Input data cannot be None\"\n            raise ValueError(msg)\n        if isinstance(self.input_value, list) and not all(\n            isinstance(item, Message | Data | DataFrame | str) for item in self.input_value\n        ):\n            invalid_types = [\n                type(item).__name__\n                for item in self.input_value\n                if not isinstance(item, Message | Data | DataFrame | str)\n            ]\n            msg = f\"Expected Data or DataFrame or Message or str, got {invalid_types}\"\n            raise TypeError(msg)\n        if not isinstance(\n            self.input_value,\n            Message | Data | DataFrame | str | list | Generator | type(None),\n        ):\n            type_name = type(self.input_value).__name__\n            msg = f\"Expected Data or DataFrame or Message or str, Generator or None, got {type_name}\"\n            raise TypeError(msg)\n\n    def convert_to_string(self) -> str | Generator[Any, None, None]:\n        \"\"\"Convert input data to string with proper error handling.\"\"\"\n        self._validate_input()\n        if isinstance(self.input_value, list):\n            clean_data: bool = getattr(self, \"clean_data\", False)\n            return \"\\n\".join([safe_convert(item, clean_data=clean_data) for item in self.input_value])\n        if isinstance(self.input_value, Generator):\n            return self.input_value\n        return safe_convert(self.input_value)\n"
+                "title_case": false
               },
-              "context_id": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Context ID",
-                "dynamic": false,
-                "info": "The context ID of the chat. Adds an extra layer to the local memory.",
-                "input_types": [
-                  "Message"
-                ],
+              "requirements_json": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
                 "list": false,
                 "list_add_label": "Add More",
-                "load_from_db": false,
-                "name": "context_id",
-                "placeholder": "",
+                "override_skip": false,
                 "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
-              },
-              "data_template": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Data Template",
-                "dynamic": false,
-                "info": "Template to convert Data to Text. If left empty, it will be dynamically set to the Data's text key.",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "load_from_db": false,
-                "name": "data_template",
                 "placeholder": "",
-                "required": false,
                 "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "{text}"
-              },
-              "input_value": {
-                "_input_type": "MessageInput",
+                "name": "requirements_json",
+                "value": "{\"schema_version\": 1, \"fields\": [{\"name\": \"task_outcome\", \"type\": \"string\", \"required\": true, \"checks\": {\"enum\": [\"success\", \"failure\"]}}, {\"name\": \"report\", \"type\": \"string\", \"required\": true, \"checks\": {\"nonempty\": true}}]}",
+                "display_name": "Output Form",
                 "advanced": false,
-                "display_name": "Inputs",
-                "dynamic": false,
-                "info": "Message to be passed as output.",
-                "input_types": [
-                  "Data",
-                  "JSON",
-                  "DataFrame",
-                  "Table",
-                  "Message"
-                ],
-                "list": false,
-                "load_from_db": false,
-                "name": "input_value",
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
-              },
-              "sender": {
-                "_input_type": "DropdownInput",
-                "advanced": true,
-                "combobox": false,
-                "display_name": "Sender Type",
-                "dynamic": false,
-                "info": "Type of sender.",
-                "name": "sender",
-                "options": [
-                  "Machine",
-                  "User"
-                ],
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "Machine"
-              },
-              "sender_name": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Sender Name",
-                "dynamic": false,
-                "info": "Name of the sender.",
+                "api_editable": false,
                 "input_types": [
                   "Message"
                 ],
-                "list": false,
-                "load_from_db": false,
-                "name": "sender_name",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "AI"
-              },
-              "session_id": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Session ID",
                 "dynamic": false,
-                "info": "The session ID of the chat. If empty, the current session ID parameter will be used.",
-                "input_types": [
-                  "Message"
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              }
+            },
+            "description": "Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.",
+            "icon": "ClipboardCheck",
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Laomedo Output Contract",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
                 ],
-                "list": false,
-                "load_from_db": false,
-                "name": "session_id",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
+                "selected": "JSON",
+                "name": "requirements",
+                "display_name": "Precheck Requirements",
+                "method": "requirements_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
               },
-              "should_store_message": {
-                "_input_type": "BoolInput",
-                "advanced": true,
-                "display_name": "Store Messages",
-                "dynamic": false,
-                "info": "Store the message in the history.",
-                "list": false,
-                "name": "should_store_message",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "trace_as_metadata": true,
-                "type": "bool",
-                "value": true
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "validation",
+                "display_name": "Validation Outcome",
+                "method": "validation_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "requirements_json",
+              "agent_submission"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.laomedo_output_contract",
+              "code_hash": "dc315aeffb1c",
+              "dependencies": {
+                "total_dependencies": 2,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  },
+                  {
+                    "name": "laomedo",
+                    "version": null
+                  }
+                ]
               }
             },
             "tool_mode": false
-          },
-          "type": "ChatOutput"
-        },
-        "dragging": false,
-        "id": "ChatOutput-laomedo",
-        "measured": {
-          "height": 234,
-          "width": 320
-        },
-        "position": {
-          "x": 850,
-          "y": 120
-        },
-        "positionAbsolute": {
-          "x": 1444.936881624563,
-          "y": 872.7273956769025
-        },
-        "selected": false,
-        "type": "genericNode"
+          }
+        }
       },
       {
+        "id": "routing",
+        "type": "genericNode",
+        "position": {
+          "x": 1200,
+          "y": 0
+        },
         "data": {
-          "id": "ChatOutput-run-reference",
+          "id": "routing",
+          "type": "ContractRoute",
           "node": {
-            "base_classes": [
-              "Message"
-            ],
-            "beta": false,
-            "conditional_paths": [],
-            "custom_fields": {},
-            "description": "Display a chat message in the Playground.",
-            "display_name": "Chat Output",
-            "documentation": "",
-            "edited": false,
-            "field_order": [
-              "input_value",
-              "should_store_message",
-              "sender",
-              "sender_name",
-              "session_id",
-              "context_id",
-              "data_template",
-              "clean_data"
-            ],
-            "frozen": false,
-            "icon": "MessagesSquare",
-            "legacy": false,
-            "lf_version": "1.7.0",
-            "metadata": {
-              "code_hash": "84009527d08c",
-              "dependencies": {
-                "dependencies": [
-                  {
-                    "name": "orjson",
-                    "version": "3.11.9"
-                  },
-                  {
-                    "name": "fastapi",
-                    "version": "0.139.2"
-                  },
-                  {
-                    "name": "lfx",
-                    "version": null
-                  }
-                ],
-                "total_dependencies": 3
-              },
-              "module": "lfx.components.input_output.chat_output.ChatOutput"
-            },
-            "output_types": [],
-            "outputs": [
-              {
-                "allows_loop": false,
-                "cache": true,
-                "display_name": "Output Message",
-                "group_outputs": false,
-                "method": "message_response",
-                "name": "message",
-                "selected": "Message",
-                "tool_mode": true,
-                "types": [
-                  "Message"
-                ],
-                "value": "__UNDEFINED__"
-              }
-            ],
-            "pinned": false,
             "template": {
               "_type": "Component",
-              "clean_data": {
-                "_input_type": "BoolInput",
-                "advanced": true,
-                "display_name": "Basic Clean Data",
-                "dynamic": false,
-                "info": "Whether to clean data before converting to string.",
-                "list": false,
-                "list_add_label": "Add More",
-                "name": "clean_data",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
+              "validation": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
-                "type": "bool",
-                "value": true
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "validation",
+                "value": "",
+                "display_name": "Validation",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
               },
               "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Conditional graph routing. Inactive branches are stopped by Langflow.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output\nfrom lfx.schema import Data\n\n\nclass ContractRoute(Component):\n    display_name = \"Contract outcome routing\"\n    name = \"ContractRoute\"\n    inputs = [DataInput(name=\"validation\", display_name=\"Validation\", required=True)]\n    outputs = [Output(name=key, display_name=key.title(), method=key, group_outputs=True)\n               for key in (\"success\", \"failure\", \"rejection\", \"recovery\")]\n\n    def _route(self, selected):\n        record = self.validation.data\n        submission = record.get(\"agent_submission\", {})\n        if record.get(\"contract_status\") != \"accepted\":\n            destination = \"rejection\"\n        elif (submission.get(\"executor_status\") != \"completed\" or\n              submission.get(\"evidence_complete\") is not True or\n              submission.get(\"task_outcome\") not in {\"success\", \"failure\"}):\n            destination = \"recovery\"\n        else:\n            destination = \"success\" if submission[\"task_outcome\"] == \"success\" else \"failure\"\n        if selected != destination:\n            self.stop(selected)\n            return Data(data={})\n        return Data(data={\"route\": destination, \"validation\": record})\n\n    def success(self) -> Data:\n        return self._route(\"success\")\n\n    def failure(self) -> Data:\n        return self._route(\"failure\")\n\n    def rejection(self) -> Data:\n        return self._route(\"rejection\")\n\n    def recovery(self) -> Data:\n        return self._route(\"recovery\")\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
                 "advanced": true,
                 "api_editable": false,
                 "dynamic": true,
-                "fileTypes": [],
-                "file_path": "",
                 "info": "",
-                "list": false,
                 "load_from_db": false,
-                "multiline": true,
-                "name": "code",
-                "password": false,
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "type": "code",
-                "value": "from collections.abc import Generator\nfrom typing import Any\n\nimport orjson\nfrom fastapi.encoders import jsonable_encoder\n\nfrom lfx.base.io.chat import ChatComponent\nfrom lfx.helpers.data import safe_convert\nfrom lfx.inputs.inputs import BoolInput, DropdownInput, HandleInput, MessageTextInput\nfrom lfx.schema.data import Data\nfrom lfx.schema.dataframe import DataFrame\nfrom lfx.schema.message import Message\nfrom lfx.schema.properties import Source\nfrom lfx.template.field.base import Output\nfrom lfx.utils.constants import (\n    MESSAGE_SENDER_AI,\n    MESSAGE_SENDER_NAME_AI,\n    MESSAGE_SENDER_USER,\n)\n\n\nclass ChatOutput(ChatComponent):\n    display_name = \"Chat Output\"\n    description = \"Display a chat message in the Playground.\"\n    documentation: str = \"https://docs.langflow.org/chat-input-and-output\"\n    icon = \"MessagesSquare\"\n    name = \"ChatOutput\"\n    minimized = True\n\n    inputs = [\n        HandleInput(\n            name=\"input_value\",\n            display_name=\"Inputs\",\n            info=\"Message to be passed as output.\",\n            input_types=[\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"],\n            required=True,\n        ),\n        BoolInput(\n            name=\"should_store_message\",\n            display_name=\"Store Messages\",\n            info=\"Store the message in the history.\",\n            value=True,\n            advanced=True,\n        ),\n        DropdownInput(\n            name=\"sender\",\n            display_name=\"Sender Type\",\n            options=[MESSAGE_SENDER_AI, MESSAGE_SENDER_USER],\n            value=MESSAGE_SENDER_AI,\n            advanced=True,\n            info=\"Type of sender.\",\n        ),\n        MessageTextInput(\n            name=\"sender_name\",\n            display_name=\"Sender Name\",\n            info=\"Name of the sender.\",\n            value=MESSAGE_SENDER_NAME_AI,\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"session_id\",\n            display_name=\"Session ID\",\n            info=\"The session ID of the chat. If empty, the current session ID parameter will be used.\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"context_id\",\n            display_name=\"Context ID\",\n            info=\"The context ID of the chat. Adds an extra layer to the local memory.\",\n            value=\"\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"data_template\",\n            display_name=\"Data Template\",\n            value=\"{text}\",\n            advanced=True,\n            info=\"Template to convert Data to Text. If left empty, it will be dynamically set to the Data's text key.\",\n        ),\n        BoolInput(\n            name=\"clean_data\",\n            display_name=\"Basic Clean Data\",\n            value=True,\n            advanced=True,\n            info=\"Whether to clean data before converting to string.\",\n        ),\n    ]\n    outputs = [\n        Output(\n            display_name=\"Output Message\",\n            name=\"message\",\n            method=\"message_response\",\n        ),\n    ]\n\n    def _build_source(self, id_: str | None, display_name: str | None, source: str | None) -> Source:\n        source_dict = {}\n        if id_:\n            source_dict[\"id\"] = id_\n        if display_name:\n            source_dict[\"display_name\"] = display_name\n        if source:\n            # Handle case where source is a ChatOpenAI object\n            if hasattr(source, \"model_name\"):\n                source_dict[\"source\"] = source.model_name\n            elif hasattr(source, \"model\"):\n                source_dict[\"source\"] = str(source.model)\n            else:\n                source_dict[\"source\"] = str(source)\n        return Source(**source_dict)\n\n    async def message_response(self) -> Message:\n        # First convert the input to string if needed\n        text = self.convert_to_string()\n\n        # Get source properties\n        source, _, display_name, source_id = self.get_properties_from_source_component()\n\n        # Create or use existing Message object\n        if isinstance(self.input_value, Message) and not self.is_connected_to_chat_input():\n            message = self.input_value\n            # Update message properties\n            message.text = text\n            # Preserve existing session_id from the incoming message if it exists\n            existing_session_id = message.session_id\n        else:\n            message = Message(text=text)\n            existing_session_id = None\n\n        # Set message properties\n        message.sender = self.sender\n        message.sender_name = self.sender_name\n        # Preserve session_id from incoming message, or use component/graph session_id\n        message.session_id = (\n            self.session_id or existing_session_id or (self.graph.session_id if hasattr(self, \"graph\") else None) or \"\"\n        )\n        message.context_id = self.context_id\n        message.flow_id = self.graph.flow_id if hasattr(self, \"graph\") else None\n        message.properties.source = self._build_source(source_id, display_name, source)\n\n        # Store message if needed\n        if message.session_id and self.should_store_message:\n            stored_message = await self.send_message(message)\n            self.message.value = stored_message\n            message = stored_message\n\n        # Set accumulated token usage from all upstream LLM vertices.\n        # This must happen AFTER send_message() because streaming captures\n        # usage from chunks and would overwrite accumulated totals.\n        if hasattr(self, \"_vertex\") and self._vertex is not None:\n            accumulated_usage = self._vertex._accumulate_upstream_token_usage()  # noqa: SLF001\n            if accumulated_usage:\n                message.properties.usage = accumulated_usage\n                if self.should_store_message and message.get_id():\n                    message = await self._update_stored_message(message)\n                    await self._send_message_event(message, id_=message.get_id())\n\n        self.status = message\n        return message\n\n    def _serialize_data(self, data: Data) -> str:\n        \"\"\"Serialize Data object to JSON string.\"\"\"\n        # Convert data.data to JSON-serializable format\n        serializable_data = jsonable_encoder(data.data)\n        # Serialize with orjson, enabling pretty printing with indentation\n        json_bytes = orjson.dumps(serializable_data, option=orjson.OPT_INDENT_2)\n        # Convert bytes to string and wrap in Markdown code blocks\n        return \"```json\\n\" + json_bytes.decode(\"utf-8\") + \"\\n```\"\n\n    def _validate_input(self) -> None:\n        \"\"\"Validate the input data and raise ValueError if invalid.\"\"\"\n        if self.input_value is None:\n            msg = \"Input data cannot be None\"\n            raise ValueError(msg)\n        if isinstance(self.input_value, list) and not all(\n            isinstance(item, Message | Data | DataFrame | str) for item in self.input_value\n        ):\n            invalid_types = [\n                type(item).__name__\n                for item in self.input_value\n                if not isinstance(item, Message | Data | DataFrame | str)\n            ]\n            msg = f\"Expected Data or DataFrame or Message or str, got {invalid_types}\"\n            raise TypeError(msg)\n        if not isinstance(\n            self.input_value,\n            Message | Data | DataFrame | str | list | Generator | type(None),\n        ):\n            type_name = type(self.input_value).__name__\n            msg = f\"Expected Data or DataFrame or Message or str, Generator or None, got {type_name}\"\n            raise TypeError(msg)\n\n    def convert_to_string(self) -> str | Generator[Any, None, None]:\n        \"\"\"Convert input data to string with proper error handling.\"\"\"\n        self._validate_input()\n        if isinstance(self.input_value, list):\n            clean_data: bool = getattr(self, \"clean_data\", False)\n            return \"\\n\".join([safe_convert(item, clean_data=clean_data) for item in self.input_value])\n        if isinstance(self.input_value, Generator):\n            return self.input_value\n        return safe_convert(self.input_value)\n"
-              },
-              "context_id": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Context ID",
-                "dynamic": false,
-                "info": "The context ID of the chat. Adds an extra layer to the local memory.",
-                "input_types": [
-                  "Message"
+                "title_case": false
+              }
+            },
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Contract outcome routing",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
                 ],
-                "list": false,
-                "list_add_label": "Add More",
-                "load_from_db": false,
-                "name": "context_id",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
+                "selected": "JSON",
+                "name": "success",
+                "display_name": "Success",
+                "method": "success",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
               },
-              "data_template": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Data Template",
-                "dynamic": false,
-                "info": "Template to convert Data to Text. If left empty, it will be dynamically set to the Data's text key.",
-                "input_types": [
-                  "Message"
+              {
+                "types": [
+                  "JSON"
                 ],
-                "list": false,
-                "load_from_db": false,
-                "name": "data_template",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "{text}"
+                "selected": "JSON",
+                "name": "failure",
+                "display_name": "Failure",
+                "method": "failure",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
               },
-              "input_value": {
-                "_input_type": "MessageInput",
-                "advanced": false,
-                "display_name": "Inputs",
-                "dynamic": false,
-                "info": "Message to be passed as output.",
-                "input_types": [
-                  "Data",
-                  "JSON",
-                  "DataFrame",
-                  "Table",
-                  "Message"
+              {
+                "types": [
+                  "JSON"
                 ],
-                "list": false,
-                "load_from_db": false,
-                "name": "input_value",
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
+                "selected": "JSON",
+                "name": "rejection",
+                "display_name": "Rejection",
+                "method": "rejection",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
               },
-              "sender": {
-                "_input_type": "DropdownInput",
-                "advanced": true,
-                "combobox": false,
-                "display_name": "Sender Type",
-                "dynamic": false,
-                "info": "Type of sender.",
-                "name": "sender",
-                "options": [
-                  "Machine",
-                  "User"
+              {
+                "types": [
+                  "JSON"
                 ],
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "Machine"
-              },
-              "sender_name": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Sender Name",
-                "dynamic": false,
-                "info": "Name of the sender.",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "load_from_db": false,
-                "name": "sender_name",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": "AI"
-              },
-              "session_id": {
-                "_input_type": "MessageTextInput",
-                "advanced": true,
-                "display_name": "Session ID",
-                "dynamic": false,
-                "info": "The session ID of the chat. If empty, the current session ID parameter will be used.",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "load_from_db": false,
-                "name": "session_id",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "type": "str",
-                "value": ""
-              },
-              "should_store_message": {
-                "_input_type": "BoolInput",
-                "advanced": true,
-                "display_name": "Store Messages",
-                "dynamic": false,
-                "info": "Store the message in the history.",
-                "list": false,
-                "name": "should_store_message",
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "trace_as_metadata": true,
-                "type": "bool",
-                "value": true
+                "selected": "JSON",
+                "name": "recovery",
+                "display_name": "Recovery",
+                "method": "recovery",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "validation"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.contract_outcome_routing",
+              "code_hash": "40a43acb2dc1",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
               }
             },
             "tool_mode": false
-          },
-          "type": "ChatOutput"
-        },
-        "dragging": false,
-        "id": "ChatOutput-run-reference",
-        "measured": {
-          "height": 234,
-          "width": 320
-        },
+          }
+        }
+      },
+      {
+        "id": "success",
+        "type": "genericNode",
         "position": {
-          "x": 850,
-          "y": 400
+          "x": 1600,
+          "y": 0
         },
-        "positionAbsolute": {
-          "x": 1444.936881624563,
-          "y": 872.7273956769025
+        "data": {
+          "id": "success",
+          "type": "DemoDestination",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "routed": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "routed",
+                "value": "",
+                "display_name": "Routed outcome",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "snapshot": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "snapshot",
+                "value": "",
+                "display_name": "Frozen issue",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Demo destinations. Publication is simulated and never calls GitHub.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output, StrInput\nfrom lfx.schema import Data\n\n\nclass DemoDestination(Component):\n    display_name = \"Demo destination (simulated)\"\n    name = \"DemoDestination\"\n    inputs = [DataInput(name=\"routed\", display_name=\"Routed outcome\", required=True),\n              DataInput(name=\"snapshot\", display_name=\"Frozen issue\", required=True),\n              StrInput(name=\"destination\", display_name=\"Destination\", required=True)]\n    outputs = [Output(name=\"record\", display_name=\"Evidence\", method=\"record_output\")]\n\n    def record_output(self) -> Data:\n        routed = self.routed.data\n        destination = str(self.destination)\n        if not routed or routed.get(\"route\") != destination:\n            raise ValueError(\"inactive_destination_must_not_execute\")\n        return Data(data={\"destination\": destination, \"routed\": routed,\n                          \"issue_snapshot\": self.snapshot.data,\n                          \"publication\": {\"mode\": \"simulated\", \"draft\": True,\n                                          \"reference\": \"simulation:fixture-draft-pr\"}\n                                         if destination == \"success\" else None})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "destination": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "destination",
+                "value": "success",
+                "display_name": "Destination",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Demo destination (simulated)",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "record",
+                "display_name": "Evidence",
+                "method": "record_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "routed",
+              "snapshot",
+              "destination"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.demo_destination_simulated",
+              "code_hash": "c5d4f7b31179",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "failure",
+        "type": "genericNode",
+        "position": {
+          "x": 1600,
+          "y": 300
         },
-        "selected": false,
-        "type": "genericNode"
+        "data": {
+          "id": "failure",
+          "type": "DemoDestination",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "routed": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "routed",
+                "value": "",
+                "display_name": "Routed outcome",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "snapshot": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "snapshot",
+                "value": "",
+                "display_name": "Frozen issue",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Demo destinations. Publication is simulated and never calls GitHub.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output, StrInput\nfrom lfx.schema import Data\n\n\nclass DemoDestination(Component):\n    display_name = \"Demo destination (simulated)\"\n    name = \"DemoDestination\"\n    inputs = [DataInput(name=\"routed\", display_name=\"Routed outcome\", required=True),\n              DataInput(name=\"snapshot\", display_name=\"Frozen issue\", required=True),\n              StrInput(name=\"destination\", display_name=\"Destination\", required=True)]\n    outputs = [Output(name=\"record\", display_name=\"Evidence\", method=\"record_output\")]\n\n    def record_output(self) -> Data:\n        routed = self.routed.data\n        destination = str(self.destination)\n        if not routed or routed.get(\"route\") != destination:\n            raise ValueError(\"inactive_destination_must_not_execute\")\n        return Data(data={\"destination\": destination, \"routed\": routed,\n                          \"issue_snapshot\": self.snapshot.data,\n                          \"publication\": {\"mode\": \"simulated\", \"draft\": True,\n                                          \"reference\": \"simulation:fixture-draft-pr\"}\n                                         if destination == \"success\" else None})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "destination": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "destination",
+                "value": "failure",
+                "display_name": "Destination",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Demo destination (simulated)",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "record",
+                "display_name": "Evidence",
+                "method": "record_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "routed",
+              "snapshot",
+              "destination"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.demo_destination_simulated",
+              "code_hash": "c5d4f7b31179",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "rejection",
+        "type": "genericNode",
+        "position": {
+          "x": 1600,
+          "y": 600
+        },
+        "data": {
+          "id": "rejection",
+          "type": "DemoDestination",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "routed": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "routed",
+                "value": "",
+                "display_name": "Routed outcome",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "snapshot": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "snapshot",
+                "value": "",
+                "display_name": "Frozen issue",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Demo destinations. Publication is simulated and never calls GitHub.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output, StrInput\nfrom lfx.schema import Data\n\n\nclass DemoDestination(Component):\n    display_name = \"Demo destination (simulated)\"\n    name = \"DemoDestination\"\n    inputs = [DataInput(name=\"routed\", display_name=\"Routed outcome\", required=True),\n              DataInput(name=\"snapshot\", display_name=\"Frozen issue\", required=True),\n              StrInput(name=\"destination\", display_name=\"Destination\", required=True)]\n    outputs = [Output(name=\"record\", display_name=\"Evidence\", method=\"record_output\")]\n\n    def record_output(self) -> Data:\n        routed = self.routed.data\n        destination = str(self.destination)\n        if not routed or routed.get(\"route\") != destination:\n            raise ValueError(\"inactive_destination_must_not_execute\")\n        return Data(data={\"destination\": destination, \"routed\": routed,\n                          \"issue_snapshot\": self.snapshot.data,\n                          \"publication\": {\"mode\": \"simulated\", \"draft\": True,\n                                          \"reference\": \"simulation:fixture-draft-pr\"}\n                                         if destination == \"success\" else None})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "destination": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "destination",
+                "value": "rejection",
+                "display_name": "Destination",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Demo destination (simulated)",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "record",
+                "display_name": "Evidence",
+                "method": "record_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "routed",
+              "snapshot",
+              "destination"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.demo_destination_simulated",
+              "code_hash": "c5d4f7b31179",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "recovery",
+        "type": "genericNode",
+        "position": {
+          "x": 1600,
+          "y": 900
+        },
+        "data": {
+          "id": "recovery",
+          "type": "DemoDestination",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "routed": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "routed",
+                "value": "",
+                "display_name": "Routed outcome",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "snapshot": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "snapshot",
+                "value": "",
+                "display_name": "Frozen issue",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Demo destinations. Publication is simulated and never calls GitHub.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output, StrInput\nfrom lfx.schema import Data\n\n\nclass DemoDestination(Component):\n    display_name = \"Demo destination (simulated)\"\n    name = \"DemoDestination\"\n    inputs = [DataInput(name=\"routed\", display_name=\"Routed outcome\", required=True),\n              DataInput(name=\"snapshot\", display_name=\"Frozen issue\", required=True),\n              StrInput(name=\"destination\", display_name=\"Destination\", required=True)]\n    outputs = [Output(name=\"record\", display_name=\"Evidence\", method=\"record_output\")]\n\n    def record_output(self) -> Data:\n        routed = self.routed.data\n        destination = str(self.destination)\n        if not routed or routed.get(\"route\") != destination:\n            raise ValueError(\"inactive_destination_must_not_execute\")\n        return Data(data={\"destination\": destination, \"routed\": routed,\n                          \"issue_snapshot\": self.snapshot.data,\n                          \"publication\": {\"mode\": \"simulated\", \"draft\": True,\n                                          \"reference\": \"simulation:fixture-draft-pr\"}\n                                         if destination == \"success\" else None})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "destination": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "destination",
+                "value": "recovery",
+                "display_name": "Destination",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Demo destination (simulated)",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "record",
+                "display_name": "Evidence",
+                "method": "record_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "routed",
+              "snapshot",
+              "destination"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.demo_destination_simulated",
+              "code_hash": "c5d4f7b31179",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
       }
     ],
     "edges": [
       {
-        "id": "ChatInput-laomedo-message-LaomedoCodexAgent-native-task",
-        "source": "ChatInput-laomedo",
-        "target": "LaomedoCodexAgent-native",
-        "sourceHandle": "{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-laomedo\", \"name\": \"message\", \"output_types\": [\"Message\"]}",
-        "targetHandle": "{\"fieldName\": \"task\", \"id\": \"LaomedoCodexAgent-native\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "id": "issue-task-agent-task",
+        "source": "issue",
+        "target": "agent",
+        "sourceHandle": "{\"dataType\": \"FixtureIssue\", \"id\": \"issue\", \"name\": \"task\", \"output_types\": [\"Message\"]}",
+        "targetHandle": "{\"fieldName\": \"task\", \"id\": \"agent\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
-            "dataType": "ChatInput",
-            "id": "ChatInput-laomedo",
-            "name": "message",
+            "dataType": "FixtureIssue",
+            "id": "issue",
+            "name": "task",
             "output_types": [
               "Message"
             ]
           },
           "targetHandle": {
             "fieldName": "task",
-            "id": "LaomedoCodexAgent-native",
+            "id": "agent",
             "inputTypes": [
               "Message"
             ],
@@ -1498,15 +1909,15 @@
         }
       },
       {
-        "id": "LaomedoSkill-native-skill-LaomedoCodexAgent-native-skill_reference",
-        "source": "LaomedoSkill-native",
-        "target": "LaomedoCodexAgent-native",
-        "sourceHandle": "{\"dataType\": \"LaomedoSkill\", \"id\": \"LaomedoSkill-native\", \"name\": \"skill\", \"output_types\": [\"JSON\"]}",
-        "targetHandle": "{\"fieldName\": \"skill_reference\", \"id\": \"LaomedoCodexAgent-native\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "id": "skill-skill-agent-skill_reference",
+        "source": "skill",
+        "target": "agent",
+        "sourceHandle": "{\"dataType\": \"LaomedoSkill\", \"id\": \"skill\", \"name\": \"skill\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"skill_reference\", \"id\": \"agent\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
         "data": {
           "sourceHandle": {
             "dataType": "LaomedoSkill",
-            "id": "LaomedoSkill-native",
+            "id": "skill",
             "name": "skill",
             "output_types": [
               "JSON"
@@ -1514,7 +1925,7 @@
           },
           "targetHandle": {
             "fieldName": "skill_reference",
-            "id": "LaomedoCodexAgent-native",
+            "id": "agent",
             "inputTypes": [
               "Data",
               "JSON"
@@ -1524,60 +1935,288 @@
         }
       },
       {
-        "id": "LaomedoCodexAgent-native-answer-ChatOutput-laomedo-input_value",
-        "source": "LaomedoCodexAgent-native",
-        "target": "ChatOutput-laomedo",
-        "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"LaomedoCodexAgent-native\", \"name\": \"answer\", \"output_types\": [\"Message\"]}",
-        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-laomedo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"str\"}",
+        "id": "agent-submission-contract-agent_submission",
+        "source": "agent",
+        "target": "contract",
+        "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"agent\", \"name\": \"submission\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"agent_submission\", \"id\": \"contract\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
         "data": {
           "sourceHandle": {
             "dataType": "LaomedoCodexAgent",
-            "id": "LaomedoCodexAgent-native",
-            "name": "answer",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_value",
-            "id": "ChatOutput-laomedo",
-            "inputTypes": [
-              "Data",
-              "JSON",
-              "DataFrame",
-              "Table",
-              "Message"
-            ],
-            "type": "str"
-          }
-        }
-      },
-      {
-        "id": "LaomedoCodexAgent-native-run-ChatOutput-run-reference-input_value",
-        "source": "LaomedoCodexAgent-native",
-        "target": "ChatOutput-run-reference",
-        "sourceHandle": "{\"dataType\": \"LaomedoCodexAgent\", \"id\": \"LaomedoCodexAgent-native\", \"name\": \"run\", \"output_types\": [\"JSON\"]}",
-        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-run-reference\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"str\"}",
-        "data": {
-          "sourceHandle": {
-            "dataType": "LaomedoCodexAgent",
-            "id": "LaomedoCodexAgent-native",
-            "name": "run",
+            "id": "agent",
+            "name": "submission",
             "output_types": [
               "JSON"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_value",
-            "id": "ChatOutput-run-reference",
+            "fieldName": "agent_submission",
+            "id": "contract",
             "inputTypes": [
               "Data",
-              "JSON",
-              "DataFrame",
-              "Table",
-              "Message"
+              "JSON"
             ],
-            "type": "str"
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "contract-validation-routing-validation",
+        "source": "contract",
+        "target": "routing",
+        "sourceHandle": "{\"dataType\": \"LaomedoOutputContract\", \"id\": \"contract\", \"name\": \"validation\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"validation\", \"id\": \"routing\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "LaomedoOutputContract",
+            "id": "contract",
+            "name": "validation",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "validation",
+            "id": "routing",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "requirements-requirements-agent-output_requirements",
+        "source": "requirements",
+        "target": "agent",
+        "sourceHandle": "{\"dataType\": \"LaomedoOutputContract\", \"id\": \"requirements\", \"name\": \"requirements\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"output_requirements\", \"id\": \"agent\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "LaomedoOutputContract",
+            "id": "requirements",
+            "name": "requirements",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "output_requirements",
+            "id": "agent",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "routing-success-success-routed",
+        "source": "routing",
+        "target": "success",
+        "sourceHandle": "{\"dataType\": \"ContractRoute\", \"id\": \"routing\", \"name\": \"success\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"routed\", \"id\": \"success\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ContractRoute",
+            "id": "routing",
+            "name": "success",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "routed",
+            "id": "success",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "issue-snapshot-success-snapshot",
+        "source": "issue",
+        "target": "success",
+        "sourceHandle": "{\"dataType\": \"FixtureIssue\", \"id\": \"issue\", \"name\": \"snapshot\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"snapshot\", \"id\": \"success\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "FixtureIssue",
+            "id": "issue",
+            "name": "snapshot",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "snapshot",
+            "id": "success",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "routing-failure-failure-routed",
+        "source": "routing",
+        "target": "failure",
+        "sourceHandle": "{\"dataType\": \"ContractRoute\", \"id\": \"routing\", \"name\": \"failure\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"routed\", \"id\": \"failure\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ContractRoute",
+            "id": "routing",
+            "name": "failure",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "routed",
+            "id": "failure",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "issue-snapshot-failure-snapshot",
+        "source": "issue",
+        "target": "failure",
+        "sourceHandle": "{\"dataType\": \"FixtureIssue\", \"id\": \"issue\", \"name\": \"snapshot\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"snapshot\", \"id\": \"failure\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "FixtureIssue",
+            "id": "issue",
+            "name": "snapshot",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "snapshot",
+            "id": "failure",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "routing-rejection-rejection-routed",
+        "source": "routing",
+        "target": "rejection",
+        "sourceHandle": "{\"dataType\": \"ContractRoute\", \"id\": \"routing\", \"name\": \"rejection\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"routed\", \"id\": \"rejection\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ContractRoute",
+            "id": "routing",
+            "name": "rejection",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "routed",
+            "id": "rejection",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "issue-snapshot-rejection-snapshot",
+        "source": "issue",
+        "target": "rejection",
+        "sourceHandle": "{\"dataType\": \"FixtureIssue\", \"id\": \"issue\", \"name\": \"snapshot\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"snapshot\", \"id\": \"rejection\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "FixtureIssue",
+            "id": "issue",
+            "name": "snapshot",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "snapshot",
+            "id": "rejection",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "routing-recovery-recovery-routed",
+        "source": "routing",
+        "target": "recovery",
+        "sourceHandle": "{\"dataType\": \"ContractRoute\", \"id\": \"routing\", \"name\": \"recovery\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"routed\", \"id\": \"recovery\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ContractRoute",
+            "id": "routing",
+            "name": "recovery",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "routed",
+            "id": "recovery",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "issue-snapshot-recovery-snapshot",
+        "source": "issue",
+        "target": "recovery",
+        "sourceHandle": "{\"dataType\": \"FixtureIssue\", \"id\": \"issue\", \"name\": \"snapshot\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"snapshot\", \"id\": \"recovery\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "FixtureIssue",
+            "id": "issue",
+            "name": "snapshot",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "snapshot",
+            "id": "recovery",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
           }
         }
       }
@@ -1585,7 +2224,7 @@
     "viewport": {
       "x": 0,
       "y": 0,
-      "zoom": 1
+      "zoom": 0.7
     }
   }
 }

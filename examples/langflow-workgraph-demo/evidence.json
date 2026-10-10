@@ -1,0 +1,741 @@
+{
+  "schema_version": 1,
+  "langflow_version": "1.12.3",
+  "lfx_version": "1.12.3",
+  "image_digest": "sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "model_turns": 0,
+  "github_writes": 0,
+  "real_credentials": false,
+  "publication": "simulated_only",
+  "source_commit": "c594e47b8dff75707ac845d2e28e6851465dd114",
+  "artifact_sha256": {
+    "examples/langflow-workgraph-demo/flow.json": "d727facce2bc85e0440a166769ff1f30ad536e00f8ea150e9ece0fa9b09a1d54",
+    "examples/langflow-workgraph-demo/fixtures.json": "a6843d91e8acef7456f5eed05562c451d3e4a741e0bce59e5d73e8d37e1ea167",
+    "examples/langflow-workgraph-demo/expectations.json": "81ebbc708559f0b7040d603ee217d6fa1f7776633461870975839411a15956c4",
+    "examples/langflow-workgraph-demo/build_flow.py": "3e5f401fa2b35a25a819f5c84c28e54ef21d605140fe7ca737a95aa3cab4c0d8",
+    "examples/langflow-workgraph-demo/fixture_issue.py": "147da8f8f6641e709cbbd39c187b45319bdb30e03b5029a05eae033a79b086d8",
+    "examples/langflow-workgraph-demo/route.py": "40a43acb2dc18c38873043e350eb3d3d4ca591dff8c4f8cd8335447b54f6333f",
+    "examples/langflow-workgraph-demo/destination.py": "c5d4f7b31179b944b2049d49bf3e980af53e81d35afd67b202413651dcbc6b21",
+    "examples/langflow-workgraph-demo/acceptance.py": "3ffc89f11c72a24dec1be24e42a81c652aa54b7d6f03aa3b2fe28a5420f8ee78",
+    "tests/langflow/test_workgraph_demo.py": "484da64980e6bb59cb8a1516b0f6e2c55fbb02361a5387c5c4aba4c17eb3d744",
+    "examples/langflow-workgraph-demo/skill/SKILL.md": "88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61"
+  },
+  "limits": [
+    "Fake runner responses, not native model behavior.",
+    "Precheck/continuation sequence is scripted fixture behavior using the real evaluator.",
+    "No real PR, real account connection, filesystem preservation, or live credentials tested."
+  ],
+  "cases": [
+    {
+      "case": "valid_success",
+      "expected": {
+        "destination": "success",
+        "contract_status": "accepted",
+        "publication_mode": "simulated",
+        "scripted_continuations": 0
+      },
+      "observed": {
+        "destination": "success",
+        "contract_status": "accepted",
+        "publication_mode": "simulated",
+        "scripted_continuations": 0
+      },
+      "record": {
+        "destination": "success",
+        "routed": {
+          "route": "success",
+          "validation": {
+            "schema_version": "laomedo.output-validation.v1",
+            "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+            "contract_status": "accepted",
+            "errors": [],
+            "agent_submission": {
+              "schema_version": "laomedo.agent-submission.v1",
+              "submission": {
+                "task_outcome": "success",
+                "report": "fixture complete"
+              },
+              "answer": "{\"task_outcome\": \"success\", \"report\": \"fixture complete\"}",
+              "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+              "precheck": {
+                "installed": true,
+                "call_count": 0
+              },
+              "task_outcome": "success",
+              "executor_status": "completed",
+              "evidence_complete": true,
+              "run_reference": {
+                "answer": "{\"task_outcome\": \"success\", \"report\": \"fixture complete\"}",
+                "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
+                "request_id": "ca8cca31-4b18-4093-a4e5-a34124c50ebb",
+                "invocation_id": "fixture-invocation",
+                "laomedo_run_id": null,
+                "trace_id": "fixture-trace",
+                "evidence_complete": true,
+                "completion_basis": null,
+                "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+                "precheck": {
+                  "installed": true,
+                  "call_count": 0
+                },
+                "provider": "codex",
+                "handoff": null,
+                "imported_artifacts": [],
+                "thread_id": "fixture-thread",
+                "status": "completed",
+                "post_run_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "model": null,
+                "effort": null,
+                "skill_revision": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                "skill_use_evidence": "fixture_offered",
+                "skills": [
+                  {
+                    "revision_id": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                    "use_evidence": "fixture_offered"
+                  }
+                ],
+                "artifact_ref": null,
+                "trace_ref": "laomedo:run:aeb54b12-3ca7-43a7-97b3-762dadc94721:events",
+                "error_category": null,
+                "attempt_finished": false,
+                "snapshot_ready": false,
+                "cancel_requested": false,
+                "usage": "unknown"
+              },
+              "error_category": null
+            }
+          }
+        },
+        "issue_snapshot": {
+          "source": "fixture",
+          "context": {
+            "issue": {
+              "repository": "laomedo-fixture/workgraph",
+              "number": 1,
+              "node_id": "FIXTURE_ISSUE_1",
+              "url": "https://github.com/laomedo-fixture/workgraph/issues/1",
+              "title": "Produce the fixture report",
+              "body": "Implement a deterministic fixture report. Do not contact GitHub.",
+              "state": "open",
+              "updated_at": "2026-10-10T00:00:00Z"
+            },
+            "fetched_at": "2026-10-10T00:00:00Z",
+            "related_open_prs": [],
+            "related_prs_complete": true,
+            "related_prs_warning": null,
+            "related_prs_scope": "timeline_cross_references_only",
+            "supplied_target_pr": null
+          },
+          "snapshot_id": "sha256:e7fe2b741285d1464d9e27486ab4a350fe3137a3e1fc3701166ae8a0a774b16f",
+          "body_sha256": "f4eb0ed97735250f5ba31c67b01892a4f1dda610edca579651d46d314dcc297f"
+        },
+        "publication": {
+          "mode": "simulated",
+          "draft": true,
+          "reference": "simulation:fixture-draft-pr"
+        }
+      },
+      "fixture_prechecks": [],
+      "runner_dispatches": 1,
+      "evidence_source": "fixture_runner_script"
+    },
+    {
+      "case": "valid_task_failure",
+      "expected": {
+        "destination": "failure",
+        "contract_status": "accepted",
+        "publication_mode": null,
+        "scripted_continuations": 0
+      },
+      "observed": {
+        "destination": "failure",
+        "contract_status": "accepted",
+        "publication_mode": null,
+        "scripted_continuations": 0
+      },
+      "record": {
+        "destination": "failure",
+        "routed": {
+          "route": "failure",
+          "validation": {
+            "schema_version": "laomedo.output-validation.v1",
+            "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+            "contract_status": "accepted",
+            "errors": [],
+            "agent_submission": {
+              "schema_version": "laomedo.agent-submission.v1",
+              "submission": {
+                "task_outcome": "failure",
+                "report": "cannot finish fixture"
+              },
+              "answer": "{\"task_outcome\": \"failure\", \"report\": \"cannot finish fixture\"}",
+              "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+              "precheck": {
+                "installed": true,
+                "call_count": 0
+              },
+              "task_outcome": "failure",
+              "executor_status": "completed",
+              "evidence_complete": true,
+              "run_reference": {
+                "answer": "{\"task_outcome\": \"failure\", \"report\": \"cannot finish fixture\"}",
+                "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
+                "request_id": "b5269a8a-3c32-4382-a976-567e7cc2d143",
+                "invocation_id": "fixture-invocation",
+                "laomedo_run_id": null,
+                "trace_id": "fixture-trace",
+                "evidence_complete": true,
+                "completion_basis": null,
+                "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+                "precheck": {
+                  "installed": true,
+                  "call_count": 0
+                },
+                "provider": "codex",
+                "handoff": null,
+                "imported_artifacts": [],
+                "thread_id": "fixture-thread",
+                "status": "completed",
+                "post_run_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "model": null,
+                "effort": null,
+                "skill_revision": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                "skill_use_evidence": "fixture_offered",
+                "skills": [
+                  {
+                    "revision_id": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                    "use_evidence": "fixture_offered"
+                  }
+                ],
+                "artifact_ref": null,
+                "trace_ref": "laomedo:run:aeb54b12-3ca7-43a7-97b3-762dadc94721:events",
+                "error_category": null,
+                "attempt_finished": false,
+                "snapshot_ready": false,
+                "cancel_requested": false,
+                "usage": "unknown"
+              },
+              "error_category": null
+            }
+          }
+        },
+        "issue_snapshot": {
+          "source": "fixture",
+          "context": {
+            "issue": {
+              "repository": "laomedo-fixture/workgraph",
+              "number": 1,
+              "node_id": "FIXTURE_ISSUE_1",
+              "url": "https://github.com/laomedo-fixture/workgraph/issues/1",
+              "title": "Produce the fixture report",
+              "body": "Implement a deterministic fixture report. Do not contact GitHub.",
+              "state": "open",
+              "updated_at": "2026-10-10T00:00:00Z"
+            },
+            "fetched_at": "2026-10-10T00:00:00Z",
+            "related_open_prs": [],
+            "related_prs_complete": true,
+            "related_prs_warning": null,
+            "related_prs_scope": "timeline_cross_references_only",
+            "supplied_target_pr": null
+          },
+          "snapshot_id": "sha256:e7fe2b741285d1464d9e27486ab4a350fe3137a3e1fc3701166ae8a0a774b16f",
+          "body_sha256": "f4eb0ed97735250f5ba31c67b01892a4f1dda610edca579651d46d314dcc297f"
+        },
+        "publication": null
+      },
+      "fixture_prechecks": [],
+      "runner_dispatches": 1,
+      "evidence_source": "fixture_runner_script"
+    },
+    {
+      "case": "invalid_submission",
+      "expected": {
+        "destination": "rejection",
+        "contract_status": "rejected",
+        "publication_mode": null,
+        "scripted_continuations": 0
+      },
+      "observed": {
+        "destination": "rejection",
+        "contract_status": "rejected",
+        "publication_mode": null,
+        "scripted_continuations": 0
+      },
+      "record": {
+        "destination": "rejection",
+        "routed": {
+          "route": "rejection",
+          "validation": {
+            "schema_version": "laomedo.output-validation.v1",
+            "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+            "contract_status": "rejected",
+            "errors": [
+              {
+                "path": "/report",
+                "code": "required"
+              }
+            ],
+            "agent_submission": {
+              "schema_version": "laomedo.agent-submission.v1",
+              "submission": {
+                "task_outcome": "success"
+              },
+              "answer": "{\"task_outcome\": \"success\"}",
+              "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+              "precheck": {
+                "installed": true,
+                "call_count": 0
+              },
+              "task_outcome": "success",
+              "executor_status": "completed",
+              "evidence_complete": true,
+              "run_reference": {
+                "answer": "{\"task_outcome\": \"success\"}",
+                "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
+                "request_id": "8a3cac7f-9283-46a9-a608-6bf5bfae7e80",
+                "invocation_id": "fixture-invocation",
+                "laomedo_run_id": null,
+                "trace_id": "fixture-trace",
+                "evidence_complete": true,
+                "completion_basis": null,
+                "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+                "precheck": {
+                  "installed": true,
+                  "call_count": 0
+                },
+                "provider": "codex",
+                "handoff": null,
+                "imported_artifacts": [],
+                "thread_id": "fixture-thread",
+                "status": "completed",
+                "post_run_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "model": null,
+                "effort": null,
+                "skill_revision": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                "skill_use_evidence": "fixture_offered",
+                "skills": [
+                  {
+                    "revision_id": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                    "use_evidence": "fixture_offered"
+                  }
+                ],
+                "artifact_ref": null,
+                "trace_ref": "laomedo:run:aeb54b12-3ca7-43a7-97b3-762dadc94721:events",
+                "error_category": null,
+                "attempt_finished": false,
+                "snapshot_ready": false,
+                "cancel_requested": false,
+                "usage": "unknown"
+              },
+              "error_category": null
+            }
+          }
+        },
+        "issue_snapshot": {
+          "source": "fixture",
+          "context": {
+            "issue": {
+              "repository": "laomedo-fixture/workgraph",
+              "number": 1,
+              "node_id": "FIXTURE_ISSUE_1",
+              "url": "https://github.com/laomedo-fixture/workgraph/issues/1",
+              "title": "Produce the fixture report",
+              "body": "Implement a deterministic fixture report. Do not contact GitHub.",
+              "state": "open",
+              "updated_at": "2026-10-10T00:00:00Z"
+            },
+            "fetched_at": "2026-10-10T00:00:00Z",
+            "related_open_prs": [],
+            "related_prs_complete": true,
+            "related_prs_warning": null,
+            "related_prs_scope": "timeline_cross_references_only",
+            "supplied_target_pr": null
+          },
+          "snapshot_id": "sha256:e7fe2b741285d1464d9e27486ab4a350fe3137a3e1fc3701166ae8a0a774b16f",
+          "body_sha256": "f4eb0ed97735250f5ba31c67b01892a4f1dda610edca579651d46d314dcc297f"
+        },
+        "publication": null
+      },
+      "fixture_prechecks": [],
+      "runner_dispatches": 1,
+      "evidence_source": "fixture_runner_script"
+    },
+    {
+      "case": "precheck_correction",
+      "expected": {
+        "destination": "success",
+        "contract_status": "accepted",
+        "publication_mode": "simulated",
+        "scripted_continuations": 0
+      },
+      "observed": {
+        "destination": "success",
+        "contract_status": "accepted",
+        "publication_mode": "simulated",
+        "scripted_continuations": 0
+      },
+      "record": {
+        "destination": "success",
+        "routed": {
+          "route": "success",
+          "validation": {
+            "schema_version": "laomedo.output-validation.v1",
+            "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+            "contract_status": "accepted",
+            "errors": [],
+            "agent_submission": {
+              "schema_version": "laomedo.agent-submission.v1",
+              "submission": {
+                "task_outcome": "success",
+                "report": "corrected fixture"
+              },
+              "answer": "{\"task_outcome\": \"success\", \"report\": \"corrected fixture\"}",
+              "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+              "precheck": {
+                "installed": true,
+                "call_count": 2
+              },
+              "task_outcome": "success",
+              "executor_status": "completed",
+              "evidence_complete": true,
+              "run_reference": {
+                "answer": "{\"task_outcome\": \"success\", \"report\": \"corrected fixture\"}",
+                "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
+                "request_id": "4768e2de-78e1-4abd-aa19-30f018417120",
+                "invocation_id": "fixture-invocation",
+                "laomedo_run_id": null,
+                "trace_id": "fixture-trace",
+                "evidence_complete": true,
+                "completion_basis": null,
+                "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+                "precheck": {
+                  "installed": true,
+                  "call_count": 2
+                },
+                "provider": "codex",
+                "handoff": null,
+                "imported_artifacts": [],
+                "thread_id": "fixture-thread",
+                "status": "completed",
+                "post_run_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "model": null,
+                "effort": null,
+                "skill_revision": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                "skill_use_evidence": "fixture_offered",
+                "skills": [
+                  {
+                    "revision_id": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                    "use_evidence": "fixture_offered"
+                  }
+                ],
+                "artifact_ref": null,
+                "trace_ref": "laomedo:run:aeb54b12-3ca7-43a7-97b3-762dadc94721:events",
+                "error_category": null,
+                "attempt_finished": false,
+                "snapshot_ready": false,
+                "cancel_requested": false,
+                "usage": "unknown"
+              },
+              "error_category": null
+            }
+          }
+        },
+        "issue_snapshot": {
+          "source": "fixture",
+          "context": {
+            "issue": {
+              "repository": "laomedo-fixture/workgraph",
+              "number": 1,
+              "node_id": "FIXTURE_ISSUE_1",
+              "url": "https://github.com/laomedo-fixture/workgraph/issues/1",
+              "title": "Produce the fixture report",
+              "body": "Implement a deterministic fixture report. Do not contact GitHub.",
+              "state": "open",
+              "updated_at": "2026-10-10T00:00:00Z"
+            },
+            "fetched_at": "2026-10-10T00:00:00Z",
+            "related_open_prs": [],
+            "related_prs_complete": true,
+            "related_prs_warning": null,
+            "related_prs_scope": "timeline_cross_references_only",
+            "supplied_target_pr": null
+          },
+          "snapshot_id": "sha256:e7fe2b741285d1464d9e27486ab4a350fe3137a3e1fc3701166ae8a0a774b16f",
+          "body_sha256": "f4eb0ed97735250f5ba31c67b01892a4f1dda610edca579651d46d314dcc297f"
+        },
+        "publication": {
+          "mode": "simulated",
+          "draft": true,
+          "reference": "simulation:fixture-draft-pr"
+        }
+      },
+      "fixture_prechecks": [
+        {
+          "contract_status": "rejected",
+          "errors": [
+            {
+              "code": "required",
+              "path": "/report"
+            }
+          ],
+          "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+          "schema_version": "laomedo.output-validation.v1"
+        },
+        {
+          "contract_status": "accepted",
+          "errors": [],
+          "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+          "schema_version": "laomedo.output-validation.v1"
+        }
+      ],
+      "runner_dispatches": 1,
+      "evidence_source": "fixture_runner_script"
+    },
+    {
+      "case": "exhausted_correction",
+      "expected": {
+        "destination": "rejection",
+        "contract_status": "rejected",
+        "publication_mode": null,
+        "scripted_continuations": 1
+      },
+      "observed": {
+        "destination": "rejection",
+        "contract_status": "rejected",
+        "publication_mode": null,
+        "scripted_continuations": 1
+      },
+      "record": {
+        "destination": "rejection",
+        "routed": {
+          "route": "rejection",
+          "validation": {
+            "schema_version": "laomedo.output-validation.v1",
+            "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+            "contract_status": "rejected",
+            "errors": [
+              {
+                "path": "/report",
+                "code": "required"
+              }
+            ],
+            "agent_submission": {
+              "schema_version": "laomedo.agent-submission.v1",
+              "submission": {
+                "task_outcome": "success"
+              },
+              "answer": "{\"task_outcome\": \"success\"}",
+              "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+              "precheck": {
+                "installed": true,
+                "call_count": 2
+              },
+              "task_outcome": "success",
+              "executor_status": "completed",
+              "evidence_complete": true,
+              "run_reference": {
+                "answer": "{\"task_outcome\": \"success\"}",
+                "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
+                "request_id": "7ab093c0-d69c-4d30-8372-d3d493575c70",
+                "invocation_id": "fixture-invocation",
+                "laomedo_run_id": null,
+                "trace_id": "fixture-trace",
+                "evidence_complete": true,
+                "completion_basis": null,
+                "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+                "precheck": {
+                  "installed": true,
+                  "call_count": 2
+                },
+                "provider": "codex",
+                "handoff": null,
+                "imported_artifacts": [],
+                "thread_id": "fixture-thread",
+                "status": "completed",
+                "post_run_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "model": null,
+                "effort": null,
+                "skill_revision": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                "skill_use_evidence": "fixture_offered",
+                "skills": [
+                  {
+                    "revision_id": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                    "use_evidence": "fixture_offered"
+                  }
+                ],
+                "artifact_ref": null,
+                "trace_ref": "laomedo:run:aeb54b12-3ca7-43a7-97b3-762dadc94721:events",
+                "error_category": null,
+                "attempt_finished": false,
+                "snapshot_ready": false,
+                "cancel_requested": false,
+                "usage": "unknown"
+              },
+              "error_category": null
+            }
+          }
+        },
+        "issue_snapshot": {
+          "source": "fixture",
+          "context": {
+            "issue": {
+              "repository": "laomedo-fixture/workgraph",
+              "number": 1,
+              "node_id": "FIXTURE_ISSUE_1",
+              "url": "https://github.com/laomedo-fixture/workgraph/issues/1",
+              "title": "Produce the fixture report",
+              "body": "Implement a deterministic fixture report. Do not contact GitHub.",
+              "state": "open",
+              "updated_at": "2026-10-10T00:00:00Z"
+            },
+            "fetched_at": "2026-10-10T00:00:00Z",
+            "related_open_prs": [],
+            "related_prs_complete": true,
+            "related_prs_warning": null,
+            "related_prs_scope": "timeline_cross_references_only",
+            "supplied_target_pr": null
+          },
+          "snapshot_id": "sha256:e7fe2b741285d1464d9e27486ab4a350fe3137a3e1fc3701166ae8a0a774b16f",
+          "body_sha256": "f4eb0ed97735250f5ba31c67b01892a4f1dda610edca579651d46d314dcc297f"
+        },
+        "publication": null
+      },
+      "fixture_prechecks": [
+        {
+          "contract_status": "rejected",
+          "errors": [
+            {
+              "code": "required",
+              "path": "/report"
+            }
+          ],
+          "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+          "schema_version": "laomedo.output-validation.v1"
+        },
+        {
+          "contract_status": "rejected",
+          "errors": [
+            {
+              "code": "required",
+              "path": "/report"
+            }
+          ],
+          "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+          "schema_version": "laomedo.output-validation.v1"
+        }
+      ],
+      "runner_dispatches": 1,
+      "evidence_source": "fixture_runner_script"
+    },
+    {
+      "case": "runtime_interruption",
+      "expected": {
+        "destination": "recovery",
+        "contract_status": "accepted",
+        "publication_mode": null,
+        "scripted_continuations": 0
+      },
+      "observed": {
+        "destination": "recovery",
+        "contract_status": "accepted",
+        "publication_mode": null,
+        "scripted_continuations": 0
+      },
+      "record": {
+        "destination": "recovery",
+        "routed": {
+          "route": "recovery",
+          "validation": {
+            "schema_version": "laomedo.output-validation.v1",
+            "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+            "contract_status": "accepted",
+            "errors": [],
+            "agent_submission": {
+              "schema_version": "laomedo.agent-submission.v1",
+              "submission": {
+                "task_outcome": "success",
+                "report": "partial"
+              },
+              "answer": "{\"task_outcome\": \"success\", \"report\": \"partial\"}",
+              "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+              "precheck": {
+                "installed": true,
+                "call_count": 0
+              },
+              "task_outcome": "unknown",
+              "executor_status": "interrupted",
+              "evidence_complete": false,
+              "run_reference": {
+                "answer": "{\"task_outcome\": \"success\", \"report\": \"partial\"}",
+                "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
+                "request_id": "306d6e99-8430-4509-8ebb-f959baecf8e7",
+                "invocation_id": "fixture-invocation",
+                "laomedo_run_id": null,
+                "trace_id": "fixture-trace",
+                "evidence_complete": false,
+                "completion_basis": null,
+                "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+                "precheck": {
+                  "installed": true,
+                  "call_count": 0
+                },
+                "provider": "codex",
+                "handoff": null,
+                "imported_artifacts": [],
+                "thread_id": "fixture-thread",
+                "status": "interrupted",
+                "post_run_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "model": null,
+                "effort": null,
+                "skill_revision": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                "skill_use_evidence": "fixture_offered",
+                "skills": [
+                  {
+                    "revision_id": "sha256:88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61",
+                    "use_evidence": "fixture_offered"
+                  }
+                ],
+                "artifact_ref": "fixture:partial-changes",
+                "trace_ref": "laomedo:run:aeb54b12-3ca7-43a7-97b3-762dadc94721:events",
+                "error_category": "runner_runtime_unknown",
+                "attempt_finished": false,
+                "snapshot_ready": false,
+                "cancel_requested": false,
+                "usage": "unknown"
+              },
+              "error_category": "runner_runtime_unknown"
+            }
+          }
+        },
+        "issue_snapshot": {
+          "source": "fixture",
+          "context": {
+            "issue": {
+              "repository": "laomedo-fixture/workgraph",
+              "number": 1,
+              "node_id": "FIXTURE_ISSUE_1",
+              "url": "https://github.com/laomedo-fixture/workgraph/issues/1",
+              "title": "Produce the fixture report",
+              "body": "Implement a deterministic fixture report. Do not contact GitHub.",
+              "state": "open",
+              "updated_at": "2026-10-10T00:00:00Z"
+            },
+            "fetched_at": "2026-10-10T00:00:00Z",
+            "related_open_prs": [],
+            "related_prs_complete": true,
+            "related_prs_warning": null,
+            "related_prs_scope": "timeline_cross_references_only",
+            "supplied_target_pr": null
+          },
+          "snapshot_id": "sha256:e7fe2b741285d1464d9e27486ab4a350fe3137a3e1fc3701166ae8a0a774b16f",
+          "body_sha256": "f4eb0ed97735250f5ba31c67b01892a4f1dda610edca579651d46d314dcc297f"
+        },
+        "publication": null
+      },
+      "fixture_prechecks": [],
+      "runner_dispatches": 1,
+      "evidence_source": "fixture_runner_script"
+    }
+  ]
+}
