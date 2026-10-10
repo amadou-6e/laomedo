@@ -10,8 +10,17 @@ requirements-only Output Contract feeds the agent precheck input; another
 instance with the identical form validates the structured submission downstream.
 Two instances keep the graph acyclic. Conditional routing stops the inactive
 branches using Langflow's graph mechanism. The success destination creates only
-a **simulated** draft PR reference. Failure and rejection destinations preserve
+a **simulated** draft PR reference. Failure, rejection and recovery destinations preserve
 the validation record, run and trace references without publication.
+
+Routing precedence is rejection for an invalid form; recovery for an accepted
+form with a non-completed executor, incomplete/unknown evidence, or unknown task
+outcome; success for an accepted complete execution reporting success; and task
+failure only for an accepted complete execution explicitly reporting failure.
+The runtime-interruption fixture submits a valid success form with a partial
+report, so acceptance plus the recovery route tests execution state independently
+of form rejection. It must retain the exact run/trace identity and clamp the
+reported success to an unknown outcome without publication.
 
 `fixtures.json` and `expectations.json` are frozen inputs and handwritten expected
 routes. `flow.json` embeds the actual component code and port metadata. Tests
@@ -37,10 +46,17 @@ itself. Native dynamic-tool protocol tests belong to #135. No claim is made that
 this fake runner preserved physical files during interruption; the graph retains
 the supplied partial-evidence references. A live Codex run and verified real
 draft PR remain separate gates under #138 and #139.
+The evidence field `scripted_continuations` is fixture configuration, not an
+observed native continuation count. Ledger reservation and actual continuation
+budget enforcement are tested under #135, not established by this fixture.
+An additional negative control edits only the downstream form in the imported
+graph; the source requirements stay pinned and the resulting mismatch must reject.
 
-The evidence amendment incorporates #135's reviewed continuation and precheck
-preservation fixes, freezes the combined source again, and reruns the same six
-handwritten expectations. The original evidence remains in Git history at
+The evidence amendments incorporate #135's reviewed continuation and precheck
+preservation fixes and the review's distinct recovery route, valid interrupted
+form, explicit scripted-count label and downstream-form drift negative control.
+The protocol and expectations are committed before the amended export is frozen
+and the six cases rerun. The original evidence remains in Git history at
 `cd4201c`; the current evidence names the amended frozen source. Native runner
 responses do not yet establish `evidence_complete=true`, so the live publication
 gate remains unresolved under #139. This demo's explicit fixture value must not

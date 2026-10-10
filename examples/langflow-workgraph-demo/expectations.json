@@ -1,8 +1,8 @@
 {
-  "valid_success": {"destination": "success", "contract_status": "accepted", "publication_mode": "simulated", "continuations": 0},
-  "valid_task_failure": {"destination": "failure", "contract_status": "accepted", "publication_mode": null, "continuations": 0},
-  "invalid_submission": {"destination": "rejection", "contract_status": "rejected", "publication_mode": null, "continuations": 0},
-  "precheck_correction": {"destination": "success", "contract_status": "accepted", "publication_mode": "simulated", "continuations": 0},
-  "exhausted_correction": {"destination": "rejection", "contract_status": "rejected", "publication_mode": null, "continuations": 1},
-  "runtime_interruption": {"destination": "rejection", "contract_status": "rejected", "publication_mode": null, "continuations": 0}
+  "valid_success": {"destination": "success", "contract_status": "accepted", "publication_mode": "simulated", "scripted_continuations": 0},
+  "valid_task_failure": {"destination": "failure", "contract_status": "accepted", "publication_mode": null, "scripted_continuations": 0},
+  "invalid_submission": {"destination": "rejection", "contract_status": "rejected", "publication_mode": null, "scripted_continuations": 0},
+  "precheck_correction": {"destination": "success", "contract_status": "accepted", "publication_mode": "simulated", "scripted_continuations": 0},
+  "exhausted_correction": {"destination": "rejection", "contract_status": "rejected", "publication_mode": null, "scripted_continuations": 1},
+  "runtime_interruption": {"destination": "recovery", "contract_status": "accepted", "publication_mode": null, "scripted_continuations": 0}
 }
