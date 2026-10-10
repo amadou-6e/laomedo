@@ -222,6 +222,17 @@ class LocalRunnerTests(unittest.TestCase):
                         check_docker=False, split_executor=True,
                         supervise_containers=True)
 
+    def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
+        from laomedo.local_runner import GIT_IMAGE
+        args = (self.root / "source", self.root / "source", self.runner.state)
+        command = _docker_prefix(*args, image=GIT_IMAGE)
+        entries = [command[index + 1] for index, item in enumerate(command[:-1])
+                   if item == "--env" and command[index + 1].startswith("GIT_CONFIG_")]
+        self.assertEqual(entries, ["GIT_CONFIG_COUNT=1",
+                                  "GIT_CONFIG_KEY_0=safe.directory",
+                                  "GIT_CONFIG_VALUE_0=/draft"])
+        self.assertNotIn("GIT_CONFIG_COUNT=1", _docker_prefix(*args))
+
     def test_container_identity_is_saved_before_transport_launch(self):
         class InspectReservation(FakeServer):
             def __init__(self, command, evidence):

@@ -2,8 +2,9 @@
 
 The agent runner can now pass a run-scoped mediator capability to its pinned
 Docker image. The reusable GitHub credential remains in a host-only service.
-This is **not** acceptance of #100 capability parity or #104's live runner-loss
-gate. No live GitHub write is part of this setup check.
+This is **not** acceptance of #100 capability parity or the production
+LocalRunner runner-loss gate. The bounded scripted-container live evidence is
+recorded separately in S12 B; configuration alone does not prove it.
 
 ## Process ownership
 
@@ -82,9 +83,10 @@ own failure journal distinguishes pre-dispatch validation rejection from
 unexpected uncertainty. The resolver checks the live binding even if a
 worker died before rewriting a briefly verified outcome after a binding change.
 
-The worker must be independently started alongside the foreground host
-services; it is not an installed service manager. Its crash cleanup and
-end-to-end agent delivery remain unproven. An unknown verification is not
+The worker must be independently managed alongside host services. The
+opt-in Windows task installer below provides that deployment path; no task
+is installed automatically. Scripted-container capture and cleanup are
+bounded evidence, not real-model delivery acceptance. An unknown verification is not
 permission to automatically freeze another attempt. `pr_read` accepts only a
 PR number bound by creation or
 trusted approval and returns the displayed title/body/base/head for agent
@@ -92,17 +94,20 @@ inspection while the run is alive. Reviewed `issue_create` needs a trusted
 reviewed-payload binding.
 It refuses arbitrary REST writes, GraphQL, credential export and unsupported
 commands. Local editing remains ordinary container activity. The mediation
-client is **not** a drop-in `git` or `gh` executable. In particular,
-literal `git fetch`, `gh pr`, `gh issue`, and general `gh api` parity, input
-files/stdin flags, output formatting, and safe host-checkout commit transfer
-remain #100 work. An agent must not fall back to ambient credentials.
+JSON client is not itself a `git` or `gh` executable. In opt-in Git workspace
+mode, native Git uses the installed remote helper and the supported partial
+`gh` adapter is on PATH; see [exact command scope](mediated-agent-commands.md).
+Body-file/stdin forms are supported, but broader issue/API-write/pagination,
+formatting and full parity remain #100 work. An agent must not fall back to
+ambient credentials.
 
 | Requested surface | Current agent-stage result | Local evidence |
 | --- | --- | --- |
 | Edit files in `/draft` | Default snapshot has no history; opt-in Git workspace has isolated history | `test_local_runner.py` |
-| Literal `git fetch` / `git push` | No CLI-compatible agent transport yet | `test_local_runner.py`; Git grants require opt-in Git mode |
-| Normalized host `git_push` | Requires bytes from a trusted verified stage; active capture and a separate credential-free worker exist, end-to-end delivery unverified | `test_bundle_verifier.py`, `test_verified_stage.py`, `test_github_git_transport.py` |
-| Literal `gh pr` / `gh issue` / `gh run` | Unsupported; no CLI-compatible adapter yet | Client accepts JSON only; unsupported operations fail in `test_github_mediation.py` |
+| Literal `git fetch` / `git push` | Scoped native remote helper; fetch requires explicit run/base reads, push requires verified exact commit | `test_native_commands.py`; S10 B local-provider and S12 B live scripted-container evidence |
+| Normalized host `git_push` | Active capture, independent credential-free verification and trusted exact-commit transport | `test_bundle_verifier.py`, `test_verified_stage.py`, `test_github_git_transport.py`; S12 B live scripted-container evidence, not production LocalRunner acceptance |
+| Literal `gh pr` / `gh run` | Supported partial create/view/edit and run-list forms; result JSON | `test_native_commands.py`; S10 B fake PR correction/readback and S12 B live PR create/readback |
+| Literal `gh issue` | Unsupported before mediation; no implicit run permission | `test_native_commands.py`, `test_github_mediation.py` |
 | Normalized PR create/update | Granted branch/PR/base/marker checks, with provider target verification | `test_github_mediation.py`, `test_github_rest_transport.py` |
 | Bound PR readback | Granted PR number, repository, branch and base; title/body and actual head SHA returned | `test_github_mediation.py`, `test_github_rest_transport.py`; synthetic transport only |
 | Normalized Actions read | Granted repository target only | `test_github_rest_transport.py`, no-model Docker client check |
@@ -123,7 +128,7 @@ The synthetic integrated runner test starts a real independent lease and
 mediator process, checks an authorized launch and a stale-mediator refusal,
 and verifies lease finish without a model or GitHub call. It does not replace
 the frozen live runner-loss test.
-# Windows managed startup (implementation draft)
+## Windows managed startup (implementation draft)
 
 `scripts/Install-LaomedoUserTask.ps1` registers one per-user task for
 `host-services` and a separate task for `bundle-verifier`. Supply an absolute
@@ -140,6 +145,14 @@ expiry even if Task Scheduler itself fails. No production task has been
 installed by default. The separately frozen task S1 diagnostic passed and
 removed its two exact tasks; see `experiments/exp104/MANAGED-STARTUP-RESULTS.md`.
 This does not establish production, logout or in-flight verifier cleanup.
+
+Later [S12 B](../experiments/exp104/NATIVE-MANAGED-S12-B-RESULTS.md)
+composed these exact per-user tasks with real native Git/PR operations,
+independent revocation within 4.985 seconds and B-run continuity. Its workers
+were scripted container fixtures, not production LocalRunner/model turns.
+[S10 B](../experiments/exp100/S10-B-RESULTS.md) supplies the separate local
+two-push and PR-body-correction checks. Neither proves full capability parity,
+logout/double-manager survival, Linux or Q11 acceptance.
 
 PR updates now require an `expected` snapshot containing `title`, `body` and
 `head_sha`. The adapter compares a fresh GET before PATCH, verifies the bound

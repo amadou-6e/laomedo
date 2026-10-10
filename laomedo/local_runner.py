@@ -270,6 +270,12 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             "--env", "LAOMEDO_RUN_BRANCH=" + branch,
             "--env", "LAOMEDO_BASE_BRANCH=" + base_branch,
             "--env", "PATH=/run/laomedo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"]
+    # Windows bind mounts need not be owned by the container's non-root UID.
+    # Trust only our fixed workspace, never arbitrary paths or a wildcard.
+    git_config = (["--env", "GIT_CONFIG_COUNT=1",
+                   "--env", "GIT_CONFIG_KEY_0=safe.directory",
+                   "--env", "GIT_CONFIG_VALUE_0=/draft"]
+                  if image == GIT_IMAGE else [])
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -279,7 +285,7 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             "--mount", f"type=bind,source={canonical},target=/canonical,readonly",
             "--mount", f"type=bind,source={store_mount},target=/store",
             "--mount", f"type=bind,source={CONFIG},target=/config.toml,readonly",
-            *mediation,
+            *mediation, *git_config,
             "--workdir", "/draft", image, "sh", "-c",
             'cp /config.toml /home/runner/.codex/config.toml && exec codex "$@"',
             "bootstrap", "app-server", "--stdio"]
