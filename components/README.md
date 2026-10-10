@@ -21,6 +21,8 @@ form. This avoids a cycle in Langflow. The validator rejects a missing or
 different requirements revision, retains task outcome separately from validity,
 and emits accepted/rejected Data for conditional routing. Invalid form settings
 are configuration errors; invalid submissions are routable rejections.
+Connect the Codex Submission port to Agent Submission on the validator. Its
+legacy Run Reference port is not a submission envelope and cannot replace it.
 
 The native Codex dynamic precheck tool returns bounded path/code feedback within
 a request. A completed invalid form can receive one additional same-thread
@@ -71,8 +73,10 @@ no model turns. Cancel requests retain the runner's status and evidence.
 Answer is a Langflow Message; Run Reference is Data containing answer, run/thread
 IDs, state, post-run hash, model/effort, skill revision/use evidence, artifact/trace
 references, error category and unknown usage. Both outputs share one dispatch per
-component build. A new explicit build submits a new request; automatic retry is
-not implemented. Trace references are opaque identifiers, not raw transcripts.
+component build. A new explicit build submits a new request; automatic
+infrastructure retry is not implemented. Output correction, when requirements
+are connected, follows the separate bounded policy above. Trace references are
+opaque identifiers, not raw transcripts.
 For multiple skills, the legacy `skill_revision` and `skill_use_evidence` fields
 are single-skill-only and may be empty; use the per-skill `skills` array.
 

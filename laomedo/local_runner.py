@@ -1386,6 +1386,7 @@ class LocalRunner:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
                 record = self.status(run_id)
+                record.setdefault("precheck", {"installed": False, "call_count": 0})
                 if record["status"] == "cancelled" and record.get("cancel_confirmed"):
                     return record
                 if (not resume and record["status"] != "prepared") or (
@@ -1496,7 +1497,7 @@ class LocalRunner:
                 raise RunnerError("thread_identity_mismatch")
             record["thread_id"] = native_id
             server.active_thread_id = native_id
-            record["precheck"]["installed"] = bool(record.get("output_requirements"))
+            record["precheck"]["installed"] = "dynamicTools" in params
             record["effective_model"] = thread.get("model") or result.get("model")
             record["effective_effort"] = (result.get("reasoningEffort") or
                                           thread.get("reasoningEffort"))
@@ -1544,7 +1545,7 @@ class LocalRunner:
             if record.get("output_requirements"):
                 turn_params["input"][0]["text"] += (
                     "\nReturn your final submission as a JSON object with explicit task_outcome "
-                    "success, failure or unknown. Use laomedo_output_precheck on your form before "
+                    "success or failure. Use laomedo_output_precheck on your form before "
                     "handoff and correct rejected fields within this request. Requirements: " +
                     json.dumps(record["output_requirements"], sort_keys=True))
             if self.split_executor:
@@ -1621,7 +1622,7 @@ class LocalRunner:
                     if event.get("method") not in {"item/started", "item/completed"}:
                         return False
                     item = event.get("params", {}).get("item") or {}
-                    if item.get("type") in {"agentMessage", "reasoning"}:
+                    if item.get("type") in {"userMessage", "agentMessage", "reasoning"}:
                         return False
                     return not (item.get("type") == "dynamicToolCall" and
                                 item.get("tool") == "laomedo_output_precheck" and
@@ -1737,6 +1738,12 @@ class LocalRunner:
             close_error = False
             try:
                 if server is not None:
+                    if record is not None:
+                        count = getattr(server, "precheck_call_count", 0)
+                        record["precheck"]["call_count"] = count
+                        record["precheck"]["installed"] = (
+                            record["precheck"]["installed"] or
+                            bool(getattr(server, "verified_precheck_calls", set())))
                     server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
