@@ -6,7 +6,7 @@ import unittest
 from urllib import error
 
 from laomedo.github_mediation import KnownRejected
-from laomedo.github_rest_transport import GitHubRestTransport
+from laomedo.github_rest_transport import GitHubRestTransport, ISSUE_GRAPHQL_QUERY
 
 
 class _Response(io.BytesIO):
@@ -53,6 +53,33 @@ class GitHubRestTransportTests(unittest.TestCase):
             with self.assertRaisesRegex(KnownRejected, "list_payload_invalid"):
                 self.adapter("example/disposable", operation, {"path": "/other"})
         self.assertEqual(len(self.opener.calls), 2)
+
+    def test_fixed_graphql_read_is_host_constructed_and_repository_bound(self):
+        nodes = [{'number': 8, 'title': 'T', 'body': 'B'}]
+        self.opener.responses = [json.dumps({'data': {'repository': {'issues': {'nodes': nodes}}}}).encode()]
+        self.assertEqual(self.adapter('example/disposable', 'issue_list', {'format': 'fixed_graphql'}),
+                         {'items': nodes})
+        call, _ = self.opener.calls[0]
+        self.assertEqual(call.get_method(), 'POST')
+        self.assertEqual(call.full_url, 'https://api.github.com/graphql')
+        self.assertEqual(json.loads(call.data), {'query': ISSUE_GRAPHQL_QUERY,
+                         'variables': {'owner': 'example', 'name': 'disposable'}})
+        for operation, payload in [('pr_list', {'format': 'fixed_graphql'}),
+                ('issue_list', {'format': 'fixed_graphql', 'query': 'mutation {}'}),
+                ('issue_list', {'format': 'arbitrary'})]:
+            with self.assertRaisesRegex(KnownRejected, 'list_payload_invalid'):
+                self.adapter('example/disposable', operation, payload)
+        self.assertEqual(len(self.opener.calls), 1)
+
+    def test_fixed_graphql_partial_errors_or_malformed_response_are_not_success(self):
+        for value in [{'errors': [{'message': 'partial'}], 'data': {'repository': {'issues': {'nodes': []}}}},
+                      {}, {'data': {'repository': None}},
+                      {'data': {'repository': {'issues': {'nodes': [{'number': True, 'title': 'T', 'body': 'B'}]}}}}]:
+            self.opener.responses = [json.dumps(value).encode()]
+            before = len(self.opener.calls)
+            with self.assertRaisesRegex(ValueError, 'graphql_response_invalid'):
+                self.adapter('example/disposable', 'issue_list', {'format': 'fixed_graphql'})
+            self.assertEqual(len(self.opener.calls), before + 1)
 
     def test_list_rejects_malformed_provider_items_without_retry(self):
         for response in (b'{}', b'[1]', b'[{"number":true}]', b'[{"number":0}]',

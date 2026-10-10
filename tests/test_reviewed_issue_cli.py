@@ -8,12 +8,19 @@ import unittest
 
 from laomedo.github_mediation import MediationStore, MediationError
 from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.github_rest_transport import ISSUE_GRAPHQL_QUERY
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 @unittest.skipUnless(shutil.which('node'), 'Node unavailable')
 class ReviewedIssueCliTests(unittest.TestCase):
+    def test_graphql_query_is_identical_on_agent_and_host(self):
+        script = "import {ISSUE_GRAPHQL_QUERY} from './laomedo/agent_gh_adapter.mjs'; console.log(ISSUE_GRAPHQL_QUERY);"
+        result = subprocess.run(['node', '--input-type=module', '-e', script], cwd=ROOT,
+                                check=True, capture_output=True, timeout=10)
+        self.assertEqual(result.stdout.decode().strip(), ISSUE_GRAPHQL_QUERY)
+
     def request(self, body='marker reviewed body'):
         script = """import {plan} from './laomedo/agent_gh_adapter.mjs';
         console.log(JSON.stringify(plan(['issue','create','--title','T','--body',process.argv[1]],

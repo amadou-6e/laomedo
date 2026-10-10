@@ -15,6 +15,7 @@ from .github_mediation import KnownRejected
 
 
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+ISSUE_GRAPHQL_QUERY = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}'
 
 
 class _NoRedirect(request.HTTPRedirectHandler):
@@ -42,6 +43,21 @@ class GitHubRestTransport:
         prefix = f"/repos/{self.repository}"
         method, path, body = "GET", "", None
         if operation in {"pr_list", "issue_list"}:
+            if operation == "issue_list" and payload == {"format": "fixed_graphql"}:
+                owner, name = repository.split('/')
+                response = self._call('POST', '/graphql', {
+                    'query': ISSUE_GRAPHQL_QUERY, 'variables': {'owner': owner, 'name': name}},
+                    connection_id, connection_generation)
+                try:
+                    nodes = response['data']['repository']['issues']['nodes']
+                    if ('errors' in response or not isinstance(nodes, list) or len(nodes) > 30 or
+                            any(not isinstance(item, dict) or type(item.get('number')) is not int or
+                                item['number'] < 1 or not isinstance(item.get('title'), str) or
+                                not isinstance(item.get('body'), str) for item in nodes)):
+                        raise ValueError('graphql_response_invalid')
+                except (KeyError, TypeError):
+                    raise ValueError('graphql_response_invalid') from None
+                return {'items': nodes}
             if payload != {}:
                 raise KnownRejected("list_payload_invalid")
             path = prefix + ("/pulls" if operation == "pr_list" else "/issues")

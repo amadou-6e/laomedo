@@ -76,7 +76,7 @@ class NativeCommandsTests(unittest.TestCase):
         result = subprocess.run(["node", "--test", "tests/test_agent_gh.mjs"], cwd=ROOT,
             capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr.decode())
-        self.assertIn(b"# pass 18", result.stdout)
+        self.assertIn(b"# pass 20", result.stdout)
 
     @unittest.skipUnless(shutil.which("git"), "Git unavailable")
     def test_remote_setup_is_idempotent_and_refuses_changed_url(self):
