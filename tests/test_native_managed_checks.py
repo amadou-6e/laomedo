@@ -1,6 +1,6 @@
 """Synthetic checker controls, never S12 campaign evidence or live execution."""
 from copy import deepcopy
-import pytest
+import unittest
 from experiments.exp104.native_managed_checks import BASELINE, IDENTITY, REPOSITORY, validate
 
 
@@ -27,24 +27,29 @@ def observation():
         "cleanup": {key: True for key in ("a", "b", "stages", "tasks", "processes", "grants")}}
 
 
-def test_complete_synthetic_fixture_validates():
-    assert validate(observation()) is True
+class NativeManagedChecksTests(unittest.TestCase):
+    def test_complete_synthetic_fixture_validates(self):
+        assert validate(observation()) is True
 
 
-@pytest.mark.parametrize("case", range(12))
-def test_false_success_controls_are_rejected(case):
-    value = deepcopy(observation())
-    if case == 0: value["provider_mutations"].append({"operation": "pr_update"})
-    elif case == 1: value["provider_mutations"].pop()
-    elif case == 2: value["provider_mutations"][0]["branch"] = "wrong-run"
-    elif case == 3: value["loss"]["revoked"] = 161
-    elif case == 4: value["loss"]["denial_status"] = 200
-    elif case == 5: value["loss"]["attempts_after_denial"] = 4
-    elif case == 6: value["loss"]["b_grant_active"] = False
-    elif case == 7: value["unexpected_secret_hits"] = 1
-    elif case == 8: value["tasks"]["host-services"]["after"] = []
-    elif case == 9: value["cleanup"]["stages"] = False
-    elif case == 10: value["loss"]["revoked"] = float("nan")
-    else: value["delivery"]["a"]["readback_commit"] = "0" * 40
-    with pytest.raises(ValueError):
-        validate(value)
+    def check_false_success_control(self, case):
+        value = deepcopy(observation())
+        if case == 0: value["provider_mutations"].append({"operation": "pr_update"})
+        elif case == 1: value["provider_mutations"].pop()
+        elif case == 2: value["provider_mutations"][0]["branch"] = "wrong-run"
+        elif case == 3: value["loss"]["revoked"] = 161
+        elif case == 4: value["loss"]["denial_status"] = 200
+        elif case == 5: value["loss"]["attempts_after_denial"] = 4
+        elif case == 6: value["loss"]["b_grant_active"] = False
+        elif case == 7: value["unexpected_secret_hits"] = 1
+        elif case == 8: value["tasks"]["host-services"]["after"] = []
+        elif case == 9: value["cleanup"]["stages"] = False
+        elif case == 10: value["loss"]["revoked"] = float("nan")
+        else: value["delivery"]["a"]["readback_commit"] = "0" * 40
+        with self.assertRaises(ValueError):
+            validate(value)
+
+    def test_false_success_controls_are_rejected(self):
+        for case in range(12):
+            with self.subTest(case=case):
+                self.check_false_success_control(case)

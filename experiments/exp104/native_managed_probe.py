@@ -112,7 +112,10 @@ def agent_command(root, side, args, token, capability, *, effect=None, marker=No
     ready = json.loads((root / (side + "-ready.json")).read_bytes())
     if state != "owned" or container_id != ready["container_id"]:
         raise ValueError("container_ownership_changed")
-    command = ["docker", "exec", "-i", "--workdir=/draft"]
+    # Trust only this fixture mount, including remote-helper child Git calls.
+    command = ["docker", "exec", "-i", "--workdir=/draft",
+               "--env=GIT_CONFIG_COUNT=1", "--env=GIT_CONFIG_KEY_0=safe.directory",
+               "--env=GIT_CONFIG_VALUE_0=/draft"]
     if effect is not None:
         command.extend(["--env=LAOMEDO_EFFECT_ID=" + effect,
                         "--env=LAOMEDO_RECONCILIATION_MARKER=" + marker])
