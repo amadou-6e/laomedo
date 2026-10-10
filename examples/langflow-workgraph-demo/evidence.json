@@ -7,17 +7,17 @@
   "github_writes": 0,
   "real_credentials": false,
   "publication": "simulated_only",
-  "source_commit": "98bd0cebd4db44919a6eedaebbacff3afa663716",
+  "source_commit": "c594e47b8dff75707ac845d2e28e6851465dd114",
   "artifact_sha256": {
-    "examples/langflow-workgraph-demo/flow.json": "631581c9ebd8f772a83361abe07fd6af607b8277e3fea9167033696fdbe86536",
+    "examples/langflow-workgraph-demo/flow.json": "d727facce2bc85e0440a166769ff1f30ad536e00f8ea150e9ece0fa9b09a1d54",
     "examples/langflow-workgraph-demo/fixtures.json": "a6843d91e8acef7456f5eed05562c451d3e4a741e0bce59e5d73e8d37e1ea167",
-    "examples/langflow-workgraph-demo/expectations.json": "6671e6a12ca499db2b884ce42f067a02d429245337a9378b7b167fb3b1e525ec",
-    "examples/langflow-workgraph-demo/build_flow.py": "7dff2a17252538e0dba636ca6e3001eb33abd01dc1bfd9fc39fe262a45313f18",
+    "examples/langflow-workgraph-demo/expectations.json": "81ebbc708559f0b7040d603ee217d6fa1f7776633461870975839411a15956c4",
+    "examples/langflow-workgraph-demo/build_flow.py": "3e5f401fa2b35a25a819f5c84c28e54ef21d605140fe7ca737a95aa3cab4c0d8",
     "examples/langflow-workgraph-demo/fixture_issue.py": "147da8f8f6641e709cbbd39c187b45319bdb30e03b5029a05eae033a79b086d8",
-    "examples/langflow-workgraph-demo/route.py": "c15587335a6161212b0fdf8e741ee601e38414afa7adddd0e8bf490e0ecacaa6",
+    "examples/langflow-workgraph-demo/route.py": "40a43acb2dc18c38873043e350eb3d3d4ca591dff8c4f8cd8335447b54f6333f",
     "examples/langflow-workgraph-demo/destination.py": "c5d4f7b31179b944b2049d49bf3e980af53e81d35afd67b202413651dcbc6b21",
-    "examples/langflow-workgraph-demo/acceptance.py": "3b60ed89a1ad4099b29419512a6e5e81d1810c5beb18e98b4161f29a8b3b587d",
-    "tests/langflow/test_workgraph_demo.py": "e242fa590482afb185f58c1e24e39524cae4fc05d90e53627789affc668b3c1b",
+    "examples/langflow-workgraph-demo/acceptance.py": "3ffc89f11c72a24dec1be24e42a81c652aa54b7d6f03aa3b2fe28a5420f8ee78",
+    "tests/langflow/test_workgraph_demo.py": "484da64980e6bb59cb8a1516b0f6e2c55fbb02361a5387c5c4aba4c17eb3d744",
     "examples/langflow-workgraph-demo/skill/SKILL.md": "88afa8407f673a4822cc5fecf4a90175df9764e01b2835ba3ed3baac9f3f5c61"
   },
   "limits": [
@@ -32,13 +32,13 @@
         "destination": "success",
         "contract_status": "accepted",
         "publication_mode": "simulated",
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "observed": {
         "destination": "success",
         "contract_status": "accepted",
         "publication_mode": "simulated",
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "record": {
         "destination": "success",
@@ -67,7 +67,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\", \"report\": \"fixture complete\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "e1a38805-8a97-413f-aa29-f21d34e0ad57",
+                "request_id": "ca8cca31-4b18-4093-a4e5-a34124c50ebb",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -145,13 +145,13 @@
         "destination": "failure",
         "contract_status": "accepted",
         "publication_mode": null,
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "observed": {
         "destination": "failure",
         "contract_status": "accepted",
         "publication_mode": null,
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "record": {
         "destination": "failure",
@@ -180,7 +180,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"failure\", \"report\": \"cannot finish fixture\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "168d479e-e97f-4139-9c02-3ca52347b87e",
+                "request_id": "b5269a8a-3c32-4382-a976-567e7cc2d143",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -254,13 +254,13 @@
         "destination": "rejection",
         "contract_status": "rejected",
         "publication_mode": null,
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "observed": {
         "destination": "rejection",
         "contract_status": "rejected",
         "publication_mode": null,
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "record": {
         "destination": "rejection",
@@ -293,7 +293,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "8b729721-91e7-4127-915e-1071c9d88b7e",
+                "request_id": "8a3cac7f-9283-46a9-a608-6bf5bfae7e80",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -367,13 +367,13 @@
         "destination": "success",
         "contract_status": "accepted",
         "publication_mode": "simulated",
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "observed": {
         "destination": "success",
         "contract_status": "accepted",
         "publication_mode": "simulated",
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "record": {
         "destination": "success",
@@ -402,7 +402,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\", \"report\": \"corrected fixture\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "337b25b0-0828-4dca-8992-320ae44fd43f",
+                "request_id": "4768e2de-78e1-4abd-aa19-30f018417120",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -498,13 +498,13 @@
         "destination": "rejection",
         "contract_status": "rejected",
         "publication_mode": null,
-        "continuations": 1
+        "scripted_continuations": 1
       },
       "observed": {
         "destination": "rejection",
         "contract_status": "rejected",
         "publication_mode": null,
-        "continuations": 1
+        "scripted_continuations": 1
       },
       "record": {
         "destination": "rejection",
@@ -537,7 +537,7 @@
               "run_reference": {
                 "answer": "{\"task_outcome\": \"success\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "5c49372c-de0a-4e75-ab0d-183c43afa51a",
+                "request_id": "7ab093c0-d69c-4d30-8372-d3d493575c70",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
@@ -631,41 +631,33 @@
     {
       "case": "runtime_interruption",
       "expected": {
-        "destination": "rejection",
-        "contract_status": "rejected",
+        "destination": "recovery",
+        "contract_status": "accepted",
         "publication_mode": null,
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "observed": {
-        "destination": "rejection",
-        "contract_status": "rejected",
+        "destination": "recovery",
+        "contract_status": "accepted",
         "publication_mode": null,
-        "continuations": 0
+        "scripted_continuations": 0
       },
       "record": {
-        "destination": "rejection",
+        "destination": "recovery",
         "routed": {
-          "route": "rejection",
+          "route": "recovery",
           "validation": {
             "schema_version": "laomedo.output-validation.v1",
             "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
-            "contract_status": "rejected",
-            "errors": [
-              {
-                "path": "/task_outcome",
-                "code": "enum"
-              },
-              {
-                "path": "/report",
-                "code": "required"
-              }
-            ],
+            "contract_status": "accepted",
+            "errors": [],
             "agent_submission": {
               "schema_version": "laomedo.agent-submission.v1",
               "submission": {
-                "task_outcome": "unknown"
+                "task_outcome": "success",
+                "report": "partial"
               },
-              "answer": "{\"task_outcome\": \"unknown\"}",
+              "answer": "{\"task_outcome\": \"success\", \"report\": \"partial\"}",
               "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
               "precheck": {
                 "installed": true,
@@ -675,9 +667,9 @@
               "executor_status": "interrupted",
               "evidence_complete": false,
               "run_reference": {
-                "answer": "{\"task_outcome\": \"unknown\"}",
+                "answer": "{\"task_outcome\": \"success\", \"report\": \"partial\"}",
                 "run_id": "aeb54b12-3ca7-43a7-97b3-762dadc94721",
-                "request_id": "30d4fcf9-26bb-4579-8ade-cf3c95448ed9",
+                "request_id": "306d6e99-8430-4509-8ebb-f959baecf8e7",
                 "invocation_id": "fixture-invocation",
                 "laomedo_run_id": null,
                 "trace_id": "fixture-trace",
