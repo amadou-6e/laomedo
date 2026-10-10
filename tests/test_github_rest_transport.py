@@ -37,6 +37,32 @@ class GitHubRestTransportTests(unittest.TestCase):
         self.adapter = GitHubRestTransport(
             "example/disposable", lambda: "synthetic-secret", opener=self.opener)
 
+    def test_list_reads_are_fixed_targets_and_issue_list_excludes_prs(self):
+        self.opener.responses = [b'[{"number":7}]',
+                                 b'[{"number":2},{"number":7,"pull_request":{}}]']
+        self.assertEqual(self.adapter("example/disposable", "pr_list", {}),
+                         {"items": [{"number": 7}]})
+        self.assertEqual(self.adapter("example/disposable", "issue_list", {}),
+                         {"items": [{"number": 2}]})
+        self.assertEqual([call.full_url for call, _ in self.opener.calls], [
+            "https://api.github.com/repos/example/disposable/pulls",
+            "https://api.github.com/repos/example/disposable/issues"])
+        self.assertTrue(all(call.get_method() == "GET" and call.data is None
+                            for call, _ in self.opener.calls))
+        for operation in ("pr_list", "issue_list"):
+            with self.assertRaisesRegex(KnownRejected, "list_payload_invalid"):
+                self.adapter("example/disposable", operation, {"path": "/other"})
+        self.assertEqual(len(self.opener.calls), 2)
+
+    def test_list_rejects_malformed_provider_items_without_retry(self):
+        for response in (b'{}', b'[1]', b'[{"number":true}]', b'[{"number":0}]',
+                         b'[{"number":"7"}]'):
+            self.opener.responses = [response]
+            before = len(self.opener.calls)
+            with self.assertRaisesRegex(ValueError, "list_response_invalid"):
+                self.adapter("example/disposable", "pr_list", {})
+            self.assertEqual(len(self.opener.calls), before + 1)
+
     def test_pr_create_is_bound_and_keeps_token_out_of_url_or_body(self):
         payload = {"title": "Test", "body": "marker-1", "head": "branch-a",
                    "base": "main", "marker": "marker-1"}

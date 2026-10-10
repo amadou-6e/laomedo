@@ -61,6 +61,14 @@ repos/OWNER/REPO/...`, `gh pr create --title TITLE --body BODY --head BRANCH
 must match the selected repository. Output is result JSON, not native gh
 table formatting. PR reads/updates are limited to bound targets.
 
+The adapter/transport also recognize `gh pr list` and `gh issue list` as
+explicit `pr_list`/`issue_list` reads, returning `{ "items": [...] }` for the
+provider's first default open-items page. Issue listing excludes PR entries.
+Paging and state-selection flags fail explicitly; this is not a complete-list
+guarantee. These operations require their own trusted grants. The current
+first-slice authority and LocalRunner do not issue them: adding the command
+does not enlarge any existing approval or claim agent-stage acceptance.
+
 For writes, explicitly set `LAOMEDO_EFFECT_ID` and
 `LAOMEDO_RECONCILIATION_MARKER` and include that marker in the body. A stable
 effect ID identifies the **exact** request, not a command that may be edited

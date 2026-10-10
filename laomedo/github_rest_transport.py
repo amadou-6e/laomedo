@@ -41,6 +41,17 @@ class GitHubRestTransport:
             raise KnownRejected("repository_denied")
         prefix = f"/repos/{self.repository}"
         method, path, body = "GET", "", None
+        if operation in {"pr_list", "issue_list"}:
+            if payload != {}:
+                raise KnownRejected("list_payload_invalid")
+            path = prefix + ("/pulls" if operation == "pr_list" else "/issues")
+            result = self._call("GET", path, None, connection_id,
+                                connection_generation, allow_list=True)
+            # GitHub's issues endpoint includes PRs; gh issue list does not.
+            if operation == "issue_list":
+                result["items"] = [item for item in result["items"]
+                                   if "pull_request" not in item]
+            return result
         if operation == "pr_create":
             if not all(isinstance(payload.get(k), str) and payload[k]
                        for k in ("title", "body", "head", "base", "marker")) or \
@@ -146,7 +157,8 @@ class GitHubRestTransport:
 
     def _call(self, method: str, path: str, body: dict | None,
               connection_id: str | None = None,
-              connection_generation: int | None = None) -> dict:
+              connection_generation: int | None = None, *,
+              allow_list: bool = False) -> dict:
         if (connection_id is None) != (connection_generation is None):
             raise KnownRejected("connection_binding_invalid")
         # Bound grants require a resolver accepting their exact identity and
@@ -174,6 +186,13 @@ class GitHubRestTransport:
                 if len(content) > 1024 * 1024:
                     raise ValueError("response_too_large")
                 value = json.loads(content)
+                if allow_list:
+                    if (not isinstance(value, list) or
+                            any(not isinstance(item, dict) or
+                                type(item.get("number")) is not int or
+                                item["number"] < 1 for item in value)):
+                        raise ValueError("list_response_invalid")
+                    return {"items": value}
                 if not isinstance(value, dict):
                     raise ValueError("response_invalid")
                 return value

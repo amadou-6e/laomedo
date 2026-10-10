@@ -50,11 +50,15 @@ export function plan(argv, context, readBody) {
     kind = argv.slice(0, 2).join(' '); tail = argv.slice(2);
     if (kind === 'pr create') permitted.push('--title', '--body', '--body-file', '--head', '--base');
     else if (kind === 'pr edit') permitted.push('--title', '--body', '--body-file');
-    else if (!['pr view', 'run list'].includes(kind)) fail('unsupported_command');
+    else if (!['pr view', 'pr list', 'issue list', 'run list'].includes(kind)) fail('unsupported_command');
   }
   const { flags, positional } = options(tail, permitted);
   if (flags['--repo'] && flags['--repo'] !== repository) fail('repository_mismatch');
   const request = (operation, payload) => ({ repository, operation, payload });
+  if (kind === 'pr list' || kind === 'issue list') {
+    if (positional.length) fail('unsupported_syntax');
+    return { request: request(kind === 'pr list' ? 'pr_list' : 'issue_list', {}) };
+  }
   if (kind === 'pr view') {
     if (positional.length !== 1) fail('unsupported_syntax');
     return { request: request('pr_read', { number: positive(positional[0]) }) };
