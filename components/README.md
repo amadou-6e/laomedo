@@ -58,8 +58,40 @@ transport timeout retains the known run/trace with an unknown outcome, without
 retrying. Status and cancel remain available using that reference. Responses for
 another run, or a completed resume naming another native thread, are refused.
 The exception's structured reference is available to code calling the component.
-A failed Langflow node emits no Data output; UI users recover by the run ID in
-the error message using explicit status/cancel, rather than a failure output port.
+The legacy Answer/Run Reference ports retain that exception behavior; existing
+saved flows need no migration. Connect the new Submission / Outcome Data port
+to an Output Contract or router to receive known runtime failures as data.
+Selecting legacy ports too can still fail the graph; their exceptions are not
+silently changed. All three ports share one dispatch within a component build.
+
+The new port emits `schema_version: laomedo.agent-submission.v1`, `submission`,
+`answer`, `task_outcome`, `executor_status`, `evidence_complete`, `run_reference`
+and `error_category`, plus `requirements_revision` and `precheck`. The latter
+contains a separately reported `installed` boolean and nonnegative `call_count`, or `unknown`
+when unreported; a supplied form does not prove a precheck tool was called.
+The requirement revision is null when unreported. `submission` is the JSON object in the agent's final answer,
+or null for absent, malformed or non-object JSON. The reported `task_outcome`
+is read only from that object's `task_outcome: success|failure` field; normal
+prose and process exit never imply task success. An incomplete executor cannot
+promote a success claim. A reported failure is routable even when the executor
+completed. This port does not validate the form; downstream Output Contract
+remains authoritative, and submitted content is untrusted result data.
+
+The run reference retains native run/request/thread/trace references and, when
+reported by the join bridge, invocation, Laomedo run and trace IDs. Missing IDs
+remain null. Evidence completeness is the runner's exact boolean, or `unknown`
+when unreported; snapshot readiness is not a substitute. A poll disconnect
+retains the last bound run and partial answer/trace, sets executor status to
+unknown and clears the artifact reference. A lost initial acknowledgement keeps
+the request UUID without inventing a run or redispatching. Stable error codes
+are emitted without copying raw exception text or unbound error identities.
+There is no PR-reference field and no fabricated publication claim.
+
+Input validation still refuses before dispatch. Framework cancellation from
+Playground Stop still propagates so it cannot continue downstream execution;
+an explicit cancel/status operation can supply its known runtime outcome to
+the new port. Transport uncertainty is not permission to retry. No automatic
+output correction or infrastructure retry is added by this port alone.
 The fresh route uses early native acknowledgement, then read-only polling.
 Bounded installed-runtime tests showed visible Playground Stop cancelling one
 active Codex turn and one prepared turn. Do not infer a remote stop from client
