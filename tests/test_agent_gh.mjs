@@ -7,6 +7,31 @@ import { join } from 'node:path';
 
 const context = { repository: 'example/disposable', effect: 'effect-1', marker: 'marker' };
 const body = 'marker\r\nUnicode: λ\n';
+test('explicit same-repository list forms map to read-only operations', async () => {
+  const calls = [];
+  for (const [noun, operation] of [['pr', 'pr_list'], ['issue', 'issue_list']]) {
+    const output = await execute([noun, 'list', '--repo', context.repository], context, {
+      mediate: request => { calls.push(request); return { state: 'confirmed', result: { items: [{ number: 7 }] } }; }
+    });
+    assert.deepEqual(output, { items: [{ number: 7 }] });
+    assert.deepEqual(calls.at(-1), { repository: context.repository, operation, payload: {} });
+  }
+  assert.equal(calls.length, 2);
+});
+test('list refuses wider repositories, positional targets and paging before mediation', async () => {
+  let calls = 0;
+  for (const noun of ['pr', 'issue']) {
+    for (const tail of [['7'], ['--repo', 'other/repo'], ['--limit', '100'], ['--state', 'all']]) {
+      await assert.rejects(execute([noun, 'list', ...tail], context, {
+        mediate: () => { calls++; }
+      }), AdapterError);
+    }
+    await assert.rejects(execute([noun, 'list'], context, {
+      mediate: () => ({ error: 'operation_denied' })
+    }), failure => failure.exit === 3);
+  }
+  assert.equal(calls, 0);
+});
 test('supported reads map exact requests', () => {
   assert.deepEqual(plan(['pr', 'view', '7'], context).request,
     { repository: context.repository, operation: 'pr_read', payload: { number: 7 } });
