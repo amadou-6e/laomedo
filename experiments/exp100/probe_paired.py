@@ -6,6 +6,9 @@ import json
 import os
 from pathlib import Path
 import secrets
+import re
+import shlex
+import sqlite3
 import shutil
 import subprocess
 import sys
@@ -29,6 +32,17 @@ from laomedo.mediation_service import MediationHTTPService
 from laomedo.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
 
 SPEC = '193fdfb2c31e71745943039c05e14d5d72e8309e'
+
+
+def install_direct_journal(remote, journal):
+    hook = remote / 'hooks/post-receive'
+    hook.write_text('#!/bin/sh\ncat >> ' + shlex.quote(journal.as_posix()) + '\n',
+                    encoding='utf8', newline='\n')
+    hook.chmod(0o755)
+
+
+def received_updates(journal):
+    return [line.split() for line in journal.read_text().splitlines()] if journal.exists() else []
 
 
 def isolated_environment(folder):
@@ -72,7 +86,7 @@ def run(private, source_sha, review_record):
     containers, verifiers, servers, grants = {}, [], [], {}
     stopped = threading.Event()
     stage = root / 'private'
-    mediated = None
+    mediated = direct = None
     store = None
     git_calls = []
     def command(args, *, cwd=None, env=None, stdin=None):
@@ -81,7 +95,9 @@ def run(private, source_sha, review_record):
                                 timeout=min(30, deadline - time.monotonic()))
         try: value = json.loads(result.stdout)
         except (ValueError, UnicodeDecodeError): value = result.stdout.decode(errors='replace').strip()
-        return {'exit': result.returncode, 'value': value,
+        safe_codes = [line for line in result.stderr.decode(errors='replace').splitlines()
+                      if re.fullmatch(r'(?:mediator_denied:)?[a-z][a-z0-9_]{1,127}', line)]
+        return {'exit': result.returncode, 'value': value, 'reason': safe_codes[0] if safe_codes else 'unclassified',
                 'stderr_category': 'empty' if not result.stderr else 'nonempty'}
     try:
         trusted, runner, remote, direct_remote, direct_work, config = (root / n for n in
@@ -103,6 +119,11 @@ def run(private, source_sha, review_record):
         for destination in (remote, direct_remote):
             git(destination, 'init', '--quiet', '--bare')
             git(trusted, 'push', str(destination), 'HEAD:refs/heads/develop')
+        # Independent receiver journal measures actual direct Git updates, not a constant.
+        receive_journal = root / 'direct-receive.txt'
+        install_direct_journal(direct_remote, receive_journal)
+        def received():
+            return received_updates(receive_journal)
         for key in ('a', 'b', 'direct'):
             path = direct_work if key == 'direct' else runner / 'runs' / (IDENTITY + '-' + key) / 'workspace'
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -237,21 +258,24 @@ def run(private, source_sha, review_record):
             row = {'case': case, 'run': key, 'run_id': IDENTITY + '-' + key,
                 'classification': classification, 'direct': {'exit': baseline['exit'],
                     'normalized': normalized(baseline['value'])} if baseline else None,
-                'mediated': {'exit': med['exit'], 'normalized': normalized(med['value'])},
+                'mediated': {'exit': med['exit'], 'reason': med.get('reason', 'unclassified'),
+                             'normalized': normalized(med['value'])},
                 'provider_delta': len(mediated.calls) - calls_before,
                 'provider_write_delta': mediated.writes - writes_before}
             observation['cases'].append(row)
         def pair(case, argv, path, *, key='a', effect=None, payload=None, stdin=None, method='GET'):
             before = len(mediated.calls), mediated.writes
             med = m(argv, key, effect=effect, body=stdin)
+            direct_before = direct.writes
             baseline_result = d(path, method, payload)
             add(case, med, baseline_result, key=key, before=before)
+            observation['cases'][-1]['direct_write_delta'] = direct.writes - direct_before
         def deny(case, argv, *, key='a', effect=None, body=None, reviewed=True, kind='unsupported'):
             before = len(mediated.calls), mediated.writes
             add(case, m(argv, key, effect=effect, body=body, reviewed=reviewed),
                 classification=kind, key=key, before=before)
         # Actual direct/mediated local Git and deterministic commits.
-        local_steps = []
+        local_steps = {'direct': [], 'mediated': []}
         for revision in ('first', 'second'):
             text = revision + ' paired change\n'
             for path in (direct_work, workspaces['a']):
@@ -263,17 +287,24 @@ def run(private, source_sha, review_record):
                 ordinary = command(['git', *args], cwd=direct_work, env=direct_env)
                 if med['exit'] or ordinary['exit'] or med['value'] != ordinary['value']:
                     raise ValueError('local_git_difference')
-                local_steps.append({'command': args[0], 'direct_exit': ordinary['exit'], 'mediated_exit': med['exit']})
+                for key, outcome in (('direct', ordinary), ('mediated', med)):
+                    local_steps[key].append({'command': args, 'exit': outcome['exit'],
+                        'output_sha256': sha256(json.dumps(outcome['value'], sort_keys=True).encode()).hexdigest()})
             med_commit = m(['git', '-c', 'safe.directory=/draft', 'rev-parse', 'HEAD'])
             direct_commit = command(['git', 'rev-parse', 'HEAD'], cwd=direct_work, env=direct_env)
             if med_commit['value'] != direct_commit['value']: raise ValueError('paired_commit_mismatch')
+            med_before = sum(call['command'] == 'push' for call in git_calls)
+            direct_before = len(received())
             pushed = m(['git', '-c', 'safe.directory=/draft', 'push', 'origin', 'HEAD:refs/heads/run-branch'])
             ordinary = command(['git', 'push', 'origin', 'HEAD:refs/heads/run-branch'], cwd=direct_work, env=direct_env)
             pushed['value'] = git(remote, 'rev-parse', 'refs/heads/run-branch')
             ordinary['value'] = git(direct_remote, 'rev-parse', 'refs/heads/run-branch')
             add('git_push_' + revision, pushed, ordinary)
+            observation['cases'][-1].update(
+                git_write_delta=sum(call['command'] == 'push' for call in git_calls) - med_before,
+                direct_git_write_delta=len(received()) - direct_before)
         observation['git_local_steps'] = local_steps
-        add('git_local', {'exit': 0, 'value': local_steps}, {'exit': 0, 'value': local_steps})
+        add('git_local', {'exit': 0, 'value': local_steps['mediated']}, {'exit': 0, 'value': local_steps['direct']})
         for branch, case in (('develop', 'git_fetch_base'), ('run-branch', 'git_fetch_run')):
             med = m(['git', '-c', 'safe.directory=/draft', 'fetch', 'origin', branch])
             ordinary = command(['git', 'fetch', 'origin', branch], cwd=direct_work, env=direct_env)
@@ -337,7 +368,8 @@ def run(private, source_sha, review_record):
         before = len(mediated.calls), mediated.writes
         replay = m(issue_args, effect='issue-create', body=REVIEWED_ISSUE['body'])
         add('confirmed_replay', replay, classification='different-but-authorized', before=before)
-        deny('altered_effect', issue_args, effect='issue-create', body=REVIEWED_ISSUE['body'] + ' changed', kind='denied')
+        deny('altered_effect', ['gh', 'pr', 'create', '--title', 'Changed valid title', '--body', initial,
+             '--head', 'run-branch', '--base', 'develop'], effect='pr-create', kind='denied')
         # A saved read/write snapshot mismatch is injected at the transport read boundary.
         original_open = mediated.open
         changed = {'active': True}
@@ -362,8 +394,10 @@ def run(private, source_sha, review_record):
         mediated.drop_next_patch = True; direct.drop_next_patch = True
         before = len(mediated.calls), mediated.writes
         lost = m(['gh', 'pr', 'edit', '8', '--title', 'Lost response PR', '--body', final], key='b', effect='lost-response')
+        direct_before = direct.writes
         direct_lost = d('/repos/' + REPOSITORY + '/pulls/8', 'PATCH', {'title': 'Lost response PR', 'body': final, 'base': 'develop'})
         add('lost_response', lost, direct_lost, classification='unknown', key='b', before=before)
+        observation['cases'][-1]['direct_write_delta'] = direct.writes - direct_before
         before = len(mediated.calls), mediated.writes
         # Use identical saved request rather than re-read-and-edit changing the expected snapshot.
         effect = store.effect(IDENTITY + '-b', 'lost-response')
@@ -373,8 +407,9 @@ def run(private, source_sha, review_record):
             'body': final, 'marker': MARKER, 'expected': {'title': 'Paired API PR', 'body': initial, 'head_sha': baseline}}
         reply = store.invoke(token=(root / 'capability-b').read_text(), repository=REPOSITORY,
             operation='pr_update', payload=request_payload, effect_id='lost-response', transport=transport)
-        add('unknown_replay', {'exit': 4 if reply['state'] == 'unknown' else 0, 'value': reply['state']},
+        add('unknown_replay', {'exit': None, 'value': reply['state']},
             classification='unknown', key='b', before=before)
+        observation['cases'][-1]['mediated']['source'] = 'host_saved_request'
         with revocation_lock:
             revoked.add('a')
             store.revoke_run(IDENTITY + '-a')
@@ -392,23 +427,17 @@ def run(private, source_sha, review_record):
             'mount_destinations': sorted(destinations)}
         add('credential_inventory', {'exit': inspected['exit'], 'value': inventory}, classification='different-but-authorized')
         observation.update(direct_rest_calls=direct.calls, mediated_rest_calls=mediated.calls,
-            git_calls=git_calls, direct_write_count=direct.writes + 2,
+            git_calls=git_calls, direct_git_receives=received(), direct_write_count=direct.writes + len(received()),
             mediated_write_count=mediated.writes + sum(call['command'] == 'push' for call in git_calls),
             direct_provider_state={'prs': direct.prs, 'issues': direct.issues},
             mediated_provider_state={'prs': mediated.prs, 'issues': mediated.issues})
         observation['grants'] = [{'run_id': IDENTITY + '-' + key, 'grant_id': grant,
                                   'connection_id': IDENTITY, 'connection_generation': 1}
                                  for key, grant in grants.items()]
-        observation['effect_records'] = []
-        for key, effects in (('a', ('pr-create', 'pr-edit', 'issue-create', 'changed-snapshot')),
-                             ('b', ('api-create', 'lost-response'))):
-            for effect_id in effects:
-                value = store.effect(IDENTITY + '-' + key, effect_id)
-                if value:
-                    observation['effect_records'].append({'run_id': IDENTITY + '-' + key,
-                        'effect_id': effect_id, 'grant_id': grants[key], 'state': value['state'],
-                        'result': json.loads(value['result_json']) if value['result_json'] else None,
-                        'error_code': value['error_code']})
+        with sqlite3.connect(root / 'effects.sqlite') as db:
+            db.row_factory = sqlite3.Row
+            observation['effect_records'] = [dict(row) for row in db.execute(
+                'SELECT run_id,effect_id,operation,state,grant_id,invocation_id FROM effects ORDER BY run_id,effect_id')]
     except Exception as failure:
         observation['failure_class'] = type(failure).__name__
         observation['failure_category'] = str(failure) if isinstance(failure, ValueError) else 'execution_incomplete_no_retry'
@@ -439,6 +468,10 @@ def run(private, source_sha, review_record):
             cleanup_elapsed_seconds=cleanup_elapsed,
             cleanup_verified=len(reports) == 2 and len(revoked_grants) == 2 and
                 all(row['verified'] for row in reports + revoked_grants) and stage_ok and cleanup_elapsed <= 30)
+        # Preserve partial journals even if an earlier command timed out or failed.
+        observation['mediated_rest_calls'] = list(mediated.calls) if mediated else []
+        observation['direct_rest_calls'] = list(direct.calls) if direct else []
+        observation['git_calls'] = list(git_calls)
         if 'failure_class' not in observation:
             try: check(observation); observation['result'] = 'passed'
             except Exception as failure:

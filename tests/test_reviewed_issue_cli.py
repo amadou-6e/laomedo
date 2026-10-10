@@ -15,6 +15,31 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(shutil.which('node'), 'Node unavailable')
 class ReviewedIssueCliTests(unittest.TestCase):
+    def test_pr_base_survives_approval_binding_without_git_fetch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            authority = RunGrantAuthority(Path(folder) / 'authority.sqlite')
+            approval = authority.approve(invocation_id='i', repository='example/disposable',
+                branch='work', base_branch='develop', operations={'pr_create'}, reviewed_by='user')
+            bound = authority.bind_run(approval, 'run')
+            self.assertEqual(bound['base_branch'], 'develop')
+            selected = authority.authorize_lease({'run_id': 'run', 'token': 'lease'}, bound)
+            self.assertEqual(selected['base_branch'], 'develop')
+            store = MediationStore(Path(folder) / 'effects.sqlite')
+            _, capability = store.issue(run_id='run', invocation_id=selected['invocation_id'],
+                repository=selected['repository'], branch=selected['branch'], base_branch=selected['base_branch'],
+                operations=selected['operations'], ttl_seconds=30)
+            calls = []
+            def transport(*args, **kwargs):
+                calls.append(args); return {'number': 1}
+            payload = {'head': 'work', 'base': 'develop', 'title': 'T', 'body': 'marker', 'marker': 'marker'}
+            result = store.invoke(token=capability, repository='example/disposable', operation='pr_create',
+                payload=payload, effect_id='create', transport=transport)
+            self.assertEqual(result['state'], 'confirmed')
+            with self.assertRaisesRegex(MediationError, 'pr_base_denied'):
+                store.invoke(token=capability, repository='example/disposable', operation='pr_create',
+                    payload={**payload, 'base': 'main'}, effect_id='wrong', transport=transport)
+            self.assertEqual(len(calls), 1)
+
     def test_graphql_query_is_identical_on_agent_and_host(self):
         script = "import {ISSUE_GRAPHQL_QUERY} from './laomedo/agent_gh_adapter.mjs'; console.log(ISSUE_GRAPHQL_QUERY);"
         result = subprocess.run(['node', '--input-type=module', '-e', script], cwd=ROOT,

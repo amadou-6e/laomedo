@@ -38,6 +38,22 @@ bounded chunked stdin support for actual `gh api` POST; PR creation needed the
 already intended grant-base check. Regression controls cover the latter with
 zero provider attempts. The full paired capture has not yet been run.
 
+Independent pre-run review disapproved the first harness before any capture.
+Corrections: altered-effect now uses a valid PR title change and must yield
+`effect_conflict`, not the reviewed-issue hash refusal; exact safe refusal codes
+and exit classes are frozen; durable SQLite effect run/grant/state/operation and
+per-case write counts are checked. Direct Git counts come from a post-receive
+provider journal, not an assumed two writes. Local Git keeps each side's actual
+output hashes. The production authority now carries an approved PR base even
+when Git fetch is not granted, with an approval/bind/lease regression.
+
+Unknown replay is explicitly a host-side saved-request state with no CLI exit.
+A literal `gh pr edit` retry would re-read the already changed PR, construct a
+different expected snapshot and conflict safely; it is not called equivalent.
+The direct lost-PATCH baseline depends on installed gh not repeating it. Any
+additional write fails the measured per-case and total limits rather than being
+hidden. Partial provider journals are retained on an incomplete capture.
+
 Transport limits: input bodies are capped at 65,536 UTF-8 bytes, responses at
 1 MiB, and fixed GraphQL lists at 30 nodes. Larger valid GitHub responses can be
 refused. Git bundles remain bounded by existing transport limits, not an
