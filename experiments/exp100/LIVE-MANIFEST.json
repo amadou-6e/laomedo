@@ -1,0 +1,23 @@
+{
+  "identity": "exp100-live-s12-20261010-a",
+  "spec_sha": "04fade6d88cc4c6d5c494c7e566c5cacbad93b09",
+  "image": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "hash_scope": "exact local checkout bytes; source SHA is pinned in the independent pre-run record",
+  "budget": {"issue_posts": 1, "reads": 80, "model_turns": 0, "overall_seconds": 600},
+  "source_hashes": {
+    "experiments/exp100/LIVE-PROTOCOL.md": "30efa3608cbe13f8517ad859e7a51747a01be470543d5a77baeadda65e36d01d",
+    "experiments/exp100/LIVE-AMENDMENT-01.md": "cc5da10c4bdf68026e9aa628b584111d6be7b7e94e66a9018f69a7eb52be6031",
+    "experiments/exp100/probe_live.py": "538381d3fc5c5fd7221894e982d15e4d09ac59b08cd82f8420bee4721f00d6ed",
+    "tests/test_live_command_probe.py": "98fdae34a8adcebe312b931bd15bb16e2317cb739a8c2492b21fd8940d7c2122",
+    "laomedo/agent_cli.py": "3c6d2ce119d5711e3796032c6f054d82c061e452a5472bb36a5deb485b0d2056",
+    "laomedo/agent_gh_adapter.mjs": "80e9f4b371105add34c0c877ab40875aee8f31b714df7ed82e7deb2056d8202e",
+    "laomedo/agent_mediation_client.mjs": "320b99bdcaa70081c19b7121a158e6ac91b58844053b23cb26970e720cc4d181",
+    "laomedo/github_mediation.py": "8b1083145921e96d3ff4423daa81044f3afb80ae7d983f3cfd35c88249ea0a35",
+    "laomedo/github_rest_transport.py": "c2c1297a9c8f7aa88960c659a2b4176fbe5e57e533bc7be6185259fab3adf465",
+    "laomedo/host_token_connection.py": "7ce3dae56ab5fabf33855396ff7c01807b5c55782f6f7871a900ce8eb5940d15",
+    "laomedo/mediation_service.py": "92614a1006db7c73f0b56665c05c3324bc6e5a4d4c71993cd55ce236a23e4817",
+    "laomedo/lease_service.py": "bf2577b0d5f52559820fa97634999bb2222891b38ed4bcfbdb68d3166ec33e81",
+    "laomedo/local_runner.py": "5fa21c3ecbba8536815d1d0e00dae99e1a5caf80c848fab0e3c7dd6ed539d3b0",
+    "laomedo/container_lease.py": "76bb6180dd6e3c5fc9f31ffd28f905ce8c142b4c867f7213e33e881777275e20"
+  }
+}
