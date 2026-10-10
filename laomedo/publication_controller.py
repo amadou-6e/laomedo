@@ -16,7 +16,8 @@ class PublicationController:
     def __init__(self, store, *, lifetime_seconds, artifact_resolver, transport,
                  readback, describe):
         if (type(lifetime_seconds) not in {int, float} or
-                not math.isfinite(lifetime_seconds) or lifetime_seconds <= 0):
+                not math.isfinite(lifetime_seconds) or
+                not 0 < lifetime_seconds <= threading.TIMEOUT_MAX):
             raise ValueError("handoff_deadline_required")
         self.store = store
         self.lifetime = lifetime_seconds

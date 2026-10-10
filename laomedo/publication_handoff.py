@@ -211,7 +211,9 @@ class HandoffStore:
                     live["revoked_at"] is not None or self.now() >= row["deadline"] or
                     self.monotonic() >= row["deadline_monotonic"] or
                     self.now() >= live["expires_at"] or
-                    self.monotonic() >= live["expires_monotonic"]):
+                    self.monotonic() >= live["expires_monotonic"] or
+                    (live["connection_id"] is not None and not self._connection_current(
+                        live["connection_id"], live["connection_generation"], repository))):
                 self._end_handoff(db, handoff_id, "expired")
                 return {"phase": "expired", "publication": {"state": "unknown"}}
             if current["phase"] != "publication_pending":

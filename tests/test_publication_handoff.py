@@ -205,6 +205,23 @@ class PublicationHandoffTests(unittest.TestCase):
         self.assertEqual(self.publish(readback=late)["phase"], "expired")
         self.assertEqual(len(self.calls), 1)
 
+    def test_connection_removed_during_readback_cannot_complete_handoff(self):
+        current = [True]
+        self.store.connection_is_current = lambda *_: current[0]
+        self.grant, self.token = self.store.issue(
+            run_id="run-a", invocation_id="connected", repository=self.repository,
+            operations={"git_push", "pr_create"}, branch="run-a-branch", ttl_seconds=50,
+            connection_id="connection", connection_generation=1)
+        self.ready()
+        def removed(repo, number):
+            observed = self.readback(repo, number)
+            current[0] = False
+            return observed
+        result = self.publish(transport=lambda repo, op, payload, **_: self.transport(repo, op, payload),
+                              readback=removed)
+        self.assertEqual(result["phase"], "expired")
+        self.assertEqual(result["publication"]["state"], "unknown")
+
     def test_unknown_write_never_resends(self):
         self.ready()
         def lost(repo, op, payload):
@@ -287,7 +304,7 @@ class PublicationHandoffTests(unittest.TestCase):
         self.refused("handoff_not_owned", lambda: controller.publish("run-a"))
 
     def test_no_default_or_infinite_handoff_deadline(self):
-        for lifetime in (None, False, 0, float("inf"), float("nan")):
+        for lifetime in (None, False, 0, float("inf"), float("nan"), threading.TIMEOUT_MAX + 1):
             with self.assertRaises(ValueError):
                 PublicationController(self.store, lifetime_seconds=lifetime,
                     artifact_resolver=None, transport=None, readback=None, describe=None)
