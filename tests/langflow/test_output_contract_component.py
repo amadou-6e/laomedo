@@ -52,3 +52,18 @@ class OutputContractComponentTests(unittest.TestCase):
         node.requirements_json = '{"schema_version":1,"fields":[],"command":"echo"}'
         with self.assertRaises(ValueError):
             node.requirements_output()
+
+    def test_agent_payload_and_bridge_use_same_requirement_pin(self):
+        from test_codex_component import component
+        node = component(output_requirements=Data(data=requirements(FORM)), output_retries=1)
+        endpoint, payload, method = node._prepare()
+        self.assertEqual(payload["output_requirements"], requirements(FORM))
+        self.assertEqual(payload["output_retries"], 1)
+
+    def test_incompatible_form_refuses_before_dispatch(self):
+        from test_codex_component import component
+        reference = requirements(FORM)
+        reference["requirements_revision"] = "changed"
+        node = component(output_requirements=Data(data=reference))
+        with self.assertRaisesRegex(ValueError, "revision_mismatch"):
+            node._prepare()

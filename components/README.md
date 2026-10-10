@@ -6,6 +6,33 @@ or implement its tool interface. The `LaomedoRunner` embedded in
 `examples/skill-agent-pilot/pilot-flow.json` now uses the same private runner
 API token; its historical model-turn evidence predates that change.
 
+## Output Contract and precheck
+
+`LaomedoOutputContract` exposes pinned Precheck Requirements and Validation
+Outcome Data ports. Install this repository's Laomedo package in the Langflow
+runtime before loading it: the node and Codex requirements input import the
+same `laomedo.output_contract` evaluator used by the host runner. Mounting only
+component files is insufficient for this component. A missing package fails
+visibly at import rather than falling back to a different validator.
+
+Use one requirements-only instance before the Codex node and a separate
+validation instance after its Submission output, configured with the same JSON
+form. This avoids a cycle in Langflow. The validator rejects a missing or
+different requirements revision, retains task outcome separately from validity,
+and emits accepted/rejected Data for conditional routing. Invalid form settings
+are configuration errors; invalid submissions are routable rejections.
+
+The native Codex dynamic precheck tool returns bounded path/code feedback within
+a request. A completed invalid form can receive one additional same-thread
+continuation by default, configurable from zero through eight. Continuations
+count against the existing operator-set model-turn ledger. Task failure,
+uncertain execution, external-write capability, command/file-change receipts
+or unknown tool effects do not trigger automatic correction. Consequently a
+coding task that already ran commands normally routes its invalid form to the
+graph rather than automatically repeating work. Infrastructure retries remain
+separate. Credential-free tests establish the transport and evaluator behavior;
+live Codex/model acceptance is not claimed by these tests.
+
 Mount this directory read-only into the Langflow container and configure
 `LANGFLOW_COMPONENTS_PATH=/app/custom_components`. The category package is
 `laomedo/`, containing `__init__.py` and `codex_agent.py`. Restart the test server

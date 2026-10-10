@@ -94,7 +94,7 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
-    def _output_run(self, answers, *, effects=False, cap=6, retry_count=1):
+    def _output_run(self, answers, *, effects=False, cap=6, retry_count=1, native_item=None):
         from laomedo.output_contract import requirements
         pinned = requirements({"schema_version": 1, "fields": [
             {"name": "report", "type": "string", "required": True}]})
@@ -108,6 +108,8 @@ class LocalRunnerTests(unittest.TestCase):
                     return {"result": {"turn": {"id": "output-" + str(len(inner.inputs))}}}
                 return super().request(method, params, timeout)
             def wait_turn(inner, turn_id, timeout, cancelled):
+                if native_item:
+                    inner.events.append({"method": "item/completed", "params": {"turnId": turn_id, "item": native_item}})
                 if effects:
                     inner.events.append({"method": "item/completed", "params": {
                         "turnId": turn_id, "item": {"type": "fileChange", "id": "effect"}}})
@@ -162,6 +164,12 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(record["output_correction_blocked"], "model_turn_cap_reached")
         self.assertEqual(len(record["turns"]), 1)
         self.assertEqual(record["output_validation"]["contract_status"], "rejected")
+
+    def test_unrecognized_dynamic_tool_receipt_blocks_continuation(self):
+        record, transport = self._output_run([{}], native_item={
+            "type": "dynamicToolCall", "tool": "unrecognized_write", "id": "call"})
+        self.assertEqual(len(transport.inputs), 1)
+        self.assertEqual(record["output_correction_blocked"], "side_effect_safety_unverified")
 
     def test_zero_correction_count_and_no_fabricated_precheck_call(self):
         record, transport = self._output_run([{}], retry_count=0)

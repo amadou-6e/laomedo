@@ -90,6 +90,14 @@ class OutputContractTests(unittest.TestCase):
         self.assertEqual(evaluate_envelope(pin, {"schema_version": "laomedo.agent-submission.v1",
             "submission": {"report": "valid"}, "requirements_revision": "wrong"})["contract_status"], "rejected")
 
+    def test_contradictory_task_outcome_does_not_validate(self):
+        pin = requirements(FORM)
+        for reported, claimed in (("failure", "success"), ({"invalid": True}, "success")):
+            result = evaluate_envelope(pin, {"schema_version": "laomedo.agent-submission.v1",
+                "requirements_revision": pin["requirements_revision"], "executor_status": "completed",
+                "submission": {"report": "valid", "task_outcome": reported}, "task_outcome": claimed})
+            self.assertEqual(result["errors"][0]["code"], "task_outcome_mismatch")
+
     def test_native_request_queue_answers_precheck_before_turn_ack(self):
         pin = requirements(FORM)
         app = AppServer.__new__(AppServer)

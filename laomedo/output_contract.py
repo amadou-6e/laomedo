@@ -132,7 +132,7 @@ def evaluate_envelope(reference, envelope):
     else:
         submission = envelope.get("submission")
         outcome = submission.get("task_outcome") if isinstance(submission, dict) else None
-        if outcome not in {"success", "failure"}:
+        if not isinstance(outcome, str) or outcome not in {"success", "failure"}:
             outcome = "unknown"
         if envelope.get("executor_status") != "completed" and outcome == "success":
             outcome = "unknown"

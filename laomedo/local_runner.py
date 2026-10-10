@@ -373,8 +373,17 @@ class AppServer:
         self.events.append(msg)
         reference = getattr(self, "output_requirements", None)
         if reference is not None and msg.get("method") == "item/tool/call" and "id" in msg:
-            self.precheck_call_count = getattr(self, "precheck_call_count", 0) + 1
-            response = precheck_response(reference, msg.get("params") or {}, self.active_thread_id)
+            params = msg.get("params") or {}
+            response = precheck_response(reference, params, self.active_thread_id)
+            if (params.get("tool") == "laomedo_output_precheck" and params.get("namespace") is None and
+                    params.get("threadId") == self.active_thread_id):
+                self.precheck_call_count = getattr(self, "precheck_call_count", 0) + 1
+                result = json.loads(response["contentItems"][0]["text"])
+                if not any(error["code"] == "precheck_binding_mismatch" for error in result["errors"]):
+                    calls = getattr(self, "verified_precheck_calls", set())
+                    if isinstance(params.get("callId"), str):
+                        calls.add(params["callId"])
+                    self.verified_precheck_calls = calls
             self.process.stdin.write(json.dumps({"id": msg["id"], "result": response}) + "\n")
             self.process.stdin.flush()
 
@@ -1608,11 +1617,17 @@ class LocalRunner:
                         correction_count >= record["output_retries"]):
                     break
                 commands_before = _command_summary(server.events, turn_id)
-                tool_effect = any(
-                    event.get("method") in {"item/started", "item/completed"} and
-                    (event.get("params", {}).get("item") or {}).get("type") not in
-                    {"agentMessage", "reasoning", "dynamicToolCall"}
-                    for event in server.events)
+                def effect_event(event):
+                    if event.get("method") not in {"item/started", "item/completed"}:
+                        return False
+                    item = event.get("params", {}).get("item") or {}
+                    if item.get("type") in {"agentMessage", "reasoning"}:
+                        return False
+                    return not (item.get("type") == "dynamicToolCall" and
+                                item.get("tool") == "laomedo_output_precheck" and
+                                item.get("namespace") is None and
+                                item.get("id") in getattr(server, "verified_precheck_calls", set()))
+                tool_effect = any(effect_event(event) for event in server.events)
                 if record.get("github_scope") or tool_effect or commands_before["commands"] or commands_before["identity_incomplete"]:
                     record["output_correction_blocked"] = "side_effect_safety_unverified"
                     break
