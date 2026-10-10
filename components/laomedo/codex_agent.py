@@ -385,12 +385,16 @@ class LaomedoCodexAgent(Component):
                 raise RuntimeError("runner_invalid_error_response") from None
             if not isinstance(result, dict):
                 raise RuntimeError("runner_invalid_error_response")
-            if self._reference_run_id and result.get("run_id", self._reference_run_id) != self._reference_run_id:
+            if self._reference_run_id and result.get("run_id") not in (None, self._reference_run_id):
                 raise RuntimeError("runner_response_identity_mismatch") from None
             if not (self.operation == "cancel" and result.get("run_id") and
                     result.get("status") in {"completed", "cancelled", "failed", "timeout"}):
                 if result.get("run_id") or self._reference_run_id:
-                    result.setdefault("run_id", self._reference_run_id)
+                    if not result.get("run_id"):
+                        # This is a request refusal, not a failed new turn on
+                        # the previously completed run.
+                        result["run_id"] = self._reference_run_id
+                        result["status"] = "unknown"
                     result.setdefault("status", "unknown")
                     result.setdefault("raw_event_ref", self._prior_trace_ref)
                     raise RunnerResultError(self._run_reference(result)) from None

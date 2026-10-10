@@ -499,7 +499,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         # Pre-dispatch refusal has no new result: retain the known run/trace,
         # without relabelling the previous completed turn as this turn's success.
-        payload = json.dumps({"error_category": "post_run_snapshot_mismatch"}).encode()
+        payload = json.dumps({"status": "failed", "error_category": "post_run_snapshot_mismatch"}).encode()
         with patch.object(module.request, "urlopen", side_effect=error.HTTPError(
                 "http://localhost", 400, "refused", {}, Response(payload))) as http:
             with self.assertRaises(module.RunnerResultError) as caught:

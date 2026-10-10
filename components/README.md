@@ -57,6 +57,9 @@ profile/workspace fields and does not turn failure into an Answer. A resume
 transport timeout retains the known run/trace with an unknown outcome, without
 retrying. Status and cancel remain available using that reference. Responses for
 another run, or a completed resume naming another native thread, are refused.
+The exception's structured reference is available to code calling the component.
+A failed Langflow node emits no Data output; UI users recover by the run ID in
+the error message using explicit status/cancel, rather than a failure output port.
 The fresh route uses early native acknowledgement, then read-only polling.
 Bounded installed-runtime tests showed visible Playground Stop cancelling one
 active Codex turn and one prepared turn. Do not infer a remote stop from client
