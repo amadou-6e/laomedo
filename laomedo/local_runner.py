@@ -62,6 +62,9 @@ NATIVE_HTTP_ERROR_KINDS = frozenset({
 })
 
 
+from . import workspace_skills
+
+
 class RunnerError(ValueError):
     pass
 
@@ -680,6 +683,51 @@ class SplitAppServer(AppServer):
             raise error
 
 
+def _command_summary(events: list[dict], turn_id: str) -> dict:
+    """Project observed command lifetimes, never infer completion from shutdown."""
+    commands = {}
+    incomplete = False
+    for index, event in enumerate(events):
+        params = event.get("params") or {}
+        if params.get("turnId") not in (None, turn_id):
+            continue
+        method = event.get("method")
+        item = params.get("item") or {}
+        if method == "item/commandExecution/outputDelta":
+            identity = params.get("itemId")
+        elif method in {"item/started", "item/completed"} and item.get("type") == "commandExecution":
+            identity = item.get("id")
+        else:
+            continue
+        if not isinstance(identity, str) or not identity:
+            incomplete = True
+            continue
+        command = commands.setdefault(identity, {"id": identity, "status": "unknown",
+            "completion_observed": False, "exit_code": None, "event_indices": [],
+            "output_event_indices": []})
+        command["event_indices"].append(index)
+        if method == "item/commandExecution/outputDelta" or item.get("aggregatedOutput"):
+            command["output_event_indices"].append(index)
+        if method == "item/completed" and item.get("status") != "inProgress":
+            observed = item.get("status")
+            if observed is None and type(item.get("exitCode")) is int:
+                observed = "completed"
+            terminal = {"completed", "failed", "declined", "cancelled", "interrupted"}
+            terminal_observed = isinstance(observed, str) and observed in terminal
+            command["completion_observed"] = terminal_observed
+            command["status"] = observed if terminal_observed else "unknown"
+            code = item.get("exitCode")
+            command["exit_code"] = code if type(code) is int else None
+        elif method == "item/started":
+            # A later start with the same identity is ambiguous, not a new success.
+            command["completion_observed"] = False
+            command["status"] = "unknown"
+            command["exit_code"] = None
+    rows = list(commands.values())
+    return {"commands": rows, "identity_incomplete": incomplete,
+            "outstanding_ids": [row["id"] for row in rows if not row["completion_observed"]]}
+
+
 def _answer(events: list[dict]) -> str | None:
     answers = []
     for event in events:
@@ -1090,7 +1138,12 @@ class LocalRunner:
                     raise RunnerError("source_changed_during_snapshot")
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
+            # prepare_git_workspace already created an isolated repository
+            # with preserved history; do not replace it with a fresh baseline.
+            if not self.git_workspace:
+                workspace_skills.initialize(workspace)
             skills = [self._materialize(workspace, ref) for ref in refs]
+            git_exclusion = workspace_skills.install(workspace, skills)
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
             effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)
@@ -1104,7 +1157,7 @@ class LocalRunner:
                       "effective_hash": effective_hash, "post_run_hash": None,
                       "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                       "skill": skills[0] if len(skills) == 1 else None,
-                      "skills": skills,
+                      "skills": skills, "skill_git_exclusion": git_exclusion,
                       "provider": getattr(self, "provider", "codex"),
                       "handoff": handoff, "imported_artifacts": artifacts,
                       "requested_model": model, "requested_effort": effort,
@@ -1128,7 +1181,10 @@ class LocalRunner:
                 record["github_scope"] = github_scope
             _json(run_dir / "record.json", record)
         except Exception:
-            shutil.rmtree(run_dir)
+            try:
+                workspace_skills.remove_owned_tree(run_dir, self.state)
+            except OSError:
+                raise RunnerError("run_preparation_cleanup_unverified") from None
             raise
         return record
 
@@ -1297,6 +1353,11 @@ class LocalRunner:
                 cancelled = threading.Event()
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
+                record["snapshot_ready"] = False
+                record["post_run_hash"] = None
+                record["output_ref"] = None
+                record["controller_cleanup"] = "not_started"
+                record["attempt_finished"] = False
                 name = "laomedo-codex-" + uuid4().hex
                 launch_token = uuid4().hex
                 record["container_ownership"] = {
@@ -1304,6 +1365,11 @@ class LocalRunner:
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False}
                 _json(run_dir / "record.json", record)
+            try:
+                workspace_skills.verify(run_dir / "workspace", record["skills"],
+                                       record.get("skill_git_exclusion", {"enabled": False}))
+            except ValueError as exc:
+                raise RunnerError(str(exc)) from None
             if self.supervise_containers:
                 if self.lease_service is None:
                     raise RunnerError("lease_service_required")
@@ -1344,6 +1410,10 @@ class LocalRunner:
                 repository=(record.get("github_scope") or {}).get("repository"),
                 branch=(record.get("github_scope") or {}).get("branch"),
                 base_branch=(record.get("github_scope") or {}).get("base_branch", "main"))
+            record["controller_cleanup"] = "pending"
+            # Keep the pre-launch name/launch-token/grant ownership binding;
+            # lifecycle diagnostics must not replace it with a name-only map.
+            _json(run_dir / "record.json", record)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
@@ -1477,6 +1547,13 @@ class LocalRunner:
                 raise RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
+            native_status = status
+            commands = _command_summary(server.events, turn_id)
+            record["native_turn_status"] = native_status
+            record["command_summary"] = commands
+            record["native_answer"] = _answer(server.events) if native_status == "completed" else None
+            if status == "completed" and (commands["outstanding_ids"] or commands["identity_incomplete"]):
+                status, error = "unknown", "outstanding_command_completion_unknown"
             if self.auth and error == "auth_revoked_during_turn":
                 error = auth_failure["error"]
                 record["credential"]["auth_outcome"] = auth_failure["outcome"]
@@ -1484,6 +1561,8 @@ class LocalRunner:
             if status == "failed" and error is None and native_errors["last_category"]:
                 error = "codex_" + native_errors["last_category"]
             record["turns"].append({"turn_id": turn_id, "status": status,
+                                    "native_turn_status": native_status,
+                                    "command_summary": commands,
                                     "error_category": error,
                                     "native_completion_status": getattr(
                                         server, "native_completion_status", None),
@@ -1501,6 +1580,12 @@ class LocalRunner:
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")
             if status == "completed":
+                try:
+                    workspace_skills.verify(run_dir / "workspace", record["skills"],
+                                           record.get("skill_git_exclusion", {"enabled": False}))
+                except ValueError as exc:
+                    record["answer"] = None
+                    raise RunnerError(str(exc)) from None
                 post_hash = _hash_tree(run_dir / "workspace",
                                        exclude_root_git=self.git_workspace)
                 pending = run_dir / ("post-run-pending-" + uuid4().hex)
@@ -1508,10 +1593,11 @@ class LocalRunner:
                            exclude_root_git=self.git_workspace)
                 old = run_dir / "post-run"
                 if old.exists():
-                    shutil.rmtree(old)
+                    workspace_skills.remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record["post_run_hash"] = post_hash
                 record["output_ref"] = f"laomedo:run:{run_id}:workspace"
+                record["snapshot_ready"] = True
             if (_hash_tree(run_dir / "canonical") != record["source_hash"] or
                     (run_dir / "store/sentinel.txt").read_text(encoding="utf-8") !=
                     "STORE-ORIGINAL"):
@@ -1536,12 +1622,15 @@ class LocalRunner:
             try:
                 if server is not None:
                     server.close()
+                    if record is not None:
+                        record["controller_cleanup"] = "confirmed"
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
             except Exception:
                 close_error = True
                 if record is not None:
                     record.update(status="failed", error_category="container_termination_unverified")
+                    record["controller_cleanup"] = "unverified"
             finally:
                 try:
                     if record is not None and self.supervise_containers and not launch_attempted:
@@ -1575,6 +1664,11 @@ class LocalRunner:
                                           error_category="container_termination_unverified")
                     with self.control_lock:
                         if record is not None:
+                            record["attempt_finished"] = True
+                            if record.get("status") != "completed":
+                                record["snapshot_ready"] = False
+                                record["post_run_hash"] = None
+                                record["output_ref"] = None
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             _json(run_dir / "record.json", record)

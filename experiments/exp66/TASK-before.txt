@@ -1,0 +1,7 @@
+This is a bounded local cancellation experiment. Use the offered fixture skill.
+Run exactly this blocking shell command in the workspace:
+sleep 30; printf 'FIRST\n' > native-effect.txt
+Do not background the command or add other file writes. If the shell returns a
+still-running session, wait/poll that session; do not announce completion while
+it remains running. The controller will cancel you. Do not escalate or change
+permissions, access credentials/network, resume, or try another strategy.

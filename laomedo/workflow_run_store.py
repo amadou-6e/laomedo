@@ -24,6 +24,12 @@ class LaunchError(RuntimeError):
     pass
 
 
+def runner_attempt_terminal(record):
+    """End of a runner attempt is separate from an unknown work outcome."""
+    return (record.get("status") in {"completed", "cancelled", "failed", "timeout", "interrupted"}
+            or record.get("status") == "unknown" and record.get("attempt_finished") is True)
+
+
 class ExternalOutcomeUnknown(RuntimeError):
     """A dispatched external call may have run, but its result is unconfirmed."""
 
@@ -422,34 +428,51 @@ class WorkflowRunStore:
                            "observation": payload})
 
     def record_runner_terminal(self, run_id, invocation_id, *, provider,
-                               runner_run_id, status):
-        """Project a verified native terminal state without claiming output truth."""
-        if status not in {"completed", "cancelled", "failed", "timeout", "interrupted"}:
+                               runner_run_id, status, cancel_confirmed=False, attempt_finished=False):
+        """Retain native termination separately from a workflow wait/crash outcome."""
+        if not runner_attempt_terminal({"status": status, "attempt_finished": attempt_finished}):
             raise LaunchError("invalid_runner_terminal_status")
-        projected = "failed" if status in {"timeout", "interrupted"} else status
+        confirmed = status == "cancelled" and cancel_confirmed is True
+        projected = ("incomplete" if status == "cancelled" and not confirmed else
+                     "failed" if status in {"timeout", "interrupted"} else status)
         with self._database() as db:
-            row = db.execute("""SELECT r.status AS run_status,w.runner_run_id
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("""SELECT r.status AS run_status,r.terminal_reason
                 FROM runs r JOIN workflow_invocations w ON w.run_id=r.run_id
                 WHERE r.run_id=? AND w.invocation_id=? AND
                 w.runner_provider=? AND w.runner_run_id=?""",
                 (run_id, invocation_id, provider, runner_run_id)).fetchone()
             if row is None:
                 raise LaunchError("runner_terminal_not_correlated")
-            if row["run_status"] == projected:
-                return False
-            if row["run_status"] not in {"dispatching", "incomplete"}:
-                raise LaunchError("runner_terminal_conflict")
-            db.execute("""UPDATE runs SET status=?,evidence_complete=0,
-                completion_basis='native_runner_status',terminal_reason=?
-                WHERE run_id=?""", (projected, "native_runner_" + status, run_id))
-            db.execute("""UPDATE workflow_invocations SET status=?,error_class=?
-                WHERE run_id=? AND invocation_id=?""",
-                ("completed" if status == "completed" else "failed",
-                 None if status == "completed" else "native_runner_" + status,
-                 run_id, invocation_id))
+            prior = db.execute("""SELECT payload_json FROM trace_receipts
+                WHERE run_id=? AND invocation_id=? AND kind='runner_terminal'
+                ORDER BY sequence DESC LIMIT 1""", (run_id, invocation_id)).fetchone()
+            if prior:
+                prior = json.loads(prior["payload_json"])
+                if prior["native_status"] != status or (prior.get("cancel_confirmed") and not confirmed):
+                    raise LaunchError("runner_terminal_conflict")
+                if bool(prior.get("cancel_confirmed")) == confirmed:
+                    return False
+            preserve = (row["run_status"] in {"timed_out", "crashed"} or
+                        row["run_status"] == "incomplete" and
+                        row["terminal_reason"] == "runner_result_pending")
+            if not preserve:
+                if row["run_status"] not in {"dispatching", "incomplete", projected}:
+                    raise LaunchError("runner_terminal_conflict")
+                db.execute("""UPDATE runs SET status=?,evidence_complete=0,
+                    completion_basis='native_runner_status',terminal_reason=?
+                    WHERE run_id=?""", (projected, "native_runner_" + status, run_id))
+                db.execute("""UPDATE workflow_invocations SET status=?,error_class=?
+                    WHERE run_id=? AND invocation_id=?""",
+                    ("completed" if status == "completed" else "unknown" if status == "unknown" else "failed",
+                     None if status == "completed" else "native_runner_" + status,
+                     run_id, invocation_id))
             self._receipt(db, run_id, invocation_id, "runner_terminal",
                           {"runner_provider": provider, "runner_run_id": runner_run_id,
-                           "native_status": status, "semantic_output_verified": False})
+                           "native_status": status, "cancel_confirmed": confirmed,
+                           "attempt_finished": attempt_finished is True,
+                           "workflow_outcome_preserved": preserve,
+                           "semantic_output_verified": False})
             return True
 
     def record_runner_wait_uncertain(self, run_id, invocation_id):

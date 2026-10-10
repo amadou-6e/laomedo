@@ -57,6 +57,23 @@ class LangflowJoinHTTPTests(unittest.TestCase):
                 "runner_body": {"task": "synthetic task", "model": "synthetic",
                                 "effort": "low", "skill_ref": {"skill_id": "fixture"}}}
 
+    def test_unconfirmed_native_cancel_is_incomplete_until_explicit_confirmation(self):
+        client = str(uuid4())
+        self.call("POST", "/v1/invocations", self.body(client))
+        native = next(iter(self.runner.records.values()))
+        native.update(status="cancelled", cancel_confirmed=False)
+        code, uncertain = self.call("GET", "/v1/requests/" + client)
+        self.assertEqual(code, 200)
+        self.assertEqual(uncertain["status"], "incomplete")
+        self.assertEqual(uncertain["native_status"], "cancelled")
+        self.assertFalse(uncertain["cancel_confirmed"])
+        native["cancel_confirmed"] = True
+        code, confirmed = self.call("GET", "/v1/requests/" + client)
+        self.assertEqual(code, 200)
+        self.assertEqual(confirmed["status"], "cancelled")
+        self.assertTrue(confirmed["cancel_confirmed"])
+        self.assertEqual(len(self.runner.starts), 1)
+
     def test_authenticated_start_retry_status_and_cancel(self):
         client = str(uuid4())
         body = self.body(client)
@@ -68,6 +85,7 @@ class LangflowJoinHTTPTests(unittest.TestCase):
         self.assertIsNotNone(started["run_id"])
         self.assertFalse(started["executing_graph_verified"])
         self.assertEqual(len(self.runner.starts), 1)
+
         code, retry = self.call("POST", "/v1/invocations", body)
         self.assertEqual(code, 202)
         self.assertEqual(retry["run_id"], started["run_id"])
@@ -86,6 +104,19 @@ class LangflowJoinHTTPTests(unittest.TestCase):
         changed = self.body(client)
         changed["runner_body"]["task"] = "changed"
         self.assertEqual(self.call("POST", "/v1/invocations", changed)[0], 409)
+
+    def test_http_preserves_finished_unknown_without_success(self):
+        client = str(uuid4())
+        self.call("POST", "/v1/invocations", self.body(client))
+        native = next(iter(self.runner.records.values()))
+        native.update(status="unknown", attempt_finished=True, snapshot_ready=False,
+                      error_category="outstanding_command_completion_unknown")
+        code, observed = self.call("GET", "/v1/requests/" + client)
+        self.assertEqual(code, 200)
+        self.assertEqual(observed["status"], "unknown")
+        self.assertIs(observed["attempt_finished"], True)
+        self.assertIs(observed["snapshot_ready"], False)
+        self.assertIsNone(observed["answer"])
 
     def test_stop_intent_before_start_refuses_native_call(self):
         client = str(uuid4())

@@ -274,6 +274,34 @@ class LangflowJoinControllerTests(unittest.TestCase):
                              for item in self.store.trace_snapshot(
                                  started["run_id"])["receipts"]), 1)
 
+    def test_finished_unknown_is_durable_and_stop_does_not_send_cancel(self):
+        client = str(uuid4())
+        started = self.start(client)
+        native = self.runner.records[started["invocation_id"]]
+        native.update(status="unknown", attempt_finished=True,
+                      error_category="outstanding_command_completion_unknown")
+        observed = self.controller.status(client)
+        self.assertEqual(observed["native_status"], "unknown")
+        self.controller.cancel(client)
+        self.assertEqual(self.runner.cancels, [])
+        restarted = WorkflowRunStore(self.store.path)
+        trace = restarted.trace_snapshot(started["run_id"])
+        self.assertEqual(trace["run_status"], "unknown")
+        self.assertFalse(trace["evidence_complete"])
+        receipt = [item for item in trace["receipts"] if item["kind"] == "runner_terminal"]
+        self.assertEqual(len(receipt), 1)
+
+    def test_unknown_without_finished_marker_does_not_end_attempt(self):
+        client = str(uuid4())
+        started = self.start(client)
+        native = self.runner.records[started["invocation_id"]]
+        for marker in (None, False, "true", 1):
+            with self.subTest(marker=marker):
+                native.update(status="unknown", attempt_finished=marker)
+                self.controller.status(client)
+                self.assertFalse(any(item["kind"] == "runner_terminal" for item in
+                    self.store.trace_snapshot(started["run_id"])["receipts"]))
+
 
 if __name__ == "__main__":
     unittest.main()
