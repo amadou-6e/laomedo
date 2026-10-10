@@ -275,7 +275,7 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
     git_config = (["--env", "GIT_CONFIG_COUNT=1",
                    "--env", "GIT_CONFIG_KEY_0=safe.directory",
                    "--env", "GIT_CONFIG_VALUE_0=/draft"]
-                  if image == GIT_IMAGE else [])
+                  if image in {GIT_IMAGE, GIT_IMAGE_ID} else [])
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
