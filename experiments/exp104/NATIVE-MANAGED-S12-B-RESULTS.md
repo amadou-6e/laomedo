@@ -5,7 +5,9 @@ consumed; never execute it again. Original S12 A remains separate/incomplete.
 Amendment54fe106 preceded executableb2042452aab17b1e5a040633053e404a4b194c54.
 Exact-source independent pre-run review approved one bounded execution;
 CI38036116523 passed both3.10/3.13 before execution. Governing specs:
-ea2558e910d640b802b7b197d2a90b8d14e3249c. Post-run review remains pending.
+ea2558e910d640b802b7b197d2a90b8d14e3249c.
+[Independent post-run review](https://github.com/amadou-6e/laomedo/pull/105#pullrequestreview-5478256248)
+approved this bounded evidence, not full draft promotion or Q11/parity.
 
 ## Original machine evidence
 
@@ -36,17 +38,17 @@ A push, A PR create, B push, B PR create. Four other mediator entries are
 fetch/read operations; direct host preflight/readback reads are outside that
 journal. This is not four total network requests or complete git/gh parity.
 
-A PR3 head a82bdd8dad29a3c2676a6729a7b8f84b0b52e936;
-B PR4 head ed2eeceaee74b6f9702b464b5e58ebbee2cea314, in
+A PR 3 head a82bdd8dad29a3c2676a6729a7b8f84b0b52e936;
+B PR 4 head ed2eeceaee74b6f9702b464b5e58ebbee2cea314, in
 ga84jog/laomedo-exp104-disposable-20261007. Exact branches/base/markers/head
 readbacks matched. PRs/branches remain for audit; no deletion or merge.
 
-A exact runner tree kill completed at monotonic90866.390; saved revocation
-at90871.375 (4.985 seconds). Retained A capability got403/grant_unavailable
-at90872.062; provider-attempt count stayed6 before/after the denial and A's
+A exact runner tree kill completed at monotonic 90866.390; saved revocation
+at 90871.375 (4.985 seconds). Retained A capability got 403/grant_unavailable
+at 90872.062; provider-attempt count stayed 6 before/after the denial and A's
 PR title/body stayed unchanged. This denial was controller-side after A loss,
 not a surviving agent command. B's grant was live and its PR-create intent
-at90872.859 followed the denial. No write was retried automatically.
+at 90872.859 followed the denial. No write was retried automatically.
 
 All six recorded local cleanup checks passed (A/B exact containers, grants,
 worker processes, tasks and stages); two stage reports verified absence after
