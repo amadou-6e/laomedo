@@ -9,15 +9,19 @@ class ContractRoute(Component):
     name = "ContractRoute"
     inputs = [DataInput(name="validation", display_name="Validation", required=True)]
     outputs = [Output(name=key, display_name=key.title(), method=key, group_outputs=True)
-               for key in ("success", "failure", "rejection")]
+               for key in ("success", "failure", "rejection", "recovery")]
 
     def _route(self, selected):
         record = self.validation.data
         submission = record.get("agent_submission", {})
-        destination = ("rejection" if record.get("contract_status") != "accepted" else
-                       "success" if (submission.get("task_outcome") == "success" and
-                                     submission.get("executor_status") == "completed" and
-                                     submission.get("evidence_complete") is True) else "failure")
+        if record.get("contract_status") != "accepted":
+            destination = "rejection"
+        elif (submission.get("executor_status") != "completed" or
+              submission.get("evidence_complete") is not True or
+              submission.get("task_outcome") not in {"success", "failure"}):
+            destination = "recovery"
+        else:
+            destination = "success" if submission["task_outcome"] == "success" else "failure"
         if selected != destination:
             self.stop(selected)
             return Data(data={})
@@ -31,3 +35,6 @@ class ContractRoute(Component):
 
     def rejection(self) -> Data:
         return self._route("rejection")
+
+    def recovery(self) -> Data:
+        return self._route("recovery")

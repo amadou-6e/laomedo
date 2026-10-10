@@ -1140,7 +1140,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"Conditional graph routing. Inactive branches are stopped by Langflow.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output\nfrom lfx.schema import Data\n\n\nclass ContractRoute(Component):\n    display_name = \"Contract outcome routing\"\n    name = \"ContractRoute\"\n    inputs = [DataInput(name=\"validation\", display_name=\"Validation\", required=True)]\n    outputs = [Output(name=key, display_name=key.title(), method=key, group_outputs=True)\n               for key in (\"success\", \"failure\", \"rejection\")]\n\n    def _route(self, selected):\n        record = self.validation.data\n        submission = record.get(\"agent_submission\", {})\n        destination = (\"rejection\" if record.get(\"contract_status\") != \"accepted\" else\n                       \"success\" if (submission.get(\"task_outcome\") == \"success\" and\n                                     submission.get(\"executor_status\") == \"completed\" and\n                                     submission.get(\"evidence_complete\") is True) else \"failure\")\n        if selected != destination:\n            self.stop(selected)\n            return Data(data={})\n        return Data(data={\"route\": destination, \"validation\": record})\n\n    def success(self) -> Data:\n        return self._route(\"success\")\n\n    def failure(self) -> Data:\n        return self._route(\"failure\")\n\n    def rejection(self) -> Data:\n        return self._route(\"rejection\")\n",
+                "value": "\"\"\"Conditional graph routing. Inactive branches are stopped by Langflow.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output\nfrom lfx.schema import Data\n\n\nclass ContractRoute(Component):\n    display_name = \"Contract outcome routing\"\n    name = \"ContractRoute\"\n    inputs = [DataInput(name=\"validation\", display_name=\"Validation\", required=True)]\n    outputs = [Output(name=key, display_name=key.title(), method=key, group_outputs=True)\n               for key in (\"success\", \"failure\", \"rejection\", \"recovery\")]\n\n    def _route(self, selected):\n        record = self.validation.data\n        submission = record.get(\"agent_submission\", {})\n        if record.get(\"contract_status\") != \"accepted\":\n            destination = \"rejection\"\n        elif (submission.get(\"executor_status\") != \"completed\" or\n              submission.get(\"evidence_complete\") is not True or\n              submission.get(\"task_outcome\") not in {\"success\", \"failure\"}):\n            destination = \"recovery\"\n        else:\n            destination = \"success\" if submission[\"task_outcome\"] == \"success\" else \"failure\"\n        if selected != destination:\n            self.stop(selected)\n            return Data(data={})\n        return Data(data={\"route\": destination, \"validation\": record})\n\n    def success(self) -> Data:\n        return self._route(\"success\")\n\n    def failure(self) -> Data:\n        return self._route(\"failure\")\n\n    def rejection(self) -> Data:\n        return self._route(\"rejection\")\n\n    def recovery(self) -> Data:\n        return self._route(\"recovery\")\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -1206,6 +1206,20 @@
                 "allows_loop": false,
                 "group_outputs": true,
                 "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "recovery",
+                "display_name": "Recovery",
+                "method": "recovery",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
               }
             ],
             "field_order": [
@@ -1216,7 +1230,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.contract_outcome_routing",
-              "code_hash": "c15587335a61",
+              "code_hash": "40a43acb2dc1",
               "dependencies": {
                 "total_dependencies": 1,
                 "dependencies": [
@@ -1707,6 +1721,165 @@
             "tool_mode": false
           }
         }
+      },
+      {
+        "id": "recovery",
+        "type": "genericNode",
+        "position": {
+          "x": 1600,
+          "y": 900
+        },
+        "data": {
+          "id": "recovery",
+          "type": "DemoDestination",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "routed": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "routed",
+                "value": "",
+                "display_name": "Routed outcome",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "snapshot": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "snapshot",
+                "value": "",
+                "display_name": "Frozen issue",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Demo destinations. Publication is simulated and never calls GitHub.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output, StrInput\nfrom lfx.schema import Data\n\n\nclass DemoDestination(Component):\n    display_name = \"Demo destination (simulated)\"\n    name = \"DemoDestination\"\n    inputs = [DataInput(name=\"routed\", display_name=\"Routed outcome\", required=True),\n              DataInput(name=\"snapshot\", display_name=\"Frozen issue\", required=True),\n              StrInput(name=\"destination\", display_name=\"Destination\", required=True)]\n    outputs = [Output(name=\"record\", display_name=\"Evidence\", method=\"record_output\")]\n\n    def record_output(self) -> Data:\n        routed = self.routed.data\n        destination = str(self.destination)\n        if not routed or routed.get(\"route\") != destination:\n            raise ValueError(\"inactive_destination_must_not_execute\")\n        return Data(data={\"destination\": destination, \"routed\": routed,\n                          \"issue_snapshot\": self.snapshot.data,\n                          \"publication\": {\"mode\": \"simulated\", \"draft\": True,\n                                          \"reference\": \"simulation:fixture-draft-pr\"}\n                                         if destination == \"success\" else None})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "destination": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "destination",
+                "value": "recovery",
+                "display_name": "Destination",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              }
+            },
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Demo destination (simulated)",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "record",
+                "display_name": "Evidence",
+                "method": "record_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "routed",
+              "snapshot",
+              "destination"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.demo_destination_simulated",
+              "code_hash": "c5d4f7b31179",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
       }
     ],
     "edges": [
@@ -1987,6 +2160,58 @@
           "targetHandle": {
             "fieldName": "snapshot",
             "id": "rejection",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "routing-recovery-recovery-routed",
+        "source": "routing",
+        "target": "recovery",
+        "sourceHandle": "{\"dataType\": \"ContractRoute\", \"id\": \"routing\", \"name\": \"recovery\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"routed\", \"id\": \"recovery\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ContractRoute",
+            "id": "routing",
+            "name": "recovery",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "routed",
+            "id": "recovery",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "issue-snapshot-recovery-snapshot",
+        "source": "issue",
+        "target": "recovery",
+        "sourceHandle": "{\"dataType\": \"FixtureIssue\", \"id\": \"issue\", \"name\": \"snapshot\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"snapshot\", \"id\": \"recovery\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "FixtureIssue",
+            "id": "issue",
+            "name": "snapshot",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "snapshot",
+            "id": "recovery",
             "inputTypes": [
               "Data",
               "JSON"

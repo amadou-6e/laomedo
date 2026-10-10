@@ -41,7 +41,7 @@ def build():
     requirements = node(ROOT / "components/laomedo/output_contract.py", "requirements", {"requirements_json": json.dumps(FORM)}, 0, 600)
     route = node(HERE / "route.py", "routing", {}, 1200, 0)
     destinations = [node(HERE / "destination.py", key, {"destination": key}, 1600, index * 300)
-                    for index, key in enumerate(("success", "failure", "rejection"))]
+                    for index, key in enumerate(("success", "failure", "rejection", "recovery"))]
     edges = [helper.edge(issue, "task", agent, "task"), helper.edge(skill, "skill", agent, "skill_reference"),
              helper.edge(agent, "submission", contract, "agent_submission"),
              helper.edge(contract, "validation", route, "validation")]

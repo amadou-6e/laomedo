@@ -27,7 +27,7 @@ async def main():
         "invalid_submission": ({"task_outcome": "success"}, {}),
         "precheck_correction": ({"task_outcome": "success"}, {"correction": "within_request"}),
         "exhausted_correction": ({"task_outcome": "success"}, {"correction": "exhausted"}),
-        "runtime_interruption": ({"task_outcome": "unknown"}, {"status": "interrupted"})}
+        "runtime_interruption": ({"task_outcome": "success", "report": "partial"}, {"status": "interrupted"})}
     evidence = []
     for name, (submission, options) in cases.items():
         results, calls = await probe.run_case(submission, **options)
@@ -37,7 +37,7 @@ async def main():
         observed = {"destination": record["destination"],
                     "contract_status": record["routed"]["validation"]["contract_status"],
                     "publication_mode": (record["publication"] or {}).get("mode"),
-                    "continuations": calls[0].get("fixture_continuations", 0)}
+                    "scripted_continuations": calls[0].get("scripted_continuations", 0)}
         assert observed == expected[name], (name, observed)
         evidence.append({"case": name, "expected": expected[name], "observed": observed,
                          "record": record, "fixture_prechecks": calls[0].get("fixture_prechecks", []),

@@ -26,8 +26,11 @@ class Response(io.BytesIO):
 
 
 async def run_case(submission, *, status="completed", correction=None,
-                   revision_override=None, evidence_complete=None):
+                   revision_override=None, evidence_complete=None, downstream_form=None):
     flow = json.loads((HERE / "flow.json").read_text(encoding="utf-8"))
+    if downstream_form is not None:
+        validator = next(node for node in flow["data"]["nodes"] if node["id"] == "contract")
+        validator["data"]["node"]["template"]["requirements_json"]["value"] = json.dumps(downstream_form)
     calls = []
     def respond(req, **_kwargs):
         payload = json.loads(req.data) if req.data else None
@@ -44,7 +47,7 @@ async def run_case(submission, *, status="completed", correction=None,
                 precheck.append(json.loads(feedback["contentItems"][0]["text"]))
                 final = candidate
             call["fixture_prechecks"] = precheck
-            call["fixture_continuations"] = 0 if correction == "within_request" else 1
+            call["scripted_continuations"] = 0 if correction == "within_request" else 1
             call["evidence_source"] = "fixture_runner_script"
         result = {"run_id": RUN, "status": status, "answer": json.dumps(final),
                   "thread_id": "fixture-thread", "post_run_hash": HASH,
@@ -65,7 +68,7 @@ async def run_case(submission, *, status="completed", correction=None,
         token.write_text("fixture-not-a-credential", encoding="utf-8")
         with patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)}), \
                 patch("urllib.request.urlopen", side_effect=respond):
-            results = await Graph.from_payload(flow).arun(inputs=[{}], outputs=["success", "failure", "rejection"])
+            results = await Graph.from_payload(flow).arun(inputs=[{}], outputs=["success", "failure", "rejection", "recovery"])
     return results, calls
 
 
@@ -117,25 +120,30 @@ class ImportedDemoTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(output[0]["publication"])
 
     async def test_runtime_interruption_retains_reference_without_publication(self):
-        results, _ = await run_case({"task_outcome": "unknown"}, status="interrupted")
+        results, _ = await run_case({"task_outcome": "success", "report": "partial"}, status="interrupted")
         output = records(results)
-        self.assertEqual([item["destination"] for item in output], ["rejection"])
+        self.assertEqual([item["destination"] for item in output], ["recovery"])
+        self.assertEqual(output[0]["routed"]["validation"]["contract_status"], "accepted")
         envelope = output[0]["routed"]["validation"]["agent_submission"]
+        self.assertEqual(envelope["task_outcome"], "unknown")
         self.assertEqual(envelope["run_reference"]["run_id"], RUN)
         self.assertEqual(envelope["run_reference"]["trace_ref"], f"laomedo:run:{RUN}:events")
         self.assertFalse(envelope["evidence_complete"])
+        self.assertEqual(envelope["executor_status"], "interrupted")
+        self.assertEqual(envelope["run_reference"]["invocation_id"], "fixture-invocation")
+        self.assertEqual(envelope["run_reference"]["trace_id"], "fixture-trace")
         self.assertIsNone(output[0]["publication"])
 
     async def test_fixture_in_request_precheck_correction(self):
         results, calls = await run_case({"task_outcome": "success"}, correction="within_request")
         self.assertEqual([item["contract_status"] for item in calls[0]["fixture_prechecks"]], ["rejected", "accepted"])
-        self.assertEqual(calls[0]["fixture_continuations"], 0)
+        self.assertEqual(calls[0]["scripted_continuations"], 0)
         self.assertEqual([item["destination"] for item in records(results)], ["success"])
 
     async def test_fixture_exhausted_correction_routes_rejection(self):
         results, calls = await run_case({"task_outcome": "success"}, correction="exhausted")
         self.assertEqual([item["contract_status"] for item in calls[0]["fixture_prechecks"]], ["rejected", "rejected"])
-        self.assertEqual(calls[0]["fixture_continuations"], 1)
+        self.assertEqual(calls[0]["scripted_continuations"], 1)
         self.assertEqual([item["destination"] for item in records(results)], ["rejection"])
 
     async def test_changed_requirements_pin_cannot_publish(self):
@@ -149,7 +157,20 @@ class ImportedDemoTests(unittest.IsolatedAsyncioTestCase):
         results, _ = await run_case({"task_outcome": "success", "report": "valid bytes"},
                                    evidence_complete=False)
         output = records(results)
-        self.assertNotEqual(output[0]["destination"], "success")
+        self.assertEqual(output[0]["destination"], "recovery")
+        self.assertIsNone(output[0]["publication"])
+
+    async def test_imported_downstream_form_drift_rejects_source_pin(self):
+        changed = json.loads(json.dumps(builder.FORM))
+        changed["fields"][1]["checks"]["min_length"] = 2
+        results, calls = await run_case({"task_outcome": "success", "report": "valid bytes"},
+                                       downstream_form=changed)
+        output = records(results)
+        self.assertEqual([item["destination"] for item in output], ["rejection"])
+        validation = output[0]["routed"]["validation"]
+        self.assertEqual(validation["errors"], [{"path": "", "code": "requirements_revision_mismatch"}])
+        self.assertNotEqual(validation["requirements_revision"],
+                            calls[0]["payload"]["output_requirements"]["requirements_revision"])
         self.assertIsNone(output[0]["publication"])
 
     def test_export_matches_current_component_code_and_frozen_fixture(self):
