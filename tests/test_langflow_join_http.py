@@ -57,6 +57,23 @@ class LangflowJoinHTTPTests(unittest.TestCase):
                 "runner_body": {"task": "synthetic task", "model": "synthetic",
                                 "effort": "low", "skill_ref": {"skill_id": "fixture"}}}
 
+    def test_unconfirmed_native_cancel_is_incomplete_until_explicit_confirmation(self):
+        client = str(uuid4())
+        self.call("POST", "/v1/invocations", self.body(client))
+        native = next(iter(self.runner.records.values()))
+        native.update(status="cancelled", cancel_confirmed=False)
+        code, uncertain = self.call("GET", "/v1/requests/" + client)
+        self.assertEqual(code, 200)
+        self.assertEqual(uncertain["status"], "incomplete")
+        self.assertEqual(uncertain["native_status"], "cancelled")
+        self.assertFalse(uncertain["cancel_confirmed"])
+        native["cancel_confirmed"] = True
+        code, confirmed = self.call("GET", "/v1/requests/" + client)
+        self.assertEqual(code, 200)
+        self.assertEqual(confirmed["status"], "cancelled")
+        self.assertTrue(confirmed["cancel_confirmed"])
+        self.assertEqual(len(self.runner.starts), 1)
+
     def test_authenticated_start_retry_status_and_cancel(self):
         client = str(uuid4())
         body = self.body(client)

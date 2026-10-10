@@ -119,7 +119,8 @@ class LangflowJoinController:
             self.store.record_runner_terminal(
                 snapshot["run_id"], snapshot["invocation_id"],
                 provider="codex", runner_run_id=snapshot["runner_run_id"],
-                status=native["status"])
+                status=native["status"],
+                cancel_confirmed=native.get("cancel_confirmed") is True)
             snapshot = self._snapshot(client_request_id)
         return {**snapshot, "native_status": native.get("status"),
                 "native_record": native,
