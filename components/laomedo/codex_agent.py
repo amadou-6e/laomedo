@@ -64,6 +64,9 @@ class LaomedoCodexAgent(Component):
         StrInput(name="request_id", display_name="Request ID", advanced=True,
                  info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
+        DataInput(name="output_requirements", display_name="Output Requirements"),
+        IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
+                 advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
         StrInput(name="skill_id", display_name="Skill ID", advanced=True),
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True),
@@ -102,6 +105,18 @@ class LaomedoCodexAgent(Component):
 
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
+        connected = getattr(self, "output_requirements", None)
+        if connected not in (None, "", []):
+            from laomedo.output_contract import verify_requirements
+            if self.operation not in {"fresh", "start"}:
+                raise ValueError("output_requirements_require_fresh_start")
+            selected = verify_requirements(getattr(connected, "data", connected))
+            retries = getattr(self, "output_retries", 1)
+            if type(retries) is not int or not 0 <= retries <= 8:
+                raise ValueError("invalid_output_retry_count")
+            target = payload.get("runner_body", payload)
+            target["output_requirements"] = selected
+            target["output_retries"] = retries
         provenance = getattr(self, "handoff_reference", None)
         if provenance not in (None, "", []):
             if self.operation not in {"fresh", "start"}:
