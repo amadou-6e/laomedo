@@ -83,6 +83,20 @@ class WorkflowRunStore:
                     source_time TEXT,
                     received_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
                 );
+                CREATE TABLE IF NOT EXISTS langflow_client_requests (
+                    client_request_id TEXT PRIMARY KEY,
+                    client_request_hash TEXT NOT NULL,
+                    run_id TEXT NOT NULL UNIQUE REFERENCES runs(run_id),
+                    invocation_id TEXT NOT NULL UNIQUE REFERENCES workflow_invocations(invocation_id),
+                    flow_id TEXT,
+                    graph_run_id TEXT,
+                    graph_basis TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                );
+                CREATE TABLE IF NOT EXISTS langflow_cancel_intents (
+                    client_request_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                );
             """)
             # Preserve stores created before native runner correlation existed.
             columns = {row[1] for row in db.execute("PRAGMA table_info(workflow_invocations)")}
@@ -193,6 +207,164 @@ class WorkflowRunStore:
             self._receipt(db, run_id, invocation_id, "runner_request_frozen",
                           {"request_hash": request_hash})
 
+    @staticmethod
+    def _client_uuid(value):
+        try:
+            normalized = str(UUID(str(value)))
+        except (TypeError, ValueError, AttributeError):
+            raise LaunchError("invalid_client_request_id") from None
+        if normalized != value:
+            raise LaunchError("invalid_client_request_id")
+        return normalized
+
+    def claim_langflow_client(self, client_request_id, client_request_hash, *,
+                              run_id, invocation_id, flow_id=None,
+                              graph_run_id=None, graph_basis="repository_fixture"):
+        """Bind one client retry key before any runner POST.
+
+        The run and invocation must already be reserved and frozen. If another
+        claimant won the same key, return its binding and cancel the losing
+        reservation before it can dispatch.
+        """
+        client_request_id = self._client_uuid(client_request_id)
+        if (not isinstance(client_request_hash, str) or
+                len(client_request_hash) != 71 or
+                not client_request_hash.startswith("sha256:") or
+                any(c not in "0123456789abcdef" for c in client_request_hash[7:])):
+            raise LaunchError("invalid_client_request_hash")
+        if graph_basis not in {"saved_flow_export", "repository_fixture"}:
+            raise LaunchError("invalid_graph_basis")
+        if flow_id is not None and (not isinstance(flow_id, str) or not flow_id):
+            raise LaunchError("invalid_flow_id")
+        if graph_run_id is not None and (not isinstance(graph_run_id, str) or not graph_run_id):
+            raise LaunchError("invalid_graph_run_id")
+        with self._database() as db:
+            db.execute("BEGIN IMMEDIATE")
+            existing = db.execute("""SELECT * FROM langflow_client_requests
+                WHERE client_request_id=?""", (client_request_id,)).fetchone()
+            if existing is not None:
+                if existing["client_request_hash"] != client_request_hash:
+                    raise LaunchError("client_request_identity_conflict")
+                if existing["run_id"] != run_id:
+                    changed = db.execute("""UPDATE runs SET status='cancelled',
+                        terminal_reason='duplicate_client_reservation'
+                        WHERE run_id=? AND status='reserved' AND dispatch_attempts=0""",
+                        (run_id,)).rowcount
+                    invocation_changed = db.execute("""UPDATE workflow_invocations
+                        SET status='cancelled' WHERE run_id=? AND invocation_id=?
+                        AND status='reserved'""", (run_id, invocation_id)).rowcount
+                    if changed != 1 or invocation_changed != 1:
+                        raise LaunchError("duplicate_reservation_not_reserved")
+                    self._receipt(db, run_id, invocation_id,
+                                  "duplicate_reservation_discarded",
+                                  {"client_request_id": client_request_id})
+                return dict(existing), False
+            frozen = db.execute("""SELECT 1 FROM workflow_invocations
+                WHERE run_id=? AND invocation_id=? AND status='reserved'
+                AND runner_request_hash IS NOT NULL""", (run_id, invocation_id)).fetchone()
+            if frozen is None:
+                raise LaunchError("client_request_not_frozen")
+            try:
+                db.execute("""INSERT INTO langflow_client_requests
+                    (client_request_id,client_request_hash,run_id,invocation_id,
+                     flow_id,graph_run_id,graph_basis)
+                    VALUES (?,?,?,?,?,?,?)""",
+                    (client_request_id, client_request_hash, run_id, invocation_id,
+                     flow_id, graph_run_id, graph_basis))
+            except sqlite3.IntegrityError as exc:
+                raise LaunchError("client_request_binding_conflict") from exc
+            self._receipt(db, run_id, invocation_id, "langflow_client_claimed",
+                          {"client_request_id": client_request_id,
+                           "flow_id": flow_id, "graph_run_id": graph_run_id,
+                           "graph_basis": graph_basis,
+                           "executing_graph_verified": False})
+            row = db.execute("""SELECT * FROM langflow_client_requests
+                WHERE client_request_id=?""", (client_request_id,)).fetchone()
+            return dict(row), True
+
+    def langflow_client_snapshot(self, client_request_id):
+        client_request_id = self._client_uuid(client_request_id)
+        with self._database() as db:
+            row = db.execute("""SELECT c.*,r.status AS run_status,
+                r.dispatch_attempts,w.runner_request_hash,w.runner_run_id,
+                w.runner_provider,w.runner_raw_event_ref
+                FROM langflow_client_requests c JOIN runs r ON r.run_id=c.run_id
+                JOIN workflow_invocations w ON w.invocation_id=c.invocation_id
+                WHERE c.client_request_id=?""", (client_request_id,)).fetchone()
+        return dict(row) if row is not None else None
+
+    def langflow_runner_binding(self, runner_run_id):
+        try:
+            runner_run_id = str(UUID(str(runner_run_id)))
+        except (TypeError, ValueError, AttributeError):
+            raise LaunchError("invalid_runner_identity") from None
+        with self._database() as db:
+            row = db.execute("""SELECT c.*,w.runner_run_id,w.runner_request_hash
+                FROM langflow_client_requests c JOIN workflow_invocations w
+                ON w.invocation_id=c.invocation_id
+                WHERE w.runner_provider='codex' AND w.runner_run_id=?""",
+                (runner_run_id,)).fetchone()
+        return dict(row) if row is not None else None
+
+    def request_langflow_cancel(self, client_request_id):
+        """Persist Stop even when the first bridge acknowledgement is absent."""
+        client_request_id = self._client_uuid(client_request_id)
+        with self._database() as db:
+            inserted = db.execute("""INSERT OR IGNORE INTO langflow_cancel_intents
+                (client_request_id) VALUES (?)""", (client_request_id,)).rowcount == 1
+            row = db.execute("""SELECT run_id,invocation_id FROM langflow_client_requests
+                WHERE client_request_id=?""", (client_request_id,)).fetchone()
+            if row is not None and inserted:
+                self._receipt(db, row["run_id"], row["invocation_id"],
+                              "langflow_cancel_requested",
+                              {"client_request_id": client_request_id})
+        return self.langflow_client_snapshot(client_request_id)
+
+    def langflow_cancel_requested(self, client_request_id):
+        client_request_id = self._client_uuid(client_request_id)
+        with self._database() as db:
+            return db.execute("""SELECT 1 FROM langflow_cancel_intents
+                WHERE client_request_id=?""", (client_request_id,)).fetchone() is not None
+
+    def begin_langflow_client(self, client_request_id):
+        """Atomically choose no POST after Stop, or one permitted POST attempt."""
+        client_request_id = self._client_uuid(client_request_id)
+        with self._database() as db:
+            # Serialize the first read with request_langflow_cancel's write.
+            # A plain SELECT here can otherwise race a Stop intent and let
+            # both cancellation and dispatch commit for one invocation.
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("""SELECT c.run_id,c.invocation_id,r.status,
+                r.dispatch_attempts,w.runner_request_hash FROM langflow_client_requests c
+                JOIN runs r ON r.run_id=c.run_id
+                JOIN workflow_invocations w ON w.invocation_id=c.invocation_id
+                WHERE c.client_request_id=?""", (client_request_id,)).fetchone()
+            if row is None:
+                raise LaunchError("client_request_not_claimed")
+            if row["dispatch_attempts"]:
+                return "already_dispatching"
+            if row["status"] == "cancelled":
+                return "cancelled_before_dispatch"
+            if row["status"] != "reserved" or not row["runner_request_hash"]:
+                raise LaunchError("client_request_not_frozen")
+            cancelled = db.execute("""SELECT 1 FROM langflow_cancel_intents
+                WHERE client_request_id=?""", (client_request_id,)).fetchone()
+            if cancelled is not None:
+                db.execute("UPDATE runs SET status='cancelled',terminal_reason='client_cancelled_before_dispatch' WHERE run_id=?",
+                           (row["run_id"],))
+                db.execute("UPDATE workflow_invocations SET status='cancelled' WHERE invocation_id=?",
+                           (row["invocation_id"],))
+                self._receipt(db, row["run_id"], row["invocation_id"],
+                              "client_cancelled_before_dispatch", {})
+                return "cancelled_before_dispatch"
+            db.execute("""UPDATE runs SET status='dispatching',dispatch_attempts=1
+                WHERE run_id=?""", (row["run_id"],))
+            db.execute("""UPDATE workflow_invocations SET status='running'
+                WHERE invocation_id=?""", (row["invocation_id"],))
+            self._receipt(db, row["run_id"], row["invocation_id"],
+                          "dispatch_started", {})
+            return "dispatching"
+
     def bind_runner_ack(self, run_id, invocation_id, *, request_id, provider,
                         runner_run_id, raw_event_ref):
         """Persist one exact native acknowledgement without replaying dispatch."""
@@ -248,6 +420,37 @@ class WorkflowRunStore:
             self._receipt(db, run_id, invocation_id, kind,
                           {"runner_provider": provider, "runner_run_id": runner_run_id,
                            "observation": payload})
+
+    def record_runner_terminal(self, run_id, invocation_id, *, provider,
+                               runner_run_id, status):
+        """Project a verified native terminal state without claiming output truth."""
+        if status not in {"completed", "cancelled", "failed", "timeout", "interrupted"}:
+            raise LaunchError("invalid_runner_terminal_status")
+        projected = "failed" if status in {"timeout", "interrupted"} else status
+        with self._database() as db:
+            row = db.execute("""SELECT r.status AS run_status,w.runner_run_id
+                FROM runs r JOIN workflow_invocations w ON w.run_id=r.run_id
+                WHERE r.run_id=? AND w.invocation_id=? AND
+                w.runner_provider=? AND w.runner_run_id=?""",
+                (run_id, invocation_id, provider, runner_run_id)).fetchone()
+            if row is None:
+                raise LaunchError("runner_terminal_not_correlated")
+            if row["run_status"] == projected:
+                return False
+            if row["run_status"] not in {"dispatching", "incomplete"}:
+                raise LaunchError("runner_terminal_conflict")
+            db.execute("""UPDATE runs SET status=?,evidence_complete=0,
+                completion_basis='native_runner_status',terminal_reason=?
+                WHERE run_id=?""", (projected, "native_runner_" + status, run_id))
+            db.execute("""UPDATE workflow_invocations SET status=?,error_class=?
+                WHERE run_id=? AND invocation_id=?""",
+                ("completed" if status == "completed" else "failed",
+                 None if status == "completed" else "native_runner_" + status,
+                 run_id, invocation_id))
+            self._receipt(db, run_id, invocation_id, "runner_terminal",
+                          {"runner_provider": provider, "runner_run_id": runner_run_id,
+                           "native_status": status, "semantic_output_verified": False})
+            return True
 
     def record_runner_wait_uncertain(self, run_id, invocation_id):
         """A wait deadline is not evidence that the native run stopped."""
