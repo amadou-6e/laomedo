@@ -11,7 +11,7 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from experiments.exp139.bindings import BoundRunner, request_digest
+from experiments.exp139.bindings import BoundRunner, GitMetadataAppServer, request_digest
 from experiments.exp139.prepare import connection, IDENTITY, REPOSITORY, BRANCH
 from laomedo.bundle_stage import verify_frozen_bundle
 from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport
@@ -36,7 +36,8 @@ def configuration(root):
     config = json.loads((root / "config.json").read_bytes())
     if (config.get("identity") != IDENTITY or config.get("repository") != REPOSITORY or
             config.get("branch") != BRANCH or config.get("turn_cap") != 4 or
-            config.get("runner_port") != 8779 or config.get("handoff_seconds") != 600):
+            config.get("runner_port") != 8779 or config.get("handoff_seconds") != 600 or
+            config.get("recovery") != "AMENDMENT-03"):
         raise ValueError("frozen_configuration_required")
     return root, config
 
@@ -81,7 +82,8 @@ class WriteBudget:
         if operation == "pr_create":
             with closing(self.store._connect()) as db:
                 rows = db.execute("SELECT h.phase FROM publication_handoffs h JOIN grants g "
-                    "ON g.grant_id=h.grant_id WHERE g.repository=? AND g.branch=?",
+                    "ON g.grant_id=h.grant_id WHERE g.repository=? AND g.branch=? "
+                    "AND h.phase='publication_pending'",
                     (REPOSITORY, BRANCH)).fetchall()
             if (len(rows) != 1 or rows[0]["phase"] != "publication_pending" or
                     payload.get("head") != BRANCH or payload.get("draft") is not True):
@@ -150,6 +152,9 @@ def services(root):
     lease = LeaseService(root / "host/lease", mediator=store,
                          mediation_authority=authority.authorize_lease)
     mediator = MediationHTTPService(store, transport)
+    ordinary = LeaseService(root / "host/nonpublishing-lease")
+    threading.Thread(target=ordinary.serve, daemon=True,
+                     name="exp139-nonpublishing-supervisor").start()
     serve_services(lease, mediator, root / "host", repository=REPOSITORY,
                    connection_id=config["connection_id"], connection_generation=1)
 
@@ -170,7 +175,7 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=IDENTITY + "-success", repository=REPOSITORY,
+        return authority.approve(invocation_id=IDENTITY + "-success-recovery", repository=REPOSITORY,
             branch=BRANCH, operations={"git_push", "pr_create"}, reviewed_by=IDENTITY + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):
@@ -199,6 +204,9 @@ def runner(root):
         transport=transport, readback=readback, describe=describe)
     engine = BoundRunner(root / "runner", root / "skill-store", root / "source",
         approved_requests=selected, authorization_factory=authorize, max_model_turns=4,
+        nonpublishing_lease_service=root / "host/nonpublishing-lease",
+        binding_state=root / "host/bindings.sqlite", seed_consumed=config["previous_consumed"],
+        transport=GitMetadataAppServer,
         git_workspace=True, supervise_containers=True, lease_service=root / "host/lease",
         github_authority=authority, mediator_state=root / "host/mediator", publication_controller=controller)
     server = serve(engine, port=8779)

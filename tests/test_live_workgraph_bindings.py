@@ -1,11 +1,12 @@
 """No-model host dispatch identity controls for the prospective live graph."""
 import unittest
+import tempfile
 from pathlib import Path
 import sys
 from unittest.mock import patch
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from experiments.exp139.bindings import BoundRunner, request_digest
-from laomedo.local_runner import LocalRunner, RunnerError
+from experiments.exp139.bindings import BoundRunner, GitMetadataAppServer, GIT_OVERRIDE, request_digest
+from laomedo.local_runner import LocalRunner, RunnerError, AppServer
 
 
 class BindingTests(unittest.TestCase):
@@ -47,3 +48,53 @@ class BindingTests(unittest.TestCase):
             runner._prepare(original)
             self.assertNotIn("github_authorization_ref", prepare.call_args.args[0])
         self.assertEqual(calls, [])
+
+    def test_supervisor_selected_only_from_host_case_and_scope(self):
+        for case in ("success", "failure", "rejection"):
+            runner, _ = self.make_runner({"task": case}, case)
+            runner.lease_service = Path("mediated")
+            runner.nonpublishing_lease_service = Path("ordinary")
+            runner.execution_cases["run"] = case
+            def execute(*args, **kwargs):
+                return runner.lease_service
+            with patch.object(LocalRunner, "status", return_value={"github_scope": {} } if case == "success" else {}), \
+                    patch.object(LocalRunner, "_execute", side_effect=execute):
+                self.assertEqual(runner._execute("run", "task", resume=False),
+                                 Path("mediated" if case == "success" else "ordinary"))
+            self.assertEqual(runner.lease_service, Path("mediated"))
+            with patch.object(LocalRunner, "status", return_value={} if case == "success" else {"github_scope": {}}), \
+                    patch.object(LocalRunner, "_execute") as execute:
+                with self.assertRaisesRegex(RunnerError, "experiment_supervisor_scope_mismatch"):
+                    runner._execute("run", "task", resume=False)
+                execute.assert_not_called()
+        with self.assertRaisesRegex(RunnerError, "experiment_resume_denied"):
+            runner.resume("run", "task", "hash")
+
+    def test_consumed_binding_survives_restart_and_failed_preparation(self):
+        request = {"task": "new"}
+        old = request_digest({"task": "old"})
+        with tempfile.TemporaryDirectory() as directory:
+            def make():
+                with patch.object(LocalRunner, "__init__", return_value=None):
+                    return BoundRunner(approved_requests={request_digest(request): "failure", old: "success"},
+                        authorization_factory=lambda: self.fail("old scope issued"),
+                        binding_state=Path(directory)/"bindings.sqlite", seed_consumed=[old])
+            first = make()
+            with patch.object(LocalRunner, "_prepare", side_effect=RunnerError("setup_failed")):
+                with self.assertRaisesRegex(RunnerError, "setup_failed"):
+                    first._prepare(request)
+            second = make()
+            for payload in (request, {"task": "old"}):
+                with self.assertRaisesRegex(RunnerError, "experiment_request_binding_denied"):
+                    second._prepare(payload)
+
+    def test_permission_override_preserves_capability_redaction(self):
+        with tempfile.TemporaryDirectory() as directory:
+            capability = Path(directory)/"capability"
+            capability.write_text("dummy-private-value")
+            command = ["docker", "run", "--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
+                       "image", "bootstrap", "app-server", "--stdio"]
+            with patch.object(AppServer, "__init__", return_value=None) as parent:
+                GitMetadataAppServer(command, Path(directory))
+                self.assertEqual(parent.call_args.args[0][-4:], ["-c", GIT_OVERRIDE, "app-server", "--stdio"])
+                self.assertEqual(parent.call_args.kwargs["secret_redactions"], ("dummy-private-value",))

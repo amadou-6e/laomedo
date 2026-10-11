@@ -68,6 +68,13 @@ class BudgetTests(unittest.TestCase):
             self.budget(REPOSITORY, "pr_create", payload)
         with closing(self.store._connect()) as db, db:
             db.execute("UPDATE publication_handoffs SET phase='publication_pending' WHERE grant_id=?", (grant,))
+        # A previous failed run remains recorded and must not prevent recovery.
+        old_grant, old_token = self.store.issue(run_id="old-run", invocation_id="old-invocation",
+            repository=REPOSITORY, branch=BRANCH, operations={"git_push", "pr_create"}, ttl_seconds=30)
+        self.store.begin_publication_handoff(token=old_token, repository=REPOSITORY,
+            requirements=form, deadline=self.store.now()+20, deadline_monotonic=self.store.monotonic()+20)
+        with closing(self.store._connect()) as db, db:
+            db.execute("UPDATE publication_handoffs SET phase='rejected' WHERE grant_id=?", (old_grant,))
         self.budget(REPOSITORY, "pr_create", payload)
         with self.assertRaisesRegex(KnownRejected, "experiment_write_budget_consumed"):
             self.budget(REPOSITORY, "pr_create", payload)
