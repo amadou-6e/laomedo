@@ -1,0 +1,27 @@
+{
+    "kind":  "retrospective whitelisted diagnostic projection",
+    "identity":  "exp93-real-stage-s2-20261011-a",
+    "source":  "actual service result.json files",
+    "results":  [
+                    {
+                        "side":  "a",
+                        "original_result_sha256":  "56680fe1c397f6691d72e40503ba173b481c65f25e9da2fa89412d6e8b637733",
+                        "reason":  "heartbeat_lost",
+                        "cleanup_verified":  false,
+                        "state":  "never_observed",
+                        "detected_at_monotonic":  1816.546,
+                        "revoked_at_monotonic":  1816.562,
+                        "cleanup_finished_at_monotonic":  1821.671
+                    },
+                    {
+                        "side":  "b",
+                        "original_result_sha256":  "5d12a2fbe3d4f0b5fa1f61eeca9737ab487df2b6747b91ee1887609d05201ba2",
+                        "reason":  "grant_expired",
+                        "cleanup_verified":  true,
+                        "state":  "removed_after_loss",
+                        "detected_at_monotonic":  1821.812,
+                        "revoked_at_monotonic":  1821.812,
+                        "cleanup_finished_at_monotonic":  1826.937
+                    }
+                ]
+}

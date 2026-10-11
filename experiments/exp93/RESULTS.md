@@ -47,6 +47,22 @@ The original single-process-kill result remains valid only for its narrower
 case. #93 and Q11 remain open; a supervisor outside the runner's process tree
 and a scoped-grant revocation test are still needed. No model turn was used.
 
+## Short-lived launcher parentage check (positive but narrow)
+
+After the negative whole-tree result, [amendment](LAUNCHER-AMENDMENT.md)
+`bd78351` froze a fresh one-shot Windows diagnostic before the
+[probe](launcher_probe.py) `dc29140` ran. Its short-lived launcher started a
+marked idle supervisor and exited before an exact `taskkill /T /F` of the
+disposable runner. The [machine observation](launcher-observation.json),
+SHA-256 `95409d79d7e5becfb4f00a35ff43f0a1415935a42d5dd4621dcd3f7266f1be33`,
+records `survived_tree_kill`; the exact surviving supervisor was then stopped.
+Zero model turns, no Docker container and no grant were involved.
+
+At the time of this diagnostic, `LeaseProcess` still launched its supervisor
+as a direct child. This result supported moving supervision outside that tree;
+it did not itself prove production-lease survival or Docker cleanup. The
+independent-service check below tested that next boundary separately.
+
 ## Independent lease service under whole-tree kill (amendment 2, pass)
 
 After the negative whole-tree result, supervision moved out of the runner into

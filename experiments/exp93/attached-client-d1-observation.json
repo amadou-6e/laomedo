@@ -1,0 +1,61 @@
+{
+  "amendment_sha256": "8c2667124c3859e6766d961e71a5e82ab07e048f658d10bbf4f0e397fcd84b09",
+  "before_kill": {
+    "container_id": "ec5e450dfa33f5aad0daeab5a1e58d1d18f98959b6c67204aa9e26fd876bf927",
+    "running": true,
+    "state": "owned",
+    "status": "running"
+  },
+  "cleanup": {
+    "client_exited": true,
+    "container_verified": true,
+    "state": "absent"
+  },
+  "container_id": "ec5e450dfa33f5aad0daeab5a1e58d1d18f98959b6c67204aa9e26fd876bf927",
+  "elapsed_seconds": 10.672000000000025,
+  "identity": "exp93-attached-client-d1-20261011",
+  "image": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "kill_completed_at": 2684.609,
+  "kill_exit": 0,
+  "kill_started_at": 2684.453,
+  "model_turns": 0,
+  "observations": [
+    {
+      "at": 2684.656,
+      "container_id": "ec5e450dfa33f5aad0daeab5a1e58d1d18f98959b6c67204aa9e26fd876bf927",
+      "offset": 0,
+      "running": false,
+      "state": "owned",
+      "status": "removing"
+    },
+    {
+      "at": 2685.671,
+      "container_id": null,
+      "offset": 1,
+      "running": null,
+      "state": "absent",
+      "status": null
+    },
+    {
+      "at": 2689.656,
+      "container_id": null,
+      "offset": 5,
+      "running": null,
+      "state": "absent",
+      "status": null
+    },
+    {
+      "at": 2694.687,
+      "container_id": null,
+      "offset": 10,
+      "running": null,
+      "state": "absent",
+      "status": null
+    }
+  ],
+  "protocol_sha256": "c1a5f74bf37f55f644645f22f022a724b67aaca2f56a157eb2aafbefa2c79c96",
+  "provider_writes": 0,
+  "ready_at": 2684.375,
+  "result": "observed",
+  "source_sha": "3c9d0ee2c3ecd1c8ab53ae90ff90a41a739fe5c2"
+}
