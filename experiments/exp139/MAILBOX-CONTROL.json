@@ -1,19 +1,34 @@
 {
   "controls": {
-    "calls": 1,
+    "bundle_present": true,
+    "calls": 4,
+    "operations": [
+      "fixture_read",
+      "bundle_freeze",
+      "bundle_status",
+      "git_push"
+    ],
     "paths": [
+      "/v1/mediate",
+      "/v1/mediate",
+      "/v1/mediate",
       "/v1/mediate"
     ],
     "results": [
       {
         "exit": 0,
         "name": "helper",
-        "result": "HELPER_FOUNDn"
+        "result": "/run/laomedo/bin\n"
       },
       {
         "exit": 0,
         "name": "client",
         "result": "{\"state\":\"confirmed\",\"result\":{\"fixture\":true}}\n"
+      },
+      {
+        "exit": 0,
+        "name": "push",
+        "result": "PUSH_CONFIRMED"
       },
       {
         "exit": 0,

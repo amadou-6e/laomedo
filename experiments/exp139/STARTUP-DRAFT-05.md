@@ -13,6 +13,8 @@ Changes from the last stopped configuration:
   host mediator endpoint using the run capability, never a GitHub credential.
 - Set `GIT_EXEC_PATH=/run/laomedo/bin` for this invocation so a login shell can
   find the read-only helper. No user or machine environment is changed.
+- Set the invocation-only regular-file stdio flag for the Git helper, avoiding
+  the nested Node pipe denial without changing JSON, scope or network permission.
 - Apply the separately prepared AMENDMENT-05 config/exports, with one fresh
   success-request and grant identity. Archive AMENDMENT-04 configuration, exports,
   activation and results before replacing any of those files.
@@ -24,6 +26,12 @@ GitHub token, 600-second handoff, port 8779, independent host services and runne
 one experimental push and one draft PR attempt. Existing servers and saved flows
 are untouched. Preserve every consumed request, revoked grant, write-budget row,
 raw trace and workspace. No ambiguous write is retried.
+
+The trusted relay runs outside the command sandbox under the controller's UID
+and can read the same local Codex profile. Attaching to that process through
+ptrace or /proc memory has not been tested. The direct auth-file denial is not
+proof against those routes. Approval is for this bounded local residual, not
+hosted or multi-user credential isolation.
 
 After approval and exact final-head CI, start only these owned hidden services
 and run the fresh success graph. A failure consumes its submitted turn and is

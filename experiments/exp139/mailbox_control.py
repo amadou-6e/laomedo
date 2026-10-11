@@ -8,17 +8,25 @@ from experiments.exp139.helper_control import IMAGE, ROOT
 
 SCRIPT = r'''
 const fs=require('fs'), cp=require('child_process'), http=require('http');
-let calls=0, paths=[];
-const server=http.createServer((q,r)=>{calls++;paths.push(q.url);q.resume();r.writeHead(200);r.end('{"state":"confirmed","result":{"fixture":true}}');});
+let calls=0, paths=[], operations=[];
+const server=http.createServer((q,r)=>{
+ calls++;paths.push(q.url);let text='';q.on('data',v=>text+=v);q.on('end',()=>{
+ const request=JSON.parse(text);operations.push(request.operation);
+ const result=['bundle_status','git_push'].includes(request.operation)?{commit:request.payload.commit,branch:request.payload.branch,stage_attempt_id:request.payload.stage_attempt_id}:{fixture:true};
+ r.writeHead(200);r.end(JSON.stringify({state:'confirmed',result}));});
+});
 server.listen(0,'127.0.0.1',async()=>{
+ cp.execFileSync('git',['init','--template=','-b','fixture-branch','/draft']);
+ cp.execFileSync('git',['-C','/draft','remote','add','origin','laomedo::fixture/repo']);
  const relay=cp.spawn('node',['/run/laomedo/relay.mjs'],{env:{...process.env,LAOMEDO_MEDIATOR_URL:`http://host.docker.internal:${server.address().port}/v1/mediate`,LAOMEDO_MEDIATOR_INSTANCE:'0'.repeat(32)},stdio:'ignore'});
  const directory='/draft/.git/laomedo-mediation';
  const wait=()=>new Promise(r=>setTimeout(r,25));
  for(let n=0;n<100&&!fs.existsSync(directory+'/ready');n++)await wait();
  if(!fs.existsSync(directory+'/ready'))throw Error('relay_startup');
  const cases=[
- ['helper', 'git remote-laomedo > /draft/helper-result'],
+ ['helper', 'git --exec-path > /draft/helper-result'],
  ['client', 'printf \'%s\' \'{"repository":"fixture/repo","operation":"fixture_read","payload":{}}\' | node /run/laomedo/mediate.mjs > /draft/client-result'],
+ ['push', 'set -e; git config user.name Fixture; git config user.email fixture@example.invalid; printf fixture > report.txt; git add report.txt; git commit -m fixture >/draft/commit-stdout; git push origin HEAD:refs/heads/fixture-branch >/draft/push-stdout 2>/draft/push-stderr; printf PUSH_CONFIRMED > /draft/push-result'],
  ['network', `node -e "require('http').get('http://127.0.0.1:${server.address().port}/forbidden',r=>{require('fs').writeFileSync('/draft/network-result','REACHED');r.resume()}).on('error',e=>require('fs').writeFileSync('/draft/network-result',e.code))"`],
  ['auth', 'node -e "try {require(\'fs\').readFileSync(\'/home/runner/.codex/auth.json\');require(\'fs\').writeFileSync(\'/draft/auth-result\',\'READ\')} catch(e) {require(\'fs\').writeFileSync(\'/draft/auth-result\',e.code)}"']
  ];
@@ -38,7 +46,7 @@ server.listen(0,'127.0.0.1',async()=>{
  fs.writeFileSync(directory+'/33333333-3333-3333-3333-333333333333.request','{}');
  await new Promise(r=>setTimeout(r,150));
  results.push({name:'directory_replacement',ignored:!fs.existsSync(directory+'/33333333-3333-3333-3333-333333333333.response')});
- relay.kill();server.close();console.log(JSON.stringify({results,calls,paths}));
+ relay.kill();server.close();console.log(JSON.stringify({results,calls,paths,operations,bundle_present:fs.existsSync('/draft/.laomedo-handoff.bundle')}));
 });
 '''
 
@@ -51,7 +59,7 @@ def probe():
         (root/'capability').write_text('DUMMY_RUN_CAPABILITY')
         (root/'auth.json').write_text('{"dummy":"NOT_A_LOGIN"}')
         (root/'bin').mkdir()
-        (root/'bin/git-remote-laomedo').write_text('#!/bin/sh\nprintf HELPER_FOUND\\n\n',newline='\n')
+        (root/'bin/git-remote-laomedo').write_text('#!/bin/sh\nexec node /run/laomedo/git-remote.mjs "$@"\n',newline='\n')
         args=['docker','run','--rm','--pull=never','--network','none',
               '--add-host','host.docker.internal:127.0.0.1','--user','10001:10001',
               '--cap-drop','ALL','--security-opt','no-new-privileges',
@@ -61,6 +69,10 @@ def probe():
               '--mount',f'type=bind,source={root / "bin"},target=/run/laomedo/bin,readonly',
               '--mount',f'type=bind,source={Path(__file__).with_name("mailbox_client.mjs")},target=/run/laomedo/mediate.mjs,readonly',
               '--mount',f'type=bind,source={Path(__file__).with_name("mailbox_relay.mjs")},target=/run/laomedo/relay.mjs,readonly',
+              '--mount',f'type=bind,source={ROOT / "laomedo/agent_git_remote.mjs"},target=/run/laomedo/git-remote.mjs,readonly',
+              '--env','LAOMEDO_REPOSITORY=fixture/repo','--env','LAOMEDO_RUN_BRANCH=fixture-branch',
+              '--env','LAOMEDO_MEDIATION_FILE_STDIO=1',
+              '--env','GIT_CONFIG_COUNT=1','--env','GIT_CONFIG_KEY_0=safe.directory','--env','GIT_CONFIG_VALUE_0=/draft',
               '--env','GIT_EXEC_PATH=/run/laomedo/bin','--env','ARGS='+json.dumps(PROFILE_OVERRIDES),
               '--workdir','/draft','--entrypoint','sh',IMAGE,'-c',
               'mkdir -p /home/runner/.codex; cp /fixture/config.toml /home/runner/.codex/config.toml; '
@@ -69,14 +81,17 @@ def probe():
         if process.returncode: raise ValueError('mailbox_fixture_failed')
         result=json.loads(process.stdout.decode().splitlines()[-1])
         expected={row['name']:row for row in result['results']}
-        assert 'HELPER_FOUND' in expected['helper']['result']
+        assert expected['helper']['result'].strip()=='/run/laomedo/bin'
         assert json.loads(expected['client']['result'])['state']=='confirmed'
+        assert expected['push']['exit']==0 and expected['push']['result']=='PUSH_CONFIRMED'
         assert expected['network']['result']=='EPERM'
         assert expected['auth']['result'] in {'EPERM','EACCES'}
         assert expected['symlink_request']['status']==400 and expected['symlink_request']['unchanged']
         assert expected['fifo_request']['status']==400
         assert expected['directory_replacement']['ignored']
-        assert result['calls']==1 and result['paths']==['/v1/mediate']
+        assert result['calls']==4 and result['paths']==['/v1/mediate']*4
+        assert result['operations']==['fixture_read','bundle_freeze','bundle_status','git_push']
+        assert result['bundle_present']
         return {'controls':result,'model_turns':0,'provider_writes':0,'network':'none','credential_fixture':'dummy_only'}
 
 

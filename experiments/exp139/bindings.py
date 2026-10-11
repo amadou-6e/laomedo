@@ -128,7 +128,8 @@ class MailboxAppServer(GitMetadataAppServer):
             image_index = command.index("--workdir") + 2
             command[image_index:image_index] = ["--mount",
                 f"type=bind,source={relay},target=/run/laomedo/relay.mjs,readonly",
-                "--env", "GIT_EXEC_PATH=/run/laomedo/bin"]
+                "--env", "GIT_EXEC_PATH=/run/laomedo/bin",
+                "--env", "LAOMEDO_MEDIATION_FILE_STDIO=1"]
             bootstrap = command.index("bootstrap")
             command[bootstrap - 1] = (
                 'cp /config.toml /home/runner/.codex/config.toml && '
