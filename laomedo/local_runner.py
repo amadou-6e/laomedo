@@ -764,6 +764,96 @@ def _answer(events: list[dict]) -> str | None:
     return answers[-1] if answers else None
 
 
+def _execution_evidence(path, offset, record, turns, *, streams_closed, resumed=False):
+    """Close this invocation's host-retained native trace, not task semantics.
+
+    Missing identities, truncated logs, open tools and cleanup uncertainty never
+    become complete merely because the agent returned an answer or exited zero.
+    """
+    incomplete = {"evidence_complete": "unknown", "completion_basis": None}
+    def refuse(reason):
+        return {**incomplete, "evidence_closure": {"version": 1, "reason": reason}}
+    # The workspace is cumulative. Closing only this attempt cannot establish
+    # evidence for earlier writes. Keep resumed publication closed until a
+    # durable per-attempt history can prove every contributing attempt.
+    if resumed:
+        return refuse("resume_publication_evidence_unverified")
+    if (not streams_closed or record.get("status") != "completed" or
+            record.get("snapshot_ready") is not True or
+            record.get("controller_cleanup") != "confirmed" or
+            record.get("container_ownership", {}).get("cleanup_verified") is not True):
+        return refuse("execution_or_cleanup_unclosed")
+    identities = [turn.get("turn_id") for turn in turns]
+    if (not identities or any(not isinstance(value, str) or not value for value in identities) or
+            len(set(identities)) != len(identities) or
+            any(turn.get("status") != "completed" for turn in turns)):
+        return refuse("turn_identity_or_status_unclosed")
+    try:
+        with path.open("rb") as source:
+            source.seek(offset)
+            raw = source.read(64 * 1024 * 1024 + 1)
+        if not raw or len(raw) > 64 * 1024 * 1024 or not raw.endswith(b"\n"):
+            return refuse("trace_unclosed")
+        events = [json.loads(line) for line in raw.splitlines()]
+        if any(not isinstance(event, dict) for event in events):
+            return refuse("trace_invalid")
+    except (OSError, ValueError, UnicodeError):
+        return refuse("trace_unreadable")
+    completed, items, answer = set(), {}, None
+    for event in events:
+        method = event.get("method")
+        if method == "invalid/json":
+            return refuse("trace_invalid")
+        params = event.get("params") or {}
+        if not isinstance(params, dict):
+            return refuse("trace_invalid")
+        if method == "turn/completed":
+            turn = params.get("turn") or {}
+            if not isinstance(turn, dict):
+                return refuse("trace_invalid")
+            identity = turn.get("id")
+            if identity in identities:
+                if (params.get("threadId") != record.get("thread_id") or
+                        identity in completed or turn.get("status") != "completed"):
+                    return refuse("native_terminal_unclosed")
+                completed.add(identity)
+        elif method in {"item/started", "item/completed"}:
+            identity = params.get("turnId")
+            if identity is None:
+                return refuse("item_identity_unclosed")
+            if identity not in identities:
+                continue
+            item = params.get("item") or {}
+            if (params.get("threadId") != record.get("thread_id") or not isinstance(item, dict) or
+                    not isinstance(item.get("id"), str) or not item["id"] or
+                    not isinstance(item.get("type"), str) or identity in completed):
+                return refuse("item_identity_unclosed")
+            key = (identity, item["id"])
+            if method == "item/started":
+                if key in items:
+                    return refuse("item_identity_unclosed")
+                items[key] = (item["type"], False)
+            else:
+                if key in items and (items[key][0] != item["type"] or items[key][1]):
+                    return refuse("item_identity_unclosed")
+                if item.get("status") == "inProgress":
+                    return refuse("item_completion_unclosed")
+                items[key] = (item["type"], True)
+                if identity == identities[-1] and item["type"] == "agentMessage":
+                    answer = item.get("text")
+    if completed != set(identities) or not items or any(not state[1] for state in items.values()):
+        return refuse("native_terminal_or_item_unclosed")
+    for identity in identities:
+        commands = _command_summary(events, identity)
+        if commands["identity_incomplete"] or commands["outstanding_ids"]:
+            return refuse("command_completion_unclosed")
+    if not isinstance(answer, str) or not answer or answer != record.get("answer"):
+        return refuse("retained_answer_mismatch")
+    return {"evidence_complete": True, "completion_basis": "native_trace_closure",
+            "evidence_closure": {"version": 1, "reason": "closed",
+                                 "turn_count": len(identities), "item_count": len(items)}}
+
+
 class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
                  check_docker: bool = True, max_model_turns: int = 0,
@@ -773,7 +863,8 @@ class LocalRunner:
                  mediator_state: Path | None = None,
                  git_workspace: bool = False,
                  split_executor: bool = False, split_provider_config=(),
-                 split_access_token=None, auth_store: Path | None = None):
+                 split_access_token=None, auth_store: Path | None = None,
+                 publication_controller=None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -808,6 +899,7 @@ class LocalRunner:
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
+        self.publication_controller = publication_controller
         self.github_authority = github_authority
         self.mediator_state = _private(mediator_state) if mediator_state else None
         for record_path in (self.state / "runs").glob("*/record.json"):
@@ -1047,6 +1139,8 @@ class LocalRunner:
                      "raw_event_ref", "status")}
 
     def cancel(self, run_id: str) -> dict:
+        if self.publication_controller is not None:
+            self.publication_controller.cancel(run_id)
         with self.control_lock:
             record = self.status(run_id)
             if record["status"] == "prepared" and record.get("client_request_id"):
@@ -1063,6 +1157,16 @@ class LocalRunner:
                 _json(self._run_dir(run_id) / "record.json", record)
                 return record
             return record
+
+    def publish(self, run_id: str) -> dict:
+        if self.publication_controller is None:
+            raise RunnerError("publication_controller_unconfigured")
+        try:
+            result = self.publication_controller.publish(run_id)
+        except MediationError as error:
+            raise RunnerError(error.code) from None
+        return {"status": "completed" if result["phase"] == "completed" else "failed",
+                "run_id": run_id, "publication_handoff": result}
 
     def _materialize(self, workspace: Path, ref: dict) -> dict:
         if not isinstance(ref, dict) or not all(ref.get(k) for k in
@@ -1319,6 +1423,8 @@ class LocalRunner:
     def resume(self, run_id: str, task: str, *, expected_post_run_hash: str,
                expected_thread_id: str, model: str, effort: str) -> dict:
         record = self.status(run_id)
+        if self.publication_controller is not None and run_id in self.publication_controller.owned:
+            raise RunnerError("publication_handoff_resume_denied")
         if not isinstance(task, str) or not task.strip():
             raise RunnerError("invalid_task")
         if (record["status"] != "completed" or not record["thread_id"] or
@@ -1381,6 +1487,7 @@ class LocalRunner:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
         run_dir, record, cancelled, server, lease = None, None, None, None, None
+        evidence_offset, attempt_turn_offset = 0, 0
         launch_attempted = False
         try:
             run_dir = self._run_dir(run_id)
@@ -1393,6 +1500,9 @@ class LocalRunner:
                         resume and record["status"] != "completed"):
                     raise RunnerError("run_not_dispatchable")
                 cancelled = threading.Event()
+                evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
+                attempt_turn_offset = len(record["turns"])
+                record.update(evidence_complete="unknown", completion_basis=None)
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
                 record["snapshot_ready"] = False
@@ -1423,6 +1533,8 @@ class LocalRunner:
                     raise RunnerError("lease_service_unavailable") from None
                 record["container_ownership"]["lease_instance"] = lease.instance
                 record["container_ownership"]["grant_id"] = lease.grant_id
+                if self.publication_controller is not None and record.get("github_scope"):
+                    self.publication_controller.register(lease, record)
                 with self.control_lock:
                     _json(run_dir / "record.json", record)
             capability = None
@@ -1756,6 +1868,9 @@ class LocalRunner:
                     record["controller_cleanup"] = "unverified"
             finally:
                 try:
+                    if (record is not None and record.get("status") != "completed" and
+                            self.publication_controller is not None):
+                        self.publication_controller.cancel(run_id, "failed")
                     if record is not None and self.supervise_containers and not launch_attempted:
                         verified, detail = True, "not_launched"
                         if lease is not None:
@@ -1771,11 +1886,28 @@ class LocalRunner:
                     elif record is not None and self.supervise_containers:
                         verified, detail = cleanup_exact(name, run_id, launch_token)
                         if lease is not None:
-                            try:
-                                lease.finish()
-                            except Exception:
-                                verified = False
-                                detail = "lease_service_unverified"
+                            # The executor is already removed. Only a trusted
+                            # controller can keep its SAME lease through output
+                            # validation; no graph bearer can extend it.
+                            record["container_ownership"]["cleanup_verified"] = verified
+                            record["container_ownership"]["cleanup_detail"] = detail
+                            record.update(_execution_evidence(
+                                run_dir / "raw-events.jsonl", evidence_offset, record,
+                                record["turns"][attempt_turn_offset:], resumed=resume, streams_closed=(
+                                    server is not None and
+                                    getattr(server, "reader", None) is not None and
+                                    getattr(server, "stderr_reader", None) is not None and
+                                    server.reader.is_alive() is False and
+                                    server.stderr_reader.is_alive() is False)))
+                            retained = (verified and not close_error and
+                                        self.publication_controller is not None and
+                                        self.publication_controller.finish_agent(record))
+                            if not retained:
+                                try:
+                                    lease.finish()
+                                except Exception:
+                                    verified = False
+                                    detail = "lease_service_unverified"
                         # A failed normal close may have been completed by the
                         # independent supervisor after its pipe closed.
                         if not verified:
@@ -1788,6 +1920,8 @@ class LocalRunner:
                     with self.control_lock:
                         if record is not None:
                             record["attempt_finished"] = True
+                            if record.get("status") != "completed":
+                                record.update(evidence_complete="unknown", completion_basis=None)
                             if record.get("status") != "completed":
                                 record["snapshot_ready"] = False
                                 record["post_run_hash"] = None
@@ -1872,11 +2006,16 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                         model=body["model"], effort=body["effort"])
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel":
                     result = runner.cancel(parts[2])
+                elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "publish":
+                    if body != {}:
+                        raise RunnerError("publication_body_must_be_empty")
+                    result = runner.publish(parts[2])
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "artifacts":
                     result = {"status": "completed", "artifact_refs": runner.select_artifacts(parts[2], body["paths"])}
                 else:
                     raise RunnerError("unknown_endpoint")
-                code = (202 if is_cancel_endpoint and result.get("cancel_requested") and
+                is_publication_endpoint = (len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "publish")
+                code = (200 if is_publication_endpoint else 202 if is_cancel_endpoint and result.get("cancel_requested") and
                         not result.get("cancel_confirmed") else
                         200 if result["status"] == "completed" or
                         (is_cancel_endpoint and result["status"] == "cancelled") else 502)

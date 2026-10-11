@@ -38,3 +38,48 @@ The [issue 123 trace spike](experiments/feasibility/123/README.md) checks a
 synthetic private Codex rollout against AGENTVIZ's parser and tests a minimal
 event projection without additional model calls. Claude and full Langflow
 correlation remain unverified.
+
+### Trusted draft publisher (#138)
+
+`components/laomedo/pr_publisher.py` requests downstream draft publication after
+Output Contract acceptance. It sends only an empty authenticated runner POST;
+the host recomputes validation from its own frozen output. Graph data never
+contains the GitHub token or controls a grant, branch, deadline or PR payload.
+
+The opt-in host `PublicationController` is injected into `LocalRunner`, not
+automatically enabled by the CLI. It requires a finite explicit lifetime, the
+existing mediator store, an independently started lease service, a private
+verified-artifact resolver, a PR description builder, provider transport and
+provider readback. Its startup `recover()` sweep is called only after the old
+controller is known dead. Do not install a resolver that trusts graph data.
+An exact verified push receipt must exist before handoff; this publisher does
+not push or capture an agent checkout after validation.
+
+The existing supervised grant remains active through validation. Agent bearer
+operations end at handoff; expiry, cancellation and uncertain effects revoke
+the same grant, and unknown outcomes are never resent. Every PR is forced draft
+with a stable marker and a journaled effect identity before dispatch. Readback
+checks the exact head commit, branch, base, draft flag, title and body. A remote
+effect already in flight cannot be undone by cancellation.
+
+Credential-free tests use fake provider receipts and cleanup callbacks, not
+real GitHub access or a model. The native execution closure described below
+can establish evidence availability; live acceptance remains unverified. Live
+acceptance remains under #139, including #100 and the recorded #104 gate,
+provider/precheck acceptance, a separately approved turn cap and scoped identity.
+No running configuration is activated by these changes.
+### Native execution evidence closure
+
+For supervised Codex invocations, the host can close the retained native trace
+after confirmed reader shutdown, exact executor cleanup and a ready snapshot.
+The check binds this invocation's terminal turns and tool/item lifetimes, checks
+command completion and the retained final answer, and records only sanitized
+reason/count diagnostics. Missing or ambiguous evidence remains `unknown`.
+`completion_basis: native_trace_closure` establishes retained execution evidence,
+not truthful task success or a successful remote write. Resumed invocations must
+establish their own closure. Live provider and imported publisher acceptance are
+still part of #139; no running configuration is changed by this implementation.
+
+Only the supervised lease path can close evidence. Resumed invocations remain
+unknown and cannot publish cumulative changes until every contributing attempt
+has a durable closure record; that history is outside this preparation's scope.
