@@ -62,6 +62,11 @@ workspaces, partial evidence and the original ledger are preserved outside Git.
 
 Live success publication, intended deliberate agent failure and downstream pin
 rejection remain unverified. Raw traces and login state are not committed.
+An in-memory scan of the proposed EXP-139 evidence/source and exact report file
+found no match for the selected GitHub token, runner API token or current stored
+Codex login values. This scan did not export credentials, inspect historical
+rotated token values or scan private raw transcripts. There is no published PR
+to scan.
 The GitHub credential stayed on the host; Codex login custody remains the
 explicitly accepted local container profile, protected by its sandbox auth-file
 deny. No hosted or multi-user isolation claim is made. Blockers remain owned by
