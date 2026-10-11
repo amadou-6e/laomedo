@@ -63,8 +63,23 @@ checks the exact head commit, branch, base, draft flag, title and body. A remote
 effect already in flight cannot be undone by cancellation.
 
 Credential-free tests use fake provider receipts and cleanup callbacks, not
-real GitHub access or a model. The real runner's evidence completeness still
-remains unknown, so its output cannot pass the trusted publication gate. Live
+real GitHub access or a model. The native execution closure described below
+can establish evidence availability; live acceptance remains unverified. Live
 acceptance remains under #139, including #100 and the recorded #104 gate,
 provider/precheck acceptance, a separately approved turn cap and scoped identity.
 No running configuration is activated by these changes.
+### Native execution evidence closure
+
+For supervised Codex invocations, the host can close the retained native trace
+after confirmed reader shutdown, exact executor cleanup and a ready snapshot.
+The check binds this invocation's terminal turns and tool/item lifetimes, checks
+command completion and the retained final answer, and records only sanitized
+reason/count diagnostics. Missing or ambiguous evidence remains `unknown`.
+`completion_basis: native_trace_closure` establishes retained execution evidence,
+not truthful task success or a successful remote write. Resumed invocations must
+establish their own closure. Live provider and imported publisher acceptance are
+still part of #139; no running configuration is changed by this implementation.
+
+Only the supervised lease path can close evidence. Resumed invocations remain
+unknown and cannot publish cumulative changes until every contributing attempt
+has a durable closure record; that history is outside this preparation's scope.

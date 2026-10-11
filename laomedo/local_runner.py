@@ -764,6 +764,96 @@ def _answer(events: list[dict]) -> str | None:
     return answers[-1] if answers else None
 
 
+def _execution_evidence(path, offset, record, turns, *, streams_closed, resumed=False):
+    """Close this invocation's host-retained native trace, not task semantics.
+
+    Missing identities, truncated logs, open tools and cleanup uncertainty never
+    become complete merely because the agent returned an answer or exited zero.
+    """
+    incomplete = {"evidence_complete": "unknown", "completion_basis": None}
+    def refuse(reason):
+        return {**incomplete, "evidence_closure": {"version": 1, "reason": reason}}
+    # The workspace is cumulative. Closing only this attempt cannot establish
+    # evidence for earlier writes. Keep resumed publication closed until a
+    # durable per-attempt history can prove every contributing attempt.
+    if resumed:
+        return refuse("resume_publication_evidence_unverified")
+    if (not streams_closed or record.get("status") != "completed" or
+            record.get("snapshot_ready") is not True or
+            record.get("controller_cleanup") != "confirmed" or
+            record.get("container_ownership", {}).get("cleanup_verified") is not True):
+        return refuse("execution_or_cleanup_unclosed")
+    identities = [turn.get("turn_id") for turn in turns]
+    if (not identities or any(not isinstance(value, str) or not value for value in identities) or
+            len(set(identities)) != len(identities) or
+            any(turn.get("status") != "completed" for turn in turns)):
+        return refuse("turn_identity_or_status_unclosed")
+    try:
+        with path.open("rb") as source:
+            source.seek(offset)
+            raw = source.read(64 * 1024 * 1024 + 1)
+        if not raw or len(raw) > 64 * 1024 * 1024 or not raw.endswith(b"\n"):
+            return refuse("trace_unclosed")
+        events = [json.loads(line) for line in raw.splitlines()]
+        if any(not isinstance(event, dict) for event in events):
+            return refuse("trace_invalid")
+    except (OSError, ValueError, UnicodeError):
+        return refuse("trace_unreadable")
+    completed, items, answer = set(), {}, None
+    for event in events:
+        method = event.get("method")
+        if method == "invalid/json":
+            return refuse("trace_invalid")
+        params = event.get("params") or {}
+        if not isinstance(params, dict):
+            return refuse("trace_invalid")
+        if method == "turn/completed":
+            turn = params.get("turn") or {}
+            if not isinstance(turn, dict):
+                return refuse("trace_invalid")
+            identity = turn.get("id")
+            if identity in identities:
+                if (params.get("threadId") != record.get("thread_id") or
+                        identity in completed or turn.get("status") != "completed"):
+                    return refuse("native_terminal_unclosed")
+                completed.add(identity)
+        elif method in {"item/started", "item/completed"}:
+            identity = params.get("turnId")
+            if identity is None:
+                return refuse("item_identity_unclosed")
+            if identity not in identities:
+                continue
+            item = params.get("item") or {}
+            if (params.get("threadId") != record.get("thread_id") or not isinstance(item, dict) or
+                    not isinstance(item.get("id"), str) or not item["id"] or
+                    not isinstance(item.get("type"), str) or identity in completed):
+                return refuse("item_identity_unclosed")
+            key = (identity, item["id"])
+            if method == "item/started":
+                if key in items:
+                    return refuse("item_identity_unclosed")
+                items[key] = (item["type"], False)
+            else:
+                if key in items and (items[key][0] != item["type"] or items[key][1]):
+                    return refuse("item_identity_unclosed")
+                if item.get("status") == "inProgress":
+                    return refuse("item_completion_unclosed")
+                items[key] = (item["type"], True)
+                if identity == identities[-1] and item["type"] == "agentMessage":
+                    answer = item.get("text")
+    if completed != set(identities) or not items or any(not state[1] for state in items.values()):
+        return refuse("native_terminal_or_item_unclosed")
+    for identity in identities:
+        commands = _command_summary(events, identity)
+        if commands["identity_incomplete"] or commands["outstanding_ids"]:
+            return refuse("command_completion_unclosed")
+    if not isinstance(answer, str) or not answer or answer != record.get("answer"):
+        return refuse("retained_answer_mismatch")
+    return {"evidence_complete": True, "completion_basis": "native_trace_closure",
+            "evidence_closure": {"version": 1, "reason": "closed",
+                                 "turn_count": len(identities), "item_count": len(items)}}
+
+
 class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
                  check_docker: bool = True, max_model_turns: int = 0,
@@ -1397,6 +1487,7 @@ class LocalRunner:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
         run_dir, record, cancelled, server, lease = None, None, None, None, None
+        evidence_offset, attempt_turn_offset = 0, 0
         launch_attempted = False
         try:
             run_dir = self._run_dir(run_id)
@@ -1409,6 +1500,9 @@ class LocalRunner:
                         resume and record["status"] != "completed"):
                     raise RunnerError("run_not_dispatchable")
                 cancelled = threading.Event()
+                evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
+                attempt_turn_offset = len(record["turns"])
+                record.update(evidence_complete="unknown", completion_basis=None)
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
                 record["snapshot_ready"] = False
@@ -1797,6 +1891,14 @@ class LocalRunner:
                             # validation; no graph bearer can extend it.
                             record["container_ownership"]["cleanup_verified"] = verified
                             record["container_ownership"]["cleanup_detail"] = detail
+                            record.update(_execution_evidence(
+                                run_dir / "raw-events.jsonl", evidence_offset, record,
+                                record["turns"][attempt_turn_offset:], resumed=resume, streams_closed=(
+                                    server is not None and
+                                    getattr(server, "reader", None) is not None and
+                                    getattr(server, "stderr_reader", None) is not None and
+                                    server.reader.is_alive() is False and
+                                    server.stderr_reader.is_alive() is False)))
                             retained = (verified and not close_error and
                                         self.publication_controller is not None and
                                         self.publication_controller.finish_agent(record))
@@ -1818,6 +1920,8 @@ class LocalRunner:
                     with self.control_lock:
                         if record is not None:
                             record["attempt_finished"] = True
+                            if record.get("status") != "completed":
+                                record.update(evidence_complete="unknown", completion_basis=None)
                             if record.get("status") != "completed":
                                 record["snapshot_ready"] = False
                                 record["post_run_hash"] = None
