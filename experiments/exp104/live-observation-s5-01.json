@@ -1,0 +1,164 @@
+{
+  "container_a_after": "absent",
+  "container_a_at_denial": "owned",
+  "container_b_after": "absent",
+  "events": [
+    {
+      "error": "push_branch_denied",
+      "http": 403,
+      "name": "wrong_branch_control"
+    },
+    {
+      "at_monotonic": 467460.171,
+      "http": 200,
+      "name": "a_push",
+      "state": "confirmed"
+    },
+    {
+      "at_monotonic": 467460.984,
+      "http": 200,
+      "name": "b_read_before",
+      "state": "confirmed"
+    },
+    {
+      "at_monotonic": 467465.75,
+      "error": "grant_unavailable",
+      "http": 403,
+      "name": "a_denied_after_loss",
+      "provider_calls_after": 2,
+      "provider_calls_before": 2
+    },
+    {
+      "at_monotonic": 467471.078,
+      "http": 200,
+      "name": "b_read_after",
+      "state": "confirmed"
+    },
+    {
+      "error": "grant_unavailable",
+      "http": 403,
+      "name": "service_restart_old_b",
+      "new_instance": "59bb581c72171bcb"
+    },
+    {
+      "http": 200,
+      "name": "new_c_read",
+      "state": "confirmed"
+    },
+    {
+      "missing_run_refused": true,
+      "name": "negative_controls",
+      "provider_delta": 0,
+      "workflow_error": "workflow_approval_required",
+      "workflow_http": 403
+    },
+    {
+      "name": "synthetic_expiry_control",
+      "provider_calls": 0
+    },
+    {
+      "name": "synthetic_lost_response_control",
+      "state": "unknown",
+      "transport_calls": 1
+    }
+  ],
+  "final_container_cleanup": {
+    "laomedo-exp104-s5-20261007-01-a": {
+      "detail": "absent",
+      "state_after": "absent",
+      "verified": true
+    },
+    "laomedo-exp104-s5-20261007-01-b": {
+      "detail": "absent",
+      "state_after": "absent",
+      "verified": true
+    },
+    "laomedo-exp104-s5-20261007-01-c": {
+      "detail": "removed",
+      "state_after": "absent",
+      "verified": true
+    }
+  },
+  "lease_result_a": {
+    "cleanup_finished_at": 1791387273.7926052,
+    "cleanup_verified": true,
+    "detected_at": 1791387268.6872287,
+    "reason": "heartbeat_lost",
+    "revoked_at": 1791387268.6912267,
+    "revoked_grants": [
+      "bdfab6cdc6dec60c48284ba87bc64a9d"
+    ],
+    "state": "removed_after_loss"
+  },
+  "lease_result_b": {
+    "cleanup_finished_at": 1791387279.5731738,
+    "cleanup_verified": true,
+    "detected_at": 1791387274.4984019,
+    "reason": "service_restart",
+    "revoked_at": 1791387274.499402,
+    "revoked_grants": [
+      "c41efeed2880fc092f38e203a70831cf"
+    ],
+    "state": "removed_after_loss"
+  },
+  "lease_revocation_a": {
+    "detected_at": 1791387268.6872287,
+    "reason": "heartbeat_lost",
+    "revoked_at": 1791387268.6912267,
+    "revoked_grants": [
+      "bdfab6cdc6dec60c48284ba87bc64a9d"
+    ]
+  },
+  "plan": {
+    "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+    "branches": [
+      "exp104-s5-20261007-01-a",
+      "exp104-s5-20261007-01-b",
+      "exp104-s5-20261007-01-c"
+    ],
+    "code_sha": "6fc655cc4d96a09163ca544463fc4ea7f58a20bb",
+    "commit": "969d50b8b2a238cac10954ee4eee0d0773b1f48c",
+    "connection_id": "exp104-s5-selected-gh",
+    "diagnostic": "exp104-s5-20261007-01",
+    "generation": 1,
+    "image": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+    "preflight_wall": 1791387258.7300022,
+    "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+    "repository_id": 1408647759,
+    "run_ids": [
+      "exp104-s5-20261007-01-run-a",
+      "exp104-s5-20261007-01-run-b",
+      "exp104-s5-20261007-01-run-c"
+    ],
+    "scope_confirmation": "selected_repository_only",
+    "token_key": "GH_LAOMEDO",
+    "workflow_control_commit": "297f3e57048b9133bb794f76654dbee2a8331d0d"
+  },
+  "provider_attempts": 4,
+  "remote_ref_a_after_denial": {
+    "read_at": 1791387269.0932643,
+    "sha": "969d50b8b2a238cac10954ee4eee0d0773b1f48c"
+  },
+  "remote_ref_a_after_push": {
+    "read_at": 1791387263.6425338,
+    "sha": "969d50b8b2a238cac10954ee4eee0d0773b1f48c"
+  },
+  "runner_loss": {
+    "completed_monotonic": 467461.125,
+    "completed_wall": 1791387264.1355164,
+    "pid": 17244,
+    "started_monotonic": 467460.984
+  },
+  "runner_stop_failures": 0,
+  "secret_canary": {
+    "exact_token_hits": 0,
+    "files_scanned": 67
+  },
+  "service": {
+    "lease_instance": "5f2f321c82ad18a5",
+    "lease_pid": 31456,
+    "mediator_pid": 13772
+  },
+  "setup": "README initialized before probe",
+  "status": "scoped_candidate_pass"
+}

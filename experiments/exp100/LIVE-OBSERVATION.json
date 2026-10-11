@@ -1,0 +1,400 @@
+{
+  "action_listing_overlap": [
+    38049596084,
+    38049691676,
+    38049694341,
+    38050106646,
+    38050776099,
+    38050778578,
+    38051115078,
+    38051117753,
+    38052420721,
+    38052424127,
+    38052564626,
+    38052862697,
+    38052865501,
+    38052996605,
+    38053321882,
+    38053325390,
+    38053338651,
+    38053341543,
+    38053452110,
+    38054388259,
+    38054391035,
+    38056050461,
+    38056053077,
+    38056293675,
+    38058763970,
+    38059074528,
+    38059141687,
+    38059145423,
+    38059409656,
+    38059412658
+  ],
+  "cases": [
+    {
+      "calls": 1,
+      "case": "pr_list",
+      "exit": 0,
+      "output_hash": "93358616e600a103f6b3907ebf529d93739402ba40881c5f5b176b58ac300f8e",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "issue_list_preflight",
+      "exit": 0,
+      "output_hash": "eef46741adfc3a9f76294d3b78f37a45f113092ac9d44ee77c7a038a88ff09a1",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "graphql_preflight",
+      "exit": 0,
+      "output_hash": "b74cc48a18deb027d67399a6283a4002a956553f5583d94023a1d6bc2e1ff90c",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "rest_get",
+      "exit": 0,
+      "output_hash": "91ec169e608b1c7df80ab5dec49e1b5cc6cfa07461fc602392f672d429d83a5f",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "actions_runs",
+      "exit": 0,
+      "output_hash": "fbc06ab2013a3e37bd335f65620cc03650a56aff71fec5c5bb8f86912eed2aad",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "actions_job",
+      "exit": 0,
+      "output_hash": "0970b298d599f04f1a4fde12dc22a7d1c10e928b62aec61bff36d79ef7bf0817",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 0,
+      "case": "unsupported",
+      "exit": 2,
+      "passed": true,
+      "reason": "unsupported_command"
+    },
+    {
+      "calls": 0,
+      "case": "credential_export",
+      "exit": 2,
+      "passed": true,
+      "reason": "unsupported_command"
+    },
+    {
+      "calls": 0,
+      "case": "wrong_repository",
+      "exit": 2,
+      "passed": true,
+      "reason": "repository_mismatch"
+    },
+    {
+      "calls": 0,
+      "case": "host_wrong_repository",
+      "exit": null,
+      "passed": true,
+      "reason": "connection_unavailable"
+    },
+    {
+      "calls": 0,
+      "case": "altered_issue",
+      "exit": 3,
+      "passed": true,
+      "reason": "mediator_denied:issue_review_denied"
+    },
+    {
+      "calls": 1,
+      "case": "issue_create",
+      "exit": 0,
+      "output_hash": "6978df6067a7ef38e4b562c79fc8bdaeba9bcd2ed400689129dcfbe04dc45e54",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "issue_view",
+      "exit": 0,
+      "output_hash": "6978df6067a7ef38e4b562c79fc8bdaeba9bcd2ed400689129dcfbe04dc45e54",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "issue_list_positive",
+      "exit": 0,
+      "output_hash": "99b3d2e4deabf1c22d12ed3f4e5f95e38082a4b15a7c7c7845a562a40e0fc686",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 1,
+      "case": "graphql_positive",
+      "exit": 0,
+      "output_hash": "0a264f832ca2828f777eb7630831dfaceaf49fb95be3d424aef51a436a0f3ed3",
+      "passed": true,
+      "reason": "unclassified"
+    },
+    {
+      "calls": 0,
+      "case": "confirmed_replay",
+      "number": 7,
+      "passed": true
+    },
+    {
+      "calls": 0,
+      "case": "revoked",
+      "exit": 3,
+      "passed": true,
+      "reason": "mediator_denied:grant_unavailable"
+    }
+  ],
+  "cleanup": {
+    "containers": {
+      "disposable": {
+        "detail": "removed",
+        "verified": true
+      },
+      "public": {
+        "detail": "removed",
+        "verified": true
+      }
+    },
+    "elapsed": 1.625,
+    "grants": {
+      "disposable": true,
+      "public": true
+    },
+    "verified": true
+  },
+  "effect": {
+    "grant_id": "4763e88b71124c45d9e526e917092a7c",
+    "operation": "issue_create",
+    "request_hash": "17feef05070877b26199ed687b48fa71203ad9e0cc80da81e34c7c5c9e9bab5b",
+    "run_id": "exp100-live-s12-20261010-a-disposable",
+    "state": "confirmed"
+  },
+  "grants": {
+    "disposable": "4763e88b71124c45d9e526e917092a7c",
+    "public": "4c5c4839d9aa8875745e45e8e8ded615"
+  },
+  "identity": "exp100-live-s12-20261010-a",
+  "image": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "inventory": {
+    "disposable": {
+      "environment_keys": [
+        "HOME",
+        "LAOMEDO_CAPABILITY_FILE",
+        "LAOMEDO_MEDIATOR_INSTANCE",
+        "LAOMEDO_MEDIATOR_URL",
+        "LAOMEDO_REPOSITORY",
+        "NODE_VERSION",
+        "PATH",
+        "YARN_VERSION"
+      ],
+      "mount_destinations": [
+        "/run/laomedo/bin",
+        "/run/laomedo/capability",
+        "/run/laomedo/gh.mjs",
+        "/run/laomedo/mediate.mjs"
+      ]
+    },
+    "public": {
+      "environment_keys": [
+        "HOME",
+        "LAOMEDO_CAPABILITY_FILE",
+        "LAOMEDO_MEDIATOR_INSTANCE",
+        "LAOMEDO_MEDIATOR_URL",
+        "LAOMEDO_REPOSITORY",
+        "NODE_VERSION",
+        "PATH",
+        "YARN_VERSION"
+      ],
+      "mount_destinations": [
+        "/run/laomedo/bin",
+        "/run/laomedo/capability",
+        "/run/laomedo/gh.mjs",
+        "/run/laomedo/mediate.mjs"
+      ]
+    }
+  },
+  "issue": {
+    "body": "exp100-live-s12-20261010-a-reviewed-issue\nDisposable one-shot mediated issue-create acceptance test. No automatic retry.",
+    "number": 7,
+    "title": "Laomedo EXP-100 S12 reviewed integration test"
+  },
+  "job": {
+    "conclusion": "success",
+    "id": 114224703478,
+    "run_id": 38056050461,
+    "status": "completed"
+  },
+  "manifest_sha256": "ee22192232b88375724d5ef7559ed2fa7ca09c08979ec0594a16d2876a1cd1fd",
+  "model_turns": 0,
+  "preflight_counts": {
+    "graphql_issues": 0,
+    "prs": 6,
+    "rest_issues": 0
+  },
+  "provider_calls": [
+    {
+      "attempt": 1,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/pulls",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 2,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/pulls",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 3,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/issues",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 4,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/issues",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 5,
+      "method": "POST",
+      "path": "/graphql",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 6,
+      "method": "POST",
+      "path": "/graphql",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 7,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/branches/main",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 8,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/branches/main",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 9,
+      "method": "GET",
+      "path": "/repos/amadou-6e/laomedo/actions/runs",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 10,
+      "method": "GET",
+      "path": "/repos/amadou-6e/laomedo/actions/runs",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 11,
+      "method": "GET",
+      "path": "/repos/amadou-6e/laomedo/actions/jobs/114224703478",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 12,
+      "method": "GET",
+      "path": "/repos/amadou-6e/laomedo/actions/jobs/114224703478",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 13,
+      "method": "POST",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/issues",
+      "state": "response",
+      "status": 201,
+      "write": true
+    },
+    {
+      "attempt": 14,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/issues/7",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 15,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/issues/7",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 16,
+      "method": "GET",
+      "path": "/repos/ga84jog/laomedo-exp104-disposable-20261007/issues",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 17,
+      "method": "POST",
+      "path": "/graphql",
+      "state": "response",
+      "status": 200,
+      "write": false
+    },
+    {
+      "attempt": 18,
+      "method": "POST",
+      "path": "/graphql",
+      "state": "response",
+      "status": 200,
+      "write": false
+    }
+  ],
+  "result": "passed",
+  "source_sha": "76902618cb6e0319b3f9752672911786aa46d7e4",
+  "spec_sha": "04fade6d88cc4c6d5c494c7e566c5cacbad93b09"
+}

@@ -18,6 +18,7 @@ import argparse
 from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import logging
 import os
 from pathlib import Path
 import secrets
@@ -25,33 +26,66 @@ import threading
 import time
 
 from .container_lease import cleanup_after_loss, inspect_exact
+from .github_mediation import MediationError, MediationStore
 
 
 LOSS_SECONDS = 5.0
 SERVICE_STALE_SECONDS = 3.0
-GRANT_TTL_SECONDS = 60.0
+# A runner can be lost just after a renewal. Keep the hard credential TTL
+# below the 60-second loss bound even if service cleanup is delayed.
+GRANT_TTL_SECONDS = 50.0
+MAX_FROM_HEARTBEAT_SECONDS = 58.0
 POLL_SECONDS = 0.25
 
 
-def _write_json(path: Path, value: dict) -> None:
+def _atomic_text(path: Path, value: str) -> None:
     pending = path.with_name(path.name + ".pending-" + secrets.token_hex(4))
-    pending.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(pending, path)
+    try:
+        pending.write_text(value, encoding="utf-8")
+        for attempt in range(20):
+            try:
+                os.replace(pending, path)
+                return
+            except PermissionError:
+                if attempt == 19:
+                    raise
+                time.sleep(.01)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
+def _write_json(path: Path, value: dict) -> None:
+    _atomic_text(path, json.dumps(value, sort_keys=True) + "\n")
+
+
+def _write_float(path: Path, value: float) -> None:
+    """Publish a heartbeat without exposing a truncated value to readers."""
+    _atomic_text(path, repr(value))
 
 
 def _read_json(path: Path) -> dict | None:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return value if isinstance(value, dict) else None
+    for attempt in range(5):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            return value if isinstance(value, dict) else None
+        except (PermissionError, FileNotFoundError):
+            if attempt < 4:
+                time.sleep(.01)
+        except (OSError, ValueError):
+            return None
+    return None
 
 
 def _read_float(path: Path) -> float | None:
-    try:
-        return float(path.read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
-        return None
+    for attempt in range(5):
+        try:
+            return float(path.read_text(encoding="utf-8").strip())
+        except (PermissionError, FileNotFoundError):
+            if attempt < 4:
+                time.sleep(.01)
+        except (OSError, ValueError):
+            return None
+    return None
 
 
 class GrantBook:
@@ -62,20 +96,33 @@ class GrantBook:
         self.by_digest: dict[str, dict] = {}
         self.events = events
 
-    def issue(self, token: str, now: float) -> tuple[str, str]:
+    def issue(self, token: str, now: float, expires_not_after: float,
+              expires_not_after_monotonic: float) -> tuple[str, str]:
         secret = secrets.token_hex(32)
         grant_id = "grant-" + secrets.token_hex(8)
+        issued_monotonic = time.monotonic()
         with self.lock:
             self.by_digest[sha256(secret.encode()).hexdigest()] = {
                 "grant_id": grant_id, "lease_token": token,
-                "expires_at": now + GRANT_TTL_SECONDS, "revoked_at": None}
+                "expires_at": min(now + GRANT_TTL_SECONDS, expires_not_after),
+                "issued_monotonic": issued_monotonic,
+                "expires_monotonic": min(issued_monotonic + GRANT_TTL_SECONDS,
+                                         expires_not_after_monotonic),
+                "revoked_at": None}
         return grant_id, secret
 
-    def renew(self, token: str, now: float) -> None:
+    def renew(self, token: str, now: float, expires_not_after: float,
+              expires_not_after_monotonic: float) -> None:
+        now_monotonic = time.monotonic()
         with self.lock:
             for grant in self.by_digest.values():
-                if grant["lease_token"] == token and grant["revoked_at"] is None:
-                    grant["expires_at"] = now + GRANT_TTL_SECONDS
+                if (grant["lease_token"] == token and grant["revoked_at"] is None and
+                        grant["expires_monotonic"] > now_monotonic):
+                    grant["expires_at"] = min(now + GRANT_TTL_SECONDS,
+                                               expires_not_after)
+                    grant["expires_monotonic"] = min(
+                        now_monotonic + GRANT_TTL_SECONDS,
+                        expires_not_after_monotonic)
 
     def revoke(self, token: str, now: float) -> list[str]:
         revoked = []
@@ -88,10 +135,13 @@ class GrantBook:
 
     def check(self, secret: str) -> tuple[bool, str | None]:
         now = time.time()
+        now_monotonic = time.monotonic()
         with self.lock:
             grant = self.by_digest.get(sha256(secret.encode()).hexdigest())
             accepted = (grant is not None and grant["revoked_at"] is None and
-                        now < grant["expires_at"])
+                        now < grant["expires_at"] and
+                        grant["issued_monotonic"] <= now_monotonic <
+                        grant["expires_monotonic"])
             grant_id = grant["grant_id"] if grant else None
             with self.events.open("a", encoding="utf-8") as log:
                 log.write(json.dumps({"at": now, "grant_id": grant_id,
@@ -99,18 +149,52 @@ class GrantBook:
         return accepted, grant_id
 
 
-def _handler(book: GrantBook):
+def _handler(book: GrantBook | None, mediator: MediationStore | None = None,
+             transport=None, instance: str | None = None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
 
+        def do_GET(self):
+            if self.path == "/v1/health" and mediator is not None and \
+                    transport is not None and instance is not None:
+                return self._json_reply(200, {"status": "ready", "instance": instance})
+            return self._json_reply(404, {"error": "not_found"})
+
         def do_POST(self):
+            if self.path == "/v1/mediate":
+                if mediator is None or transport is None:
+                    return self._json_reply(503, {"error": "mediator_unavailable"})
+                if instance is not None and self.headers.get(
+                        "X-Laomedo-Mediator-Instance") != instance:
+                    return self._json_reply(403, {"error": "mediator_instance_mismatch"})
+                try:
+                    size = int(self.headers.get("Content-Length", ""))
+                    if not 0 < size <= 1024 * 1024 or not self.headers.get(
+                            "Authorization", "").startswith("Bearer "):
+                        raise MediationError("request_invalid")
+                    body = json.loads(self.rfile.read(size))
+                    if not isinstance(body, dict):
+                        raise MediationError("request_invalid")
+                    result = mediator.invoke(
+                        token=self.headers["Authorization"][len("Bearer "):],
+                        repository=body.get("repository"),
+                        operation=body.get("operation"),
+                        payload=body.get("payload"),
+                        effect_id=body.get("effect_id"), transport=transport)
+                except (MediationError, ValueError, TypeError) as error:
+                    code = error.code if isinstance(error, MediationError) else "request_invalid"
+                    return self._json_reply(403, {"error": code})
+                return self._json_reply(200, result)
             supplied = self.headers.get("Authorization", "")
             accepted = False
-            if self.path == "/write" and supplied.startswith("Bearer "):
+            if mediator is None and self.path == "/write" and supplied.startswith("Bearer "):
                 accepted, _ = book.check(supplied[len("Bearer "):])
-            body = json.dumps({"accepted": accepted}).encode()
-            self.send_response(200 if accepted else 403)
+            return self._json_reply(200 if accepted else 403, {"accepted": accepted})
+
+        def _json_reply(self, status: int, value: dict):
+            body = json.dumps(value).encode()
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -121,15 +205,27 @@ def _handler(book: GrantBook):
 
 class LeaseService:
     def __init__(self, state: Path, *, port: int = 0, host: str = "127.0.0.1",
-                 loss_seconds: float = LOSS_SECONDS, cleanup=cleanup_after_loss):
+                 loss_seconds: float = LOSS_SECONDS, cleanup=cleanup_after_loss,
+                 mediator: MediationStore | None = None,
+                 mediation_authority=None):
         self.state = state.resolve()
         (self.state / "leases").mkdir(parents=True, exist_ok=True)
         self.loss_seconds = loss_seconds
         self.cleanup = cleanup
         self.book = GrantBook(self.state / "grant-events.jsonl")
-        self.server = ThreadingHTTPServer((host, port), _handler(self.book))
+        self.mediator = mediator
+        self.mediation_authority = mediation_authority
+        self.lease_scope = str(self.state)
+        if mediator is not None:
+            # An old service instance cannot continue authorizing writes after
+            # restart. Its lease is not silently adopted by this instance.
+            mediator.revoke_lease_scope(self.lease_scope)
+        self.server = ThreadingHTTPServer((host, port),
+                                          _handler(self.book, mediator, None))
         self.instance = secrets.token_hex(8)
         self.stopping = threading.Event()
+        self._finishing: set[Path] = set()
+        self._finishing_lock = threading.Lock()
 
     @property
     def port(self) -> int:
@@ -137,53 +233,247 @@ class LeaseService:
 
     def _beat(self) -> None:
         while not self.stopping.is_set():
-            (self.state / "service.alive").write_text(repr(time.time()), encoding="utf-8")
+            try:
+                self._publish_heartbeat()
+            except OSError:
+                logging.warning("lease_service_heartbeat_write_failed")
             self.stopping.wait(1)
 
+    def _publish_heartbeat(self) -> None:
+        _write_float(self.state / "service.alive", time.time())
+        _write_float(self.state / "service.alive.monotonic", time.monotonic())
+
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
-        grant_id, secret = self.book.issue(lease["token"], now)
-        # The secret file is private to the runner's user and never logged.
-        (lease_dir / "grant.secret").write_text(secret, encoding="utf-8")
-        _write_json(lease_dir / "accepted.json", {
-            "instance": self.instance, "token": lease["token"], "grant_id": grant_id,
-            "accepted_at": now})
+        beat = _read_float(lease_dir / "heartbeat")
+        beat_monotonic = _read_float(lease_dir / "heartbeat.monotonic")
+        now_monotonic = time.monotonic()
+        if (beat is None or beat_monotonic is None or
+                beat_monotonic > now_monotonic + 1 or
+                now_monotonic - beat_monotonic > self.loss_seconds or
+                beat > now + 1 or now - beat > self.loss_seconds):
+            raise RuntimeError("lease_heartbeat_invalid")
+        expiry_cap = min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS
+        expiry_cap_monotonic = (min(beat_monotonic, now_monotonic) +
+                                MAX_FROM_HEARTBEAT_SECONDS)
+        if self.mediator is None:
+            grant_id, secret = self.book.issue(
+                lease["token"], now, expiry_cap, expiry_cap_monotonic)
+        else:
+            request = lease.get("mediation")
+            if not isinstance(request, dict) or not all(
+                    isinstance(request.get(key), str) and request[key]
+                    for key in ("invocation_id", "repository", "branch")):
+                raise RuntimeError("mediated_lease_request_invalid")
+            # Lease files originate on the runner side. The service must not
+            # treat its requested repo/branch/operations as authorization.
+            scope = (self.mediation_authority(lease, request)
+                     if self.mediation_authority is not None else None)
+            if (not isinstance(scope, dict) or
+                    any(scope.get(key) != request[key] for key in
+                        ("invocation_id", "repository", "branch")) or
+                    not isinstance(scope.get("operations"), set)):
+                raise RuntimeError("mediated_lease_not_authorized")
+            grant_id, secret = self.mediator.issue(
+                run_id=lease["run_id"], invocation_id=scope["invocation_id"],
+                repository=scope["repository"], branch=scope["branch"],
+                operations=scope["operations"],
+                approval_identity=scope.get("approval_identity"),
+                connection_id=scope.get("connection_id"),
+                connection_generation=scope.get("connection_generation"),
+                target_prs=scope.get("target_prs", {}),
+                base_branch=scope.get("base_branch", "main"),
+                ttl_seconds=GRANT_TTL_SECONDS, lease_token=lease["token"],
+                lease_scope=self.lease_scope, service_instance=self.instance,
+                expires_not_after=expiry_cap,
+                expires_not_after_monotonic=expiry_cap_monotonic)
+        try:
+            # Never create a live bearer using inherited broad file modes.
+            secret_path = lease_dir / "grant.secret"
+            descriptor = os.open(secret_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as secret_file:
+                secret_file.write(secret)
+            _write_json(lease_dir / "accepted.json", {
+                "instance": self.instance, "token": lease["token"], "grant_id": grant_id,
+                "accepted_at": now})
+        except Exception:
+            if self.mediator is None:
+                self.book.revoke(lease["token"], time.time())
+            else:
+                self.mediator.revoke_lease(run_id=lease["run_id"],
+                                           lease_token=lease["token"],
+                                           lease_scope=self.lease_scope)
+            raise
 
     def _finish(self, lease_dir: Path, lease: dict, reason: str, now: float) -> None:
-        revoked = self.book.revoke(lease["token"], now)
-        revoked_at = time.time()
-        if reason == "done":
-            state, _ = inspect_exact(lease["name"], lease["run_id"], lease["token"])
-            verified, detail = state == "absent", state
+        with self._finishing_lock:
+            if lease_dir in self._finishing:
+                return
+            self._finishing.add(lease_dir)
+        try:
+            self._revoke_and_cleanup(lease_dir, lease, reason, now)
+        except Exception:
+            with self._finishing_lock:
+                self._finishing.discard(lease_dir)
+            raise
+
+    def _revoke_and_cleanup(self, lease_dir: Path, lease: dict,
+                            reason: str, now: float) -> None:
+        detected_at_monotonic = time.monotonic()
+        if self.mediator is None:
+            revoked = self.book.revoke(lease["token"], now)
         else:
-            verified, detail = self.cleanup(lease["name"], lease["run_id"], lease["token"])
-        _write_json(lease_dir / "result.json", {
-            "reason": reason, "revoked_grants": revoked, "detected_at": now,
-            "revoked_at": revoked_at, "cleanup_finished_at": time.time(),
-            "cleanup_verified": verified, "state": detail})
+            revoked = self.mediator.revoke_lease(
+                run_id=lease["run_id"], lease_token=lease["token"],
+                lease_scope=self.lease_scope)
+        revoked_at = time.time()
+        revoked_at_monotonic = time.monotonic()
+        # Publish the authorization boundary separately from container cleanup
+        # so callers can verify denial while the old container still exists.
+        _write_json(lease_dir / "revoked.json", {
+            "reason": reason, "revoked_grants": revoked,
+            "detected_at": now, "revoked_at": revoked_at,
+            "detected_at_monotonic": detected_at_monotonic,
+            "revoked_at_monotonic": revoked_at_monotonic})
+        def finish_cleanup() -> None:
+            try:
+                if reason == "done":
+                    state, _ = inspect_exact(lease["name"], lease["run_id"], lease["token"])
+                    verified, detail = state == "absent", state
+                else:
+                    verified, detail = self.cleanup(
+                        lease["name"], lease["run_id"], lease["token"])
+            except Exception:
+                verified, detail = False, "cleanup_error"
+            try:
+                _write_json(lease_dir / "result.json", {
+                    "reason": reason, "revoked_grants": revoked, "detected_at": now,
+                    "revoked_at": revoked_at, "cleanup_finished_at": time.time(),
+                    "detected_at_monotonic": detected_at_monotonic,
+                    "revoked_at_monotonic": revoked_at_monotonic,
+                    "cleanup_finished_at_monotonic": time.monotonic(),
+                    "cleanup_verified": verified, "state": detail})
+            finally:
+                with self._finishing_lock:
+                    self._finishing.discard(lease_dir)
+
+        threading.Thread(target=finish_cleanup, daemon=True,
+                         name="laomedo-lease-cleanup").start()
 
     def tick(self) -> None:
-        now = time.time()
         for lease_dir in sorted((self.state / "leases").iterdir()):
-            if not lease_dir.is_dir() or (lease_dir / "result.json").exists():
+            if (not lease_dir.is_dir() or (lease_dir / "result.json").exists() or
+                    lease_dir in self._finishing):
                 continue
-            lease = _read_json(lease_dir / "lease.json")
-            if (lease is None or lease.get("token") != lease_dir.name or
-                    not all(isinstance(lease.get(k), str) and lease[k]
-                            for k in ("token", "run_id", "name"))):
-                continue
-            if not (lease_dir / "accepted.json").exists():
-                self._accept(lease_dir, lease, now)
-                continue
-            if (lease_dir / "done").exists():
-                self._finish(lease_dir, lease, "done", now)
-                continue
-            beat = _read_float(lease_dir / "heartbeat")
-            if beat is None or now - beat > self.loss_seconds:
-                self._finish(lease_dir, lease, "heartbeat_lost", now)
-            else:
-                self.book.renew(lease["token"], now)
+            try:
+                self._tick_lease(lease_dir, time.time())
+            except Exception as error:
+                # One runner-controlled lease must not stop revocation and
+                # exact-container cleanup for every other run.
+                self._refuse_lease(lease_dir, time.time(), error)
+
+    def _tick_lease(self, lease_dir: Path, now: float) -> None:
+        lease = _read_json(lease_dir / "lease.json")
+        if (lease is None or lease.get("token") != lease_dir.name or
+                not all(isinstance(lease.get(k), str) and lease[k]
+                        for k in ("token", "run_id", "name"))):
+            raise RuntimeError("lease_identity_invalid")
+        if not (lease_dir / "accepted.json").exists():
+            self._accept(lease_dir, lease, now)
+            return
+        accepted = _read_json(lease_dir / "accepted.json")
+        if accepted is None or accepted.get("instance") != self.instance:
+            self._finish(lease_dir, lease, "service_restart", now)
+            return
+        if (lease_dir / "done").exists():
+            self._finish(lease_dir, lease, "done", now)
+            return
+        beat = _read_float(lease_dir / "heartbeat")
+        beat_monotonic = _read_float(lease_dir / "heartbeat.monotonic")
+        now = time.time()
+        now_monotonic = time.monotonic()
+        if (beat is None or beat_monotonic is None or
+                beat_monotonic > now_monotonic + 1 or
+                now_monotonic - beat_monotonic > self.loss_seconds or
+                beat > now + 1 or now - beat > self.loss_seconds):
+            self._finish(lease_dir, lease, "heartbeat_lost", now)
+        elif self.mediator is None:
+            self.book.renew(lease["token"], now,
+                            min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS,
+                            min(beat_monotonic, now_monotonic) +
+                            MAX_FROM_HEARTBEAT_SECONDS)
+        elif not self.mediator.renew_lease(
+                run_id=lease["run_id"], lease_token=lease["token"],
+                lease_scope=self.lease_scope,
+                ttl_seconds=GRANT_TTL_SECONDS,
+                 expires_not_after=min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS,
+                 expires_not_after_monotonic=(min(beat_monotonic, now_monotonic) +
+                                               MAX_FROM_HEARTBEAT_SECONDS)):
+            self._finish(lease_dir, lease, "grant_expired", now)
+
+    def _refuse_lease(self, lease_dir: Path, now: float, error: Exception) -> None:
+        with self._finishing_lock:
+            if lease_dir in self._finishing:
+                return
+            self._finishing.add(lease_dir)
+        lease = _read_json(lease_dir / "lease.json")
+        valid = (lease is not None and lease.get("token") == lease_dir.name and
+                 all(isinstance(lease.get(k), str) and lease[k]
+                     for k in ("token", "run_id", "name")))
+        code = (str(error) if isinstance(error, RuntimeError) and
+                str(error) in {"lease_identity_invalid", "mediated_lease_request_invalid",
+                               "mediated_lease_not_authorized"}
+                else type(error).__name__)
+        try:
+            # The final result waits for exact cleanup. Give a registering
+            # runner the refusal immediately, without implying cleanup has
+            # finished or allowing dispatch.
+            _write_json(lease_dir / "refused.json", {"error_code": code,
+                                                     "detected_at": now})
+        except OSError:
+            pass
+        revoked, revocation_verified = [], False
+        if valid:
+            try:
+                revoked = (self.mediator.revoke_lease(
+                    run_id=lease["run_id"], lease_token=lease["token"],
+                    lease_scope=self.lease_scope) if self.mediator is not None else
+                    self.book.revoke(lease["token"], now))
+                revocation_verified = True
+            except Exception:
+                # The use-time TTL still bounds the grant if the DB is down.
+                pass
+        def finish_refusal() -> None:
+            cleanup_verified, detail = False, "identity_invalid"
+            try:
+                if valid:
+                    try:
+                        cleanup_verified, detail = self.cleanup(
+                            lease["name"], lease["run_id"], lease["token"])
+                    except Exception:
+                        detail = "cleanup_error"
+                _write_json(lease_dir / "result.json", {
+                    "reason": "refused" if not (lease_dir / "accepted.json").exists()
+                    else "lease_error", "error_code": code, "detected_at": now,
+                    "revoked_grants": revoked,
+                    "revocation_verified": revocation_verified,
+                    "cleanup_verified": cleanup_verified, "state": detail})
+            except OSError:
+                # A broken directory may be retried, but cannot starve peers.
+                pass
+            finally:
+                with self._finishing_lock:
+                    self._finishing.discard(lease_dir)
+
+        threading.Thread(target=finish_refusal, daemon=True,
+                         name="laomedo-lease-refusal").start()
 
     def serve(self) -> None:
+        # A previous instance's publication must not become valid again when
+        # this instance refreshes the heartbeat files on the same state path.
+        (self.state / "service.json").unlink(missing_ok=True)
+        # Refuse startup if either initial heartbeat cannot be published.
+        # Clients may see service.json only after both are fresh.
+        self._publish_heartbeat()
         _write_json(self.state / "service.json", {
             "pid": os.getpid(), "port": self.port, "instance": self.instance,
             "started_at": time.time()})
@@ -202,29 +492,52 @@ class LeaseClient:
     """Runner-side registration and heartbeat for one exact container lease."""
 
     def __init__(self, service_state: Path, *, run_id: str, name: str, token: str,
-                 cancelled: threading.Event, accept_timeout: float = 5.0):
+                 cancelled: threading.Event, accept_timeout: float = 5.0,
+                 mediation_request: dict | None = None):
         self.state = Path(service_state).resolve()
         info = _read_json(self.state / "service.json")
         alive = _read_float(self.state / "service.alive")
-        if (info is None or alive is None or
-                time.time() - alive > SERVICE_STALE_SECONDS or info.get("pid") == os.getpid()):
+        alive_monotonic = _read_float(self.state / "service.alive.monotonic")
+        now_monotonic = time.monotonic()
+        if (info is None or alive is None or alive_monotonic is None or
+                alive_monotonic > now_monotonic + 1 or
+                now_monotonic - alive_monotonic > SERVICE_STALE_SECONDS or
+                time.time() - alive > SERVICE_STALE_SECONDS or
+                info.get("pid") == os.getpid()):
             raise RuntimeError("lease_service_unavailable")
         self.instance = info.get("instance")
         self.port = info.get("port")
         self.dir = self.state / "leases" / token
-        self.dir.mkdir(parents=True, exist_ok=False)
+        # The service scans only leases/. Publish the complete registration in
+        # one directory rename so it cannot mistake a half-written lease for
+        # an invalid runner request and permanently refuse it.
+        staging_root = self.state / "pending-leases"
+        staging_root.mkdir(parents=True, exist_ok=True)
+        pending = staging_root / (token + "-" + secrets.token_hex(8))
+        pending.mkdir(mode=0o700)
         self.lost = threading.Event()
         self.stop_event = threading.Event()
-        (self.dir / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
-        _write_json(self.dir / "lease.json", {
+        _write_float(pending / "heartbeat", time.time())
+        _write_float(pending / "heartbeat.monotonic", time.monotonic())
+        _write_json(pending / "lease.json", {
             "token": token, "run_id": run_id, "name": name,
-            "runner_pid": os.getpid(), "created_at": time.time()})
+            "runner_pid": os.getpid(), "created_at": time.time(),
+            "mediation": mediation_request})
+        if self.dir.exists():
+            raise FileExistsError(self.dir)
+        os.rename(pending, self.dir)
         deadline = time.monotonic() + accept_timeout
         accepted = None
         while time.monotonic() < deadline:
             accepted = _read_json(self.dir / "accepted.json")
             if accepted is not None:
                 break
+            refused = _read_json(self.dir / "result.json")
+            if refused is None:
+                refused = _read_json(self.dir / "refused.json")
+            if refused is not None:
+                code = refused.get("error_code") or refused.get("reason", "unknown")
+                raise RuntimeError(f"lease_service_refused:{code}")
             time.sleep(.05)
         if (accepted is None or accepted.get("token") != token or
                 accepted.get("instance") != self.instance):
@@ -233,9 +546,20 @@ class LeaseClient:
 
         def heartbeat() -> None:
             while not self.stop_event.wait(1):
-                (self.dir / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
+                try:
+                    _write_float(self.dir / "heartbeat", time.time())
+                    _write_float(self.dir / "heartbeat.monotonic", time.monotonic())
+                except OSError:
+                    logging.warning("lease_client_heartbeat_write_failed")
                 alive_at = _read_float(self.state / "service.alive")
-                if alive_at is None or time.time() - alive_at > SERVICE_STALE_SECONDS:
+                alive_monotonic = _read_float(self.state / "service.alive.monotonic")
+                current = _read_json(self.state / "service.json")
+                now_monotonic = time.monotonic()
+                if (alive_at is None or alive_monotonic is None or
+                        alive_monotonic > now_monotonic + 1 or
+                        now_monotonic - alive_monotonic > SERVICE_STALE_SECONDS or
+                        time.time() - alive_at > SERVICE_STALE_SECONDS or
+                        current is None or current.get("instance") != self.instance):
                     self.lost.set()
                     cancelled.set()
 
@@ -268,8 +592,34 @@ def main() -> None:
     serve = commands.add_parser("serve", help="run the independent lease service")
     serve.add_argument("--state", type=Path, required=True)
     serve.add_argument("--port", type=int, default=0)
+    serve.add_argument("--mediator-store", type=Path)
+    serve.add_argument("--authority-store", type=Path)
+    serve.add_argument("--repository")
+    serve.add_argument("--connection-id")
+    serve.add_argument("--connection-generation", type=int)
     args = parser.parse_args()
-    LeaseService(args.state, port=args.port).serve()
+    selected = (args.mediator_store, args.authority_store, args.repository,
+                args.connection_id, args.connection_generation)
+    if any(value is not None for value in selected):
+        if any(value is None for value in selected):
+            parser.error("mediated mode requires all store and connection options")
+        from .mediation_authority import RunGrantAuthority
+
+        def matches(connection_id, generation, repository, reviewed_by):
+            return (bool(reviewed_by) and
+                    (connection_id, generation, repository) ==
+                    (args.connection_id, args.connection_generation, args.repository))
+
+        authority = RunGrantAuthority(
+            args.authority_store, connection_authorizer=matches)
+        mediator = MediationStore(args.mediator_store,
+                                  connection_is_current=lambda cid, gen, repo:
+                                  matches(cid, gen, repo, "lease-service"))
+        service = LeaseService(args.state, port=args.port, mediator=mediator,
+                               mediation_authority=authority.authorize_lease)
+    else:
+        service = LeaseService(args.state, port=args.port)
+    service.serve()
 
 
 if __name__ == "__main__":

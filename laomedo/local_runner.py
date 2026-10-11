@@ -16,17 +16,24 @@ import stat
 import subprocess
 import threading
 import time
+from urllib.request import urlopen
 from uuid import UUID, uuid4
 
 from .skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 from .artifacts import ArtifactError, import_selected, relative_path, selections
 from .container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
 from .lease_service import LeaseClient
+from .mediation_authority import RunGrantAuthority
+from .github_mediation import MediationError
+from .git_workspace import GitWorkspaceError, prepare_git_workspace
 from .siwc_auth import AuthError, ChatGPTConnection, _outside_git
+from .output_contract import verify_requirements, evaluate, dynamic_tool, precheck_response
 
 
 IMAGE = "laomedo-codex-boundary:0.159.2"
 IMAGE_ID = "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239"
+GIT_IMAGE = "laomedo-codex-git:0.159.2"
+GIT_IMAGE_ID = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78"
 CLI_VERSION = "codex-cli 0.159.2"
 VOLUME = "laomedo-122-docker-auth"
 SPLIT_TOOLS = frozenset({
@@ -35,9 +42,12 @@ SPLIT_TOOLS = frozenset({
     "write_stdin",
 })
 CONFIG = Path(__file__).resolve().parent / "runner-config.toml"
+MEDIATION_CLIENT = Path(__file__).resolve().parent / "agent_mediation_client.mjs"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 MAX_BODY = 64 * 1024
+MAX_GIT_WORKSPACE_SNAPSHOT_BYTES = 64 * 1024 * 1024
+MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES = 10000
 NATIVE_ERROR_KINDS = frozenset({
     "contextWindowExceeded", "sessionBudgetExceeded", "usageLimitExceeded",
     "rateLimitExceeded", "flexUnavailable", "serverOverloaded", "cyberPolicy",
@@ -51,6 +61,9 @@ NATIVE_HTTP_ERROR_KINDS = frozenset({
     "httpConnectionFailed", "responseStreamConnectionFailed",
     "responseStreamDisconnected", "responseTooManyFailedAttempts",
 })
+
+
+from . import workspace_skills
 
 
 class RunnerError(ValueError):
@@ -101,13 +114,17 @@ def _read(path: Path) -> dict:
     return value
 
 
-def _hash_tree(path: Path) -> str:
+def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     """Hash regular files and directories, including empty directories."""
     if not path.is_dir() or path.is_symlink():
         raise RunnerError("invalid_workspace")
     files = {}
     directories = []
+    total_bytes = 0
     for parent, dirs, names in os.walk(path, followlinks=False):
+        if exclude_root_git and Path(parent) == path:
+            dirs[:] = [name for name in dirs if name != ".git"]
+            names = [name for name in names if name != ".git"]
         for name in dirs + names:
             item = Path(parent) / name
             if (item.is_symlink() or
@@ -118,9 +135,18 @@ def _hash_tree(path: Path) -> str:
             if item.is_file():
                 if item.stat().st_nlink != 1:
                     raise RunnerError("unsafe_workspace_entry")
+                if exclude_root_git:
+                    total_bytes += item.stat().st_size
+                    if (total_bytes > MAX_GIT_WORKSPACE_SNAPSHOT_BYTES or
+                            len(files) + len(directories) >=
+                            MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES):
+                        raise RunnerError("git_workspace_snapshot_limit")
                 files[item.relative_to(path).as_posix()] = item.read_bytes()
             else:
                 directories.append(item.relative_to(path).as_posix())
+                if exclude_root_git and len(files) + len(directories) > \
+                        MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES:
+                    raise RunnerError("git_workspace_snapshot_limit")
     digest = hashlib.sha256()
     for relative in sorted(directories):
         encoded = relative.encode("utf-8")
@@ -137,9 +163,11 @@ def _hash_tree(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
-def _copy_tree(source: Path, target: Path) -> str:
-    expected = _hash_tree(source)
-    shutil.copytree(source, target)
+def _copy_tree(source: Path, target: Path, *, exclude_root_git: bool = False) -> str:
+    expected = _hash_tree(source, exclude_root_git=exclude_root_git)
+    ignore = (lambda parent, names: {name for name in names
+               if Path(parent) == source and name == ".git"}) if exclude_root_git else None
+    shutil.copytree(source, target, ignore=ignore)
     if _hash_tree(target) != expected:
         raise RunnerError("workspace_copy_mismatch")
     return expected
@@ -207,13 +235,48 @@ def _auth_record_error(exc: AuthError) -> tuple[str, str]:
 
 
 def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
+                   image: str = IMAGE,
                    name: str | None = None, run_id: str | None = None,
-                   launch_token: str | None = None) -> list[str]:
+                   launch_token: str | None = None,
+                   capability: Path | None = None,
+                   mediator_url: str | None = None,
+                   mediator_instance: str | None = None,
+                   command_directory: Path | None = None,
+                   repository: str | None = None,
+                   branch: str | None = None,
+                   base_branch: str = "main") -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
     labels = (["--label", f"{LABEL_RUN}={run_id}",
                "--label", f"{LABEL_TOKEN}={launch_token}"]
               if run_id and launch_token else [])
+    mediation = (["--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
+                  "--mount", f"type=bind,source={MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
+                  "--env", "LAOMEDO_MEDIATOR_URL=" + mediator_url,
+                  "--env", "LAOMEDO_MEDIATOR_INSTANCE=" + mediator_instance,
+                  "--env", "LAOMEDO_CAPABILITY_FILE=/run/laomedo/capability"]
+                 if all(value is not None for value in
+                        (capability, mediator_url, mediator_instance)) else [])
+    if any(value is not None for value in
+           (capability, mediator_url, mediator_instance)) and not mediation:
+        raise RunnerError("incomplete_mediator_mount")
+    if command_directory is not None:
+        if not mediation or repository is None or branch is None:
+            raise RunnerError("incomplete_command_mount")
+        mediation += [
+            "--mount", f"type=bind,source={command_directory},target=/run/laomedo/bin,readonly",
+            "--mount", f"type=bind,source={MEDIATION_CLIENT.with_name('agent_gh_adapter.mjs')},target=/run/laomedo/gh.mjs,readonly",
+            "--mount", f"type=bind,source={MEDIATION_CLIENT.with_name('agent_git_remote.mjs')},target=/run/laomedo/git-remote.mjs,readonly",
+            "--env", "LAOMEDO_REPOSITORY=" + repository,
+            "--env", "LAOMEDO_RUN_BRANCH=" + branch,
+            "--env", "LAOMEDO_BASE_BRANCH=" + base_branch,
+            "--env", "PATH=/run/laomedo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"]
+    # Windows bind mounts need not be owned by the container's non-root UID.
+    # Trust only our fixed workspace, never arbitrary paths or a wildcard.
+    git_config = (["--env", "GIT_CONFIG_COUNT=1",
+                   "--env", "GIT_CONFIG_KEY_0=safe.directory",
+                   "--env", "GIT_CONFIG_VALUE_0=/draft"]
+                  if image in {GIT_IMAGE, GIT_IMAGE_ID} else [])
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -223,13 +286,15 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
             "--mount", f"type=bind,source={canonical},target=/canonical,readonly",
             "--mount", f"type=bind,source={store_mount},target=/store",
             "--mount", f"type=bind,source={CONFIG},target=/config.toml,readonly",
-            "--workdir", "/draft", IMAGE, "sh", "-c",
+            *mediation, *git_config,
+            "--workdir", "/draft", image, "sh", "-c",
             'cp /config.toml /home/runner/.codex/config.toml && exec codex "$@"',
             "bootstrap", "app-server", "--stdio"]
 
 
 class AppServer:
-    def __init__(self, command: list[str], evidence: Path, *, env=None):
+    def __init__(self, command: list[str], evidence: Path, *, env=None,
+                 secret_redactions=()):
         self.events = []
         self.messages = queue.Queue()
         self.container_name = command[command.index("--name") + 1]
@@ -243,28 +308,43 @@ class AppServer:
                 self.launch_token = value.split("=", 1)[1]
         self.active_thread_id = None
         self.interrupt_acknowledged = False
+        self.secret_redactions = tuple(value for value in secret_redactions if value)
+        self.native_completion_status = None
         self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
         self.stderr = (evidence / "stderr.log").open("a", encoding="utf-8")
         try:
             self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
-                                            stdout=subprocess.PIPE, stderr=self.stderr,
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                             text=True, encoding="utf-8", env=env)
         except Exception:
             self.log.close()
             self.stderr.close()
             raise
         self.reader = threading.Thread(target=self._read, daemon=True)
+        self.stderr_reader = threading.Thread(target=self._read_stderr, daemon=True)
         self.reader.start()
+        self.stderr_reader.start()
         self.seq = 0
+
+    def _redact(self, line: str) -> str:
+        for secret in self.secret_redactions:
+            line = line.replace(secret, "[REDACTED_RUN_CAPABILITY]")
+        return line
 
     def _read(self):
         for line in self.process.stdout:
+            line = self._redact(line)
             self.log.write(line)
             self.log.flush()
             try:
                 self.messages.put(json.loads(line))
             except json.JSONDecodeError:
                 self.events.append({"method": "invalid/json"})
+
+    def _read_stderr(self):
+        for line in self.process.stderr:
+            self.stderr.write(self._redact(line))
+            self.stderr.flush()
 
     def request(self, method: str, params: dict, timeout: float = 30) -> dict:
         self.seq += 1
@@ -282,33 +362,59 @@ class AppServer:
                 continue
             if msg.get("id") == request_id and "method" not in msg:
                 return msg
-            self.events.append(msg)
+            self._observe(msg)
         raise RunnerError("request_timeout:" + method)
 
     def notify(self, method: str, params: dict) -> None:
         self.process.stdin.write(json.dumps({"method": method, "params": params}) + "\n")
         self.process.stdin.flush()
 
+    def _observe(self, msg):
+        self.events.append(msg)
+        reference = getattr(self, "output_requirements", None)
+        if reference is not None and msg.get("method") == "item/tool/call" and "id" in msg:
+            params = msg.get("params") or {}
+            response = precheck_response(reference, params, self.active_thread_id)
+            if (params.get("tool") == "laomedo_output_precheck" and params.get("namespace") is None and
+                    params.get("threadId") == self.active_thread_id):
+                self.precheck_call_count = getattr(self, "precheck_call_count", 0) + 1
+                result = json.loads(response["contentItems"][0]["text"])
+                if not any(error["code"] == "precheck_binding_mismatch" for error in result["errors"]):
+                    calls = getattr(self, "verified_precheck_calls", set())
+                    if isinstance(params.get("callId"), str):
+                        calls.add(params["callId"])
+                    self.verified_precheck_calls = calls
+            self.process.stdin.write(json.dumps({"id": msg["id"], "result": response}) + "\n")
+            self.process.stdin.flush()
+
     def wait_turn(self, turn_id: str, timeout: float, cancelled: threading.Event) -> tuple[str, str | None]:
         deadline = time.monotonic() + timeout
         cursor = 0
+        interrupt_sent = False
         while time.monotonic() < deadline:
             for event in self.events[cursor:]:
                 if event.get("method") == "turn/completed":
                     turn = event.get("params", {}).get("turn") or {}
                     if turn.get("id") == turn_id:
-                        return turn.get("status") or "unknown", None
+                        self.native_completion_status = turn.get("status") or "unknown"
+                        if interrupt_sent and self.native_completion_status == "interrupted":
+                            return "cancelled", "cancelled_by_user"
+                        return self.native_completion_status, None
             cursor = len(self.events)
-            if cancelled.is_set():
+            if cancelled.is_set() and not interrupt_sent:
                 self.interrupt(turn_id)
-                return "cancelled", "cancelled_by_user"
+                interrupt_sent = True
+                deadline = min(deadline, time.monotonic() + 5)
             try:
                 msg = self.messages.get(timeout=min(.25, deadline - time.monotonic()))
             except queue.Empty:
                 if self.process.poll() is not None:
-                    return "failed", "app_server_exited"
+                    return (("cancelled", "cancel_native_unconfirmed") if interrupt_sent else
+                            ("failed", "app_server_exited"))
                 continue
-            self.events.append(msg)
+            self._observe(msg)
+        if interrupt_sent:
+            return "cancelled", "cancel_native_unconfirmed"
         self.interrupt(turn_id)
         return "timeout", "turn_timeout"
 
@@ -363,6 +469,7 @@ class AppServer:
                 verified = False
         finally:
             self.reader.join(timeout=5)
+            self.stderr_reader.join(timeout=5)
             self.log.close()
             self.stderr.close()
         if not verified:
@@ -574,7 +681,7 @@ class SplitAppServer(AppServer):
                 if self.process.poll() is not None:
                     return "unknown", "controller_exited"
                 continue
-            self.events.append(msg)
+            self._observe(msg)
         self.interrupt(turn_id)
         return "timeout", "turn_timeout"
 
@@ -601,6 +708,51 @@ class SplitAppServer(AppServer):
             raise error
 
 
+def _command_summary(events: list[dict], turn_id: str) -> dict:
+    """Project observed command lifetimes, never infer completion from shutdown."""
+    commands = {}
+    incomplete = False
+    for index, event in enumerate(events):
+        params = event.get("params") or {}
+        if params.get("turnId") not in (None, turn_id):
+            continue
+        method = event.get("method")
+        item = params.get("item") or {}
+        if method == "item/commandExecution/outputDelta":
+            identity = params.get("itemId")
+        elif method in {"item/started", "item/completed"} and item.get("type") == "commandExecution":
+            identity = item.get("id")
+        else:
+            continue
+        if not isinstance(identity, str) or not identity:
+            incomplete = True
+            continue
+        command = commands.setdefault(identity, {"id": identity, "status": "unknown",
+            "completion_observed": False, "exit_code": None, "event_indices": [],
+            "output_event_indices": []})
+        command["event_indices"].append(index)
+        if method == "item/commandExecution/outputDelta" or item.get("aggregatedOutput"):
+            command["output_event_indices"].append(index)
+        if method == "item/completed" and item.get("status") != "inProgress":
+            observed = item.get("status")
+            if observed is None and type(item.get("exitCode")) is int:
+                observed = "completed"
+            terminal = {"completed", "failed", "declined", "cancelled", "interrupted"}
+            terminal_observed = isinstance(observed, str) and observed in terminal
+            command["completion_observed"] = terminal_observed
+            command["status"] = observed if terminal_observed else "unknown"
+            code = item.get("exitCode")
+            command["exit_code"] = code if type(code) is int else None
+        elif method == "item/started":
+            # A later start with the same identity is ambiguous, not a new success.
+            command["completion_observed"] = False
+            command["status"] = "unknown"
+            command["exit_code"] = None
+    rows = list(commands.values())
+    return {"commands": rows, "identity_incomplete": incomplete,
+            "outstanding_ids": [row["id"] for row in rows if not row["completion_observed"]]}
+
+
 def _answer(events: list[dict]) -> str | None:
     answers = []
     for event in events:
@@ -616,13 +768,20 @@ class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
                  check_docker: bool = True, max_model_turns: int = 0,
                  supervise_containers: bool | None = None,
+                 lease_service: Path | None = None,
+                 github_authority: RunGrantAuthority | None = None,
+                 mediator_state: Path | None = None,
+                 git_workspace: bool = False,
                  split_executor: bool = False, split_provider_config=(),
-                 split_access_token=None, auth_store: Path | None = None,
-                 lease_service: Path | None = None):
+                 split_access_token=None, auth_store: Path | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
-        if not self.source.is_dir() or not _git_tree(self.source) or (self.source / ".git").exists():
+        self.git_workspace = git_workspace
+        self.image = GIT_IMAGE if git_workspace else IMAGE
+        self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
+        if not self.source.is_dir() or (self.source / ".git").is_dir() != git_workspace or \
+                (not git_workspace and not _git_tree(self.source)):
             raise RunnerError("source_workspace_must_be_git_tree")
         if self.state == self.store.root or self.state.is_relative_to(self.store.root):
             raise RunnerError("state_overlaps_skill_store")
@@ -642,9 +801,15 @@ class LocalRunner:
         self.supervise_containers = (transport is AppServer and not split_executor
                                      if supervise_containers is None
                                      else supervise_containers)
+        if split_executor and self.supervise_containers:
+            raise RunnerError("split_executor_lease_unavailable")
+        if git_workspace and split_executor:
+            raise RunnerError("git_workspace_split_unsupported")
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
+        self.github_authority = github_authority
+        self.mediator_state = _private(mediator_state) if mediator_state else None
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -706,10 +871,10 @@ class LocalRunner:
         if hashlib.sha256(CONFIG.read_bytes()).hexdigest() not in {CONFIG_SHA256, CONFIG_LF_SHA256}:
             raise RunnerError("permission_config_changed")
         if check_docker:
-            found = subprocess.run(["docker", "image", "inspect", IMAGE,
+            found = subprocess.run(["docker", "image", "inspect", self.image,
                                     "--format", "{{.Id}}"], check=True,
                                    capture_output=True, text=True, timeout=15)
-            if found.stdout.strip() != IMAGE_ID:
+            if found.stdout.strip() != self.image_id:
                 raise RunnerError("docker_image_digest_changed")
             if not split_executor:
                 subprocess.run(["docker", "volume", "inspect", VOLUME], check=True,
@@ -719,7 +884,13 @@ class LocalRunner:
 
     def _open_server(self, root: Path, *, access_token=None,
                      name: str | None = None, run_id: str | None = None,
-                     launch_token: str | None = None):
+                     launch_token: str | None = None,
+                     capability: Path | None = None,
+                     mediator_url: str | None = None,
+                     mediator_instance: str | None = None,
+                     repository: str | None = None,
+                     branch: str | None = None,
+                     base_branch: str = "main"):
         workspace, canonical, store_mount = (root / name for name in
                                               ("workspace", "canonical", "store"))
         if self.split_executor:
@@ -728,9 +899,28 @@ class LocalRunner:
                                   provider_config=self.split_provider_config,
                                   access_token=(access_token if access_token is not None
                                                 else self.split_access_token))
-        return self.transport(["docker", *_docker_prefix(
-            workspace, canonical, store_mount, name=name, run_id=run_id,
-            launch_token=launch_token)], root)
+        command_directory = None
+        if capability is not None and self.git_workspace:
+            from .agent_cli import prepare_commands, configure_remote
+            if repository is None or branch is None:
+                raise RunnerError("mediated_command_scope_missing")
+            command_directory = prepare_commands(root, repository, branch)
+            # The checkout was prepared without a provider remote. This is a
+            # credential-free helper URL, not an HTTPS fallback.
+            configure_remote(workspace, repository)
+        # Launch the opt-in image by its verified ID, not a mutable local tag.
+        command = ["docker", *_docker_prefix(
+            workspace, canonical, store_mount,
+            image=self.image_id if self.git_workspace else self.image,
+            name=name, run_id=run_id,
+            launch_token=launch_token, capability=capability,
+            mediator_url=mediator_url,
+            mediator_instance=mediator_instance, command_directory=command_directory,
+            repository=repository, branch=branch, base_branch=base_branch)]
+        if capability is not None and self.transport is AppServer:
+            return self.transport(command, root, secret_redactions=(
+                capability.read_text(encoding="utf-8").strip(),))
+        return self.transport(command, root)
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
@@ -779,6 +969,13 @@ class LocalRunner:
                         "command": ["sh", "-c", command], "cwd": "/draft",
                         "timeoutMs": 15000}, timeout=25)
                     checks[label] = (response.get("result") or {}).get("exitCode")
+            if self.git_workspace:
+                git_check = server.request("command/exec", {
+                    "command": ["git", "--version"], "cwd": "/draft",
+                    "timeoutMs": 15000}, timeout=25)
+                checks["git_binary"] = (git_check.get("result") or {}).get("exitCode")
+                if checks["git_binary"] != 0:
+                    raise RunnerError("git_image_missing_git")
             if not (checks["workspace_write"] == 0 and
                     all(checks[x] not in (None, 0) for x in
                         ("canonical_write", "store_write", "auth_read")) and
@@ -792,7 +989,8 @@ class LocalRunner:
                     y.get("reasoningEffort") if isinstance(y, dict) else y
                     for y in x.get("supportedReasoningEfforts", [])]}
                 for x in models["result"].get("data", [])],
-                "image": IMAGE, "image_id": IMAGE_ID, "cli_version": CLI_VERSION,
+                "image": self.image, "image_id": self.image_id,
+                "cli_version": CLI_VERSION,
                 "profile": self.profile,
                 "config_sha256": CONFIG_SHA256, "permission_checks": checks,
                 "submitted_turns": 0}
@@ -913,6 +1111,12 @@ class LocalRunner:
         model, effort = request.get("model"), request.get("effort")
         if not all(isinstance(x, str) and x for x in (model, effort)):
             raise RunnerError("model_and_effort_required")
+        output_requirements = request.get("output_requirements")
+        if output_requirements is not None:
+            output_requirements = verify_requirements(output_requirements)
+        output_retries = request.get("output_retries", 1)
+        if type(output_retries) is not int or not 0 <= output_retries <= 8:
+            raise RunnerError("invalid_output_retry_count")
         if "skill_refs" in request and "skill_ref" in request:
             raise RunnerError("conflicting_skill_inputs")
         refs = request.get("skill_refs", [request.get("skill_ref")])
@@ -927,36 +1131,77 @@ class LocalRunner:
             seen.add(ref["skill_id"])
         source = self.source
         handoff = self._handoff(request.get("handoff"))
+        if "github_scope" in request:
+            raise RunnerError("github_scope_must_come_from_authority")
+        github_ref = request.get("github_authorization_ref")
+        if github_ref is not None and (self.github_authority is None or
+                                       not self.supervise_containers or
+                                       self.split_executor or
+                                       self.lease_service is None or
+                                       self.mediator_state is None):
+            raise RunnerError("mediated_lease_required")
         run_id = str(uuid4())
         run_dir = self._run_dir(run_id)
         run_dir.mkdir()
         workspace, canonical, store_mount = (run_dir / x for x in
                                               ("workspace", "canonical", "store"))
         try:
-            source_hash = _copy_tree(source, workspace)
-            # Preserve the tested read-only canonical and sibling store mounts.
-            if _copy_tree(source, canonical) != source_hash:
-                raise RunnerError("source_changed_during_snapshot")
+            try:
+                github_scope = (self.github_authority.bind_run(
+                    github_ref, run_id,
+                    allowed_operations=frozenset(
+                        {"actions_read", "pr_create", "pr_update", "pr_read"} |
+                        ({"git_push", "git_fetch"} if self.git_workspace else set())))
+                                if github_ref is not None else None)
+            except MediationError as error:
+                raise RunnerError(error.code) from None
+            if self.git_workspace:
+                try:
+                    baseline = prepare_git_workspace(source, workspace)
+                except GitWorkspaceError as error:
+                    raise RunnerError(str(error)) from error
+                source_hash = _copy_tree(workspace, canonical, exclude_root_git=True)
+            else:
+                baseline = None
+                source_hash = _copy_tree(source, workspace)
+                # Preserve the tested read-only canonical and sibling store mounts.
+                if _copy_tree(source, canonical) != source_hash:
+                    raise RunnerError("source_changed_during_snapshot")
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
+            # prepare_git_workspace already created an isolated repository
+            # with preserved history; do not replace it with a fresh baseline.
+            if not self.git_workspace:
+                workspace_skills.initialize(workspace)
+            elif github_scope is not None:
+                # Install trusted remote/handoff metadata before the immutable
+                # skill exclusion digest. _open_server then verifies this same
+                # remote and leaves the already-present rule unchanged.
+                from .agent_cli import configure_remote
+                configure_remote(workspace, github_scope["repository"])
             skills = [self._materialize(workspace, ref) for ref in refs]
+            git_exclusion = workspace_skills.install(workspace, skills)
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
-            effective_hash = _hash_tree(workspace)
+            effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)
             (run_dir / "raw-events.jsonl").touch()
             record = {"schema_version": 1, "run_id": run_id, "status": "prepared",
                       "error_category": None, "source_hash": source_hash,
+                      "workspace_mode": "git" if self.git_workspace else "files",
+                      "git_baseline": baseline,
+                      "post_run_hash_scope": (
+                          "working_files_only" if self.git_workspace else "all_files"),
                       "effective_hash": effective_hash, "post_run_hash": None,
                       "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                       "skill": skills[0] if len(skills) == 1 else None,
-                      "skills": skills,
+                      "skills": skills, "skill_git_exclusion": git_exclusion,
                       "provider": getattr(self, "provider", "codex"),
                       "handoff": handoff, "imported_artifacts": artifacts,
                       "requested_model": model, "requested_effort": effort,
                       "effective_model": None, "effective_effort": None,
                       "profile": self.profile,
                       "execution_mode": "split" if self.split_executor else "legacy",
-                      "image": IMAGE, "image_id": IMAGE_ID,
+                      "image": self.image, "image_id": self.image_id,
                       "cli_version": CLI_VERSION,
                       "config_sha256": CONFIG_SHA256, "thread_id": None,
                       "credential": ({"credential_mode": "chatgpt_plan_oauth",
@@ -967,11 +1212,20 @@ class LocalRunner:
                       "turns": [], "answer": None, "output_ref": None,
                       "raw_event_ref": f"laomedo:run:{run_id}:events",
                       "client_request_id": client_request_id,
+                      "output_requirements": output_requirements,
+                      "requirements_revision": (output_requirements or {}).get("requirements_revision"),
+                      "output_retries": output_retries,
+                      "precheck": {"installed": False, "call_count": 0},
                       "request_hash": request_hash,
                       "cancel_requested": False, "cancel_confirmed": False}
+            if github_scope is not None:
+                record["github_scope"] = github_scope
             _json(run_dir / "record.json", record)
         except Exception:
-            shutil.rmtree(run_dir)
+            try:
+                workspace_skills.remove_owned_tree(run_dir, self.state)
+            except OSError:
+                raise RunnerError("run_preparation_cleanup_unverified") from None
             raise
         return record
 
@@ -1072,10 +1326,13 @@ class LocalRunner:
                 record["post_run_hash"] != expected_post_run_hash or
                 record["requested_model"] != model or record["requested_effort"] != effort or
                 record["profile"] != self.profile or
+                record.get("workspace_mode", "files") != (
+                    "git" if self.git_workspace else "files") or
                 record.get("execution_mode", "legacy") != (
                     "split" if self.split_executor else "legacy") or
-                record["image"] != IMAGE or
-                record["image_id"] != IMAGE_ID or record["cli_version"] != CLI_VERSION or
+                record["image"] != self.image or
+                record["image_id"] != self.image_id or
+                record["cli_version"] != CLI_VERSION or
                 record["config_sha256"] != CONFIG_SHA256):
             raise RunnerError("resume_binding_mismatch")
         run_dir = self._run_dir(run_id)
@@ -1083,7 +1340,7 @@ class LocalRunner:
         workspace = run_dir / "workspace"
         if not snapshot.exists() or _hash_tree(snapshot) != expected_post_run_hash:
             raise RunnerError("post_run_snapshot_mismatch")
-        if _hash_tree(workspace) != expected_post_run_hash:
+        if _hash_tree(workspace, exclude_root_git=self.git_workspace) != expected_post_run_hash:
             raise RunnerError("workspace_changed_since_snapshot")
         if (_hash_tree(run_dir / "canonical") != record["source_hash"] or
                 (run_dir / "store/sentinel.txt").read_text(encoding="utf-8") !=
@@ -1099,14 +1356,37 @@ class LocalRunner:
                 raise RunnerError("resume_auth_identity_mismatch")
         return self._execute(run_id, task, resume=True)
 
+    def _mediator_route(self) -> tuple[str, str]:
+        # host.docker.internal -> host loopback is checked by the Windows
+        # Docker Desktop probe. Other network layouts need their own check.
+        if os.name != "nt" or self.mediator_state is None:
+            raise RunnerError("mediator_container_route_unverified")
+        try:
+            status = json.loads((self.mediator_state / "mediator.json").read_text(
+                encoding="utf-8"))
+            port = status["port"]
+            instance = status["instance"]
+            if type(port) is not int or not 1 <= port <= 65535 or not re.fullmatch(
+                    r"[0-9a-f]{32}", instance):
+                raise ValueError("invalid_mediator_status")
+            with urlopen(f"http://127.0.0.1:{port}/v1/health", timeout=2) as response:
+                health = json.load(response)
+            if health != {"status": "ready", "instance": instance}:
+                raise ValueError("mediator_instance_mismatch")
+        except (OSError, ValueError, KeyError, TypeError, TimeoutError) as error:
+            raise RunnerError("mediator_unavailable") from error
+        return f"http://host.docker.internal:{port}/v1/mediate", instance
+
     def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
         run_dir, record, cancelled, server, lease = None, None, None, None, None
+        launch_attempted = False
         try:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
                 record = self.status(run_id)
+                record.setdefault("precheck", {"installed": False, "call_count": 0})
                 if record["status"] == "cancelled" and record.get("cancel_confirmed"):
                     return record
                 if (not resume and record["status"] != "prepared") or (
@@ -1115,6 +1395,11 @@ class LocalRunner:
                 cancelled = threading.Event()
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
+                record["snapshot_ready"] = False
+                record["post_run_hash"] = None
+                record["output_ref"] = None
+                record["controller_cleanup"] = "not_started"
+                record["attempt_finished"] = False
                 name = "laomedo-codex-" + uuid4().hex
                 launch_token = uuid4().hex
                 record["container_ownership"] = {
@@ -1122,18 +1407,34 @@ class LocalRunner:
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False}
                 _json(run_dir / "record.json", record)
+            try:
+                workspace_skills.verify(run_dir / "workspace", record["skills"],
+                                       record.get("skill_git_exclusion", {"enabled": False}))
+            except ValueError as exc:
+                raise RunnerError(str(exc)) from None
             if self.supervise_containers:
                 if self.lease_service is None:
                     raise RunnerError("lease_service_required")
                 try:
                     lease = LeaseClient(self.lease_service, run_id=run_id, name=name,
-                                        token=launch_token, cancelled=cancelled)
+                                        token=launch_token, cancelled=cancelled,
+                                        mediation_request=record.get("github_scope"))
                 except (OSError, RuntimeError):
                     raise RunnerError("lease_service_unavailable") from None
                 record["container_ownership"]["lease_instance"] = lease.instance
                 record["container_ownership"]["grant_id"] = lease.grant_id
                 with self.control_lock:
                     _json(run_dir / "record.json", record)
+            capability = None
+            mediator_url = None
+            mediator_instance = None
+            if record.get("github_scope") is not None:
+                if lease is None or lease.grant_id is None:
+                    raise RunnerError("mediated_grant_unavailable")
+                capability = lease.dir / "grant.secret"
+                if capability.is_symlink() or not capability.is_file():
+                    raise RunnerError("mediated_capability_unavailable")
+                mediator_url, mediator_instance = self._mediator_route()
             access_token, auth_summary = self.auth.access_token() if self.auth else (None, None)
             if resume and self.auth:
                 prior = record.get("credential") or {}
@@ -1142,14 +1443,24 @@ class LocalRunner:
                     raise RunnerError("resume_auth_identity_mismatch")
             record["credential"] = auth_summary
             _json(run_dir / "record.json", record)
-            server = self._open_server(run_dir, access_token=access_token,
-                                       name=name, run_id=run_id,
-                                       launch_token=launch_token)
+            launch_attempted = True
+            server = self._open_server(
+                run_dir, access_token=access_token, name=name, run_id=run_id,
+                launch_token=launch_token, capability=capability,
+                mediator_url=mediator_url,
+                mediator_instance=mediator_instance,
+                repository=(record.get("github_scope") or {}).get("repository"),
+                branch=(record.get("github_scope") or {}).get("branch"),
+                base_branch=(record.get("github_scope") or {}).get("base_branch", "main"))
+            record["controller_cleanup"] = "pending"
+            # Keep the pre-launch name/launch-token/grant ownership binding;
+            # lifecycle diagnostics must not replace it with a name-only map.
+            _json(run_dir / "record.json", record)
             initialized = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_local_runner", "title": "Laomedo Local Runner",
                 "version": "0.1.0"},
                 **({"capabilities": {"experimentalApi": True}}
-                   if self.split_executor else {})})
+                   if self.split_executor or record.get("output_requirements") else {})})
             if "result" not in initialized:
                 raise RunnerError("initialize_rejected")
             server.notify("initialized", {})
@@ -1171,6 +1482,10 @@ class LocalRunner:
             params = ({"threadId": record["thread_id"], "cwd": "/draft"} if resume else
                       {"model": record["requested_model"], "cwd": "/draft",
                        "approvalPolicy": "never"})
+            if record.get("output_requirements"):
+                server.output_requirements = verify_requirements(record["output_requirements"])
+                if not resume:
+                    params["dynamicTools"] = [dynamic_tool(server.output_requirements)]
             if self.split_executor:
                 params["environments"] = server.thread_environment()
                 server.assert_executor_selection(params["environments"])
@@ -1181,6 +1496,8 @@ class LocalRunner:
             if not native_id or (resume and native_id != record["thread_id"]):
                 raise RunnerError("thread_identity_mismatch")
             record["thread_id"] = native_id
+            server.active_thread_id = native_id
+            record["precheck"]["installed"] = "dynamicTools" in params
             record["effective_model"] = thread.get("model") or result.get("model")
             record["effective_effort"] = (result.get("reasoningEffort") or
                                           thread.get("reasoningEffort"))
@@ -1196,9 +1513,41 @@ class LocalRunner:
                 record.update(status="cancelled", error_category="cancelled_before_turn",
                               cancel_requested=True)
                 return record
+            if record.get("github_scope") is not None:
+                task += ("\n\nThis run has approved, bounded GitHub mediation "
+                         "for its selected Actions reads, bound PR read/create/update, and "
+                         "verified-commit branch push operations. A "
+                         "bundle_freeze request only captures the fixed in-run "
+                         "Git bundle; it does not verify or push it. "
+                         "To request one of those operations, pipe one JSON object "
+                         "with repository, operation, payload and (for a write) "
+                         "effect_id to `node /run/laomedo/mediate.mjs`. "
+                         "The client reads its run capability from a read-only file; "
+                         "never print or copy that file. A denied or unknown write "
+                         "must not be retried automatically. Direct host GitHub "
+                         "credentials and ambient gh login are unavailable.")
+                if self.git_workspace:
+                    task += (" Native `git push origin HEAD:refs/heads/" +
+                             record["github_scope"]["branch"] +
+                             "` and `git fetch origin` use the mediated helper. "
+                             "Fetch requires an explicitly granted read operation. "
+                             "The supported `gh pr view/create/edit`, `gh run list`, "
+                             "and GET-only `gh api` adapter is on PATH. "
+                             "PR writes require LAOMEDO_EFFECT_ID and "
+                             "LAOMEDO_RECONCILIATION_MARKER, an explicit title/body "
+                             "and target; unsupported commands fail visibly. "
+                             "Updates require a fast-forward from this run's "
+                             "last confirmed push; never force or fall back "
+                             "to direct HTTPS.")
             turn_params = {"threadId": native_id,
                 "model": record["requested_model"], "effort": record["requested_effort"],
                 "cwd": "/draft", "input": [{"type": "text", "text": task}]}
+            if record.get("output_requirements"):
+                turn_params["input"][0]["text"] += (
+                    "\nReturn your final submission as a JSON object with explicit task_outcome "
+                    "success or failure. Use laomedo_output_precheck on your form before "
+                    "handoff and correct rejected fields within this request. Requirements: " +
+                    json.dumps(record["output_requirements"], sort_keys=True))
             if self.split_executor:
                 server.assert_controller_isolated()
                 turn_params["environments"] = server.turn_environment()
@@ -1246,12 +1595,82 @@ class LocalRunner:
                 server.authorization_probe = still_authorized
                 if not still_authorized():
                     raise AuthError(auth_failure["code"])
+            turn_event_offset = len(server.events)
             sent = server.request("turn/start", turn_params)
             turn_id = ((sent.get("result") or {}).get("turn") or {}).get("id")
             if not turn_id:
                 raise RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
             status, error = server.wait_turn(turn_id, 180, cancelled)
+            # Correction is a continuation of this native thread, never a new
+            # dispatch of the original task. Any mediated scope or tool effect
+            # blocks automatic continuation because safe repetition is unknown.
+            correction_count = 0
+            while record.get("output_requirements") and status == "completed":
+                try:
+                    submission = json.loads(_answer(server.events[turn_event_offset:]) or "null")
+                except (ValueError, TypeError):
+                    submission = None
+                validation = evaluate(record["output_requirements"], submission)
+                record["output_validation"] = validation
+                if (validation["contract_status"] == "accepted" or
+                        isinstance(submission, dict) and submission.get("task_outcome") == "failure" or
+                        correction_count >= record["output_retries"]):
+                    break
+                commands_before = _command_summary(server.events, turn_id)
+                def effect_event(event):
+                    if event.get("method") not in {"item/started", "item/completed"}:
+                        return False
+                    item = event.get("params", {}).get("item") or {}
+                    if item.get("type") in {"userMessage", "agentMessage", "reasoning"}:
+                        return False
+                    return not (item.get("type") == "dynamicToolCall" and
+                                item.get("tool") == "laomedo_output_precheck" and
+                                item.get("namespace") is None and
+                                item.get("id") in getattr(server, "verified_precheck_calls", set()))
+                tool_effect = any(effect_event(event) for event in server.events)
+                if record.get("github_scope") or tool_effect or commands_before["commands"] or commands_before["identity_incomplete"]:
+                    record["output_correction_blocked"] = "side_effect_safety_unverified"
+                    break
+                if cancelled.is_set():
+                    status, error = "cancelled", "cancelled_by_user"
+                    break
+                try:
+                    attempt = self._reserve_turn()
+                except RunnerError:
+                    record["output_correction_blocked"] = "model_turn_cap_reached"
+                    break
+                record["turns"].append({"turn_id": turn_id, "status": status,
+                                        "correction_pending": True,
+                                        "output_validation": validation})
+                correction_count += 1
+                record["attempt_number"] = attempt
+                record["output_correction_count"] = correction_count
+                _json(run_dir / "record.json", record)
+                feedback = ("Continue this same session by correcting only your output form. "
+                            "Do not repeat the original task or any external writes. "
+                            "Use the existing output precheck. Validation feedback: " +
+                            json.dumps(validation, sort_keys=True))
+                turn_params["input"] = [{"type": "text", "text": feedback}]
+                if self.split_executor:
+                    server.assert_controller_isolated()
+                    server.assert_executor_selection(turn_params["environments"])
+                if self.auth and not still_authorized():
+                    raise AuthError(auth_failure["code"])
+                turn_event_offset = len(server.events)
+                next_turn = server.request("turn/start", turn_params)
+                turn_id = ((next_turn.get("result") or {}).get("turn") or {}).get("id")
+                if not turn_id:
+                    raise RunnerError("turn_dispatch_rejected")
+                status, error = server.wait_turn(turn_id, 180, cancelled)
+            native_status = status
+            commands = _command_summary(server.events, turn_id)
+            record["native_turn_status"] = native_status
+            record["precheck"]["call_count"] = getattr(server, "precheck_call_count", 0)
+            record["command_summary"] = commands
+            record["native_answer"] = _answer(server.events[turn_event_offset:]) if native_status == "completed" else None
+            if status == "completed" and (commands["outstanding_ids"] or commands["identity_incomplete"]):
+                status, error = "unknown", "outstanding_command_completion_unknown"
             if self.auth and error == "auth_revoked_during_turn":
                 error = auth_failure["error"]
                 record["credential"]["auth_outcome"] = auth_failure["outcome"]
@@ -1259,7 +1678,13 @@ class LocalRunner:
             if status == "failed" and error is None and native_errors["last_category"]:
                 error = "codex_" + native_errors["last_category"]
             record["turns"].append({"turn_id": turn_id, "status": status,
+                                    "native_turn_status": native_status,
+                                    "command_summary": commands,
                                     "error_category": error,
+                                    "native_completion_status": getattr(
+                                        server, "native_completion_status", None),
+                                    "interrupt_acknowledged": getattr(
+                                        server, "interrupt_acknowledged", False),
                                     "native_error_summary": native_errors,
                                     "input_hash": "sha256:" +
                                     hashlib.sha256(task.encode()).hexdigest()})
@@ -1268,19 +1693,28 @@ class LocalRunner:
             if status == "cancelled":
                 record["cancel_requested"] = True
             record["native_error_summary"] = native_errors
-            record["answer"] = _answer(server.events) if status == "completed" else None
+            record["answer"] = _answer(server.events[turn_event_offset:]) if status == "completed" else None
             if status == "completed" and not record["answer"]:
                 raise RunnerError("completed_without_agent_message")
             if status == "completed":
-                post_hash = _hash_tree(run_dir / "workspace")
+                try:
+                    workspace_skills.verify(run_dir / "workspace", record["skills"],
+                                           record.get("skill_git_exclusion", {"enabled": False}))
+                except ValueError as exc:
+                    record["answer"] = None
+                    raise RunnerError(str(exc)) from None
+                post_hash = _hash_tree(run_dir / "workspace",
+                                       exclude_root_git=self.git_workspace)
                 pending = run_dir / ("post-run-pending-" + uuid4().hex)
-                _copy_tree(run_dir / "workspace", pending)
+                _copy_tree(run_dir / "workspace", pending,
+                           exclude_root_git=self.git_workspace)
                 old = run_dir / "post-run"
                 if old.exists():
-                    shutil.rmtree(old)
+                    workspace_skills.remove_owned_tree(old, self.state)
                 pending.rename(old)
                 record["post_run_hash"] = post_hash
                 record["output_ref"] = f"laomedo:run:{run_id}:workspace"
+                record["snapshot_ready"] = True
             if (_hash_tree(run_dir / "canonical") != record["source_hash"] or
                     (run_dir / "store/sentinel.txt").read_text(encoding="utf-8") !=
                     "STORE-ORIGINAL"):
@@ -1304,16 +1738,37 @@ class LocalRunner:
             close_error = False
             try:
                 if server is not None:
+                    if record is not None:
+                        count = getattr(server, "precheck_call_count", 0)
+                        record["precheck"]["call_count"] = count
+                        record["precheck"]["installed"] = (
+                            record["precheck"]["installed"] or
+                            bool(getattr(server, "verified_precheck_calls", set())))
                     server.close()
+                    if record is not None:
+                        record["controller_cleanup"] = "confirmed"
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
             except Exception:
                 close_error = True
                 if record is not None:
                     record.update(status="failed", error_category="container_termination_unverified")
+                    record["controller_cleanup"] = "unverified"
             finally:
                 try:
-                    if record is not None and self.supervise_containers:
+                    if record is not None and self.supervise_containers and not launch_attempted:
+                        verified, detail = True, "not_launched"
+                        if lease is not None:
+                            try:
+                                lease.finish()
+                            except Exception:
+                                verified, detail = False, "lease_service_unverified"
+                        record["container_ownership"]["cleanup_verified"] = verified
+                        record["container_ownership"]["cleanup_detail"] = detail
+                        if not verified:
+                            record.update(status="failed",
+                                          error_category="container_termination_unverified")
+                    elif record is not None and self.supervise_containers:
                         verified, detail = cleanup_exact(name, run_id, launch_token)
                         if lease is not None:
                             try:
@@ -1332,6 +1787,11 @@ class LocalRunner:
                                           error_category="container_termination_unverified")
                     with self.control_lock:
                         if record is not None:
+                            record["attempt_finished"] = True
+                            if record.get("status") != "completed":
+                                record["snapshot_ready"] = False
+                                record["post_run_hash"] = None
+                                record["output_ref"] = None
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             _json(run_dir / "record.json", record)
@@ -1436,21 +1896,34 @@ def main():
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--skill-store", type=Path, required=True)
     parser.add_argument("--source-workspace", type=Path, required=True)
+    parser.add_argument("--git-workspace", action="store_true",
+                        help="Opt-in isolated Git checkout; mediated push remains disabled")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--preflight", action="store_true")
     parser.add_argument("--max-model-turns", type=int, default=0)
+    parser.add_argument("--lease-service", type=Path,
+                        help="State directory of an independently started lease service")
+    parser.add_argument("--github-authority-store", type=Path,
+                        help="Trusted run-approval database outside the checkout")
+    parser.add_argument("--mediator-state", type=Path,
+                        help="Private host mediator state; only its port is passed to Docker")
     parser.add_argument("--split-executor", action="store_true",
                         help="Credential-free experimental split controller/executor")
     parser.add_argument("--auth-store", type=Path,
                         help="Private app-owned ChatGPT OAuth store; requires --split-executor")
-    parser.add_argument("--lease-service", type=Path,
-                        help="State directory of an independently started lease service")
     args = parser.parse_args()
+    if (args.github_authority_store is None) != (args.mediator_state is None):
+        parser.error("GitHub authority and mediator state must be configured together")
+    authority = (RunGrantAuthority(args.github_authority_store)
+                 if args.github_authority_store else None)
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
+                         git_workspace=args.git_workspace,
                          max_model_turns=args.max_model_turns,
+                         lease_service=args.lease_service,
+                         github_authority=authority,
+                         mediator_state=args.mediator_state,
                          split_executor=args.split_executor,
-                         auth_store=args.auth_store,
-                         lease_service=args.lease_service)
+                         auth_store=args.auth_store)
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return

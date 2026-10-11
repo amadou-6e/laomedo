@@ -1,0 +1,135 @@
+{
+  "agent_cleanup_verified": true,
+  "agent_client_alive": true,
+  "agent_still_owned": true,
+  "changed_connection_denied": true,
+  "changed_connection_error": "connection_unavailable",
+  "cleanup_verified": true,
+  "commit": "ce3a7c7713803b77b9e7b32efa4b8cccd531cadc",
+  "completed_freeze_control": {
+    "freezer_error": "run_grant_mismatch",
+    "state": "unknown"
+  },
+  "completed_freeze_denied": true,
+  "completed_push_denied": true,
+  "completed_push_error": "push_stage_unverified",
+  "declared_model_turns": 0,
+  "declared_real_provider_calls": 0,
+  "final_body_sha256": "16bbb2b8883e61827b0884a0de56b05623ea90537a58fcf17ad60d24d11e5525",
+  "identity": "exp104-delivery-s1-20261009",
+  "number": 7,
+  "operations": [
+    {
+      "code": null,
+      "operation": "bundle_freeze",
+      "state": "confirmed"
+    },
+    {
+      "code": null,
+      "operation": "bundle_status",
+      "state": "unknown"
+    },
+    {
+      "code": null,
+      "operation": "bundle_status",
+      "state": "unknown"
+    },
+    {
+      "code": null,
+      "operation": "bundle_status",
+      "state": "unknown"
+    },
+    {
+      "code": null,
+      "operation": "bundle_status",
+      "state": "unknown"
+    },
+    {
+      "code": null,
+      "operation": "bundle_status",
+      "state": "confirmed"
+    },
+    {
+      "code": null,
+      "operation": "git_push",
+      "state": "confirmed"
+    },
+    {
+      "code": null,
+      "operation": "pr_create",
+      "state": "confirmed"
+    },
+    {
+      "code": null,
+      "operation": "pr_read",
+      "state": "confirmed"
+    },
+    {
+      "code": "pr_snapshot_changed",
+      "operation": "pr_update",
+      "state": "rejected"
+    },
+    {
+      "code": "pr_read_target_denied",
+      "operation": "pr_read",
+      "state": "denied"
+    },
+    {
+      "code": null,
+      "operation": "pr_update",
+      "state": "confirmed"
+    },
+    {
+      "code": null,
+      "operation": "pr_read",
+      "state": "confirmed"
+    }
+  ],
+  "provider_count_unchanged_after_controls": true,
+  "push_calls": [
+    {
+      "refspec": "ce3a7c7713803b77b9e7b32efa4b8cccd531cadc:refs/heads/run-branch"
+    }
+  ],
+  "rest_calls": [
+    {
+      "method": "POST",
+      "path": "/repos/example/disposable/pulls"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "PATCH",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    },
+    {
+      "method": "GET",
+      "path": "/repos/example/disposable/pulls/7"
+    }
+  ],
+  "result": "passed",
+  "revoked_new_write_denied": true,
+  "revoked_new_write_error": "grant_unavailable",
+  "source_sha": "f9705522a2a2804943b4c262c1d9c306f6e3029b",
+  "stage_cleanup_reports": [
+    {
+      "cleanup_verified": true,
+      "detail": "absent_after_stage"
+    }
+  ],
+  "stage_cleanup_verified": true
+}

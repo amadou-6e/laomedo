@@ -1,0 +1,95 @@
+{
+  "github_tokens": 0,
+  "kill_completed_monotonic": 379633.359,
+  "kill_started_monotonic": 379633.234,
+  "kind": "synthetic_separate_process_expiry",
+  "last_renewal_to_kill_wall_seconds": 0.148,
+  "lease_exitcode": 1,
+  "lease_pid": 11752,
+  "mediator_alive_after_kill": true,
+  "mediator_pid": 21744,
+  "model_turns": 0,
+  "observations": [
+    {
+      "a_status": 200,
+      "at_monotonic": 379633.359,
+      "b_status": 200,
+      "seconds_after_kill": 0.0
+    },
+    {
+      "a_status": 200,
+      "at_monotonic": 379648.359,
+      "b_status": 200,
+      "seconds_after_kill": 15.0
+    },
+    {
+      "a_status": 200,
+      "at_monotonic": 379663.359,
+      "b_status": 200,
+      "seconds_after_kill": 30.0
+    },
+    {
+      "a_status": 200,
+      "at_monotonic": 379678.359,
+      "b_status": 200,
+      "seconds_after_kill": 45.0
+    },
+    {
+      "a_status": 403,
+      "at_monotonic": 379693.359,
+      "b_status": 403,
+      "seconds_after_kill": 60.0
+    }
+  ],
+  "provider_call_count": 8,
+  "provider_calls": [
+    {
+      "at_monotonic": 379633.39,
+      "at_wall": 1791299432.106316,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379633.421,
+      "at_wall": 1791299432.128735,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379648.375,
+      "at_wall": 1791299447.0918376,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379648.406,
+      "at_wall": 1791299447.121488,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379663.375,
+      "at_wall": 1791299462.0823486,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379663.406,
+      "at_wall": 1791299462.1119895,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379678.375,
+      "at_wall": 1791299477.0926108,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    },
+    {
+      "at_monotonic": 379678.406,
+      "at_wall": 1791299477.1242332,
+      "operation": "pr_update",
+      "repository": "example/disposable"
+    }
+  ]
+}

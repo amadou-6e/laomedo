@@ -1,0 +1,177 @@
+{
+  "container_a_after": "absent",
+  "container_a_at_denial": "owned",
+  "container_b_after": "absent",
+  "events": [
+    {
+      "error": "push_branch_denied",
+      "http": 403,
+      "name": "wrong_branch_control"
+    },
+    {
+      "at_monotonic": 472928.484,
+      "http": 200,
+      "name": "a_push",
+      "state": "confirmed"
+    },
+    {
+      "at_monotonic": 472929.234,
+      "http": 200,
+      "name": "b_read_before",
+      "state": "confirmed"
+    },
+    {
+      "at_monotonic": 472933.64,
+      "error": "grant_unavailable",
+      "http": 403,
+      "name": "a_denied_after_loss",
+      "provider_calls_after": 2,
+      "provider_calls_before": 2,
+      "requested_at_monotonic": 472933.64
+    },
+    {
+      "at_monotonic": 472939.062,
+      "http": 200,
+      "name": "b_read_after",
+      "state": "confirmed"
+    },
+    {
+      "error": "grant_unavailable",
+      "http": 403,
+      "name": "service_restart_old_b",
+      "new_instance": "ddb80466450e104e"
+    },
+    {
+      "http": 200,
+      "name": "new_c_read",
+      "state": "confirmed"
+    },
+    {
+      "missing_run_refused": true,
+      "name": "negative_controls",
+      "provider_delta": 0,
+      "workflow_error": "workflow_approval_required",
+      "workflow_http": 403
+    },
+    {
+      "name": "synthetic_expiry_control",
+      "provider_calls": 0
+    },
+    {
+      "name": "synthetic_lost_response_control",
+      "state": "unknown",
+      "transport_calls": 1
+    }
+  ],
+  "final_container_cleanup": {
+    "laomedo-exp104-s6-20261007-01-a": {
+      "detail": "absent",
+      "state_after": "absent",
+      "verified": true
+    },
+    "laomedo-exp104-s6-20261007-01-b": {
+      "detail": "absent",
+      "state_after": "absent",
+      "verified": true
+    },
+    "laomedo-exp104-s6-20261007-01-c": {
+      "detail": "removed",
+      "state_after": "absent",
+      "verified": true
+    }
+  },
+  "lease_result_a": {
+    "cleanup_finished_at": 1791392741.695068,
+    "cleanup_finished_at_monotonic": 472938.687,
+    "cleanup_verified": true,
+    "detected_at": 1791392736.57658,
+    "detected_at_monotonic": 472933.562,
+    "reason": "heartbeat_lost",
+    "revoked_at": 1791392736.5806036,
+    "revoked_at_monotonic": 472933.562,
+    "revoked_grants": [
+      "70bb4e5ced23cd8c596043cee1c728ba"
+    ],
+    "state": "removed_after_loss"
+  },
+  "lease_result_b": {
+    "cleanup_finished_at": 1791392747.4279828,
+    "cleanup_finished_at_monotonic": 472944.421,
+    "cleanup_verified": true,
+    "detected_at": 1791392742.3534827,
+    "detected_at_monotonic": 472939.343,
+    "reason": "service_restart",
+    "revoked_at": 1791392742.354483,
+    "revoked_at_monotonic": 472939.343,
+    "revoked_grants": [
+      "4112f962881ab5612d8cd3356a7e6ae4"
+    ],
+    "state": "removed_after_loss"
+  },
+  "lease_revocation_a": {
+    "detected_at": 1791392736.57658,
+    "detected_at_monotonic": 472933.562,
+    "reason": "heartbeat_lost",
+    "revoked_at": 1791392736.5806036,
+    "revoked_at_monotonic": 472933.562,
+    "revoked_grants": [
+      "70bb4e5ced23cd8c596043cee1c728ba"
+    ]
+  },
+  "plan": {
+    "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+    "branches": [
+      "exp104-s6-20261007-01-a",
+      "exp104-s6-20261007-01-b",
+      "exp104-s6-20261007-01-c",
+      "exp104-s6-20261007-01-a-denied"
+    ],
+    "code_sha": "a32d5ed8173b4d7a16f3ab75b3ec127da822f945",
+    "commit": "0755d092baff7a45904570152f8dee96b271cbd9",
+    "connection_id": "exp104-s6-selected-gh",
+    "diagnostic": "exp104-s6-20261007-01",
+    "generation": 1,
+    "image": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+    "preflight_wall": 1791392726.6203156,
+    "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+    "repository_id": 1408647759,
+    "run_ids": [
+      "exp104-s6-20261007-01-run-a",
+      "exp104-s6-20261007-01-run-b",
+      "exp104-s6-20261007-01-run-c"
+    ],
+    "scope_confirmation": "selected_repository_only",
+    "token_key": "GH_LAOMEDO",
+    "workflow_control_commit": "5df88b8b0c7bc8ab8a5c9a82ec25d22aae31736e"
+  },
+  "provider_attempts": 4,
+  "remote_ref_a_after_push": {
+    "read_at": 1791392731.9050553,
+    "sha": "0755d092baff7a45904570152f8dee96b271cbd9"
+  },
+  "remote_ref_a_denied_branch": {
+    "branch": "exp104-s6-20261007-01-a-denied",
+    "http": 404,
+    "read_at_monotonic": 472933.968,
+    "read_at_wall": 1791392736.9796083,
+    "requested_at_monotonic": 472933.64
+  },
+  "runner_loss": {
+    "completed_monotonic": 472929.375,
+    "completed_wall": 1791392732.3945472,
+    "pid": 16044,
+    "started_monotonic": 472929.234
+  },
+  "runner_stop_failures": 0,
+  "secret_canary": {
+    "exact_token_hits": 0,
+    "files_scanned": 67
+  },
+  "service": {
+    "lease_instance": "e5fea627ed07fb39",
+    "lease_pid": 19460,
+    "mediator_pid": 17296
+  },
+  "setup": "README initialized before probe",
+  "status": "scoped_candidate_pass"
+}

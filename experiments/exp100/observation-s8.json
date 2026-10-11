@@ -1,0 +1,65 @@
+{
+  "cases": {
+    "positive": {
+      "baseline": "e6a79870c24945fd830a042ef889cd694f4a30a8",
+      "baseline_sha256": "6ae26d36c2f8c44774e873ea7e5efd8e06394322bd6650e2981b7eac6ecc732c",
+      "commit": "49a5b9e991f30ec1393c050aa88f83f5abd6a322",
+      "container_present_after": [
+        false
+      ],
+      "create_count": 1,
+      "independent": {
+        "ancestry": "passed",
+        "commit_matches": true,
+        "fsck": "passed",
+        "object_type": "commit"
+      },
+      "output_sha256": "04fde221597a66565562b71156850030349739e761409c91bc44f6b251d851ec",
+      "result": {
+        "attempt_id": "attempt-s8-positive",
+        "baseline": "e6a79870c24945fd830a042ef889cd694f4a30a8",
+        "baseline_bundle_sha256": "6ae26d36c2f8c44774e873ea7e5efd8e06394322bd6650e2981b7eac6ecc732c",
+        "commit": "49a5b9e991f30ec1393c050aa88f83f5abd6a322",
+        "container": {
+          "cleanup_verified": true,
+          "elapsed_seconds": 0.703,
+          "exit_code": null,
+          "export_class": "ok",
+          "export_returncode": 0,
+          "limits_verified": true,
+          "output_bytes": 562,
+          "output_sha256": "04fde221597a66565562b71156850030349739e761409c91bc44f6b251d851ec",
+          "stage_markers": [],
+          "status": "verified",
+          "success_marker_seen": true
+        },
+        "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+        "policy_approved": false,
+        "run_id": "run-s8-positive",
+        "source_bundle_sha256": "cb5ab21d9cfcdcff3ecd862b4ffe4169c5576b07b01f966e15e4cd4fb9a9f533",
+        "status": "verified"
+      },
+      "source_sha256": "cb5ab21d9cfcdcff3ecd862b4ffe4169c5576b07b01f966e15e4cd4fb9a9f533"
+    },
+    "wrong_commit": {
+      "new_create_count": 0,
+      "result": "candidate_commit_mismatch",
+      "verified_output_exists": false
+    }
+  },
+  "finished_at_unix": 1791550535.0488842,
+  "identity": "exp100-s8-20261009-a",
+  "image_id": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "model_turns": 0,
+  "probe_core_sha256": "eeba738ab398466e5b2c391edeb2d2ecb25f03124c6352d7e2c08f9953373b74",
+  "probe_sha256": "4c4ae58baa7d88be1fb3474007f806119e6de725a95a21239d578189cbbbe031",
+  "provider_calls": 0,
+  "source_revision": "e90b2d194fd0cd5accdad61cca97caae3e52938f",
+  "source_sha256": {
+    "laomedo/bundle_ingest.py": "652b9e8a6889f3ccbd9d2cf41bc7f9201ce524ee79e220eff87cb306965e8a72",
+    "laomedo/bundle_stage.py": "92cc8203a9b82355c135b516414f71d7be061bf1c806ff0622ac7272197f4b20",
+    "laomedo/resources/bundle_stage.sh": "5a7c32be96594c5a5ee3341f2870e85d83673860ec515996928e6badfb4368f5"
+  },
+  "started_at_unix": 1791550532.5724363,
+  "status": "passed"
+}

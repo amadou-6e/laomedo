@@ -1,0 +1,109 @@
+{
+  "events": [
+    {
+      "case_name": "early",
+      "kind": "case_reserved",
+      "monotonic": 43811.786488127,
+      "run_id": "exp123-S1-early",
+      "sequence": 10,
+      "utc": "2026-10-09T18:54:47.310637+00:00"
+    },
+    {
+      "classification": "accepted",
+      "fixture": {
+        "gate_id": "exp123-S1-early:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-early",
+        "signature": "d2f143ef1f5567197c9190e48b2fb183ebb7d471ccdf6867dcac3ef9ea015903",
+        "source_check_id": "exp123-S1-early:check-1",
+        "source_delivery_id": "exp123-S1-early:delivery-early",
+        "status": "passed"
+      },
+      "kind": "delivery",
+      "monotonic": 43811.790967817,
+      "run_id": "exp123-S1-early",
+      "sequence": 11,
+      "utc": "2026-10-09T18:54:47.315116+00:00"
+    },
+    {
+      "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+      "graph_sha256": "cb683571c04a34844369284c7f37c5f0f92eada0a8ceaaba4df327f66431e697",
+      "kind": "graph_started",
+      "monotonic": 43811.932117744,
+      "run_id": "exp123-S1-early",
+      "sequence": 12,
+      "utc": "2026-10-09T18:54:47.456266+00:00"
+    },
+    {
+      "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "invocation_id": "exp123-S1-early:Agent1",
+      "iteration": 1,
+      "kind": "agent_invoked",
+      "monotonic": 43811.936157387,
+      "node_id": "Agent1",
+      "pr_number": 1,
+      "repository": "fixture/repo",
+      "run_id": "exp123-S1-early",
+      "sequence": 13,
+      "utc": "2026-10-09T18:54:47.460306+00:00"
+    },
+    {
+      "gate_id": "exp123-S1-early:gate-1",
+      "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "kind": "gate_waiting",
+      "monotonic": 43811.940717476,
+      "node_id": "Gate1",
+      "run_id": "exp123-S1-early",
+      "sequence": 14,
+      "utc": "2026-10-09T18:54:47.464866+00:00"
+    },
+    {
+      "gate_id": "exp123-S1-early:gate-1",
+      "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "kind": "gate_decided",
+      "monotonic": 43811.943844448,
+      "node_id": "Gate1",
+      "run_id": "exp123-S1-early",
+      "sequence": 15,
+      "source_check_id": "exp123-S1-early:check-1",
+      "status": "passed",
+      "utc": "2026-10-09T18:54:47.467992+00:00"
+    },
+    {
+      "chosen": "success",
+      "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+      "kind": "branch_selected",
+      "monotonic": 43811.947550837,
+      "node_id": "Router",
+      "run_id": "exp123-S1-early",
+      "sequence": 16,
+      "utc": "2026-10-09T18:54:47.471699+00:00"
+    },
+    {
+      "graph_id": "dd32c1a0-d013-4d4b-b0e0-e42f06303d54",
+      "kind": "terminal_result",
+      "monotonic": 43811.951971854,
+      "node_id": "Result1",
+      "reason": "checks_passed",
+      "run_id": "exp123-S1-early",
+      "sequence": 17,
+      "status": "passed",
+      "utc": "2026-10-09T18:54:47.476120+00:00"
+    },
+    {
+      "kind": "case_terminal",
+      "monotonic": 43811.954249245,
+      "run_id": "exp123-S1-early",
+      "sequence": 18,
+      "state": "completed",
+      "utc": "2026-10-09T18:54:47.478397+00:00"
+    }
+  ],
+  "run_id": "exp123-S1-early",
+  "state": "completed"
+}

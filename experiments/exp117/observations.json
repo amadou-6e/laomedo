@@ -1,0 +1,199 @@
+{
+  "prethread": {
+    "sanitized": {
+      "category": "prethread_join_visible_stop_passed",
+      "shared_turn_count": 9,
+      "browser_send_clicked": true,
+      "browser_stop_clicked": true,
+      "ui_cancel_attributed_before_disconnect": true,
+      "bridge_cancel_attributed_before_runner": true,
+      "native_long_command_started": false,
+      "runner_status": "cancelled",
+      "cancel_confirmed": true,
+      "auth_read": "missing",
+      "auth_event_index": null,
+      "native_completion_statuses": [],
+      "raw_event_count": 0,
+      "raw_event_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exact_container_absent": null,
+      "container_never_launched_record_based": true,
+      "host_terminal_clean": true,
+      "host_receipt_kinds": [
+        "invocation_reserved",
+        "runner_request_frozen",
+        "langflow_client_claimed",
+        "dispatch_started",
+        "langflow_cancel_requested",
+        "runner_acknowledged",
+        "runner_cancel",
+        "runner_terminal"
+      ],
+      "prethread": true,
+      "thread_id_absent": true,
+      "runner_turn_ledger_absent": true,
+      "late_sentinel_absent": true,
+      "host_runner_identity_match": true,
+      "runner_route_starts": 1,
+      "runner_route_cancels": 1,
+      "restart": {
+        "saved_flow_reopened": true,
+        "host_binding_reopened_in_child": true,
+        "langflow_trace_count": 1,
+        "langflow_trace_id_present": true,
+        "trace_join_basis": "saved_flow_uuid_and_reported_graph_id_in_span",
+        "executing_graph_attested": false,
+        "native_starts_total": 1,
+        "native_starts_after_restart": 0
+      },
+      "bridge_route_starts": 1,
+      "bridge_route_cancels": 1,
+      "executing_graph_attested": false
+    },
+    "pins": {
+      "implementation": "7b5d009b6a3fe8ffc84c167e901f64587bfe1a91",
+      "protocol": "sha256:6e7ef4aa13e8708a064b8d4cc445fc9d9c6095a42f7a6f4bb5311f2fe81ccc70",
+      "task": "sha256:ec4aed1c45294294ec83ba33b8c5554831ee9ffe6cc1fe8e2e196d413638152e",
+      "browser": "sha256:7ba0c65ac08ac1dfd9c3bcc0b5b4f750b78d9fcb01d50f7371aa485f4defaeab",
+      "flow": "sha256:aaac7b938861034aee85290cad019a774c78562fa5bf568d01043654c6735d0e",
+      "component_code": {
+        "LaomedoCodexAgent": "sha256:f0b8f715cb5b335fcca76390375f61784a70ef0175ff781493f3903a6fed9c8b",
+        "LaomedoSkill": "sha256:abc47d0f843a3868da44f9379d3603ab5ab8b5b4ec39f83fc6ee6fe823e7b8bc"
+      },
+      "skill_revision": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+      "codex_image_id": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
+      "langflow_image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+      "model": "gpt-6-luna",
+      "effort": "low",
+      "shared_turn_cap": 12
+    },
+    "teardown": {
+      "category": "prethread_join_visible_stop_passed",
+      "langflow_absent": true,
+      "bridge_stopped": true,
+      "exact_runner_cleanup_verified": true,
+      "runs": [
+        {
+          "run_id": "bb2caf8c-27ae-405b-9b2e-7dc2a87c7bd8",
+          "terminal_status": "cancelled",
+          "exact_cleanup_verified": true,
+          "exact_cleanup_detail": "not_launched"
+        }
+      ],
+      "runner_server_stopped": true
+    },
+    "private_artifact_sha256": {
+      "sanitized.json": "e0b686fa25d5914c453e959a47a215fce1bc7663643ea5169df0c6f237efcbd9",
+      "pins.json": "dbd9143f4c6d417135408187ddd3fb8888f7c199e0c025ea1c664962d636771b",
+      "teardown.json": "719401832ef902112b75ae1ba4d1433d3e594f303b7082da56301b3c6675ece0",
+      "bridge-routes.jsonl": "4fa4e567ac7569ad2cfd1a4073372b60241110b308800d1d0a3e57a78c882cfc",
+      "runner-routes.jsonl": "91d3ad3e3b92f25eecbda5043049edca768bafcdc083e5dc7e1ae9e81d7f1720"
+    }
+  },
+  "active": {
+    "sanitized": {
+      "category": "real_join_inconclusive",
+      "shared_turn_count": 10,
+      "browser_send_clicked": true,
+      "browser_stop_clicked": true,
+      "ui_cancel_attributed_before_disconnect": true,
+      "bridge_cancel_attributed_before_runner": true,
+      "native_long_command_started": true,
+      "runner_status": "cancelled",
+      "cancel_confirmed": true,
+      "auth_read": "unverified",
+      "auth_event_index": 41,
+      "native_completion_statuses": [
+        "interrupted"
+      ],
+      "raw_event_count": 78,
+      "raw_event_sha256": "sha256:e6ce882bb633fc6e90b1a72d3ddccb547f6a89694a95089c8ee58187bb7fe465",
+      "exact_container_absent": true,
+      "container_never_launched_record_based": null,
+      "host_terminal_clean": true,
+      "host_receipt_kinds": [
+        "invocation_reserved",
+        "runner_request_frozen",
+        "langflow_client_claimed",
+        "dispatch_started",
+        "runner_acknowledged",
+        "langflow_cancel_requested",
+        "runner_cancel",
+        "runner_terminal"
+      ],
+      "prethread": false,
+      "thread_id_absent": false,
+      "runner_turn_ledger_absent": false,
+      "late_sentinel_absent": true,
+      "host_runner_identity_match": true,
+      "runner_route_starts": 1,
+      "runner_route_cancels": 1,
+      "restart": {
+        "saved_flow_reopened": true,
+        "host_binding_reopened_in_child": true,
+        "langflow_trace_count": 1,
+        "langflow_trace_id_present": true,
+        "trace_join_basis": "saved_flow_uuid_and_reported_graph_id_in_span",
+        "executing_graph_attested": false,
+        "native_starts_total": 1,
+        "native_starts_after_restart": 0
+      },
+      "bridge_route_starts": 1,
+      "bridge_route_cancels": 1,
+      "executing_graph_attested": false
+    },
+    "pins": {
+      "implementation": "7b5d009b6a3fe8ffc84c167e901f64587bfe1a91",
+      "protocol": "sha256:6e7ef4aa13e8708a064b8d4cc445fc9d9c6095a42f7a6f4bb5311f2fe81ccc70",
+      "task": "sha256:6a62eb95713dca7a98272e5aee7592a0bfe312c006479a60185414c03a188752",
+      "browser": "sha256:7ba0c65ac08ac1dfd9c3bcc0b5b4f750b78d9fcb01d50f7371aa485f4defaeab",
+      "flow": "sha256:aaac7b938861034aee85290cad019a774c78562fa5bf568d01043654c6735d0e",
+      "component_code": {
+        "LaomedoCodexAgent": "sha256:f0b8f715cb5b335fcca76390375f61784a70ef0175ff781493f3903a6fed9c8b",
+        "LaomedoSkill": "sha256:abc47d0f843a3868da44f9379d3603ab5ab8b5b4ec39f83fc6ee6fe823e7b8bc"
+      },
+      "skill_revision": "sha256:a12c212a57a9bc8fa3f0ecd834c09f9576a37ee89e21c62a096b1213fcc2bef8",
+      "codex_image_id": "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239",
+      "langflow_image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+      "model": "gpt-6-luna",
+      "effort": "low",
+      "shared_turn_cap": 12
+    },
+    "teardown": {
+      "category": "real_join_inconclusive",
+      "langflow_absent": true,
+      "bridge_stopped": true,
+      "exact_runner_cleanup_verified": true,
+      "runs": [
+        {
+          "run_id": "cc74b27d-e154-44e2-889c-681fc43ecfe4",
+          "terminal_status": "cancelled",
+          "exact_cleanup_verified": true,
+          "exact_cleanup_detail": "already_absent"
+        }
+      ],
+      "runner_server_stopped": true
+    },
+    "private_artifact_sha256": {
+      "sanitized.json": "a8caba1f94032ec3f82514450c8362754d92ac1df0f771e78a8112594d811e36",
+      "pins.json": "73578b5efe38f8699200e0425da9cc13e9105803b555583b69c8991ec10fa1a7",
+      "teardown.json": "8f336c2c3ebad8b46ed9e740902550717b58ea198b46c646c1848391bf5d6a59",
+      "bridge-routes.jsonl": "da8db631a1f386817de7c3a1e6ba965cb7d4b9c5ecc37d2b45adcd0b0a44e843",
+      "runner-routes.jsonl": "9469fd22e868661e9dd6cd2f66df92975c428b1eff61fdd3431eb13bba5227fe"
+    },
+    "retrospective_auth_read_amendment": {
+      "retrospective": true,
+      "original_probe_category": "real_join_inconclusive",
+      "original_auth_category": "unverified",
+      "event_index": 41,
+      "event_method": "item/completed",
+      "item_type": "commandExecution",
+      "exit_code": 0,
+      "exact_public_fixture_line_plus_one_denied_marker": true,
+      "auth_contents_redirected_to_dev_null": true,
+      "marker_reports_cat_exit_status": true,
+      "reported_auth_read_exit": 1,
+      "output_sha256": "c0d66b6fbffe7b2b64a6d9978e5b91fae071d6fbe87d07c3689dfbc8228a4aa4",
+      "no_rerun_or_model_turn": true
+    }
+  }
+}

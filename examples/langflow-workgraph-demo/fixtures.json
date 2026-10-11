@@ -1,0 +1,14 @@
+{
+  "repository": "laomedo-fixture/workgraph",
+  "fetched_at": "2026-10-10T00:00:00Z",
+  "issue": {
+    "number": 1,
+    "node_id": "FIXTURE_ISSUE_1",
+    "repository_url": "https://api.github.com/repos/laomedo-fixture/workgraph",
+    "html_url": "https://github.com/laomedo-fixture/workgraph/issues/1",
+    "title": "Produce the fixture report",
+    "body": "Implement a deterministic fixture report. Do not contact GitHub.",
+    "state": "open",
+    "updated_at": "2026-10-10T00:00:00Z"
+  }
+}

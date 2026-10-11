@@ -6,6 +6,35 @@ or implement its tool interface. The `LaomedoRunner` embedded in
 `examples/skill-agent-pilot/pilot-flow.json` now uses the same private runner
 API token; its historical model-turn evidence predates that change.
 
+## Output Contract and precheck
+
+`LaomedoOutputContract` exposes pinned Precheck Requirements and Validation
+Outcome Data ports. Install this repository's Laomedo package in the Langflow
+runtime before loading it: the node and Codex requirements input import the
+same `laomedo.output_contract` evaluator used by the host runner. Mounting only
+component files is insufficient for this component. A missing package fails
+visibly at import rather than falling back to a different validator.
+
+Use one requirements-only instance before the Codex node and a separate
+validation instance after its Submission output, configured with the same JSON
+form. This avoids a cycle in Langflow. The validator rejects a missing or
+different requirements revision, retains task outcome separately from validity,
+and emits accepted/rejected Data for conditional routing. Invalid form settings
+are configuration errors; invalid submissions are routable rejections.
+Connect the Codex Submission port to Agent Submission on the validator. Its
+legacy Run Reference port is not a submission envelope and cannot replace it.
+
+The native Codex dynamic precheck tool returns bounded path/code feedback within
+a request. A completed invalid form can receive one additional same-thread
+continuation by default, configurable from zero through eight. Continuations
+count against the existing operator-set model-turn ledger. Task failure,
+uncertain execution, external-write capability, command/file-change receipts
+or unknown tool effects do not trigger automatic correction. Consequently a
+coding task that already ran commands normally routes its invalid form to the
+graph rather than automatically repeating work. Infrastructure retries remain
+separate. Credential-free tests establish the transport and evaluator behavior;
+live Codex/model acceptance is not claimed by these tests.
+
 Mount this directory read-only into the Langflow container and configure
 `LANGFLOW_COMPONENTS_PATH=/app/custom_components`. The category package is
 `laomedo/`, containing `__init__.py` and `codex_agent.py`. Restart the test server
@@ -44,16 +73,85 @@ no model turns. Cancel requests retain the runner's status and evidence.
 Answer is a Langflow Message; Run Reference is Data containing answer, run/thread
 IDs, state, post-run hash, model/effort, skill revision/use evidence, artifact/trace
 references, error category and unknown usage. Both outputs share one dispatch per
-component build. A new explicit build submits a new request; automatic retry is
-not implemented. Trace references are opaque identifiers, not raw transcripts.
+component build. A new explicit build submits a new request; automatic
+infrastructure retry is not implemented. Output correction, when requirements
+are connected, follows the separate bounded policy above. Trace references are
+opaque identifiers, not raw transcripts.
 For multiple skills, the legacy `skill_revision` and `skill_use_evidence` fields
 are single-skill-only and may be empty; use the per-skill `skills` array.
 
 Invalid input fails before HTTP. Runner failures raise errors naming known run ID
 and category; transport timeouts cannot establish whether remote execution stopped.
-Langflow UI Stop is not claimed to cancel a remote start: synchronous runner start
-does not return its run ID until completion. Use explicit cancel with a known run
-ID; never interpret client interruption as sandbox denial or runner cancellation.
+For a known failed invocation, `RunnerResultError.run_reference` retains the
+public run/thread identity, state and partial trace reference. It omits private
+profile/workspace fields and does not turn failure into an Answer. A resume
+transport timeout retains the known run/trace with an unknown outcome, without
+retrying. Status and cancel remain available using that reference. Responses for
+another run, or a completed resume naming another native thread, are refused.
+The exception's structured reference is available to code calling the component.
+The legacy Answer/Run Reference ports retain that exception behavior; existing
+saved flows need no migration. Connect the new Submission / Outcome Data port
+to an Output Contract or router to receive known runtime failures as data.
+Selecting legacy ports too can still fail the graph; their exceptions are not
+silently changed. All three ports share one dispatch within a component build.
+
+The new port emits `schema_version: laomedo.agent-submission.v1`, `submission`,
+`answer`, `task_outcome`, `executor_status`, `evidence_complete`, `run_reference`
+and `error_category`, plus `requirements_revision` and `precheck`. The latter
+contains a separately reported `installed` boolean and nonnegative `call_count`, or `unknown`
+when unreported; a supplied form does not prove a precheck tool was called.
+The requirement revision is null when unreported. `submission` is the JSON object in the agent's final answer,
+or null for absent, malformed or non-object JSON. The reported `task_outcome`
+is read only from that object's `task_outcome: success|failure` field; normal
+prose and process exit never imply task success. An incomplete executor cannot
+promote a success claim. A reported failure is routable even when the executor
+completed. This port does not validate the form; downstream Output Contract
+remains authoritative, and submitted content is untrusted result data.
+
+The run reference retains native run/request/thread/trace references and, when
+reported by the join bridge, invocation, Laomedo run and trace IDs. Missing IDs
+remain null. Evidence completeness is the runner's exact boolean, or `unknown`
+when unreported; snapshot readiness is not a substitute. A poll disconnect
+retains the last bound run and partial answer/trace, sets executor status to
+unknown and clears the artifact reference. A lost initial acknowledgement keeps
+the request UUID without inventing a run or redispatching. Stable error codes
+are emitted without copying raw exception text or unbound error identities.
+There is no PR-reference field and no fabricated publication claim.
+
+Input validation still refuses before dispatch. Framework cancellation from
+Playground Stop still propagates so it cannot continue downstream execution;
+an explicit cancel/status operation can supply its known runtime outcome to
+the new port. Transport uncertainty is not permission to retry. No automatic
+output correction or infrastructure retry is added by this port alone.
+The fresh route uses early native acknowledgement, then read-only polling.
+Bounded installed-runtime tests showed visible Playground Stop cancelling one
+active Codex turn and one prepared turn. Do not infer a remote stop from client
+interruption alone; the runner's exact terminal evidence is required.
+
+## Opt-in Playground join prototype
+
+The optional advanced Join Bridge URL routes a fresh/start component call
+through a host-owned [join service](../laomedo/langflow_join_service.py). The
+checked-in sample flow leaves this field unset, so its current runner route is
+unchanged. The bridge takes a separate read-only token file in Langflow at
+`/run/secrets/laomedo-bridge-token`; the host service reads its own copy, a
+runner API token file and a private run store outside Git. The host independently
+hashes the saved-flow export, reserves the run before its native POST, and binds
+the client UUID, invocation, native request/run and trace. The saved export does
+not attest the executing editor graph. Stop persists by client UUID even when
+the first bridge acknowledgement is missing. The service is opt-in and has not
+been activated for the existing server. While a Stop intent is pending, a
+bridge status GET may reconcile the exact native request and send its cancel;
+it never starts another native request.
+
+The [develop-based checks](../experiments/exp117/RESULTS.md) compose visible
+Stop with the durable host/native/Langflow join at both prepared and active
+points, including a disposable SQLite restart with no redispatch. The active
+probe retains an inconclusive classifier result plus a separately reviewed
+retrospective failed-read explanation. Earlier independent results remain
+archived. This bounded local observation does not attest the executing graph,
+production authentication or orphan cleanup. The service remains opt-in; no
+existing server is silently reconfigured.
 
 ## Checks
 
@@ -62,9 +160,8 @@ image with this repository available. It uses a synthetic runner and no credenti
 or model turns. Run the existing `python -m unittest discover -s tests` on the host as well.
 Real imported-flow acceptance needs a separately authorized model-turn ledger.
 
-Automatic UI Stop propagation is tracked in
-[follow-up #22](https://github.com/amadou-6e/laomedo/issues/22); explicit cancel
-with a known run ID remains available in this node.
+The durable cross-store join and restart checks remain tracked in
+[follow-up #22](https://github.com/amadou-6e/laomedo/issues/22).
 
 Reference: [Langflow custom components](https://docs.langflow.org/components-custom-components).
 Newer documentation features must be checked against the installed 1.12.3 runtime.

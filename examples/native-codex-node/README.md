@@ -97,3 +97,19 @@ appeared. The private trace's recorded command executions did not mention `.aws`
 the exact creator is unknown, so this is not treated as an agent-requested edit.
 Track outstanding command semantics in
 [issue #24](https://github.com/amadou-6e/laomedo/issues/24).
+
+## Ended attempts with unknown outcome
+
+The updated component stops fresh polling when the runner reports
+`status: unknown` with `attempt_finished: true`, and surfaces the runner's error
+category. This is an ended attempt, not successful output or a confirmed command
+cancellation. Status keeps run/trace identity; an already-ended attempt receives
+no additional Stop cancel. An older unknown record without the exact boolean
+marker remains conservative and can wait until its deadline.
+
+The checked-in sample embeds the updated component code with all input values
+and connections preserved. Saved flows embed code. Regenerate through `build_flow.py`
+and explicitly reimport it when adopting a new component revision; a source
+update does not change an existing saved flow. No running instance or saved flow
+was changed by the credential-free #20 tests. The #104 lease and GitHub-write
+work remains separate.

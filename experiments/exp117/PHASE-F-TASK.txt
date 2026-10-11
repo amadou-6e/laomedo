@@ -1,0 +1,1 @@
+PRETHREAD cancellation probe. This task must never reach a native model turn. If it does, report PRETHREAD-GATE-FAILED and make no tool calls.

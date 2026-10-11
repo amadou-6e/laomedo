@@ -1,0 +1,42 @@
+{
+  "cleanup": {
+    "bundle-verifier": true,
+    "host-services": true
+  },
+  "heartbeat_advanced": true,
+  "host_module_root_matches": true,
+  "identity": "exp104-task-s1-20261009",
+  "model_turns": 0,
+  "provider_operations": 0,
+  "result": "passed",
+  "runner_stopped": true,
+  "source_sha": "065eea52d4d79cee2f81a24a6018c57b885522aa",
+  "tasks": {
+    "bundle-verifier": {
+      "after": [
+        14456,
+        21732
+      ],
+      "before": [
+        14456,
+        21732
+      ],
+      "ignore_new": true,
+      "interactive": true,
+      "limited": true
+    },
+    "host-services": {
+      "after": [
+        23720,
+        27712
+      ],
+      "before": [
+        23720,
+        27712
+      ],
+      "ignore_new": true,
+      "interactive": true,
+      "limited": true
+    }
+  }
+}

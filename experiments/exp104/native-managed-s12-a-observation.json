@@ -1,0 +1,22 @@
+{
+  "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+  "cleanup": {
+    "a": true,
+    "b": true,
+    "grants": true,
+    "processes": true,
+    "stages": true,
+    "tasks": true
+  },
+  "delivery": {},
+  "failure_class": "ValueError",
+  "identity": "exp104-native-managed-s12-20261010-a",
+  "model_turns": 0,
+  "provider_mutations": [],
+  "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+  "result": "incomplete",
+  "review_record_sha256": "7c7d50af3361360ddb497462e07a4e2e49e78f8befaa9fe035fd4d4e430252be",
+  "source_sha": "1da1f824f348f852d1f1bebf0c150e7c1634d46e",
+  "spec_sha": "ea2558e910d640b802b7b197d2a90b8d14e3249c",
+  "stage_cleanup_reports": []
+}

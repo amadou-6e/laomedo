@@ -1,0 +1,166 @@
+{
+  "events": [
+    {
+      "case_name": "cap",
+      "kind": "case_reserved",
+      "monotonic": 43817.201728265,
+      "run_id": "exp123-S1-cap",
+      "sequence": 47,
+      "utc": "2026-10-09T18:54:52.725877+00:00"
+    },
+    {
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "graph_sha256": "4097e6ad69ca14f9daba8c19fc05c7296752b25ec2b8bd80f9f6613ac48bdeea",
+      "kind": "graph_started",
+      "monotonic": 43817.343443964,
+      "run_id": "exp123-S1-cap",
+      "sequence": 48,
+      "utc": "2026-10-09T18:54:52.867593+00:00"
+    },
+    {
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "invocation_id": "exp123-S1-cap:Agent1",
+      "iteration": 1,
+      "kind": "agent_invoked",
+      "monotonic": 43817.347406367,
+      "node_id": "Agent1",
+      "pr_number": 1,
+      "repository": "fixture/repo",
+      "run_id": "exp123-S1-cap",
+      "sequence": 49,
+      "utc": "2026-10-09T18:54:52.871554+00:00"
+    },
+    {
+      "gate_id": "exp123-S1-cap:gate-1",
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "kind": "gate_waiting",
+      "monotonic": 43817.351763206,
+      "node_id": "Gate1",
+      "run_id": "exp123-S1-cap",
+      "sequence": 50,
+      "utc": "2026-10-09T18:54:52.875912+00:00"
+    },
+    {
+      "classification": "accepted",
+      "fixture": {
+        "gate_id": "exp123-S1-cap:gate-1",
+        "head_sha": "1111111111111111111111111111111111111111",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-cap",
+        "signature": "2e62223fef8f8cceb381402e9fdded691b2fa1fd7667647f533c4b4b48431be4",
+        "source_check_id": "exp123-S1-cap:check-1",
+        "source_delivery_id": "exp123-S1-cap:delivery-failed-h1",
+        "status": "failed"
+      },
+      "kind": "delivery",
+      "monotonic": 43817.614587135,
+      "run_id": "exp123-S1-cap",
+      "sequence": 51,
+      "utc": "2026-10-09T18:54:53.138736+00:00"
+    },
+    {
+      "gate_id": "exp123-S1-cap:gate-1",
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "head_sha": "1111111111111111111111111111111111111111",
+      "kind": "gate_decided",
+      "monotonic": 43817.659570349,
+      "node_id": "Gate1",
+      "run_id": "exp123-S1-cap",
+      "sequence": 52,
+      "source_check_id": "exp123-S1-cap:check-1",
+      "status": "failed",
+      "utc": "2026-10-09T18:54:53.183719+00:00"
+    },
+    {
+      "chosen": "failure",
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "kind": "branch_selected",
+      "monotonic": 43817.66426757,
+      "node_id": "Router",
+      "run_id": "exp123-S1-cap",
+      "sequence": 53,
+      "utc": "2026-10-09T18:54:53.188416+00:00"
+    },
+    {
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "head_sha": "2222222222222222222222222222222222222222",
+      "invocation_id": "exp123-S1-cap:Agent2",
+      "iteration": 2,
+      "kind": "agent_invoked",
+      "monotonic": 43817.668599295,
+      "node_id": "Agent2",
+      "pr_number": 1,
+      "repository": "fixture/repo",
+      "run_id": "exp123-S1-cap",
+      "sequence": 54,
+      "utc": "2026-10-09T18:54:53.192748+00:00"
+    },
+    {
+      "gate_id": "exp123-S1-cap:gate-2",
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "head_sha": "2222222222222222222222222222222222222222",
+      "kind": "gate_waiting",
+      "monotonic": 43817.672661705,
+      "node_id": "Gate2",
+      "run_id": "exp123-S1-cap",
+      "sequence": 55,
+      "utc": "2026-10-09T18:54:53.196810+00:00"
+    },
+    {
+      "classification": "accepted",
+      "fixture": {
+        "gate_id": "exp123-S1-cap:gate-2",
+        "head_sha": "2222222222222222222222222222222222222222",
+        "pr_number": 1,
+        "repository": "fixture/repo",
+        "run_id": "exp123-S1-cap",
+        "signature": "134ffa01d1946d1fa20778a42b4532ef0d1d3ed62bd8f39ef280bc311587b86c",
+        "source_check_id": "exp123-S1-cap:check-2",
+        "source_delivery_id": "exp123-S1-cap:delivery-final-h2",
+        "status": "failed"
+      },
+      "kind": "delivery",
+      "monotonic": 43817.924560879,
+      "run_id": "exp123-S1-cap",
+      "sequence": 56,
+      "utc": "2026-10-09T18:54:53.448710+00:00"
+    },
+    {
+      "gate_id": "exp123-S1-cap:gate-2",
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "head_sha": "2222222222222222222222222222222222222222",
+      "kind": "gate_decided",
+      "monotonic": 43817.980730525,
+      "node_id": "Gate2",
+      "run_id": "exp123-S1-cap",
+      "sequence": 57,
+      "source_check_id": "exp123-S1-cap:check-2",
+      "status": "failed",
+      "utc": "2026-10-09T18:54:53.504879+00:00"
+    },
+    {
+      "graph_id": "b85d472a-e1cc-473c-aab2-20a65fecffd2",
+      "kind": "terminal_result",
+      "monotonic": 43817.985361884,
+      "node_id": "Result2",
+      "reason": "iteration_cap_exhausted",
+      "run_id": "exp123-S1-cap",
+      "sequence": 58,
+      "status": "failed",
+      "utc": "2026-10-09T18:54:53.509511+00:00"
+    },
+    {
+      "kind": "case_terminal",
+      "monotonic": 43817.988080134,
+      "run_id": "exp123-S1-cap",
+      "sequence": 59,
+      "state": "completed",
+      "utc": "2026-10-09T18:54:53.512228+00:00"
+    }
+  ],
+  "run_id": "exp123-S1-cap",
+  "state": "completed"
+}

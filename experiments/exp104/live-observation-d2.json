@@ -1,0 +1,29 @@
+{
+  "failure_code": "ready_timeout",
+  "failure_type": "RuntimeError",
+  "plan": {
+    "baseline": "1f1a505f2fbd31993a7946924a9bec5a27bb15c1",
+    "branches": [
+      "exp104-d2-20261007-01-a",
+      "exp104-d2-20261007-01-b",
+      "exp104-d2-20261007-01-c"
+    ],
+    "code_sha": "fceaecc2e76815f107eb4b8b644bb2226c3e50c3",
+    "commit": "919fc96cd89ac5c972a36cef4296780544133a8b",
+    "connection_id": "exp104-d2-selected-gh",
+    "diagnostic": "exp104-d2-20261007-01",
+    "generation": 1,
+    "image": "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84",
+    "preflight_wall": 1791371371.51447,
+    "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+    "repository_id": 1408647759,
+    "run_ids": [
+      "exp104-d2-20261007-01-run-a",
+      "exp104-d2-20261007-01-run-b",
+      "exp104-d2-20261007-01-run-c"
+    ],
+    "workflow_control_commit": "bd21495fcfb4b208188dd702f56bd55451c55526"
+  },
+  "provider_attempts": 3,
+  "status": "incomplete"
+}

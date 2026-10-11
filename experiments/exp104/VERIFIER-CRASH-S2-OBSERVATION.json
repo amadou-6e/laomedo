@@ -1,0 +1,29 @@
+{
+  "baseline": "8048a82d85096f681cf62940a9b0b46c53c49084",
+  "baseline_bundle_sha256": "ce84809b23157d0ec73b559e97826ee873d5c16fae78864e90fd6da89c784b25",
+  "claim_preserved": true,
+  "cleanup": {
+    "control": true,
+    "stage": true
+  },
+  "commit": "a57e90d7cf4b7511a6e4f5e8c7e8e6d14bfeba4d",
+  "control_still_running": true,
+  "declared_model_turns": 0,
+  "declared_provider_operations": 0,
+  "identity": "exp104-verifier-loss-s2-20261009",
+  "input_bundle_sha256": "6d1361f7f1f5ed07a70fef4b41513a34cc92272031fbc83bd5ac708ebf859fa5",
+  "orphan_cleanup": {
+    "cleanup_verified": true,
+    "detail": "removed"
+  },
+  "reservation_present_before_kill": true,
+  "restarted_scan_dispatches": [],
+  "result": "passed",
+  "source_sha": "21d66f97a7971ff1926e19b825645a1a5ee2f0e2",
+  "stage_after": "absent",
+  "stage_before": {
+    "id": "b7db78015dbe73b3b8c591fe3ffe0379f0ffc4151d3c07663909616bf8eec4ab",
+    "state": "owned"
+  },
+  "verification_status": "unknown"
+}

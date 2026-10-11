@@ -8,10 +8,11 @@ import json
 import os
 import sys
 import threading
+from types import SimpleNamespace
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 from urllib import error
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "components/laomedo/codex_agent.py"
@@ -57,6 +58,250 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_submission_separates_reported_outcome_from_executor_and_evidence(self):
+        for report, expected in [("success", "success"), ("failure", "failure"),
+                                 (None, "unknown"), ({"invalid": True}, "unknown")]:
+            node = component(request_id=RUN)
+            answer = json.dumps({"task_outcome": report, "summary": "fixture"})
+            native = result(answer=answer, client_request_id=RUN,
+                            invocation_id="invocation-fixture", trace_id="trace-fixture",
+                            requirements_revision=HASH, precheck={"installed": True, "call_count": 0},
+                            evidence_complete=False, completion_basis="process_exit")
+            with self.subTest(report=report), patch.object(node, "_token", return_value="synthetic"), \
+                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(native).encode())):
+                output = (await node.submission_output()).data
+            self.assertEqual(output["task_outcome"], expected)
+            self.assertEqual(output["executor_status"], "completed")
+            self.assertIs(output["evidence_complete"], False)
+            self.assertEqual(output["submission"]["summary"], "fixture")
+            self.assertEqual(output["run_reference"]["invocation_id"], "invocation-fixture")
+            self.assertEqual(output["run_reference"]["trace_id"], "trace-fixture")
+            self.assertEqual(output["requirements_revision"], HASH)
+            self.assertEqual(output["precheck"], {"installed": True, "call_count": 0})
+
+    async def test_submission_does_not_infer_success_from_exit_or_prose(self):
+        for answer in ("All done", "[]", "not JSON", None):
+            node = component(request_id=RUN)
+            with self.subTest(answer=answer), patch.object(node, "_token", return_value="synthetic"), \
+                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(
+                        result(answer=answer, client_request_id=RUN)).encode())):
+                output = (await node.submission_output()).data
+            self.assertEqual(output["task_outcome"], "unknown")
+            self.assertEqual(output["evidence_complete"], "unknown")
+            self.assertIsNone(output["submission"])
+            self.assertIsNone(output["requirements_revision"])
+            self.assertEqual(output["precheck"], {"installed": "unknown", "call_count": "unknown"})
+
+    async def test_submission_routes_terminal_interruptions_with_partial_trace(self):
+        for status in ("failed", "timeout", "cancelled", "interrupted", "unknown"):
+            node = component(request_id=RUN)
+            native = result(status=status, client_request_id=RUN, attempt_finished=True,
+                evidence_complete=False, post_run_hash=None, output_ref=None,
+                answer=json.dumps({"task_outcome": "success", "summary": "partial"}))
+            with self.subTest(status=status), patch.object(node, "_token", return_value="synthetic"), \
+                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(native).encode())) as http:
+                output = (await node.submission_output()).data
+            self.assertEqual(output["executor_status"], status)
+            self.assertEqual(output["task_outcome"], "unknown")
+            self.assertEqual(output["submission"]["summary"], "partial")
+            self.assertEqual(output["run_reference"]["trace_ref"], f"laomedo:run:{RUN}:events")
+            self.assertIsNone(output["run_reference"]["artifact_ref"])
+            self.assertEqual(http.call_count, 1)
+
+    async def test_submission_poll_disconnect_retains_last_bound_partial_evidence(self):
+        node = component(request_id=RUN)
+        native = result(status="running", client_request_id=RUN, answer="partial text",
+                        output_ref="unready", invocation_id="invocation-fixture")
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=[
+                    Response(json.dumps(native).encode()), TimeoutError("SECRET private-path")]) as http:
+            output = (await node.submission_output()).data
+        self.assertEqual(output["executor_status"], "unknown")
+        self.assertEqual(output["answer"], "partial text")
+        self.assertEqual(output["run_reference"]["run_id"], RUN)
+        self.assertEqual(output["run_reference"]["invocation_id"], "invocation-fixture")
+        self.assertEqual(output["run_reference"]["trace_ref"], f"laomedo:run:{RUN}:events")
+        self.assertIsNone(output["run_reference"]["artifact_ref"])
+        self.assertNotIn("SECRET", json.dumps(output))
+        self.assertEqual(http.call_count, 2)
+
+    async def test_submission_lost_start_ack_keeps_request_without_inventing_run(self):
+        node = component(request_id=RUN)
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=TimeoutError("SECRET")) as http:
+            output = (await node.submission_output()).data
+        self.assertEqual(output["task_outcome"], "unknown")
+        self.assertEqual(output["executor_status"], "unknown")
+        self.assertEqual(output["run_reference"]["request_id"], RUN)
+        self.assertIsNone(output["run_reference"]["run_id"])
+        self.assertNotIn("SECRET", json.dumps(output))
+        self.assertEqual(http.call_count, 1)
+
+    async def test_submission_known_http_failure_routes_but_legacy_port_still_raises(self):
+        node = component(request_id=RUN)
+        native = result(status="timeout", client_request_id=RUN, answer=None,
+                        output_ref=None, error_category="turn_timeout")
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                    "http://localhost", 502, "failure", {}, Response(json.dumps(native).encode()))) as http:
+            output = (await node.submission_output()).data
+            with self.assertRaises(module.RunnerResultError):
+                await node.run_output()
+        self.assertEqual(output["executor_status"], "timeout")
+        self.assertEqual(output["error_category"], "turn_timeout")
+        self.assertEqual(output["run_reference"]["run_id"], RUN)
+        self.assertEqual(http.call_count, 1)
+
+    async def test_submission_invalid_inputs_refuse_before_dispatch(self):
+        with patch.object(module.request, "urlopen") as http:
+            with self.assertRaisesRegex(ValueError, "task_required"):
+                await component(task=" ").submission_output()
+            http.assert_not_called()
+
+    async def test_submission_refuses_unbound_http_error_identity(self):
+        node = component(request_id=RUN)
+        native = result(status="failed", run_id="foreign-run", client_request_id="foreign-request",
+                        raw_event_ref="foreign-trace", answer='{"task_outcome":"success"}')
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                    "http://localhost", 502, "failure", {}, Response(json.dumps(native).encode()))):
+            output = (await node.submission_output()).data
+        self.assertEqual(output["executor_status"], "unknown")
+        self.assertIsNone(output["run_reference"]["run_id"])
+        self.assertEqual(output["run_reference"]["request_id"], RUN)
+        self.assertEqual(output["error_category"], "runner_request_identity_mismatch")
+        self.assertNotIn("foreign", json.dumps(output))
+
+    async def test_submission_does_not_echo_unstructured_error_category(self):
+        for category in ({"secret": "NOT_A_PUBLIC_CODE"}, [], False, 99):
+            node = component(request_id=RUN)
+            native = result(status="failed", client_request_id=RUN, answer=None,
+                            error_category=category)
+            with self.subTest(category=category), patch.object(node, "_token", return_value="synthetic"), \
+                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(native).encode())):
+                output = (await node.submission_output()).data
+            self.assertEqual(output["error_category"], "runner_runtime_unknown")
+            self.assertNotIn("NOT_A_PUBLIC_CODE", json.dumps(output))
+
+    async def test_all_three_outputs_share_dispatch(self):
+        node = component(request_id=RUN)
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", return_value=Response(json.dumps(
+                    result(client_request_id=RUN)).encode())) as http:
+            answer, run, submission = await asyncio.gather(
+                node.answer_output(), node.run_output(), node.submission_output())
+        self.assertEqual(answer.text, "amber 3")
+        self.assertEqual(run.data["run_id"], submission.data["run_reference"]["run_id"])
+        self.assertEqual(http.call_count, 1)
+
+    async def test_saved_flow_old_ports_run_with_updated_component_source(self):
+        from lfx.graph.graph.base import Graph
+        root = Path(__file__).resolve().parents[2]
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        agent = next(n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent")
+        agent["data"]["node"]["template"]["code"]["value"] = MODULE_PATH.read_text()
+        def respond(req, **_kwargs):
+            return Response(json.dumps(result(client_request_id=json.loads(req.data)["request_id"])).encode())
+        with patch.object(module.LaomedoCodexAgent, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=respond) as http:
+            # Imported source builds a distinct class, so the fake token file is used.
+            with tempfile.TemporaryDirectory() as state:
+                token = Path(state) / "token"
+                token.write_text("synthetic")
+                with patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)}):
+                    await Graph.from_payload(flow).arun(inputs=[{"input_value": "Read fixture"}], types=["chat"])
+        self.assertEqual(http.call_count, 1)
+
+    async def test_finished_unknown_stops_fresh_polling_without_success(self):
+        node = component(request_id=RUN)
+        replies = [result(status="prepared", client_request_id=RUN),
+                   result(status="unknown", attempt_finished=True, snapshot_ready=False,
+                          answer=None, post_run_hash=None, client_request_id=RUN,
+                          error_category="outstanding_command_completion_unknown")]
+        calls = []
+        def opened(req, **_kwargs):
+            calls.append(req.get_method())
+            self.assertLessEqual(len(calls), 2)
+            return Response(json.dumps(replies.pop(0)).encode())
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=opened):
+            with self.assertRaisesRegex(RuntimeError, "outstanding_command_completion_unknown"):
+                await node.run_output()
+        self.assertEqual(calls, ["POST", "GET"])
+
+    async def test_unknown_without_finished_marker_keeps_polling(self):
+        node = component(request_id=RUN)
+        replies = [result(status="prepared", client_request_id=RUN),
+                   result(status="unknown", attempt_finished=False, client_request_id=RUN),
+                   result(client_request_id=RUN)]
+        calls = []
+        def opened(req, **_kwargs):
+            calls.append(req.get_method())
+            self.assertLessEqual(len(calls), 3)
+            return Response(json.dumps(replies.pop(0)).encode())
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", side_effect=opened):
+            output = (await node.run_output()).data
+        self.assertEqual(output["status"], "completed")
+        self.assertEqual(calls, ["POST", "GET", "GET"])
+
+    async def test_stop_does_not_cancel_a_finished_unknown_attempt(self):
+        node = component(operation="start", request_id=RUN)
+        expected_hash = "sha256:" + "c" * 64
+        native = result(status="unknown", attempt_finished=True,
+                        client_request_id=RUN, request_hash=expected_hash)
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(node, "_stop_http", return_value=native) as http:
+            node._cancel_after_ui_stop("http://host.docker.internal:8765", RUN, expected_hash)
+        self.assertEqual(http.call_count, 1)
+        self.assertIn("no cancel sent", node.status)
+
+    async def test_status_retains_finished_unknown_identity_and_trace(self):
+        node = component(operation="status", run_reference={"run_id": RUN})
+        value = result(status="unknown", attempt_finished=True, snapshot_ready=False,
+                       answer=None, post_run_hash=None, output_ref=None,
+                       error_category="outstanding_command_completion_unknown")
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.request, "urlopen", return_value=Response(json.dumps(value).encode())):
+            output = (await node.run_output()).data
+        self.assertEqual(output["run_id"], RUN)
+        self.assertIs(output["attempt_finished"], True)
+        self.assertIs(output["snapshot_ready"], False)
+        self.assertEqual(output["trace_ref"], f"laomedo:run:{RUN}:events")
+        self.assertIsNone(output["artifact_ref"])
+
+    async def test_opt_in_join_uses_saved_flow_identity_and_polls_bridge(self):
+        node = component(bridge_url="http://host.docker.internal:8766")
+        node._vertex = SimpleNamespace(id="agent-stage")
+        native_run = str(__import__("uuid").uuid4())
+        calls = []
+
+        def bridge_open(req, timeout):
+            calls.append((req.full_url, req.get_method(), req.data))
+            if req.full_url.endswith("/v1/invocations"):
+                submitted = json.loads(req.data)
+                self.assertEqual(submitted["flow_id"], "saved-flow")
+                self.assertEqual(submitted["graph_run_id"], "graph-run")
+                self.assertEqual(submitted["stage_id"], "agent-stage")
+                self.assertEqual(submitted["runner_body"]["task"], "Read fixture")
+                value = {"run_id": native_run, "status": "prepared",
+                         "client_request_id": submitted["client_request_id"]}
+            else:
+                value = {**result(run_id=native_run), "client_request_id":
+                         json.loads(calls[0][2])["client_request_id"]}
+            return Response(json.dumps(value).encode())
+
+        with patch.object(type(node), "graph", new_callable=PropertyMock,
+                          return_value=SimpleNamespace(flow_id="saved-flow",
+                                                       run_id="graph-run")), \
+                patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module._HTTP, "open", side_effect=bridge_open):
+            output = (await node.run_output()).data
+        self.assertEqual(output["status"], "completed")
+        self.assertEqual(output["run_id"], native_run)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[1][0].endswith("/v1/runs/" + native_run))
+
     async def test_cancelled_component_resolves_same_request_without_redispatch(self):
         node = component(operation="start", request_id=RUN)
         entered, release = threading.Event(), threading.Event()
@@ -160,6 +405,40 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(http.call_count, 1)
             self.assertIn("amber 3", str(output))
 
+    async def test_pinned_graph_exposes_run_and_stage_ids_without_flow_id(self):
+        from lfx.graph.graph.base import Graph
+        root = Path(__file__).resolve().parents[2]
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        agent = next(node for node in flow["data"]["nodes"]
+                     if node["data"]["type"] == "LaomedoCodexAgent")
+        code = agent["data"]["node"]["template"]["code"]["value"]
+        source = '            return endpoint, payload, "POST"'
+        probe = ('            payload["langflow_probe"] = {"run_id": self.graph.run_id, '
+                 '"flow_id": self.graph.flow_id, "stage_id": self._vertex.id}\n'
+                 + source)
+        self.assertEqual(code.count(source), 1)
+        prefix, separator, suffix = code.rpartition(source)
+        self.assertTrue(separator)
+        agent["data"]["node"]["template"]["code"]["value"] = prefix + probe + suffix
+        observed = []
+
+        def respond(req, **_kwargs):
+            payload = json.loads(req.data)
+            probe = payload["langflow_probe"]
+            observed.append((probe["run_id"], probe["flow_id"], probe["stage_id"]))
+            return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
+        with patch.object(module.request, "urlopen", side_effect=respond):
+            for _ in range(2):
+                await Graph.from_payload(flow).arun(
+                    inputs=[{"input_value": "Read fixture"}], types=["chat"])
+        self.assertEqual(len(observed), 2)
+        self.assertNotEqual(observed[0][0], observed[1][0])
+        self.assertEqual(observed[0][1:], observed[1][1:])
+        self.assertTrue(observed[0][0])
+        self.assertEqual(observed[0][2], "LaomedoCodexAgent-native")
+        # Direct Graph.from_payload runs need not have a saved server flow ID.
+        self.assertIsNone(observed[0][1])
+
     async def test_saved_graph_resume_passes_structured_reference(self):
         from lfx.graph.graph.base import Graph
         root = Path(__file__).resolve().parents[2]
@@ -178,6 +457,45 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             await Graph.from_payload(flow).arun(inputs=[{"input_value": "Read marker"}],
                                                 types=["chat"])
             self.assertEqual(http.call_count, 1)
+
+    async def test_saved_graph_wires_fresh_run_reference_into_resume(self):
+        from lfx.graph.graph.base import Graph
+        root = Path(__file__).resolve().parents[2]
+        builder_spec = importlib.util.spec_from_file_location(
+            "resume_flow_builder", root / "examples/native-codex-node/build_flow.py")
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
+        first = next(n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent")
+        second = deepcopy(first)
+        second["id"] = second["data"]["id"] = "LaomedoCodexAgent-resume"
+        fields = second["data"]["node"]["template"]
+        fields["operation"]["value"] = "resume"
+        fields["task"]["value"] = "Continue fixture"
+        flow["data"]["nodes"].append(second)
+        outputs = [e for e in flow["data"]["edges"] if e["source"] == first["id"]]
+        flow["data"]["edges"] = [e for e in flow["data"]["edges"] if e not in outputs]
+        by_id = {n["id"]: n for n in flow["data"]["nodes"]}
+        for old in outputs:
+            flow["data"]["edges"].append(builder.edge(second,
+                old["data"]["sourceHandle"]["name"], by_id[old["target"]], "input_value"))
+        flow["data"]["edges"].append(builder.edge(first, "run", second, "run_reference"))
+        calls = []
+        def respond(req, **_kwargs):
+            calls.append(req.full_url)
+            payload = json.loads(req.data)
+            if req.full_url.endswith("/resume"):
+                self.assertEqual(payload["expected_thread_id"], "native-thread")
+                self.assertEqual(payload["expected_post_run_hash"], HASH)
+                self.assertEqual(payload["task"], "Continue fixture")
+                return Response(json.dumps(result(answer="continued fixture")).encode())
+            self.assertTrue(req.full_url.endswith("/v1/runs/async"))
+            return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
+        with patch.object(module.request, "urlopen", side_effect=respond):
+            output = await Graph.from_payload(flow).arun(inputs=[{"input_value": "Read fixture"}], types=["chat"])
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[1].endswith(f"/{RUN}/resume"))
+        self.assertIn("continued fixture", str(output))
 
     async def test_two_connected_skill_nodes_dispatch_one_skill_list(self):
         from lfx.graph.graph.base import Graph
@@ -274,6 +592,89 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             await component(operation="resume", run_reference=module.Data(data=prior)).run_output()
             with self.assertRaisesRegex(ValueError, "resume_model_effort_mismatch"):
                 await component(operation="resume", run_reference=prior, effort="high").run_output()
+            self.assertEqual(http.call_count, 1)
+
+    async def test_resume_rejects_incomplete_or_noncompleted_reference_before_http(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low"}
+        changes = [{"post_run_hash": None}, {"post_run_hash": "latest"},
+                   {"thread_id": None}, {"thread_id": {"private": "path"}},
+                   {"status": "cancelled"}, {"status": "unknown"},
+                   {"model": "different"}, {"effort": "high"}]
+        with patch.object(module.request, "urlopen") as http:
+            for change in changes:
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    await component(operation="resume", run_reference={**prior, **change}).run_output()
+            http.assert_not_called()
+
+    async def test_resume_status_and_cancel_refuse_another_run_response(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low"}
+        other = "00000000-0000-4000-8000-000000000001"
+        for operation in ("resume", "status", "cancel"):
+            for http_error in (False, True):
+                response = Response(json.dumps(result(run_id=other)).encode())
+                failure = error.HTTPError("http://localhost", 502, "failure", {}, response)
+                with self.subTest(operation=operation, http_error=http_error), \
+                        patch.object(module.request, "urlopen", side_effect=failure if http_error else None,
+                                     return_value=response):
+                    with self.assertRaisesRegex(RuntimeError, "runner_response_identity_mismatch"):
+                        await component(operation=operation, run_reference=prior).run_output()
+
+    async def test_resume_refuses_changed_native_thread_without_fresh_fallback(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low"}
+        with patch.object(module.request, "urlopen", return_value=Response(
+                json.dumps(result(thread_id="another-thread")).encode())) as http:
+            with self.assertRaisesRegex(RuntimeError, "runner_response_thread_mismatch"):
+                await component(operation="resume", run_reference=prior).run_output()
+            self.assertEqual(http.call_count, 1)
+            self.assertTrue(http.call_args.args[0].full_url.endswith("/resume"))
+
+    async def test_failed_resume_retains_public_identity_and_partial_trace(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low",
+                 "trace_ref": f"laomedo:run:{RUN}:events"}
+        for status in ("failed", "timeout", "cancelled"):
+            payload = json.dumps(result(status=status, answer=None, post_run_hash=None,
+                output_ref=None, error_category="synthetic_" + status,
+                profile="PRIVATE_PROFILE_PATH", workspace="PRIVATE_WORKSPACE_PATH")).encode()
+            with self.subTest(status=status), patch.object(module.request, "urlopen", side_effect=
+                    error.HTTPError("http://localhost", 502, "failure", {}, Response(payload))) as http:
+                with self.assertRaises(module.RunnerResultError) as caught:
+                    await component(operation="resume", run_reference=prior).run_output()
+                reference = caught.exception.run_reference
+                self.assertEqual(reference["run_id"], RUN)
+                self.assertEqual(reference["trace_ref"], prior["trace_ref"])
+                self.assertEqual(reference["status"], status)
+                self.assertIsNone(reference["artifact_ref"])
+                self.assertNotIn("PRIVATE_", json.dumps(reference))
+                self.assertEqual(http.call_count, 1)
+
+        # Pre-dispatch refusal has no new result: retain the known run/trace,
+        # without relabelling the previous completed turn as this turn's success.
+        payload = json.dumps({"status": "failed", "error_category": "post_run_snapshot_mismatch"}).encode()
+        with patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                "http://localhost", 400, "refused", {}, Response(payload))) as http:
+            with self.assertRaises(module.RunnerResultError) as caught:
+                await component(operation="resume", run_reference=prior).run_output()
+            self.assertEqual(caught.exception.run_reference["run_id"], RUN)
+            self.assertEqual(caught.exception.run_reference["trace_ref"], prior["trace_ref"])
+            self.assertEqual(caught.exception.run_reference["status"], "unknown")
+            self.assertEqual(http.call_count, 1)
+
+    async def test_resume_transport_timeout_keeps_known_identity_without_retry(self):
+        prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
+                 "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low",
+                 "trace_ref": f"laomedo:run:{RUN}:events"}
+        with patch.object(module.request, "urlopen", side_effect=TimeoutError()) as http:
+            with self.assertRaises(module.RunnerResultError) as caught:
+                await component(operation="resume", run_reference=prior).run_output()
+            self.assertIn("remote execution may still be active", str(caught.exception))
+            self.assertEqual(caught.exception.run_reference["run_id"], RUN)
+            self.assertEqual(caught.exception.run_reference["trace_ref"], prior["trace_ref"])
+            self.assertEqual(caught.exception.run_reference["status"], "unknown")
+            self.assertIsNone(caught.exception.run_reference["artifact_ref"])
             self.assertEqual(http.call_count, 1)
 
     async def test_failed_run_preserves_identity_and_category(self):
