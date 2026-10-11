@@ -1,5 +1,9 @@
 # EXP-139 bounded live checkpoint, 2026-10-11
 
+This first result remains unchanged below. The later owner-approved recovery,
+its three additional live turns, exhausted 4/4 ledger and remaining publication
+barriers are recorded in [RECOVERY-RESULTS.md](RECOVERY-RESULTS.md).
+
 **Blocked, not a successful draft-PR demonstration.** The durable ledger is
 **1/4 submitted turns**, with zero push attempts and zero PR attempts. No unknown
 provider operation was retried. See [OBSERVATION.json](OBSERVATION.json).

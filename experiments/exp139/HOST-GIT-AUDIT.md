@@ -23,6 +23,7 @@ uses only disposable local files. It does not prove arbitrary Git commands safe.
 Recovery must additionally refuse resume rather than pass an agent-mutated
 workspace back through another invocation. Host case selection must preserve
 the mediated supervisor for success, and use a distinct ordinary supervisor
-only for no-grant cases. Those recovery implementation tests are not yet present.
+only for no-grant cases. The later recovery implementation tests are present in
+`tests/test_live_workgraph_bindings.py`; the original audit predates them.
 An agent edit to `.git/info/exclude` must still fail the immutable skill-exclusion
 check. Keep these gates and independent review before any permission activation.
