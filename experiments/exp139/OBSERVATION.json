@@ -1,0 +1,86 @@
+{
+  "agent_image": "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78",
+  "configuration_recovery": "proposed_not_activated",
+  "draft_pr": null,
+  "execution_source": "1477034cdbce24b277334e9754c1899fcd03e52d",
+  "experiment": "EXP-139",
+  "langflow_image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+  "ledger": {
+    "attempted_turns": 1,
+    "max_authorized_turns": 4
+  },
+  "manifest_sha256": "c4d9be2b80d3cc1f3c9b75a05b870acbef12db684db299ecfbdb5c67cd6b9253",
+  "report_sha256": "3de179af048ab7823ab1a088459309e802b5a0253263718a8ce33f911eb3a49b",
+  "result": "blocked_no_go",
+  "runs": [
+    {
+      "attempt_finished": true,
+      "case": "deliberate_failure_launch",
+      "cleanup_verified": true,
+      "closure": null,
+      "completion_basis": null,
+      "contract_status": "rejected",
+      "controller_cleanup": "not_started",
+      "error_category": "lease_service_unavailable",
+      "evidence_complete": "unknown",
+      "failure_category": "nonmediated_lease_not_supported_by_selected_supervisor",
+      "post_run_hash": null,
+      "precheck": {
+        "call_count": 0,
+        "installed": false
+      },
+      "publication_phase": null,
+      "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+      "route": "rejection",
+      "run_id": "945e6f58-0d08-48a4-b968-9a72f66b9aaa",
+      "snapshot_ready": false,
+      "status": "failed",
+      "task_outcome": null,
+      "thread_id": null,
+      "turn_count": 0
+    },
+    {
+      "attempt_finished": true,
+      "case": "success_attempt",
+      "cleanup_verified": true,
+      "closure": {
+        "item_count": 9,
+        "reason": "closed",
+        "turn_count": 1,
+        "version": 1
+      },
+      "completion_basis": "native_trace_closure",
+      "contract_status": "accepted",
+      "controller_cleanup": "confirmed",
+      "error_category": null,
+      "evidence_complete": true,
+      "failure_category": "git_metadata_write_denied",
+      "post_run_hash": "sha256:250d0afcc829b9b61c1d12f1cf74006d4381e55ff0ab50759589d260ed6b5b3a",
+      "precheck": {
+        "call_count": 2,
+        "installed": true
+      },
+      "publication_phase": "rejected",
+      "report_bytes_match": true,
+      "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+      "route": "failure",
+      "run_id": "b0e5cdcc-896a-4665-a6e5-8a493772a619",
+      "snapshot_ready": true,
+      "status": "completed",
+      "task_outcome": "failure",
+      "thread_id": "01a12af7-cfca-7521-8997-cffc97996ec5",
+      "turn_count": 1
+    }
+  ],
+  "skill": {
+    "revision_id": "sha256:56c9749108f4f5613ee63f44114e0ad25aefb321a1841ca458d2e32dd78ef1e3",
+    "skill_id": "live-report",
+    "tree_hash": "sha256:56c9749108f4f5613ee63f44114e0ad25aefb321a1841ca458d2e32dd78ef1e3"
+  },
+  "unexecuted": [
+    "live_success_publication",
+    "live_downstream_pin_rejection",
+    "live_deliberate_agent_failure"
+  ],
+  "write_attempts": []
+}
