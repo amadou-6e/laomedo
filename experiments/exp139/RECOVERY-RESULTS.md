@@ -37,13 +37,18 @@ addition. Credential-free exact-invocation startup and dummy-auth sandbox
 controls passed before activation. Three consumed identities and the original
 failed records/configuration/exports were retained; nothing was reset.
 
-## Definitive remaining blockers
+## Remaining publication blockers
 
 The fresh success task reached Git commit but its push command exited 128 with
 `git: 'remote-laomedo' is not a git command`. A Python command had separately
 exited 127 because Python was not installed in the agent image; the agent used
 another shell command to create the report and continued. This recovered file
 creation problem is not the publication blocker.
+
+The live observation proves helper discovery failed; the exported command
+metadata does not establish whether that invocation used a login shell. Login-shell
+PATH loss below is a reproduced mechanism and likely cause, not an observed
+live-shell identity. The observation's helper-path blocker label names that control.
 
 The credential-free [helper control](helper_control.py) and its machine-written
 [results](HELPER-CONTROL.json) distinguish two barriers:
