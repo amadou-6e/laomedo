@@ -11,7 +11,7 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from experiments.exp139.bindings import BoundRunner, GitMetadataAppServer, request_digest
+from experiments.exp139.bindings import BoundRunner, MailboxAppServer, request_digest
 from experiments.exp139.prepare import connection, IDENTITY, REPOSITORY, BRANCH
 from laomedo.bundle_stage import verify_frozen_bundle
 from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport
@@ -35,9 +35,10 @@ def configuration(root):
     root = _outside_git(root)
     config = json.loads((root / "config.json").read_bytes())
     if (config.get("identity") != IDENTITY or config.get("repository") != REPOSITORY or
-            config.get("branch") != BRANCH or config.get("turn_cap") != 4 or
+            config.get("branch") != BRANCH or config.get("turn_cap") != 10 or
             config.get("runner_port") != 8779 or config.get("handoff_seconds") != 600 or
-            config.get("recovery") != "AMENDMENT-03"):
+            config.get("recovery") != "AMENDMENT-03" or
+            config.get("startup_amendment") != "AMENDMENT-05"):
         raise ValueError("frozen_configuration_required")
     return root, config
 
@@ -175,7 +176,7 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=IDENTITY + "-success-recovery-04", repository=REPOSITORY,
+        return authority.approve(invocation_id=IDENTITY + "-success-recovery-05", repository=REPOSITORY,
             branch=BRANCH, operations={"git_push", "pr_create"}, reviewed_by=IDENTITY + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):
@@ -203,10 +204,10 @@ def runner(root):
     controller = PublicationController(store, lifetime_seconds=600, artifact_resolver=artifact,
         transport=transport, readback=readback, describe=describe)
     engine = BoundRunner(root / "runner", root / "skill-store", root / "source",
-        approved_requests=selected, authorization_factory=authorize, max_model_turns=4,
+        approved_requests=selected, authorization_factory=authorize, max_model_turns=10,
         nonpublishing_lease_service=root / "host/nonpublishing-lease",
         binding_state=root / "host/bindings.sqlite", seed_consumed=config["previous_consumed"],
-        transport=GitMetadataAppServer,
+        transport=MailboxAppServer,
         git_workspace=True, supervise_containers=True, lease_service=root / "host/lease",
         github_authority=authority, mediator_state=root / "host/mediator", publication_controller=controller)
     server = serve(engine, port=8779)

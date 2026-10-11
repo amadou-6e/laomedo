@@ -5,11 +5,31 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from experiments.exp139.bindings import BoundRunner, GitMetadataAppServer, GIT_OVERRIDE, PROFILE_OVERRIDES, request_digest
+from experiments.exp139.bindings import BoundRunner, GitMetadataAppServer, MailboxAppServer, GIT_OVERRIDE, PROFILE_OVERRIDES, request_digest
 from laomedo.local_runner import LocalRunner, RunnerError, AppServer
 
 
 class BindingTests(unittest.TestCase):
+    def test_mailbox_only_replaces_trusted_mediator_mount_and_bootstrap(self):
+        command=['docker','run','--mount','type=bind,source=original,target=/run/laomedo/mediate.mjs,readonly',
+                 '--workdir','/draft','image','sh','-c','original startup','bootstrap','app-server','--stdio']
+        with patch.object(GitMetadataAppServer,'__init__',return_value=None) as parent:
+            MailboxAppServer(command,Path('evidence'))
+        invoked=parent.call_args.args[0]
+        self.assertEqual(command[-4], 'original startup')
+        self.assertIn('GIT_EXEC_PATH=/run/laomedo/bin',invoked)
+        self.assertIn('node /run/laomedo/relay.mjs',invoked[invoked.index('bootstrap')-1])
+        self.assertEqual(invoked[-2:],['app-server','--stdio'])
+        self.assertIn('image',invoked)
+        self.assertTrue(any('mailbox_client.mjs' in value and 'target=/run/laomedo/mediate.mjs,readonly' in value for value in invoked))
+        self.assertFalse(any('auth.json' in value for value in invoked))
+
+    def test_mailbox_does_not_start_for_no_mediator_request(self):
+        command=['docker','run','--workdir','/draft','image','sh','-c','original','bootstrap','app-server','--stdio']
+        with patch.object(GitMetadataAppServer,'__init__',return_value=None) as parent:
+            MailboxAppServer(command,Path('evidence'))
+        self.assertEqual(parent.call_args.args[0],command)
+
     def make_runner(self, request, case="success"):
         calls = []
         with patch.object(LocalRunner, "__init__", return_value=None):

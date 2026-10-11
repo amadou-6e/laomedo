@@ -111,3 +111,31 @@ class GitMetadataAppServer(AppServer):
                     redactions.append(Path(mount["source"]).read_text().strip())
         super().__init__([*command[:-2], *PROFILE_OVERRIDES, *command[-2:]], evidence,
                          secret_redactions=tuple(redactions), **kwargs)
+
+
+class MailboxAppServer(GitMetadataAppServer):
+    """Prospective invocation-only relay; not activated by importing this module."""
+    def __init__(self, command, evidence, **kwargs):
+        command = list(command)
+        client = Path(__file__).with_name("mailbox_client.mjs")
+        relay = client.with_name("mailbox_relay.mjs")
+        client_index = next((index for index, item in enumerate(command)
+            if item == "--mount" and "target=/run/laomedo/mediate.mjs," in command[index + 1]), None)
+        if client_index is not None:
+            # Replace only the trusted client mount; the graph never chooses it.
+            command[client_index + 1] = f"type=bind,source={client},target=/run/laomedo/mediate.mjs,readonly"
+            bootstrap = command.index("bootstrap")
+            image_index = command.index("--workdir") + 2
+            command[image_index:image_index] = ["--mount",
+                f"type=bind,source={relay},target=/run/laomedo/relay.mjs,readonly",
+                "--env", "GIT_EXEC_PATH=/run/laomedo/bin"]
+            bootstrap = command.index("bootstrap")
+            command[bootstrap - 1] = (
+                'cp /config.toml /home/runner/.codex/config.toml && '
+                'node /run/laomedo/relay.mjs & relay=$!; '
+                'for n in $(seq 1 100); do '
+                'test -f /draft/.git/laomedo-mediation/ready && break; '
+                'kill -0 "$relay" 2>/dev/null || exit 2; sleep 0.05; done; '
+                'test -f /draft/.git/laomedo-mediation/ready || exit 2; '
+                'exec codex "$@"')
+        super().__init__(command, evidence, **kwargs)
