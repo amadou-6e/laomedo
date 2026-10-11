@@ -1,6 +1,9 @@
 """No-model host dispatch identity controls for the prospective live graph."""
 import unittest
+from pathlib import Path
+import sys
 from unittest.mock import patch
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 from experiments.exp139.bindings import BoundRunner, request_digest
 from laomedo.local_runner import LocalRunner, RunnerError
 

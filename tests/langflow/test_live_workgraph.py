@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from lfx.graph.graph.base import Graph
 from laomedo.issue_context import fetch_context
+from experiments.exp139.run_flow import outcomes
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("live_builder", ROOT / "examples/langflow-workgraph-live/build_flow.py")
@@ -44,6 +45,7 @@ class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
         # Export then import; the original builder Graph is never executed.
         flow = json.loads(json.dumps(flow))
         agent_calls, publisher_calls = [], []
+        self.agent_calls = agent_calls
         def respond(req, **kwargs):
             payload = json.loads(req.data)
             agent_calls.append(payload)
@@ -77,21 +79,23 @@ class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(agent[0]["skill_ref"]["skill_id"], "live-report")
 
     async def test_failure_rejection_and_recovery_never_request_publication(self):
-        cases = [({"task_outcome": "failure", "report": "failed"}, "completed", True),
-                 ({"task_outcome": "success"}, "completed", True),
-                 ({"task_outcome": "success", "report": "partial"}, "interrupted", False),
-                 ({"task_outcome": "success", "report": "done"}, "completed", "unknown")]
-        for submission, status, complete in cases:
+        cases = [({"task_outcome": "failure", "report": "failed"}, "completed", True, "failure"),
+                 ({"task_outcome": "success"}, "completed", True, "rejection"),
+                 ({"task_outcome": "success", "report": "partial"}, "interrupted", False, "recovery"),
+                 ({"task_outcome": "success", "report": "done"}, "completed", "unknown", "recovery")]
+        for submission, status, complete, destination in cases:
             with self.subTest(submission=submission, status=status, complete=complete):
-                _, agent, publisher = await self.run_graph(submission, status=status, complete=complete)
+                result, agent, publisher = await self.run_graph(submission, status=status, complete=complete)
                 self.assertEqual(len(agent), 1)
                 self.assertEqual(publisher, [])
+                self.assertEqual([value["destination"] for value in outcomes(result)], [destination])
 
     async def test_changed_frozen_issue_refuses_before_agent_dispatch(self):
         snapshot = frozen_context()
         snapshot["context"]["issue"]["body"] += "changed"
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(Exception, "frozen_issue_context_invalid"):
             await self.run_graph({"task_outcome": "success", "report": "done"}, snapshot=snapshot)
+        self.assertEqual(self.agent_calls, [])
 
 
 if __name__ == "__main__":
