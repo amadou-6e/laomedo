@@ -27,6 +27,7 @@ class PublicationController:
         self.readback = readback
         self.describe = describe
         self.owned = {}
+        self.publishing = set()
         self.lock = threading.RLock()
 
     def register(self, lease, record):
@@ -108,6 +109,12 @@ class PublicationController:
             if owned is None:
                 raise MediationError("handoff_not_owned")
             lease, token, repository, handoff_id = owned
+            current = self.store.publication_handoff(handoff_id)
+            if run_id in self.publishing or current["phase"] != "validation_pending":
+                # Early and duplicate requests observe state. They must not
+                # revoke an agent lease or interrupt another provider call.
+                return {"phase": current["phase"]}
+            self.publishing.add(run_id)
         try:
             result = self.store.publish_handoff(
                 handoff_id=handoff_id, token=token, repository=repository,
@@ -117,6 +124,8 @@ class PublicationController:
             raise
         finally:
             self.cancel(run_id, "unknown")
+            with self.lock:
+                self.publishing.discard(run_id)
         return result
 
     def cancel(self, run_id, phase="cancelled"):

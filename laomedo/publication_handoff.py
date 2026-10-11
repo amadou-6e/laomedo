@@ -199,7 +199,17 @@ class HandoffStore:
             else:
                 phase = "failed" if result["state"] == "rejected" else "unknown"
         except MediationError:
-            phase, result = "failed", {"state": "rejected", "error": "publication_refused"}
+            # Exception classes cannot prove that the provider made no write.
+            # An intent or confirmed receipt survives even if a later local
+            # check fails. Only no intent or a complete rejection is failed.
+            try:
+                effect = self.effect(row["run_id"], row["effect_id"])
+                rejected = effect is None or effect["state"] == "rejected"
+            except Exception:
+                rejected = False
+            phase = "failed" if rejected else "unknown"
+            result = {"state": "rejected" if rejected else "unknown",
+                      "error": "publication_refused", "resent": False}
         except Exception:
             phase, result = "unknown", {"state": "unknown", "resent": False}
         with closing(self._connect()) as db, db:

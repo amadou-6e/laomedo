@@ -238,6 +238,45 @@ class PublicationHandoffTests(unittest.TestCase):
             raise KnownRejected("provider_rejected")
         self.assertEqual(self.publish(transport=rejected)["phase"], "failed")
 
+    def test_mediation_error_uses_durable_effect_state(self):
+        for intent in ("none", "unknown", "confirmed", "rejected"):
+            with self.subTest(intent=intent):
+                self.setUp(); self.ready()
+                invoke = self.store.invoke
+                def fail_after_effect(**kwargs):
+                    if intent != "none":
+                        if intent == "unknown":
+                            def transport(*_):
+                                raise TimeoutError("lost response")
+                            kwargs["transport"] = transport
+                        elif intent == "rejected":
+                            def transport(*_):
+                                raise KnownRejected("complete rejection")
+                            kwargs["transport"] = transport
+                        invoke(**kwargs)
+                    raise MediationError("local_check_failed")
+                self.store.invoke = fail_after_effect
+                result = self.publish()
+                expected = "failed" if intent in {"none", "rejected"} else "unknown"
+                self.assertEqual(result["phase"], expected)
+                self.assertEqual(result["publication"]["state"],
+                                 "rejected" if expected == "failed" else "unknown")
+                self.refused("handoff_not_ready", self.publish)
+
+    def test_early_controller_publish_does_not_end_agent_lease(self):
+        self.begin()
+        finished = []
+        lease = SimpleNamespace(finish=lambda: finished.append(True), stop_event=threading.Event())
+        controller = PublicationController(self.store, lifetime_seconds=30,
+            artifact_resolver=None, transport=self.transport, readback=self.readback, describe=None)
+        controller.owned["run-a"] = (lease, self.token, self.repository, self.grant)
+        self.assertEqual(controller.publish("run-a"), {"phase": "agent_active"})
+        self.assertEqual(finished, [])
+        result = self.store.invoke(token=self.token, repository=self.repository,
+            operation="pr_list", payload={}, effect_id=None, transport=lambda *_: {"items": []})
+        self.assertEqual(result["state"], "confirmed")
+        controller.cancel("run-a")
+
     def test_readback_checks_actual_draft_head_commit_and_marker(self):
         for key in ("draft", "sha", "body", "base", "title"):
             with self.subTest(key=key):
@@ -340,6 +379,13 @@ class PublicationHandoffTests(unittest.TestCase):
         lease = SimpleNamespace(finish=lambda: finished.append(True), stop_event=threading.Event())
         controller = PublicationController(self.store, lifetime_seconds=30,
             artifact_resolver=None, transport=self.transport, readback=self.readback, describe=None)
+        entered = threading.Event(); release = threading.Event()
+        def blocked_transport(*args):
+            entered.set()
+            if not release.wait(5):
+                raise TimeoutError("test provider not released")
+            return self.transport(*args)
+        controller.transport = blocked_transport
         controller.owned["run-a"] = (lease, self.token, self.repository, self.grant)
         runner = LocalRunner.__new__(LocalRunner)
         runner.api_token = "dummy-runner-token"
@@ -359,8 +405,29 @@ class PublicationHandoffTests(unittest.TestCase):
                 post({"accepted": True, "grant": self.token})
             self.assertEqual(refusal.exception.code, 400)
             self.assertEqual(self.calls, [])
-            with post({}) as response:
-                result = json.load(response)
+            results = []; errors = []
+            def first_post():
+                try:
+                    with post({}) as response:
+                        results.append(json.load(response))
+                except Exception as failure:
+                    errors.append(failure)
+            first = threading.Thread(target=first_post)
+            first.start()
+            try:
+                self.assertTrue(entered.wait(2))
+                with post({}) as response:
+                    duplicate = json.load(response)
+                self.assertEqual(duplicate["publication_handoff"]["phase"], "publication_pending")
+                self.assertEqual(finished, [])
+                with closing(self.store._connect()) as db:
+                    self.assertIsNone(db.execute("SELECT revoked_at FROM grants WHERE grant_id=?",
+                                                 (self.grant,)).fetchone()["revoked_at"])
+            finally:
+                release.set(); first.join(5)
+            self.assertFalse(first.is_alive())
+            self.assertEqual(errors, [])
+            result = results[0]
             self.assertEqual(result["publication_handoff"]["phase"], "completed")
             self.assertEqual(len(self.calls), 1)
             self.assertEqual(finished, [True])
