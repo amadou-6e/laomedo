@@ -22,6 +22,7 @@ RUN = "aeb54b12-3ca7-43a7-97b3-762dadc94721"
 
 def frozen_context():
     fixture = json.loads((ROOT / "examples/langflow-workgraph-demo/fixtures.json").read_text())
+    fixture["issue"]["body"] += '\nLine two: C:\\tools\\new\t"quoted" café \\n literal'
     def request(path):
         return [] if "/timeline?" in path else fixture["issue"]
     context = fetch_context(fixture["repository"], fixture["issue"]["number"],
@@ -40,7 +41,10 @@ class Response(io.BytesIO):
 
 class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
     async def run_graph(self, submission, *, status="completed", complete=True, snapshot=None):
-        flow = builder.build(snapshot or frozen_context(), "Bounded fixture task",
+        task = 'Bounded fixture task: "report\\n" C:\\tools\\new\nsecond line café'
+        self.expected_task = task
+        self.expected_snapshot = snapshot or frozen_context()
+        flow = builder.build(self.expected_snapshot, task,
                              runner_url="http://127.0.0.1:8765", model="fixture")
         # Export then import; the original builder Graph is never executed.
         flow = json.loads(json.dumps(flow))
@@ -76,6 +80,8 @@ class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(publisher, [{"url": f"http://127.0.0.1:8765/v1/runs/{RUN}/publish", "body": {}}])
         self.assertNotIn("github_authorization_ref", agent[0])
         self.assertIn("frozen_issue", agent[0]["task"])
+        self.assertEqual(json.loads(agent[0]["task"]),
+                         {"task": self.expected_task, "frozen_issue": self.expected_snapshot})
         self.assertEqual(agent[0]["skill_ref"]["skill_id"], "live-report")
 
     async def test_failure_rejection_and_recovery_never_request_publication(self):
