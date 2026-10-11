@@ -79,3 +79,7 @@ reason/count diagnostics. Missing or ambiguous evidence remains `unknown`.
 not truthful task success or a successful remote write. Resumed invocations must
 establish their own closure. Live provider and imported publisher acceptance are
 still part of #139; no running configuration is changed by this implementation.
+
+Only the supervised lease path can close evidence. Resumed invocations remain
+unknown and cannot publish cumulative changes until every contributing attempt
+has a durable closure record; that history is outside this preparation's scope.

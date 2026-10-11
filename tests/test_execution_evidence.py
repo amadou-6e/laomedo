@@ -32,10 +32,11 @@ class ClosureTests(unittest.TestCase):
         self.turns = [{"turn_id": "turn-1", "status": "completed"}]
         self.events = [item("item/started"), item("item/completed", text="done"), terminal()]
 
-    def check(self, events=None, prefix=b"", streams=True):
+    def check(self, events=None, prefix=b"", streams=True, resumed=False):
         self.path.write_bytes(prefix + b"".join(
             (json.dumps(event) + "\n").encode() for event in (self.events if events is None else events)))
-        return _execution_evidence(self.path, len(prefix), self.record, self.turns, streams_closed=streams)
+        return _execution_evidence(self.path, len(prefix), self.record, self.turns,
+                                   streams_closed=streams, resumed=resumed)
 
     def test_exact_terminal_trace_closes_without_claiming_semantic_success(self):
         result = self.check()
@@ -85,6 +86,15 @@ class ClosureTests(unittest.TestCase):
         self.assertIs(self.check(prefix=prefix)["evidence_complete"], True)
         self.assertEqual(self.check(self.events[:-1], prefix=prefix)["evidence_complete"], "unknown")
 
+    def test_closed_resume_cannot_publish_cumulative_unclosed_history(self):
+        self.record["evidence_complete"] = "unknown"
+        result = self.check(prefix=b"PRIVATE EARLIER UNFINISHED TRACE\n", resumed=True)
+        self.assertEqual(result["evidence_complete"], "unknown")
+        self.assertEqual(result["evidence_closure"]["reason"],
+                         "resume_publication_evidence_unverified")
+        self.record["evidence_complete"] = True
+        self.assertEqual(self.check(resumed=True)["evidence_complete"], "unknown")
+
     def test_unreadable_or_truncated_trace_refuses_without_raw_content(self):
         self.path.write_bytes(b"PRIVATE MALFORMED TRACE\n")
         result = _execution_evidence(self.path, 0, self.record, self.turns, streams_closed=True)
@@ -110,6 +120,11 @@ class RunnerClosureTests(unittest.TestCase):
                 (server.evidence / "workspace" / "agent.txt").write_text("from-first-turn")
                 server.events = [item("item/started"), item("item/completed", text="done"), terminal()]
                 for event in server.events:
+                    if event["method"] == "turn/completed":
+                        event["params"]["turn"]["id"] = turn_id
+                    else:
+                        event["params"]["turnId"] = turn_id
+                for event in server.events:
                     server.log.write(json.dumps(event) + "\n")
                 server.log.flush()
                 return "completed", None
@@ -121,10 +136,20 @@ class RunnerClosureTests(unittest.TestCase):
         with patch("laomedo.local_runner.LeaseClient", return_value=lease), \
                 patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
             result = self.runner.start(self.request())
-        self.assertEqual(result["status"], "completed", result.get("error_category"))
-        self.assertIs(result["evidence_complete"], True)
-        reopened = self.runner.status(result["run_id"])
-        self.assertEqual(reopened["evidence_closure"], result["evidence_closure"])
+            self.assertEqual(result["status"], "completed", result.get("error_category"))
+            self.assertIs(result["evidence_complete"], True)
+            reopened = self.runner.status(result["run_id"])
+            self.assertEqual(reopened["evidence_closure"], result["evidence_closure"])
+            path = self.runner.state / "runs" / result["run_id"] / "record.json"
+            reopened["evidence_complete"] = "unknown"
+            path.write_text(json.dumps(reopened), encoding="utf-8")
+            resumed = self.runner.resume(result["run_id"], "Continue fixture",
+                expected_post_run_hash=result["post_run_hash"],
+                expected_thread_id=result["thread_id"], model="test-model", effort="low")
+            self.assertEqual(resumed["status"], "completed", resumed.get("error_category"))
+            self.assertEqual(resumed["evidence_complete"], "unknown")
+            self.assertEqual(resumed["evidence_closure"]["reason"],
+                             "resume_publication_evidence_unverified")
 
 
 if __name__ == "__main__":

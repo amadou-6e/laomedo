@@ -764,7 +764,7 @@ def _answer(events: list[dict]) -> str | None:
     return answers[-1] if answers else None
 
 
-def _execution_evidence(path, offset, record, turns, *, streams_closed):
+def _execution_evidence(path, offset, record, turns, *, streams_closed, resumed=False):
     """Close this invocation's host-retained native trace, not task semantics.
 
     Missing identities, truncated logs, open tools and cleanup uncertainty never
@@ -773,6 +773,11 @@ def _execution_evidence(path, offset, record, turns, *, streams_closed):
     incomplete = {"evidence_complete": "unknown", "completion_basis": None}
     def refuse(reason):
         return {**incomplete, "evidence_closure": {"version": 1, "reason": reason}}
+    # The workspace is cumulative. Closing only this attempt cannot establish
+    # evidence for earlier writes. Keep resumed publication closed until a
+    # durable per-attempt history can prove every contributing attempt.
+    if resumed:
+        return refuse("resume_publication_evidence_unverified")
     if (not streams_closed or record.get("status") != "completed" or
             record.get("snapshot_ready") is not True or
             record.get("controller_cleanup") != "confirmed" or
@@ -1888,7 +1893,7 @@ class LocalRunner:
                             record["container_ownership"]["cleanup_detail"] = detail
                             record.update(_execution_evidence(
                                 run_dir / "raw-events.jsonl", evidence_offset, record,
-                                record["turns"][attempt_turn_offset:], streams_closed=(
+                                record["turns"][attempt_turn_offset:], resumed=resume, streams_closed=(
                                     server is not None and
                                     getattr(server, "reader", None) is not None and
                                     getattr(server, "stderr_reader", None) is not None and
