@@ -175,7 +175,7 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=IDENTITY + "-success-recovery", repository=REPOSITORY,
+        return authority.approve(invocation_id=IDENTITY + "-success-recovery-04", repository=REPOSITORY,
             branch=BRANCH, operations={"git_push", "pr_create"}, reviewed_by=IDENTITY + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):

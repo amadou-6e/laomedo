@@ -88,7 +88,14 @@ class BoundRunner(LocalRunner):
         return record
 
 
-GIT_OVERRIDE = 'permissions.container-edit.filesystem."/draft/.git"="write"'
+# The CLI's dotted-key override parser splits the literal `.git` path, and a
+# partial permissions table loses the default profile. Supply the complete
+# original policy plus the sole approved Git-metadata rule as an inline table.
+GIT_OVERRIDE = ('permissions={container-edit={filesystem={":root"="read",'
+    '":workspace_roots"="write","/home/runner/.codex/auth.json"="deny",'
+    '"/draft/.git"="write"},network={enabled=false}}}')
+PROFILE_OVERRIDES = ["-c", 'default_permissions="container-edit"',
+                     "-c", 'approval_policy="never"', "-c", GIT_OVERRIDE]
 
 
 class GitMetadataAppServer(AppServer):
@@ -102,5 +109,5 @@ class GitMetadataAppServer(AppServer):
                 mount = dict(item.split("=", 1) for item in command[position + 1].split(",") if "=" in item)
                 if mount.get("target") == "/run/laomedo/capability":
                     redactions.append(Path(mount["source"]).read_text().strip())
-        super().__init__([*command[:-2], "-c", GIT_OVERRIDE, *command[-2:]], evidence,
+        super().__init__([*command[:-2], *PROFILE_OVERRIDES, *command[-2:]], evidence,
                          secret_redactions=tuple(redactions), **kwargs)

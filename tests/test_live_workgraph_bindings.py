@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from experiments.exp139.bindings import BoundRunner, GitMetadataAppServer, GIT_OVERRIDE, request_digest
+from experiments.exp139.bindings import BoundRunner, GitMetadataAppServer, GIT_OVERRIDE, PROFILE_OVERRIDES, request_digest
 from laomedo.local_runner import LocalRunner, RunnerError, AppServer
 
 
@@ -96,5 +96,16 @@ class BindingTests(unittest.TestCase):
                        "image", "bootstrap", "app-server", "--stdio"]
             with patch.object(AppServer, "__init__", return_value=None) as parent:
                 GitMetadataAppServer(command, Path(directory))
-                self.assertEqual(parent.call_args.args[0][-4:], ["-c", GIT_OVERRIDE, "app-server", "--stdio"])
+                self.assertEqual(parent.call_args.args[0][-8:], [*PROFILE_OVERRIDES, "app-server", "--stdio"])
                 self.assertEqual(parent.call_args.kwargs["secret_redactions"], ("dummy-private-value",))
+
+    def test_effective_override_keeps_original_policy_plus_only_git_rule(self):
+        # Parse the literal table, not the CLI's dotted-key parser.
+        import re
+        rules = re.findall(r'"([^"]+)"="(read|write|deny)"', GIT_OVERRIDE)
+        self.assertEqual(dict(rules), {':root':'read', ':workspace_roots':'write',
+                '/home/runner/.codex/auth.json':'deny', '/draft/.git':'write'})
+        self.assertEqual(len(rules),4)
+        self.assertIn('network={enabled=false}', GIT_OVERRIDE)
+        self.assertIn('default_permissions="container-edit"', PROFILE_OVERRIDES)
+        self.assertIn('approval_policy="never"', PROFILE_OVERRIDES)
