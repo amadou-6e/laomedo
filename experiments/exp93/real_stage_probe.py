@@ -28,7 +28,7 @@ from laomedo.skill_store import SkillStore
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"
 BASELINE = "1f1a505f2fbd31993a7946924a9bec5a27bb15c1"
-SPEC = "56642addc7b634b41ea4cc9808124438f239e24b"
+SPEC = "be233d7a452dc4a5b66e1ede4d15da9e3b41bcf6"
 LEDGER = Path.home() / "AppData/Local/Laomedo/exp22-phase-c-turns.json"
 
 
@@ -71,6 +71,79 @@ def mediate(mediator, capability, operation, payload):
             return response.status, json.load(response)
     except error.HTTPError as failure:
         return failure.code, json.load(failure)
+
+
+def inspect_target(target):
+    response = subprocess.run(["docker", "inspect", target], capture_output=True,
+                              text=True, timeout=10)
+    if response.returncode:
+        if "No such object:" in response.stderr or "No such container:" in response.stderr:
+            return None
+        raise ValueError("docker_inspection_unknown")
+    try:
+        entries = json.loads(response.stdout)
+        if len(entries) != 1 or not isinstance(entries[0], dict):
+            raise ValueError()
+        return entries[0]
+    except (ValueError, TypeError, IndexError):
+        raise ValueError("docker_inspection_unknown") from None
+
+
+def exact_container_state(selected, original_id):
+    """Controller-owned witness; name absence alone cannot prove ID absence."""
+    original = inspect_target(original_id)
+    reserved = inspect_target(selected["name"])
+    for entry in (original, reserved):
+        if entry is None:
+            continue
+        labels = (entry.get("Config") or {}).get("Labels") or {}
+        if (entry.get("Id") != original_id or
+                entry.get("Name", "").lstrip("/") != selected["name"] or
+                labels.get("laomedo.run_id") != selected["run_id"] or
+                labels.get("laomedo.launch_token") != selected["token"]):
+            raise ValueError("docker_identity_conflict")
+    listed = subprocess.run(["docker", "ps", "-aq", "--no-trunc",
+        "--filter", "label=laomedo.run_id="+selected["run_id"],
+        "--filter", "label=laomedo.launch_token="+selected["token"]],
+        capture_output=True, text=True, timeout=10)
+    if listed.returncode:
+        raise ValueError("docker_inspection_unknown")
+    ids = listed.stdout.split()
+    if any(value != original_id for value in ids):
+        raise ValueError("docker_identity_conflict")
+    absent = original is None and reserved is None and not ids
+    running = (original is not None and reserved is not None and ids == [original_id]
+        and (original.get("State") or {}).get("Running") is True
+        and (reserved.get("State") or {}).get("Running") is True)
+    checks = {"original_id": "absent" if original is None else "present",
+              "reserved_name": "absent" if reserved is None else "present", "label_ids": ids}
+    return absent, running, checks
+
+
+def wait_exact_absence(root, selected, original_id, killed, observation):
+    deadline = min(killed+60, float((root/"deadline").read_text()))
+    path = root/"host/lease/leases"/selected["token"]/"result.json"
+    while time.monotonic() < deadline:
+        absent, _, checks = exact_container_state(selected, original_id)
+        observed = time.monotonic()
+        if observed > deadline:
+            raise ValueError("independent_cleanup_observation_late")
+        observation["loss"]["absence_checks"] = checks
+        if absent and "container_absent_observed" not in observation["loss"]:
+            observation["loss"]["container_absent_observed"] = observed
+        if path.exists():
+            service = json.loads(path.read_bytes())
+            observation["loss"]["service_cleanup_state"] = service.get("state")
+            observation["loss"]["service_cleanup_verified"] = service.get("cleanup_verified")
+            observation["loss"]["service_cleanup_finished"] = service.get("cleanup_finished_at_monotonic")
+            save(root/"observation.json", observation)
+            if service.get("state") not in {"never_observed", "removed_after_loss"}:
+                raise ValueError("service_cleanup_danger_signal")
+            if absent:
+                return
+        save(root/"observation.json", observation)
+        time.sleep(.05)
+    raise TimeoutError("service_cleanup_deadline")
 
 
 def kill(worker, ready, root):
@@ -149,9 +222,9 @@ def run(root, token_file, source, review_file):
     if git("rev-parse", "HEAD") != source or git("status", "--porcelain", "--untracked-files=all"):
         raise ValueError("source_must_be_frozen_clean")
     review = json.loads(review_file.read_bytes())
-    protocol_hash = sha256((ROOT/"experiments/exp93/REAL-STAGE-S2-PROTOCOL.md").read_bytes()).hexdigest()
+    protocol_hash = sha256((ROOT/"experiments/exp93/REAL-STAGE-S3-PROTOCOL.md").read_bytes()).hexdigest()
     if (review.get("identity") != IDENTITY or review.get("source_sha") != source or review.get("verdict") != "approve"
-            or review.get("protocol_sha256") != protocol_hash):
+            or review.get("protocol_sha256") != protocol_hash or review.get("spec_sha") != SPEC):
         raise ValueError("independent_pre_run_review_required")
     root.mkdir(parents=True)
     (root / "single-use.claim").touch(exist_ok=False)
@@ -249,6 +322,11 @@ def run(root, token_file, source, review_file):
             raise ValueError("active_command_not_observed")
         phase(root,observation,"runner_loss")
         started = time.monotonic()
+        observation["boundary_observed"] = True
+        observation["boundary"] = {"method": boundary["method"], "type": "commandExecution",
+            "item_id":(boundary.get("params",{}).get("item") or {}).get("id")}
+        observation["loss"] = {"command_started": started}
+        save(root/"observation.json", observation)
         if inspect_exact(a["name"],a["run_id"],a["token"]) != ("owned",ready["a"]["container_id"]):
             raise ValueError("a_ownership_changed")
         observation["boundary_observed"] = True
@@ -256,11 +334,23 @@ def run(root, token_file, source, review_file):
         observation["native_identity"] = {k:native_record.get(k) for k in ("run_id","thread_id","turn_id")}
         observation["boundary"] = {"method": boundary["method"], "type": "commandExecution",
             "item_id":(boundary.get("params",{}).get("item") or {}).get("id")}
+        original_id = ready["a"]["container_id"]
+        _, prekill_running, prekill_checks = exact_container_state(a, original_id)
+        if not prekill_running:
+            raise ValueError("a_ownership_changed")
+        observation["loss"].update({"original_container_id": original_id,
+            "prekill_running": prekill_running, "prekill_checks": prekill_checks,
+            "kill_started": time.monotonic()})
+        save(root/"observation.json", observation)
         killed = kill(workers["a"],ready["a"],root)
+        observation["loss"]["kill_completed"] = killed
+        save(root/"observation.json", observation)
         revoked = wait_json(root/"host/lease/leases"/a["token"]/"revoked.json",timeout=60)
+        observation["loss"]["revoked"] = revoked.get("revoked_at_monotonic")
+        save(root/"observation.json", observation)
         if a["grant_id"] not in revoked["revoked_grants"]:
             raise ValueError("wrong_grant_revoked")
-        cleanup_finished,absence_at = wait_cleanup(root,a,killed)
+        wait_exact_absence(root,a,original_id,killed,observation)
         phase(root,observation,"refusal_and_control")
         before = journal(root)
         status, refusal = mediate(mediator,caps["a"],"pr_create",{
@@ -269,18 +359,18 @@ def run(root, token_file, source, review_file):
         denied_at = time.monotonic()
         after = journal(root)
         b = identities(root,"b")
-        b_owned = inspect_exact(b["name"],b["run_id"],b["token"]) == ("owned",ready["b"]["container_id"])
+        _, b_owned, b_checks = exact_container_state(b,ready["b"]["container_id"])
         b_status, b_read = mediate(mediator,caps["b"],"actions_read",{"resource":"runs"})
         if not isinstance(b_read,dict):
             raise ValueError("b_result_invalid")
         current = journal(root)
-        observation["loss"] = {"command_started":started,"kill_completed":killed,
-            "revoked":revoked["revoked_at_monotonic"],"denied":denied_at,
-            "cleanup_finished":cleanup_finished,"container_absent_observed":absence_at,
+        observation["loss"].update({"denied":denied_at,
             "denial_status":status,"denial_error":refusal.get("error"),
             "attempts_before_denial":len(before),"attempts_after_denial":len(after),
-            "a_container_absent":inspect_exact(a["name"],a["run_id"],a["token"])[0]=="absent",
-            "b_owned_alive":b_owned,"b_read_status":b_status,"b_read_count":len(current)-len(after)}
+            "a_container_absent":exact_container_state(a,original_id)[0],
+            "b_owned_alive":b_owned,"b_running_checks":b_checks,
+            "b_read_status":b_status,"b_read_count":len(current)-len(after)})
+        save(root/"observation.json",observation)
         _,_,after_pids,new_heartbeat = readiness(root,owned)
         if before_pids != after_pids or new_heartbeat <= heartbeat:
             raise ValueError("managed_services_changed")
@@ -290,6 +380,8 @@ def run(root, token_file, source, review_file):
                 raise TimeoutError("overall_procedure_deadline")
             time.sleep(.2)
         observation["sentinel_checked_after"] = time.monotonic()-started
+        observation["delayed_absence_verified"], _, observation["delayed_absence_checks"] = exact_container_state(a,original_id)
+        save(root/"observation.json",observation)
         observation["sentinel_present"] = (root/"runner/runs"/a["run_id"]/"workspace/crash-marker.txt").exists()
         observation["raw_event_sha256"] = sha256(raw.read_bytes()).hexdigest()
         observation["raw_event_count"] = len(raw.read_text().splitlines())
@@ -304,7 +396,8 @@ def run(root, token_file, source, review_file):
                 "a_ownership_changed","kill_outcome_unknown","wrong_grant_revoked",
                 "service_cleanup_unverified_or_late","independent_container_absence_failed",
                 "independent_cleanup_observation_late","service_cleanup_deadline",
-                "managed_services_changed","overall_procedure_deadline"}:
+                "managed_services_changed","overall_procedure_deadline",
+                "docker_inspection_unknown","docker_identity_conflict","service_cleanup_danger_signal"}:
             observation["failure_code"] = str(failure)
     finally:
         observation["cleanup"] = cleanup(root,owned,workers)
