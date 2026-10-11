@@ -38,3 +38,33 @@ The [issue 123 trace spike](experiments/feasibility/123/README.md) checks a
 synthetic private Codex rollout against AGENTVIZ's parser and tests a minimal
 event projection without additional model calls. Claude and full Langflow
 correlation remain unverified.
+
+### Trusted draft publisher (#138)
+
+`components/laomedo/pr_publisher.py` requests downstream draft publication after
+Output Contract acceptance. It sends only an empty authenticated runner POST;
+the host recomputes validation from its own frozen output. Graph data never
+contains the GitHub token or controls a grant, branch, deadline or PR payload.
+
+The opt-in host `PublicationController` is injected into `LocalRunner`, not
+automatically enabled by the CLI. It requires a finite explicit lifetime, the
+existing mediator store, an independently started lease service, a private
+verified-artifact resolver, a PR description builder, provider transport and
+provider readback. Its startup `recover()` sweep is called only after the old
+controller is known dead. Do not install a resolver that trusts graph data.
+An exact verified push receipt must exist before handoff; this publisher does
+not push or capture an agent checkout after validation.
+
+The existing supervised grant remains active through validation. Agent bearer
+operations end at handoff; expiry, cancellation and uncertain effects revoke
+the same grant, and unknown outcomes are never resent. Every PR is forced draft
+with a stable marker and a journaled effect identity before dispatch. Readback
+checks the exact head commit, branch, base, draft flag, title and body. A remote
+effect already in flight cannot be undone by cancellation.
+
+Credential-free tests use fake provider receipts and cleanup callbacks, not
+real GitHub access or a model. The real runner's evidence completeness still
+remains unknown, so its output cannot pass the trusted publication gate. Live
+acceptance remains under #139, including #100 and the recorded #104 gate,
+provider/precheck acceptance, a separately approved turn cap and scoped identity.
+No running configuration is activated by these changes.

@@ -146,6 +146,32 @@ class MediatedLeaseTests(unittest.TestCase):
         self.read(token_b)
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
 
+    def test_trusted_handoff_lease_loss_revokes_before_cleanup_other_run_survives(self):
+        from laomedo.output_contract import requirements
+        first, accepted, token_a = self.register("a", "lease-a")
+        _, _, token_b = self.register("b", "lease-b")
+        handoff = self.store.begin_publication_handoff(
+            token=token_a, repository="example/disposable",
+            requirements=requirements({"schema_version": 1, "fields": []}),
+            deadline=time.time() + 30, deadline_monotonic=time.monotonic() + 30)
+        self.assertEqual(handoff, accepted["grant_id"])
+        # Host phase transition only, to isolate supervision from artifact
+        # verification. No GitHub transport or Docker command is executed.
+        with closing(self.store._connect()) as db, db:
+            db.execute("UPDATE publication_handoffs SET phase='validation_pending' WHERE grant_id=?", (handoff,))
+        def cleanup_after_denial(name, run_id, lease_token):
+            with self.assertRaisesRegex(MediationError, "grant_unavailable"):
+                self.read(token_a)
+            return self.cleanup(name, run_id, lease_token)
+        self.service.cleanup = cleanup_after_denial
+        (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
+        self.service.tick()
+        result = _result(first)
+        self.assertEqual(result["revoked_grants"], [handoff])
+        self.assertLessEqual(result["revoked_at_monotonic"], result["cleanup_finished_at_monotonic"])
+        self.assertLess(result["cleanup_finished_at_monotonic"] - result["detected_at_monotonic"], 60)
+        self.read(token_b)
+
     def test_slow_cleanup_does_not_block_other_run_or_admission(self):
         self.assertLess(GRANT_TTL_SECONDS + LOSS_SECONDS, 60)
         first, _, token_a = self.register("a", "lease-a")

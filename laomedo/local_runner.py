@@ -773,7 +773,8 @@ class LocalRunner:
                  mediator_state: Path | None = None,
                  git_workspace: bool = False,
                  split_executor: bool = False, split_provider_config=(),
-                 split_access_token=None, auth_store: Path | None = None):
+                 split_access_token=None, auth_store: Path | None = None,
+                 publication_controller=None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -808,6 +809,7 @@ class LocalRunner:
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
+        self.publication_controller = publication_controller
         self.github_authority = github_authority
         self.mediator_state = _private(mediator_state) if mediator_state else None
         for record_path in (self.state / "runs").glob("*/record.json"):
@@ -1047,6 +1049,8 @@ class LocalRunner:
                      "raw_event_ref", "status")}
 
     def cancel(self, run_id: str) -> dict:
+        if self.publication_controller is not None:
+            self.publication_controller.cancel(run_id)
         with self.control_lock:
             record = self.status(run_id)
             if record["status"] == "prepared" and record.get("client_request_id"):
@@ -1063,6 +1067,16 @@ class LocalRunner:
                 _json(self._run_dir(run_id) / "record.json", record)
                 return record
             return record
+
+    def publish(self, run_id: str) -> dict:
+        if self.publication_controller is None:
+            raise RunnerError("publication_controller_unconfigured")
+        try:
+            result = self.publication_controller.publish(run_id)
+        except MediationError as error:
+            raise RunnerError(error.code) from None
+        return {"status": "completed" if result["phase"] == "completed" else "failed",
+                "run_id": run_id, "publication_handoff": result}
 
     def _materialize(self, workspace: Path, ref: dict) -> dict:
         if not isinstance(ref, dict) or not all(ref.get(k) for k in
@@ -1319,6 +1333,8 @@ class LocalRunner:
     def resume(self, run_id: str, task: str, *, expected_post_run_hash: str,
                expected_thread_id: str, model: str, effort: str) -> dict:
         record = self.status(run_id)
+        if self.publication_controller is not None and run_id in self.publication_controller.owned:
+            raise RunnerError("publication_handoff_resume_denied")
         if not isinstance(task, str) or not task.strip():
             raise RunnerError("invalid_task")
         if (record["status"] != "completed" or not record["thread_id"] or
@@ -1423,6 +1439,8 @@ class LocalRunner:
                     raise RunnerError("lease_service_unavailable") from None
                 record["container_ownership"]["lease_instance"] = lease.instance
                 record["container_ownership"]["grant_id"] = lease.grant_id
+                if self.publication_controller is not None and record.get("github_scope"):
+                    self.publication_controller.register(lease, record)
                 with self.control_lock:
                     _json(run_dir / "record.json", record)
             capability = None
@@ -1756,6 +1774,9 @@ class LocalRunner:
                     record["controller_cleanup"] = "unverified"
             finally:
                 try:
+                    if (record is not None and record.get("status") != "completed" and
+                            self.publication_controller is not None):
+                        self.publication_controller.cancel(run_id, "failed")
                     if record is not None and self.supervise_containers and not launch_attempted:
                         verified, detail = True, "not_launched"
                         if lease is not None:
@@ -1771,11 +1792,20 @@ class LocalRunner:
                     elif record is not None and self.supervise_containers:
                         verified, detail = cleanup_exact(name, run_id, launch_token)
                         if lease is not None:
-                            try:
-                                lease.finish()
-                            except Exception:
-                                verified = False
-                                detail = "lease_service_unverified"
+                            # The executor is already removed. Only a trusted
+                            # controller can keep its SAME lease through output
+                            # validation; no graph bearer can extend it.
+                            record["container_ownership"]["cleanup_verified"] = verified
+                            record["container_ownership"]["cleanup_detail"] = detail
+                            retained = (verified and not close_error and
+                                        self.publication_controller is not None and
+                                        self.publication_controller.finish_agent(record))
+                            if not retained:
+                                try:
+                                    lease.finish()
+                                except Exception:
+                                    verified = False
+                                    detail = "lease_service_unverified"
                         # A failed normal close may have been completed by the
                         # independent supervisor after its pipe closed.
                         if not verified:
@@ -1872,11 +1902,16 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                         model=body["model"], effort=body["effort"])
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel":
                     result = runner.cancel(parts[2])
+                elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "publish":
+                    if body != {}:
+                        raise RunnerError("publication_body_must_be_empty")
+                    result = runner.publish(parts[2])
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "artifacts":
                     result = {"status": "completed", "artifact_refs": runner.select_artifacts(parts[2], body["paths"])}
                 else:
                     raise RunnerError("unknown_endpoint")
-                code = (202 if is_cancel_endpoint and result.get("cancel_requested") and
+                is_publication_endpoint = (len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "publish")
+                code = (200 if is_publication_endpoint else 202 if is_cancel_endpoint and result.get("cancel_requested") and
                         not result.get("cancel_confirmed") else
                         200 if result["status"] == "completed" or
                         (is_cancel_endpoint and result["status"] == "cancelled") else 502)

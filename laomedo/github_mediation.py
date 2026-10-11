@@ -18,6 +18,8 @@ import sqlite3
 import time
 from typing import Callable
 
+from .publication_handoff import HandoffStore
+
 
 READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read", "pr_read"})
 WRITES = frozenset({"git_push", "pr_create", "pr_update", "issue_create", "api_rest_write", "api_graphql_mutation"})
@@ -141,7 +143,7 @@ def _validate_read(operation: str, payload: dict, repository: str, grant, db) ->
         raise MediationError("api_read_denied")
 
 
-class MediationStore:
+class MediationStore(HandoffStore):
     """Durable grant/effect ledger for one trusted mediator process family."""
 
     def __init__(self, path: str | Path, *, now: Callable[[], float] = time.time,
@@ -193,6 +195,13 @@ class MediationStore:
                     grant_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
                     lease_token TEXT UNIQUE NOT NULL, lease_scope TEXT NOT NULL,
                     service_instance TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS publication_handoffs (
+                    grant_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
+                    phase TEXT NOT NULL, deadline REAL NOT NULL,
+                    deadline_monotonic REAL NOT NULL,
+                    requirements_json TEXT NOT NULL, artifact_digest TEXT, artifact_commit TEXT,
+                    request_json TEXT, request_hash TEXT, effect_id TEXT,
+                    envelope_json TEXT);
                 CREATE TABLE IF NOT EXISTS pr_targets (
                     grant_id TEXT NOT NULL, number INTEGER NOT NULL,
                     base TEXT NOT NULL, PRIMARY KEY(grant_id,number));
@@ -342,7 +351,7 @@ class MediationStore:
             if expiry <= now or expiry_monotonic <= now_monotonic:
                 return False
             result = db.execute(
-                "UPDATE grants SET expires_at=?, expires_monotonic=? WHERE grant_id IN "
+                "UPDATE grants SET expires_at=MIN(?,COALESCE((SELECT deadline FROM publication_handoffs h WHERE h.grant_id=grants.grant_id),1e300)), expires_monotonic=MIN(?,COALESCE((SELECT deadline_monotonic FROM publication_handoffs h WHERE h.grant_id=grants.grant_id),1e300)) WHERE grant_id IN "
                 "(SELECT grant_id FROM lease_bindings WHERE run_id=? AND lease_token=? AND lease_scope=?) "
                 "AND revoked_at IS NULL AND expires_at>? AND issued_monotonic IS NOT NULL "
                 "AND issued_monotonic<=? AND expires_monotonic>?",
@@ -374,7 +383,7 @@ class MediationStore:
             now = self.now()
             now_monotonic = self.monotonic()
             result = db.execute(
-                "UPDATE grants SET expires_at=?, expires_monotonic=? WHERE grant_id=? "
+                "UPDATE grants SET expires_at=MIN(?,COALESCE((SELECT deadline FROM publication_handoffs h WHERE h.grant_id=grants.grant_id),1e300)), expires_monotonic=MIN(?,COALESCE((SELECT deadline_monotonic FROM publication_handoffs h WHERE h.grant_id=grants.grant_id),1e300)) WHERE grant_id=? "
                 "AND revoked_at IS NULL AND expires_at>? AND issued_monotonic IS NOT NULL "
                 "AND issued_monotonic<=? AND expires_monotonic>?",
                 (now + ttl_seconds, now_monotonic + ttl_seconds, grant_id,
@@ -400,7 +409,8 @@ class MediationStore:
                        (prior_run_id, prior_effect_id, next_run_id,
                         next_effect_id, approved_by))
 
-    def _grant(self, db, token: str, repository: str, operation: str):
+    def _grant(self, db, token: str, repository: str, operation: str,
+               *, handoff_id=None, payload=None):
         if not isinstance(token, str) or not token:
             raise MediationError("grant_unavailable")
         row = db.execute("SELECT * FROM grants WHERE token_hash=?",
@@ -420,6 +430,7 @@ class MediationStore:
             raise MediationError("repository_denied")
         if operation not in json.loads(row["operations"]):
             raise MediationError("operation_denied")
+        self._handoff_gate(db, row, operation, handoff_id, payload)
         return row
 
     def _connection_current(self, connection_id: str, generation: int,
@@ -434,7 +445,8 @@ class MediationStore:
 
     def invoke(self, *, token: str, repository: str, operation: str,
                payload: dict, effect_id: str | None,
-               transport: Callable[[str, str, dict], dict]) -> dict:
+               transport: Callable[[str, str, dict], dict],
+               _handoff_id=None) -> dict:
         if operation not in OPERATIONS and operation not in {"bundle_freeze", "bundle_status"}:
             raise MediationError("unsupported_operation")
         if not isinstance(payload, dict):
@@ -452,7 +464,7 @@ class MediationStore:
             if self.verified_stage_resolver is None:
                 raise MediationError("bundle_status_unavailable")
             with closing(self._connect()) as db:
-                grant = self._grant(db, token, repository, "git_push")
+                grant = self._grant(db, token, repository, "git_push", handoff_id=_handoff_id, payload=payload)
             try:
                 stage = self.verified_stage_resolver(grant, repository, payload)
                 if (stage.run_id != grant["run_id"] or stage.repository != repository or
@@ -460,7 +472,7 @@ class MediationStore:
                         stage.attempt_id != payload["stage_attempt_id"]):
                     raise ValueError("stage_binding_mismatch")
                 with closing(self._connect()) as db:
-                    current = self._grant(db, token, repository, "git_push")
+                    current = self._grant(db, token, repository, "git_push", handoff_id=_handoff_id, payload=payload)
                     if current["grant_id"] != grant["grant_id"]:
                         return {"state": "unknown", "resent": False}
             except Exception:
@@ -475,7 +487,7 @@ class MediationStore:
             if self.stage_freezer is None:
                 raise MediationError("bundle_freeze_unavailable")
             with closing(self._connect()) as db:
-                grant = self._grant(db, token, repository, "git_push")
+                grant = self._grant(db, token, repository, "git_push", handoff_id=_handoff_id, payload=payload)
                 grant_id = grant["grant_id"]
                 target_key = _target_key(repository, "git_push", {"branch": grant["branch"]})
                 if db.execute("SELECT 1 FROM effects WHERE target_key=? AND state='unknown'",
@@ -489,7 +501,7 @@ class MediationStore:
                 return {"state": "unknown", "resent": False}
             try:
                 with closing(self._connect()) as db:
-                    current = self._grant(db, token, repository, "git_push")
+                    current = self._grant(db, token, repository, "git_push", handoff_id=_handoff_id, payload=payload)
                     if current["grant_id"] != grant_id:
                         return {"state": "unknown", "resent": False}
             except MediationError:
@@ -513,7 +525,7 @@ class MediationStore:
             # the capability without a write lock, classify immutable commit
             # objects, then recheck the grant in the transaction below.
             with closing(self._connect()) as preflight_db:
-                preflight_grant = self._grant(preflight_db, token, repository, operation)
+                preflight_grant = self._grant(preflight_db, token, repository, operation, handoff_id=_handoff_id, payload=payload)
                 if payload.get("branch") != preflight_grant["branch"]:
                     raise MediationError("push_branch_denied")
                 if self.verified_stage_resolver is not None:
@@ -557,7 +569,7 @@ class MediationStore:
             if verified_stage is not None else payload)
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
-            grant = self._grant(db, token, repository, operation)
+            grant = self._grant(db, token, repository, operation, handoff_id=_handoff_id, payload=payload)
             if operation in READS:
                 _validate_read(operation, payload, repository, grant, db)
             if operation in WRITES:
@@ -651,10 +663,10 @@ class MediationStore:
                 # Object acquisition can outlive a lease: never deliver bytes
                 # after its grant or selected connection has disappeared.
                 with closing(self._connect()) as db:
-                    self._grant(db, token, repository, operation)
+                    self._grant(db, token, repository, operation, handoff_id=_handoff_id, payload=payload)
             if operation == "pr_read":
                 with closing(self._connect()) as db:
-                    current = self._grant(db, token, repository, operation)
+                    current = self._grant(db, token, repository, operation, handoff_id=_handoff_id, payload=payload)
                     target = db.execute(
                         "SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
                         (current["grant_id"], payload["number"])).fetchone()
