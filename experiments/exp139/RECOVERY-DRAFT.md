@@ -26,6 +26,14 @@ Proposed changes requiring configuration approval:
    rejection. The original one-push/one-draft-PR attempted-write caps remain.
    No repeat of an unknown provider operation is authorized.
 
+Claude's post-run review requires a host-side Git audit and a credential-free
+hostile-config regression before activation: writable `.git` must not allow
+fsmonitor, hooks, filters or credential helpers to execute on the host. Supervisor
+selection must come only from the host case table, never a graph request field,
+and a success case must retain its mediated supervisor. Preserve consumed request
+identities across restart. Configuration approval alone does not satisfy these
+implementation and independent-review gates.
+
 Credential-free Docker probe against the pinned Codex Git image:
 
 | Profile | Git index lock writable | Git config writable | Dummy auth canary read |

@@ -17,6 +17,7 @@
       "attempt_finished": true,
       "case": "deliberate_failure_launch",
       "cleanup_verified": true,
+      "lease_cleanup_verified": false,
       "closure": null,
       "completion_basis": null,
       "contract_status": "rejected",
@@ -43,6 +44,7 @@
       "attempt_finished": true,
       "case": "success_attempt",
       "cleanup_verified": true,
+      "lease_cleanup_verified": true,
       "closure": {
         "item_count": 9,
         "reason": "closed",

@@ -62,6 +62,9 @@ workspaces, partial evidence and the original ledger are preserved outside Git.
 
 Live success publication, intended deliberate agent failure and downstream pin
 rejection remain unverified. Raw traces and login state are not committed.
+The infrastructure refusal selected rejection because the missing submission
+failed the form check before execution recovery was considered. The intended
+non-completed-execution recovery priority remains a design gap under #139.
 An in-memory scan of the proposed EXP-139 evidence/source and exact report file
 found no match for the selected GitHub token, runner API token or current stored
 Codex login values. This scan did not export credentials, inspect historical
