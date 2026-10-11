@@ -51,6 +51,12 @@ def approved(root):
                 "configuration_approved": True, "review_verdict": "approve"}
     if approval != expected:
         raise ValueError("exact_activation_review_required")
+    process = __import__("subprocess")
+    if process.check_output(["git", "-C", str(ROOT), "status", "--porcelain"]).strip():
+        raise ValueError("exact_clean_source_required")
+    committed = process.check_output(["git", "-C", str(ROOT), "show", "HEAD:experiments/exp139/MANIFEST.json"])
+    if manifest.read_bytes() != committed:
+        raise ValueError("committed_manifest_required")
     frozen = json.loads(manifest.read_bytes())
     for relative, digest in frozen["source_hashes"].items():
         if sha256((ROOT / relative).read_bytes()).hexdigest() != digest:
