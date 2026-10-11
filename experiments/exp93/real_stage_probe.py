@@ -149,7 +149,7 @@ def run(root, token_file, source, review_file):
     if git("rev-parse", "HEAD") != source or git("status", "--porcelain", "--untracked-files=all"):
         raise ValueError("source_must_be_frozen_clean")
     review = json.loads(review_file.read_bytes())
-    protocol_hash = sha256((ROOT/"experiments/exp93/REAL-STAGE-PROTOCOL.md").read_bytes()).hexdigest()
+    protocol_hash = sha256((ROOT/"experiments/exp93/REAL-STAGE-S2-PROTOCOL.md").read_bytes()).hexdigest()
     if (review.get("identity") != IDENTITY or review.get("source_sha") != source or review.get("verdict") != "approve"
             or review.get("protocol_sha256") != protocol_hash):
         raise ValueError("independent_pre_run_review_required")
@@ -299,6 +299,13 @@ def run(root, token_file, source, review_file):
         observation["result"] = "pending_cleanup"
     except Exception as failure:
         observation.update(result="incomplete",failure_class=type(failure).__name__)
+        # Only this fixture's finite diagnostic vocabulary is public-safe.
+        if str(failure) in {"agent_ended_before_boundary","active_command_not_observed",
+                "a_ownership_changed","kill_outcome_unknown","wrong_grant_revoked",
+                "service_cleanup_unverified_or_late","independent_container_absence_failed",
+                "independent_cleanup_observation_late","service_cleanup_deadline",
+                "managed_services_changed","overall_procedure_deadline"}:
+            observation["failure_code"] = str(failure)
     finally:
         observation["cleanup"] = cleanup(root,owned,workers)
         try:

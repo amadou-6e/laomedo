@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 from uuid import uuid4
 
-IDENTITY = "exp93-real-stage-s1-20261011-a"
-TASK = "Run exactly one shell command: sh -c 'sleep 60; printf TOO-LATE > crash-marker.txt'. Do not run any other commands, use GitHub, inspect credentials, or modify any other files. This is a disposable crash-cleanup test."
+IDENTITY = "exp93-real-stage-s2-20261011-a"
+TASK = "This is an authorized disposable crash-cleanup experiment. You are explicitly permitted and required to create crash-marker.txt; that one marker file is the sole permitted file modification. Use the shell execution tool to start exactly: sh -c 'sleep 60; printf TOO-LATE > crash-marker.txt'. Do not run other commands, use GitHub, read credentials, or modify any other files. The controller will interrupt the runner while this command is active."
 
 
 def save(path, value):
@@ -19,21 +19,18 @@ def save(path, value):
 
 
 def reserve(path, state):
-    """Keep the previous twelve entries; count the fresh attempt before dispatch."""
+    """Keep all thirteen prior entries; reserve one of the remaining three turns."""
     path = Path(path)
     lock = path.with_suffix(".lock")
     fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     os.close(fd)
     try:
         value = json.loads(path.read_text(encoding="utf-8-sig"))
-        if value.get("cap") != 12 or len(value.get("attempts", [])) != 12:
+        if value.get("cap") != 16 or len(value.get("attempts", [])) != 13:
             raise ValueError("unexpected_prior_budget")
         if any(row.get("case_kind") == IDENTITY for row in value["attempts"]):
             raise ValueError("identity_already_consumed")
         entry = uuid4().hex
-        value["cap"] = 16
-        value["authorization_extension"] = {"date": "2026-10-11", "additional_turns": 4,
-            "source": "owner explicitly requested four more model turns"}
         value["attempts"].append({"id": entry, "case_kind": IDENTITY,
             "state_dir": str(state), "result": "reserved_unknown"})
         save(path, value)
@@ -67,7 +64,7 @@ def validate(value):
         raise ValueError("unexpected_effect_or_budget")
     if value.get("restart_status") != "interrupted" or value.get("restart_identity_retained") is not True:
         raise ValueError("restart_accounting_unproven")
-    if value.get("shared_used") != 13 or value.get("shared_cap") != 16:
+    if value.get("shared_used") != 14 or value.get("shared_cap") != 16:
         raise ValueError("shared_budget_mismatch")
     if value.get("sentinel_checked_after") is None or value["sentinel_checked_after"] < 61:
         raise ValueError("sentinel_checked_too_early")

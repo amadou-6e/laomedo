@@ -15,7 +15,7 @@ def good():
         "denial_status":403,"denial_error":"grant_unavailable",
         "attempts_before_denial":0,"attempts_after_denial":0,
         "a_container_absent":True,"b_owned_alive":True,"b_read_status":200,"b_read_count":1},
-        "provider_writes":0,"local_turns":1,"shared_used":13,"shared_cap":16,
+        "provider_writes":0,"local_turns":1,"shared_used":14,"shared_cap":16,
         "restart_status":"interrupted","restart_identity_retained":True,
         "sentinel_checked_after":61.1,"sentinel_present":False,
         "cleanup":{"grants":True,"a":True,"b":True,"workers":True,"tasks":True,"stages":True}}
@@ -25,7 +25,7 @@ class RealStageChecks(unittest.TestCase):
     def test_positive_and_mutations(self):
         validate(good())
         mutations = [("boundary_observed",False),("identity","old"),("provider_writes",1),
-            ("local_turns",2),("shared_used",12),("shared_cap",12),
+            ("local_turns",2),("shared_used",13),("shared_cap",12),
             ("restart_status","completed"),("restart_identity_retained",False),
             ("sentinel_checked_after",3),("sentinel_present",True)]
         for key,value in mutations:
@@ -44,13 +44,13 @@ class RealStageChecks(unittest.TestCase):
     def test_budget_extension_preserves_prior_entries_and_refuses_repeat(self):
         with tempfile.TemporaryDirectory() as name:
             path=Path(name)/"ledger.json"
-            prior=[{"id":str(n),"result":"historic"} for n in range(12)]
-            path.write_text(json.dumps({"cap":12,"attempts":prior}))
+            prior=[{"id":str(n),"result":"historic"} for n in range(13)]
+            path.write_text(json.dumps({"cap":16,"attempts":prior}))
             reserve(path,Path(name)/"state")
             value=json.loads(path.read_bytes())
             self.assertEqual(value["cap"],16)
-            self.assertEqual(value["attempts"][:12],prior)
-            self.assertEqual(len(value["attempts"]),13)
+            self.assertEqual(value["attempts"][:13],prior)
+            self.assertEqual(len(value["attempts"]),14)
             self.assertEqual(value["attempts"][-1]["case_kind"],IDENTITY)
             with self.assertRaises(ValueError):
                 reserve(path,Path(name)/"other")
@@ -64,6 +64,16 @@ class RealStageChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 reserve(path,Path(name)/"state")
             self.assertEqual(path.read_bytes(),original)
+
+    def test_s1_original_capture_is_preserved(self):
+        from hashlib import sha256
+        source=Path(__file__).with_name("real-stage-s1-observation.json").read_bytes()
+        self.assertEqual(sha256(source).hexdigest(),"73f7b83a358f038768c97fe73274dfdbedb75fe7fc403c4d5e351c74c3f63d40")
+        row=json.loads(source)
+        self.assertEqual(row["result"],"incomplete")
+        self.assertEqual(row["shared_used"],13)
+        self.assertEqual(row["provider_writes"],0)
+        self.assertEqual(row["local_turns"],1)
 
     def test_cleanup_wait_requires_service_result_and_independent_absence(self):
         from experiments.exp93 import real_stage_probe as probe
