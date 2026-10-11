@@ -32,6 +32,32 @@ SPEC = "56642addc7b634b41ea4cc9808124438f239e24b"
 LEDGER = Path.home() / "AppData/Local/Laomedo/exp22-phase-c-turns.json"
 
 
+def phase(root, observation, name):
+    if time.monotonic() >= float((root/"deadline").read_text()):
+        raise TimeoutError("overall_procedure_deadline")
+    observation["phase"] = name
+    save(root/"observation.json",observation)
+
+
+def wait_cleanup(root, selected, killed):
+    deadline = min(killed+60,float((root/"deadline").read_text()))
+    path = root/"host/lease/leases"/selected["token"]/"result.json"
+    while time.monotonic()<deadline:
+        if path.exists():
+            result = json.loads(path.read_bytes())
+            finished = result.get("cleanup_finished_at_monotonic")
+            if result.get("cleanup_verified") is not True or type(finished) not in (float,int) or not killed<=finished<=killed+60:
+                raise ValueError("service_cleanup_unverified_or_late")
+            if inspect_exact(selected["name"],selected["run_id"],selected["token"])[0] != "absent":
+                raise ValueError("independent_container_absence_failed")
+            observed = time.monotonic()
+            if observed>killed+60:
+                raise ValueError("independent_cleanup_observation_late")
+            return finished,observed
+        time.sleep(.05)
+    raise TimeoutError("service_cleanup_deadline")
+
+
 def mediate(mediator, capability, operation, payload):
     body = {"repository": REPOSITORY, "operation": operation, "payload": payload}
     if operation == "pr_create":
@@ -67,6 +93,7 @@ def kill(worker, ready, root):
 
 def cleanup(root, owned, workers):
     result = {}
+    dispatched = (root/"start-gate").exists()
     dbpath = root / "host/mediator/mediator.sqlite"
     try:
         store = MediationStore(dbpath) if dbpath.exists() else None
@@ -78,19 +105,23 @@ def cleanup(root, owned, workers):
             with closing(store._connect()) as db:
                 result["grants"] = not db.execute("SELECT 1 FROM grants WHERE revoked_at IS NULL").fetchone()
         else:
-            result["grants"] = True
+            result["grants"] = not dispatched
     except Exception:
         result["grants"] = False
-    (root / "b-stop").touch()
     for side in ("a", "b"):
         try:
             selected = identities(root, side)
             if selected.get("name"):
                 result[side], _ = cleanup_exact(selected["name"], selected["run_id"], selected["token"])
             else:
-                result[side] = True  # No saved run ownership for this side.
+                result[side] = not dispatched
         except Exception:
             result[side] = False
+    try:
+        result["stages"] = stage_cleanup(root / "stages", None)[0] if (root / "stages").exists() else not dispatched
+    except Exception:
+        result["stages"] = False
+    (root / "b-stop").touch()
     result["workers"] = True
     for worker in workers.values():
         try:
@@ -103,10 +134,6 @@ def cleanup(root, owned, workers):
                 worker.wait(timeout=10)
             except Exception:
                 result["workers"] = False
-    try:
-        result["stages"] = stage_cleanup(root / "stages", None)[0] if (root / "stages").exists() else True
-    except Exception:
-        result["stages"] = False
     try:
         result["tasks"] = all(tasks.cleanup(owned).values())
     except Exception:
@@ -122,18 +149,22 @@ def run(root, token_file, source, review_file):
     if git("rev-parse", "HEAD") != source or git("status", "--porcelain", "--untracked-files=all"):
         raise ValueError("source_must_be_frozen_clean")
     review = json.loads(review_file.read_bytes())
-    if review.get("identity") != IDENTITY or review.get("source_sha") != source or review.get("verdict") != "approve":
+    protocol_hash = sha256((ROOT/"experiments/exp93/REAL-STAGE-PROTOCOL.md").read_bytes()).hexdigest()
+    if (review.get("identity") != IDENTITY or review.get("source_sha") != source or review.get("verdict") != "approve"
+            or review.get("protocol_sha256") != protocol_hash):
         raise ValueError("independent_pre_run_review_required")
     root.mkdir(parents=True)
     (root / "single-use.claim").touch(exist_ok=False)
     (root / "deadline").write_text(str(time.monotonic()+600), encoding="ascii")
     observation = {"identity": IDENTITY, "source_sha": source, "spec_sha": SPEC,
-        "protocol_sha256": sha256((ROOT / "experiments/exp93/REAL-STAGE-PROTOCOL.md").read_bytes()).hexdigest(),
+        "protocol_sha256": protocol_hash,
+        "amendment_sha256": sha256((ROOT/"experiments/exp93/REAL-STAGE-AMENDMENT-01.md").read_bytes()).hexdigest(),
         "task_sha256": sha256(TASK.encode()).hexdigest(), "review_sha256": sha256(review_file.read_bytes()).hexdigest(),
         "image_id": GIT_IMAGE_ID, "model": "gpt-6-luna", "effort": "low", "result": "incomplete"}
     owned, workers, caps, entry = {}, {}, {}, None
     token = None
     try:
+        phase(root,observation,"preflight")
         denied = ("GH", "GH_TOKEN", "GITHUB_TOKEN", "GH_LAOMEDO", "GIT_ASKPASS")
         if any(k in os.environ for k in denied):
             raise ValueError("ambient_credential_environment")
@@ -164,6 +195,7 @@ def run(root, token_file, source, review_file):
                 "baseline_sha256": sha256(bundle.read_bytes()).hexdigest()}}
         for name, configuration in configurations.items():
             save(root/(name+".json"), configuration)
+        phase(root,observation,"managed_services")
         tasks.register(root, sys.executable, owned)
         mediator, _, before_pids, heartbeat = readiness(root, owned)
         authority = RunGrantAuthority(root/"host/authority.sqlite", connection_authorizer=connection.authorize)
@@ -173,17 +205,19 @@ def run(root, token_file, source, review_file):
         revision = SkillStore(root/"skill-store").import_skill("crash-probe", skill)
         save(root/"skill-reference.json", {k: revision[k] for k in ("skill_id", "revision_id", "tree_hash")})
         for side in ("b", "a"):
+            phase(root,observation,"construct_"+side)
             selected = identities(root, side)
             git("clone", "--quiet", "--no-local", trusted, root/("source-"+side))
             configure_owned_clone(root/("source-"+side), trusted)
             reference = authority.approve(invocation_id=selected["invocation_id"], repository=REPOSITORY,
-                branch=selected["branch"], base_branch="main", operations={"pr_create", "actions_read"},
+                branch=selected["branch"], base_branch="main", operations={"actions_read"},
                 reviewed_by="owner-selected-real-stage-protocol", connection_id=IDENTITY, connection_generation=1)
             save(root/(side+"-authorization.json"), reference)
             workers[side] = subprocess.Popen([sys.executable,"-m","experiments.exp93.real_stage_worker",
                 "--root",str(root),"--side",side], cwd=ROOT, env=_base_git_environment(),
                 stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=subprocess.CREATE_NO_WINDOW)
             wait_json(root/(side+"-constructed.json"),timeout=30)
+        phase(root,observation,"dispatch")
         entry = reserve(LEDGER, root)
         save(root/"observation.json", observation)
         (root/"start-gate").touch(exist_ok=False)
@@ -213,6 +247,7 @@ def run(root, token_file, source, review_file):
             time.sleep(.05)
         if not boundary:
             raise ValueError("active_command_not_observed")
+        phase(root,observation,"runner_loss")
         started = time.monotonic()
         if inspect_exact(a["name"],a["run_id"],a["token"]) != ("owned",ready["a"]["container_id"]):
             raise ValueError("a_ownership_changed")
@@ -225,6 +260,8 @@ def run(root, token_file, source, review_file):
         revoked = wait_json(root/"host/lease/leases"/a["token"]/"revoked.json",timeout=60)
         if a["grant_id"] not in revoked["revoked_grants"]:
             raise ValueError("wrong_grant_revoked")
+        cleanup_finished,absence_at = wait_cleanup(root,a,killed)
+        phase(root,observation,"refusal_and_control")
         before = journal(root)
         status, refusal = mediate(mediator,caps["a"],"pr_create",{
             "head":a["branch"],"base":"main","title":"Denied real-stage test",
@@ -239,6 +276,7 @@ def run(root, token_file, source, review_file):
         current = journal(root)
         observation["loss"] = {"command_started":started,"kill_completed":killed,
             "revoked":revoked["revoked_at_monotonic"],"denied":denied_at,
+            "cleanup_finished":cleanup_finished,"container_absent_observed":absence_at,
             "denial_status":status,"denial_error":refusal.get("error"),
             "attempts_before_denial":len(before),"attempts_after_denial":len(after),
             "a_container_absent":inspect_exact(a["name"],a["run_id"],a["token"])[0]=="absent",
@@ -246,7 +284,10 @@ def run(root, token_file, source, review_file):
         _,_,after_pids,new_heartbeat = readiness(root,owned)
         if before_pids != after_pids or new_heartbeat <= heartbeat:
             raise ValueError("managed_services_changed")
+        phase(root,observation,"delayed_sentinel")
         while time.monotonic()-started<61:
+            if time.monotonic() >= float((root/"deadline").read_text()):
+                raise TimeoutError("overall_procedure_deadline")
             time.sleep(.2)
         observation["sentinel_checked_after"] = time.monotonic()-started
         observation["sentinel_present"] = (root/"runner/runs"/a["run_id"]/"workspace/crash-marker.txt").exists()

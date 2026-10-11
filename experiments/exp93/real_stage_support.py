@@ -53,6 +53,10 @@ def validate(value):
         raise ValueError("timing_missing")
     if not times[0] <= times[1] <= times[2] <= times[3] or times[2]-times[1] > 60:
         raise ValueError("revocation_bound_failed")
+    finished,observed = loss.get("cleanup_finished"),loss.get("container_absent_observed")
+    if (any(type(t) not in (int,float) or not math.isfinite(t) for t in (finished,observed))
+            or not times[1]<=finished<=observed<=times[1]+60):
+        raise ValueError("container_cleanup_bound_failed")
     if (loss.get("denial_status") != 403 or loss.get("denial_error") != "grant_unavailable"
             or loss.get("attempts_before_denial") != loss.get("attempts_after_denial")):
         raise ValueError("write_refusal_not_proven")

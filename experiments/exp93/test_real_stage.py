@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from experiments.exp93.real_stage_support import IDENTITY, reserve, validate
 
@@ -10,6 +11,7 @@ from experiments.exp93.real_stage_support import IDENTITY, reserve, validate
 def good():
     return {"identity":IDENTITY,"boundary_observed":True,"loss":{
         "command_started":1.,"kill_completed":2.,"revoked":7.,"denied":8.,
+        "cleanup_finished":7.1,"container_absent_observed":7.2,
         "denial_status":403,"denial_error":"grant_unavailable",
         "attempts_before_denial":0,"attempts_after_denial":0,
         "a_container_absent":True,"b_owned_alive":True,"b_read_status":200,"b_read_count":1},
@@ -30,6 +32,7 @@ class RealStageChecks(unittest.TestCase):
             with self.subTest(key=key),self.assertRaises(ValueError):
                 row=good();row[key]=value;validate(row)
         for key,value in [("revoked",90),("revoked",float("nan")),("denial_status",200),
+                ("cleanup_finished",90),("container_absent_observed",90),
                 ("denial_error","other"),("attempts_after_denial",1),
                 ("a_container_absent",False),("b_owned_alive",False),
                 ("b_read_status",403),("b_read_count",0)]:
@@ -61,6 +64,40 @@ class RealStageChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 reserve(path,Path(name)/"state")
             self.assertEqual(path.read_bytes(),original)
+
+    def test_cleanup_wait_requires_service_result_and_independent_absence(self):
+        from experiments.exp93 import real_stage_probe as probe
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name)
+            (root/"deadline").write_text("100")
+            target=root/"host/lease/leases/t/result.json"
+            target.parent.mkdir(parents=True)
+            selected={"token":"t","name":"n","run_id":"r"}
+            target.write_text(json.dumps({"cleanup_verified":True,"cleanup_finished_at_monotonic":5}))
+            with patch.object(probe.time,"monotonic",return_value=6),patch.object(probe,"inspect_exact",return_value=("absent",None)):
+                self.assertEqual(probe.wait_cleanup(root,selected,1),(5,6))
+            with patch.object(probe.time,"monotonic",return_value=6),patch.object(probe,"inspect_exact",return_value=("owned","x")),self.assertRaises(ValueError):
+                probe.wait_cleanup(root,selected,1)
+            target.write_text(json.dumps({"cleanup_verified":True,"cleanup_finished_at_monotonic":90}))
+            with patch.object(probe.time,"monotonic",return_value=6),self.assertRaises(ValueError):
+                probe.wait_cleanup(root,selected,1)
+
+    def test_cleanup_order_and_dispatched_missing_state(self):
+        from experiments.exp93 import real_stage_probe as probe
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name);(root/"start-gate").touch();(root/"stages").mkdir()
+            def remove(*args):
+                self.assertFalse((root/"b-stop").exists())
+                return True,"absent"
+            def stages(*args):
+                self.assertFalse((root/"b-stop").exists())
+                return True,[]
+            with patch.object(probe,"identities",return_value={"name":"n","run_id":"r","token":"t"}),patch.object(probe,"cleanup_exact",side_effect=remove),patch.object(probe,"stage_cleanup",side_effect=stages),patch.object(probe.tasks,"cleanup",return_value={}):
+                result=probe.cleanup(root,{}, {})
+            self.assertTrue((root/"b-stop").exists());self.assertFalse(result["grants"])
+            with patch.object(probe,"identities",return_value={}),patch.object(probe,"stage_cleanup",return_value=(True,[])),patch.object(probe.tasks,"cleanup",return_value={}):
+                result=probe.cleanup(root,{}, {})
+            self.assertFalse(result["a"]);self.assertFalse(result["b"])
 
 
 if __name__=="__main__":
