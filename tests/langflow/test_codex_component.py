@@ -58,6 +58,25 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_predispatch_refusal_retains_safe_reason_without_inventing_run(self):
+        for status, category, expected in (
+            (400, "experiment_request_binding_denied", "experiment_request_binding_denied"),
+            (401, "SECRET token https://private", "runner_dispatch_refused"),
+            (500, "experiment_request_binding_denied", "runner_runtime_unknown"),
+        ):
+            node = component(request_id=RUN)
+            body = {"status": "failed", "error_category": category}
+            with self.subTest(status=status), patch.object(node, "_token", return_value="synthetic"), \
+                    patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                        "http://localhost", status, "failure", {}, Response(json.dumps(body).encode()))) as http:
+                output = (await node.submission_output()).data
+            self.assertEqual(output["error_category"], expected)
+            self.assertIsNone(output["run_reference"]["run_id"])
+            self.assertEqual(output["run_reference"]["request_id"], RUN)
+            self.assertIs(output["evidence_complete"], False)
+            self.assertNotIn("SECRET", json.dumps(output))
+            self.assertEqual(http.call_count, 1)
+
     async def test_submission_separates_reported_outcome_from_executor_and_evidence(self):
         for report, expected in [("success", "success"), ("failure", "failure"),
                                  (None, "unknown"), ({"invalid": True}, "unknown")]:

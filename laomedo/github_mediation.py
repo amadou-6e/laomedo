@@ -475,6 +475,10 @@ class MediationStore(HandoffStore):
                     current = self._grant(db, token, repository, "git_push", handoff_id=_handoff_id, payload=payload)
                     if current["grant_id"] != grant["grant_id"]:
                         return {"state": "unknown", "resent": False}
+            except KnownRejected:
+                # A completed policy check is a refusal, not pending evidence.
+                # No provider call was made and raw exception text stays private.
+                return {"state": "rejected", "error": "stage_policy_rejected", "resent": False}
             except Exception:
                 # A status lookup never schedules or retries verification.
                 return {"state": "unknown", "resent": False}

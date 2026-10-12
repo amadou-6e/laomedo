@@ -25,6 +25,7 @@ _ROUTABLE_ERRORS = {
     "runner_request_identity_mismatch", "runner_status_identity_mismatch",
     "runner_wait_deadline", "runner_status_unknown", "turn_timeout",
     "outstanding_command_completion_unknown", "post_run_snapshot_mismatch",
+    "experiment_request_binding_denied", "runner_dispatch_refused",
 }
 
 
@@ -432,8 +433,14 @@ class LaomedoCodexAgent(Component):
                     result.setdefault("status", "unknown")
                     result.setdefault("raw_event_ref", self._prior_trace_ref)
                     raise RunnerResultError(self._run_reference(result)) from None
-                raise RuntimeError("Laomedo run " + str(result.get("run_id") or "unknown") +
-                    " failed: " + str(result.get("error_category") or result.get("status") or "unknown")) from None
+                # A complete pre-dispatch refusal has no run identity. Expose
+                # only a fixed public code, never arbitrary server error text.
+                category = result.get("error_category")
+                code = (category if isinstance(category, str) and category in
+                        {"experiment_request_binding_denied"} else "runner_dispatch_refused")
+                if 400 <= exc.code < 500:
+                    raise RuntimeError(code) from None
+                raise RuntimeError("runner_runtime_unknown") from None
         except (error.URLError, TimeoutError, OSError):
             if self._reference_run_id:
                 reference = self._run_reference({"run_id": self._reference_run_id,

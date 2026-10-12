@@ -39,6 +39,20 @@ def connection(root, token_file):
         forbidden_mount=root / "runner")
 
 
+def report_task(report, branch):
+    return ("Bounded demonstration, not arbitrary issue implementation. Read the selected skill and frozen issue. "
+        "First call laomedo_output_precheck with a success submission missing report and observe rejection; "
+        "then submit a success form with report='EXP-139 completed' and observe acceptance within this request. "
+        "Create exactly experiments/exp139/issue-report.md by decoding this base64 into bytes (do not use a heredoc or add a newline): " +
+        base64.b64encode(report.encode()).decode() + ". Verify its SHA-256 equals " +
+        sha256(report.encode()).hexdigest() + " before committing; correct any mismatch locally before the single push. "
+        "Create the parent folders. Set local Git author Laomedo Agent <agent@laomedo.local>. "
+        "Create branch " + branch + " from the detached checkout with git switch -c before committing. Commit only that report. Push exactly once using git push origin HEAD:refs/heads/" + branch + ". "
+        "Wait for the push shell command to finish, polling its existing session if needed. "
+        "Do not create a PR; downstream publication owns it. Do not retry an uncertain push. "
+        "Finish with only the accepted JSON form; report failure honestly on any error.")
+
+
 def prepare(root, token_file, *, interactive=False):
     identity = "langflow-demo-20261012-c" if interactive else IDENTITY
     branch = identity if interactive else BRANCH
@@ -103,14 +117,7 @@ def prepare(root, token_file, *, interactive=False):
     body_hash = sha256(context["issue"]["body"].encode()).hexdigest()
     report = "\n".join(("# EXP-139 issue report", context["issue"]["url"],
                          "body_sha256: " + body_hash, snapshot["snapshot_id"], ""))
-    task = ("Bounded demonstration, not arbitrary issue implementation. Read the selected skill and frozen issue. "
-        "First call laomedo_output_precheck with a success submission missing report and observe rejection; "
-        "then submit a success form with report='EXP-139 completed' and observe acceptance within this request. "
-        "Create exactly experiments/exp139/issue-report.md with these exact UTF-8 bytes: " + json.dumps(report) + ". "
-        "Create the parent folders. Set local Git author Laomedo Agent <agent@laomedo.local>. "
-        "Create branch " + branch + " from the detached checkout with git switch -c before committing. Commit only that report. Push exactly once using git push origin HEAD:refs/heads/" + branch + ". "
-        "Do not create a PR; downstream publication owns it. Do not retry an uncertain push. "
-        "Finish with only the accepted JSON form; report failure honestly on any error.")
+    task = report_task(report, branch)
     tasks = {"success": task,
              "failure": "Do not edit files, use Git or access a remote. Return only "
                         "{\"task_outcome\":\"failure\",\"report\":\"Deliberate bounded failure route\"}.",

@@ -147,7 +147,7 @@ def composition(root):
             content = staged.git("show", snapshot.commit + ":" + REPORT_PATH)
             if (diff.returncode or diff.stdout != REPORT_PATH.encode() + b"\0" or
                     content.returncode or sha256(content.stdout).hexdigest() != config["report_sha256"]):
-                raise ValueError("bounded_report_artifact_required")
+                raise KnownRejected("bounded_report_artifact_required")
         return snapshot
     store = MediationStore(host / "mediator/mediator.sqlite",
         verified_stage_resolver=checked_stage, connection_is_current=provider.current,
@@ -207,7 +207,8 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=config["identity"] + "-success", repository=REPOSITORY,
+        return authority.approve(invocation_id=config["identity"] + "-success-" +
+            next(digest for digest, case in selected.items() if case == "success"), repository=REPOSITORY,
             branch=config["branch"], operations={"git_push", "pr_create"}, reviewed_by=config["identity"] + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):

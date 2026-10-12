@@ -22,13 +22,16 @@ def freeze(root):
         "examples/langflow-workgraph-demo/", "examples/native-codex-node/")) and
         not path.endswith(("MANIFEST.json", "RESULTS.md", "OBSERVATION.json"))]
     interactive = config["identity"] == "langflow-demo-20261012-c"
+    used = config.get("prior_turns", 0)
+    if interactive and (root / "runner/turn-ledger.json").exists():
+        used = json.loads((root / "runner/turn-ledger.json").read_bytes())["attempted_turns"]
     input_paths = ["config.json", "baseline.bundle", "flow-input/inputs.json", "flow-input/success.json"]
     if not interactive:
         input_paths.extend(["flow-input/failure.json", "flow-input/rejection.json"])
     manifest = {"identity": config["identity"], "source_parent": parent, "agent_image": GIT_IMAGE_ID,
         "langflow_image": LANGFLOW, "turn_cap": config["turn_cap"], "push_attempt_cap": 1, "draft_pr_attempt_cap": 1,
         "cumulative_push_attempt_cap": 1 if interactive else 2,
-        "prior_push_attempts": 0 if interactive else 1, "prior_used_turns": config.get("prior_turns", 0),
+        "prior_push_attempts": 0 if interactive else 1, "prior_used_turns": used,
         "source_hashes": {path: sha256((ROOT / path).read_bytes()).hexdigest() for path in sources},
         "committed_source_hashes": {path: sha256(git("show", "HEAD:" + path)).hexdigest() for path in sources},
         "input_hashes": {path: sha256((root / path).read_bytes()).hexdigest() for path in input_paths}}
