@@ -1,9 +1,9 @@
 // Native Git remote-helper protocol; the host alone owns provider credentials.
 import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync, unlinkSync, fsyncSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync, unlinkSync, fsyncSync, renameSync, fstatSync, readSync, constants } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 export class RemoteError extends Error {}
@@ -26,10 +26,38 @@ function confirmed(value) {
 }
 function mediate(repository, operation, payload, effect_id) {
   let raw;
-  try { raw = execFileSync('node', ['/run/laomedo/mediate.mjs'], {
-    input: JSON.stringify({ repository, operation, payload, ...(effect_id ? { effect_id } : {}) }),
-    encoding: 'utf8', timeout: 20000, maxBuffer: 1024 * 1024 }); }
-  catch (error) { raw = error.stdout?.toString(); }
+  const body = JSON.stringify({ repository, operation, payload, ...(effect_id ? { effect_id } : {}) });
+  if (process.env.LAOMEDO_MEDIATION_FILE_STDIO === '1') {
+    // Network-off can reject Node's socket-backed child stdio. This opt-in uses
+    // regular descriptors; it changes neither the request nor the mediator.
+    const dir = resolve(git('rev-parse', '--git-dir'), 'laomedo-helper');
+    mkdirSync(dir, { recursive: true });
+    const base = join(dir, 'io-' + randomUUID());
+    let input, output;
+    const created = [];
+    try {
+      const fd = openSync(base + '.in', constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+      created.push(base + '.in');
+      try { writeFileSync(fd, body); } finally { closeSync(fd); }
+      input = openSync(base + '.in', constants.O_RDONLY | constants.O_NOFOLLOW);
+      output = openSync(base + '.out', constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+      created.push(base + '.out');
+      try { execFileSync('node', ['/run/laomedo/mediate.mjs'], {
+        stdio: [input, output, 'ignore'], timeout: 20000 }); } catch { /* Parse only the bounded client response. */ }
+      const size = fstatSync(output).size;
+      if (size > 1024 * 1024) fail('effect_unknown_no_retry');
+      const bytes = Buffer.alloc(size);
+      raw = bytes.subarray(0, readSync(output, bytes, 0, size, 0)).toString('utf8');
+    } finally {
+      if (input !== undefined) closeSync(input);
+      if (output !== undefined) closeSync(output);
+      for (const path of created) { try { unlinkSync(path); } catch {} }
+    }
+  } else {
+    try { raw = execFileSync('node', ['/run/laomedo/mediate.mjs'], {
+      input: body, encoding: 'utf8', timeout: 20000, maxBuffer: 1024 * 1024 }); }
+    catch (error) { raw = error.stdout?.toString(); }
+  }
   try { return confirmed(JSON.parse(raw)); }
   catch (error) { if (error instanceof RemoteError) throw error; fail('effect_unknown_no_retry'); }
 }
