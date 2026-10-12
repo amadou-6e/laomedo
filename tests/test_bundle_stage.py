@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
 from laomedo.bundle_stage import (BundleStageError, MEMORY_BYTES, SCRIPT,
@@ -20,6 +21,26 @@ IMAGE_ID = PINNED_IMAGE_ID
 
 
 class BundleStageTests(unittest.TestCase):
+    def test_exp139_verifier_reads_commit_from_real_frozen_bundle(self):
+        sys.path.append(str(Path(__file__).resolve().parents[1]))
+        from experiments.exp139.runtime import verify_attempt
+        self.assertNotIn("advertised_commit", self.frozen)
+        # Exercise the real freeze receipt/header boundary, not a fabricated
+        # receipt containing a field that the producer never supplies.
+        config = {"baseline_sha256": self.baseline_hash}
+        campaign = self.root
+        # Match the composition's fixed private directory names.
+        self.runner.rename(campaign / "runner")
+        with patch("experiments.exp139.runtime.verify_frozen_bundle", return_value={"status": "verified"}) as verifier:
+            self.assertEqual(verify_attempt(campaign, config, "run-a", "attempt-1"), {"status": "verified"})
+            self.assertEqual(verifier.call_args.kwargs["commit"], self.commit)
+        bundle = campaign / "private-stage/run-a/attempt-1/input.bundle"
+        bundle.write_bytes(bundle.read_bytes() + b"TAMPER")
+        with patch("experiments.exp139.runtime.verify_frozen_bundle") as verifier:
+            with self.assertRaises(BundleStageError):
+                verify_attempt(campaign, config, "run-a", "attempt-1")
+            verifier.assert_not_called()
+
     def test_export_stream_keeps_binary_bytes_and_rejects_oversize(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "stream.bundle"

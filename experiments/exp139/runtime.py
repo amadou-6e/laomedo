@@ -13,7 +13,7 @@ import threading
 
 from experiments.exp139.bindings import BoundRunner, MailboxAppServer, request_digest
 from experiments.exp139.prepare import connection, IDENTITY, REPOSITORY, BRANCH
-from laomedo.bundle_stage import verify_frozen_bundle
+from laomedo.bundle_stage import verify_frozen_bundle, _read_frozen
 from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport
 from laomedo.github_mediation import MediationStore, KnownRejected
 from laomedo.github_rest_transport import GitHubRestTransport
@@ -31,6 +31,16 @@ ROOT = Path(__file__).resolve().parents[2]
 REPORT_PATH = "experiments/exp139/issue-report.md"
 
 
+def verify_attempt(root, config, run_id, attempt_id):
+    # A freeze receipt has no commit. Resolve it from the checksum-checked
+    # private bundle header before invoking the one-shot Docker verifier.
+    _, frozen = _read_frozen(root / "runner", root / "private-stage", run_id, attempt_id)
+    return verify_frozen_bundle(root / "runner", root / "private-stage",
+        run_id=run_id, attempt_id=attempt_id, baseline_bundle=root / "baseline.bundle",
+        expected_baseline_sha256=config["baseline_sha256"],
+        commit=frozen["advertised_commit"], image_id=GIT_IMAGE_ID)
+
+
 def configuration(root):
     root = _outside_git(root)
     config = json.loads((root / "config.json").read_bytes())
@@ -38,7 +48,7 @@ def configuration(root):
             config.get("branch") != BRANCH or config.get("turn_cap") != 10 or
             config.get("runner_port") != 8779 or config.get("handoff_seconds") != 600 or
             config.get("recovery") != "AMENDMENT-03" or
-            config.get("startup_amendment") != "AMENDMENT-06"):
+            config.get("startup_amendment") != "AMENDMENT-07"):
         raise ValueError("frozen_configuration_required")
     return root, config
 
@@ -126,10 +136,7 @@ def composition(root):
         frozen = freezer(grant, payload)
         def verify():
             try:
-                verify_frozen_bundle(root / "runner", root / "private-stage", run_id=grant["run_id"],
-                    attempt_id=payload["attempt_id"], baseline_bundle=root / "baseline.bundle",
-                    expected_baseline_sha256=config["baseline_sha256"],
-                    commit=frozen["advertised_commit"], image_id=GIT_IMAGE_ID)
+                verify_attempt(root, config, grant["run_id"], payload["attempt_id"])
             except Exception:
                 # The verifier writes its one-shot result; status stays unknown
                 # on any error. Never schedule a second verifier or provider write.
@@ -176,14 +183,15 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=IDENTITY + "-success-recovery-06", repository=REPOSITORY,
+        return authority.approve(invocation_id=IDENTITY + "-success-recovery-07", repository=REPOSITORY,
             branch=BRANCH, operations={"git_push", "pr_create"}, reviewed_by=IDENTITY + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):
         attempts = list((root / "private-stage" / record["run_id"]).glob("*/result.json"))
         if len(attempts) != 1:
             raise ValueError("single_verified_attempt_required")
-        frozen = json.loads(attempts[0].read_bytes())
+        _, frozen = _read_frozen(root / "runner", root / "private-stage",
+                                 record["run_id"], attempts[0].parent.name)
         with closing(store._connect()) as db:
             grant = dict(db.execute("SELECT * FROM grants WHERE grant_id=?", (handoff_id,)).fetchone())
         return store.verified_stage_resolver(grant, REPOSITORY,

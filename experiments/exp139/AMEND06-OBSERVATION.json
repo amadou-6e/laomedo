@@ -1,0 +1,102 @@
+{
+  "active_github_grants": 0,
+  "amendments": [
+    "AMENDMENT-06"
+  ],
+  "blockers": [
+    "verifier_composition_missing_commit"
+  ],
+  "draft_pr": null,
+  "execution_source": "190de01a6e2157ca521ba91a1aaea2b72fe2e742",
+  "experiment": "EXP-139",
+  "historical_observation": "OBSERVATION.json",
+  "ledger": {
+    "attempted_turns": 6,
+    "max_authorized_turns": 10
+  },
+  "manifest_sha256": "6e7b5b4bbdc8debd2375685cd66a15f43db5fd5315d95a1d1e548a6961cc560c",
+  "preserved_no_turn_startup_run": "7391913c-318f-4317-8c68-fda10b84769d",
+  "report_sha256": "3de179af048ab7823ab1a088459309e802b5a0253263718a8ce33f911eb3a49b",
+  "result": "blocked_no_go",
+  "runner_listening": false,
+  "runs": [
+    {
+      "attempt_finished": true,
+      "case": "success",
+      "cleanup_verified": true,
+      "closure": {
+        "item_count": 12,
+        "reason": "closed",
+        "turn_count": 1,
+        "version": 1
+      },
+      "commands": [
+        {
+          "exit_code": 0,
+          "missing_remote_helper": false
+        },
+        {
+          "exit_code": 0,
+          "missing_remote_helper": false
+        },
+        {
+          "exit_code": 1,
+          "missing_remote_helper": false
+        }
+      ],
+      "completion_basis": "native_trace_closure",
+      "controller_cleanup": "confirmed",
+      "error_category": null,
+      "evidence_complete": true,
+      "exact_report_bytes": true,
+      "github_scope_present": true,
+      "graph_result": [
+        {
+          "outcomes": [
+            {
+              "contract_status": "rejected",
+              "destination": "rejection"
+            }
+          ]
+        }
+      ],
+      "lease": {
+        "cleanup_verified": true,
+        "supervisor": "lease"
+      },
+      "precheck": {
+        "call_count": 3,
+        "installed": true
+      },
+      "precheck_recomputed_from_bound_calls": [
+        {
+          "contract_status": "rejected",
+          "error_codes": [
+            "required"
+          ]
+        },
+        {
+          "contract_status": "accepted",
+          "error_codes": []
+        },
+        {
+          "contract_status": "accepted",
+          "error_codes": []
+        }
+      ],
+      "requirements_revision": "sha256:8dff79caed45056d725eb1f89c8d14c48c4bf1450ffa9ed0c105061327abac07",
+      "run_id": "d5168375-57e8-4c1e-9cf5-a71e9d49b0d7",
+      "snapshot_ready": true,
+      "status": "completed",
+      "task_outcome": "failure",
+      "thread_id": "01a12ef8-f8e0-7422-9368-b0322e58147b",
+      "turn_count": 1
+    }
+  ],
+  "scope": "bounded_single_user_local_only",
+  "unverified": [
+    "live_success_publication",
+    "published_report_readback"
+  ],
+  "write_attempts": []
+}
