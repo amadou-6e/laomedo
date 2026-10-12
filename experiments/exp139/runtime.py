@@ -131,7 +131,7 @@ class WriteBudget:
         return self.transport(repository, operation, payload, **binding)
 
 
-def composition(root):
+def composition(root, *, budget_class=WriteBudget):
     root, config = configuration(root)
     host = root / "host"
     host.mkdir(exist_ok=True)
@@ -169,7 +169,7 @@ def composition(root):
     store.stage_freezer = freeze
     git = GitHubGitTransport(REPOSITORY, root / "source", config["baseline"], provider.token,
                               require_verified_stage=True)
-    budget = WriteBudget(host / "write-budget.sqlite", GitHubMediatedTransport(git, rest), store,
+    budget = budget_class(host / "write-budget.sqlite", GitHubMediatedTransport(git, rest), store,
                          prior_write_budget=config.get("prior_write_budget"), branch=config["branch"])
     transport = JournaledTransport(budget, host / "provider-attempts.jsonl",
                                     host / "push-diagnostics.jsonl")
@@ -177,10 +177,10 @@ def composition(root):
     return root, config, store, transport, authority, rest
 
 
-def services(root):
+def services(root, *, startup_check=approved, composition_factory=composition):
     root, config = configuration(root)
-    approved(root)
-    root, config, store, transport, authority, _rest = composition(root)
+    startup_check(root)
+    root, config, store, transport, authority, _rest = composition_factory(root)
     lease = LeaseService(root / "host/lease", mediator=store,
                          mediation_authority=authority.authorize_lease)
     mediator = MediationHTTPService(store, transport)
@@ -191,10 +191,10 @@ def services(root):
                    connection_id=config["connection_id"], connection_generation=1)
 
 
-def runner(root):
+def runner(root, *, startup_check=approved, composition_factory=composition, engine_class=BoundRunner, port=8779):
     root, config = configuration(root)
-    approved(root)
-    root, config, store, transport, authority, rest = composition(root)
+    startup_check(root)
+    root, config, store, transport, authority, rest = composition_factory(root)
     inputs = json.loads((root / "flow-input/inputs.json").read_bytes())
     flow = json.loads((root / "flow-input/success.json").read_bytes())
     form = json.loads(next(node for node in flow["data"]["nodes"] if node["id"] == ("contract" if config["identity"].startswith("langflow-demo-") else "requirements"))
@@ -206,10 +206,10 @@ def runner(root):
                 "skill_ref": {key: config["skill"][key] for key in ("skill_id", "revision_id", "tree_hash")},
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
-    def authorize():
+    def authorize(branch=None):
         return authority.approve(invocation_id=config["identity"] + "-success-" +
-            next(digest for digest, case in selected.items() if case == "success"), repository=REPOSITORY,
-            branch=config["branch"], operations={"git_push", "pr_create"}, reviewed_by=config["identity"] + "-owner",
+            (branch or next(digest for digest, case in selected.items() if case == "success")), repository=REPOSITORY,
+            branch=branch or config["branch"], operations={"git_push", "pr_create"}, reviewed_by=config["identity"] + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):
         attempts = list((root / "private-stage" / record["run_id"]).glob("*/result.json"))
@@ -236,14 +236,14 @@ def runner(root):
             "\nRun: " + record["run_id"] + "\nNo claim of arbitrary issue implementation.\n")
     controller = PublicationController(store, lifetime_seconds=600, artifact_resolver=artifact,
         transport=transport, readback=readback, describe=describe)
-    engine = BoundRunner(root / "runner", root / "skill-store", root / "source",
+    engine = engine_class(root / "runner", root / "skill-store", root / "source",
         approved_requests=selected, authorization_factory=authorize, max_model_turns=config["turn_cap"],
         nonpublishing_lease_service=root / "host/nonpublishing-lease",
         binding_state=root / "host/bindings.sqlite", seed_consumed=config.get("previous_consumed", {}),
         transport=MailboxAppServer,
         git_workspace=True, supervise_containers=True, lease_service=root / "host/lease",
         github_authority=authority, mediator_state=root / "host/mediator", publication_controller=controller)
-    server = serve(engine, port=8779)
+    server = serve(engine, port=port)
     try:
         server.serve_forever()
     finally:

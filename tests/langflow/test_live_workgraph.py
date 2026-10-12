@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -40,6 +41,29 @@ class Response(io.BytesIO):
 
 
 class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
+    def test_readable_issue_fields_and_legacy_snapshot_are_equivalent(self):
+        import base64
+        spec = importlib.util.spec_from_file_location("frozen_issue_component", ROOT / "examples/langflow-workgraph-live/frozen_issue.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        snapshot = frozen_context()
+        node = module.FrozenIssue()
+        node.snapshot_data = snapshot
+        node.issue_url = snapshot["context"]["issue"]["url"]
+        node.task_data = {"instructions": "Readable task"}
+        node.task_base64 = base64.b64encode(b"Older hidden task").decode()
+        self.assertEqual(json.loads(node.task_output().text)["task"], "Readable task")
+        self.assertEqual(node.snapshot_output().data, snapshot)
+        node.snapshot_base64 = base64.b64encode(json.dumps(snapshot).encode()).decode()
+        node.snapshot_data = {}
+        node.task_data = {}
+        self.assertEqual(json.loads(node.task_output().text)["task"], "Older hidden task")
+        self.assertEqual(node.snapshot_output().data, snapshot)
+        node.issue_url = "https://github.com/other/repo/issues/1"
+        with self.assertRaisesRegex(ValueError, "frozen_issue_selection_mismatch"):
+            node.task_output()
+
     def test_outcome_diagnostics_only_export_closed_codes(self):
         result = {"destination": "rejection", "issue_snapshot": {"secret": "SECRET"},
                   "routed": {"validation": {"contract_status": "rejected",
