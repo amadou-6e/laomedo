@@ -23,33 +23,26 @@ def build(snapshot, task, *, runner_url, model="gpt-6-luna", output_retries=1):
                   "task_base64": base64.b64encode(task.encode()).decode()}, 0, 0)
     skill = node(ROOT / "components/laomedo/skill.py", "skill",
                  {"skill_id": "live-report", "revision_id": SKILL}, 0, 300)
-    requirements = node(ROOT / "components/laomedo/output_contract_legacy.py", "requirements",
-                        {"requirements_json": json.dumps(builder.FORM)}, 0, 600)
     agent = node(ROOT / "components/laomedo/codex_agent.py", "agent",
                  {"operation": "fresh", "runner_url": runner_url, "model": model,
                   "effort": "low", "output_retries": output_retries}, 400, 0)
-    contract = node(ROOT / "components/laomedo/output_contract_legacy.py", "contract",
+    contract = node(ROOT / "components/laomedo/output_contract.py", "contract",
                     {"requirements_json": json.dumps(builder.FORM)}, 800, 0)
-    route = node(DEMO / "route.py", "routing", {}, 1200, 0)
-    accepted = node(HERE / "accepted_validation.py", "accepted", {}, 1500, 0)
     publisher = node(ROOT / "components/laomedo/pr_publisher.py", "publisher",
-                     {"runner_url": runner_url}, 1800, 0)
+                     {"runner_url": runner_url}, 1200, 0)
     destinations = [node(DEMO / "destination.py", key, {"destination": key}, 1600, i * 300 + 300)
                     for i, key in enumerate(("failure", "rejection", "recovery"))]
     edges = [edge(issue, "task", agent, "task"), edge(skill, "skill", agent, "skill_reference"),
-             edge(requirements, "requirements", agent, "output_requirements"),
              edge(agent, "submission", contract, "agent_submission"),
-             edge(contract, "validation", route, "validation"),
-             edge(route, "success", accepted, "routed"),
-             edge(accepted, "validation", publisher, "validation")]
+             edge(contract, "success", publisher, "validation")]
     for target in destinations:
-        edges.extend([edge(route, target["id"], target, "routed"),
+        edges.extend([edge(contract, target["id"], target, "routed"),
                       edge(issue, "snapshot", target, "snapshot")])
     flow = {"id": str(uuid5(NAMESPACE_URL, "laomedo-live-workgraph-v1")),
             "name": "Laomedo frozen issue to trusted draft publisher",
             "description": "Explicitly configured local live graph. The host owns the finite grant and publisher; no GitHub credential enters the graph.",
             "last_tested_version": "1.12.3", "flow_type": "workflow", "access_type": "PRIVATE",
-            "data": {"nodes": [issue, skill, requirements, agent, contract, route, accepted, publisher, *destinations],
+            "data": {"nodes": [issue, skill, agent, contract, publisher, *destinations],
                      "edges": edges, "viewport": {"x": 0, "y": 0, "zoom": .6}}}
     Graph.from_payload(flow)
     return flow

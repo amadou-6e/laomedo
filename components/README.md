@@ -201,3 +201,13 @@ Python path and private execution storage. The separate deployment configuration
 in [agent-handoffs](../examples/agent-handoffs/README.md) remains a draft.
 Tests cover real graph builds with synthetic HTTP; the example also records one
 successful real two-agent chain at exactly two authorized submitted turns.
+
+## Direct Contract Success to Draft PR Publisher
+
+Connect Output Contract Success directly to the publisher's Accepted Output
+input. The publisher unwraps the route internally and retains its existing
+accepted/success/completed/evidence checks. Non-success or malformed routed
+inputs refuse without an HTTP publication request. Existing raw validation
+inputs remain compatible. The current live builder omits Accepted Validation,
+Requirements and the separate router; frozen historical exports are unchanged.
+The host still independently validates the run and publication authority.

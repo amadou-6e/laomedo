@@ -61,6 +61,10 @@ class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
         self.expected_snapshot = snapshot or frozen_context()
         flow = builder.build(self.expected_snapshot, task,
                              runner_url="http://127.0.0.1:8765", model="fixture")
+        self.assertNotIn("accepted", [node["id"] for node in flow["data"]["nodes"]])
+        self.assertNotIn("requirements", [node["id"] for node in flow["data"]["nodes"]])
+        self.assertNotIn("routing", [node["id"] for node in flow["data"]["nodes"]])
+        self.assertTrue(any(edge["source"] == "contract" and edge["target"] == "publisher" and edge["data"]["sourceHandle"]["name"] == "success" for edge in flow["data"]["edges"]))
         # Export then import; the original builder Graph is never executed.
         flow = json.loads(json.dumps(flow))
         agent_calls, publisher_calls = [], []
