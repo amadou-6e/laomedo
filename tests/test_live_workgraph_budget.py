@@ -8,13 +8,25 @@ import sys
 import tempfile
 import unittest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from experiments.exp139.prepare import BRANCH, REPOSITORY
+from experiments.exp139.prepare import BRANCH, REPOSITORY, report_task
 from experiments.exp139.runtime import WriteBudget, configuration
 from laomedo.github_mediation import MediationStore, KnownRejected
 from laomedo.output_contract import requirements
 
 
 class BudgetTests(unittest.TestCase):
+    def test_report_task_encodes_exact_bytes_and_requires_command_completion(self):
+        import base64
+        from hashlib import sha256
+        report = "# Fixture\nOne final newline\n"
+        task = report_task(report, "fixture-branch")
+        marker = "by decoding this base64 into bytes (do not use a heredoc or add a newline): "
+        encoded = task.split(marker, 1)[1].split(". ", 1)[0]
+        self.assertEqual(base64.b64decode(encoded), report.encode())
+        self.assertIn(sha256(report.encode()).hexdigest(), task)
+        self.assertIn("Wait for the push shell command to finish", task)
+        self.assertIn("Do not retry an uncertain push", task)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

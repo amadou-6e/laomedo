@@ -344,6 +344,20 @@ class MediationTests(unittest.TestCase):
         self.assert_code("grant_unavailable", lambda: self.invoke(token, "bundle_status", payload))
         self.assertEqual(self.calls, [])
 
+    def test_bundle_status_distinguishes_policy_refusal_from_pending_without_effects(self):
+        _, token = self.grant(operations={"git_push"})
+        payload = {"stage_attempt_id": "attempt-a", "commit": "a" * 40}
+        for exception, expected in (
+            (KnownRejected("SECRET private-path"), {"state": "rejected", "error": "stage_policy_rejected", "resent": False}),
+            (ValueError("SECRET private-path"), {"state": "unknown", "resent": False}),
+        ):
+            def refuse(*_):
+                raise exception
+            self.store.verified_stage_resolver = refuse
+            with self.subTest(exception=type(exception)):
+                self.assertEqual(self.invoke(token, "bundle_status", payload), expected)
+                self.assertEqual(self.calls, [])
+
     def test_read_labels_cannot_hide_mutations(self):
         _, token = self.grant(operations={"api_rest_read"}, branch=None)
         for payload in ({"path": "/repos/example/disposable/issues/1", "method": "POST"},
