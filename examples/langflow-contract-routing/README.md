@@ -50,3 +50,8 @@ node IDs, configured values, positions, edge IDs and port names. Only the class
 and its outgoing handle type change to `LaomedoOutputContractLegacy`. Unknown
 modified code refuses; inspect and migrate custom variants manually. This is
 not automatic graph migration and does not change frozen historical evidence.
+
+The known-source comparison is strict: unexpected line endings or customized
+code may refuse migration rather than silently change an unknown component.
+Encoded edge handles are checked against their structured values; only their
+data type changes. Generated node IDs and port names remain unchanged.
