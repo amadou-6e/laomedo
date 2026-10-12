@@ -2,12 +2,14 @@
 from pathlib import Path
 from contextlib import closing
 import sqlite3
+import json
+from unittest.mock import patch
 import sys
 import tempfile
 import unittest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from experiments.exp139.prepare import BRANCH, REPOSITORY
-from experiments.exp139.runtime import WriteBudget
+from experiments.exp139.runtime import WriteBudget, configuration
 from laomedo.github_mediation import MediationStore, KnownRejected
 from laomedo.output_contract import requirements
 
@@ -26,6 +28,34 @@ class BudgetTests(unittest.TestCase):
         if getattr(self, "lose_response", False):
             raise TimeoutError("fixture unknown")
         return {"fixture": True}
+
+    def test_interactive_campaign_refuses_budget_widening_and_old_ledger(self):
+        config = {"identity": "langflow-demo-20261012-c", "repository": REPOSITORY,
+                  "branch": "langflow-demo-20261012-c", "turn_cap": 4,
+                  "runner_port": 8779, "handoff_seconds": 600}
+        with patch("experiments.exp139.runtime._outside_git", return_value=self.root):
+            for changes in ({}, {"turn_cap": 5}, {"branch": BRANCH},
+                            {"prior_turns": 8}, {"previous_consumed": []},
+                            {"handoff_seconds": 601}):
+                (self.root / "config.json").write_text(json.dumps(config | changes))
+                if changes:
+                    with self.assertRaisesRegex(ValueError, "frozen_configuration_required"):
+                        configuration(self.root)
+                else:
+                    self.assertEqual(configuration(self.root)[1], config)
+
+    def test_interactive_push_bound_to_new_branch_with_independent_budget(self):
+        branch = "langflow-demo-20261012-c"
+        fresh = WriteBudget(self.root / "interactive.sqlite", self.send, self.store, branch=branch)
+        with self.assertRaisesRegex(KnownRejected, "experiment_branch_denied"):
+            fresh(REPOSITORY, "git_push", {"branch": BRANCH})
+        fresh(REPOSITORY, "git_push", {"branch": branch})
+        restarted = WriteBudget(self.root / "interactive.sqlite", self.send, self.store, branch=branch)
+        with self.assertRaisesRegex(KnownRejected, "experiment_write_budget_consumed"):
+            restarted(REPOSITORY, "git_push", {"branch": branch})
+        with closing(sqlite3.connect(self.root / "budget.sqlite")) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM attempts").fetchone()[0], 0)
+        self.assertEqual(self.calls, ["git_push"])
 
     def test_push_is_single_attempt_even_after_unknown_and_restart(self):
         self.lose_response = True

@@ -21,20 +21,23 @@ def freeze(root):
         "experiments/exp139/", "examples/langflow-workgraph-live/",
         "examples/langflow-workgraph-demo/", "examples/native-codex-node/")) and
         not path.endswith(("MANIFEST.json", "RESULTS.md", "OBSERVATION.json"))]
-    manifest = {"identity": IDENTITY, "source_parent": parent, "agent_image": GIT_IMAGE_ID,
-        "langflow_image": LANGFLOW, "turn_cap": 10, "push_attempt_cap": 1, "draft_pr_attempt_cap": 1,
-        "cumulative_push_attempt_cap": 2, "prior_push_attempts": 1, "prior_used_turns": 7,
+    interactive = config["identity"] == "langflow-demo-20261012-c"
+    input_paths = ["config.json", "baseline.bundle", "flow-input/inputs.json", "flow-input/success.json"]
+    if not interactive:
+        input_paths.extend(["flow-input/failure.json", "flow-input/rejection.json"])
+    manifest = {"identity": config["identity"], "source_parent": parent, "agent_image": GIT_IMAGE_ID,
+        "langflow_image": LANGFLOW, "turn_cap": config["turn_cap"], "push_attempt_cap": 1, "draft_pr_attempt_cap": 1,
+        "cumulative_push_attempt_cap": 1 if interactive else 2,
+        "prior_push_attempts": 0 if interactive else 1, "prior_used_turns": config.get("prior_turns", 0),
         "source_hashes": {path: sha256((ROOT / path).read_bytes()).hexdigest() for path in sources},
         "committed_source_hashes": {path: sha256(git("show", "HEAD:" + path)).hexdigest() for path in sources},
-        "input_hashes": {path: sha256((root / path).read_bytes()).hexdigest() for path in
-            ("config.json", "baseline.bundle", "flow-input/inputs.json", "flow-input/success.json",
-             "flow-input/failure.json", "flow-input/rejection.json")}}
+        "input_hashes": {path: sha256((root / path).read_bytes()).hexdigest() for path in input_paths}}
     # source_hashes bind actual Windows working bytes; committed_source_hashes
     # explicitly identify Git blobs. CRLF checkout bytes are not called blobs.
     # Inputs contain refs/pins, never credential values or auth files.
     save(root / "manifest.json", manifest)
-    save(ROOT / "experiments/exp139/MANIFEST.json", manifest)
-    return {"identity": IDENTITY, "model_turns": 0, "github_writes": 0,
+    save(ROOT / "experiments/exp139" / ("DEMO-MANIFEST.json" if interactive else "MANIFEST.json"), manifest)
+    return {"identity": config["identity"], "model_turns": 0, "github_writes": 0,
             "source_parent": parent, "manifest_sha256": sha256((root / "manifest.json").read_bytes()).hexdigest()}
 
 
