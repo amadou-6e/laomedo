@@ -14,11 +14,12 @@ See [AMEND07-OBSERVATION.json](AMEND07-OBSERVATION.json).
 - Run `f1db640f-9f02-4655-88b8-76b1bd467f24` completed with closed native
   execution evidence, twelve items, and task outcome success. The host accepted
   its output and retained the finite handoff in `validation_pending`.
-- The imported graph selected rejection before the terminal runner record was
-  saved. It made no draft-PR attempt. The original bounded graph summary did
+- The imported graph selected rejection. File timestamps are consistent with
+  it finishing before the terminal runner record was saved, but a later record
+  rewrite could also produce that ordering. It made no draft-PR attempt. The original bounded graph summary did
   not retain validation or runner error codes, so the immediate cause is
   unproven. Timing is consistent with an interrupted status read, not proof.
-- A credential-free re-evaluation of the retained final answer against both
+- A credential-free re-evaluation of the retained final answer and final executor status against both
   frozen forms accepts it. This does not retroactively change the graph result.
 - Host-only GitHub GETs independently read commit
   `835cbfa3375b6b880fadf9b40b47e1c9541e7ec1` on `exp139-20261011-a` and report

@@ -18,6 +18,20 @@
     "turn_count": 1,
     "version": 1
   },
+  "commands": [
+    {
+      "exit_code": 0
+    },
+    {
+      "exit_code": 0
+    },
+    {
+      "exit_code": 0
+    },
+    {
+      "exit_code": 0
+    }
+  ],
   "completion_basis": "native_trace_closure",
   "controller_cleanup": "confirmed",
   "draft_pr": null,
@@ -31,7 +45,7 @@
   "exact_report_bytes": true,
   "execution_source": "e1eaaa4272bb22e3b95da771a815166c09befedc",
   "experiment": "EXP-139",
-  "graph_finished_before_terminal_record": true,
+  "graph_finished_before_terminal_record_by_mtime": true,
   "graph_result": [
     {
       "outcomes": [
@@ -52,6 +66,8 @@
     "installed": true
   },
   "publication_phase": "expired",
+  "recheck_executor_status_basis": "retained_final_record",
+  "recorded_handoff_phase": "validation_pending",
   "result": "blocked_no_go",
   "retained_result_contract_recheck": {
     "contract": {

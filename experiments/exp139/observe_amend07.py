@@ -18,10 +18,11 @@ def observe(root):
     record_path = root / "runner/runs" / RUN / "record.json"
     record = json.loads(record_path.read_bytes())
     flow = json.loads((root / "flow-input/success.json").read_bytes())
+    submission = json.loads(record["answer"])
     envelope = {"schema_version": "laomedo.agent-submission.v1",
-        "submission": json.loads(record["answer"]),
+        "submission": submission,
         "requirements_revision": record["requirements_revision"],
-        "task_outcome": "success", "executor_status": record["status"]}
+        "task_outcome": submission.get("task_outcome", "unknown"), "executor_status": record["status"]}
     forms = {}
     for node in flow["data"]["nodes"]:
         if node["id"] in {"requirements", "contract"}:
@@ -43,6 +44,13 @@ def observe(root):
     readback = json.loads((root / "amend07-branch-readback.json").read_bytes())
     assert writes == ["git_push"] and readback["matching_pr_count"] == 0
     report = record_path.parent / "post-run/experiments/exp139/issue-report.md"
+    commands = []
+    for line in (record_path.parent / "raw-events.jsonl").read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        item = event.get("params", {}).get("item", {})
+        if event.get("method") == "item/completed" and item.get("type") == "commandExecution":
+            code = item.get("exitCode")
+            commands.append({"exit_code": code if type(code) is int else "unknown"})
     return {"experiment": "EXP-139", "result": "blocked_no_go",
         "execution_source": activation["source_sha"], "manifest_sha256": activation["manifest_sha256"],
         "ledger": ledger, "run_id": RUN, "status": record["status"],
@@ -51,13 +59,17 @@ def observe(root):
                     for key in ("version", "reason", "item_count", "turn_count")},
         "precheck": {key: record.get("precheck", {}).get(key) for key in ("installed", "call_count")},
         "graph_result": graph["graph_result"], "retained_result_contract_recheck": forms,
+        "recheck_executor_status_basis": "retained_final_record",
+        "commands": commands,
         "exact_report_bytes": sha256(report.read_bytes()).hexdigest() == readback["report_sha256"],
         "branch_readback": readback, "write_attempts": writes, "effects": effects,
         "publication_phase": phase, "draft_pr": None, "active_github_grants": active,
+        "recorded_handoff_phase": record.get("publication_handoff", {}).get("phase")
+            if record.get("publication_handoff", {}).get("phase") in {"validation_pending", "expired"} else "unknown",
         "runner_listening": listening,
         "cleanup_verified": record.get("container_ownership", {}).get("cleanup_verified"),
         "controller_cleanup": record.get("controller_cleanup"),
-        "graph_finished_before_terminal_record": graph["state"] == "finished" and
+        "graph_finished_before_terminal_record_by_mtime": graph["state"] == "finished" and
             (root / "amend07-success.json").stat().st_mtime < record_path.stat().st_mtime,
         "blocker": "downstream_rejection_before_terminal_runner_result",
         "cause": "unproven; original graph summary did not preserve diagnostic codes",
