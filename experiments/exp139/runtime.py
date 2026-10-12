@@ -38,7 +38,7 @@ def configuration(root):
             config.get("branch") != BRANCH or config.get("turn_cap") != 10 or
             config.get("runner_port") != 8779 or config.get("handoff_seconds") != 600 or
             config.get("recovery") != "AMENDMENT-03" or
-            config.get("startup_amendment") != "AMENDMENT-05"):
+            config.get("startup_amendment") != "AMENDMENT-06"):
         raise ValueError("frozen_configuration_required")
     return root, config
 
@@ -176,7 +176,7 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=IDENTITY + "-success-recovery-05", repository=REPOSITORY,
+        return authority.approve(invocation_id=IDENTITY + "-success-recovery-06", repository=REPOSITORY,
             branch=BRANCH, operations={"git_push", "pr_create"}, reviewed_by=IDENTITY + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):
