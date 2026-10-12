@@ -455,6 +455,7 @@ class LaomedoCodexAgent(Component):
         self._last_reference = self._run_reference(result)
         if self.operation == "fresh":
             deadline = time.monotonic() + int(self.timeout_seconds)
+            read_failures = 0
             while not _terminal_record(result) and not self._stop_requested:
                 if time.monotonic() >= deadline:
                     raise RuntimeError("runner_wait_deadline; remote execution may still be active")
@@ -465,13 +466,22 @@ class LaomedoCodexAgent(Component):
                             (self._bridge_base() or str(self.runner_url).rstrip("/")) +
                             "/v1/runs/" + result["run_id"],
                             headers={"Authorization": "Bearer " + token}, method="GET"),
-                            timeout=10) as response:
+                            timeout=min(10, max(.1, deadline - time.monotonic()))) as response:
                         result = json.load(response)
-                except (error.HTTPError, error.URLError, TimeoutError, OSError,
-                        ValueError, TypeError):
+                except error.HTTPError:
+                    raise RuntimeError("runner_status_unknown; remote execution may still be active") from None
+                except (error.URLError, TimeoutError, OSError):
+                    # Retry only reads of the already-bound run. Never repeat
+                    # dispatch or another effect after a transport interruption.
+                    read_failures += 1
+                    if read_failures >= 3 or time.monotonic() >= deadline:
+                        raise RuntimeError("runner_status_unknown; remote execution may still be active") from None
+                    continue
+                except (ValueError, TypeError):
                     raise RuntimeError("runner_status_unknown; remote execution may still be active") from None
                 if not isinstance(result, dict) or result.get("run_id") != self._active_run_id:
                     raise RuntimeError("runner_status_identity_mismatch")
+                read_failures = 0
                 self._last_reference = self._run_reference(result)
         if (self.operation in {"fresh", "resume"} and not self._stop_requested and
                 result.get("status") != "completed"):

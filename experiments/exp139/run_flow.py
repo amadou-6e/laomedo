@@ -16,8 +16,22 @@ def outcomes(results):
                 found.append({key: value[key] for key in ("run_id", "phase", "publication_state") if key in value})
             elif "destination" in value and "issue_snapshot" in value:
                 validation = value.get("routed", {}).get("validation", {})
+                submission = validation.get("agent_submission", {})
                 found.append({"destination": value["destination"],
-                              "contract_status": validation.get("contract_status")})
+                              "contract_status": validation.get("contract_status"),
+                              "validation_codes": sorted({error.get("code") for error in
+                                  validation.get("errors", []) if isinstance(error.get("code"), str)
+                                  and error["code"] in {"requirements_unbound", "requirements_revision_mismatch",
+                                      "task_outcome_mismatch", "type_mismatch", "required", "nonempty",
+                                      "enum", "minimum", "maximum", "min_length", "max_length",
+                                      "submission_too_large", "invalid_json_value", "object_required"}}),
+                              "executor_status": submission.get("executor_status")
+                                  if submission.get("executor_status") in {"prepared", "running", "completed",
+                                      "failed", "unknown", "timeout", "cancelled", "interrupted"} else "unknown",
+                              "runner_error_category": submission.get("error_category")
+                                  if submission.get("error_category") in {"runner_status_unknown",
+                                      "runner_wait_deadline", "runner_transport_failed",
+                                      "runner_status_identity_mismatch", "runner_request_identity_mismatch"} else None})
             else:
                 for item in value.values():
                     walk(item)

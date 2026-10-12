@@ -114,7 +114,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                         output_ref="unready", invocation_id="invocation-fixture")
         with patch.object(node, "_token", return_value="synthetic"), \
                 patch.object(module.request, "urlopen", side_effect=[
-                    Response(json.dumps(native).encode()), TimeoutError("SECRET private-path")]) as http:
+                    Response(json.dumps(native).encode()),
+                    *[TimeoutError("SECRET private-path") for _ in range(3)]]) as http:
             output = (await node.submission_output()).data
         self.assertEqual(output["executor_status"], "unknown")
         self.assertEqual(output["answer"], "partial text")
@@ -123,7 +124,27 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(output["run_reference"]["trace_ref"], f"laomedo:run:{RUN}:events")
         self.assertIsNone(output["run_reference"]["artifact_ref"])
         self.assertNotIn("SECRET", json.dumps(output))
-        self.assertEqual(http.call_count, 2)
+        self.assertEqual(http.call_count, 4)
+
+    async def test_status_read_recovers_without_redispatch_or_losing_binding(self):
+        node = component(request_id=RUN)
+        running = result(status="running", client_request_id=RUN, answer=None)
+        completed = result(client_request_id=RUN, answer='{"task_outcome":"success"}',
+                           requirements_revision=HASH, evidence_complete=True)
+        with patch.object(node, "_token", return_value="synthetic"), \
+                patch.object(module.time, "sleep"), \
+                patch.object(module.request, "urlopen", side_effect=[
+                    Response(json.dumps(running).encode()), TimeoutError("SECRET"),
+                    Response(json.dumps(completed).encode())]) as http:
+            output = (await node.submission_output()).data
+        self.assertEqual(output["executor_status"], "completed")
+        self.assertEqual(output["requirements_revision"], HASH)
+        self.assertIs(output["evidence_complete"], True)
+        self.assertEqual([call.args[0].method for call in http.call_args_list],
+                         ["POST", "GET", "GET"])
+        self.assertEqual({call.args[0].full_url for call in http.call_args_list[1:]},
+                         {"http://host.docker.internal:8765/v1/runs/" + RUN})
+        self.assertNotIn("SECRET", json.dumps(output))
 
     async def test_submission_lost_start_ack_keeps_request_without_inventing_run(self):
         node = component(request_id=RUN)

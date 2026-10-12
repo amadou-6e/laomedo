@@ -1,0 +1,73 @@
+{
+  "active_github_grants": 0,
+  "blocker": "downstream_rejection_before_terminal_runner_result",
+  "branch_readback": {
+    "branch": "exp139-20261011-a",
+    "head_commit": "835cbfa3375b6b880fadf9b40b47e1c9541e7ec1",
+    "matching_pr_count": 0,
+    "provider_writes": 0,
+    "report_sha256": "3de179af048ab7823ab1a088459309e802b5a0253263718a8ce33f911eb3a49b",
+    "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+    "scope": "branch_and_report_readback_only"
+  },
+  "cause": "unproven; original graph summary did not preserve diagnostic codes",
+  "cleanup_verified": true,
+  "closure": {
+    "item_count": 12,
+    "reason": "closed",
+    "turn_count": 1,
+    "version": 1
+  },
+  "completion_basis": "native_trace_closure",
+  "controller_cleanup": "confirmed",
+  "draft_pr": null,
+  "effects": [
+    {
+      "operation": "git_push",
+      "state": "confirmed"
+    }
+  ],
+  "evidence_complete": true,
+  "exact_report_bytes": true,
+  "execution_source": "e1eaaa4272bb22e3b95da771a815166c09befedc",
+  "experiment": "EXP-139",
+  "graph_finished_before_terminal_record": true,
+  "graph_result": [
+    {
+      "outcomes": [
+        {
+          "contract_status": "rejected",
+          "destination": "rejection"
+        }
+      ]
+    }
+  ],
+  "ledger": {
+    "attempted_turns": 7,
+    "max_authorized_turns": 10
+  },
+  "manifest_sha256": "3a0675e1c84886fa7906ed39115f099f51bafdc8f274f38f937408556ac63dc0",
+  "precheck": {
+    "call_count": 3,
+    "installed": true
+  },
+  "publication_phase": "expired",
+  "result": "blocked_no_go",
+  "retained_result_contract_recheck": {
+    "contract": {
+      "error_codes": [],
+      "status": "accepted"
+    },
+    "requirements": {
+      "error_codes": [],
+      "status": "accepted"
+    }
+  },
+  "run_id": "f1db640f-9f02-4655-88b8-76b1bd467f24",
+  "runner_listening": false,
+  "scope": "bounded_single_user_local_only",
+  "status": "completed",
+  "write_attempts": [
+    "git_push"
+  ]
+}

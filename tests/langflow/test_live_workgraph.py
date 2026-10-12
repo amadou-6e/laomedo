@@ -40,7 +40,22 @@ class Response(io.BytesIO):
 
 
 class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
-    async def run_graph(self, submission, *, status="completed", complete=True, snapshot=None):
+    def test_outcome_diagnostics_only_export_closed_codes(self):
+        result = {"destination": "rejection", "issue_snapshot": {"secret": "SECRET"},
+                  "routed": {"validation": {"contract_status": "rejected",
+                      "errors": [{"code": "object_required", "path": "SECRET"},
+                                 {"code": "https://SECRET"}],
+                      "agent_submission": {"executor_status": "unknown",
+                          "error_category": "runner_status_unknown", "answer": "SECRET"}}}}
+        diagnostic = outcomes(result)[0]
+        self.assertEqual(diagnostic["validation_codes"], ["object_required"])
+        self.assertEqual(diagnostic["runner_error_category"], "runner_status_unknown")
+        self.assertNotIn("SECRET", json.dumps(diagnostic))
+        result["routed"]["validation"]["agent_submission"]["error_category"] = "SECRET"
+        self.assertIsNone(outcomes(result)[0]["runner_error_category"])
+
+    async def run_graph(self, submission, *, status="completed", complete=True, snapshot=None,
+                        transient_status_read=False):
         task = 'Bounded fixture task: "report\\n" C:\\tools\\new\nsecond line café'
         self.expected_task = task
         self.expected_snapshot = snapshot or frozen_context()
@@ -50,16 +65,28 @@ class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
         flow = json.loads(json.dumps(flow))
         agent_calls, publisher_calls = [], []
         self.agent_calls = agent_calls
+        reads = []
+        finished = None
         def respond(req, **kwargs):
+            nonlocal finished
+            if req.method == "GET":
+                reads.append(req.full_url)
+                self.assertEqual(req.full_url, "http://127.0.0.1:8765/v1/runs/" + RUN)
+                if len(reads) == 1:
+                    raise TimeoutError("SECRET")
+                return Response(json.dumps(finished).encode())
             payload = json.loads(req.data)
             agent_calls.append(payload)
-            return Response(json.dumps({"run_id": RUN, "thread_id": "fixture-thread",
+            finished = {"run_id": RUN, "thread_id": "fixture-thread",
                 "status": status, "answer": json.dumps(submission), "attempt_finished": True,
                 "client_request_id": payload["request_id"],
                 "evidence_complete": complete, "completion_basis": "native_trace_closure",
                 "requirements_revision": payload["output_requirements"]["requirements_revision"],
                 "raw_event_ref": f"laomedo:run:{RUN}:events",
-                "post_run_hash": "sha256:" + "a" * 64}).encode())
+                "post_run_hash": "sha256:" + "a" * 64}
+            initial = {**finished, "status": "running", "answer": None,
+                       "attempt_finished": False, "evidence_complete": False}
+            return Response(json.dumps(initial if transient_status_read else finished).encode())
         def publish(_opener, req, **kwargs):
             publisher_calls.append({"url": req.full_url, "body": json.loads(req.data)})
             return Response(json.dumps({"run_id": RUN, "publication_handoff": {
@@ -73,6 +100,13 @@ class LiveGraphTests(unittest.IsolatedAsyncioTestCase):
                 result = await Graph.from_payload(flow).arun(inputs=[{}],
                     outputs=["publisher", "failure", "rejection", "recovery"])
         return result, agent_calls, publisher_calls
+
+    async def test_imported_graph_recovers_status_read_without_second_dispatch(self):
+        result, agent, publisher = await self.run_graph(
+            {"task_outcome": "success", "report": "done"}, transient_status_read=True)
+        self.assertEqual(len(agent), 1)
+        self.assertEqual(len(publisher), 1)
+        self.assertEqual(outcomes(result)[0]["publication_state"], "confirmed")
 
     async def test_success_routes_to_real_publisher_with_empty_request(self):
         _, agent, publisher = await self.run_graph({"task_outcome": "success", "report": "done"})
