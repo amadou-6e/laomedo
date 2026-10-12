@@ -27,3 +27,7 @@ counts when creating fresh state. Unknown provider effects are never repeated.
 This authorization does not increase numeric caps, authorize another repository
 or credential custody model, widen permissions/network, or authorize issue
 edits/closure. Those require their applicable explicit approvals.
+
+The original `laomedo-exp139-20261011-a` root is permanently retired, even from
+an older checkout. Never delete/re-prepare activated state to reset a ledger or
+write budget. Retain both roots and count their consumed write slots together.

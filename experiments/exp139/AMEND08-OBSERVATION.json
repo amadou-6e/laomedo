@@ -1,0 +1,120 @@
+{
+  "active_grants": 0,
+  "cleanup_verified": true,
+  "closure": {
+    "item_count": 12,
+    "reason": "closed",
+    "turn_count": 1,
+    "version": 1
+  },
+  "commands": [
+    {
+      "exit_code": 0
+    },
+    {
+      "exit_code": 0
+    },
+    {
+      "exit_code": 0
+    },
+    {
+      "exit_code": 0
+    }
+  ],
+  "completion_basis": "native_trace_closure",
+  "controller_cleanup": "confirmed",
+  "cumulative_write_attempts": {
+    "git_push": 2,
+    "pr_create": 1
+  },
+  "effects": [
+    {
+      "operation": "git_push",
+      "state": "confirmed"
+    },
+    {
+      "operation": "pr_create",
+      "state": "confirmed"
+    }
+  ],
+  "evidence_complete": true,
+  "execution_source": "598cf7e0f99e98c45accde6cf78e5f3f986b3799",
+  "experiment": "EXP-139",
+  "fresh_write_attempts": [
+    "git_push",
+    "pr_create"
+  ],
+  "graph_result": [
+    {
+      "outcomes": [
+        {
+          "phase": "completed",
+          "publication_state": "confirmed",
+          "run_id": "4f05d15f-6880-4266-ac7d-b7707fc9d6c6"
+        }
+      ]
+    }
+  ],
+  "historical_results_preserved": [
+    "OBSERVATION.json",
+    "RECOVERY-OBSERVATION.json",
+    "AMEND05-OBSERVATION.json",
+    "AMEND06-OBSERVATION.json",
+    "AMEND07-OBSERVATION.json"
+  ],
+  "ledger": {
+    "attempted_turns": 8,
+    "max_authorized_turns": 10
+  },
+  "limitations": [
+    "same_uid_relay_process_attachment_unverified",
+    "historical_rotated_token_scan_unverified",
+    "not_arbitrary_issue_implementation",
+    "not_hosted_or_multi_user_acceptance"
+  ],
+  "manifest_sha256": "a99a8d852d37c34784502b2acd16865deb7a29aaa175436ac5be75ea62d9fb8f",
+  "precheck": {
+    "call_count": 3,
+    "installed": true
+  },
+  "precheck_recomputed_from_bound_calls": [
+    {
+      "codes": [
+        "required"
+      ],
+      "status": "rejected"
+    },
+    {
+      "codes": [],
+      "status": "accepted"
+    },
+    {
+      "codes": [],
+      "status": "accepted"
+    }
+  ],
+  "publication_phase": "completed",
+  "readback": {
+    "base_branch": "main",
+    "credential_scan_limit": "Current stored login values only; historical rotated values not covered.",
+    "draft": true,
+    "frozen_issue_body_sha256": "ed6f84ef29cc79e19336418e459406f596c5da0e82a2757ceac462953da03e75",
+    "frozen_issue_snapshot": "sha256:6ac43222d0b8ba7b17468b0247fff3dbca715ccc2b5068320152a45e6d4ee9df",
+    "head_branch": "exp139-20261012-b",
+    "head_commit": "973b826fc5a25f1789578b2841c8e9cbfc5e3e67",
+    "number": 8,
+    "only_expected_report_changed": true,
+    "provider_writes_by_this_readback": 0,
+    "published_current_credential_matches": false,
+    "published_report_sha256": "3de179af048ab7823ab1a088459309e802b5a0253263718a8ce33f911eb3a49b",
+    "report_contains_frozen_issue_identity": true,
+    "run_id": "4f05d15f-6880-4266-ac7d-b7707fc9d6c6",
+    "url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/8"
+  },
+  "result": "passed_bounded_local_scope",
+  "run_id": "4f05d15f-6880-4266-ac7d-b7707fc9d6c6",
+  "runner_listening": false,
+  "scope": "single_user_local_fixed_report_only",
+  "status": "completed",
+  "thread_id": "01a12f4e-76e2-71e2-8030-77f209a55872"
+}
