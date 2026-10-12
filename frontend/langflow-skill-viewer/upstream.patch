@@ -1,5 +1,5 @@
 diff --git a/src/frontend/package-lock.json b/src/frontend/package-lock.json
-index b6db4ca..03bf25d 100644
+index b6db4ca..ab77e9a 100644
 --- a/src/frontend/package-lock.json
 +++ b/src/frontend/package-lock.json
 @@ -62,6 +62,7 @@
@@ -10,7 +10,21 @@ index b6db4ca..03bf25d 100644
          "mustache": "^4.2.0",
          "nanoid": "^5.1.16",
          "openseadragon": "^4.1.1",
-@@ -14750,6 +14751,17 @@
+@@ -10192,10 +10193,9 @@
+       "license": "MIT"
+     },
+     "node_modules/dompurify": {
+-      "version": "3.4.13",
+-      "resolved": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.13.tgz",
+-      "integrity": "sha512-2vmYIoqjze2d+kakP8S/nS5shfsl587kzwEjcGlTdiksUVgFHnFCsLYDVj/JNqJVOQZGSYBTmuycv0PodwmnMQ==",
+-      "license": "(MPL-2.0 OR Apache-2.0)",
++      "version": "3.4.15",
++      "resolved": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.15.tgz",
++      "integrity": "sha512-EUBjM+B+lkDE41iE82DDSCfkoPGfXx8IxFxPMjNzm/Uk4xDet77rTN9wqlxlVg71kK7XGuUMv6wUxJUwwv+Xyw==",
+       "optionalDependencies": {
+         "@types/trusted-types": "^2.0.7"
+       }
+@@ -14750,6 +14750,17 @@
          "url": "https://github.com/sponsors/wooorm"
        }
      },
@@ -28,7 +42,7 @@ index b6db4ca..03bf25d 100644
      "node_modules/math-intrinsics": {
        "version": "1.1.0",
        "resolved": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
-@@ -15911,6 +15923,15 @@
+@@ -15911,6 +15922,15 @@
          "node": "*"
        }
      },
