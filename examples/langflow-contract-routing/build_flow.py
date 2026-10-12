@@ -17,6 +17,8 @@ def build():
     flow['name'] = 'Laomedo single Output Contract routes (simulated publication)'
     flow['description'] = 'One downstream contract with automatic native precheck binding. Credential-free fixtures; publication simulated.'
     nodes = [node for node in flow['data']['nodes'] if node['id'] not in {'requirements', 'routing'}]
+    contract = legacy.node(ROOT / 'components/laomedo/output_contract.py', 'contract', {'requirements_json': json.dumps(legacy.FORM)}, 800, 0)
+    nodes = [contract if node['id']=='contract' else node for node in nodes]
     by_id = {node['id']: node for node in nodes}
     by_id['contract']['position'] = {'x': 800, 'y': 0}
     # New exports show only integrated routes; legacy exports retain old ports.

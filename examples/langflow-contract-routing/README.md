@@ -30,3 +30,28 @@ Verification: run `python -m unittest discover -s tests/langflow` inside the
 pinned network-disabled image with PYTHONPATH=/workspace and the repository
 mounted at /workspace. Binding unit tests also run with
 `python -m unittest discover -s tests -p test_contract_graph.py`.
+
+## Explicit migration of original two-port exports
+
+Original saved exports retain their embedded code and execute, but the editor
+matches their old class name to the new catalog entry, relabels the two ports
+Success/Failure and shows an update banner. Do not accept that update: the new
+four-route class does not provide the original Requirements/Validation handles.
+Use the explicit offline migration before editing old flows. In the pinned
+Langflow runtime with this checkout on PYTHONPATH, run:
+
+```powershell
+python examples/langflow-contract-routing/migrate_legacy.py original.json migrated.json
+```
+
+Import `migrated.json` separately. This command never overwrites its input or an
+existing output, accepts only the known original two-port source, and preserves
+node IDs, configured values, positions, edge IDs and port names. Only the class
+and its outgoing handle type change to `LaomedoOutputContractLegacy`. Unknown
+modified code refuses; inspect and migrate custom variants manually. This is
+not automatic graph migration and does not change frozen historical evidence.
+
+The known-source comparison is strict: unexpected line endings or customized
+code may refuse migration rather than silently change an unknown component.
+Encoded edge handles are checked against their structured values; only their
+data type changes. Generated node IDs and port names remain unchanged.

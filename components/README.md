@@ -8,8 +8,9 @@ API token; its historical model-turn evidence predates that change.
 
 ## Output Contract and precheck
 
-`LaomedoOutputContract` exposes pinned Precheck Requirements and Validation
-Outcome Data ports. Install this repository's Laomedo package in the Langflow
+`LaomedoOutputContract` exposes Success, Failure, Rejection and Recovery
+Data ports. The separate `LaomedoOutputContractLegacy` retains explicit
+Precheck Requirements and Validation Outcome ports. Install this repository's Laomedo package in the Langflow
 runtime before loading it: the node and Codex requirements input import the
 same `laomedo.output_contract` evaluator used by the host runner. Mounting only
 component files is insufficient for this component. A missing package fails
@@ -24,8 +25,10 @@ No extra requirements node or outcome router is needed. Multiple contracts,
 dynamic form inputs and conflicting explicit pins refuse before dispatch.
 
 The new `examples/langflow-contract-routing/flow.json` displays only the four
-route ports. For compatibility, the component retains Precheck Requirements
-and Validation Outcome, and current legacy examples keep their explicit wiring.
+route ports. For compatibility, LaomedoOutputContractLegacy retains Precheck Requirements
+and Validation Outcome. Current legacy examples use it with explicit wiring;
+existing saved exports retain their embedded original class. Do not replace
+legacy instances with the new four-route class automatically.
 A contract edit after launch rejects a completed submission with pin mismatch.
 The integrated routes require the connected Codex adapter's retained runner
 result; model-supplied executor/evidence fields cannot promote a result.

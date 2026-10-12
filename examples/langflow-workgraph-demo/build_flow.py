@@ -37,8 +37,8 @@ def build():
     issue = node(HERE / "fixture_issue.py", "issue", {"issue_json": (HERE / "fixtures.json").read_text()}, 0, 0)
     skill = node(ROOT / "components/laomedo/skill.py", "skill", {"skill_id": "demo-report", "revision_id": SKILL}, 0, 300)
     agent = node(ROOT / "components/laomedo/codex_agent.py", "agent", {"operation": "fresh", "runner_url": "http://127.0.0.1:8765", "model": "fixture", "effort": "low"}, 400, 0)
-    contract = node(ROOT / "components/laomedo/output_contract.py", "contract", {"requirements_json": json.dumps(FORM)}, 800, 0)
-    requirements = node(ROOT / "components/laomedo/output_contract.py", "requirements", {"requirements_json": json.dumps(FORM)}, 0, 600)
+    contract = node(ROOT / "components/laomedo/output_contract_legacy.py", "contract", {"requirements_json": json.dumps(FORM)}, 800, 0)
+    requirements = node(ROOT / "components/laomedo/output_contract_legacy.py", "requirements", {"requirements_json": json.dumps(FORM)}, 0, 600)
     route = node(HERE / "route.py", "routing", {}, 1200, 0)
     destinations = [node(HERE / "destination.py", key, {"destination": key}, 1600, index * 300)
                     for index, key in enumerate(("success", "failure", "rejection", "recovery"))]

@@ -23,12 +23,12 @@ def build(snapshot, task, *, runner_url, model="gpt-6-luna", output_retries=1):
                   "task_base64": base64.b64encode(task.encode()).decode()}, 0, 0)
     skill = node(ROOT / "components/laomedo/skill.py", "skill",
                  {"skill_id": "live-report", "revision_id": SKILL}, 0, 300)
-    requirements = node(ROOT / "components/laomedo/output_contract.py", "requirements",
+    requirements = node(ROOT / "components/laomedo/output_contract_legacy.py", "requirements",
                         {"requirements_json": json.dumps(builder.FORM)}, 0, 600)
     agent = node(ROOT / "components/laomedo/codex_agent.py", "agent",
                  {"operation": "fresh", "runner_url": runner_url, "model": model,
                   "effort": "low", "output_retries": output_retries}, 400, 0)
-    contract = node(ROOT / "components/laomedo/output_contract.py", "contract",
+    contract = node(ROOT / "components/laomedo/output_contract_legacy.py", "contract",
                     {"requirements_json": json.dumps(builder.FORM)}, 800, 0)
     route = node(DEMO / "route.py", "routing", {}, 1200, 0)
     accepted = node(HERE / "accepted_validation.py", "accepted", {}, 1500, 0)

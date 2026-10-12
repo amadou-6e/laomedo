@@ -271,7 +271,7 @@
         },
         "data": {
           "id": "requirements",
-          "type": "LaomedoOutputContract",
+          "type": "LaomedoOutputContractLegacy",
           "node": {
             "template": {
               "_type": "Component",
@@ -308,7 +308,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"Output Contract node backed by the installed Laomedo shared evaluator.\"\"\"\n\nimport json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, MultilineInput, Output\nfrom lfx.schema import Data\nfrom laomedo.output_contract import evaluate_envelope, requirements\n\n\nclass LaomedoOutputContract(Component):\n    display_name = \"Laomedo Output Contract\"\n    description = \"Configure an output form, expose its pinned precheck requirements and validate submissions and route success, failure, rejection or recovery.\"\n    icon = \"ClipboardCheck\"\n    name = \"LaomedoOutputContract\"\n    inputs = [MultilineInput(name=\"requirements_json\", display_name=\"Output Form\", value='{\"schema_version\":1,\"fields\":[]}'),\n              DataInput(name=\"agent_submission\", display_name=\"Agent Submission\")]\n    outputs = [Output(name=\"requirements\", display_name=\"Precheck Requirements\", method=\"requirements_output\", group_outputs=True),\n               Output(name=\"validation\", display_name=\"Validation Outcome\", method=\"validation_output\", group_outputs=True),\n               *[Output(name=key, display_name=key.title(), method=key, group_outputs=True)\n                 for key in (\"success\", \"failure\", \"rejection\", \"recovery\")]]\n\n    def requirements_output(self) -> Data:\n        try:\n            specification = json.loads(self.requirements_json)\n        except (TypeError, ValueError):\n            raise ValueError(\"invalid_output_requirements_json\") from None\n        return Data(data=requirements(specification))\n\n    def validation_output(self) -> Data:\n        reference = self.requirements_output().data\n        envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n        result = evaluate_envelope(reference, envelope)\n        self.status = result[\"contract_status\"]\n        return Data(data=result)\n\n    def _pre_run_setup(self):\n        self._routing_result = None\n\n    def _route(self, selected):\n        from laomedo.contract_graph import verified_route_submission, route_destination\n        from copy import deepcopy\n        cached = getattr(self, \"_routing_result\", None)\n        if cached is None:\n            envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n            verified = verified_route_submission(self, envelope)\n            validation = evaluate_envelope(self.requirements_output().data, verified)\n            cached = (route_destination(validation), validation)\n            self._routing_result = deepcopy(cached)\n        destination, validation = deepcopy(cached)\n        if selected != destination:\n            self.stop(selected)\n            return Data(data={})\n        self.status = destination\n        return Data(data={\"route\": destination, \"validation\": validation})\n\n    def success(self) -> Data:\n        return self._route(\"success\")\n\n    def failure(self) -> Data:\n        return self._route(\"failure\")\n\n    def rejection(self) -> Data:\n        return self._route(\"rejection\")\n\n    def recovery(self) -> Data:\n        return self._route(\"recovery\")\n",
+                "value": "\"\"\"Output Contract node backed by the installed Laomedo shared evaluator.\"\"\"\n\nimport json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, MultilineInput, Output\nfrom lfx.schema import Data\nfrom laomedo.output_contract import evaluate_envelope, requirements\n\n\nclass LaomedoOutputContractLegacy(Component):\n    display_name = \"Laomedo Output Contract (legacy)\"\n    description = \"Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.\"\n    icon = \"ClipboardCheck\"\n    name = \"LaomedoOutputContractLegacy\"\n    inputs = [MultilineInput(name=\"requirements_json\", display_name=\"Output Form\", value='{\"schema_version\":1,\"fields\":[]}'),\n              DataInput(name=\"agent_submission\", display_name=\"Agent Submission\")]\n    outputs = [Output(name=\"requirements\", display_name=\"Precheck Requirements\", method=\"requirements_output\", group_outputs=True),\n               Output(name=\"validation\", display_name=\"Validation Outcome\", method=\"validation_output\", group_outputs=True)]\n\n    def requirements_output(self) -> Data:\n        try:\n            specification = json.loads(self.requirements_json)\n        except (TypeError, ValueError):\n            raise ValueError(\"invalid_output_requirements_json\") from None\n        return Data(data=requirements(specification))\n\n    def validation_output(self) -> Data:\n        reference = self.requirements_output().data\n        envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n        result = evaluate_envelope(reference, envelope)\n        self.status = result[\"contract_status\"]\n        return Data(data=result)\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -351,12 +351,12 @@
                 "_input_type": "MultilineInput"
               }
             },
-            "description": "Configure an output form, expose its pinned precheck requirements and validate submissions and route success, failure, rejection or recovery.",
+            "description": "Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.",
             "icon": "ClipboardCheck",
             "base_classes": [
               "JSON"
             ],
-            "display_name": "Laomedo Output Contract",
+            "display_name": "Laomedo Output Contract (legacy)",
             "documentation": "",
             "minimized": false,
             "custom_fields": {},
@@ -392,62 +392,6 @@
                 "allows_loop": false,
                 "group_outputs": true,
                 "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "success",
-                "display_name": "Success",
-                "method": "success",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "failure",
-                "display_name": "Failure",
-                "method": "failure",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "rejection",
-                "display_name": "Rejection",
-                "method": "rejection",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "recovery",
-                "display_name": "Recovery",
-                "method": "recovery",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
               }
             ],
             "field_order": [
@@ -458,8 +402,8 @@
             "legacy": false,
             "edited": false,
             "metadata": {
-              "module": "custom_components.laomedo_output_contract",
-              "code_hash": "51dc5ca55d6c",
+              "module": "custom_components.laomedo_output_contract_legacy",
+              "code_hash": "89fcd7eff8e0",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -999,7 +943,7 @@
         },
         "data": {
           "id": "contract",
-          "type": "LaomedoOutputContract",
+          "type": "LaomedoOutputContractLegacy",
           "node": {
             "template": {
               "_type": "Component",
@@ -1036,7 +980,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"Output Contract node backed by the installed Laomedo shared evaluator.\"\"\"\n\nimport json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, MultilineInput, Output\nfrom lfx.schema import Data\nfrom laomedo.output_contract import evaluate_envelope, requirements\n\n\nclass LaomedoOutputContract(Component):\n    display_name = \"Laomedo Output Contract\"\n    description = \"Configure an output form, expose its pinned precheck requirements and validate submissions and route success, failure, rejection or recovery.\"\n    icon = \"ClipboardCheck\"\n    name = \"LaomedoOutputContract\"\n    inputs = [MultilineInput(name=\"requirements_json\", display_name=\"Output Form\", value='{\"schema_version\":1,\"fields\":[]}'),\n              DataInput(name=\"agent_submission\", display_name=\"Agent Submission\")]\n    outputs = [Output(name=\"requirements\", display_name=\"Precheck Requirements\", method=\"requirements_output\", group_outputs=True),\n               Output(name=\"validation\", display_name=\"Validation Outcome\", method=\"validation_output\", group_outputs=True),\n               *[Output(name=key, display_name=key.title(), method=key, group_outputs=True)\n                 for key in (\"success\", \"failure\", \"rejection\", \"recovery\")]]\n\n    def requirements_output(self) -> Data:\n        try:\n            specification = json.loads(self.requirements_json)\n        except (TypeError, ValueError):\n            raise ValueError(\"invalid_output_requirements_json\") from None\n        return Data(data=requirements(specification))\n\n    def validation_output(self) -> Data:\n        reference = self.requirements_output().data\n        envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n        result = evaluate_envelope(reference, envelope)\n        self.status = result[\"contract_status\"]\n        return Data(data=result)\n\n    def _pre_run_setup(self):\n        self._routing_result = None\n\n    def _route(self, selected):\n        from laomedo.contract_graph import verified_route_submission, route_destination\n        from copy import deepcopy\n        cached = getattr(self, \"_routing_result\", None)\n        if cached is None:\n            envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n            verified = verified_route_submission(self, envelope)\n            validation = evaluate_envelope(self.requirements_output().data, verified)\n            cached = (route_destination(validation), validation)\n            self._routing_result = deepcopy(cached)\n        destination, validation = deepcopy(cached)\n        if selected != destination:\n            self.stop(selected)\n            return Data(data={})\n        self.status = destination\n        return Data(data={\"route\": destination, \"validation\": validation})\n\n    def success(self) -> Data:\n        return self._route(\"success\")\n\n    def failure(self) -> Data:\n        return self._route(\"failure\")\n\n    def rejection(self) -> Data:\n        return self._route(\"rejection\")\n\n    def recovery(self) -> Data:\n        return self._route(\"recovery\")\n",
+                "value": "\"\"\"Output Contract node backed by the installed Laomedo shared evaluator.\"\"\"\n\nimport json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, MultilineInput, Output\nfrom lfx.schema import Data\nfrom laomedo.output_contract import evaluate_envelope, requirements\n\n\nclass LaomedoOutputContractLegacy(Component):\n    display_name = \"Laomedo Output Contract (legacy)\"\n    description = \"Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.\"\n    icon = \"ClipboardCheck\"\n    name = \"LaomedoOutputContractLegacy\"\n    inputs = [MultilineInput(name=\"requirements_json\", display_name=\"Output Form\", value='{\"schema_version\":1,\"fields\":[]}'),\n              DataInput(name=\"agent_submission\", display_name=\"Agent Submission\")]\n    outputs = [Output(name=\"requirements\", display_name=\"Precheck Requirements\", method=\"requirements_output\", group_outputs=True),\n               Output(name=\"validation\", display_name=\"Validation Outcome\", method=\"validation_output\", group_outputs=True)]\n\n    def requirements_output(self) -> Data:\n        try:\n            specification = json.loads(self.requirements_json)\n        except (TypeError, ValueError):\n            raise ValueError(\"invalid_output_requirements_json\") from None\n        return Data(data=requirements(specification))\n\n    def validation_output(self) -> Data:\n        reference = self.requirements_output().data\n        envelope = getattr(self.agent_submission, \"data\", self.agent_submission)\n        result = evaluate_envelope(reference, envelope)\n        self.status = result[\"contract_status\"]\n        return Data(data=result)\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -1079,12 +1023,12 @@
                 "_input_type": "MultilineInput"
               }
             },
-            "description": "Configure an output form, expose its pinned precheck requirements and validate submissions and route success, failure, rejection or recovery.",
+            "description": "Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing.",
             "icon": "ClipboardCheck",
             "base_classes": [
               "JSON"
             ],
-            "display_name": "Laomedo Output Contract",
+            "display_name": "Laomedo Output Contract (legacy)",
             "documentation": "",
             "minimized": false,
             "custom_fields": {},
@@ -1120,62 +1064,6 @@
                 "allows_loop": false,
                 "group_outputs": true,
                 "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "success",
-                "display_name": "Success",
-                "method": "success",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "failure",
-                "display_name": "Failure",
-                "method": "failure",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "rejection",
-                "display_name": "Rejection",
-                "method": "rejection",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
-              },
-              {
-                "types": [
-                  "JSON"
-                ],
-                "selected": "JSON",
-                "name": "recovery",
-                "display_name": "Recovery",
-                "method": "recovery",
-                "value": "__UNDEFINED__",
-                "cache": true,
-                "allows_loop": false,
-                "group_outputs": true,
-                "tool_mode": true
               }
             ],
             "field_order": [
@@ -1186,8 +1074,8 @@
             "legacy": false,
             "edited": false,
             "metadata": {
-              "module": "custom_components.laomedo_output_contract",
-              "code_hash": "51dc5ca55d6c",
+              "module": "custom_components.laomedo_output_contract_legacy",
+              "code_hash": "89fcd7eff8e0",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -2076,11 +1964,11 @@
         "id": "contract-validation-routing-validation",
         "source": "contract",
         "target": "routing",
-        "sourceHandle": "{\"dataType\": \"LaomedoOutputContract\", \"id\": \"contract\", \"name\": \"validation\", \"output_types\": [\"JSON\"]}",
+        "sourceHandle": "{\"dataType\": \"LaomedoOutputContractLegacy\", \"id\": \"contract\", \"name\": \"validation\", \"output_types\": [\"JSON\"]}",
         "targetHandle": "{\"fieldName\": \"validation\", \"id\": \"routing\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
         "data": {
           "sourceHandle": {
-            "dataType": "LaomedoOutputContract",
+            "dataType": "LaomedoOutputContractLegacy",
             "id": "contract",
             "name": "validation",
             "output_types": [
@@ -2102,11 +1990,11 @@
         "id": "requirements-requirements-agent-output_requirements",
         "source": "requirements",
         "target": "agent",
-        "sourceHandle": "{\"dataType\": \"LaomedoOutputContract\", \"id\": \"requirements\", \"name\": \"requirements\", \"output_types\": [\"JSON\"]}",
+        "sourceHandle": "{\"dataType\": \"LaomedoOutputContractLegacy\", \"id\": \"requirements\", \"name\": \"requirements\", \"output_types\": [\"JSON\"]}",
         "targetHandle": "{\"fieldName\": \"output_requirements\", \"id\": \"agent\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
         "data": {
           "sourceHandle": {
-            "dataType": "LaomedoOutputContract",
+            "dataType": "LaomedoOutputContractLegacy",
             "id": "requirements",
             "name": "requirements",
             "output_types": [
