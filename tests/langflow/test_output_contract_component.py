@@ -30,7 +30,7 @@ class OutputContractComponentTests(unittest.TestCase):
         return node
 
     def test_ports_are_grouped_and_final_evaluation_preserves_outcome(self):
-        self.assertEqual([port.name for port in MODULE.LaomedoOutputContract.outputs], ["requirements", "validation"])
+        self.assertEqual([port.name for port in MODULE.LaomedoOutputContract.outputs], ["requirements", "validation", "success", "failure", "rejection", "recovery"])
         for outcome in ("success", "failure"):
             node = self.node({"task_outcome": outcome, "report": "fixture"}, outcome)
             result = node.validation_output().data

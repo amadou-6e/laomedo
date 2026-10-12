@@ -314,7 +314,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(type(node), "graph", new_callable=PropertyMock,
                           return_value=SimpleNamespace(flow_id="saved-flow",
-                                                       run_id="graph-run")), \
+                                                       run_id="graph-run", edges=[])), \
                 patch.object(node, "_token", return_value="synthetic"), \
                 patch.object(module._HTTP, "open", side_effect=bridge_open):
             output = (await node.run_output()).data

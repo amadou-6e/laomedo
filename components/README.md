@@ -15,14 +15,22 @@ same `laomedo.output_contract` evaluator used by the host runner. Mounting only
 component files is insufficient for this component. A missing package fails
 visibly at import rather than falling back to a different validator.
 
-Use one requirements-only instance before the Codex node and a separate
-validation instance after its Submission output, configured with the same JSON
-form. This avoids a cycle in Langflow. The validator rejects a missing or
-different requirements revision, retains task outcome separately from validity,
-and emits accepted/rejected Data for conditional routing. Invalid form settings
-are configuration errors; invalid submissions are routable rejections.
-Connect the Codex Submission port to Agent Submission on the validator. Its
-legacy Run Reference port is not a submission envelope and cannot replace it.
+For new graphs, connect Agent Submission directly to one downstream Output
+Contract. The Codex adapter discovers its static form through native Langflow
+metadata before dispatch and installs the existing precheck automatically. The
+contract exposes Success, Failure, Rejection and Recovery routes. Incomplete
+execution takes Recovery precedence, even if no valid form was produced.
+No extra requirements node or outcome router is needed. Multiple contracts,
+dynamic form inputs and conflicting explicit pins refuse before dispatch.
+
+The new `examples/langflow-contract-routing/flow.json` displays only the four
+route ports. For compatibility, the component retains Precheck Requirements
+and Validation Outcome, and current legacy examples keep their explicit wiring.
+A contract edit after launch rejects a completed submission with pin mismatch.
+The integrated routes require the connected Codex adapter's retained runner
+result; model-supplied executor/evidence fields cannot promote a result.
+This is not a security boundary against arbitrary custom Python components.
+Publication still requires independent host validation and scoped access.
 
 The native Codex dynamic precheck tool returns bounded path/code feedback within
 a request. A completed invalid form can receive one additional same-thread

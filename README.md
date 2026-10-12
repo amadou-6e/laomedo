@@ -83,3 +83,11 @@ still part of #139; no running configuration is changed by this implementation.
 Only the supervised lease path can close evidence. Resumed invocations remain
 unknown and cannot publish cumulative changes until every contributing attempt
 has a durable closure record; that history is outside this preparation's scope.
+
+### One downstream Output Contract
+
+See [the simplified imported demo](examples/langflow-contract-routing/README.md).
+A single downstream form supplies Codex precheck expectations automatically,
+then validates and routes its output. Legacy explicit-precheck graphs remain
+compatible. Credential-free imported-graph evidence does not establish a new
+live publication run.
