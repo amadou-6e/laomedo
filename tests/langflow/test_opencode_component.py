@@ -7,7 +7,10 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "components"))
+# Test the installed runtime and component sources together without shadowing
+# the runtime's shared evaluator with the component file of the same name.
+import laomedo
+laomedo.__path__.append(str(ROOT / "components/laomedo"))
 from laomedo.opencode_agent import LaomedoOpenCodeAgent
 from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
@@ -43,7 +46,7 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         code = (ROOT / "components/laomedo/opencode_agent.py").read_text()
         template, _ = build_custom_component_template(Component(_code=code))
         self.assertTrue(template["template"]["skill_reference"]["list"])
-        self.assertEqual([item["types"] for item in template["outputs"]], [["Message"], ["JSON"]])
+        self.assertEqual([item["types"] for item in template["outputs"]], [["Message"], ["JSON"], ["JSON"]])
         refs = self.node().skill_reference
         refs.append({**refs[0], "skill_id": "second"})
         self.assertEqual(len(self.node(skill_reference=refs)._prepare()[1]["skill_refs"]), 2)

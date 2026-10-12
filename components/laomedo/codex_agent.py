@@ -102,10 +102,18 @@ class LaomedoCodexAgent(Component):
         self._reference_thread_id = None
         self._prior_trace_ref = None
         self._last_reference = None
+        self._contract_submission = None
+        self._downstream_contract_binding = None
 
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
         connected = getattr(self, "output_requirements", None)
+        if self.name == "LaomedoCodexAgent":
+            from laomedo.contract_graph import downstream_requirements
+            from laomedo.output_contract import verify_requirements
+            explicit = (verify_requirements(getattr(connected, "data", connected))
+                        if connected not in (None, "", []) else None)
+            connected = downstream_requirements(self, explicit)
         if connected not in (None, "", []):
             from laomedo.output_contract import verify_requirements
             if self.operation not in {"fresh", "start"}:
@@ -622,5 +630,7 @@ class LaomedoCodexAgent(Component):
                  "evidence_complete": reference.get("evidence_complete", "unknown"),
                  "run_reference": reference,
                  "error_category": reference.get("error_category")}
+        from copy import deepcopy
+        self._contract_submission = deepcopy(value)
         self.status = "Laomedo outcome: " + value["executor_status"]
         return Data(data=value)

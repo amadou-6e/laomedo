@@ -26,8 +26,8 @@ class Response(io.BytesIO):
 
 
 async def run_case(submission, *, status="completed", correction=None,
-                   revision_override=None, evidence_complete=None, downstream_form=None):
-    flow = json.loads((HERE / "flow.json").read_text(encoding="utf-8"))
+                   revision_override=None, evidence_complete=None, downstream_form=None, flow_payload=None, response_hook=None):
+    flow = flow_payload if flow_payload is not None else json.loads((HERE / "flow.json").read_text(encoding="utf-8"))
     if downstream_form is not None:
         validator = next(node for node in flow["data"]["nodes"] if node["id"] == "contract")
         validator["data"]["node"]["template"]["requirements_json"]["value"] = json.dumps(downstream_form)
@@ -62,13 +62,16 @@ async def run_case(submission, *, status="completed", correction=None,
         if status != "completed":
             result["error_category"] = "fixture_runtime_interruption"
             result["output_ref"] = "fixture:partial-changes"
+        if response_hook is not None:
+            response_hook(graph, payload, result)
         return Response(json.dumps(result).encode())
+    graph = Graph.from_payload(flow)
     with tempfile.TemporaryDirectory() as directory:
         token = Path(directory) / "fixture-token"
         token.write_text("fixture-not-a-credential", encoding="utf-8")
         with patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)}), \
                 patch("urllib.request.urlopen", side_effect=respond):
-            results = await Graph.from_payload(flow).arun(inputs=[{}], outputs=["success", "failure", "rejection", "recovery"])
+            results = await graph.arun(inputs=[{}], outputs=["success", "failure", "rejection", "recovery"])
     return results, calls
 
 
