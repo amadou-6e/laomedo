@@ -22,7 +22,8 @@ def freeze(root):
         "examples/langflow-workgraph-demo/", "examples/native-codex-node/")) and
         not path.endswith(("MANIFEST.json", "RESULTS.md", "OBSERVATION.json"))]
     manifest = {"identity": IDENTITY, "source_parent": parent, "agent_image": GIT_IMAGE_ID,
-        "langflow_image": LANGFLOW, "turn_cap": 4, "push_attempt_cap": 1, "draft_pr_attempt_cap": 1,
+        "langflow_image": LANGFLOW, "turn_cap": 10, "push_attempt_cap": 1, "draft_pr_attempt_cap": 1,
+        "cumulative_push_attempt_cap": 2, "prior_push_attempts": 1, "prior_used_turns": 7,
         "source_hashes": {path: sha256((ROOT / path).read_bytes()).hexdigest() for path in sources},
         "committed_source_hashes": {path: sha256(git("show", "HEAD:" + path)).hexdigest() for path in sources},
         "input_hashes": {path: sha256((root / path).read_bytes()).hexdigest() for path in

@@ -22,10 +22,10 @@ from laomedo.skill_store import SkillStore
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"
-IDENTITY = "exp139-20261011-a"
+IDENTITY = "exp139-20261012-b"
 BRANCH = IDENTITY
 LANGFLOW = "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0"
-CONNECTION = IDENTITY + "-github"
+CONNECTION = "exp139-20261011-a-github"  # Existing approved host connection.
 
 
 def save(path, value):

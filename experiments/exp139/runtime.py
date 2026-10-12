@@ -48,7 +48,9 @@ def configuration(root):
             config.get("branch") != BRANCH or config.get("turn_cap") != 10 or
             config.get("runner_port") != 8779 or config.get("handoff_seconds") != 600 or
             config.get("recovery") != "AMENDMENT-03" or
-            config.get("startup_amendment") != "AMENDMENT-07"):
+            config.get("startup_amendment") != "AMENDMENT-08" or
+            config.get("prior_turns") != 7 or
+            config.get("prior_write_budget") != str(root.parent / "laomedo-exp139-20261011-a/host/write-budget.sqlite")):
         raise ValueError("frozen_configuration_required")
     return root, config
 
@@ -80,12 +82,23 @@ def approved(root):
 
 class WriteBudget:
     """Durable attempt budget; reserve before provider dispatch, never reset."""
-    def __init__(self, path, transport, store):
+    def __init__(self, path, transport, store, *, prior_write_budget=None):
         self.path, self.transport, self.store = path, transport, store
+        self.prior_write_budget = prior_write_budget
+        self._check_prior_budget()
         with closing(sqlite3.connect(path)) as db, db:
             db.execute("CREATE TABLE IF NOT EXISTS attempts (operation TEXT PRIMARY KEY)")
 
+    def _check_prior_budget(self):
+        if self.prior_write_budget is not None:
+            path = Path(self.prior_write_budget)
+            with closing(sqlite3.connect("file:" + path.as_posix() + "?mode=ro", uri=True)) as db:
+                attempts = [row[0] for row in db.execute("SELECT operation FROM attempts ORDER BY operation")]
+            if attempts != ["git_push"]:
+                raise KnownRejected("experiment_prior_budget_changed")
+
     def __call__(self, repository, operation, payload, **binding):
+        self._check_prior_budget()
         if repository != REPOSITORY or operation not in {"git_push", "pr_create"}:
             raise KnownRejected("experiment_operation_denied")
         if operation == "git_push" and payload.get("branch") != BRANCH:
@@ -146,7 +159,8 @@ def composition(root):
     store.stage_freezer = freeze
     git = GitHubGitTransport(REPOSITORY, root / "source", config["baseline"], provider.token,
                               require_verified_stage=True)
-    budget = WriteBudget(host / "write-budget.sqlite", GitHubMediatedTransport(git, rest), store)
+    budget = WriteBudget(host / "write-budget.sqlite", GitHubMediatedTransport(git, rest), store,
+                         prior_write_budget=config["prior_write_budget"])
     transport = JournaledTransport(budget, host / "provider-attempts.jsonl",
                                     host / "push-diagnostics.jsonl")
     authority = RunGrantAuthority(host / "authority.sqlite", connection_authorizer=provider.authorize)
@@ -183,7 +197,7 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=IDENTITY + "-success-recovery-07", repository=REPOSITORY,
+        return authority.approve(invocation_id=IDENTITY + "-success-recovery-08", repository=REPOSITORY,
             branch=BRANCH, operations={"git_push", "pr_create"}, reviewed_by=IDENTITY + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):

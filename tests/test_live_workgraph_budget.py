@@ -36,6 +36,22 @@ class BudgetTests(unittest.TestCase):
             fresh(REPOSITORY, "git_push", {"branch": BRANCH})
         self.assertEqual(self.calls, ["git_push"])
 
+    def test_fresh_campaign_requires_exact_prior_budget_without_resetting_it(self):
+        prior = self.root / "prior.sqlite"
+        with closing(sqlite3.connect(prior)) as db, db:
+            db.execute("CREATE TABLE attempts (operation TEXT PRIMARY KEY)")
+            db.execute("INSERT INTO attempts VALUES ('git_push')")
+        budget = WriteBudget(self.root / "fresh.sqlite", self.send, self.store, prior_write_budget=prior)
+        budget(REPOSITORY, "git_push", {"branch": BRANCH})
+        with self.assertRaisesRegex(KnownRejected, "experiment_write_budget_consumed"):
+            budget(REPOSITORY, "git_push", {"branch": BRANCH})
+        with closing(sqlite3.connect(prior)) as db, db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM attempts").fetchone()[0], 1)
+            db.execute("INSERT INTO attempts VALUES ('pr_create')")
+        with self.assertRaisesRegex(KnownRejected, "experiment_prior_budget_changed"):
+            budget(REPOSITORY, "pr_create", {"head": BRANCH, "draft": True})
+        self.assertEqual(self.calls, ["git_push"])
+
     def test_other_repository_branch_operation_refuse_without_consuming_budget(self):
         for repo, op, payload in (("other/repo", "git_push", {"branch": BRANCH}),
                                   (REPOSITORY, "git_push", {"branch": "other"}),
