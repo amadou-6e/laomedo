@@ -44,6 +44,13 @@ def verify_attempt(root, config, run_id, attempt_id):
 def configuration(root):
     root = _outside_git(root)
     config = json.loads((root / "config.json").read_bytes())
+    if config.get("identity") == "langflow-demo-20261012-c":
+        if (config.get("repository") != REPOSITORY or config.get("branch") != "langflow-demo-20261012-c" or
+                config.get("turn_cap") != 4 or config.get("runner_port") != 8779 or
+                config.get("handoff_seconds") != 600 or any(key in config for key in
+                ("prior_turns", "prior_write_budget", "previous_consumed"))):
+            raise ValueError("frozen_configuration_required")
+        return root, config
     if (config.get("identity") != IDENTITY or config.get("repository") != REPOSITORY or
             config.get("branch") != BRANCH or config.get("turn_cap") != 10 or
             config.get("runner_port") != 8779 or config.get("handoff_seconds") != 600 or
@@ -57,10 +64,11 @@ def configuration(root):
 
 def approved(root):
     """Require concrete activation and exact-source review records, not a CLI flag."""
+    _, config = configuration(root)
     source = __import__("subprocess").check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
     manifest = root / "manifest.json"
     approval = json.loads((root / "activation.json").read_bytes())
-    expected = {"identity": IDENTITY, "source_sha": source,
+    expected = {"identity": config["identity"], "source_sha": source,
                 "manifest_sha256": sha256(manifest.read_bytes()).hexdigest(),
                 "configuration_approved": True, "review_verdict": "approve"}
     if approval != expected:
@@ -68,7 +76,8 @@ def approved(root):
     process = __import__("subprocess")
     if process.check_output(["git", "-C", str(ROOT), "status", "--porcelain"]).strip():
         raise ValueError("exact_clean_source_required")
-    committed = process.check_output(["git", "-C", str(ROOT), "show", "HEAD:experiments/exp139/MANIFEST.json"])
+    manifest_path = "DEMO-MANIFEST.json" if config["identity"].startswith("langflow-demo-") else "MANIFEST.json"
+    committed = process.check_output(["git", "-C", str(ROOT), "show", "HEAD:experiments/exp139/" + manifest_path])
     if manifest.read_bytes() != committed:
         raise ValueError("committed_manifest_required")
     frozen = json.loads(manifest.read_bytes())
@@ -82,8 +91,9 @@ def approved(root):
 
 class WriteBudget:
     """Durable attempt budget; reserve before provider dispatch, never reset."""
-    def __init__(self, path, transport, store, *, prior_write_budget=None):
+    def __init__(self, path, transport, store, *, prior_write_budget=None, branch=BRANCH):
         self.path, self.transport, self.store = path, transport, store
+        self.branch = branch
         self.prior_write_budget = prior_write_budget
         self._check_prior_budget()
         with closing(sqlite3.connect(path)) as db, db:
@@ -101,16 +111,16 @@ class WriteBudget:
         self._check_prior_budget()
         if repository != REPOSITORY or operation not in {"git_push", "pr_create"}:
             raise KnownRejected("experiment_operation_denied")
-        if operation == "git_push" and payload.get("branch") != BRANCH:
+        if operation == "git_push" and payload.get("branch") != self.branch:
             raise KnownRejected("experiment_branch_denied")
         if operation == "pr_create":
             with closing(self.store._connect()) as db:
                 rows = db.execute("SELECT h.phase FROM publication_handoffs h JOIN grants g "
                     "ON g.grant_id=h.grant_id WHERE g.repository=? AND g.branch=? "
                     "AND h.phase='publication_pending'",
-                    (REPOSITORY, BRANCH)).fetchall()
+                    (REPOSITORY, self.branch)).fetchall()
             if (len(rows) != 1 or rows[0]["phase"] != "publication_pending" or
-                    payload.get("head") != BRANCH or payload.get("draft") is not True):
+                    payload.get("head") != self.branch or payload.get("draft") is not True):
                 raise KnownRejected("experiment_publisher_lane_required")
         with closing(sqlite3.connect(self.path, timeout=10)) as db, db:
             db.execute("BEGIN IMMEDIATE")
@@ -160,7 +170,7 @@ def composition(root):
     git = GitHubGitTransport(REPOSITORY, root / "source", config["baseline"], provider.token,
                               require_verified_stage=True)
     budget = WriteBudget(host / "write-budget.sqlite", GitHubMediatedTransport(git, rest), store,
-                         prior_write_budget=config["prior_write_budget"])
+                         prior_write_budget=config.get("prior_write_budget"), branch=config["branch"])
     transport = JournaledTransport(budget, host / "provider-attempts.jsonl",
                                     host / "push-diagnostics.jsonl")
     authority = RunGrantAuthority(host / "authority.sqlite", connection_authorizer=provider.authorize)
@@ -187,7 +197,7 @@ def runner(root):
     root, config, store, transport, authority, rest = composition(root)
     inputs = json.loads((root / "flow-input/inputs.json").read_bytes())
     flow = json.loads((root / "flow-input/success.json").read_bytes())
-    form = json.loads(next(node for node in flow["data"]["nodes"] if node["id"] == "requirements")
+    form = json.loads(next(node for node in flow["data"]["nodes"] if node["id"] == ("contract" if config["identity"].startswith("langflow-demo-") else "requirements"))
                       ["data"]["node"]["template"]["requirements_json"]["value"])
     selected = {}
     for case, task in inputs["tasks"].items():
@@ -197,8 +207,8 @@ def runner(root):
                 "output_requirements": requirements(form), "output_retries": 1}
         selected[request_digest(body)] = case
     def authorize():
-        return authority.approve(invocation_id=IDENTITY + "-success-recovery-08", repository=REPOSITORY,
-            branch=BRANCH, operations={"git_push", "pr_create"}, reviewed_by=IDENTITY + "-owner",
+        return authority.approve(invocation_id=config["identity"] + "-success", repository=REPOSITORY,
+            branch=config["branch"], operations={"git_push", "pr_create"}, reviewed_by=config["identity"] + "-owner",
             connection_id=config["connection_id"], connection_generation=1, base_branch=config["base"])
     def artifact(record, handoff_id):
         attempts = list((root / "private-stage" / record["run_id"]).glob("*/result.json"))
@@ -226,9 +236,9 @@ def runner(root):
     controller = PublicationController(store, lifetime_seconds=600, artifact_resolver=artifact,
         transport=transport, readback=readback, describe=describe)
     engine = BoundRunner(root / "runner", root / "skill-store", root / "source",
-        approved_requests=selected, authorization_factory=authorize, max_model_turns=10,
+        approved_requests=selected, authorization_factory=authorize, max_model_turns=config["turn_cap"],
         nonpublishing_lease_service=root / "host/nonpublishing-lease",
-        binding_state=root / "host/bindings.sqlite", seed_consumed=config["previous_consumed"],
+        binding_state=root / "host/bindings.sqlite", seed_consumed=config.get("previous_consumed", {}),
         transport=MailboxAppServer,
         git_workspace=True, supervise_containers=True, lease_service=root / "host/lease",
         github_authority=authority, mediator_state=root / "host/mediator", publication_controller=controller)
