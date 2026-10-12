@@ -62,11 +62,11 @@ class MigrationTests(unittest.IsolatedAsyncioTestCase):
                         edge[side] = identifiers[edge[side]]
                         edge["data"][side + "Handle"]["id"] = edge[side]
                         raw = json.dumps(edge["data"][side + "Handle"])
-                        edge[side + "Handle"] = raw.replace('"', '?') if encoded else raw
+                        edge[side + "Handle"] = raw.replace('"', '\u0153') if encoded else raw
             after = migration.migrate(before)
             for old, new in zip(before["data"]["edges"], after["data"]["edges"]):
                 self.assertEqual(new["source"], old["source"])
-                decoded = json.loads(new["sourceHandle"].replace('?', '"') if encoded else new["sourceHandle"])
+                decoded = json.loads(new["sourceHandle"].replace('\u0153', '"') if encoded else new["sourceHandle"])
                 self.assertEqual(decoded["id"], new["source"])
                 self.assertEqual(decoded, new["data"]["sourceHandle"])
                 expected = dict(old["data"]["sourceHandle"])

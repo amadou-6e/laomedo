@@ -34,13 +34,13 @@ def migrate(flow):
         if edge["source"] in changed:
             handle = edge["data"]["sourceHandle"]
             raw = edge["sourceHandle"]
-            encoded = '?' in raw
-            decoded = json.loads(raw.replace('?', '"') if encoded else raw)
+            encoded = '\u0153' in raw
+            decoded = json.loads(raw.replace('\u0153', '"') if encoded else raw)
             if decoded != handle or handle.get("id") != edge["source"]:
                 raise ValueError("inconsistent_legacy_source_handle")
             handle["dataType"] = "LaomedoOutputContractLegacy"
             raw = json.dumps(handle, ensure_ascii=False, separators=(",", ":"))
-            edge["sourceHandle"] = raw.replace('"', '?') if encoded else raw
+            edge["sourceHandle"] = raw.replace('"', '\u0153') if encoded else raw
     return result
 
 
