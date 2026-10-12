@@ -29,7 +29,16 @@ class LaomedoPRPublisher(Component):
 
     def publication_output(self) -> Data:
         validation = self.validation.data
+        rejected = {"phase": "rejected", "publication_state": "not_dispatched"}
+        if not isinstance(validation, dict):
+            return Data(data=rejected)
+        if "route" in validation:
+            if validation["route"] != "success" or not isinstance(validation.get("validation"), dict):
+                return Data(data=rejected)
+            validation = validation["validation"]
         envelope = validation.get("agent_submission", {})
+        if not isinstance(envelope, dict):
+            return Data(data=rejected)
         if (validation.get("contract_status") != "accepted" or
                 envelope.get("task_outcome") != "success" or
                 envelope.get("executor_status") != "completed" or

@@ -72,3 +72,34 @@ class PublisherComponentTests(unittest.TestCase):
                 patch.object(MODULE.request.OpenerDirector, "open", return_value=io.BytesIO(
                     b'{"run_id":"foreign","publication_handoff":{"phase":"completed"}}')):
             self.assertEqual(self.node().publication_output().data["phase"], "unknown")
+
+    def test_direct_success_route_uses_existing_publication_checks(self):
+        node = self.node()
+        node.validation = Data(data={"route": "success", "validation": node.validation.data})
+        response = {"run_id": RUN, "publication_handoff": {"phase": "completed", "publication": {"state": "confirmed"}}}
+        with patch.object(MODULE.Path, "read_text", return_value="dummy-runner-token"), patch.object(MODULE.request.OpenerDirector, "open", return_value=io.BytesIO(json.dumps(response).encode())) as opened:
+            self.assertEqual(node.publication_output().data["publication_state"], "confirmed")
+            self.assertEqual(opened.call_count, 1)
+            self.assertEqual(opened.call_args.args[0].data, b"{}")
+
+    def test_non_success_or_malformed_route_never_dispatches(self):
+        for route in ("failure", "rejection", "recovery", None):
+            node = self.node()
+            node.validation = Data(data={"route": route, "validation": node.validation.data})
+            with patch.object(MODULE.request.OpenerDirector, "open") as opened:
+                self.assertEqual(node.publication_output().data["publication_state"], "not_dispatched")
+                opened.assert_not_called()
+        for validation in (None, [], "invalid", {}, {"contract_status":"accepted", "agent_submission": []}):
+            node = self.node()
+            node.validation = Data(data={"route":"success", "validation":validation})
+            with patch.object(MODULE.request.OpenerDirector, "open") as opened:
+                self.assertEqual(node.publication_output().data["publication_state"], "not_dispatched")
+                opened.assert_not_called()
+
+    def test_success_route_does_not_override_incomplete_evidence(self):
+        node = self.node()
+        node.validation.data["agent_submission"]["evidence_complete"] = False
+        node.validation = Data(data={"route":"success", "validation":node.validation.data})
+        with patch.object(MODULE.request.OpenerDirector, "open") as opened:
+            self.assertEqual(node.publication_output().data["publication_state"], "not_dispatched")
+            opened.assert_not_called()
