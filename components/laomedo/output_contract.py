@@ -15,8 +15,8 @@ class LaomedoOutputContract(Component):
     name = "LaomedoOutputContract"
     inputs = [MultilineInput(name="requirements_json", display_name="Output Form", value='{"schema_version":1,"fields":[]}'),
               DataInput(name="agent_submission", display_name="Agent Submission")]
-    outputs = [Output(name="requirements", display_name="Precheck Requirements", method="requirements_output", group_outputs=True),
-               Output(name="validation", display_name="Validation Outcome", method="validation_output", group_outputs=True),
+    outputs = [Output(name="requirements", display_name="Precheck Requirements", method="requirements_output", group_outputs=True, hidden=True),
+               Output(name="validation", display_name="Validation Outcome", method="validation_output", group_outputs=True, hidden=True),
                *[Output(name=key, display_name=key.title(), method=key, group_outputs=True)
                  for key in ("success", "failure", "rejection", "recovery")]]
 
