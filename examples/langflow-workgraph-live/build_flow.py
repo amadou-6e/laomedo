@@ -1,5 +1,4 @@
 """Prepare an imported live graph. Building never starts a service or agent."""
-import base64
 import importlib.util
 import json
 from pathlib import Path
@@ -19,8 +18,8 @@ spec.loader.exec_module(builder)
 def build(snapshot, task, *, runner_url, model="gpt-6-luna", output_retries=1):
     node, edge = builder.node, builder.helper.edge
     issue = node(HERE / "frozen_issue.py", "issue",
-                 {"snapshot_base64": base64.b64encode(json.dumps(snapshot, ensure_ascii=False).encode()).decode(),
-                  "task_base64": base64.b64encode(task.encode()).decode()}, 0, 0)
+                 {"snapshot_data": snapshot,
+                  "task_data": {"instructions": task}, "issue_url": snapshot["context"]["issue"]["url"]}, 0, 0)
     skill = node(ROOT / "components/laomedo/skill.py", "skill",
                  {"skill_id": "live-report", "revision_id": SKILL}, 0, 300)
     agent = node(ROOT / "components/laomedo/codex_agent.py", "agent",

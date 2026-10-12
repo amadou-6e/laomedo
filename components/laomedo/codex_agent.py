@@ -26,6 +26,9 @@ _ROUTABLE_ERRORS = {
     "runner_wait_deadline", "runner_status_unknown", "turn_timeout",
     "outstanding_command_completion_unknown", "post_run_snapshot_mismatch",
     "experiment_request_binding_denied", "runner_dispatch_refused",
+    "standing_policy_inactive", "standing_policy_invalid", "standing_request_denied",
+    "standing_issue_context_required", "standing_issue_context_mismatch",
+    "standing_pinned_inputs_required", "runner_busy",
 }
 
 
@@ -437,7 +440,10 @@ class LaomedoCodexAgent(Component):
                 # only a fixed public code, never arbitrary server error text.
                 category = result.get("error_category")
                 code = (category if isinstance(category, str) and category in
-                        {"experiment_request_binding_denied"} else "runner_dispatch_refused")
+                        {"experiment_request_binding_denied", "standing_policy_inactive",
+                         "standing_policy_invalid", "standing_request_denied",
+                         "standing_issue_context_required", "standing_issue_context_mismatch",
+                         "standing_pinned_inputs_required", "runner_busy"} else "runner_dispatch_refused")
                 if 400 <= exc.code < 500:
                     raise RuntimeError(code) from None
                 raise RuntimeError("runner_runtime_unknown") from None
