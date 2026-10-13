@@ -26,6 +26,9 @@ def apply(checkout):
     issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
     issue_target.mkdir()
     shutil.copy2(overlay / "IssueViewerModal.tsx", issue_target / "index.tsx")
+    agent_target = checkout / "src/frontend/src/modals/agentInspectionModal"
+    agent_target.mkdir()
+    shutil.copy2(overlay / "AgentInspectionModal.tsx", agent_target / "index.tsx")
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

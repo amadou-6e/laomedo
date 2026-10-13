@@ -1,7 +1,8 @@
 """Optional Langflow app factory with authenticated, read-only skill inspection.
 
 Langflow is an optional deployment dependency, not imported by the core package.
-No runner/provider credentials are used by this route.
+Skill and issue routes are read only. Agent inspection uses the existing
+backend transport secret, never the provider login.
 """
 import os
 from pathlib import Path
@@ -50,6 +51,28 @@ def install_routes(app, root: Path, authenticate):
         return JSONResponse({"schema_version":"laomedo.issue-inspection.v1", "issue":issue,
                              "fetched_at":result.get("fetched_at")},
                             headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"})
+
+
+    @app.post("/api/v1/laomedo/agents/inspect", dependencies=[Depends(authenticate)])
+    async def read_agent(payload: dict):
+        from .agent_inspection_client import inspection_request
+        try:
+            if set(payload) != {"runner_url","run_id","after"}:raise ValueError("invalid_inspection_request")
+            result=await run_in_threadpool(inspection_request,payload["runner_url"],payload["run_id"],payload["after"])
+        except Exception as exc:
+            code=str(exc) if str(exc) in {"invalid_run_id","invalid_inspection_cursor","inspection_connection_unavailable","invalid_inspection_request"} else "inspection_unavailable"
+            raise HTTPException(400,detail={"code":code}) from None
+        return JSONResponse(result,headers={"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"})
+
+    @app.post("/api/v1/laomedo/agents/history", dependencies=[Depends(authenticate)])
+    async def agent_history(payload: dict):
+        from .agent_inspection_client import inspection_request
+        try:
+            if set(payload)!={"runner_url"}:raise ValueError("invalid_inspection_request")
+            result=await run_in_threadpool(inspection_request,payload["runner_url"])
+        except Exception:
+            raise HTTPException(400,detail={"code":"inspection_unavailable"}) from None
+        return JSONResponse(result,headers={"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"})
 
 
 def create_app():

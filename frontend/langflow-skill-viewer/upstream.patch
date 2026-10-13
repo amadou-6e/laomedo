@@ -189,49 +189,51 @@ index 0e4521c..e3b1ca7 100644
    "/flows",
    "/logout",
 diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
-index a5eae26..14e5c03 100644
+index a5eae26..ecc5f2b 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
-@@ -11,6 +11,10 @@ import { ToolbarButton } from "./toolbar-button";
+@@ -11,6 +11,11 @@ import { ToolbarButton } from "./toolbar-button";
  
  export interface ToolbarButtonRowProps {
    canEditCode: boolean;
 +  isSkillNode?: boolean;
 +  isIssueNode?: boolean;
++  isAgentNode?: boolean;
 +  canOpenIssue?: boolean;
 +  onOpenIssue?: () => void;
    isCustomComponent: boolean;
    onCode: () => void;
    onToggleInspectionPanel: () => void;
-@@ -31,6 +35,10 @@ export interface ToolbarButtonRowProps {
+@@ -31,6 +36,11 @@ export interface ToolbarButtonRowProps {
   */
  export function ToolbarButtonRow({
    canEditCode,
 +  isSkillNode = false,
 +  isIssueNode = false,
++  isAgentNode = false,
 +  canOpenIssue = false,
 +  onOpenIssue,
    isCustomComponent,
    onCode,
    onToggleInspectionPanel,
-@@ -45,18 +53,19 @@ export function ToolbarButtonRow({
+@@ -45,18 +55,19 @@ export function ToolbarButtonRow({
    const shortcuts = useShortcutsStore((state) => state.shortcuts);
    return (
      <>
 -      {canEditCode && (
-+      {(canEditCode || isSkillNode || isIssueNode) && (
++      {(canEditCode || isSkillNode || isIssueNode || isAgentNode) && (
          <ToolbarButton
            className={isCustomComponent ? "animate-pulse-pink" : ""}
 -          icon="Code"
 -          label={t("nodeToolbar.code")}
-+          icon={isIssueNode ? "FileText" : isSkillNode ? "FolderOpen" : "Code"}
-+          label={isIssueNode ? "Issue viewer" : isSkillNode ? "Skill files" : t("nodeToolbar.code")}
++          icon={isAgentNode ? "Activity" : isIssueNode ? "FileText" : isSkillNode ? "FolderOpen" : "Code"}
++          label={isAgentNode ? "Inspect agent" : isIssueNode ? "Issue viewer" : isSkillNode ? "Skill files" : t("nodeToolbar.code")}
            onClick={onCode}
            shortcut={shortcuts.find((s) =>
              s.name.toLowerCase().startsWith("code"),
            )}
 -          dataTestId="code-button-modal"
-+          dataTestId={isIssueNode ? "issue-viewer-button" : isSkillNode ? "skill-files-button" : "code-button-modal"}
++          dataTestId={isAgentNode ? "agent-inspection-button" : isIssueNode ? "issue-viewer-button" : isSkillNode ? "skill-files-button" : "code-button-modal"}
          />
        )}
 +      {isIssueNode && <ToolbarButton disabled={!canOpenIssue} icon="ExternalLink" label="Open in GitHub" onClick={onOpenIssue!} dataTestId="issue-browser-button" />}
@@ -267,28 +269,33 @@ index b5baaf1..f85b8f6 100644
          onClick={onClick}
          size="node-toolbar"
 diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
-index fa16114..eb5a2a6 100644
+index fa16114..35119be 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
-@@ -1,4 +1,8 @@
+@@ -1,4 +1,9 @@
 -import { memo } from "react";
 +import { nodeKind } from "@/modals/issueViewerModal";
 +import { inspectionSelection } from "@/modals/skillFilesModal/selection";
 +import { lazy, memo, Suspense } from "react";
 +const IssueViewerModal = lazy(() => import("@/modals/issueViewerModal"));
++const AgentInspectionModal = lazy(() => import("@/modals/agentInspectionModal"));
 +const SkillFilesModal = lazy(() => import("@/modals/skillFilesModal"));
  import { useTranslation } from "react-i18next";
  import CodeAreaModal from "@/modals/codeAreaModal";
  import ConfirmationModal from "@/modals/confirmationModal";
-@@ -108,9 +112,19 @@ const ToolbarModals = memo(
+@@ -108,9 +113,23 @@ const ToolbarModals = memo(
            </ConfirmationModal>
          )}
  
 -        {hasCode && (
-+        {(hasCode || nodeKind(data.type) === "LaomedoSkill" || nodeKind(data.type) === "LaomedoGitHubIssue") && (
++        {(hasCode || nodeKind(data.type) === "LaomedoCodexAgent" || nodeKind(data.type) === "LaomedoSkill" || nodeKind(data.type) === "LaomedoGitHubIssue") && (
            <div className="hidden">
 -            {openModal && (
-+            {openModal && (nodeKind(data.type) === "LaomedoGitHubIssue" ? (
++            {openModal && (nodeKind(data.type) === "LaomedoCodexAgent" ? (
++              <Suspense fallback={<div role="status">Loading agent inspection...</div>}>
++                <AgentInspectionModal open={openModal} setOpen={setOpenModal} template={data.node?.template} nodeId={data.id} />
++              </Suspense>
++            ) : nodeKind(data.type) === "LaomedoGitHubIssue" ? (
 +              <Suspense fallback={<div role="status">Loading issue viewer...</div>}>
 +                <IssueViewerModal open={openModal} setOpen={setOpenModal} template={data.node?.template} />
 +              </Suspense>
@@ -302,7 +309,7 @@ index fa16114..eb5a2a6 100644
                <CodeAreaModal
                  setValue={handleOnNewValue}
                  open={openModal}
-@@ -126,7 +140,7 @@ const ToolbarModals = memo(
+@@ -126,7 +145,7 @@ const ToolbarModals = memo(
                >
                  <></>
                </CodeAreaModal>
@@ -312,7 +319,7 @@ index fa16114..eb5a2a6 100644
          )}
        </>
 diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
-index 4069ff6..7b9ec7a 100644
+index 4069ff6..fef82dc 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
 @@ -1,3 +1,4 @@
@@ -337,11 +344,12 @@ index 4069ff6..7b9ec7a 100644
  
      const saveComponent = useCallback(() => {
        if (isSaved) {
-@@ -423,6 +425,10 @@ const NodeToolbarComponent = memo(
+@@ -423,6 +425,11 @@ const NodeToolbarComponent = memo(
            <div className="toolbar-wrapper">
              <ToolbarButtonRow
                canEditCode={canEditCode}
 +              isSkillNode={nodeKind(data.type) === "LaomedoSkill"}
++              isAgentNode={nodeKind(data.type) === "LaomedoCodexAgent"}
 +              isIssueNode={nodeKind(data.type) === "LaomedoGitHubIssue"}
 +              canOpenIssue={!!issueSelection(data.node?.template).url}
 +              onOpenIssue={() => { const url=issueSelection(data.node?.template).url; if(url) window.open(url,"_blank","noopener,noreferrer"); }}
