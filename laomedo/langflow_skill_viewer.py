@@ -27,6 +27,31 @@ def install_routes(app, root: Path, authenticate):
                                             "X-Content-Type-Options": "nosniff"})
 
 
+    @app.post("/api/v1/laomedo/github-issues/inspect",
+              dependencies=[Depends(authenticate)])
+    async def read_issue(payload: dict):
+        from .github_issue_client import issue_request
+        from .github_issue_contract import repository_from_url, labels_value, ERROR_CODES
+        try:
+            if set(payload) != {"repository_url", "issue_number", "labels", "state"}:
+                raise ValueError("invalid_request")
+            repository_from_url(payload["repository_url"])
+            labels_value(payload["labels"])
+            if (type(payload["issue_number"]) is not int or not 0 < payload["issue_number"] <= 2**53-1 or
+                    payload["state"] not in {"open", "closed", "all"}):
+                raise ValueError("selected_issue_invalid")
+            result = await run_in_threadpool(issue_request, "execute", **payload, operation=None)
+            issue = result.get("issue")
+            if not issue or result["operation"]["status"] != "not_requested":
+                raise ValueError("github_issue_unavailable")
+        except Exception as exc:
+            code = str(exc) if str(exc) in ERROR_CODES else "github_issue_unavailable"
+            raise HTTPException(status_code=400, detail={"code": code}) from None
+        return JSONResponse({"schema_version":"laomedo.issue-inspection.v1", "issue":issue,
+                             "fetched_at":result.get("fetched_at")},
+                            headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"})
+
+
 def create_app():
     from langflow.main import create_app as upstream_app, setup_static_files
     from langflow.services.auth.utils import get_current_active_user

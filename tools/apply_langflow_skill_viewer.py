@@ -23,6 +23,9 @@ def apply(checkout):
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
     shutil.copy2(overlay / "selection.ts", target / "selection.ts")
     shutil.copy2(overlay / "MONACO-LICENSE.txt", checkout / "src/frontend/public/monaco-LICENSE.txt")
+    issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
+    issue_target.mkdir()
+    shutil.copy2(overlay / "IssueViewerModal.tsx", issue_target / "index.tsx")
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

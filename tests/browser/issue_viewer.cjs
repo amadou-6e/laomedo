@@ -1,0 +1,18 @@
+const {chromium,expect}=require('@playwright/test');const fs=require('fs');let browser;
+(async()=>{
+ const f=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));expect(f.provider).toBe('fake-no-network');
+ browser=await chromium.launch({channel:'msedge'});const context=await browser.newContext({viewport:{width:1400,height:1000}});const page=await context.newPage();let external=0;
+ await context.route('https://external.invalid/**',route=>{external++;return route.abort()});
+ await context.route('https://github.com/owner/repo/issues/1',route=>route.fulfill({status:200,contentType:'text/html',body:'<title>Selected GitHub issue</title>'}));
+ await page.goto(f.url);const node=page.locator('.react-flow__node[data-id="issue"]');await node.waitFor({timeout:60000});await node.click();
+ await expect(page.getByTestId('code-button-modal')).toHaveCount(0);
+ await page.getByTestId('issue-viewer-button').click();const dialog=page.getByRole('dialog');
+ await expect(dialog.getByTestId('issue-viewer-content')).toContainText('#1 Task 1',{timeout:30000});
+ await expect(dialog.locator('strong')).toContainText('Rendered markdown');
+ await expect(dialog).toContainText('Current issue body');await expect(dialog.locator('img')).toHaveCount(0);
+ expect(await page.evaluate(()=>window.issueInjected)).toBeUndefined();expect(external).toBe(0);
+ const link=dialog.getByTestId('issue-open-browser');await expect(link).toHaveAttribute('href','https://github.com/owner/repo/issues/1');await expect(link).toHaveAttribute('rel','noopener noreferrer');
+ const popup=context.waitForEvent('page');await link.click();const opened=await popup;await opened.waitForLoadState();expect(await opened.evaluate(()=>window.opener)).toBeNull();await opened.close();
+ await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
+ console.log('PASS: Code replaced by issue viewer/open controls; current Markdown safe; selected GitHub page opens without opener.');
+})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(async()=>{if(browser)await browser.close()});

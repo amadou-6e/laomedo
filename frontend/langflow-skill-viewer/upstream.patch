@@ -71,21 +71,26 @@ index 40e188f..b85f8b9 100644
      "nanoid": "^5.1.16",
      "openseadragon": "^4.1.1",
 diff --git a/src/frontend/src/CustomNodes/helpers/mutate-template.ts b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
-index 65f806c..62d21e9 100644
+index 65f806c..d612348 100644
 --- a/src/frontend/src/CustomNodes/helpers/mutate-template.ts
 +++ b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
-@@ -95,6 +95,10 @@ const keepUserEdits = (
+@@ -1,3 +1,4 @@
++import { nodeKind } from "@/modals/issueViewerModal";
+ import type { UseMutationResult } from "@tanstack/react-query";
+ import { cloneDeep, debounce, isEqual } from "lodash";
+ import { SAVE_DEBOUNCE_TIME } from "@/constants/constants";
+@@ -95,6 +96,10 @@ const keepUserEdits = (
        baseline && fieldName in baseline
          ? baseline[fieldName]
          : requestedField.value;
 +    const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
-+    if ((skillNode?.data.type === "LaomedoSkill" &&
++    if ((nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" &&
 +        ["resolved_skill_id", "resolved_revision_id", "resolved_selection", "discovery_status"].includes(fieldName)) ||
-+        (skillNode?.data.type === "LaomedoGitHubIssue" && fieldName === "discovery_status")) continue;
++        (nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubIssue" && fieldName === "discovery_status")) continue;
      if (!isEqual(currentField.value, appliedValue)) {
        incomingField.value = cloneDeep(currentField.value);
      }
-@@ -107,7 +111,18 @@ const keepUserEdits = (
+@@ -107,7 +112,18 @@ const keepUserEdits = (
  const isStaleForNode = (
    nodeId: string,
    requestedNode: APIClassType,
@@ -93,9 +98,9 @@ index 65f806c..62d21e9 100644
 +  newValue?: unknown,
  ): boolean => {
 +  const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
-+  if (["LaomedoSkill", "LaomedoGitHubIssue"].includes(skillNode?.data.type ?? "")) {
++  if (["LaomedoSkill", "LaomedoGitHubIssue"].includes(nodeKind(skillNode?.data.type ?? "") ?? "")) {
 +    const current = getNodeTemplate(nodeId);
-+    const selectors = skillNode?.data.type === "LaomedoSkill" ? ["source", "skill_id", "revision_id"] : ["repository_url", "labels", "state", "issue_choice"];
++    const selectors = nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" ? ["source", "skill_id", "revision_id"] : ["repository_url", "labels", "state", "issue_choice"];
 +    for (const name of selectors) {
 +      const expected = name === parameterName ? newValue : requestedNode.template?.[name]?.value;
 +      if (!isEqual(current?.[name]?.value, expected)) return true;
@@ -104,7 +109,7 @@ index 65f806c..62d21e9 100644
    const requestedCode = requestedNode.template?.code?.value;
    if (requestedCode === undefined) return false;
    const currentCode = getNodeCode(nodeId);
-@@ -163,7 +178,7 @@ export const mutateTemplate = async (
+@@ -163,7 +179,7 @@ export const mutateTemplate = async (
                tool_mode: toolMode ?? node.tool_mode,
                is_refresh: isRefresh ?? false,
              });
@@ -114,15 +119,20 @@ index 65f806c..62d21e9 100644
                  nodeId,
                  node.template,
 diff --git a/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts b/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
-index b410b4b..07cd151 100644
+index b410b4b..f68f79d 100644
 --- a/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
 +++ b/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
-@@ -147,6 +147,28 @@ const useHandleOnNewValue = ({
+@@ -1,3 +1,4 @@
++import { nodeKind } from "@/modals/issueViewerModal";
+ import { useUpdateNodeInternals } from "@xyflow/react";
+ import { cloneDeep, debounce } from "lodash";
+ import { useCallback, useMemo, useRef } from "react";
+@@ -147,6 +148,28 @@ const useHandleOnNewValue = ({
          }
        }
  
 +      const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
-+      if (skillNode?.data.type === "LaomedoSkill" && changes.value !== undefined &&
++      if (nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" && changes.value !== undefined &&
 +          ["source", "skill_id", "revision_id"].includes(name) &&
 +          changes.value !== node.template?.[name]?.value) {
 +        if (template.discovery_status) template.discovery_status.value = name === "source" ? "Discovering skills..." : name === "skill_id" ? "Discovering revisions..." : "Resolving selected revision...";
@@ -135,7 +145,7 @@ index b410b4b..07cd151 100644
 +        }
 +      }
 +
-+      if (skillNode?.data.type === "LaomedoGitHubIssue" && changes.value !== undefined &&
++      if (nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubIssue" && changes.value !== undefined &&
 +          ["repository_url", "labels", "state"].includes(name) &&
 +          JSON.stringify(changes.value) !== JSON.stringify(node.template?.[name]?.value)) {
 +        if (template.discovery_status) template.discovery_status.value = "Discovering GitHub issues...";
@@ -147,19 +157,20 @@ index b410b4b..07cd151 100644
  
        const setNodeClass = (newNodeClass: APIClassType) => {
 diff --git a/src/frontend/src/components/core/parameterRenderComponent/index.tsx b/src/frontend/src/components/core/parameterRenderComponent/index.tsx
-index 419a1a2..988685f 100644
+index 419a1a2..65d4aae 100644
 --- a/src/frontend/src/components/core/parameterRenderComponent/index.tsx
 +++ b/src/frontend/src/components/core/parameterRenderComponent/index.tsx
-@@ -1,3 +1,4 @@
+@@ -1,3 +1,5 @@
++import { nodeKind } from "@/modals/issueViewerModal";
 +import useFlowStore from "@/stores/flowStore";
  import { useTranslation } from "react-i18next";
  import type { handleOnNewValueType } from "@/CustomNodes/hooks/use-handle-new-value";
  import CodeAreaComponent from "@/components/core/parameterRenderComponent/components/codeAreaComponent";
-@@ -77,6 +78,9 @@ export function ParameterRenderComponent({
+@@ -77,6 +79,9 @@ export function ParameterRenderComponent({
    ).toLowerCase();
  
    const renderComponent = (): React.ReactElement<InputProps> => {
-+    if (name === "discovery_status" && ["LaomedoSkill", "LaomedoGitHubIssue"].includes(useFlowStore.getState().nodes.find((entry) => entry.id === nodeId)?.data.type ?? "")) {
++    if (name === "discovery_status" && ["LaomedoSkill", "LaomedoGitHubIssue"].includes(nodeKind(useFlowStore.getState().nodes.find((entry) => entry.id === nodeId)?.data.type ?? ""))) {
 +      return <div role="status" data-testid="skill-discovery-status" className="text-sm text-muted-foreground">{String(templateValue || "")}</div>;
 +    }
      const baseInputProps: InputProps = {
@@ -178,67 +189,110 @@ index 0e4521c..e3b1ca7 100644
    "/flows",
    "/logout",
 diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
-index a5eae26..ac1504a 100644
+index a5eae26..14e5c03 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
-@@ -11,6 +11,7 @@ import { ToolbarButton } from "./toolbar-button";
+@@ -11,6 +11,10 @@ import { ToolbarButton } from "./toolbar-button";
  
  export interface ToolbarButtonRowProps {
    canEditCode: boolean;
 +  isSkillNode?: boolean;
++  isIssueNode?: boolean;
++  canOpenIssue?: boolean;
++  onOpenIssue?: () => void;
    isCustomComponent: boolean;
    onCode: () => void;
    onToggleInspectionPanel: () => void;
-@@ -31,6 +32,7 @@ export interface ToolbarButtonRowProps {
+@@ -31,6 +35,10 @@ export interface ToolbarButtonRowProps {
   */
  export function ToolbarButtonRow({
    canEditCode,
 +  isSkillNode = false,
++  isIssueNode = false,
++  canOpenIssue = false,
++  onOpenIssue,
    isCustomComponent,
    onCode,
    onToggleInspectionPanel,
-@@ -45,16 +47,16 @@ export function ToolbarButtonRow({
+@@ -45,18 +53,19 @@ export function ToolbarButtonRow({
    const shortcuts = useShortcutsStore((state) => state.shortcuts);
    return (
      <>
 -      {canEditCode && (
-+      {(canEditCode || isSkillNode) && (
++      {(canEditCode || isSkillNode || isIssueNode) && (
          <ToolbarButton
            className={isCustomComponent ? "animate-pulse-pink" : ""}
 -          icon="Code"
 -          label={t("nodeToolbar.code")}
-+          icon={isSkillNode ? "FolderOpen" : "Code"}
-+          label={isSkillNode ? "Skill files" : t("nodeToolbar.code")}
++          icon={isIssueNode ? "FileText" : isSkillNode ? "FolderOpen" : "Code"}
++          label={isIssueNode ? "Issue viewer" : isSkillNode ? "Skill files" : t("nodeToolbar.code")}
            onClick={onCode}
            shortcut={shortcuts.find((s) =>
              s.name.toLowerCase().startsWith("code"),
            )}
 -          dataTestId="code-button-modal"
-+          dataTestId={isSkillNode ? "skill-files-button" : "code-button-modal"}
++          dataTestId={isIssueNode ? "issue-viewer-button" : isSkillNode ? "skill-files-button" : "code-button-modal"}
          />
        )}
++      {isIssueNode && <ToolbarButton disabled={!canOpenIssue} icon="ExternalLink" label="Open in GitHub" onClick={onOpenIssue!} dataTestId="issue-browser-button" />}
        {/* Gated on the same flag the panel itself honors — without it the
+           button would render and do nothing (setInspectionPanelVisible
+           early-returns when the flag is off). */}
+diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-button.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-button.tsx
+index b5baaf1..f85b8f6 100644
+--- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-button.tsx
++++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-button.tsx
+@@ -21,6 +21,7 @@ export const ToolbarButton = memo(
+     className,
+     dataTestId,
+     isActive,
++    disabled,
+   }: {
+     onClick: () => void;
+     icon: string;
+@@ -29,6 +30,7 @@ export const ToolbarButton = memo(
+     className?: string;
+     dataTestId?: string;
+     isActive?: boolean;
++    disabled?: boolean;
+   }) => (
+     <ShadTooltip
+       content={shortcut ? <ShortcutDisplay {...shortcut} /> : (label ?? icon)}
+@@ -44,6 +46,7 @@ export const ToolbarButton = memo(
+           isActive && "bg-muted text-foreground",
+           className,
+         )}
++        disabled={disabled}
+         variant="ghost"
+         onClick={onClick}
+         size="node-toolbar"
 diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
-index fa16114..7062d0d 100644
+index fa16114..eb5a2a6 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
-@@ -1,4 +1,6 @@
+@@ -1,4 +1,8 @@
 -import { memo } from "react";
++import { nodeKind } from "@/modals/issueViewerModal";
 +import { inspectionSelection } from "@/modals/skillFilesModal/selection";
 +import { lazy, memo, Suspense } from "react";
++const IssueViewerModal = lazy(() => import("@/modals/issueViewerModal"));
 +const SkillFilesModal = lazy(() => import("@/modals/skillFilesModal"));
  import { useTranslation } from "react-i18next";
  import CodeAreaModal from "@/modals/codeAreaModal";
  import ConfirmationModal from "@/modals/confirmationModal";
-@@ -108,9 +110,15 @@ const ToolbarModals = memo(
+@@ -108,9 +112,19 @@ const ToolbarModals = memo(
            </ConfirmationModal>
          )}
  
 -        {hasCode && (
-+        {(hasCode || data.type === "LaomedoSkill") && (
++        {(hasCode || nodeKind(data.type) === "LaomedoSkill" || nodeKind(data.type) === "LaomedoGitHubIssue") && (
            <div className="hidden">
 -            {openModal && (
-+            {openModal && (data.type === "LaomedoSkill" ? (
++            {openModal && (nodeKind(data.type) === "LaomedoGitHubIssue" ? (
++              <Suspense fallback={<div role="status">Loading issue viewer...</div>}>
++                <IssueViewerModal open={openModal} setOpen={setOpenModal} template={data.node?.template} />
++              </Suspense>
++            ) : nodeKind(data.type) === "LaomedoSkill" ? (
 +              <Suspense fallback={<div role="status">Loading Skill files...</div>}>
 +                <SkillFilesModal open={openModal} setOpen={setOpenModal}
 +                  skillId={inspectionSelection(data.node?.template).skillId}
@@ -248,7 +302,7 @@ index fa16114..7062d0d 100644
                <CodeAreaModal
                  setValue={handleOnNewValue}
                  open={openModal}
-@@ -126,7 +134,7 @@ const ToolbarModals = memo(
+@@ -126,7 +140,7 @@ const ToolbarModals = memo(
                >
                  <></>
                </CodeAreaModal>
@@ -258,31 +312,39 @@ index fa16114..7062d0d 100644
          )}
        </>
 diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
-index 4069ff6..523d035 100644
+index 4069ff6..7b9ec7a 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
-@@ -188,6 +188,7 @@ const NodeToolbarComponent = memo(
+@@ -1,3 +1,4 @@
++import { issueSelection, nodeKind } from "@/modals/issueViewerModal";
+ import { useUpdateNodeInternals } from "@xyflow/react";
+ import _, { cloneDeep } from "lodash";
+ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+@@ -188,6 +189,7 @@ const NodeToolbarComponent = memo(
      }, [hasApiKey, hasStore]);
  
      const handleCodeModal = useCallback(() => {
-+      if (data.type === "LaomedoSkill") { setOpenModal(true); return; }
++      if (["LaomedoSkill", "LaomedoGitHubIssue"].includes(nodeKind(data.type))) { setOpenModal(true); return; }
        if (!hasCode) {
          setNoticeData({ title: t("node.cannotAccessCode", { id: data.id }) });
          return;
-@@ -197,7 +198,7 @@ const NodeToolbarComponent = memo(
+@@ -197,7 +199,7 @@ const NodeToolbarComponent = memo(
          return;
        }
        setOpenModal((state) => !state);
 -    }, [hasCode, allowCustomComponents, data.id]);
-+    }, [hasCode, allowCustomComponents, data.id, data.type]);
++    }, [hasCode, allowCustomComponents, data.id, data.type, data.node?.name]);
  
      const saveComponent = useCallback(() => {
        if (isSaved) {
-@@ -423,6 +424,7 @@ const NodeToolbarComponent = memo(
+@@ -423,6 +425,10 @@ const NodeToolbarComponent = memo(
            <div className="toolbar-wrapper">
              <ToolbarButtonRow
                canEditCode={canEditCode}
-+              isSkillNode={data.type === "LaomedoSkill"}
++              isSkillNode={nodeKind(data.type) === "LaomedoSkill"}
++              isIssueNode={nodeKind(data.type) === "LaomedoGitHubIssue"}
++              canOpenIssue={!!issueSelection(data.node?.template).url}
++              onOpenIssue={() => { const url=issueSelection(data.node?.template).url; if(url) window.open(url,"_blank","noopener,noreferrer"); }}
                isCustomComponent={isCustomComponent}
                onCode={handleCodeModal}
                onToggleInspectionPanel={handleToggleInspectionPanel}
