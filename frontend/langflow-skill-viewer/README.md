@@ -74,3 +74,12 @@ alpha snapshots and a trusted Git fixture adapter offering main and tag v1.
 It uses real custom-component refresh APIs and no model or publisher node.
 Use a separate build output while a live viewer mounts upstream's default build.
 See [source service activation draft](SOURCE-DEPLOYMENT.md).
+
+## Issue inspection layout
+
+Issue viewer presents the title and number, state and label badges, then a
+separate Markdown description with readable paragraph spacing. Updated/read
+times retain machine-readable timestamps and display in the browser locale.
+Open in GitHub and Refresh issue stay in the bottom-right footer outside the
+scrolling description. The viewer has no redundant self-navigation button.
+Refresh performs a read only; it never dispatches an agent or issue mutation.

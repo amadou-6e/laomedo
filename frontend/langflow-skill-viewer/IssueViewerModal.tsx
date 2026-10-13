@@ -38,20 +38,45 @@ export default function IssueViewerModal({ template, open, setOpen }: { template
   },[open,key,reload]);
   return <BaseModal open={open} setOpen={setOpen} size="large">
     <BaseModal.Header description="Read the selected live issue. This does not run an agent or change GitHub."><span>Issue viewer</span></BaseModal.Header>
-    <BaseModal.Content>
-      <nav className="mb-3 flex gap-3" aria-label="Issue views">
-        <button type="button" aria-current="page" className="rounded border px-3 py-2">Issue viewer</button>
-        {selection.url ? <a href={selection.url} target="_blank" rel="noopener noreferrer" className="rounded border px-3 py-2" data-testid="issue-open-browser">Open in GitHub</a> : <span aria-disabled="true" className="px-3 py-2">Open in GitHub</span>}
-      </nav>
+    <BaseModal.Content className="min-h-0">
       {loading && <p role="status">Loading current issue...</p>}
       {error && <div role="alert">{error}</div>}
       {snapshot && <article data-testid="issue-viewer-content" className="break-words">
-        <h2 className="mb-3 text-xl font-semibold">#{snapshot.issue.number} {snapshot.issue.title}</h2>
-        <p className="mb-2">State: {snapshot.issue.state} | Labels: {snapshot.issue.labels.join(", ") || "None"}</p>
-        <p className="mb-4 text-sm text-muted-foreground">Updated: {snapshot.issue.updated_at} | Read: {snapshot.fetched_at}</p>
-        <ReactMarkdown skipHtml components={{img:()=> <span>[Image omitted]</span>,a:({href,children})=>safeLink(href) ? <a href={safeLink(href)} target="_blank" rel="noopener noreferrer" className="underline">{children}</a> : <span>{children}</span>}}>{snapshot.issue.body}</ReactMarkdown>
+        <header className="mb-6 border-b pb-5">
+          <p className="mb-2 text-sm text-muted-foreground">{snapshot.issue.repository}</p>
+          <h2 className="mb-4 text-2xl font-semibold leading-tight">{snapshot.issue.title} <span className="font-normal text-muted-foreground">#{snapshot.issue.number}</span></h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold">{snapshot.issue.state === "open" ? "Open" : "Closed"}</span>
+            {snapshot.issue.labels.map(label => <span key={label} className="rounded-full border px-3 py-1 text-sm">{label}</span>)}
+          </div>
+        </header>
+        <section aria-label="Issue description" className="rounded-lg border">
+          <div className="border-b bg-muted px-5 py-3 text-sm text-muted-foreground">
+            Updated <time dateTime={snapshot.issue.updated_at}>{new Date(snapshot.issue.updated_at).toLocaleString()}</time>
+          </div>
+          <div className="space-y-4 px-5 py-5 text-base leading-7">
+            <ReactMarkdown skipHtml components={{
+              img:()=> <span>[Image omitted]</span>,
+              a:({href,children})=>safeLink(href) ? <a href={safeLink(href)} target="_blank" rel="noopener noreferrer" className="underline">{children}</a> : <span>{children}</span>,
+              h1:({children})=><h3 className="border-b pb-2 text-2xl font-semibold">{children}</h3>,
+              h2:({children})=><h3 className="border-b pb-2 text-xl font-semibold">{children}</h3>,
+              h3:({children})=><h4 className="text-lg font-semibold">{children}</h4>,
+              ul:({children})=><ul className="list-disc space-y-1 pl-6">{children}</ul>,
+              ol:({children})=><ol className="list-decimal space-y-1 pl-6">{children}</ol>,
+              blockquote:({children})=><blockquote className="border-l-4 pl-4 text-muted-foreground">{children}</blockquote>,
+              pre:({children})=><pre className="overflow-x-auto rounded-md bg-muted p-4 text-sm">{children}</pre>,
+              code:({children})=><code className="rounded bg-muted px-1 text-sm">{children}</code>,
+            }}>{snapshot.issue.body || "No description provided."}</ReactMarkdown>
+          </div>
+        </section>
+        <p className="mt-3 text-xs text-muted-foreground">Read <time dateTime={snapshot.fetched_at}>{new Date(snapshot.fetched_at).toLocaleString()}</time></p>
       </article>}
-      <button type="button" disabled={loading || !selection.url} className="mt-4 rounded border px-3 py-2" onClick={()=>setReload(reload+1)}>Refresh issue</button>
     </BaseModal.Content>
+    <BaseModal.Footer>
+      <div className="flex flex-wrap justify-end gap-3 border-t pt-4" data-testid="issue-viewer-actions">
+        {selection.url ? <a href={selection.url} target="_blank" rel="noopener noreferrer" className="rounded border px-3 py-2 text-sm" data-testid="issue-open-browser">Open in GitHub</a> : <span aria-disabled="true" className="px-3 py-2 text-sm text-muted-foreground">Open in GitHub</span>}
+        <button type="button" disabled={loading || !selection.url} className="rounded border px-3 py-2 text-sm disabled:opacity-50" onClick={()=>setReload(value=>value+1)}>Refresh issue</button>
+      </div>
+    </BaseModal.Footer>
   </BaseModal>;
 }
