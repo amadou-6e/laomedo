@@ -72,7 +72,9 @@ Host tests: `python -m unittest discover -s tests -p test_live_github_issue.py`.
 Pinned native tests: `python -m unittest discover -s tests/langflow -p test_github_issue.py`.
 Browser tests: `tests/browser/github_issue.cjs <manifest>` and
 `tests/browser/github_issue_operation.cjs <manifest>` with Playwright/Edge.
-The latter supports operation_action close or modify.
+The latter supports operation_action close or modify. The held-response regression
+is `tests/browser/github_issue_stale.cjs <manifest>`; it requires the fixture after
+close, so two open issues remain before its label/issue selection setup.
 
 Start the fake backend with `python tests/browser/serve_github_issue_fixture.py
 --manifest <ignored-manifest>`. Its model/provider calls are fake, and the frozen
