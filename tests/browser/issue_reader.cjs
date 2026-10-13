@@ -50,11 +50,13 @@ let browser;
     await page.setViewportSize({width, height: 860});
     await expect(refresh).toBeVisible();
     await expect(actions.getByTestId('issue-open-browser')).toHaveAttribute('rel', 'noopener noreferrer');
-    const box = await actions.boundingBox(); const panel = await dialog.boundingBox();
-    expect(box.y).toBeGreaterThan(panel.y + panel.height / 2);
-    expect(box.x + box.width).toBeLessThanOrEqual(panel.x + panel.width);
-    expect(panel.x + panel.width - box.x - box.width).toBeLessThan(35);
-    expect(box.y + box.height).toBeLessThanOrEqual(860);
+    await expect.poll(async () => {
+      const box = await actions.boundingBox(); const panel = await dialog.boundingBox();
+      return box.y > panel.y + panel.height / 2 &&
+        box.x + box.width <= panel.x + panel.width &&
+        panel.x + panel.width - box.x - box.width < 35 &&
+        box.y + box.height <= 860;
+    }).toBe(true);
   }
   await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
   console.log('PASS: readable issue layout, no redundant button, fixed footer at desktop/compact widths, mocked read-only refresh and safe Markdown. No model or GitHub write.');
