@@ -91,3 +91,13 @@ A single downstream form supplies Codex precheck expectations automatically,
 then validates and routes its output. Legacy explicit-precheck graphs remain
 compatible. Credential-free imported-graph evidence does not establish a new
 live publication run.
+
+### Linked-source Skill selection
+
+The Langflow Skill node can discover skills from a repository URL or an explicitly
+allowed local source, then filter Skill and Revision dropdowns by typing. Each
+selection resolves to an immutable registry bundle for the existing runner and
+read-only file viewer. Old exact references remain compatible. See the
+[overlay and source service guide](frontend/langflow-skill-viewer/README.md#linked-source-selector-157)
+and its separately gated activation draft. The initial Git route supports public
+GitHub/GitLab repository roots; private Git authentication is not implemented.

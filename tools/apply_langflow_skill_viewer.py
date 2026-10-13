@@ -21,6 +21,7 @@ def apply(checkout):
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
+    shutil.copy2(overlay / "selection.ts", target / "selection.ts")
     shutil.copy2(overlay / "MONACO-LICENSE.txt", checkout / "src/frontend/public/monaco-LICENSE.txt")
     print("pinned_skill_viewer_overlay_applied")
 

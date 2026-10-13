@@ -51,3 +51,26 @@ The Node 22 frontend build and clean-checkout overlay application passed.
 Whole-upstream TypeScript checking fails with 253 existing diagnostics; the
 overlay comparison added zero diagnostics. This is not a claim that upstream
 type checking is clean.
+
+## Linked-source selector (#157)
+
+The same overlay adds searchable Skill and Revision dropdowns for an optional
+Source. Source changes clear dependent choices immediately; late responses for a
+superseded source/skill/revision are ignored. Discovery status is read-only.
+Skill files accepts the resolved tuple only while it matches the current controls.
+Source-empty old saved nodes retain their manual exact reference behavior.
+
+The host source service is `python -m laomedo.skill_source_server`: configure its
+registry, private state directory, allowed local roots and API token file. The
+Langflow backend uses `LAOMEDO_SKILL_SOURCE_URL` and
+`LAOMEDO_SKILL_SOURCE_TOKEN_FILE`. No transport token belongs in node fields.
+Public GitHub/GitLab root URLs, allowed local folders and the existing registry
+are supported; private Git authentication and GitLab subgroup URLs are deferred.
+Existing local private checkouts can be supplied within an allowed root.
+
+Run `tests/browser/skill_sources.cjs <fixture-manifest.json>` with Playwright.
+The fixture must have a disposable source-only flow, two local skills, two local
+alpha snapshots and a trusted Git fixture adapter offering main and tag v1.
+It uses real custom-component refresh APIs and no model or publisher node.
+Use a separate build output while a live viewer mounts upstream's default build.
+See [source service activation draft](SOURCE-DEPLOYMENT.md).
