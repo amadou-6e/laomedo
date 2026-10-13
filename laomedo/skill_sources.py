@@ -29,7 +29,7 @@ def _excluded(parts):
 
 
 def _name(data, fallback):
-    text = data.decode("utf-8")
+    text = data.decode("utf-8").replace("\r\n", "\n")
     frontmatter = re.match(r"\A---[ \t]*\r?\n(.*?)\r?\n---(?:\r?\n|\Z)", text, re.S)
     header = frontmatter.group(1) if frontmatter else ""
     match = re.search(r"^name:[ \t]*(.*?)[ \t]*$", header, re.M)
