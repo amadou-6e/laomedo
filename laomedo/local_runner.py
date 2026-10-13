@@ -1972,8 +1972,8 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 if parts == ["v1", "inspection", "runs"]:
                     self._reply(200, list_runs(runner.state)); return
                 if len(parts) in {4,5} and parts[:2] == ["v1", "runs"] and parts[3] == "inspection":
-                    after = int(parts[4]) if len(parts)==5 and parts[4].isdigit() else 0
-                    if len(parts)==5 and not parts[4].isdigit():raise RunnerError("invalid_inspection_cursor")
+                    after = int(parts[4]) if len(parts)==5 and parts[4].isascii() and parts[4].isdigit() else 0
+                    if len(parts)==5 and not (parts[4].isascii() and parts[4].isdigit()):raise RunnerError("invalid_inspection_cursor")
                     self._reply(200, inspect_run(runner.state, parts[2], after)); return
                 if len(parts) != 3:
                     raise RunnerError("unknown_endpoint")
@@ -1986,6 +1986,8 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 self._reply(200, result)
             except (RunnerError, ValueError, OSError) as exc:
                 category = str(exc)
+                if "inspection" in parts and category not in {"invalid_run_id", "invalid_inspection_cursor", "inspection_identity_mismatch", "inspection_path_denied", "inspection_record_limit"}:
+                    category = "inspection_unavailable"
                 code = (409 if category == "request_identity_conflict" else
                         400 if category == "invalid_request_id" else 404)
                 self._reply(code, {"status": "failed", "error_category": category})

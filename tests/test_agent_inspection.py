@@ -69,8 +69,13 @@ class AgentInspectionTests(unittest.TestCase):
         second=inspect_run(self.root,RUN,first['next_cursor'])
         self.assertEqual(len(first['events']),200)
         self.assertEqual(second['events'][0]['sequence'],200)
-        with (self.directory/'raw-events.jsonl').open('a') as stream:stream.write('{')
+        with (self.directory/'raw-events.jsonl').open('a') as stream:stream.write('{\n')
         self.assertEqual(inspect_run(self.root,RUN,200)['trace_status'],'invalid')
+
+    def test_partial_final_line_is_incomplete(self):
+        self.record()
+        (self.directory/'raw-events.jsonl').write_text('{')
+        self.assertEqual(inspect_run(self.root,RUN)['trace_status'],'incomplete')
 
     def test_history_ignores_foreign_record_identity(self):
         self.record()

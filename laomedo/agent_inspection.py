@@ -6,7 +6,6 @@ returned. Full content inspection needs a separate redaction/privacy contract.
 import json
 from pathlib import Path
 import re
-import os
 import stat
 from uuid import UUID
 
@@ -110,6 +109,8 @@ def inspect_run(state, selected, after=0):
             scanned+=len(raw)
             if len(raw)>MAX_LINE or scanned>MAX_TRACE:trace_status='limited';break
             if index<after:continue
+            if not raw.endswith(b'\n'):
+                trace_status='incomplete';break
             try:event=json.loads(raw)
             except (ValueError,UnicodeError):trace_status='invalid';break
             if not isinstance(event,dict):trace_status='invalid';break
@@ -138,4 +139,4 @@ def list_runs(state):
             if record.get('run_id')!=selected:continue
             rows.append({'run_id':selected,'status':member(record.get('status'),STATES,'unknown')})
         except (ValueError,OSError):continue
-    return {'schema_version':'laomedo.agent-history.v1','runs':rows,'limit':100}
+    return {'schema_version':'laomedo.agent-history.v1','runs':rows,'limit':100,'order':'filesystem','truncated':len(rows)==100}
