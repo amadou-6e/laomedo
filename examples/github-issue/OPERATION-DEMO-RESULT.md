@@ -6,7 +6,7 @@ subscription profile, exact two issue changes and four submitted turns.
 
 | Check | Observed |
 | --- | --- |
-| Native Codex proposal | Completed on gpt-6-luna, low effort, first submitted turn |
+| Native Codex proposal | First submitted turn completed; requested gpt-6-luna/low, native record omits effective model/effort |
 | Evidence | native_trace_closure, complete evidence and ready workspace snapshot |
 | Output | Exact approved modify15/close12 JSON, checked before granting |
 | Issue15 | Title Filter demo: agent updated; question label; approved Agent operation verified section appended |

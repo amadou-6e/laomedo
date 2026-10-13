@@ -36,5 +36,8 @@
   ],
   "lease_service_stopped": true,
   "prepared_config_sha256": "8cc17a9d153de265f7ca508b90fb64782d82684aeea9c177d769c12893133740",
-  "native_record_sha256": "a28976f58602f36732d1e111078f320ed6583863b76c4cc2c75b717fb3afb5fa"
+  "native_record_sha256": "a28976f58602f36732d1e111078f320ed6583863b76c4cc2c75b717fb3afb5fa",
+  "requested_model": "gpt-6-luna",
+  "requested_effort": "low",
+  "effective_model_effort_verified": false
 }
