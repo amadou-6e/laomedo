@@ -49,7 +49,8 @@ class SkillSourceTests(unittest.TestCase):
         source = str(self.resolver.store.root)
         self.assertEqual(self.resolver.discover(source)["skills"][0]["choice"], "alpha")
         revision = self.resolver.revisions(source, "alpha")["revisions"][0]
-        self.assertEqual(revision["choice"], imported["revision_id"])
+        self.assertTrue(revision["choice"].endswith(" | " + imported["revision_id"]))
+        self.assertIn("local:", revision["choice"])
 
     def test_arbitrary_choices_and_outside_paths_are_refused(self):
         for source in (str(self.root), "relative/folder", "https://user:SECRET@github.com/o/r", "https://127.0.0.1/o/r", "https://github.com/o/r/tree/main"):
@@ -126,7 +127,7 @@ class SkillSourceTests(unittest.TestCase):
         canary.write_text("unchanged")
         for path in ("../canary", "C:/canary", "..\\canary", "/canary", "a/../canary"):
             with self.subTest(path=path), self.assertRaisesRegex(SourceError, "source_bundle_unsafe"):
-                self.resolver._register("alpha", {"SKILL.md": b"# fixture", path: b"changed"})
+                self.resolver._register("alpha", {"SKILL.md": b"# fixture", path: b"changed"}, "fixture")
         self.assertEqual(canary.read_text(), "unchanged")
 
     def test_git_does_not_inherit_personal_or_provider_configuration(self):
@@ -150,3 +151,38 @@ class SkillSourceTests(unittest.TestCase):
         ):
             with self.subTest(files=list(files)), self.assertRaises(SourceError):
                 _bundle(files)
+
+    def test_refused_option_overflow_does_not_import_or_change_index(self):
+        choice = self.resolver.discover(str(self.source))["skills"][0]["choice"]
+        self.resolver.revisions(str(self.source), choice)
+        location = str(self.source)
+        options = self.resolver.index[location]["revisions"][choice]
+        reference = next(iter(options.values()))
+        for number in range(63):
+            options["historic-" + str(number)] = dict(reference)
+        before = json.loads(json.dumps(self.resolver.index))
+        folders = set((self.resolver.store._skill("alpha") / "revisions").iterdir())
+        (self.source / "alpha/SKILL.md").write_text("---\nname: alpha\n---\nnew bytes", encoding="utf-8")
+        with self.assertRaisesRegex(SourceError, "source_limit_exceeded"):
+            self.resolver.revisions(location, choice)
+        self.assertEqual(self.resolver.index, before)
+        self.assertEqual(set((self.resolver.store._skill("alpha") / "revisions").iterdir()), folders)
+
+    def test_same_named_source_revision_has_persistent_provenance(self):
+        choice = self.resolver.discover(str(self.source))["skills"][0]["choice"]
+        first = self.resolver.revisions(str(self.source), choice)["revisions"][0]
+        original_latest = (self.resolver.store._skill("alpha") / "latest.json").read_bytes()
+        other = self.source / "other"
+        other.mkdir()
+        (other / "SKILL.md").write_text("---\nname: alpha\n---\nother source", encoding="utf-8")
+        self.resolver.discover(str(self.source))
+        second = self.resolver.revisions(str(self.source), "alpha | other")["revisions"][0]
+        registry = str(self.resolver.store.root)
+        self.resolver.discover(registry)
+        revisions = self.resolver.revisions(registry, "alpha")["revisions"]
+        self.assertTrue(any("/ other |" in row["choice"] for row in revisions))
+        self.assertEqual((self.resolver.store._skill("alpha") / "latest.json").read_bytes(), original_latest)
+        self.assertNotEqual(first["revision_id"], second["revision_id"])
+        restarted = SkillSources(self.resolver.store.root, self.root / "fresh-cache", [self.source])
+        restarted.discover(registry)
+        self.assertTrue(any("/ other |" in row["choice"] for row in restarted.revisions(registry, "alpha")["revisions"]))

@@ -12,7 +12,7 @@ import threading
 import time
 import signal
 
-from .skill_store import SkillStore, NAME, _is_link, _safe_relative, SkillStoreError
+from .skill_store import SkillStore, NAME, _is_link, _safe_relative, SkillStoreError, tree_hash
 from .skill_inspection import inspect_skill, _read_regular, MAX_FILES, MAX_FILE_BYTES, MAX_BUNDLE_BYTES
 
 SKIP = {".git", "node_modules", "__pycache__", ".venv", "venv"}
@@ -177,7 +177,7 @@ class SkillSources:
                 self._git(self.state, ["clone", "--bare", "--depth=1", "--no-single-branch", "--", transport, str(pending)])
                 pending.rename(folder)
         elif refresh:
-            self._git(folder, ["fetch", "--depth=1", "--tags", "origin", "+refs/heads/*:refs/heads/*"])
+            self._git(folder, ["fetch", "--prune", "--depth=1", "--tags", "origin", "+refs/heads/*:refs/heads/*"])
         refs = self._git(folder, ["for-each-ref", "--format=%(refname)", "refs/heads", "refs/tags"], 64 * 1024).decode().splitlines()
         if len(refs) > 32:
             raise SourceError("repository_limit_exceeded")
@@ -272,7 +272,7 @@ class SkillSources:
             self._save()
             return {"kind": kind, "skills": sorted(known.values(), key=lambda s: s["choice"])}
 
-    def _register(self, name, files):
+    def _register(self, name, files, origin):
         _bundle(files)
         with tempfile.TemporaryDirectory(dir=self.state, prefix="import-") as temp:
             root = Path(temp)
@@ -286,6 +286,15 @@ class SkillSources:
                 record = self.store._store_revision(name, root, None)
             else:
                 record = self.store.import_skill(name, root)
+        provenance = self.store.root / "source-origins.json"
+        origins = json.loads(provenance.read_text(encoding="utf-8")) if provenance.exists() else {}
+        key = name + ":" + record["revision_id"]
+        values = origins.setdefault(key, [])
+        if origin not in values:
+            values.append(origin)
+        temporary = provenance.with_suffix(".pending")
+        temporary.write_text(json.dumps(origins, sort_keys=True), encoding="utf-8")
+        temporary.replace(provenance)
         return {k: record[k] for k in ("skill_id", "revision_id", "tree_hash")}
 
     def revisions(self, source, choice):
@@ -301,12 +310,23 @@ class SkillSources:
                     _safe_relative(skill["path"])
                 except SkillStoreError:
                     raise SourceError("source_bundle_unsafe") from None
-            options = cached.setdefault("revisions", {}).setdefault(choice, {})
+            options = dict(cached.get("revisions", {}).get(choice, {}))
+            pending = []
+            def offer(files, label, origin):
+                _bundle(files)
+                revision = tree_hash(files)
+                reference = {"skill_id": skill["name"], "revision_id": revision, "tree_hash": revision}
+                options[label(revision)] = reference
+                pending.append((files, origin))
             if kind == "registry":
                 for folder in sorted((self.store._skill(skill["name"]) / "revisions").iterdir()):
                     reference = {"skill_id": skill["name"], "revision_id": "sha256:" + folder.name, "tree_hash": "sha256:" + folder.name}
                     inspect_skill(self.store.root, reference["skill_id"], reference["revision_id"])
-                    options[reference["revision_id"]] = reference
+                    provenance = self.store.root / "source-origins.json"
+                    origins = json.loads(provenance.read_text(encoding="utf-8")) if provenance.exists() else {}
+                    values = origins.get(skill["name"] + ":" + reference["revision_id"], [])
+                    description = " ; ".join(values) if values else "registry (origin unrecorded)"
+                    options[description + " | " + reference["revision_id"]] = reference
             elif kind == "local":
                 folder = Path(location) / skill["path"]
                 if any(_is_link(p) for p in [folder, *folder.parents]):
@@ -333,10 +353,11 @@ class SkillSources:
                         if total > MAX_BUNDLE_BYTES:
                             raise SourceError("source_limit_exceeded")
                 if _name(files["SKILL.md"], folder.name) == skill["name"]:
-                    reference = self._register(skill["name"], files)
-                    if not any(v == reference for v in options.values()):
-                        label = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC") + " | " + reference["revision_id"]
-                        options[label] = reference
+                    revision = tree_hash(_bundle(files))
+                    if not any(v["revision_id"] == revision for v in options.values()):
+                        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                        offer(files, lambda revision: timestamp + " | " + revision,
+                              "local: " + location + " / " + skill["path"])
             else:
                 repo, refs = self._repository(location)
                 prefix = "" if skill["path"] == "." else skill["path"] + "/"
@@ -358,10 +379,13 @@ class SkillSources:
                             if total > MAX_BUNDLE_BYTES:
                                 raise SourceError("source_limit_exceeded")
                             files[path[len(prefix):]] = content
-                    reference = self._register(skill["name"], files)
-                    options[label + " @ " + commit + " | " + reference["revision_id"]] = reference
+                    offer(files, lambda revision, label=label, commit=commit: label + " @ " + commit + " | " + revision,
+                          location + " / " + skill["path"] + " @ " + label + " " + commit)
             if len(options) > 64:
                 raise SourceError("source_limit_exceeded")
+            for files, origin in pending:
+                self._register(skill["name"], files, origin)
+            cached.setdefault("revisions", {})[choice] = options
             self._save()
             return {"revisions": [{"choice": k, **v} for k, v in sorted(options.items(), reverse=True)]}
 
@@ -371,5 +395,8 @@ class SkillSources:
             reference = self.index.get(location, {}).get("revisions", {}).get(choice, {}).get(revision)
             if reference is None:
                 raise SourceError("discovered_revision_required")
+            label_hash = revision.rsplit(" | ", 1)[-1]
+            if label_hash != reference["revision_id"] or reference["tree_hash"] != reference["revision_id"]:
+                raise SourceError("source_reference_invalid")
             inspect_skill(self.store.root, reference["skill_id"], reference["revision_id"])
             return dict(reference)
