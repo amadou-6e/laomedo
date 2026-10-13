@@ -99,6 +99,10 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
     const controller = new AbortController();
     setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false);
     if (!open) { setLoading(false); return () => controller.abort(); }
+    if (!skillId || !revision) {
+      setError("Select a skill and revision first."); setLoading(false);
+      return () => controller.abort();
+    }
     const url = `${getBaseUrl()}laomedo/skills/${encodeURIComponent(skillId)}/${encodeURIComponent(revision)}`;
     api.get<Snapshot>(url, { signal: controller.signal }).then(({ data }) => {
       if (controller.signal.aborted) return;

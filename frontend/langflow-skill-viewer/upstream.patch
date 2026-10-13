@@ -70,6 +70,91 @@ index 40e188f..b85f8b9 100644
      "mustache": "^4.2.0",
      "nanoid": "^5.1.16",
      "openseadragon": "^4.1.1",
+diff --git a/src/frontend/src/CustomNodes/helpers/mutate-template.ts b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
+index 65f806c..a6e436c 100644
+--- a/src/frontend/src/CustomNodes/helpers/mutate-template.ts
++++ b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
+@@ -95,6 +95,9 @@ const keepUserEdits = (
+       baseline && fieldName in baseline
+         ? baseline[fieldName]
+         : requestedField.value;
++    const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
++    if (skillNode?.data.type === "LaomedoSkill" &&
++        ["resolved_skill_id", "resolved_revision_id", "resolved_selection", "discovery_status"].includes(fieldName)) continue;
+     if (!isEqual(currentField.value, appliedValue)) {
+       incomingField.value = cloneDeep(currentField.value);
+     }
+@@ -107,7 +110,17 @@ const keepUserEdits = (
+ const isStaleForNode = (
+   nodeId: string,
+   requestedNode: APIClassType,
++  parameterName?: string,
++  newValue?: unknown,
+ ): boolean => {
++  const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
++  if (skillNode?.data.type === "LaomedoSkill") {
++    const current = getNodeTemplate(nodeId);
++    for (const name of ["source", "skill_id", "revision_id"]) {
++      const expected = name === parameterName ? newValue : requestedNode.template?.[name]?.value;
++      if (!isEqual(current?.[name]?.value, expected)) return true;
++    }
++  }
+   const requestedCode = requestedNode.template?.code?.value;
+   if (requestedCode === undefined) return false;
+   const currentCode = getNodeCode(nodeId);
+@@ -163,7 +176,7 @@ export const mutateTemplate = async (
+               tool_mode: toolMode ?? node.tool_mode,
+               is_refresh: isRefresh ?? false,
+             });
+-            if (newTemplate && !isStaleForNode(nodeId, node)) {
++            if (newTemplate && !isStaleForNode(nodeId, node, parameterName, newValue)) {
+               newNode.template = keepUserEdits(
+                 nodeId,
+                 node.template,
+diff --git a/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts b/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
+index b410b4b..bdb16fb 100644
+--- a/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
++++ b/src/frontend/src/CustomNodes/hooks/use-handle-new-value.ts
+@@ -147,6 +147,20 @@ const useHandleOnNewValue = ({
+         }
+       }
+ 
++      const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
++      if (skillNode?.data.type === "LaomedoSkill" && changes.value !== undefined &&
++          ["source", "skill_id", "revision_id"].includes(name) &&
++          changes.value !== node.template?.[name]?.value) {
++        if (template.discovery_status) template.discovery_status.value = name === "source" ? "Discovering skills..." : name === "skill_id" ? "Discovering revisions..." : "Resolving selected revision...";
++        const dependents = name === "source" ? ["skill_id", "revision_id"] : name === "skill_id" ? ["revision_id"] : [];
++        for (const key of dependents) {
++          if (template[key]) { template[key].value = ""; template[key].options = []; }
++        }
++        for (const key of ["resolved_skill_id", "resolved_revision_id", "resolved_selection"]) {
++          if (template[key]) template[key].value = "";
++        }
++      }
++
+       const shouldUpdate = parameter.real_time_refresh;
+ 
+       const setNodeClass = (newNodeClass: APIClassType) => {
+diff --git a/src/frontend/src/components/core/parameterRenderComponent/index.tsx b/src/frontend/src/components/core/parameterRenderComponent/index.tsx
+index 419a1a2..47bbf0b 100644
+--- a/src/frontend/src/components/core/parameterRenderComponent/index.tsx
++++ b/src/frontend/src/components/core/parameterRenderComponent/index.tsx
+@@ -1,3 +1,4 @@
++import useFlowStore from "@/stores/flowStore";
+ import { useTranslation } from "react-i18next";
+ import type { handleOnNewValueType } from "@/CustomNodes/hooks/use-handle-new-value";
+ import CodeAreaComponent from "@/components/core/parameterRenderComponent/components/codeAreaComponent";
+@@ -77,6 +78,9 @@ export function ParameterRenderComponent({
+   ).toLowerCase();
+ 
+   const renderComponent = (): React.ReactElement<InputProps> => {
++    if (name === "discovery_status" && useFlowStore.getState().nodes.find((entry) => entry.id === nodeId)?.data.type === "LaomedoSkill") {
++      return <div role="status" data-testid="skill-discovery-status" className="text-sm text-muted-foreground">{String(templateValue || "")}</div>;
++    }
+     const baseInputProps: InputProps = {
+       id,
+       value: templateValue,
 diff --git a/src/frontend/src/constants/constants.ts b/src/frontend/src/constants/constants.ts
 index 0e4521c..e3b1ca7 100644
 --- a/src/frontend/src/constants/constants.ts
@@ -124,17 +209,18 @@ index a5eae26..ac1504a 100644
        )}
        {/* Gated on the same flag the panel itself honors — without it the
 diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
-index fa16114..dc12277 100644
+index fa16114..7062d0d 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/toolbar-modals.tsx
-@@ -1,4 +1,5 @@
+@@ -1,4 +1,6 @@
 -import { memo } from "react";
++import { inspectionSelection } from "@/modals/skillFilesModal/selection";
 +import { lazy, memo, Suspense } from "react";
 +const SkillFilesModal = lazy(() => import("@/modals/skillFilesModal"));
  import { useTranslation } from "react-i18next";
  import CodeAreaModal from "@/modals/codeAreaModal";
  import ConfirmationModal from "@/modals/confirmationModal";
-@@ -108,9 +109,15 @@ const ToolbarModals = memo(
+@@ -108,9 +110,15 @@ const ToolbarModals = memo(
            </ConfirmationModal>
          )}
  
@@ -145,14 +231,14 @@ index fa16114..dc12277 100644
 +            {openModal && (data.type === "LaomedoSkill" ? (
 +              <Suspense fallback={<div role="status">Loading Skill files...</div>}>
 +                <SkillFilesModal open={openModal} setOpen={setOpenModal}
-+                  skillId={String(data.node?.template.skill_id?.value || "")}
-+                  revision={String(data.node?.template.revision_id?.value || "")} />
++                  skillId={inspectionSelection(data.node?.template).skillId}
++                  revision={inspectionSelection(data.node?.template).revision} />
 +              </Suspense>
 +            ) : (
                <CodeAreaModal
                  setValue={handleOnNewValue}
                  open={openModal}
-@@ -126,7 +133,7 @@ const ToolbarModals = memo(
+@@ -126,7 +134,7 @@ const ToolbarModals = memo(
                >
                  <></>
                </CodeAreaModal>
