@@ -92,3 +92,14 @@ not equivalent to merely calling the component's Python methods.
 No live writes, provider login or model turns are part of these tests. Existing
 frozen EXP-139 examples remain historical evidence and are not relabelled live.
 See [activation draft](DEPLOYMENT.md); current running services are unchanged.
+
+
+## Issue inspection controls
+
+Issue viewer replaces Code on GitHub Issue. It fetches fresh scoped data without
+running an operation. Open in GitHub opens the exact selected issue in a separate
+tab. Empty/invalid picker selection disables opening; reference-only runtime
+inputs are not guessed. Markdown skips HTML and remote images. The overlay also
+recognizes namespaced custom-component IDs. Browser regression:
+`tests/browser/issue_viewer.cjs <fake-manifest>`; native endpoint checks:
+`tests/langflow/test_issue_inspection.py`. See [activation draft](ISSUE-VIEWER-DEPLOYMENT.md).
