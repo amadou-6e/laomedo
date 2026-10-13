@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import re
+import time
+from .github_issue_contract import issue_value, issue_digest, labels_value, validate_patch
 from urllib import error, parse, request
 
 from .github_mediation import KnownRejected
@@ -37,11 +39,62 @@ class GitHubRestTransport:
 
     def __call__(self, repository: str, operation: str, payload: dict, *,
                  connection_id: str | None = None,
-                 connection_generation: int | None = None) -> dict:
+                 connection_generation: int | None = None, before_write=None) -> dict:
         if repository != self.repository:
             raise KnownRejected("repository_denied")
         prefix = f"/repos/{self.repository}"
         method, path, body = "GET", "", None
+        if operation == "label_list":
+            if payload != {}:
+                raise KnownRejected("labels_request_invalid")
+            return {"items": self._pages(prefix + "/labels", connection_id, connection_generation, label_list=True)}
+        if operation == "issue_query":
+            if set(payload) != {"labels", "state"} or payload["state"] not in {"open", "closed", "all"}:
+                raise KnownRejected("issues_request_invalid")
+            selected = set(labels_value(payload["labels"]))
+            raw = self._pages(prefix + "/issues", connection_id, connection_generation,
+                              query={"state": payload["state"]})
+            issues = [issue_value(item, repository, item["number"]) for item in raw if "pull_request" not in item]
+            return {"items": [item for item in issues if selected <= set(item["labels"])]}
+        if operation == "issue_read":
+            if set(payload) != {"number"} or type(payload["number"]) is not int or payload["number"] < 1:
+                raise KnownRejected("issue_read_target_invalid")
+            raw = self._call("GET", prefix + f"/issues/{payload['number']}", None, connection_id, connection_generation)
+            return issue_value(raw, repository, payload["number"])
+        if operation == "issue_update":
+            if (set(payload) != {"number", "changes", "expected"} or
+                    type(payload["number"]) is not int or payload["number"] < 1):
+                raise KnownRejected("issue_patch_invalid")
+            try:
+                changes = validate_patch(payload["changes"])
+            except ValueError:
+                raise KnownRejected("issue_patch_invalid") from None
+            current = self(repository, "issue_read", {"number": payload["number"]},
+                           connection_id=connection_id, connection_generation=connection_generation)
+            if issue_digest(current) != payload["expected"]:
+                raise KnownRejected("issue_changed_since_read")
+            if "labels" in changes:
+                available = {x["name"] for x in self._pages(prefix + "/labels", connection_id, connection_generation, label_list=True)}
+                if not set(changes["labels"]) <= available:
+                    raise KnownRejected("issue_labels_unknown")
+            path = prefix + f"/issues/{payload['number']}"
+            if before_write is None:
+                raise KnownRejected("issue_write_guard_required")
+            before_write()
+            acknowledged = issue_value(self._call("PATCH", path, changes, connection_id, connection_generation), repository, payload["number"])
+            try:
+                confirmed = self(repository, "issue_read", {"number": payload["number"]},
+                                 connection_id=connection_id, connection_generation=connection_generation)
+            except Exception:
+                # The PATCH was acknowledged; a rejected/lost readback is still uncertain.
+                raise ValueError("issue_update_readback_unknown") from None
+            if acknowledged["node_id"] != current["node_id"] or confirmed["node_id"] != current["node_id"]:
+                raise ValueError("issue_update_readback_unknown")
+            for key, value in changes.items():
+                expected = sorted(value) if key == "labels" else value
+                if acknowledged[key] != expected or confirmed[key] != expected:
+                    raise ValueError("issue_update_readback_unknown")
+            return confirmed
         if operation in {"pr_list", "issue_list"}:
             if operation == "issue_list" and payload == {"format": "fixed_graphql"}:
                 owner, name = repository.split('/')
@@ -171,10 +224,28 @@ class GitHubRestTransport:
 
         return self._call(method, path, body, connection_id, connection_generation)
 
+    def _pages(self, path, connection_id, generation, *, query=None, label_list=False):
+        items = []
+        deadline = time.monotonic() + 60
+        for page in range(1, 11):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ValueError("github_discovery_incomplete")
+            suffix = parse.urlencode({**(query or {}), "per_page": 100, "page": page})
+            result = self._call("GET", path + "?" + suffix, None, connection_id, generation,
+                                allow_list=True, label_list=label_list, timeout=min(15, remaining))
+            batch = result["items"]
+            if len(batch) > 100:
+                raise ValueError("github_discovery_incomplete")
+            items.extend(batch)
+            if len(batch) < 100:
+                return items
+        raise ValueError("github_discovery_incomplete")
+
     def _call(self, method: str, path: str, body: dict | None,
               connection_id: str | None = None,
               connection_generation: int | None = None, *,
-              allow_list: bool = False) -> dict:
+              allow_list: bool = False, label_list: bool = False, timeout: float = 15) -> dict:
         if (connection_id is None) != (connection_generation is None):
             raise KnownRejected("connection_binding_invalid")
         # Bound grants require a resolver accepting their exact identity and
@@ -197,7 +268,7 @@ class GitHubRestTransport:
         if encoded is not None:
             call.add_header("Content-Type", "application/json")
         try:
-            with self.opener.open(call, timeout=15) as response:
+            with self.opener.open(call, timeout=timeout) as response:
                 content = response.read(1024 * 1024 + 1)
                 if len(content) > 1024 * 1024:
                     raise ValueError("response_too_large")
@@ -205,8 +276,8 @@ class GitHubRestTransport:
                 if allow_list:
                     if (not isinstance(value, list) or
                             any(not isinstance(item, dict) or
-                                type(item.get("number")) is not int or
-                                item["number"] < 1 for item in value)):
+                                ((not isinstance(item.get("name"), str) or not item["name"]) if label_list else
+                                 (type(item.get("number")) is not int or item["number"] < 1)) for item in value)):
                         raise ValueError("list_response_invalid")
                     return {"items": value}
                 if not isinstance(value, dict):
