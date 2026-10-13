@@ -5,7 +5,7 @@ from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput
 from lfx.schema import Data, Message
 from laomedo.github_issue_client import issue_request
-from laomedo.github_issue_contract import repository_from_url, ERROR_CODES
+from laomedo.github_issue_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS
 
 
 class LaomedoGitHubIssue(Component):
@@ -42,6 +42,8 @@ class LaomedoGitHubIssue(Component):
         cached = getattr(self, "_issue_execution_cache", None)
         if cached is not None:
             return cached
+        operation = getattr(self, "operation", None)
+        operation = operation.data if isinstance(operation, Data) else operation
         try:
             repository = repository_from_url(self.repository_url)
             selected = str(getattr(self, "issue_choice", "") or "")
@@ -57,14 +59,14 @@ class LaomedoGitHubIssue(Component):
                 number = reference["number"]
             if number is None:
                 raise ValueError("selected_issue_required")
-            operation = getattr(self, "operation", None)
-            operation = operation.data if isinstance(operation, Data) else operation
             result = issue_request("execute", repository_url=self.repository_url, labels=self.labels,
                 state=self.state, issue_number=number, operation=operation or None)
-        except ValueError as error:
+        except Exception as error:
             code = str(error) if str(error) in ERROR_CODES else "github_issue_unavailable"
+            uncertain = bool(operation) and code not in PRE_DISPATCH_ERRORS
             result = {"schema_version": "laomedo.github-issue.v1", "issue": None,
-                      "operation": {"status": "failed", "error_category": code}}
+                      "operation": {"status": "unknown" if uncertain else "failed",
+                                    "error_category": "issue_write_unknown" if uncertain else code}}
         self._issue_execution_cache = result
         self.status = result["operation"]["status"]
         return result

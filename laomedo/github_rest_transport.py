@@ -82,8 +82,12 @@ class GitHubRestTransport:
                 raise KnownRejected("issue_write_guard_required")
             before_write()
             acknowledged = issue_value(self._call("PATCH", path, changes, connection_id, connection_generation), repository, payload["number"])
-            confirmed = self(repository, "issue_read", {"number": payload["number"]},
-                             connection_id=connection_id, connection_generation=connection_generation)
+            try:
+                confirmed = self(repository, "issue_read", {"number": payload["number"]},
+                                 connection_id=connection_id, connection_generation=connection_generation)
+            except Exception:
+                # The PATCH was acknowledged; a rejected/lost readback is still uncertain.
+                raise ValueError("issue_update_readback_unknown") from None
             if acknowledged["node_id"] != current["node_id"] or confirmed["node_id"] != current["node_id"]:
                 raise ValueError("issue_update_readback_unknown")
             for key, value in changes.items():

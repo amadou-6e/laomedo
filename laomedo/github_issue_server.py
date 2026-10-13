@@ -11,7 +11,7 @@ from .github_rest_transport import GitHubRestTransport
 from .host_token_connection import HostTokenConnection
 
 
-from .github_issue_contract import ERROR_CODES
+from .github_issue_contract import ERROR_CODES, PRE_DISPATCH_ERRORS
 
 SAFE_ERRORS = ERROR_CODES
 
@@ -33,6 +33,7 @@ def server(gateway, token, port=8783, host="127.0.0.1"):
         def do_POST(self):
             if not secrets.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
                 self.reply(401, {"error_category": "unauthorized"}); return
+            executing_write = False
             try:
                 if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                     raise ValueError("invalid_request")
@@ -45,6 +46,7 @@ def server(gateway, token, port=8783, host="127.0.0.1"):
                 if self.path == "/v1/github-issues/discover" and set(body) == {"repository_url", "labels", "state"}:
                     result = gateway.discover(**body)
                 elif self.path == "/v1/github-issues/execute" and set(body) == {"repository_url", "labels", "state", "issue_number", "operation"}:
+                    executing_write = bool(body["operation"])
                     result = gateway.execute(**body)
                 else:
                     raise ValueError("invalid_request")
@@ -53,7 +55,10 @@ def server(gateway, token, port=8783, host="127.0.0.1"):
                 category = str(error) if type(error) is ValueError and str(error) in SAFE_ERRORS else "github_issue_unavailable"
                 if isinstance(error, KnownRejected) and error.code in {"github_http_401", "github_http_403", "github_http_404", "github_http_410"}:
                     category = error.code
-                self.reply(400, {"error_category": category})
+                if executing_write and category not in PRE_DISPATCH_ERRORS:
+                    self.reply(503, {"error_category": "issue_write_unknown"})
+                else:
+                    self.reply(400, {"error_category": category})
     return ThreadingHTTPServer((host, port), Handler)
 
 

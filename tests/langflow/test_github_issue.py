@@ -83,3 +83,16 @@ class NativeGitHubIssueTests(unittest.TestCase):
         self.component._pre_run_setup()
         self.assertEqual(self.component.task_output().text, "")
         self.assertEqual(self.component.result_output().data["operation"]["status"], "failed")
+
+    def test_write_transport_failures_are_unknown_and_stop_task(self):
+        self.component.set(operation=Data(data={"action":"close","request_id":"close-uncertain","grant_ref":"grant"}))
+        for failure in (TimeoutError("dummy-secret"), ConnectionResetError(), ValueError("github_issue_unavailable")):
+            self.mock.side_effect = failure
+            self.component._pre_run_setup()
+            result = self.component.result_output().data
+            self.assertEqual(result["operation"], {"status":"unknown","error_category":"issue_write_unknown"})
+            self.assertEqual(self.component.task_output().text, "")
+            self.assertNotIn("dummy-secret", json.dumps(result))
+        self.mock.side_effect = ValueError("issue_grant_unavailable")
+        self.component._pre_run_setup()
+        self.assertEqual(self.component.result_output().data["operation"]["status"], "failed")

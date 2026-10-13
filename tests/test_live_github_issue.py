@@ -197,3 +197,60 @@ class LiveGitHubIssueTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"issue_operation_conflict"):
             self.execute()
         self.assertEqual(self.fake.patch_count,1)
+
+    def test_rejected_readback_after_patch_stays_unknown(self):
+        from urllib.error import HTTPError
+        original = self.fake.open
+        def fail_readback(call, timeout=15):
+            if call.get_method() == "GET" and self.fake.patch_count:
+                raise HTTPError(call.full_url, 403, "dummy-provider-secret", {}, None)
+            return original(call, timeout)
+        self.fake.open = fail_readback
+        result = self.execute()
+        self.assertEqual(result["operation"]["status"], "unknown")
+        self.assertEqual(self.execute(), result)
+        self.assertEqual(self.fake.patch_count, 1)
+
+    def test_client_uncertain_delivery_and_bad_responses_are_not_rejections(self):
+        import io
+        from unittest.mock import patch, MagicMock
+        from urllib.error import HTTPError
+        from laomedo.github_issue_client import issue_request
+        token_file = Path(self.temp.name) / "dummy-control-token"
+        token_file.write_text("x" * 40, encoding="utf-8")
+        env = {"LAOMEDO_GITHUB_ISSUE_URL":"http://127.0.0.1:8783",
+               "LAOMEDO_GITHUB_ISSUE_TOKEN_FILE":str(token_file)}
+        payload = dict(repository_url=self.url, labels=[], state="open", issue_number=1,
+                       operation={"action":"close","request_id":"uncertain","grant_ref":"grant"})
+        with patch.dict("os.environ", env), patch("laomedo.github_issue_client.request.build_opener") as opener:
+            for failure in (TimeoutError("dummy-secret"), ConnectionResetError(),
+                            HTTPError("http://127.0.0.1",503,"dummy-secret",{},io.BytesIO(b'{"error_category":"invalid_request"}'))):
+                opener.return_value.open.side_effect = failure
+                with self.assertRaisesRegex(ValueError, "^issue_write_unknown$"):
+                    issue_request("execute", **payload)
+            opener.return_value.open.side_effect = None
+            response = MagicMock(); response.__enter__.return_value.read.return_value = b'[]'
+            opener.return_value.open.return_value = response
+            with self.assertRaisesRegex(ValueError, "^issue_write_unknown$"):
+                issue_request("execute", **payload)
+            opener.return_value.open.side_effect = HTTPError("http://127.0.0.1",400,"",{},io.BytesIO(b'{"error_category":"issue_grant_unavailable"}'))
+            with self.assertRaisesRegex(ValueError, "^issue_grant_unavailable$"):
+                issue_request("execute", **payload)
+
+    def test_server_unexpected_write_exception_is_unknown_not_rejected(self):
+        import threading
+        from urllib import request, error
+        from unittest.mock import patch
+        from laomedo.github_issue_server import server
+        token = "x" * 40
+        service = server(self.gateway, token, port=0)
+        threading.Thread(target=service.serve_forever, daemon=True).start()
+        self.addCleanup(service.server_close); self.addCleanup(service.shutdown)
+        body = dict(repository_url=self.url, labels=[], state="open", issue_number=1,
+                    operation={"action":"close","request_id":"server-error","grant_ref":"grant"})
+        call = request.Request(f"http://127.0.0.1:{service.server_address[1]}/v1/github-issues/execute",
+                               data=json.dumps(body).encode(),headers={"Content-Type":"application/json","Authorization":"Bearer " + token})
+        with patch.object(self.gateway,"execute",side_effect=RuntimeError("dummy-secret")):
+            with self.assertRaises(error.HTTPError) as caught:request.urlopen(call)
+            self.assertEqual(caught.exception.code,503)
+            self.assertEqual(json.load(caught.exception),{"error_category":"issue_write_unknown"})

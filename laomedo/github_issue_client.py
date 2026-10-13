@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib import request, error
 from .skill_source_client import NoRedirect
+from .github_issue_contract import ERROR_CODES, PRE_DISPATCH_ERRORS
 
 
 def issue_request(action, **payload):
@@ -25,16 +26,25 @@ def issue_request(action, **payload):
             data = response.read(1024 * 1024 + 1)
         if len(data) > 1024 * 1024:
             raise ValueError()
-        return json.loads(data)
+        result = json.loads(data)
+        if not isinstance(result, dict):
+            raise ValueError()
+        if action == "execute" and (result.get("schema_version") != "laomedo.github-issue.v1" or
+                not isinstance(result.get("operation"), dict) or
+                result["operation"].get("status") not in {"not_requested", "succeeded", "failed", "unknown"} or
+                "issue" not in result or result["issue"] is not None and not isinstance(result["issue"], dict)):
+            raise ValueError()
+        return result
     except error.HTTPError as exc:
         category = "github_issue_unavailable"
         try:
             parsed = json.loads(exc.read(1024))
-            from .github_issue_contract import ERROR_CODES
             if parsed.get("error_category") in ERROR_CODES:
                 category = parsed["error_category"]
         except Exception:
             pass
+        if action == "execute" and payload.get("operation") and (exc.code not in {400, 401} or category not in PRE_DISPATCH_ERRORS):
+            category = "issue_write_unknown"
         raise ValueError(category) from None
     except Exception:
-        raise ValueError("github_issue_unavailable") from None
+        raise ValueError("issue_write_unknown" if action == "execute" and payload.get("operation") else "github_issue_unavailable") from None
