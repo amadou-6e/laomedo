@@ -2,25 +2,29 @@
 
 This example replaces the earlier CLI-only demonstration with an inspectable
 Langflow graph: two live Issue selections -> task preparation -> pinned Skill
-and native Codex Agent -> Output Contract -> host-mediated update -> close.
+and native Codex Agent -> Output Contract -> Operation Data -> native GitHub Issue update -> confirmed-success condition -> native GitHub Issue close.
 Failure, rejection and recovery route to separate read-only review destinations.
-Run the final Close component to build the entire upstream chain. Running only
+Run the final GitHub Issue close-target component to build the entire upstream chain. Running only
 an Issue reader does not run the agent or cause a write.
 
-The three small graph-components are demo adapters, not new general-purpose
-GitHub write components. Their fixed host endpoint accepts only the frozen
-campaign, exact native proposal and selected two issues. Existing GitHub Issue
-readers, Skill, Codex and Output Contract implementations remain unchanged.
+The task preparation and operation extraction adapters do not modify GitHub.
+Extraction emits the agent-proposed changes with host-bound opaque grant and
+stable request references. Both write vertices are the existing native GitHub
+Issue class, with incoming Issue Reference and Operation ports. Its implementation
+is unchanged; its existing HTTP client is embedded with a fixed local demo
+backend address so the current viewer's global read-only connection is preserved.
+The confirmed-update condition only emits the close Operation Data after the
+update Issue node reports succeeded. The host checks its own receipt as well.
 The host fetches the native record itself, checks native trace closure and the
 exact requirements revision, and compares the proposal to the owner-approved
-operation payloads before issuing a 60-second private issue grant. It also checks
+operation payloads before issuing a 60-second private issue grant. The operation-authorize endpoint cannot perform a GitHub write; only the native Issue execute requests can. It also checks
 both original issue digests before the first mutation. The close API checks the
 host's persisted update receipt, not merely the Data supplied by the graph.
 
 The graph never contains a GitHub token or write capability. Local transport
 uses the existing backend token file; provider credentials stay on the host.
 The runner reuses the existing Codex subscription volume with unchanged command
-permissions and a fresh four-turn campaign ledger. Same-user host processes
+permissions and a fresh explicitly capped campaign ledger (three turns for the corrected owner-approved follow-up). Same-user host processes
 remain trusted. This does not claim a protected human approval boundary.
 
 Export using build_graph_demo.py --config <private-config> --output <local-json>.
@@ -66,3 +70,25 @@ quote separator with a numeric code point. The fake runner initially omitted
 client_request_id, correctly producing recovery and no issue effects; the fake
 response was corrected to the actual runner protocol. Those refusals remain in
 the ignored verification records and did not consume live allowance.
+
+## Correction: native Operation-input verification
+
+The original saved demo used effect helpers instead of the Issue Operation port.
+That result is preserved as helper-based evidence, not native Issue-node
+acceptance. The corrected exported graph contains 13 nodes and 15 connections.
+The imported fake graph passed its actual editor Run component path through
+both native GitHub Issue Operation inputs, with update then close. It used a
+fake model and fake GitHub, zero native model turns and no real issue mutation.
+The controller also rejects an altered operation or close without its own
+confirmed update receipt, even if editable graph Data claims success.
+
+The demo's writer nodes embed the standard backend client with this campaign's
+local service address. Do not accept the catalog Update available action on
+these nodes: that would restore the viewer's read-only global connection and
+make the demo refuse writes. The Issue class and its Operation input handling
+are unchanged. Some controller pre-dispatch refusals are conservatively shown
+as unknown by the current client; inspect the host receipt rather than retry.
+The corrected host suite passed 720 tests with 15 skips; 11 focused controller
+tests passed. A fresh read after the fake editor saved the graph preserved all
+15 logical edge handles and four AST-identical native Issue class definitions.
+The fake mediation ledger records two confirmed effects and a revoked grant.

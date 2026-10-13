@@ -40,7 +40,7 @@ class Engine:
     def lookup_request(self,request_id):return self.record
 engine=Engine();store=MediationStore(state/'issues.sqlite',connection_is_current=lambda *_:True)
 controller=demo.DemoController(state,config,engine,rest,store)
-services=[serve(engine,port=8784),demo.service(controller,engine.api_token,8785),server(controller.gateway,engine.api_token,8786)]
+services=[serve(engine,port=8794),demo.service(controller,engine.api_token,8795),server(controller.gateway,engine.api_token,8796)]
 for srv in services:threading.Thread(target=srv.serve_forever,daemon=True).start()
 args.manifest.write_text(json.dumps({'provider':'fake-no-network','state':str(state),'config':str(state/'config.json'),'model_turns':0}),encoding='utf-8')
 print('Fake issue graph fixture ready',flush=True)

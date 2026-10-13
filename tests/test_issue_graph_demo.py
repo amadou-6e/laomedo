@@ -67,6 +67,25 @@ class IssueGraphDemoTests(unittest.TestCase):
         self.record['answer']=json.dumps({'task_outcome':'success','operations':{}})
         with self.assertRaisesRegex(ValueError,'agent_plan_not_exactly_approved'):self.controller.apply('modify','native')
         self.assertEqual(self.fake.patch_count,0)
+    def test_authorization_returns_operation_data_without_writing(self):
+        bundle=self.controller.authorized_operations('native')['operations']
+        self.assertEqual(self.fake.patch_count,0)
+        self.assertEqual(set(bundle['modify']),{'action','changes','request_id','grant_ref'})
+        self.assertEqual(bundle['modify']['changes'],self.config['approved']['modify']['changes'])
+        self.assertNotIn(self.controller.binding['token'],json.dumps(bundle))
+        result=self.controller.execute_issue('https://github.com/owner/repo',[],'all',1,bundle['modify'])
+        self.assertEqual(result['operation']['status'],'succeeded')
+        result=self.controller.execute_issue('https://github.com/owner/repo',[],'all',2,bundle['close'])
+        self.assertEqual(result['operation']['status'],'succeeded')
+        self.assertEqual(self.fake.patch_count,2)
+    def test_forged_close_result_and_modified_operation_cannot_write(self):
+        bundle=self.controller.authorized_operations('native')['operations']
+        with self.assertRaisesRegex(ValueError,'update_not_confirmed'):
+            self.controller.execute_issue('https://github.com/owner/repo',[],'all',2,bundle['close'])
+        for payload,number in [({**bundle['modify'],'changes':{'title':'not approved'}},1),(bundle['modify'],3)]:
+            with self.assertRaisesRegex(ValueError,'issue_operation_conflict'):
+                self.controller.execute_issue('https://github.com/owner/repo',[],'all',number,payload)
+        self.assertEqual(self.fake.patch_count,0)
     def test_export_handles_use_native_type_and_roundtrip(self):
         tree=ast.parse((ROOT/'examples/github-issue/build_graph_demo.py').read_text())
         function=next(item for item in tree.body if isinstance(item,ast.FunctionDef) and item.name=='edge')

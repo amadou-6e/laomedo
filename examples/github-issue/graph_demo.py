@@ -7,7 +7,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
 from laomedo.local_runner import LocalRunner, RunnerError, serve, _private
-from laomedo.github_issue_contract import issue_digest
+from laomedo.github_issue_contract import issue_digest, ERROR_CODES, PRE_DISPATCH_ERRORS
 from laomedo.github_issue_gateway import GitHubIssueGateway
 from laomedo.github_mediation import MediationStore, KnownRejected
 from laomedo.github_rest_transport import GitHubRestTransport
@@ -67,40 +67,69 @@ class DemoController:
                 raise ValueError('issue_changed_since_campaign_preparation')
         return {'task': task(self.config)}
 
-    def apply(self, action, run_id):
-        if action not in {'modify', 'close'} or not isinstance(run_id, str): raise ValueError('invalid_operation')
+    def _authorize(self, run_id):
+        record = self.engine.status(run_id); verify_record(self.config, record)
+        if self.binding is None:
+            for number, issue in self.config['issues'].items():
+                if issue_digest(self.rest(self.config['repository'], 'issue_read', {'number': int(number)})) != issue_digest(issue):
+                    raise ValueError('issue_changed_since_campaign_preparation')
+            _, token = self.store.issue(run_id=run_id, invocation_id=self.config['campaign_id'],
+                repository=self.config['repository'], operations={'issue_update'},
+                target_issues={int(n) for n in self.config['issues']}, ttl_seconds=60,
+                connection_id='issue-graph-demo', connection_generation=1)
+            self.binding = {'token': token, 'run_id': run_id, 'repository': self.config['repository']}
+            save(self.binding_path, self.binding)
+        if self.binding['run_id'] != run_id: raise ValueError('campaign_run_rebinding_denied')
+        proposed = json.loads(record['answer'])['operations']
+        operations = {}
+        for action in ('modify', 'close'):
+            operation = {'action': action, 'request_id': self.config['campaign_id'] + '-' + str(proposed[action]['number']),
+                         'grant_ref': self.config['campaign_id']}
+            if action == 'modify': operation['changes'] = proposed[action]['changes']
+            operations[action] = operation
+        return operations
+
+    def authorized_operations(self, run_id):
+        if not isinstance(run_id, str): raise ValueError('invalid_operation')
         with self.lock:
-            record = self.engine.status(run_id); verify_record(self.config, record)
-            if self.binding is None:
-                if action != 'modify': raise ValueError('update_not_confirmed')
-                for number, issue in self.config['issues'].items():
-                    if issue_digest(self.rest(self.config['repository'], 'issue_read', {'number': int(number)})) != issue_digest(issue):
-                        raise ValueError('issue_changed_since_campaign_preparation')
-                _, token = self.store.issue(run_id=run_id, invocation_id=self.config['campaign_id'],
-                    repository=self.config['repository'], operations={'issue_update'},
-                    target_issues={int(n) for n in self.config['issues']}, ttl_seconds=60,
-                    connection_id='issue-graph-demo', connection_generation=1)
-                self.binding = {'token': token, 'run_id': run_id, 'repository': self.config['repository']}
-                save(self.binding_path, self.binding)
-            if self.binding['run_id'] != run_id: raise ValueError('campaign_run_rebinding_denied')
-            receipt_path = self.root / 'update-receipt.json'
+            return {'operations': self._authorize(run_id)}
+
+    def execute_issue(self, repository_url, labels, state, issue_number, operation=None):
+        if operation is None:
+            return self.gateway.execute(repository_url, labels, state, issue_number)
+        with self.lock:
+            if self.binding is None: raise ValueError('issue_grant_unavailable')
+            run_id = self.binding['run_id']
+            verify_record(self.config, self.engine.status(run_id))
+            if not isinstance(operation, dict) or operation.get('action') not in {'modify', 'close'}:
+                raise ValueError('issue_operation_invalid')
+            action = operation['action']; number = self.config['approved'][action]['number']
+            expected = self._authorize(run_id)[action]
+            if (repository_url != 'https://github.com/' + self.config['repository'] or labels != [] or state != 'all' or
+                    type(issue_number) is not int or issue_number != number or operation != expected):
+                raise ValueError('issue_operation_conflict')
             if action == 'close':
-                if not receipt_path.exists(): raise ValueError('update_not_confirmed')
-                receipt = json.loads(receipt_path.read_text())
+                path = self.root / 'update-receipt.json'
+                if not path.exists(): raise ValueError('update_not_confirmed')
+                receipt = json.loads(path.read_text())
                 if receipt['run_id'] != run_id or receipt['result']['operation']['status'] != 'succeeded':
                     raise ValueError('update_not_confirmed')
-            number = self.config['approved'][action]['number']
-            operation = {'action': action, 'request_id': self.config['campaign_id'] + '-' + str(number),
-                         'grant_ref': self.config['campaign_id']}
-            if action == 'modify': operation['changes'] = self.config['approved']['modify']['changes']
+            result = None
             try:
-                result = self.gateway.execute('https://github.com/' + self.config['repository'], [], 'all', number, operation)
-                receipt = {'run_id': run_id, 'result': result}
-                save(self.root / ('update-receipt.json' if action == 'modify' else 'close-receipt.json'), receipt)
-                return receipt
+                result = self.gateway.execute(repository_url, labels, state, issue_number, operation)
+                save(self.root / ('update-receipt.json' if action == 'modify' else 'close-receipt.json'), {'run_id':run_id,'result':result})
+                return result
             finally:
-                if action == 'close' or 'result' not in locals() or result['operation']['status'] != 'succeeded':
+                if action == 'close' or result is None or result['operation']['status'] != 'succeeded':
                     self.store.revoke_run(run_id)
+
+    def apply(self, action, run_id):
+        # Retained only as a controller test convenience, not an HTTP effect API.
+        if action not in {'modify', 'close'}: raise ValueError('invalid_operation')
+        if action == 'close' and not (self.root / 'update-receipt.json').exists(): raise ValueError('update_not_confirmed')
+        operation = self.authorized_operations(run_id)['operations'][action]
+        result = self.execute_issue('https://github.com/' + self.config['repository'], [], 'all', self.config['approved'][action]['number'], operation)
+        return {'run_id':run_id,'result':result}
 
 class BoundedRunner(LocalRunner):
     def bind(self, config, root): self.demo_config, self.demo_root = config, root
@@ -117,7 +146,7 @@ class BoundedRunner(LocalRunner):
 
 SAFE_ERRORS = {'campaign_already_entered_publication', 'issue_reference_mismatch',
  'issue_changed_since_campaign_preparation', 'native_evidence_not_complete', 'agent_plan_not_exactly_approved',
- 'update_not_confirmed', 'invalid_operation', 'campaign_run_rebinding_denied', 'invalid_request'}
+ 'update_not_confirmed', 'invalid_operation', 'campaign_run_rebinding_denied', 'invalid_request'} | ERROR_CODES
 
 def service(controller, token, port):
     class Handler(BaseHTTPRequestHandler):
@@ -135,13 +164,17 @@ def service(controller, token, port):
                 body = json.loads(self.rfile.read(size))
                 if self.path == '/prepare' and isinstance(body, dict) and set(body) == {'modify', 'close'}:
                     result = controller.prepare_task(body)
-                elif self.path in {'/modify', '/close'} and isinstance(body, dict) and set(body) == {'run_id'}:
-                    result = controller.apply(self.path[1:], body['run_id'])
+                elif self.path == '/operations' and isinstance(body, dict) and set(body) == {'run_id'}:
+                    result = controller.authorized_operations(body['run_id'])
+                elif self.path == '/v1/github-issues/execute' and isinstance(body, dict) and set(body) == {'repository_url','labels','state','issue_number','operation'}:
+                    result = controller.execute_issue(**body)
+                elif self.path == '/v1/github-issues/discover' and isinstance(body, dict) and set(body) == {'repository_url','labels','state'}:
+                    result = controller.gateway.discover(**body)
                 else: raise ValueError('invalid_request')
                 self.reply(200, result)
             except Exception as exc:
                 code = str(exc) if str(exc) in SAFE_ERRORS else 'operation_state_unknown'
-                self.reply(409, {'error_category': code})
+                self.reply(400 if code in PRE_DISPATCH_ERRORS else 409, {'error_category': code})
     return ThreadingHTTPServer(('127.0.0.1', port), Handler)
 
 def main():
@@ -150,7 +183,7 @@ def main():
     p.add_argument('--operation-port', type=int, default=8785); args = p.parse_args()
     root = _private(args.state); config = json.loads((root/'config.json').read_text())
     engine = BoundedRunner(root/'runner', Path(config['registry']), Path(config['source']),
-        max_model_turns=4, lease_service=root/'lease', supervise_containers=True)
+        max_model_turns=config['turn_cap'], lease_service=root/'lease', supervise_containers=True)
     engine.bind(config, root); engine.api_token = args.token_file.read_text().strip()
     provider = HostTokenConnection(connection_id='issue-graph-demo', generation=1, repository=config['repository'],
         token_file=Path('C:/CodeWorkspace/agentviz/.env'), key='GH_LAOMEDO', forbidden_mount=Path(config['source']))
