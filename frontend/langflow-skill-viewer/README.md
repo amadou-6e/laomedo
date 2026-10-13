@@ -83,3 +83,17 @@ times retain machine-readable timestamps and display in the browser locale.
 Open in GitHub and Refresh issue stay in the bottom-right footer outside the
 scrolling description. The viewer has no redundant self-navigation button.
 Refresh performs a read only; it never dispatches an agent or issue mutation.
+
+## Recorded Codex agent inspection
+
+Codex nodes expose Inspect agent with Overview, Output validation and Timeline.
+The runner's authenticated read endpoints project metadata from host-owned
+records; configure the Langflow backend's `LAOMEDO_AGENT_INSPECTION_URLS` as a
+JSON list of exact loopback runner URLs. The existing `LAOMEDO_RUNNER_TOKEN_FILE`
+is backend only. No provider login or raw state mount is required.
+
+Current node output supplies its run UUID when available. Otherwise select an
+explicit history record, which is not attested as that node's invocation.
+Missing token counters remain unknown. Campaign turn usage is not per-run usage.
+Timeline content is metadata only: messages, arguments and tool output are
+withheld. Inspection never dispatches, retries, cancels or publishes.

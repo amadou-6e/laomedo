@@ -1968,6 +1968,13 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 return
             try:
                 parts = self.path.strip("/").split("/")
+                from .agent_inspection import inspect_run, list_runs
+                if parts == ["v1", "inspection", "runs"]:
+                    self._reply(200, list_runs(runner.state)); return
+                if len(parts) in {4,5} and parts[:2] == ["v1", "runs"] and parts[3] == "inspection":
+                    after = int(parts[4]) if len(parts)==5 and parts[4].isdigit() else 0
+                    if len(parts)==5 and not parts[4].isdigit():raise RunnerError("invalid_inspection_cursor")
+                    self._reply(200, inspect_run(runner.state, parts[2], after)); return
                 if len(parts) != 3:
                     raise RunnerError("unknown_endpoint")
                 if parts[:2] == ["v1", "runs"]:
