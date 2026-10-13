@@ -16,14 +16,23 @@ using an existing Langflow application's settings or personal cache.
 
 ```mermaid
 flowchart LR
-  read[GitHub PR: select and read] -->|PR Reference| apply[GitHub PR: apply operation]
-  op[Fixture: modify title and body] -->|Operation| apply
-  apply -->|Operation Result| result[Inspect confirmed / failed / unknown]
+  pr[GitHub PR: selected PR] -->|Task context| agent[Agent: fixture]
+  agent -->|Operation feedback| pr
 ```
+
+There are exactly two nodes. The PR reads first, executes the connected Agent
+once in a native isolated loop body, applies its returned operation to that same
+PR, and stops. Connect the Agent's operation output to the PR Task output's loop
+input socket; leave the ordinary Operation input empty. Operation Result records
+the terminal outcome. The fixture Agent is deterministic and makes no model call.
+The component adapts the pinned runtime's eager parameter resolution only on its
+own vertex, so the feedback socket cannot execute the Agent before the read.
+The PR digest is checked again before writing to refuse concurrent edits.
 
 The fixture runner injects a fake REST provider, uses real mediation and graph
 ports, and runs twice to verify one mutation. Merely importing flow.json does
 not configure a service; the fixture grant has meaning only inside that runner.
+The earlier acyclic example is preserved in four-node-flow.json.
 
 For a separately approved deployment, copy github_pr.py into the installed
 custom component category and apply/build the pinned frontend overlay. Set

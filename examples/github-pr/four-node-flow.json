@@ -1,0 +1,896 @@
+{
+  "id": "ec292984-0ad4-544e-bfab-f36c18151893",
+  "name": "GitHub PR selection and incoming modify operation (fixture)",
+  "description": "Injected fake GitHub provider; no model calls or live writes. Select/view a PR, pass its reference, apply a scoped operation, inspect its result.",
+  "last_tested_version": "1.12.3",
+  "flow_type": "workflow",
+  "access_type": "PRIVATE",
+  "data": {
+    "nodes": [
+      {
+        "id": "read-pr",
+        "type": "genericNode",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "data": {
+          "id": "read-pr",
+          "type": "LaomedoGitHubPR",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "operation": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "operation",
+                "value": "",
+                "display_name": "Operation",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "close or modify(title/body/labels), with request_id and a host-owned grant_ref.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "pr_reference": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "pr_reference",
+                "value": "",
+                "display_name": "PR Reference",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "Connect an earlier GitHub PR output to operate on that same PR. Must match this repository and any explicit selection.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Live repository/label/pr selection and routable graph operations.\"\"\"\nimport asyncio\nimport re\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput\nfrom lfx.schema import Data, Message\nfrom laomedo.github_pr_client import pr_request\nfrom laomedo.github_pr_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS\n\n\nclass LaomedoGitHubPR(Component):\n    display_name = \"GitHub PR\"\n    description = \"Read a live PR or apply a scoped incoming close/modify operation.\"\n    icon = \"Github\"\n    name = \"LaomedoGitHubPR\"\n    inputs = [\n        StrInput(name=\"repository_url\", display_name=\"Repository URL\", value=\"\", real_time_refresh=True,\n                 info=\"GitHub repository URL. The connection is configured on the host.\", track_in_telemetry=False),\n        MultiselectInput(name=\"labels\", display_name=\"Labels\", value=[], options=[],\n                         real_time_refresh=True, refresh_button=True, combobox=False,\n                         info=\"Only PRs matching ALL selected labels appear.\"),\n        DropdownInput(name=\"pr_choice\", display_name=\"PR\", value=\"\", options=[], combobox=False,\n                      refresh_button=True, real_time_refresh=True),\n        DropdownInput(name=\"state\", display_name=\"State\", value=\"open\", options=[\"open\", \"closed\", \"all\"],\n                      advanced=True, real_time_refresh=True),\n        DataInput(name=\"pr_reference\", display_name=\"PR Reference\",\n                  info=\"Connect an earlier GitHub PR output to operate on that same PR. Must match this repository and any explicit selection.\"),\n        DataInput(name=\"operation\", display_name=\"Operation\",\n                  info=\"close or modify(title/body/labels), with request_id and a host-owned grant_ref.\"),\n        StrInput(name=\"discovery_status\", display_name=\"Discovery\", value=\"Supply a repository URL.\"),\n    ]\n    outputs = [\n        Output(name=\"pr\", display_name=\"PR\", method=\"pr_output\", group_outputs=True),\n        Output(name=\"task\", display_name=\"Task\", method=\"task_output\", group_outputs=True),\n        Output(name=\"operation_result\", display_name=\"Operation Result\", method=\"result_output\", group_outputs=True),\n    ]\n\n    def _pre_run_setup(self):\n        self._pr_execution_cache = None\n\n    def _execution(self):\n        cached = getattr(self, \"_pr_execution_cache\", None)\n        if cached is not None:\n            return cached\n        operation = getattr(self, \"operation\", None)\n        operation = operation.data if isinstance(operation, Data) else operation\n        try:\n            repository = repository_from_url(self.repository_url)\n            selected = str(getattr(self, \"pr_choice\", \"\") or \"\")\n            match = re.match(r\"^#([1-9][0-9]*) \", selected)\n            number = int(match.group(1)) if match else None\n            reference = getattr(self, \"pr_reference\", None)\n            reference = reference.data if isinstance(reference, Data) else reference\n            if reference:\n                if not isinstance(reference, dict) or reference.get(\"repository\") != repository or type(reference.get(\"number\")) is not int:\n                    raise ValueError(\"pr_reference_mismatch\")\n                if number is not None and number != reference[\"number\"]:\n                    raise ValueError(\"pr_reference_mismatch\")\n                number = reference[\"number\"]\n            if number is None:\n                raise ValueError(\"selected_pr_required\")\n            result = pr_request(\"execute\", repository_url=self.repository_url, labels=self.labels,\n                state=self.state, pr_number=number, operation=operation or None)\n        except Exception as error:\n            code = str(error) if str(error) in ERROR_CODES else \"github_pr_unavailable\"\n            uncertain = bool(operation) and code not in PRE_DISPATCH_ERRORS\n            result = {\"schema_version\": \"laomedo.github-pr.v1\", \"pr\": None,\n                      \"operation\": {\"status\": \"unknown\" if uncertain else \"failed\",\n                                    \"error_category\": \"pr_write_unknown\" if uncertain else code}}\n        self._pr_execution_cache = result\n        self.status = result[\"operation\"][\"status\"]\n        return result\n\n    def pr_output(self) -> Data:\n        result = self._execution()\n        return Data(data=result[\"pr\"] or {\"error_category\": result[\"operation\"].get(\"error_category\"), \"status\": result[\"operation\"][\"status\"]})\n\n    def task_output(self) -> Message:\n        result = self._execution()\n        pr = result[\"pr\"]\n        if not pr or result[\"operation\"][\"status\"] in {\"failed\", \"unknown\"}:\n            if getattr(self, \"_vertex\", None) is not None:\n                self.stop(\"task\")\n            return Message(text=\"\")\n        return Message(text=f\"PR: {pr['url']}\\nTitle: {pr['title']}\\nState: {pr['state']}\\nLabels: {', '.join(pr['labels'])}\\n\\n{pr['body']}\")\n\n    def result_output(self) -> Data:\n        return Data(data=self._execution())\n\n    async def update_build_config(self, build_config, field_value, field_name=None):\n        for item in self.inputs:\n            build_config.setdefault(item.name, item.to_dict())\n        old = build_config.get(field_name, {}).get(\"value\")\n        if field_name in {\"repository_url\", \"labels\", \"state\", \"pr_choice\"}:\n            build_config[field_name][\"value\"] = field_value\n        if old != field_value:\n            if field_name == \"repository_url\":\n                build_config[\"labels\"].update(value=[], options=[])\n                build_config[\"pr_choice\"].update(value=\"\", options=[])\n            elif field_name in {\"labels\", \"state\"}:\n                build_config[\"pr_choice\"].update(value=\"\", options=[])\n        repository = build_config[\"repository_url\"].get(\"value\", \"\")\n        if not repository:\n            build_config[\"discovery_status\"][\"value\"] = \"Supply a repository URL.\"\n            return build_config\n        try:\n            found = await asyncio.to_thread(pr_request, \"discover\", repository_url=repository,\n                labels=build_config[\"labels\"].get(\"value\", []), state=build_config[\"state\"].get(\"value\", \"open\"))\n            build_config[\"labels\"][\"options\"] = found[\"labels\"]\n            choices = [pr[\"choice\"] for pr in found[\"prs\"]]\n            build_config[\"pr_choice\"][\"options\"] = choices\n            selected = str(build_config[\"pr_choice\"].get(\"value\") or \"\")\n            identity = re.match(r\"^#([1-9][0-9]*) \", selected)\n            build_config[\"pr_choice\"][\"value\"] = next((choice for choice in choices\n                if identity and choice.startswith(\"#\" + identity.group(1) + \" \")), \"\")\n            build_config[\"discovery_status\"][\"value\"] = f\"{len(choices)} matching PRs.\" if choices else \"No matching PRs.\"\n        except ValueError:\n            build_config[\"pr_choice\"].update(value=\"\", options=[])\n            build_config[\"discovery_status\"][\"value\"] = \"GitHub discovery failed. Check connection and refresh.\"\n        return build_config\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "discovery_status": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "discovery_status",
+                "value": "Supply a repository URL.",
+                "display_name": "Discovery",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "labels": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [],
+                "combobox": false,
+                "toggle": false,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "labels",
+                "value": [],
+                "display_name": "Labels",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Only PRs matching ALL selected labels appear.",
+                "real_time_refresh": true,
+                "refresh_button": true,
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MultiselectInput"
+              },
+              "pr_choice": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "pr_choice",
+                "value": "#1 Change 1",
+                "display_name": "PR",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "real_time_refresh": true,
+                "refresh_button": true,
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              },
+              "repository_url": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "repository_url",
+                "value": "https://github.com/owner/repo",
+                "display_name": "Repository URL",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "GitHub repository URL. The connection is configured on the host.",
+                "real_time_refresh": true,
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "state": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [
+                  "open",
+                  "closed",
+                  "all"
+                ],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "state",
+                "value": "open",
+                "display_name": "State",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "real_time_refresh": true,
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              }
+            },
+            "description": "Read a live PR or apply a scoped incoming close/modify operation.",
+            "icon": "Github",
+            "base_classes": [
+              "JSON",
+              "Message"
+            ],
+            "display_name": "GitHub PR",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "pr",
+                "display_name": "PR",
+                "method": "pr_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "task",
+                "display_name": "Task",
+                "method": "task_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "operation_result",
+                "display_name": "Operation Result",
+                "method": "result_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "repository_url",
+              "labels",
+              "pr_choice",
+              "state",
+              "pr_reference",
+              "operation",
+              "discovery_status"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.github_pr",
+              "code_hash": "a6f2c6229125",
+              "dependencies": {
+                "total_dependencies": 2,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  },
+                  {
+                    "name": "laomedo",
+                    "version": null
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "operation",
+        "type": "genericNode",
+        "position": {
+          "x": 0,
+          "y": 550
+        },
+        "data": {
+          "id": "operation",
+          "type": "FixturePROperation",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Credential-free graph input; its grant resolves only in the fixture host.\"\"\"\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import Output\nfrom lfx.schema import Data\n\n\nclass FixturePROperation(Component):\n    display_name = \"Fixture PR modify operation\"\n    description = \"Fixture host reference only; no provider credential or model call.\"\n    inputs = []\n    outputs = [Output(name=\"operation\", display_name=\"Operation\", method=\"operation_output\")]\n\n    def operation_output(self) -> Data:\n        return Data(data={\"action\": \"modify\", \"request_id\": \"pr-demo-modify-1\", \"grant_ref\": \"fixture-grant\",\n                          \"changes\": {\"title\": \"PR operation verified\", \"body\": \"Updated through the PR node.\"}})\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              }
+            },
+            "description": "Fixture host reference only; no provider credential or model call.",
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Fixture PR modify operation",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "operation",
+                "display_name": "Operation",
+                "method": "operation_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.fixture_pr_modify_operation",
+              "code_hash": "dce756651c75",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "apply-operation",
+        "type": "genericNode",
+        "position": {
+          "x": 500,
+          "y": 180
+        },
+        "data": {
+          "id": "apply-operation",
+          "type": "LaomedoGitHubPR",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "operation": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "operation",
+                "value": "",
+                "display_name": "Operation",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "close or modify(title/body/labels), with request_id and a host-owned grant_ref.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "pr_reference": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "pr_reference",
+                "value": "",
+                "display_name": "PR Reference",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "Connect an earlier GitHub PR output to operate on that same PR. Must match this repository and any explicit selection.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Live repository/label/pr selection and routable graph operations.\"\"\"\nimport asyncio\nimport re\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput\nfrom lfx.schema import Data, Message\nfrom laomedo.github_pr_client import pr_request\nfrom laomedo.github_pr_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS\n\n\nclass LaomedoGitHubPR(Component):\n    display_name = \"GitHub PR\"\n    description = \"Read a live PR or apply a scoped incoming close/modify operation.\"\n    icon = \"Github\"\n    name = \"LaomedoGitHubPR\"\n    inputs = [\n        StrInput(name=\"repository_url\", display_name=\"Repository URL\", value=\"\", real_time_refresh=True,\n                 info=\"GitHub repository URL. The connection is configured on the host.\", track_in_telemetry=False),\n        MultiselectInput(name=\"labels\", display_name=\"Labels\", value=[], options=[],\n                         real_time_refresh=True, refresh_button=True, combobox=False,\n                         info=\"Only PRs matching ALL selected labels appear.\"),\n        DropdownInput(name=\"pr_choice\", display_name=\"PR\", value=\"\", options=[], combobox=False,\n                      refresh_button=True, real_time_refresh=True),\n        DropdownInput(name=\"state\", display_name=\"State\", value=\"open\", options=[\"open\", \"closed\", \"all\"],\n                      advanced=True, real_time_refresh=True),\n        DataInput(name=\"pr_reference\", display_name=\"PR Reference\",\n                  info=\"Connect an earlier GitHub PR output to operate on that same PR. Must match this repository and any explicit selection.\"),\n        DataInput(name=\"operation\", display_name=\"Operation\",\n                  info=\"close or modify(title/body/labels), with request_id and a host-owned grant_ref.\"),\n        StrInput(name=\"discovery_status\", display_name=\"Discovery\", value=\"Supply a repository URL.\"),\n    ]\n    outputs = [\n        Output(name=\"pr\", display_name=\"PR\", method=\"pr_output\", group_outputs=True),\n        Output(name=\"task\", display_name=\"Task\", method=\"task_output\", group_outputs=True),\n        Output(name=\"operation_result\", display_name=\"Operation Result\", method=\"result_output\", group_outputs=True),\n    ]\n\n    def _pre_run_setup(self):\n        self._pr_execution_cache = None\n\n    def _execution(self):\n        cached = getattr(self, \"_pr_execution_cache\", None)\n        if cached is not None:\n            return cached\n        operation = getattr(self, \"operation\", None)\n        operation = operation.data if isinstance(operation, Data) else operation\n        try:\n            repository = repository_from_url(self.repository_url)\n            selected = str(getattr(self, \"pr_choice\", \"\") or \"\")\n            match = re.match(r\"^#([1-9][0-9]*) \", selected)\n            number = int(match.group(1)) if match else None\n            reference = getattr(self, \"pr_reference\", None)\n            reference = reference.data if isinstance(reference, Data) else reference\n            if reference:\n                if not isinstance(reference, dict) or reference.get(\"repository\") != repository or type(reference.get(\"number\")) is not int:\n                    raise ValueError(\"pr_reference_mismatch\")\n                if number is not None and number != reference[\"number\"]:\n                    raise ValueError(\"pr_reference_mismatch\")\n                number = reference[\"number\"]\n            if number is None:\n                raise ValueError(\"selected_pr_required\")\n            result = pr_request(\"execute\", repository_url=self.repository_url, labels=self.labels,\n                state=self.state, pr_number=number, operation=operation or None)\n        except Exception as error:\n            code = str(error) if str(error) in ERROR_CODES else \"github_pr_unavailable\"\n            uncertain = bool(operation) and code not in PRE_DISPATCH_ERRORS\n            result = {\"schema_version\": \"laomedo.github-pr.v1\", \"pr\": None,\n                      \"operation\": {\"status\": \"unknown\" if uncertain else \"failed\",\n                                    \"error_category\": \"pr_write_unknown\" if uncertain else code}}\n        self._pr_execution_cache = result\n        self.status = result[\"operation\"][\"status\"]\n        return result\n\n    def pr_output(self) -> Data:\n        result = self._execution()\n        return Data(data=result[\"pr\"] or {\"error_category\": result[\"operation\"].get(\"error_category\"), \"status\": result[\"operation\"][\"status\"]})\n\n    def task_output(self) -> Message:\n        result = self._execution()\n        pr = result[\"pr\"]\n        if not pr or result[\"operation\"][\"status\"] in {\"failed\", \"unknown\"}:\n            if getattr(self, \"_vertex\", None) is not None:\n                self.stop(\"task\")\n            return Message(text=\"\")\n        return Message(text=f\"PR: {pr['url']}\\nTitle: {pr['title']}\\nState: {pr['state']}\\nLabels: {', '.join(pr['labels'])}\\n\\n{pr['body']}\")\n\n    def result_output(self) -> Data:\n        return Data(data=self._execution())\n\n    async def update_build_config(self, build_config, field_value, field_name=None):\n        for item in self.inputs:\n            build_config.setdefault(item.name, item.to_dict())\n        old = build_config.get(field_name, {}).get(\"value\")\n        if field_name in {\"repository_url\", \"labels\", \"state\", \"pr_choice\"}:\n            build_config[field_name][\"value\"] = field_value\n        if old != field_value:\n            if field_name == \"repository_url\":\n                build_config[\"labels\"].update(value=[], options=[])\n                build_config[\"pr_choice\"].update(value=\"\", options=[])\n            elif field_name in {\"labels\", \"state\"}:\n                build_config[\"pr_choice\"].update(value=\"\", options=[])\n        repository = build_config[\"repository_url\"].get(\"value\", \"\")\n        if not repository:\n            build_config[\"discovery_status\"][\"value\"] = \"Supply a repository URL.\"\n            return build_config\n        try:\n            found = await asyncio.to_thread(pr_request, \"discover\", repository_url=repository,\n                labels=build_config[\"labels\"].get(\"value\", []), state=build_config[\"state\"].get(\"value\", \"open\"))\n            build_config[\"labels\"][\"options\"] = found[\"labels\"]\n            choices = [pr[\"choice\"] for pr in found[\"prs\"]]\n            build_config[\"pr_choice\"][\"options\"] = choices\n            selected = str(build_config[\"pr_choice\"].get(\"value\") or \"\")\n            identity = re.match(r\"^#([1-9][0-9]*) \", selected)\n            build_config[\"pr_choice\"][\"value\"] = next((choice for choice in choices\n                if identity and choice.startswith(\"#\" + identity.group(1) + \" \")), \"\")\n            build_config[\"discovery_status\"][\"value\"] = f\"{len(choices)} matching PRs.\" if choices else \"No matching PRs.\"\n        except ValueError:\n            build_config[\"pr_choice\"].update(value=\"\", options=[])\n            build_config[\"discovery_status\"][\"value\"] = \"GitHub discovery failed. Check connection and refresh.\"\n        return build_config\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "discovery_status": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "discovery_status",
+                "value": "Supply a repository URL.",
+                "display_name": "Discovery",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "labels": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [],
+                "combobox": false,
+                "toggle": false,
+                "list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "labels",
+                "value": [],
+                "display_name": "Labels",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Only PRs matching ALL selected labels appear.",
+                "real_time_refresh": true,
+                "refresh_button": true,
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MultiselectInput"
+              },
+              "pr_choice": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "pr_choice",
+                "value": "",
+                "display_name": "PR",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "real_time_refresh": true,
+                "refresh_button": true,
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              },
+              "repository_url": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "repository_url",
+                "value": "https://github.com/owner/repo",
+                "display_name": "Repository URL",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "GitHub repository URL. The connection is configured on the host.",
+                "real_time_refresh": true,
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "state": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [
+                  "open",
+                  "closed",
+                  "all"
+                ],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "state",
+                "value": "open",
+                "display_name": "State",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "real_time_refresh": true,
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              }
+            },
+            "description": "Read a live PR or apply a scoped incoming close/modify operation.",
+            "icon": "Github",
+            "base_classes": [
+              "JSON",
+              "Message"
+            ],
+            "display_name": "GitHub PR",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "pr",
+                "display_name": "PR",
+                "method": "pr_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "task",
+                "display_name": "Task",
+                "method": "task_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "operation_result",
+                "display_name": "Operation Result",
+                "method": "result_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": true,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "repository_url",
+              "labels",
+              "pr_choice",
+              "state",
+              "pr_reference",
+              "operation",
+              "discovery_status"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.github_pr",
+              "code_hash": "a6f2c6229125",
+              "dependencies": {
+                "total_dependencies": 2,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  },
+                  {
+                    "name": "laomedo",
+                    "version": null
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      },
+      {
+        "id": "inspect-result",
+        "type": "genericNode",
+        "position": {
+          "x": 1000,
+          "y": 180
+        },
+        "data": {
+          "id": "inspect-result",
+          "type": "PROperationResult",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "result": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "result",
+                "value": "",
+                "display_name": "Operation Result",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from lfx.custom.custom_component.component import Component\nfrom lfx.io import DataInput, Output\nfrom lfx.schema import Data\n\n\nclass PROperationResult(Component):\n    display_name = \"Inspect PR operation result\"\n    inputs = [DataInput(name=\"result\", display_name=\"Operation Result\", required=True)]\n    outputs = [Output(name=\"outcome\", display_name=\"Result\", method=\"result_output\")]\n\n    def result_output(self) -> Data:\n        return self.result\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              }
+            },
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "Inspect PR operation result",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "outcome",
+                "display_name": "Result",
+                "method": "result_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "result"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.inspect_pr_operation_result",
+              "code_hash": "cc2be86f8ee0",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "read-pr-pr-apply-operation-pr_reference",
+        "source": "read-pr",
+        "target": "apply-operation",
+        "sourceHandle": "{\"dataType\": \"LaomedoGitHubPR\", \"id\": \"read-pr\", \"name\": \"pr\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"pr_reference\", \"id\": \"apply-operation\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "LaomedoGitHubPR",
+            "id": "read-pr",
+            "name": "pr",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "pr_reference",
+            "id": "apply-operation",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "operation-operation-apply-operation-operation",
+        "source": "operation",
+        "target": "apply-operation",
+        "sourceHandle": "{\"dataType\": \"FixturePROperation\", \"id\": \"operation\", \"name\": \"operation\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"operation\", \"id\": \"apply-operation\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "FixturePROperation",
+            "id": "operation",
+            "name": "operation",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "operation",
+            "id": "apply-operation",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      },
+      {
+        "id": "apply-operation-operation_result-inspect-result-result",
+        "source": "apply-operation",
+        "target": "inspect-result",
+        "sourceHandle": "{\"dataType\": \"LaomedoGitHubPR\", \"id\": \"apply-operation\", \"name\": \"operation_result\", \"output_types\": [\"JSON\"]}",
+        "targetHandle": "{\"fieldName\": \"result\", \"id\": \"inspect-result\", \"inputTypes\": [\"Data\", \"JSON\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "LaomedoGitHubPR",
+            "id": "apply-operation",
+            "name": "operation_result",
+            "output_types": [
+              "JSON"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "result",
+            "id": "inspect-result",
+            "inputTypes": [
+              "Data",
+              "JSON"
+            ],
+            "type": "other"
+          }
+        }
+      }
+    ],
+    "viewport": {
+      "x": 20,
+      "y": 20,
+      "zoom": 0.65
+    }
+  }
+}

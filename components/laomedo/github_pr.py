@@ -6,6 +6,7 @@ from lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput
 from lfx.schema import Data, Message
 from laomedo.github_pr_client import pr_request
 from laomedo.github_pr_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS
+from laomedo.pr_agent_loop import feedback_edge, agent_operation, bind_feedback_parameters
 
 
 class LaomedoGitHubPR(Component):
@@ -31,12 +32,74 @@ class LaomedoGitHubPR(Component):
     ]
     outputs = [
         Output(name="pr", display_name="PR", method="pr_output", group_outputs=True),
-        Output(name="task", display_name="Task", method="task_output", group_outputs=True),
-        Output(name="operation_result", display_name="Operation Result", method="result_output", group_outputs=True),
+        Output(name="task", display_name="Task", method="agent_task_output", group_outputs=True,
+               allows_loop=True, loop_types=["Data", "Message"]),
+        Output(name="operation_result", display_name="Operation Result", method="routed_result_output", group_outputs=True),
     ]
+
+    def set_vertex(self, vertex):
+        super().set_vertex(vertex)
+        bind_feedback_parameters(vertex)
 
     def _pre_run_setup(self):
         self._pr_execution_cache = None
+        self._pr_roundtrip_task = None
+
+    async def _roundtrip(self):
+        initial = self._execution()
+        original = initial.get('pr')
+        labels, state = list(self.labels), self.state
+        if not original or initial['operation']['status'] != 'not_requested':
+            return initial
+        dispatched = False
+        try:
+            raw_operation = self._vertex.full_data['data']['node']['template'].get('operation',{}).get('value')
+            if (getattr(self, 'operation', None) or raw_operation or
+                    any(edge.target_handle.field_name == 'operation' for edge in self._vertex.incoming_edges)):
+                raise ValueError('pr_agent_loop_invalid')
+            seed = self.task_output()
+            operation = await agent_operation(self, seed)
+            dispatched = True
+            result = await asyncio.to_thread(pr_request, 'execute',
+                repository_url='https://github.com/'+original['repository'],
+                labels=labels, state=state, pr_number=original['number'],
+                operation=operation, expected=initial['content_digest'])
+        except asyncio.CancelledError:
+            self._pr_execution_cache = {**initial,'operation':{'status':'unknown' if dispatched else 'failed',
+                'error_category':'pr_write_unknown' if dispatched else 'pr_agent_cancelled'}}
+            raise
+        except Exception as error:
+            code = str(error) if str(error) in ERROR_CODES else 'pr_agent_failed'
+            uncertain = dispatched and code not in PRE_DISPATCH_ERRORS
+            result = {**initial,'operation':{'status':'unknown' if uncertain else 'failed',
+                'error_category':'pr_write_unknown' if uncertain else code}}
+        self._pr_execution_cache = result
+        self.status = result['operation']['status']
+        self.log(Data(data=result), name='Operation Result')
+        return result
+
+    async def _completed_roundtrip(self):
+        if getattr(self, '_pr_roundtrip_task', None) is None:
+            # A one-shot round trip must survive the scheduler's per-vertex
+            # reset of transient stop() state. Conditional exclusion persists
+            # for this run, while the Agent executes in the isolated body.
+            self.graph.exclude_branch_conditionally(self._vertex.id, 'task')
+            self._pr_roundtrip_task = asyncio.create_task(self._roundtrip())
+        return await self._pr_roundtrip_task
+
+    async def agent_task_output(self) -> Message:
+        if feedback_edge(self) is None:
+            return self.task_output()
+        await self._completed_roundtrip()
+        # The Agent received the initial read through the isolated loop body.
+        # Outer graph inspection exposes the terminal result; it never dispatches it again.
+        import json
+        return Message(text=json.dumps(self._pr_execution_cache))
+
+    async def routed_result_output(self) -> Data:
+        if feedback_edge(self) is not None:
+            await self._completed_roundtrip()
+        return self.result_output()
 
     def _execution(self):
         cached = getattr(self, "_pr_execution_cache", None)
@@ -45,6 +108,8 @@ class LaomedoGitHubPR(Component):
         operation = getattr(self, "operation", None)
         operation = operation.data if isinstance(operation, Data) else operation
         try:
+            if feedback_edge(self) is not None:
+                operation = None
             repository = repository_from_url(self.repository_url)
             selected = str(getattr(self, "pr_choice", "") or "")
             match = re.match(r"^#([1-9][0-9]*) ", selected)

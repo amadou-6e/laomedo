@@ -32,15 +32,15 @@ async def run():
         with patch('laomedo.github_pr_client.pr_request', side_effect=request):
             for _ in range(2):
                 graph = Graph.from_payload(builder.build())
-                outcome = await graph.arun(inputs=[{}], outputs=['inspect-result'])
+                outcome = await graph.arun(inputs=[{}], outputs=['pr'])
                 outcomes.append(str(outcome))
         assert fake.prs[1]['title'] == 'PR operation verified'
-        assert fake.prs[1]['body'] == 'Updated through the PR node.'
+        assert fake.prs[1]['body'] == 'Updated through the two-node PR/Agent loop.'
         assert len(fake.writes) == 1, fake.writes
         assert all('succeeded' in outcome for outcome in outcomes), outcomes
         return {'provider':'fake', 'model_turns':0, 'live_writes':0, 'graph_runs':2,
                 'fixture_mutations':len(fake.writes), 'operation_status':'succeeded',
-                'title':fake.prs[1]['title'], 'nodes':4, 'edges':3}
+                'title':fake.prs[1]['title'], 'nodes':2, 'edges':2}
 
 
 if __name__ == '__main__': print(json.dumps(asyncio.run(run()), indent=2))

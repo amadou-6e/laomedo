@@ -48,9 +48,11 @@ class GitHubPRGateway:
                        (json.dumps(result), *key))
         return result
 
-    def execute(self, repository_url, labels, state, pr_number, operation=None):
+    def execute(self, repository_url, labels, state, pr_number, operation=None, expected=None):
         repository, transport = self._transport(repository_url)
         labels = labels_value(labels)
+        if expected is not None and (not isinstance(expected, str) or not re.fullmatch(r'sha256:[0-9a-f]{64}',expected)):
+            raise ValueError('invalid_request')
         if state not in {"open", "closed", "all"} or type(pr_number) is not int or pr_number < 1:
             raise ValueError("selected_pr_invalid")
         key = None
@@ -108,6 +110,8 @@ class GitHubPRGateway:
             raise ValueError("selected_pr_no_longer_matches")
         if operation is None:
             return self._result(pr, "not_requested")
+        if expected is not None and pr_digest(pr) != expected:
+            raise ValueError('pr_changed_since_agent_read')
         payload = json.loads(prior[1]) if prior else {"number": pr_number, "changes": changes,
             "expected": pr_digest(pr), "head": pr["head"]["branch"], "base": pr["base"]}
         if prior is None:

@@ -45,7 +45,9 @@ def server(gateway, token, port=8784, host="127.0.0.1"):
                     raise ValueError("invalid_request")
                 if self.path == "/v1/github-prs/discover" and set(body) == {"repository_url", "labels", "state"}:
                     result = gateway.discover(**body)
-                elif self.path == "/v1/github-prs/execute" and set(body) == {"repository_url", "labels", "state", "pr_number", "operation"}:
+                elif self.path == "/v1/github-prs/execute" and set(body) in (
+                        {"repository_url", "labels", "state", "pr_number", "operation"},
+                        {"repository_url", "labels", "state", "pr_number", "operation", "expected"}):
                     executing_write = bool(body["operation"])
                     result = gateway.execute(**body)
                 else:

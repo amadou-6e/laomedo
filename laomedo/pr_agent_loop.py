@@ -1,0 +1,83 @@
+"""Execute the one connected Agent through native Langflow loop machinery."""
+import json
+from contextlib import aclosing
+from lfx.base.flow_controls.loop_utils import get_loop_body_vertices
+from lfx.execution import aget_default_coordinator
+from lfx.schema import Data, Message
+from types import MethodType
+from lfx.graph.vertex.base import Vertex
+
+
+def _build_pr_params(vertex):
+    Vertex.build_params(vertex)
+    # The return socket is controlled by this component's isolated loop body,
+    # not an eager input dependency. Keep the edge for topology/port selection.
+    if feedback_edge(vertex.custom_component) is not None:
+        vertex.raw_params.pop('task', None)
+        vertex.params.pop('task', None)
+
+
+def bind_feedback_parameters(vertex):
+    """Adapt the pinned runtime's eager loop-input resolution for this node only."""
+    vertex.build_params = MethodType(_build_pr_params, vertex)
+
+
+def feedback_edge(component):
+    vertex = getattr(component, '_vertex', None)
+    if vertex is None:
+        return None
+    edges = [edge for edge in vertex.incoming_edges if edge.target_handle.field_name == 'task']
+    if not edges:
+        return None
+    if len(edges) != 1:
+        raise ValueError('pr_agent_loop_invalid')
+    return edges[0]
+
+
+def operation_value(value):
+    if isinstance(value, Message):
+        value = value.text
+    elif isinstance(value, Data):
+        value = value.data
+    if isinstance(value, dict) and 'action' not in value and isinstance(value.get('text'), str):
+        value = value['text']
+    if isinstance(value, str):
+        if len(value.encode('utf-8')) > 1024 * 1024:
+            raise ValueError('pr_operation_invalid')
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            raise ValueError('pr_operation_invalid') from None
+    if not isinstance(value, dict) or value.get('action') not in {'modify','close'}:
+        raise ValueError('pr_operation_invalid')
+    return value
+
+
+async def agent_operation(component, seed):
+    feedback = feedback_edge(component)
+    starts = [edge for edge in component._vertex.outgoing_edges if edge.source_handle.name == 'task']
+    body = get_loop_body_vertices(vertex=component._vertex, graph=component.graph,
+        get_incoming_edge_by_target_param_fn=component.get_incoming_edge_by_target_param,
+        loop_output_name='task')
+    if (feedback is None or len(starts) != 1 or body != {feedback.source_id} or
+            starts[0].target_id != feedback.source_id):
+        raise ValueError('pr_agent_loop_invalid')
+    start = starts[0]
+    selected = None
+    async with component.graph.create_subgraph(body) as subgraph:
+        for node in subgraph._vertices:
+            if node['id'] == start.target_id:
+                node['data']['node']['template'][start.target_handle.field_name]['value'] = seed
+        subgraph.prepare()
+        subgraph.get_vertex(start.target_id).update_raw_params({start.target_handle.field_name:seed}, overwrite=True)
+        coordinator = await aget_default_coordinator()
+        async with aclosing(coordinator.stream(subgraph, event_manager=component._event_manager)) as stream:
+            async for result in stream:
+                if getattr(result, 'valid', True) is False:
+                    raise ValueError('pr_agent_failed')
+                if getattr(getattr(result, 'vertex', None), 'id', None) == feedback.source_id:
+                    outputs = result.result_dict.outputs
+                    if feedback.source_handle.name in outputs:
+                        output = outputs[feedback.source_handle.name]
+                        selected = output.get('message') if isinstance(output, dict) else getattr(output,'message',None)
+    return operation_value(selected)
