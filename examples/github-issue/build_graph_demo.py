@@ -5,6 +5,7 @@ import gzip
 import json
 from pathlib import Path
 import urllib.request
+from graph_prompt import prompt_template
 
 p=argparse.ArgumentParser(); p.add_argument('--config',type=Path,required=True); p.add_argument('--output',type=Path,required=True)
 p.add_argument('--base',default='http://127.0.0.1:7864'); p.add_argument('--fake',action='store_true'); args=p.parse_args()
@@ -29,7 +30,7 @@ operation_issue_code=issue_code.replace('from laomedo.github_issue_client import
 operation_issue=api('/api/v1/custom_component',{'code':operation_issue_code})['data']
 issue=operation_issue if args.fake else api('/api/v1/custom_component',{'code':issue_code})['data']
 agent=definition(root/'components/laomedo/codex_agent.py');skill=definition(root/'components/laomedo/skill.py');contract=definition(root/'components/laomedo/output_contract.py')
-prepare=definition(root/'examples/github-issue/graph-components/prepare.py');operations=definition(root/'examples/github-issue/graph-components/operations.py');close=definition(root/'examples/github-issue/graph-components/confirmed_close.py');stop=definition(root/'examples/github-issue/graph-components/stop.py')
+operations=definition(root/'examples/github-issue/graph-components/operations.py');close=definition(root/'examples/github-issue/graph-components/confirmed_close.py');stop=definition(root/'examples/github-issue/graph-components/stop.py')
 def setvalue(definition,key,value):definition['template'][key]['value']=value
 nodes=[]; edges=[]
 def node(identity,kind,definition,x,y):
@@ -42,7 +43,14 @@ for index,action in enumerate(('modify','close')):
     setvalue(issue,'repository_url','https://github.com/'+config['repository']);setvalue(issue,'state','all');setvalue(issue,'labels',[])
     issue['template']['issue_choice'].update(value='#'+str(number)+' '+original['title'],options=['#'+str(number)+' '+original['title']])
     node('issue-'+action,'LaomedoGitHubIssue',issue,20,index*500)
-node('prepare','IssueOperationTask',prepare,440,220)
+with urllib.request.urlopen(urllib.request.Request(args.base+'/api/v1/all',headers={'Authorization':'Bearer '+token}),timeout=60) as response:
+    raw=response.read();catalog=json.loads(gzip.decompress(raw) if response.headers.get('Content-Encoding')=='gzip' else raw)
+prompt=copy.deepcopy(next(value for group in catalog.values() if isinstance(group,dict) for value in group.values() if isinstance(value,dict) and value.get('display_name')=='Prompt Template'))
+prompt['template']['template']['value']=prompt_template(config)
+prompt['custom_fields']={'template':['update_issue','close_issue']}
+for variable in ('update_issue','close_issue'):
+    prompt['template'][variable]={'name':variable,'display_name':variable,'type':'str','input_types':['Message'],'value':'','show':True,'multiline':True,'required':False,'list':False,'advanced':False,'dynamic':False}
+node('prompt','Prompt Template',prompt,440,220)
 setvalue(skill,'source','');setvalue(skill,'skill_id',config['skill']['skill_id']);setvalue(skill,'revision_id',config['skill']['revision_id'])
 skill['template']['skill_id']['options']=[config['skill']['skill_id']];skill['template']['revision_id']['options']=[config['skill']['revision_id']];setvalue(skill,'discovery_status','Pinned campaign reference')
 node('skill','LaomedoSkill',skill,440,800)
@@ -60,8 +68,8 @@ for index,action in enumerate(('modify','close')):
 for index,route in enumerate(('failure','rejection','recovery')):
     node('review-'+route,'ReviewIssueProposal',stop,1730,580+index*300)
     edge('contract','LaomedoOutputContract',route,'review-'+route,'outcome')
-for action in ('modify','close'):edge('issue-'+action,'LaomedoGitHubIssue','issue','prepare',action+'_issue')
-edge('prepare','IssueOperationTask','task','agent','task',['Message'],['Message'])
+for action,variable in [('modify','update_issue'),('close','close_issue')]:edge('issue-'+action,'LaomedoGitHubIssue','task','prompt',variable,['Message'],['Message'])
+edge('prompt','Prompt Template','prompt','agent','task',['Message'],['Message'])
 edge('skill','LaomedoSkill','skill','agent','skill_reference')
 edge('agent','LaomedoCodexAgent','submission','contract','agent_submission')
 edge('contract','LaomedoOutputContract','success','operations','accepted')
@@ -72,6 +80,6 @@ edge('operations','IssueOperationData','operations','confirmed','operations')
 edge('confirmed','ConfirmedUpdateRoute','operation','apply-close','operation')
 edge('issue-close','LaomedoGitHubIssue','issue','apply-close','issue_reference')
 flow={'name':('Credential-free fixture - ' if args.fake else '')+'Issue Operation inputs - Codex graph demo',
-    'description':'Run the final GitHub Issue (close target) to execute the full chain once. Host-scoped targets, no push/PR. Four-turn campaign cap. Failure/rejection/recovery do not write.',
+    'description':'Run the final GitHub Issue (close target) to execute the full chain once. Host-scoped targets, no push/PR. Campaign cap: '+str(config.get('turn_cap',4))+' turns. Failure/rejection/recovery do not write.',
     'data':{'nodes':nodes,'edges':edges,'viewport':{'x':20,'y':20,'zoom':0.35}}}
 args.output.write_text(json.dumps(flow,indent=2),encoding='utf-8');print(json.dumps({'exported':True,'nodes':len(nodes),'edges':len(edges),'executed':False}))

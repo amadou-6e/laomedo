@@ -23,10 +23,8 @@ def save(path, value):
     pending.write_text(json.dumps(value, indent=2), encoding='utf-8'); pending.replace(path)
 
 def task(config):
-    return ("Read the offered skill. This is an issue-operation proposal, not the skill's report-file task. "
-            "Do not modify files or GitHub or use git/gh. Propose JSON only with task_outcome success and "
-            "operations exactly as supplied. The host will check and apply it after the graph validates it. "
-            "Use the output precheck tool before submitting.\nApproved operations:\n" + json.dumps(config['approved']))
+    from graph_prompt import render_task
+    return render_task(config)
 
 def verify_record(config, record):
     if (record.get('status') != 'completed' or record.get('evidence_complete') is not True or
@@ -56,16 +54,6 @@ class DemoController:
                 return owner.rest(repository, operation, payload, **kwargs)
         self.gateway = GitHubIssueGateway({config['repository']: ExactTransport()}, store,
             lambda ref: self.binding if ref == config['campaign_id'] else None)
-
-    def prepare_task(self, references):
-        if self.binding_path.exists(): raise ValueError('campaign_already_entered_publication')
-        if set(references) != {'modify', 'close'}: raise ValueError('issue_reference_mismatch')
-        for action, issue in references.items():
-            number = self.config['approved'][action]['number']
-            original = self.config['issues'][str(number)]
-            if not isinstance(issue, dict) or issue_digest(issue) != issue_digest(original):
-                raise ValueError('issue_changed_since_campaign_preparation')
-        return {'task': task(self.config)}
 
     def _authorize(self, run_id):
         record = self.engine.status(run_id); verify_record(self.config, record)
@@ -132,7 +120,7 @@ class DemoController:
         return {'run_id':run_id,'result':result}
 
 class BoundedRunner(LocalRunner):
-    def bind(self, config, root): self.demo_config, self.demo_root = config, root
+    def bind(self, config, root, issue_reader=None): self.demo_config, self.demo_root, self.issue_reader = config, root, issue_reader
     def start_async(self, body, **kwargs):
         c = self.demo_config
         if (self.demo_root / 'binding.json').exists(): raise RunnerError('experiment_request_binding_denied')
@@ -140,6 +128,10 @@ class BoundedRunner(LocalRunner):
         if (set(body) != allowed or body['task'] != task(c) or body['model'] != 'gpt-6-luna' or body['effort'] != 'low' or
             body['skill_ref'] != c['skill'] or body['output_requirements'] != requirements(FORM) or body['output_retries'] != 0):
             raise RunnerError('experiment_request_binding_denied')
+        if self.issue_reader is None: raise RunnerError('standing_issue_context_required')
+        for number, original in c['issues'].items():
+            current = self.issue_reader(c['repository'], 'issue_read', {'number':int(number)})
+            if issue_digest(current) != issue_digest(original): raise RunnerError('standing_issue_context_mismatch')
         return super().start_async(body, **kwargs)
     def start(self, body): raise RunnerError('experiment_request_binding_denied')
     def resume(self, *args, **kwargs): raise RunnerError('experiment_request_binding_denied')
@@ -162,9 +154,7 @@ def service(controller, token, port):
                 size = int(self.headers.get('Content-Length', '0'))
                 if not 0 < size <= 1024*1024 or self.headers.get('Content-Type') != 'application/json': raise ValueError('invalid_request')
                 body = json.loads(self.rfile.read(size))
-                if self.path == '/prepare' and isinstance(body, dict) and set(body) == {'modify', 'close'}:
-                    result = controller.prepare_task(body)
-                elif self.path == '/operations' and isinstance(body, dict) and set(body) == {'run_id'}:
+                if self.path == '/operations' and isinstance(body, dict) and set(body) == {'run_id'}:
                     result = controller.authorized_operations(body['run_id'])
                 elif self.path == '/v1/github-issues/execute' and isinstance(body, dict) and set(body) == {'repository_url','labels','state','issue_number','operation'}:
                     result = controller.execute_issue(**body)
@@ -184,10 +174,11 @@ def main():
     root = _private(args.state); config = json.loads((root/'config.json').read_text())
     engine = BoundedRunner(root/'runner', Path(config['registry']), Path(config['source']),
         max_model_turns=config['turn_cap'], lease_service=root/'lease', supervise_containers=True)
-    engine.bind(config, root); engine.api_token = args.token_file.read_text().strip()
+    engine.api_token = args.token_file.read_text().strip()
     provider = HostTokenConnection(connection_id='issue-graph-demo', generation=1, repository=config['repository'],
         token_file=Path('C:/CodeWorkspace/agentviz/.env'), key='GH_LAOMEDO', forbidden_mount=Path(config['source']))
     rest = GitHubRestTransport(config['repository'], lambda connection_id=None, connection_generation=None: provider.token('issue-graph-demo', 1))
+    engine.bind(config, root, rest)
     controller = DemoController(root, config, engine, rest, MediationStore(root/'issues.sqlite', connection_is_current=provider.current))
     threading.Thread(target=serve(engine, port=args.runner_port).serve_forever, daemon=True).start()
     service(controller, engine.api_token, args.operation_port).serve_forever()

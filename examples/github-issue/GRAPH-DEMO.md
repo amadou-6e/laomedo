@@ -1,13 +1,13 @@
 # Saved Langflow issue-operation demonstration
 
 This example replaces the earlier CLI-only demonstration with an inspectable
-Langflow graph: two live Issue selections -> task preparation -> pinned Skill
+Langflow graph: two live Issue Task outputs -> native Prompt Template -> pinned Skill
 and native Codex Agent -> Output Contract -> Operation Data -> native GitHub Issue update -> confirmed-success condition -> native GitHub Issue close.
 Failure, rejection and recovery route to separate read-only review destinations.
 Run the final GitHub Issue close-target component to build the entire upstream chain. Running only
 an Issue reader does not run the agent or cause a write.
 
-The task preparation and operation extraction adapters do not modify GitHub.
+The native Prompt Template composes issue text and instructions. The operation extraction adapter does not modify GitHub.
 Extraction emits the agent-proposed changes with host-bound opaque grant and
 stable request references. Both write vertices are the existing native GitHub
 Issue class, with incoming Issue Reference and Operation ports. Its implementation
@@ -92,3 +92,19 @@ The corrected host suite passed 720 tests with 15 skips; 11 focused controller
 tests passed. A fresh read after the fake editor saved the graph preserved all
 15 logical edge handles and four AST-identical native Issue class definitions.
 The fake mediation ledger records two confirmed effects and a revoked grant.
+
+## Native prompt composition
+
+Use the installed Prompt Template component for prompt composition. Connect
+each GitHub Issue Task Message output to a named template variable, then Prompt
+to Codex Task. The editor owns the wording and placement of each reference;
+f-string-style placeholders require escaping literal JSON braces. This example
+uses {update_issue} and {close_issue}. The Issue nodes are unchanged.
+
+The host re-fetches both issues and compares their frozen digests before any
+model turn is dispatched, and again before issuing a write grant. The frozen
+rendered prompt must match at dispatch. Template editing in this bounded demo
+does not authorize an arbitrary task or widen its approved operations. No
+custom preparation component or /prepare endpoint is needed. Historical graph
+and rejected-output evidence remain retained. This change does not loosen JSON
+validation or alter retries, login, write targets or remaining turn allowance.

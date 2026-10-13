@@ -14,7 +14,7 @@ from laomedo.github_mediation import MediationStore
 from laomedo.github_rest_transport import GitHubRestTransport
 from laomedo.local_runner import serve
 from laomedo.output_contract import requirements
-root=Path(__file__).resolve().parents[2]; sys.path.insert(0,str(root/'tests'))
+root=Path(__file__).resolve().parents[2]; sys.path.insert(0,str(root/'tests'));sys.path.insert(0,str(root/'examples/github-issue'))
 from test_live_github_issue import FakeGitHub
 spec=importlib.util.spec_from_file_location('graph_demo',root/'examples/github-issue/graph_demo.py');demo=importlib.util.module_from_spec(spec);spec.loader.exec_module(demo)
 p=argparse.ArgumentParser();p.add_argument('--manifest',type=Path,required=True);p.add_argument('--token-file',type=Path,required=True);args=p.parse_args()
