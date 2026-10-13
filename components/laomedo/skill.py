@@ -63,6 +63,7 @@ class LaomedoSkill(Component):
             build_config["revision_id"].update(value="", options=[])
         clear_resolution()
         if not source:
+            build_config["discovery_status"]["value"] = "Supply a source to discover skills."
             return build_config
         for item in self.inputs:
             if item.name in {"skill_id", "revision_id"}:

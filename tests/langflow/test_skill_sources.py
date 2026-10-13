@@ -89,3 +89,8 @@ class NativeSkillSourceTests(unittest.TestCase):
         self.assertEqual(self.config["skill_id"]["value"], "alpha | alpha")
         self.assertEqual(self.config["revision_id"]["value"], revision)
         self.assertTrue(self.config["resolved_revision_id"]["value"])
+
+    def test_empty_source_status_does_not_keep_discovering_message(self):
+        self.config["discovery_status"]["value"] = "Discovering skills..."
+        self.update("source", "")
+        self.assertEqual(self.config["discovery_status"]["value"], "Supply a source to discover skills.")
