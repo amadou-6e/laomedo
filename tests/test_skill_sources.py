@@ -186,3 +186,13 @@ class SkillSourceTests(unittest.TestCase):
         restarted = SkillSources(self.resolver.store.root, self.root / "fresh-cache", [self.source])
         restarted.discover(registry)
         self.assertTrue(any("/ other |" in row["choice"] for row in restarted.revisions(registry, "alpha")["revisions"]))
+
+    def test_windows_crlf_frontmatter_preserves_original_bundle_bytes(self):
+        data = b"---\r\nname: alpha\r\ndescription: Windows skill\r\n---\r\n# alpha\r\n"
+        (self.source / "alpha/SKILL.md").write_bytes(data)
+        choice = self.resolver.discover(str(self.source))["skills"][0]["choice"]
+        self.assertEqual(choice, "alpha | alpha")
+        revision = self.resolver.revisions(str(self.source), choice)["revisions"][0]
+        bundle = self.resolver.store._revision_dir("alpha", revision["revision_id"]) / "bundle/SKILL.md"
+        self.assertEqual(bundle.read_bytes(), data)
+        self.assertEqual(self.resolver.resolve(str(self.source), choice, revision["choice"])["revision_id"], revision["revision_id"])
