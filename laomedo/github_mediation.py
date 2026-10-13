@@ -22,7 +22,7 @@ from .publication_handoff import HandoffStore
 
 
 READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read", "pr_read", "issue_read", "issue_query", "label_list"})
-WRITES = frozenset({"git_push", "pr_create", "pr_update", "issue_create", "api_rest_write", "api_graphql_mutation", "issue_update"})
+WRITES = frozenset({"git_push", "pr_create", "pr_update", "issue_create", "api_rest_write", "api_graphql_mutation", "issue_update", "pr_node_update"})
 OPERATIONS = READS | WRITES
 
 
@@ -58,7 +58,7 @@ def _request_hash(repository: str, operation: str, payload: dict) -> str:
 def _target_key(repository: str, operation: str, payload: dict) -> str:
     if operation == "pr_create":
         target = ["pr", repository, payload["head"], payload["base"]]
-    elif operation == "pr_update":
+    elif operation in {"pr_update", "pr_node_update"}:
         target = ["pr_update", repository, payload["number"]]
     elif operation == "issue_update":
         target = ["issue_update", repository, payload["number"]]
@@ -125,6 +125,21 @@ def _validate_effect(operation: str, payload: dict, grant, db,
         if db.execute("SELECT 1 FROM issue_targets WHERE grant_id=? AND number=?",
                       (grant["grant_id"], payload["number"])).fetchone() is None:
             raise MediationError("issue_target_denied")
+    if operation == "pr_node_update":
+        from .github_pr_contract import validate_patch
+        try:
+            if (set(payload) != {"number", "changes", "expected", "head", "base"} or
+                    type(payload["number"]) is not int or payload["number"] < 1 or
+                    not isinstance(payload["expected"], str) or
+                    not re.fullmatch(r"sha256:[0-9a-f]{64}", payload["expected"])):
+                raise ValueError()
+            validate_patch(payload["changes"])
+        except (ValueError, TypeError):
+            raise MediationError("pr_patch_invalid") from None
+        target = db.execute("SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
+                            (grant["grant_id"], payload["number"])).fetchone()
+        if target is None or payload["head"] != grant["branch"] or payload["base"] != target["base"]:
+            raise MediationError("target_pr_denied")
     if operation in {"api_rest_write", "api_graphql_mutation"}:
         # An agent-declared semantic_operation is not a security classifier.
         # The real endpoint/query parser must be reviewed before this lane opens.
@@ -308,6 +323,7 @@ class MediationStore(HandoffStore):
                 not isinstance(target_issues, set) or
                 any(type(number) is not int or number < 1 for number in target_issues) or
                 ("issue_update" in operations and not target_issues) or
+                ("pr_node_update" in operations and (not target_prs or not branch)) or
                 not isinstance(target_prs, dict) or
                 any(type(number) is not int or number < 1 or
                     not isinstance(base, str) or not base
