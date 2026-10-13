@@ -1,0 +1,40 @@
+{
+  "schema_version": "laomedo.issue-operation-demo-result.v1",
+  "source_revision": "0741ee26ce4a0bdb68b4884d855cf9a43f1ebb57",
+  "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+  "run_id": "cbbdad51-6cb2-4edb-a63a-1426a80e386e",
+  "thread_id": "01a13564-7c69-71d0-a14b-4c2c2dca7c9f",
+  "model": null,
+  "effort": null,
+  "completion_basis": "native_trace_closure",
+  "evidence_complete": true,
+  "skill_use_evidence": "offered",
+  "turns_used": 1,
+  "turn_cap": 4,
+  "confirmed_effects": 2,
+  "grant_revoked": true,
+  "owned_container_absent": true,
+  "issue15": {
+    "url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/issues/15",
+    "title": "Filter demo: agent updated",
+    "labels": [
+      "question"
+    ],
+    "state": "open",
+    "body_sha256": "e66d2d709a48ce972df6be1ca0320eaff11281dc65765d27ae706287b3543a2c",
+    "updated_at": "2026-10-13T13:13:03Z"
+  },
+  "issue12": {
+    "url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/issues/12",
+    "state": "closed",
+    "updated_at": "2026-10-13T13:13:05Z"
+  },
+  "limits": [
+    "Native Codex proposal followed by host-mediated effects; no saved Langflow agent graph or native gh command acceptance",
+    "Raw trace, issue body and credentials not exported",
+    "No push or PR; existing services and read-only preview bindings unchanged"
+  ],
+  "lease_service_stopped": true,
+  "prepared_config_sha256": "8cc17a9d153de265f7ca508b90fb64782d82684aeea9c177d769c12893133740",
+  "native_record_sha256": "a28976f58602f36732d1e111078f320ed6583863b76c4cc2c75b717fb3afb5fa"
+}
