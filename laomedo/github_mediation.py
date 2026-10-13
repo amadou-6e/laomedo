@@ -21,8 +21,8 @@ from typing import Callable
 from .publication_handoff import HandoffStore
 
 
-READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read", "pr_read"})
-WRITES = frozenset({"git_push", "pr_create", "pr_update", "issue_create", "api_rest_write", "api_graphql_mutation"})
+READS = frozenset({"git_fetch", "pr_list", "issue_list", "actions_read", "api_rest_read", "pr_read", "issue_read", "issue_query", "label_list"})
+WRITES = frozenset({"git_push", "pr_create", "pr_update", "issue_create", "api_rest_write", "api_graphql_mutation", "issue_update"})
 OPERATIONS = READS | WRITES
 
 
@@ -60,6 +60,8 @@ def _target_key(repository: str, operation: str, payload: dict) -> str:
         target = ["pr", repository, payload["head"], payload["base"]]
     elif operation == "pr_update":
         target = ["pr_update", repository, payload["number"]]
+    elif operation == "issue_update":
+        target = ["issue_update", repository, payload["number"]]
     elif operation == "issue_create":
         target = ["issue", repository, payload["reviewed_proposal_id"]]
     elif operation == "git_push":
@@ -109,6 +111,20 @@ def _validate_effect(operation: str, payload: dict, grant, db,
         if reviewed.get(payload["reviewed_proposal_id"]) != _request_hash(
                 grant["repository"], "issue_create", payload):
             raise MediationError("issue_review_denied")
+    if operation == "issue_update":
+        from .github_issue_contract import validate_patch
+        try:
+            if (set(payload) != {"number", "changes", "expected"} or
+                    type(payload["number"]) is not int or payload["number"] < 1 or
+                    not isinstance(payload["expected"], str) or
+                    not re.fullmatch(r"sha256:[0-9a-f]{64}", payload["expected"])):
+                raise ValueError()
+            validate_patch(payload["changes"])
+        except (ValueError, TypeError):
+            raise MediationError("issue_patch_invalid") from None
+        if db.execute("SELECT 1 FROM issue_targets WHERE grant_id=? AND number=?",
+                      (grant["grant_id"], payload["number"])).fetchone() is None:
+            raise MediationError("issue_target_denied")
     if operation in {"api_rest_write", "api_graphql_mutation"}:
         # An agent-declared semantic_operation is not a security classifier.
         # The real endpoint/query parser must be reviewed before this lane opens.
@@ -116,6 +132,21 @@ def _validate_effect(operation: str, payload: dict, grant, db,
 
 
 def _validate_read(operation: str, payload: dict, repository: str, grant, db) -> None:
+    if operation in {"label_list", "issue_query", "issue_read"}:
+        from .github_issue_contract import labels_value
+        try:
+            if operation == "label_list" and payload != {}:
+                raise ValueError()
+            if operation == "issue_read" and (set(payload) != {"number"} or
+                    type(payload["number"]) is not int or payload["number"] < 1):
+                raise ValueError()
+            if operation == "issue_query":
+                if set(payload) != {"labels", "state"} or payload["state"] not in {"open", "closed", "all"}:
+                    raise ValueError()
+                labels_value(payload["labels"])
+        except (ValueError, TypeError):
+            raise MediationError("issue_read_request_invalid") from None
+        return
     if operation == "git_fetch":
         if payload == {"action": "list"}:
             return
@@ -168,6 +199,7 @@ class MediationStore(HandoffStore):
         self.connection_is_current = connection_is_current
         with closing(self._connect()) as db, db:
             db.executescript("""
+                CREATE TABLE IF NOT EXISTS issue_targets (grant_id TEXT NOT NULL, number INTEGER NOT NULL, PRIMARY KEY(grant_id,number));
                 CREATE TABLE IF NOT EXISTS grants (
                     token_hash TEXT PRIMARY KEY, grant_id TEXT UNIQUE NOT NULL,
                     run_id TEXT NOT NULL, invocation_id TEXT NOT NULL,
@@ -239,6 +271,7 @@ class MediationStore(HandoffStore):
               lease_token: str | None = None, lease_scope: str | None = None,
               service_instance: str | None = None,
               target_prs: dict[int, str] | None = None,
+              target_issues: set[int] | None = None,
               connection_id: str | None = None,
               connection_generation: int | None = None,
                expires_not_after: float | None = None,
@@ -246,6 +279,7 @@ class MediationStore(HandoffStore):
                base_branch: str = "main") -> tuple[str, str]:
         reviewed_issue_requests = reviewed_issue_requests or {}
         target_prs = target_prs or {}
+        target_issues = target_issues or set()
         if (not isinstance(base_branch, str) or
                 not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]{0,127}", base_branch) or
                 ".." in base_branch or base_branch.startswith("refs/")):
@@ -271,6 +305,9 @@ class MediationStore(HandoffStore):
                  (expires_not_after_monotonic is not None and
                   (not isinstance(expires_not_after_monotonic, (int, float)) or
                    not math.isfinite(expires_not_after_monotonic))) or
+                not isinstance(target_issues, set) or
+                any(type(number) is not int or number < 1 for number in target_issues) or
+                ("issue_update" in operations and not target_issues) or
                 not isinstance(target_prs, dict) or
                 any(type(number) is not int or number < 1 or
                     not isinstance(base, str) or not base
@@ -310,6 +347,8 @@ class MediationStore(HandoffStore):
             if lease_token is not None:
                 db.execute("INSERT INTO lease_bindings VALUES (?,?,?,?,?)",
                            (grant_id, run_id, lease_token, lease_scope, service_instance))
+            for number in target_issues:
+                db.execute("INSERT INTO issue_targets VALUES (?,?)", (grant_id, number))
             for number, base in target_prs.items():
                 db.execute("INSERT INTO pr_targets VALUES (?,?,?)",
                            (grant_id, number, base))

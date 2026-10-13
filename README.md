@@ -101,3 +101,11 @@ read-only file viewer. Old exact references remain compatible. See the
 [overlay and source service guide](frontend/langflow-skill-viewer/README.md#linked-source-selector-157)
 and its separately gated activation draft. The initial Git route supports public
 GitHub/GitLab repository roots; private Git authentication is not implemented.
+
+### Live GitHub Issue component
+
+The [GitHub Issue node](examples/github-issue/README.md) discovers repository
+labels and issues, filters by all selected labels, reads current content and
+accepts incoming close/modify operations through existing scoped mediation.
+Credentials stay on the host. A read-only activation draft and fake-provider
+browser/native checks are included; the old FrozenIssue experiment is separate.
