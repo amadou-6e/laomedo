@@ -127,6 +127,17 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.operations,0)
         self.assertEqual(len(self.fake.writes),0)
 
+    async def test_editor_full_flow_starts_pr_even_when_agent_is_first_in_saved_nodes(self):
+        flow=builder.build()
+        flow['data']['nodes'].reverse()
+        graph=Graph.from_payload(flow)
+        graph.prepare()
+        self.assertEqual(graph.first_layer,['pr'])
+        self.assertEqual(graph.sort_vertices(start_component_id='agent'),['pr'])
+        await asyncio.wait_for(graph.arun(inputs=[{}]),timeout=25)
+        self.assertEqual(len(self.agent_calls),1)
+        self.assertEqual(len(self.fake.writes),1)
+
     def test_message_feedback_json_is_supported_but_invalid_or_oversized_refused(self):
         operation={'action':'close','request_id':'once','grant_ref':'fixture-grant'}
         self.assertEqual(operation_value(Message(text=json.dumps(operation))),operation)

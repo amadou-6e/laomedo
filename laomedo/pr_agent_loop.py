@@ -20,6 +20,23 @@ def _build_pr_params(vertex):
 def bind_feedback_parameters(vertex):
     """Adapt the pinned runtime's eager loop-input resolution for this node only."""
     vertex.build_params = MethodType(_build_pr_params, vertex)
+    # The pinned sorter chooses an arbitrary vertex for a closed cycle. That
+    # can start the Agent without context in the editor's full-flow build.
+    vertex.graph.sort_vertices = MethodType(_sort_pr_vertices, vertex.graph)
+
+
+def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
+    from lfx.graph.graph.base import Graph
+    if len(graph.vertices) == 2:
+        controllers = [v for v in graph.vertices
+            if getattr(getattr(v, 'custom_component', None), 'name', None) == 'LaomedoGitHubPR'
+            and feedback_edge(v.custom_component) is not None]
+        if len(controllers) == 1:
+            controller = controllers[0]
+            feedback = feedback_edge(controller.custom_component)
+            if start_component_id in (None, controller.id, feedback.source_id):
+                start_component_id = controller.id
+    return Graph.sort_vertices(graph, stop_component_id, start_component_id)
 
 
 def feedback_edge(component):

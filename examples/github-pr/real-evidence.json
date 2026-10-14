@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-14",
+  "scope": "live two-node PR operation; local native CLI adapter",
+  "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+  "pr_number": 20,
+  "pr_url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/20",
+  "agent": {
+    "provider": "codex-cli",
+    "thread_id": "01a1382b-a05e-72e3-b18f-18af29d3d9dc",
+    "turn_completed": true,
+    "native_event_count": 4
+  },
+  "successful_graph_agent_turns": 1,
+  "operation": "modify body",
+  "operation_status": "succeeded",
+  "readback": {
+    "host_confirmed": true,
+    "independent_github_connector_confirmed": true,
+    "browser_viewer_confirmed": true
+  },
+  "outer_next_vertices": [],
+  "graph_nodes": 2,
+  "graph_edges": 2,
+  "historical_attempts": "Before the scheduler fix, one live read-only run incorrectly dispatched two turns. A corrected read-only run dispatched one turn and refused the absent grant. The final authorized PR #20 run dispatched one turn and succeeded.",
+  "hash_basis": "raw workspace bytes SHA-256",
+  "source_sha256": {
+    "components/laomedo/github_pr.py": "0fbd50379e8c3f2c1df78818a4b0ad7879ca8a08b876c1b68738fdf6af43468a",
+    "components/laomedo/native_pr_agent.py": "4458859bc303994d654f59ad756b5b70226df1a653ded49535a3316209804880",
+    "laomedo/pr_agent_loop.py": "36bb7a971bd891901c5e4ac9a42b65d590aa8dc02c405b70d52031b0297441d1",
+    "examples/github-pr/build_real_flow.py": "cc9906d66cacdde2daa9e9eab698eaf792f0d80370b8a3863b34b3e768ed8a57",
+    "examples/github-pr/real-flow.json": "6916f13bff8ce001d597908d37365e861de96082cd11aaf5a2717ddd4fa3a17a"
+  },
+  "limits": [
+    "Does not establish production Docker isolation",
+    "New PR created by the trusted host before selecting it; PR-node creation mode remains a proposal",
+    "No claim of close/labels live acceptance"
+  ]
+}

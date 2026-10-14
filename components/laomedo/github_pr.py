@@ -37,6 +37,11 @@ class LaomedoGitHubPR(Component):
         Output(name="operation_result", display_name="Operation Result", method="routed_result_output", group_outputs=True),
     ]
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if getattr(self, '_vertex', None) is not None:
+            bind_feedback_parameters(self._vertex)
+
     def set_vertex(self, vertex):
         super().set_vertex(vertex)
         bind_feedback_parameters(vertex)

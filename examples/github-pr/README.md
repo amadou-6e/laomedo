@@ -1,5 +1,26 @@
 # GitHub PR node and operation graph
 
+For a real Agent, `build_real_flow.py` exports the same two-node loop with
+`components/laomedo/native_pr_agent.py`. It invokes the installed Codex CLI once,
+using the existing host login and configured model, with read-only shell access.
+The Agent returns a schema-constrained proposal; the PR node owns the write.
+Set `LAOMEDO_CODEX_EXECUTABLE` and `LAOMEDO_PR_AGENT_WORKSPACE` on the app host.
+Supply the actual repository, selected PR, requested change, stable request ID
+and host grant reference to the builder. Credentials never enter graph fields.
+The host must separately configure a live GitHub connection and scoped grant.
+Without them the operation is refused; that refusal is not successful acceptance.
+
+`real-flow.json` records the live example using disposable PR
+[#20](https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/20).
+`real-evidence.json` records one native Codex turn, a confirmed description
+update, independent GitHub readback, and the editor's selected PR viewer.
+The saved grant reference is an opaque campaign identity, not a credential;
+the original short-lived grant is not a reusable deployment configuration.
+The CLI adapter covers this local demonstration, not Docker runner isolation.
+
+The historical fixture files below are internal test material. They require
+explicit user approval before being presented as a demo or deliverable.
+
 The PR node uses the same repository/Labels/selection/Operation pattern as
 GitHub Issue. Toolbar actions are PR viewer and Open in GitHub. Modify accepts
 title/body/labels; close takes no changes. Operations use an opaque host grant,
