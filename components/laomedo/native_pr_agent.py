@@ -8,6 +8,7 @@ import tempfile
 from lfx.custom.custom_component.component import Component
 from lfx.io import MessageInput, MultilineInput, StrInput, Output
 from lfx.schema import Data
+from laomedo.agent_activity import capture_for
 
 
 class NativePRAgent(Component):
@@ -58,22 +59,61 @@ class NativePRAgent(Component):
             answer_path = Path(directory)/'answer.json'
             events_path = Path(directory)/'events.jsonl'
             schema_path.write_text(json.dumps(schema),encoding='utf-8')
+            capture = capture_for(self)
             events = events_path.open('wb')
-            process = await asyncio.create_subprocess_exec(executable,'exec','--sandbox','read-only','--json',
-                '--ephemeral','--color','never','--output-schema',str(schema_path),
-                '--output-last-message',str(answer_path),'-C',workspace,'-',
-                stdin=asyncio.subprocess.PIPE,stdout=events,
-                stderr=asyncio.subprocess.DEVNULL,env=environment)
+            terminal_seen = False
+            async def read_events(stream):
+                nonlocal terminal_seen
+                while line := await stream.readline():
+                    events.write(line)
+                    events.flush()
+                    record = json.loads(line)
+                    if capture:
+                        await asyncio.to_thread(capture[0].append,capture[1],record)
+                    terminal_seen |= record.get('type') == 'turn.completed'
+            process = None
+            reader = None
+            outcome = 'failed'
+            reason = 'agent_failed'
             try:
-                await asyncio.wait_for(process.communicate(prompt.encode('utf-8')),timeout=210)
+                process = await asyncio.create_subprocess_exec(executable,'exec','--sandbox','read-only','--json',
+                    '--ephemeral','--color','never','--output-schema',str(schema_path),
+                    '--output-last-message',str(answer_path),'-C',workspace,'-',
+                    stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.DEVNULL,env=environment,limit=4*1024*1024)
+                reader = asyncio.create_task(read_events(process.stdout))
+                async def finish_turn():
+                    process.stdin.write(prompt.encode('utf-8'))
+                    await process.stdin.drain()
+                    process.stdin.close()
+                    # Drain stdout concurrently so native output cannot block exit.
+                    await asyncio.gather(process.wait(), reader)
+                await asyncio.wait_for(finish_turn(),timeout=210)
                 if process.returncode != 0 or not answer_path.is_file():
                     raise ValueError('native_pr_agent_failed')
                 answer = json.loads(answer_path.read_text(encoding='utf-8'))
+                if terminal_seen:
+                    outcome,reason = 'completed',None
+            except asyncio.CancelledError:
+                outcome,reason = 'cancelled','cancelled'
+                raise
+            except asyncio.TimeoutError:
+                outcome,reason = 'timed_out','agent_timeout'
+                raise
             finally:
-                if process.returncode is None:
+                if process is not None and process.returncode is None:
                     process.kill()
                     await process.wait()
+                if reader is not None:
+                    try:
+                        await reader
+                    except (Exception,asyncio.CancelledError):
+                        if outcome not in {'cancelled','timed_out'}:
+                            outcome,reason = 'failed','capture_interrupted'
                 events.close()
+                if capture:
+                    await asyncio.to_thread(capture[0].finish,capture[1],outcome,
+                        complete=outcome=='completed' and terminal_seen,reason=reason)
             records = [json.loads(line) for line in events_path.read_text(encoding='utf-8').splitlines() if line.strip()]
             if not any(record.get('type') == 'turn.completed' for record in records):
                 raise ValueError('native_pr_agent_completion_unverified')
