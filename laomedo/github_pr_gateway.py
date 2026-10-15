@@ -4,19 +4,91 @@ from contextlib import closing
 import json
 from hashlib import sha256
 import re
+import secrets
 from .github_pr_contract import repository_from_url, labels_value, pr_digest, validate_patch
 from .github_mediation import MediationError, KnownRejected
 
 
 class GitHubPRGateway:
-    def __init__(self, transports, mediation, grant_resolver):
+    def __init__(self, transports, mediation, grant_resolver, *, feedback_grants=None):
         self.transports = transports  # Host-owned repository -> credential-bearing transport.
         self.mediation = mediation
         self.grant_resolver = grant_resolver  # Opaque ref -> token/run identity, never exposed.
+        self.feedback_grants = dict(feedback_grants or {})  # Host-only repo#PR -> grant ref.
         with closing(mediation._connect()) as db, db:
             db.execute("""CREATE TABLE IF NOT EXISTS pr_node_intents (
                 grant_ref TEXT NOT NULL, request_id TEXT NOT NULL, input_hash TEXT NOT NULL,
                 payload TEXT NOT NULL, result TEXT, PRIMARY KEY(grant_ref,request_id))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS pr_feedback_tickets (
+                ticket TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE,
+                grant_ref TEXT NOT NULL, binding_digest TEXT NOT NULL,
+                context TEXT NOT NULL, expires REAL NOT NULL)""")
+
+    def _feedback_binding(self, ref, pr):
+        try:
+            binding = self.grant_resolver(ref)
+            if binding['repository'] != pr['repository']:
+                raise ValueError()
+            with closing(self.mediation._connect()) as db:
+                grant = self.mediation._grant(db, binding['token'], pr['repository'], 'pr_node_update')
+                target = db.execute('SELECT base FROM pr_targets WHERE grant_id=? AND number=?',
+                                    (grant['grant_id'], pr['number'])).fetchone()
+            if (binding['run_id'] != grant['run_id'] or target is None or target['base'] != pr['base'] or
+                    grant['branch'] != pr['head']['branch'] or pr['head']['repository'] != pr['repository']):
+                raise ValueError()
+            return pr_digest({'grant_id':grant['grant_id'], 'run_id':grant['run_id'],
+                              'token_hash':sha256(binding['token'].encode()).hexdigest()})
+        except Exception:
+            raise ValueError('pr_grant_unavailable') from None
+
+    def prepare_feedback(self, repository_url, labels, state, pr_number, expected):
+        """Reserve trusted identity before the model; never put this ticket in its task."""
+        initial = self.execute(repository_url, labels, state, pr_number)
+        if not isinstance(expected, str) or initial['content_digest'] != expected:
+            raise ValueError('pr_changed_since_agent_read')
+        pr = initial['pr']
+        ref = self.feedback_grants.get(f"{pr['repository']}#{pr['number']}")
+        if not isinstance(ref, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}',ref):
+            raise ValueError('pr_feedback_not_configured')
+        binding_digest = self._feedback_binding(ref,pr)
+        ticket, request_id = secrets.token_hex(32), 'pr-feedback-'+secrets.token_hex(24)
+        issued_monotonic=self.mediation.monotonic()
+        context = {'repository_url':repository_url,'labels':labels,'state':state,
+                   'pr_number':pr_number,'expected':expected,'pr':pr,
+                   'issued_monotonic':issued_monotonic,'expires_monotonic':issued_monotonic+300}
+        with closing(self.mediation._connect()) as db, db:
+            db.execute('INSERT INTO pr_feedback_tickets VALUES (?,?,?,?,?,?)',
+                (ticket,request_id,ref,binding_digest,json.dumps(context),self.mediation.now()+300))
+        return {'schema_version':'laomedo.pr-feedback-ticket.v1','ticket':ticket}
+
+    def apply_feedback(self, ticket, operation):
+        if not isinstance(ticket,str) or not re.fullmatch(r'[0-9a-f]{64}',ticket):
+            raise ValueError('pr_feedback_ticket_invalid')
+        if (not isinstance(operation,dict) or operation.get('action') not in {'modify','close'} or
+                set(operation) != ({'action','changes'} if operation.get('action')=='modify' else {'action'})):
+            raise ValueError('pr_operation_invalid')
+        if operation['action']=='modify':
+            patch=validate_patch(operation['changes'])
+            if 'state' in patch:
+                raise ValueError('pr_patch_invalid')
+        with closing(self.mediation._connect()) as db:
+            row = db.execute('SELECT * FROM pr_feedback_tickets WHERE ticket=?',(ticket,)).fetchone()
+        if row is None or self.mediation.now() >= row['expires']:
+            raise ValueError('pr_feedback_ticket_invalid')
+        context=json.loads(row['context'])
+        issued=context.pop('issued_monotonic',None)
+        deadline=context.pop('expires_monotonic',None)
+        now_monotonic=self.mediation.monotonic()
+        if (not isinstance(issued,(int,float)) or not isinstance(deadline,(int,float)) or
+                now_monotonic<issued or now_monotonic>=deadline):
+            raise ValueError('pr_feedback_ticket_invalid')
+        pr=context.pop('pr')
+        if self.feedback_grants.get(f"{pr['repository']}#{pr['number']}") != row['grant_ref']:
+            raise ValueError('pr_feedback_not_configured')
+        if self._feedback_binding(row['grant_ref'],pr) != row['binding_digest']:
+            raise ValueError('pr_grant_unavailable')
+        stamped={**operation,'request_id':row['request_id'],'grant_ref':row['grant_ref']}
+        return self.execute(**context,operation=stamped)
 
     def _transport(self, repository_url):
         repository = repository_from_url(repository_url)

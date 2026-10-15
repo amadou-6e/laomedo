@@ -14,9 +14,11 @@ def now():
 
 class ActivityStore:
     def __init__(self, path, *, read_only=False):
-        self.path = Path(path)
+        self.path = Path(path).resolve()
         self.read_only = read_only
         if read_only:
+            if not self.path.is_file():
+                raise LookupError('agent_activity_not_found')
             return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.db() as db:

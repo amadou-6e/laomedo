@@ -3,9 +3,9 @@
 The intended workflow is **PR → existing Laomedo Codex Agent → the same PR**.
 The PR-specific CLI agent, its builder and live export were removed at the user's
 request. The original agent remains `components/laomedo/codex_agent.py` and uses
-the existing Docker runner. Its full PR round trip remains unverified while
-Docker is unavailable; there is no replacement agent or working original-runner
-example claimed here.
+the existing Docker runner. The [original-Agent example](original-agent/README.md)
+now records a real title update and native cancellation using that runner and a
+host-stamped feedback operation. Its earlier blocked state is historical.
 
 `operation-feedback-evidence.json` and `real-evidence.json` are historical checks
 of earlier source revisions, including the removed CLI adapter. They do not
@@ -18,6 +18,15 @@ After applying the pinned viewer overlay, run
 `python tools/apply_pr_operation_feedback.py PATH_TO_LANGFLOW` and rebuild its
 frontend to enable manually drawing the bounded Operation feedback connection.
 The normal input also accepts a Message containing the operation JSON.
+The isolated body contains only the returning Agent; other upstream Agent inputs
+are refused before dispatch. Only one PR feedback controller per graph is
+supported. Multiple independent PR loops are unverified and may start incorrectly.
+The editor refuses existing external Agent inputs when closing the cycle; inputs
+added afterwards are refused by the backend. The adaptation requires the pinned
+Langflow revision. Feedback returns a content-only proposal; the trusted host
+reserves and stamps request identity/grant reference. Configure exact feedback
+scope before model dispatch; ordinary upstream envelopes remain compatible.
+Reruns may incur another paid Agent turn before replay prevents duplicate writes.
 
 The historical fixture files below are internal test material. They require
 explicit user approval before being presented as a demo or deliverable.

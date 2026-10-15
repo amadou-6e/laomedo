@@ -50,6 +50,12 @@ def server(gateway, token, port=8784, host="127.0.0.1"):
                         {"repository_url", "labels", "state", "pr_number", "operation", "expected"}):
                     executing_write = bool(body["operation"])
                     result = gateway.execute(**body)
+                elif self.path == '/v1/github-prs/prepare-feedback' and set(body) == {
+                        'repository_url','labels','state','pr_number','expected'}:
+                    result = gateway.prepare_feedback(**body)
+                elif self.path == '/v1/github-prs/apply-feedback' and set(body) == {'ticket','operation'}:
+                    executing_write = True
+                    result = gateway.apply_feedback(**body)
                 else:
                     raise ValueError("invalid_request")
                 self.reply(200, result)
@@ -67,6 +73,8 @@ def server(gateway, token, port=8784, host="127.0.0.1"):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", required=True)
+    parser.add_argument('--feedback-bindings',type=Path,
+                        help='Host-only JSON mapping repository#PR to existing scoped grant reference')
     credentials = parser.add_mutually_exclusive_group(required=True)
     credentials.add_argument("--github-token-env")
     credentials.add_argument("--github-token-file", type=Path)
@@ -111,7 +119,8 @@ def main():
             raise ValueError("pr_grant_unavailable")
         bindings = json.loads(args.grant_bindings.read_text(encoding="utf-8"))
         return bindings[ref]
-    gateway = GitHubPRGateway({args.repository: transport}, mediation, grant)
+    feedback_grants = json.loads(args.feedback_bindings.read_text(encoding='utf-8')) if args.feedback_bindings else {}
+    gateway = GitHubPRGateway({args.repository: transport}, mediation, grant, feedback_grants=feedback_grants)
     server(gateway, args.api_token_file.read_text(encoding="utf-8").strip(), port=args.port).serve_forever()
 
 

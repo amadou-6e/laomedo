@@ -16,9 +16,8 @@ class GraphActivityTests(unittest.TestCase):
     def test_read_only_missing_store_does_not_create_anything(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'absent/activity.db'
-            store=ActivityStore(path,read_only=True)
-            with self.assertRaises(Exception):
-                store.graph_runs('alice','flow')
+            with self.assertRaises(LookupError):
+                ActivityStore(path,read_only=True)
             self.assertFalse(path.parent.exists())
 
     def test_execution_owner_scope_and_retry_deduplication(self):

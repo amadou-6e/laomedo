@@ -66,6 +66,11 @@ def feedback_edge(component):
         return None
     if len(edges) != 1 or (returns and len(operations) != 1) or (legacy and operations):
         raise ValueError('pr_agent_loop_invalid')
+    source = vertex.graph.get_vertex(edges[0].source_id)
+    # The isolated body consists of this Agent only. Dropping another upstream
+    # input would silently change the task, so refuse it before dispatch.
+    if any(edge.source_id != vertex.id for edge in source.incoming_edges):
+        raise ValueError('pr_agent_loop_invalid')
     return edges[0]
 
 

@@ -33,6 +33,9 @@ depth one, with automatic memories disabled for that process. The existing turn
 ledger counts top-level submitted turns, **not every child model request**; this
 setting is not a monetary budget enforcement mechanism.
 
+Historical graphs embedding the removed PR adapter must not be reimported as
+the original Agent. Missing old events cannot be reconstructed.
+
 Saved graphs embed source: update the original Codex node for capture. Prior Run
 is visible so saved resume edges survive opening the graph. Existing Docker
 image, CLI version and sandbox checks still apply.
