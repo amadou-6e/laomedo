@@ -3,8 +3,9 @@
 The prototype at `aee7d1c` inspected a separate PR-specific CLI adapter. The user
 requested the existing `LaomedoCodexAgent`, and explicitly selected removal of
 the PR-specific agent on 2026-10-15. That component, its live graph builder/export
-and toolbar coupling have been removed from the product. The retained API/store
-and modal source are unwired preparatory code, not a completed product feature.
+and toolbar coupling have been removed from the product. The retained read-only
+API remains mounted, but has no producer; the modal has no toolbar entry. These
+are preparatory code, not a completed original-agent product feature.
 
 See the [real feasibility study](../experiments/feasibility/agent-observability/README.md).
 The target is a graph-wide Agents tab with multiple turns, tool/message details,

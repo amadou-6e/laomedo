@@ -37,7 +37,7 @@ lookup, must therefore retain the observed turn/message history.
 | Token series | Three updates with `last` and cumulative `total`, including cache counts | Updates are not turns; the first turn has multiple usage updates |
 | OTLP | 14 actual HTTP/protobuf log/trace batches; conversation correlation observed | Local authenticated collector, not Dynatrace integration |
 | Timeline spans | 1,529 spans with start/end; 1,478 parent links | Most spans are internal diagnostics; filter/roll up before UI display |
-| Cost | No cost attribute observed | Unknown; subscription tokens do not establish an invoice amount |
+| Cost | No cost attribute observed in log attributes; spans not searched for cost | Unknown; subscription tokens do not establish an invoice amount |
 | Subagents | Not executed | Provider docs support relevant structures; installed/original runtime compatibility unverified |
 | Graph-run binding | Not exercised | Original host must bind graph run + node invocation to native session/turns |
 | Parallel agents / Gantt UI | Not exercised | Not accepted by a one-thread protocol probe |
@@ -57,6 +57,16 @@ labels with exact UTC timestamps in tooltips. Preserve source-vs-receipt clocks.
 Cost must identify provider estimate vs a rate-card estimate with model/rate/date;
 missing prices and amounts stay unknown. Avoid summing cumulative counters and
 avoid double-counting a model request received through both native and OTLP feeds.
+
+The collector observed attribute names for user email/account identity and tool
+arguments/output despite prompt logging being disabled. Only names and structural
+metadata were committed. Product export needs explicit redaction and access policy.
+`host-observation.json` keeps the initial event-name extraction (`unnamed`); the
+offline analyzer resolves `event.name` and its `otel_event_counts` is authoritative.
+The analyzer tries both protobuf schemas and then validates event-name or trace/
+span-ID shapes; it does not identify signal type before parsing. No raw content
+is exported by that analysis. The protocol was written before the probe in this
+working session, but committed with the results, so Git alone cannot prove ordering.
 
 Claude's native telemetry is source-supported by its official monitoring docs,
 but no Claude instrumentation probe ran. Existing Claude reviewer calls are

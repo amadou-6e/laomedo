@@ -58,6 +58,10 @@ ports, and runs twice to verify one mutation. Merely importing flow.json does
 not configure a service; the fixture grant has meaning only inside that runner.
 The earlier acyclic example is preserved in four-node-flow.json.
 
+The reviewed feedback slice covers a selected PR and one Agent, optionally with
+a downstream result inspector. Supplying PR Reference from an upstream source
+inside a feedback graph is untested and unsupported; do not use that topology.
+
 Durable replay prevents repeating a confirmed write only for an identical
 operation payload and request identity. A fresh graph run still invokes its
 Agent; a different returned payload with the same identity is refused as a
