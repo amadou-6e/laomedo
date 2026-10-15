@@ -76,3 +76,42 @@ class LaomedoCodexAgent(Component):
             graph = Graph.from_payload(flow)
             await asyncio.wait_for(graph.arun(inputs=[{}], outputs=['skill']), timeout=20)
         self.assertEqual(self.calls, 0)
+
+    async def test_ordinary_operation_remains_acyclic(self):
+        flow = self.normal_flow()
+        graph = Graph.from_payload(flow)
+        result = await asyncio.wait_for(graph.arun(inputs=[{}], outputs=['skill']), timeout=20)
+        self.assertIn('proposed', str(result))
+        self.assertEqual(self.calls, 2)
+        self.assertEqual(self.agent_calls, 0)
+
+    async def test_lost_apply_reply_is_unknown_without_second_commit(self):
+        flow = self.normal_flow()
+        def lost_reply(action, **body):
+            value = getattr(self.control.service, action)(**body)
+            if action == 'apply': raise OSError('internal lost response control')
+            return value
+        with patch('laomedo.skill_operation_client.skill_request', side_effect=lost_reply):
+            result = await asyncio.wait_for(Graph.from_payload(flow).arun(inputs=[{}], outputs=['skill']), timeout=20)
+        self.assertIn('unknown', str(result))
+        self.assertEqual(len(self.control.service.history('internal-test', self.control.initial['revision_id'])['commits']), 2)
+
+    def normal_flow(self):
+        path = self.control.root/'internal_operation.py'
+        path.write_text('''from lfx.custom.custom_component.component import Component
+from lfx.io import Output
+from lfx.schema import Data
+class InternalSkillOperation(Component):
+    display_name = "Internal operation control"
+    name = "InternalSkillOperation"
+    inputs = []
+    outputs = [Output(name="operation", display_name="Operation", method="operation_output")]
+    def operation_output(self) -> Data:
+        return Data(data=PAYLOAD)
+'''.replace('PAYLOAD', repr(self.control.operation)))
+        flow = self.build()
+        skill = flow['data']['nodes'][0]
+        operation = builder.builder.node(path, 'operation', {}, 600, 0)
+        flow['data']['nodes'] = [operation, skill]
+        flow['data']['edges'] = [builder.builder.helper.edge(operation, 'operation', skill, 'operation')]
+        return flow

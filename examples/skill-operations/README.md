@@ -24,6 +24,10 @@ The host records a parent-linked commit, exact immutable tree, patch, timestamp,
 message, changed paths, policy and adapter provenance. A revert has a distinct
 commit even when its bytes match an older revision. It is registry history,
 not a Git source commit or tamper-proof external audit trail.
+Agent provenance is asserted by the trusted Langflow component code, not
+independently verified against runner records by the service. Edited graph code
+can forge those assertions; the viewer labels this boundary. Real acceptance
+must compare run references independently with the actual runner receipts.
 
 Configure the independent loopback service with `python -m
 laomedo.skill_operation_server --registry PATH --database PATH --policies PATH
@@ -49,7 +53,22 @@ File/history browsing never runs the graph. Ordinary reference-only graphs work
 without an operations service. The journal is append-only through this API, but
 local administrators can alter it; no signed audit or automatic pruning exists.
 Interrupted attempts may leave unreferenced drafts/bundles, not partial history.
+Operation Result reports failed before apply and conservatively unknown after
+an apply transport failure; reconcile history rather than automatically retrying.
 
-See [prospective real verification protocol](PROTOCOL.md). Real acceptance and
-the user-review graph are pending until evidence is recorded; internal unit
-fixtures do not establish real Agent execution.
+The [real verification evidence](evidence.json) records one original Docker Agent
+turn that appended an instruction to the existing real `pr-feedback-title` skill
+and added its operation-format reference, in one commit. Independent readback,
+parent/current diff, source/canonical preservation, same-ticket replay and
+container cleanup passed. The [executed graph](executed-flow.json) retains exact
+embedded code; the [review graph](flow.json) selects the resulting candidate and
+refreshes node code for later failure routing and exact-ID selection. It was not
+rerun. See [prospective protocol and startup recovery](PROTOCOL.md).
+
+The test runner/lease services stopped. A separate review service has no edit
+policies; opening files/history or pressing Run there cannot start a paid turn.
+The saved runner URL is an inactive ephemeral endpoint. Reconfigure trusted
+services and authorize a new bounded campaign before another real execution.
+Internal fixtures are not real integration acceptance. Native cancellation,
+production ownership, multi-commit promotion and Git publication remain untested
+or outside this campaign. User graph review and final CI/review remain pending.

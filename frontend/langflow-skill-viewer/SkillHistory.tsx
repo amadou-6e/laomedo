@@ -64,7 +64,8 @@ export default function SkillHistory({ skillId, revision }: { skillId: string; r
       {diff && <><h3 className="text-lg font-semibold">{diff.message}</h3>
         <dl className="mb-4 break-all text-sm">{Object.entries({ Commit: diff.commit_id, Parent: diff.parent_commit || "Import",
           Revision: diff.revision_id, Timestamp: diff.created_at, Files: diff.files.join(", "),
-          ...diff.editor, Policy: diff.policy_ref ? JSON.stringify(diff.policy_ref) : "Import" }).map(([key, value]) =>
+          ...diff.editor, Provenance: diff.editor.kind === "agent" ? "Backend-asserted; not independently runner-verified" : "Trusted operator/import",
+          Policy: diff.policy_ref ? JSON.stringify(diff.policy_ref) : "Import" }).map(([key, value]) =>
           <div key={key}><dt className="inline font-semibold">{key}: </dt><dd className="inline">{value}</dd></div>)}</dl>
         <pre className="overflow-auto whitespace-pre rounded bg-muted p-3 text-sm" data-testid="skill-commit-diff">{diff.patch || "No file changes (import)."}</pre>
       </>}

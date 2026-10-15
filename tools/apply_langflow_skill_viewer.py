@@ -22,6 +22,7 @@ def apply(checkout):
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
     shutil.copy2(overlay / "SkillHistory.tsx", target / "SkillHistory.tsx")
+    shutil.copy2(overlay / "SkillHistory.test.tsx", target / "SkillHistory.test.tsx")
     shutil.copy2(overlay / "selection.ts", target / "selection.ts")
     shutil.copy2(overlay / "MONACO-LICENSE.txt", checkout / "src/frontend/public/monaco-LICENSE.txt")
     issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
@@ -34,6 +35,7 @@ def apply(checkout):
     activity_target.mkdir()
     shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")
     agents_patch = overlay / "agents.patch"
+    # The exact pinned Windows checkout may have CRLF context; no revision drift is allowed.
     subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", "--check", str(agents_patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", str(agents_patch)], check=True)
     agents_target = checkout / "src/frontend/src/modals/graphAgents"

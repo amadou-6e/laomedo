@@ -31,3 +31,11 @@ Internal tests cover refused batches, unsafe paths, concurrent edits, replay
 conflicts, expiry, reverts and scheduler controls; these are not live acceptance.
 Native cancellation and production ownership/promotion are outside this one-turn
 campaign. User graph review is required before implementation merge.
+
+Zero-dispatch startup recovery amendment, before any model turn: the first
+credential-free CLI version check exceeded its 20-second startup timeout. A
+separate no-network/no-credential check returned Codex0.159.2. Verified zero run
+records, no initialized turn ledger, zero operation reservations and zero commits.
+Resume the same private state only under those assertions; preserve failure and
+recovery receipts, do not delete guards or reset a ledger. This does not authorize
+retrying a dispatched model turn or an uncertain operation.

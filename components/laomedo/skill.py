@@ -22,10 +22,10 @@ class LaomedoSkill(Component):
         StrInput(name="source", display_name="Source", value="", real_time_refresh=True, track_in_telemetry=False,
                  info="Repository URL or allowed local folder. Leave empty for an existing pinned registry reference."),
         DropdownInput(name="skill_id", display_name="Skill", required=True, options=[],
-                      combobox=False, real_time_refresh=True, refresh_button=True,
+                      combobox=True, real_time_refresh=True, refresh_button=True,
                       info="Type in the dropdown to filter discovered skills."),
         DropdownInput(name="revision_id", display_name="Revision", required=True, options=[],
-                      combobox=False, real_time_refresh=True, refresh_button=True,
+                      combobox=True, real_time_refresh=True, refresh_button=True,
                       info="Type in the dropdown to filter discovered revisions."),
         StrInput(name="discovery_status", display_name="Discovery", value="Supply a source to discover skills."),
         DataInput(name="operation", display_name="Operation", input_types=["Data", "Message"],
@@ -53,9 +53,12 @@ class LaomedoSkill(Component):
 
     def _pre_run_setup(self):
         self._skill_operation_task = None
+        self._skill_apply_started = False
+        self._skill_base_reference = None
 
     async def _operate(self):
         reference = self.skill_output().data
+        self._skill_base_reference = reference
         feedback = feedback_edge(self)
         operation = getattr(self, 'operation', None)
         if feedback is None and operation in (None, ''):
@@ -67,6 +70,9 @@ class LaomedoSkill(Component):
             source = self.graph.get_vertex(feedback.source_id)
             if source.data.get('type') != 'LaomedoCodexAgent' or feedback.source_handle.name != 'answer':
                 raise ValueError('skill_feedback_original_agent_required')
+            if (len(source.incoming_edges) != 1 or
+                    source.incoming_edges[0].target_handle.field_name != 'task'):
+                raise ValueError('skill_feedback_task_only')
         prepared = await asyncio.to_thread(skill_request, 'prepare',
             skill_id=reference['skill_id'], revision_id=reference['revision_id'],
             commit_id=str(getattr(self, 'commit_id', '') or ''))
@@ -85,6 +91,7 @@ class LaomedoSkill(Component):
                 raise ValueError('skill_agent_provenance_required')
             editor = {'kind': 'agent', **{key: provenance[key] for key in
                 ('run_id', 'thread_id', 'turn_id', 'trace_ref') if isinstance(provenance.get(key), str)}}
+        self._skill_apply_started = True
         return await asyncio.to_thread(skill_request, 'apply', ticket=prepared['ticket'],
                                        operation=proposal(operation), editor=editor)
 
@@ -93,7 +100,14 @@ class LaomedoSkill(Component):
             if feedback_edge(self) is not None:
                 self.graph.exclude_branch_conditionally(self._vertex.id, 'task')
             self._skill_operation_task = asyncio.create_task(self._operate())
-        result = await self._skill_operation_task
+        try:
+            result = await self._skill_operation_task
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            result = {'status': 'unknown' if getattr(self, '_skill_apply_started', False) else 'failed',
+                      'error_category': 'skill_operation_unavailable',
+                      'skill': getattr(self, '_skill_base_reference', None) or {}}
         self.status = result['status']
         return result
 
@@ -140,6 +154,8 @@ class LaomedoSkill(Component):
             build_config["revision_id"].update(value="", options=[])
         clear_resolution()
         if not source:
+            for key in ('skill_id', 'revision_id'):
+                build_config[key]['combobox'] = True
             build_config["discovery_status"]["value"] = "Supply a source to discover skills."
             return build_config
         for item in self.inputs:
@@ -148,6 +164,7 @@ class LaomedoSkill(Component):
                 for key in ("_input_type", "field_type", "combobox", "refresh_button", "real_time_refresh", "display_name"):
                     if key in definition:
                         build_config[item.name][key] = definition[key]
+                build_config[item.name]['combobox'] = False
         skill = build_config["skill_id"].get("value", "")
         revision = build_config["revision_id"].get("value", "")
         try:
