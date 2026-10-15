@@ -45,6 +45,12 @@ changes, never an authority field. `apply-feedback` validates the original grant
 binding, target and digest, stamps the envelope and invokes existing mediation.
 Model-authored identity/target fields, expired tickets, revoked or rebound grants
 and changed PR content are refused. Ticket expiry also uses the monotonic clock.
+Replay requires a still-valid ticket and grant. A late replay is refused even if
+the earlier write succeeded; it does not undo or relabel that stored effect.
+Reconcile the existing host intent instead of starting a new run to retry an
+unknown result. A new explicit graph run means a new paid turn and possible write.
+The private host database retains plaintext tickets and PR snapshots without
+automatic pruning; protect it as sensitive host state.
 
 `build_flow.py --repository OWNER/REPO --number NUMBER --title TITLE --revision
 sha256:HASH --runner-url http://127.0.0.1:PORT --output PATH` exports the same
