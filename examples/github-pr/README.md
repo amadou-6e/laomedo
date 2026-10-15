@@ -3,8 +3,9 @@
 `build_real_flow.py` exports PR Task → the existing Laomedo Codex Agent → PR
 Operation. Configure the original trusted runner and a real pinned skill that
 defines the requested operation and returns its JSON envelope. Request identity
-and the opaque grant reference must come from trusted configuration, never from
-model-created permission. The host separately configures the live GitHub
+and the opaque grant reference may be model-authored in feedback mode; trusted
+host stamping is an unimplemented original-agent acceptance gate. The gateway
+validates the submitted grant and target. The host separately configures the live GitHub
 connection and exact scoped grant. Extra downstream result inspectors are
 supported; other upstream inputs to the Agent are currently refused explicitly.
 The original runner round trip remains unverified because Docker is unavailable.
@@ -26,6 +27,10 @@ After applying the pinned viewer overlay, run
 `python tools/apply_pr_operation_feedback.py PATH_TO_LANGFLOW` and rebuild its
 frontend to enable manually drawing the bounded Operation feedback connection.
 The normal input also accepts a Message containing the operation JSON.
+Only one PR feedback controller per graph is supported. Multiple independent PR
+loops in one graph are unverified and may start incorrectly. External Agent
+inputs added after closing the cycle are refused by the backend at dispatch.
+The scheduler adaptation is specific to the pinned Langflow revision.
 
 The historical fixture files below are internal test material. They require
 explicit user approval before being presented as a demo or deliverable.
