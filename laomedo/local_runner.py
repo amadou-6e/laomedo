@@ -303,6 +303,16 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
 class AppServer:
     def __init__(self, command: list[str], evidence: Path, *, env=None,
                  secret_redactions=()):
+        self.telemetry = None
+        if os.environ.get('LAOMEDO_RUNNER_OTEL') == '1':
+            from .runner_telemetry import LaunchTelemetry
+            self.telemetry = LaunchTelemetry(evidence)
+            index = command.index('app-server')
+            command = command[:index] + self.telemetry.arguments() + command[index:]
+        if os.environ.get('LAOMEDO_RUNNER_MULTI_AGENT') == '1':
+            index = command.index('app-server')
+            command = command[:index] + ['--disable','memories','-c','features.multi_agent=true',
+                '-c','agents.max_threads=2','-c','agents.max_depth=1'] + command[index:]
         self.events = []
         self.messages = queue.Queue()
         self.container_name = command[command.index("--name") + 1]
@@ -316,16 +326,20 @@ class AppServer:
                 self.launch_token = value.split("=", 1)[1]
         self.active_thread_id = None
         self.interrupt_acknowledged = False
-        self.secret_redactions = tuple(value for value in secret_redactions if value)
+        self.secret_redactions = tuple(value for value in secret_redactions if value) + ((self.telemetry.token,) if self.telemetry else ())
         self.native_completion_status = None
         self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
+        self.activity_log = (evidence / "activity-events.jsonl").open("a", encoding="utf-8")
         self.stderr = (evidence / "stderr.log").open("a", encoding="utf-8")
         try:
             self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                             text=True, encoding="utf-8", env=env)
         except Exception:
+            if self.telemetry:
+                self.telemetry.close()
             self.log.close()
+            self.activity_log.close()
             self.stderr.close()
             raise
         self.reader = threading.Thread(target=self._read, daemon=True)
@@ -345,7 +359,12 @@ class AppServer:
             self.log.write(line)
             self.log.flush()
             try:
-                self.messages.put(json.loads(line))
+                event = json.loads(line)
+                from .runner_activity import notification, receipt
+                if notification(event):
+                    self.activity_log.write(json.dumps(receipt(event), ensure_ascii=False) + "\n")
+                    self.activity_log.flush()
+                self.messages.put(event)
             except json.JSONDecodeError:
                 self.events.append({"method": "invalid/json"})
 
@@ -479,6 +498,9 @@ class AppServer:
             self.reader.join(timeout=5)
             self.stderr_reader.join(timeout=5)
             self.log.close()
+            self.activity_log.close()
+            if self.telemetry:
+                self.telemetry.close()
             self.stderr.close()
         if not verified:
             raise RunnerError("container_termination_unverified")
@@ -1509,6 +1531,7 @@ class LocalRunner:
         run_dir, record, cancelled, server, lease = None, None, None, None, None
         evidence_offset, attempt_turn_offset = 0, 0
         launch_attempted = False
+        activity_start = None
         try:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
@@ -1522,6 +1545,9 @@ class LocalRunner:
                 cancelled = threading.Event()
                 evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
                 attempt_turn_offset = len(record["turns"])
+                from .runner_activity import line_count
+                activity_start = (line_count(run_dir/'activity-events.jsonl'),
+                                  line_count(run_dir/'otel-events.jsonl'))
                 record.update(evidence_complete="unknown", completion_basis=None)
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
@@ -1948,6 +1974,17 @@ class LocalRunner:
                                 record["output_ref"] = None
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
+                            if activity_start is not None:
+                                from .agent_activity import now
+                                try:
+                                    with (run_dir/'activity-boundaries.jsonl').open('a',encoding='utf-8') as output:
+                                        output.write(json.dumps({'native_start':activity_start[0],
+                                            'native_end':line_count(run_dir/'activity-events.jsonl'),
+                                            'otel_start':activity_start[1],
+                                            'otel_end':line_count(run_dir/'otel-events.jsonl'),
+                                            'status':record['status'],'ended_at':now()})+'\n')
+                                except OSError:
+                                    pass  # An observation failure cannot change execution success.
                             _json(run_dir / "record.json", record)
                         self.cancel_flags.pop(run_id, None)
                 finally:
@@ -1987,7 +2024,32 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
             if not self._authorized():
                 return
             try:
-                parts = self.path.strip("/").split("/")
+                from urllib.parse import urlsplit, parse_qs
+                parsed = urlsplit(self.path)
+                parts = parsed.path.strip("/").split("/")
+                if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
+                    from .runner_activity import read_feed
+                    query = parse_qs(parsed.query)
+                    record = runner.status(parts[2])
+                    from .runner_activity import closed_boundary
+                    boundary = (None if query.get('tail',['0'])[0]=='1' else
+                        closed_boundary(runner._run_dir(parts[2]),int(query.get('from',['0'])[0])))
+                    feed = read_feed(runner._run_dir(parts[2]) / "activity-events.jsonl",
+                        after=int(query.get('after',['0'])[0]),
+                        limit=int(query.get('limit',['100'])[0]),
+                        tail=query.get('tail',['0'])[0] == '1',
+                        before=boundary['native_end'] if boundary else None)
+                    telemetry = read_feed(runner._run_dir(parts[2]) / "otel-events.jsonl",
+                        after=int(query.get('otel_after',['0'])[0]),limit=200,
+                        tail=query.get('tail',['0'])[0] == '1',
+                        before=boundary['otel_end'] if boundary else None)
+                    self._reply(200, {**feed, 'run_id':parts[2],
+                        'telemetry':telemetry,
+                        'closed_boundary':boundary,
+                        'status':record.get('status'), 'thread_id':record.get('thread_id'),
+                        'model':record.get('effective_model'),
+                        'attempt_finished':record.get('attempt_finished',False)})
+                    return
                 if len(parts) != 3:
                     raise RunnerError("unknown_endpoint")
                 if parts[:2] == ["v1", "runs"]:

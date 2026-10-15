@@ -76,7 +76,7 @@ class LaomedoCodexAgent(Component):
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True),
         StrInput(name="model", display_name="Model", value="gpt-6-luna"),
         StrInput(name="effort", display_name="Reasoning Effort", value="low"),
-        DataInput(name="run_reference", display_name="Prior Run", advanced=True),
+        DataInput(name="run_reference", display_name="Prior Run"),
         StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
@@ -473,6 +473,9 @@ class LaomedoCodexAgent(Component):
             if result.get("client_request_id") != self._stop_request_id:
                 raise RuntimeError("runner_request_identity_mismatch")
             self._active_run_id = result["run_id"]
+            capture = getattr(self, "_activity_capture", None)
+            if capture is not None:
+                capture.bind(result["run_id"])
         self._last_reference = self._run_reference(result)
         if self.operation == "fresh":
             deadline = time.monotonic() + int(self.timeout_seconds)
@@ -557,7 +560,8 @@ class LaomedoCodexAgent(Component):
                 self._stop_request_hash = "sha256:" + hashlib.sha256(
                     json.dumps(canonical, sort_keys=True, separators=(",", ":"),
                                ensure_ascii=False).encode("utf-8")).hexdigest()
-            self._dispatch_task = asyncio.create_task(asyncio.to_thread(self._http, *prepared))
+            from laomedo.agent_activity_capture import dispatch_with_capture
+            self._dispatch_task = asyncio.create_task(asyncio.to_thread(dispatch_with_capture, self, prepared))
         try:
             # Shield the HTTP call so the same request identity can be reconciled.
             result = await asyncio.shield(self._dispatch_task)

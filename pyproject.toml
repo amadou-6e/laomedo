@@ -12,6 +12,9 @@ dependencies = [
     "truststore==0.10.4",
 ]
 
+[project.optional-dependencies]
+observability = ["opentelemetry-proto==1.45.1"]
+
 [project.scripts]
 laomedo-work-graph = "laomedo.work_graph.__main__:main"
 

@@ -1070,6 +1070,8 @@ class LocalRunnerTests(unittest.TestCase):
         app.reader = Mock()
         app.stderr_reader = Mock()
         app.log = io.StringIO()
+        app.activity_log = io.StringIO()
+        app.telemetry = None
         app.stderr = io.StringIO()
         cancelled = threading.Event()
         cancelled.set()
@@ -1094,6 +1096,8 @@ class LocalRunnerTests(unittest.TestCase):
         app.reader = Mock()
         app.stderr_reader = Mock()
         app.log = io.StringIO()
+        app.activity_log = io.StringIO()
+        app.telemetry = None
         app.stderr = io.StringIO()
         with patch("laomedo.local_runner.subprocess.run", side_effect=[
                 Mock(returncode=1), Mock(returncode=1), Mock(returncode=0)]):
