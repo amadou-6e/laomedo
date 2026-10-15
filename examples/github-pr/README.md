@@ -18,6 +18,14 @@ After applying the pinned viewer overlay, run
 `python tools/apply_pr_operation_feedback.py PATH_TO_LANGFLOW` and rebuild its
 frontend to enable manually drawing the bounded Operation feedback connection.
 The normal input also accepts a Message containing the operation JSON.
+The isolated body contains only the returning Agent; other upstream Agent inputs
+are refused before dispatch. Only one PR feedback controller per graph is
+supported. Multiple independent PR loops are unverified and may start incorrectly.
+The editor refuses existing external Agent inputs when closing the cycle; inputs
+added afterwards are refused by the backend. The adaptation requires the pinned
+Langflow revision. Feedback envelopes may be model-authored; trusted host stamping
+of request identity/grant reference remains an original-agent acceptance gate.
+Reruns may incur another paid Agent turn before replay prevents duplicate writes.
 
 The historical fixture files below are internal test material. They require
 explicit user approval before being presented as a demo or deliverable.

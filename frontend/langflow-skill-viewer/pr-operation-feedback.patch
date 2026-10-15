@@ -1,8 +1,8 @@
 diff --git a/src/frontend/src/utils/reactflowUtils.ts b/src/frontend/src/utils/reactflowUtils.ts
-index 0424071..a9fa10d 100644
+index 0424071..98546b0 100644
 --- a/src/frontend/src/utils/reactflowUtils.ts
 +++ b/src/frontend/src/utils/reactflowUtils.ts
-@@ -530,7 +530,18 @@ export function isValidConnection(
+@@ -530,7 +530,22 @@ export function isValidConnection(
            }
          });
          if (!hasLoopComponent) {
@@ -19,6 +19,10 @@ index 0424071..a9fa10d 100644
 +          const prForward = sourceNode?.data.type === "LaomedoGitHubPR" &&
 +            sourceHandleObject.name === "task" && reverseTarget.fieldName === "operation";
 +          if (!prReturn && !prForward) return false;
++          const agentId = prReturn ? source : target;
++          const prId = prReturn ? target : source;
++          if (edgesArray.some((edge) =>
++            edge.target === agentId && edge.source !== prId)) return false;
          }
        }
        return true;

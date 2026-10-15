@@ -26,9 +26,9 @@ displayed as zero. Native event bodies can contain sensitive task content:
 protect the database with the same private host permissions as the Langflow
 state. There is no public export or automatic expiry.
 
-Saved Langflow graphs embed component source. Update/reimport the native agent
-node to use the capture-enabled implementation; this does not reconstruct events
-from older turns whose temporary event files have already been removed.
+Historical saved graphs embed the removed adapter's component source. Do not
+reimport those as the current Agent. The retained store cannot reconstruct older
+events whose temporary files have already been removed.
 
 The API is under `/api/v1/laomedo/agent-activity/{flow}/{node}`. The invocation
 endpoint adds `/{invocation}?after=0&limit=100` (maximum 200). It never calls the

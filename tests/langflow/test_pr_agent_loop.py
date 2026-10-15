@@ -1,4 +1,4 @@
-"""Execute the real two-node feedback graph, including negative controls."""
+"""Exercise the native graph with internal fake-provider controls, including negative controls."""
 import asyncio
 import importlib.util
 import json
@@ -75,6 +75,21 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('succeeded',await self.execute(flow=flow))
         self.assertEqual(len(self.fake.writes),1)
         self.assertEqual(len(self.agent_calls),0)
+
+    async def test_external_agent_input_is_refused_before_agent(self):
+        flow=builder.build()
+        extra=builder.builder.node(ROOT/'components/laomedo/github_pr.py','extra',{},900,0)
+        flow['data']['nodes'].append(extra)
+        flow['data']['edges'].append(builder.builder.helper.edge(extra,'task',flow['data']['nodes'][1],'task'))
+        with self.assertRaisesRegex(Exception,'pr_agent_loop_invalid'):await self.execute(flow=flow)
+        self.assertEqual(len(self.agent_calls),0);self.assertEqual(len(self.fake.writes),0)
+
+    async def test_legacy_infinity_feedback_still_runs_once(self):
+        flow=builder.build();feedback=flow['data']['edges'][1]
+        target={'dataType':'LaomedoGitHubPR','id':'pr','name':'task','output_types':['Message','Data']}
+        feedback['targetHandle']=json.dumps(target);feedback['data']['targetHandle']=target
+        self.assertIn('succeeded',await self.execute(flow=flow))
+        self.assertEqual(len(self.agent_calls),1);self.assertEqual(len(self.fake.writes),1)
 
     async def test_multiple_operation_sources_are_refused_before_agent(self):
         flow=builder.build()
@@ -158,12 +173,6 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.agent_calls),1)
         self.assertEqual(len(self.fake.writes),1)
 
-    def test_message_feedback_json_is_supported_but_invalid_or_oversized_refused(self):
-        operation={'action':'close','request_id':'once','grant_ref':'fixture-grant'}
-        self.assertEqual(operation_value(Message(text=json.dumps(operation))),operation)
-        for value in ('not-json','x'*(1024*1024+1),{'action':'merge'},None):
-            with self.assertRaisesRegex(ValueError,'pr_operation_invalid'): operation_value(value)
-
 
     async def test_feedback_with_downstream_result_starts_pr_and_runs_agent_once(self):
         flow=builder.build()
@@ -179,3 +188,19 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('succeeded',str(result))
         self.assertEqual(len(self.agent_calls),1)
         self.assertEqual(len(self.fake.writes),1)
+
+    def test_message_feedback_json_is_supported_but_invalid_or_oversized_refused(self):
+        operation={'action':'close','request_id':'once','grant_ref':'fixture-grant'}
+        self.assertEqual(operation_value(Message(text=json.dumps(operation))),operation)
+        for value in ('not-json','x'*(1024*1024+1),{'action':'merge'},None):
+            with self.assertRaisesRegex(ValueError,'pr_operation_invalid'): operation_value(value)
+
+
+class ExportedPRFlowTests(unittest.TestCase):
+    def test_saved_internal_export_uses_operation_feedback(self):
+        flow=json.loads((ROOT/'examples/github-pr/flow.json').read_text())
+        Graph.from_payload(flow)
+        edges=flow['data']['edges']
+        feedback=next(edge for edge in edges if edge['target']=='pr')
+        self.assertEqual(json.loads(feedback['targetHandle'])['fieldName'],'operation')
+        self.assertEqual(flow,builder.build())
