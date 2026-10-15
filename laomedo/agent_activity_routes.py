@@ -44,8 +44,13 @@ def install_activity_routes(app, authenticate, store=None):
                 events.extend(page['events'])
                 after=page['next_after']
                 if not page['has_more'] or len(events)>=20000:
-                    return {**page,'run':{**page['run'],'node':node},'events':events,'projection':project(events,
-                            root_thread=page['run']['native_session'],model=page['run']['model']),
+                    projection=project(events,root_thread=page['run']['native_session'],model=page['run']['model'])
+                    if page['run'].get('reason') == 'invocation_boundary_unverified':
+                        projection['usage']=None
+                        projection['usage_points']=[]
+                        projection['cost']={**projection['cost'],'amount':None,'per_thread':{},'reason':'Invocation boundary is unverified.'}
+                        projection['cost_reason']='Invocation boundary is unverified; retained receipts are partial evidence.'
+                    return {**page,'run':{**page['run'],'node':node},'events':events,'projection':projection,
                             'truncated':page['has_more']}
         try:
             result=await run_in_threadpool(load)

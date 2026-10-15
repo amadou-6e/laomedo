@@ -33,6 +33,7 @@ class ActivityStore:
                   run TEXT NOT NULL, sequence INTEGER NOT NULL, received TEXT NOT NULL,
                   raw TEXT NOT NULL, PRIMARY KEY(run,sequence));
             ''')
+            db.execute('BEGIN IMMEDIATE')
             columns = {row['name'] for row in db.execute('PRAGMA table_info(agent_activity_runs)')}
             for name in ('execution', 'runner_run_id', 'model'):
                 if name not in columns:

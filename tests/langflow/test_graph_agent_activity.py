@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import threading
 from types import SimpleNamespace
+from concurrent.futures import ThreadPoolExecutor
 
 from laomedo.agent_activity import ActivityStore
 from laomedo.agent_activity_projection import project
@@ -13,6 +14,16 @@ from laomedo.runner_activity import notification, read_feed, closed_boundary
 
 
 class GraphActivityTests(unittest.TestCase):
+    def test_concurrent_first_captures_serialize_schema_migration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'activity.db'
+            def start(index):
+                return ActivityStore(path).start('alice','flow',f'node-{index}',execution='graph')
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                runs=list(pool.map(start,range(8)))
+            self.assertEqual(len(set(runs)),8)
+            self.assertEqual(len(ActivityStore(path,read_only=True).graph_runs('alice','flow')),8)
+
     def test_read_only_missing_store_does_not_create_anything(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'absent/activity.db'

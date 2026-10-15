@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 
-type Run = {id:string;node:string;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
+type Run = {id:string;node:string;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
 type Lane = {id:string;thread?:string;turn?:string;started:string;ended:string|null;status?:string;item?:Record<string,unknown>;conflicting_receipts?:boolean};
 type Cost = {amount:number|null;currency:string;basis:string;catalog_date:string;source:string|null};
 type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null}[];usage:Record<string,number>|null;usage_points:{at:string;thread:string;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string};
@@ -75,6 +75,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       <p className="my-2 text-xs text-muted-foreground">Bars use runner receipt times. Viewing activity never starts an agent. Select an invocation to inspect it.</p></>}
     {detail&&<article className="mt-6 space-y-4"><h2 className="font-semibold">{detail.run.node} · {detail.run.status}</h2>
       <p className="text-sm">{time(detail.run.started)} · {duration(detail.run.started,detail.run.ended)} · {detail.run.model??"Model unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
+      {detail.run.reason&&<p className="text-sm" role="status">Capture note: {detail.run.reason.replaceAll("_"," ")}</p>}
       <div className="flex flex-wrap gap-6 rounded border p-4">{["inputTokens","cachedInputTokens","outputTokens","reasoningOutputTokens"].map(key=><div key={key}><div className="text-xs text-muted-foreground">{key.replace(/Tokens$/, " tokens").replace(/([A-Z])/g," $1")}</div><div className="text-lg font-semibold">{detail.projection.usage?.[key]?.toLocaleString()??"Unknown"}</div></div>)}<div><div className="text-xs text-muted-foreground">API equivalent estimate</div><div className="text-lg font-semibold">{detail.projection.cost.amount===null?"Unknown":`$${detail.projection.cost.amount.toFixed(6)}`}</div></div></div>
       <p className="text-xs text-muted-foreground">{detail.projection.cost_reason} Cached input is part of input; reasoning is part of output.</p>
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}

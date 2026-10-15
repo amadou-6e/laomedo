@@ -90,13 +90,15 @@ def project(events, *, root_thread=None, model=None):
         if isinstance(thread,str) and isinstance(observed_model,str):
             observed_models.setdefault(thread,set()).add(observed_model)
     for thread,values in observed_models.items():
-        if thread not in models and len(values)==1:
+        if thread in models and (len(values)!=1 or models[thread] not in values):
+            models[thread]=None
+        elif thread not in models and len(values)==1:
             models[thread]=next(iter(values))
     for point in points:
         point['cost']=estimate(models.get(point['thread']),point['usage'])
     # Child model and usage must be independently observed; do not price all
     # child activity at the parent's model or claim an inclusive known total.
-    cost=estimate(model,latest.get(root_thread))
+    cost=estimate(models.get(root_thread),latest.get(root_thread))
     per_thread={thread:estimate(models.get(thread),latest.get(thread)) for thread in related}
     if len(related)>1:
         if all(value['amount'] is not None for value in per_thread.values()):

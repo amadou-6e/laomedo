@@ -77,6 +77,16 @@ class ActivityTests(unittest.TestCase):
     def test_reservation_requires_durable_identity(self):
         with self.assertRaisesRegex(ValueError,'agent_activity_identity_required'):self.store.start('','flow','node')
 
+    @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
+    def test_graph_routes_preserve_owner_scope_and_node_identity(self):
+        base='/api/v1/laomedo/agent-executions/flow'
+        self.assertEqual(self.client.get(base).status_code,401)
+        self.assertEqual(self.client.get(base,headers={'Authorization':'bob'}).json()['runs'],[])
+        self.assertEqual(self.client.get(base+'/agent/'+self.run,headers={'Authorization':'bob'}).status_code,404)
+        response=self.client.get(base+'/agent/'+self.run,headers={'Authorization':'alice'})
+        self.assertEqual(response.json()['run']['node'],'agent')
+        self.assertEqual(response.headers['cache-control'],'no-store')
+
     def test_read_only_store_uses_existing_database_without_schema_writes(self):
         original=self.store.path.read_bytes()
         reader=ActivityStore(self.store.path,read_only=True)
