@@ -880,7 +880,7 @@ class LocalRunner:
         self.image = GIT_IMAGE if git_workspace else IMAGE
         self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
         if image_id is not None:
-            if git_workspace or not isinstance(image_id, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
+            if git_workspace or split_executor or not isinstance(image_id, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
                 raise RunnerError("invalid_local_image_id")
             # Trusted host startup configuration, never a per-run API input.
             self.image_id = image_id
@@ -981,6 +981,13 @@ class LocalRunner:
                                    capture_output=True, text=True, timeout=15)
             if found.stdout.strip() != self.image_id:
                 raise RunnerError("docker_image_digest_changed")
+            version = subprocess.run([
+                "docker", "run", "--rm", "--pull=never", "--network", "none",
+                "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                "--user", "10001:10001", self.image_id, "codex", "--version"],
+                check=True, capture_output=True, text=True, timeout=20)
+            if version.stdout.strip() != CLI_VERSION:
+                raise RunnerError("unsupported_codex_cli_version")
             if not split_executor:
                 subprocess.run(["docker", "volume", "inspect", VOLUME], check=True,
                                capture_output=True, timeout=15)

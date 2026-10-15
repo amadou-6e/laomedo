@@ -16,8 +16,9 @@ verify `codex --version`, and obtain its full SHA256 ID using `docker image insp
 An operator may supply that exact approved ID with `--image-id` for a non-Git
 runner. This is trusted host startup configuration, never a graph/run API field.
 The fixed version tag must still match exactly; launch uses the immutable ID,
-and the CLI version check remains enforced. Defaults and historical pins stay
-unchanged. Git-image overrides are not supported by this option.
+and startup checks `codex --version` inside that exact image without credentials
+or network before any model dispatch. Defaults and historical pins stay
+unchanged. Git and split-executor image overrides are not supported by this option.
 
 Run native `--preflight` before granting model turns. It must allow the workspace
 write and deny canonical/store writes and credential reads; if all commands fail,

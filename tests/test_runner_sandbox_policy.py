@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.local_runner import LocalRunner, RunnerError, _docker_prefix
+from laomedo.local_runner import CLI_VERSION, LocalRunner, RunnerError, _docker_prefix
 
 
 class RunnerSandboxPolicyTests(unittest.TestCase):
@@ -41,8 +41,10 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             class Capture:
                 def __init__(self, command, evidence):
                     commands.append(command)
-            with patch("laomedo.local_runner.subprocess.run", return_value=
-                       subprocess.CompletedProcess([], 0, approved, "")):
+            with patch("laomedo.local_runner.subprocess.run", side_effect=[
+                    subprocess.CompletedProcess([], 0, approved, ""),
+                    subprocess.CompletedProcess([], 0, CLI_VERSION, ""),
+                    subprocess.CompletedProcess([], 0, "", "")]):
                 runner = LocalRunner(root / "state", root / "skills", source,
                                      image_id=approved, transport=Capture)
             runner._open_server(root)
@@ -54,7 +56,22 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                     LocalRunner(root / "mismatch", root / "skills", source,
                                 image_id=approved)
 
-    def test_local_image_override_rejects_tags_and_git_mode(self):
+    def test_wrong_cli_version_refuses_before_any_model_dispatch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            approved = "sha256:" + "a" * 64
+            with patch("laomedo.local_runner.subprocess.run", side_effect=[
+                    subprocess.CompletedProcess([], 0, approved, ""),
+                    subprocess.CompletedProcess([], 0, "codex-cli unexpected", "")]) as docker:
+                with self.assertRaisesRegex(RunnerError, "unsupported_codex_cli_version"):
+                    LocalRunner(root / "state", root / "skills", source, image_id=approved)
+            version_command = docker.call_args.args[0]
+            self.assertIn("none", version_command)
+            self.assertNotIn("--mount", version_command)
+            self.assertFalse((root / "state/turn-ledger.json").exists())
+
+    def test_local_image_override_rejects_tags_git_and_split_mode(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = Path(__file__).resolve().parents[1] / "examples/github-pr"
@@ -65,3 +82,6 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(RunnerError, "invalid_local_image_id"):
                 LocalRunner(root / "state", root / "skills", source,
                             image_id="sha256:" + "a" * 64, git_workspace=True)
+            with self.assertRaisesRegex(RunnerError, "invalid_local_image_id"):
+                LocalRunner(root / "state", root / "skills", source,
+                            image_id="sha256:" + "a" * 64, split_executor=True)
