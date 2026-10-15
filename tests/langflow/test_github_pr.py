@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
-from lfx.schema import Data
+from lfx.schema import Data, Message
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests'))
@@ -38,6 +38,12 @@ class NativeGitHubPRTests(unittest.TestCase):
         self.component._pre_run_setup()
         self.assertEqual(self.component.result_output().data['operation']['error_category'], 'pr_reference_mismatch')
         self.mock.assert_not_called()
+
+    def test_normal_operation_accepts_message_json(self):
+        self.component.set(operation=Message(text='{"action":"close","request_id":"message-once","grant_ref":"grant"}'))
+        self.component._pre_run_setup()
+        self.assertEqual(self.component.result_output().data['operation']['status'],'succeeded')
+        self.assertEqual(len(self.fake.writes),1)
 
     def test_filters_clear_selection_and_refresh_preserves_number(self):
         config = {item.name: item.to_dict() for item in self.component.inputs}

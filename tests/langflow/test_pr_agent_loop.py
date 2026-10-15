@@ -66,6 +66,26 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.fake.prs[1]['title'],'PR operation verified')
         self.assertEqual(len(self.last_graph.vertices),2)
 
+    async def test_normal_upstream_operation_remains_acyclic(self):
+        flow=builder.build()
+        pr=flow['data']['nodes'][0]
+        operation=builder.builder.node(ROOT/'examples/github-pr/operation.py','operation',{},600,0)
+        flow['data']['nodes']=[operation,pr]
+        flow['data']['edges']=[builder.builder.helper.edge(operation,'operation',pr,'operation')]
+        self.assertIn('succeeded',await self.execute(flow=flow))
+        self.assertEqual(len(self.fake.writes),1)
+        self.assertEqual(len(self.agent_calls),0)
+
+    async def test_multiple_operation_sources_are_refused_before_agent(self):
+        flow=builder.build()
+        extra=builder.builder.node(ROOT/'examples/github-pr/operation.py','extra',{},900,0)
+        flow['data']['nodes'].append(extra)
+        flow['data']['edges'].append(builder.builder.helper.edge(extra,'operation',flow['data']['nodes'][0],'operation'))
+        with self.assertRaisesRegex(Exception,'pr_agent_loop_invalid'):
+            await self.execute(flow=flow)
+        self.assertEqual(len(self.agent_calls),0)
+        self.assertEqual(len(self.fake.writes),0)
+
     async def test_close_applies_once_and_stops(self):
         self.assertIn('succeeded',await self.execute('close'))
         self.assertEqual(self.fake.prs[1]['state'],'closed')

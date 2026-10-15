@@ -20,7 +20,7 @@ def build(repository,number,title,instructions,grant_ref,request_id):
     agent=node(ROOT/'components/laomedo/native_pr_agent.py','agent',{
         'instructions':instructions,'grant_ref':grant_ref,'request_id':request_id},600,120)
     source={'dataType':'NativePRAgent','id':'agent','name':'operation','output_types':['Data']}
-    target={'dataType':'LaomedoGitHubPR','id':'pr','name':'task','output_types':['Message','Data']}
+    target={'id':'pr','fieldName':'operation','inputTypes':['Data','Message'],'type':'other'}
     feedback={'id':'agent-operation-pr-task','source':'agent','target':'pr',
         'sourceHandle':json.dumps(source),'targetHandle':json.dumps(target),
         'data':{'sourceHandle':source,'targetHandle':target}}

@@ -1,7 +1,6 @@
 """Execute the one connected Agent through native Langflow loop machinery."""
 import json
 from contextlib import aclosing
-from lfx.base.flow_controls.loop_utils import get_loop_body_vertices
 from lfx.execution import aget_default_coordinator
 from lfx.schema import Data, Message
 from types import MethodType
@@ -13,8 +12,9 @@ def _build_pr_params(vertex):
     # The return socket is controlled by this component's isolated loop body,
     # not an eager input dependency. Keep the edge for topology/port selection.
     if feedback_edge(vertex.custom_component) is not None:
-        vertex.raw_params.pop('task', None)
-        vertex.params.pop('task', None)
+        field = feedback_edge(vertex.custom_component).target_handle.field_name
+        vertex.raw_params.pop(field, None)
+        vertex.params.pop(field, None)
 
 
 def bind_feedback_parameters(vertex):
@@ -27,10 +27,10 @@ def bind_feedback_parameters(vertex):
 
 def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
     from lfx.graph.graph.base import Graph
+    controllers = [v for v in graph.vertices
+        if getattr(getattr(v, 'custom_component', None), 'name', None) == 'LaomedoGitHubPR'
+        and feedback_edge(v.custom_component) is not None]
     if len(graph.vertices) == 2:
-        controllers = [v for v in graph.vertices
-            if getattr(getattr(v, 'custom_component', None), 'name', None) == 'LaomedoGitHubPR'
-            and feedback_edge(v.custom_component) is not None]
         if len(controllers) == 1:
             controller = controllers[0]
             feedback = feedback_edge(controller.custom_component)
@@ -43,10 +43,29 @@ def feedback_edge(component):
     vertex = getattr(component, '_vertex', None)
     if vertex is None:
         return None
-    edges = [edge for edge in vertex.incoming_edges if edge.target_handle.field_name == 'task']
+    legacy = [edge for edge in vertex.incoming_edges if edge.target_handle.field_name == 'task']
+    operations = [edge for edge in vertex.incoming_edges if edge.target_handle.field_name == 'operation']
+    if len(operations) > 1:
+        raise ValueError('pr_agent_loop_invalid')
+    starts = [edge for edge in vertex.outgoing_edges if edge.source_handle.name == 'task']
+    # An ordinary upstream operation stays eager. Only the return from the
+    # Agent consuming this PR's context is controlled feedback.
+    returns = [edge for edge in operations if any(start.target_id == edge.source_id for start in starts)]
+    if operations and starts and not returns:
+        pending = [edge.target_id for edge in starts]
+        seen = {vertex.id}
+        while pending:
+            current = pending.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            if current == operations[0].source_id:
+                raise ValueError('pr_agent_loop_invalid')
+            pending.extend(edge.target_id for edge in vertex.graph.get_vertex(current).outgoing_edges)
+    edges = legacy + returns
     if not edges:
         return None
-    if len(edges) != 1:
+    if len(edges) != 1 or (returns and len(operations) != 1) or (legacy and operations):
         raise ValueError('pr_agent_loop_invalid')
     return edges[0]
 
@@ -73,9 +92,7 @@ def operation_value(value):
 async def agent_operation(component, seed):
     feedback = feedback_edge(component)
     starts = [edge for edge in component._vertex.outgoing_edges if edge.source_handle.name == 'task']
-    body = get_loop_body_vertices(vertex=component._vertex, graph=component.graph,
-        get_incoming_edge_by_target_param_fn=component.get_incoming_edge_by_target_param,
-        loop_output_name='task')
+    body = {feedback.source_id} if feedback is not None else set()
     if (feedback is None or len(starts) != 1 or body != {feedback.source_id} or
             starts[0].target_id != feedback.source_id):
         raise ValueError('pr_agent_loop_invalid')

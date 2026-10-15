@@ -1,0 +1,24 @@
+diff --git a/src/frontend/src/utils/reactflowUtils.ts b/src/frontend/src/utils/reactflowUtils.ts
+index 0424071..a9fa10d 100644
+--- a/src/frontend/src/utils/reactflowUtils.ts
++++ b/src/frontend/src/utils/reactflowUtils.ts
+@@ -530,7 +530,18 @@ export function isValidConnection(
+           }
+         });
+         if (!hasLoopComponent) {
+-          return false;
++          // GitHub PR owns a bounded Task -> Agent -> Operation round trip.
++          // Permit either connection order, while retaining the generic cycle ban.
++          if (cyclePath.length !== 1) return false;
++          const reverse = cyclePath[0];
++          const reverseSource = scapeJSONParse(reverse.sourceHandle!);
++          const reverseTarget = scapeJSONParse(reverse.targetHandle!);
++          const sourceNode = nodesArray.find((n) => n.id === source);
++          const prReturn = targetNode?.data.type === "LaomedoGitHubPR" &&
++            targetHandleObject.fieldName === "operation" && reverseSource.name === "task";
++          const prForward = sourceNode?.data.type === "LaomedoGitHubPR" &&
++            sourceHandleObject.name === "task" && reverseTarget.fieldName === "operation";
++          if (!prReturn && !prForward) return false;
+         }
+       }
+       return true;

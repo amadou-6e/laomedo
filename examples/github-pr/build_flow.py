@@ -19,7 +19,7 @@ def build(action='modify'):
         {'repository_url':'https://github.com/owner/repo', 'labels':[], 'state':'open', 'pr_choice':'#1 Change 1'}, 0, 0)
     agent = node(HERE / 'agent.py','agent',{'action':action},600,120)
     source = {'dataType':'PRFixtureAgent','id':'agent','name':'operation','output_types':['Data']}
-    target = {'dataType':'LaomedoGitHubPR','id':'pr','name':'task','output_types':['Message','Data']}
+    target = {'id':'pr','fieldName':'operation','inputTypes':['Data','Message'],'type':'other'}
     feedback = {'id':'agent-operation-pr-task','source':'agent','target':'pr',
         'sourceHandle':json.dumps(source),'targetHandle':json.dumps(target),
         'data':{'sourceHandle':source,'targetHandle':target}}

@@ -6,7 +6,7 @@ from lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput
 from lfx.schema import Data, Message
 from laomedo.github_pr_client import pr_request
 from laomedo.github_pr_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS
-from laomedo.pr_agent_loop import feedback_edge, agent_operation, bind_feedback_parameters
+from laomedo.pr_agent_loop import feedback_edge, agent_operation, bind_feedback_parameters, operation_value
 
 
 class LaomedoGitHubPR(Component):
@@ -26,14 +26,13 @@ class LaomedoGitHubPR(Component):
                       advanced=True, real_time_refresh=True),
         DataInput(name="pr_reference", display_name="PR Reference",
                   info="Connect an earlier GitHub PR output to operate on that same PR. Must match this repository and any explicit selection."),
-        DataInput(name="operation", display_name="Operation",
-                  info="close or modify(title/body/labels), with request_id and a host-owned grant_ref."),
+        DataInput(name="operation", display_name="Operation", input_types=["Data", "Message"],
+                  info="Normal upstream operation, or feedback from the Agent receiving this PR's Task. close/modify with request_id and host grant_ref."),
         StrInput(name="discovery_status", display_name="Discovery", value="Supply a repository URL."),
     ]
     outputs = [
         Output(name="pr", display_name="PR", method="pr_output", group_outputs=True),
-        Output(name="task", display_name="Task", method="agent_task_output", group_outputs=True,
-               allows_loop=True, loop_types=["Data", "Message"]),
+        Output(name="task", display_name="Task", method="agent_task_output", group_outputs=True),
         Output(name="operation_result", display_name="Operation Result", method="routed_result_output", group_outputs=True),
     ]
 
@@ -59,8 +58,7 @@ class LaomedoGitHubPR(Component):
         dispatched = False
         try:
             raw_operation = self._vertex.full_data['data']['node']['template'].get('operation',{}).get('value')
-            if (getattr(self, 'operation', None) or raw_operation or
-                    any(edge.target_handle.field_name == 'operation' for edge in self._vertex.incoming_edges)):
+            if raw_operation:
                 raise ValueError('pr_agent_loop_invalid')
             seed = self.task_output()
             operation = await agent_operation(self, seed)
@@ -111,10 +109,11 @@ class LaomedoGitHubPR(Component):
         if cached is not None:
             return cached
         operation = getattr(self, "operation", None)
-        operation = operation.data if isinstance(operation, Data) else operation
         try:
             if feedback_edge(self) is not None:
                 operation = None
+            elif operation:
+                operation = operation_value(operation)
             repository = repository_from_url(self.repository_url)
             selected = str(getattr(self, "pr_choice", "") or "")
             match = re.match(r"^#([1-9][0-9]*) ", selected)

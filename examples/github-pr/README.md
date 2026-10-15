@@ -12,11 +12,17 @@ Without them the operation is refused; that refusal is not successful acceptance
 
 `real-flow.json` records the live example using disposable PR
 [#20](https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/20).
-`real-evidence.json` records one native Codex turn, a confirmed description
-update, independent GitHub readback, and the editor's selected PR viewer.
+`operation-feedback-evidence.json` records the current Operation-input graph,
+one native Codex turn, a confirmed description update, GitHub readback and
+manual editor reconnection. `real-evidence.json` preserves the earlier infinity
+socket demonstration as history.
 The saved grant reference is an opaque campaign identity, not a credential;
 the original short-lived grant is not a reusable deployment configuration.
 The CLI adapter covers this local demonstration, not Docker runner isolation.
+After applying the pinned viewer overlay, run
+`python tools/apply_pr_operation_feedback.py PATH_TO_LANGFLOW` and rebuild its
+frontend to enable manually drawing the bounded Operation feedback connection.
+The normal input also accepts a Message containing the operation JSON.
 
 The historical fixture files below are internal test material. They require
 explicit user approval before being presented as a demo or deliverable.
@@ -43,8 +49,10 @@ flowchart LR
 
 There are exactly two nodes. The PR reads first, executes the connected Agent
 once in a native isolated loop body, applies its returned operation to that same
-PR, and stops. Connect the Agent's operation output to the PR Task output's loop
-input socket; leave the ordinary Operation input empty. Operation Result records
+PR, and stops. Connect the Agent's operation output to the PR Operation input.
+That same input accepts ordinary upstream operations when the source does not
+receive this PR's Task. Conflicting sources or literal-plus-feedback values are
+refused. Operation Result records
 the terminal outcome. The fixture Agent is deterministic and makes no model call.
 The component adapts the pinned runtime's eager parameter resolution only on its
 own vertex, so the feedback socket cannot execute the Agent before the read.
