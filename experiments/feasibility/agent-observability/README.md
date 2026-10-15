@@ -12,8 +12,11 @@ Docker was unavailable, so these results do not verify the original runner,
 graph-run/invocation binding or a graph-wide UI. There is no new agent node.
 Subagent hierarchy, Claude capture and provider-reported cost remain unverified.
 Token counters are not invoice amounts. Trace parent IDs do not prove an agent
-hierarchy. OTLP protobuf source timestamps were absent; source event attributes
-and receipt times must be distinguished.
+hierarchy. OTLP log protobuf source timestamps were absent; log `event.timestamp`
+attributes, timed spans and receipt times must be distinguished. The final
+`thread/read(includeTurns=true)` request failed for the ephemeral thread, so
+the probe exited with code 1 without a history export. Streaming receipts had
+already captured the three turns; no model turn was repeated.
 
 The probe exhausted its three-turn cap. Do not rerun model-backed probes without
 new authorization. The retained historical activity modal is unwired preparation.
