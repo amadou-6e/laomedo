@@ -32,6 +32,13 @@ def apply(checkout):
     activity_target = checkout / "src/frontend/src/modals/agentActivity"
     activity_target.mkdir()
     shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")
+    agents_patch = overlay / "agents.patch"
+    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(agents_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", str(agents_patch)], check=True)
+    agents_target = checkout / "src/frontend/src/modals/graphAgents"
+    agents_target.mkdir()
+    shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
+    shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

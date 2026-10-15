@@ -77,6 +77,33 @@ class ActivityTests(unittest.TestCase):
     def test_reservation_requires_durable_identity(self):
         with self.assertRaisesRegex(ValueError,'agent_activity_identity_required'):self.store.start('','flow','node')
 
+    @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
+    def test_graph_routes_preserve_owner_scope_and_node_identity(self):
+        base='/api/v1/laomedo/agent-executions/flow'
+        self.assertEqual(self.client.get(base).status_code,401)
+        self.assertEqual(self.client.get(base,headers={'Authorization':'bob'}).json()['runs'],[])
+        self.assertEqual(self.client.get(base+'/agent/'+self.run,headers={'Authorization':'bob'}).status_code,404)
+        response=self.client.get(base+'/agent/'+self.run,headers={'Authorization':'alice'})
+        self.assertEqual(response.json()['run']['node'],'agent')
+        self.assertEqual(response.headers['cache-control'],'no-store')
+
+    @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
+    def test_truncated_projection_does_not_claim_full_usage_or_cost(self):
+        event={'sequence':1,'received_at':'2026-10-15T00:00:00Z','raw':{
+            'method':'thread/tokenUsage/updated','params':{'threadId':'thread',
+            'tokenUsage':{'total':{'inputTokens':100,'cachedInputTokens':0,'outputTokens':1}}}}}
+        def page(*args):
+            after=args[4]
+            return {'run':{'native_session':'thread','model':'gpt-6-luna'},
+                    'events':[event]*200,'next_after':after+200,'has_more':True}
+        with patch.object(self.store,'read',side_effect=page):
+            value=self.client.get('/api/v1/laomedo/agent-executions/flow/agent/'+self.run,
+                headers={'Authorization':'alice'}).json()
+        self.assertTrue(value['truncated'])
+        self.assertIsNone(value['projection']['usage'])
+        self.assertIsNone(value['projection']['cost']['amount'])
+        self.assertEqual(value['projection']['usage_points'],[])
+
     def test_read_only_store_uses_existing_database_without_schema_writes(self):
         original=self.store.path.read_bytes()
         reader=ActivityStore(self.store.path,read_only=True)

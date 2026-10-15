@@ -33,27 +33,42 @@ class ActivityStore:
                   run TEXT NOT NULL, sequence INTEGER NOT NULL, received TEXT NOT NULL,
                   raw TEXT NOT NULL, PRIMARY KEY(run,sequence));
             ''')
+            db.execute('BEGIN IMMEDIATE')
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(agent_activity_runs)')}
+            for name in ('execution', 'runner_run_id', 'model'):
+                if name not in columns:
+                    db.execute(f'ALTER TABLE agent_activity_runs ADD COLUMN {name} TEXT')
+            db.execute('''CREATE TABLE IF NOT EXISTS agent_activity_sources (
+                run TEXT NOT NULL, source TEXT NOT NULL, cursor INTEGER NOT NULL,
+                PRIMARY KEY(run,source,cursor))''')
+            db.execute('''CREATE TABLE IF NOT EXISTS agent_activity_attempts (
+                runner_run TEXT NOT NULL, attempt TEXT NOT NULL, invocation TEXT NOT NULL,
+                PRIMARY KEY(runner_run,attempt))''')
 
     @contextmanager
     def db(self):
-        db = sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=15) if self.read_only else sqlite3.connect(self.path, timeout=15)
+        db = sqlite3.connect(self.path.resolve().as_uri() + '?mode=ro', uri=True, timeout=15) if self.read_only else sqlite3.connect(self.path, timeout=15)
         db.row_factory = sqlite3.Row
+        if self.read_only:
+            db.execute('PRAGMA query_only=ON')
         try:
             with db:
                 yield db
         finally:
             db.close()
 
-    def start(self, owner, flow, node, provider='codex-cli'):
+    def start(self, owner, flow, node, provider='codex-cli', *, execution=None):
         if not all(isinstance(v,str) and v and len(v)<=200 for v in (owner,flow,node)):
             raise ValueError('agent_activity_identity_required')
         run = str(uuid4())
         with self.db() as db:
-            db.execute('INSERT INTO agent_activity_runs VALUES (?,?,?,?,?,?,NULL,?,?,NULL,NULL,NULL)',
-                       (run,owner,flow,node,provider,now(),'running','partial'))
+            db.execute('''INSERT INTO agent_activity_runs
+                (id,owner,flow,node,provider,started,status,stream_state,execution)
+                VALUES (?,?,?,?,?,?,?,?,?)''',
+                       (run,owner,flow,node,provider,now(),'running','partial',execution))
         return run
 
-    def append(self, run, event):
+    def append(self, run, event, *, source=None, cursor=None):
         if not isinstance(event,dict):
             raise ValueError('agent_activity_event_invalid')
         raw=json.dumps(event,ensure_ascii=False)
@@ -61,6 +76,13 @@ class ActivityStore:
             record=db.execute('SELECT ended FROM agent_activity_runs WHERE id=?',(run,)).fetchone()
             if record is None or record['ended'] is not None:
                 raise ValueError('agent_activity_closed')
+            if source is not None:
+                if not isinstance(cursor,int) or cursor < 1:
+                    raise ValueError('agent_activity_cursor_invalid')
+                inserted=db.execute('INSERT OR IGNORE INTO agent_activity_sources VALUES (?,?,?)',
+                                    (run,source,cursor)).rowcount
+                if not inserted:
+                    return
             seq=db.execute('SELECT COALESCE(MAX(sequence),0)+1 FROM agent_activity_receipts WHERE run=?',(run,)).fetchone()[0]
             db.execute('INSERT INTO agent_activity_receipts VALUES (?,?,?,?)',(run,seq,now(),raw))
             if event.get('type')=='thread.started' and isinstance(event.get('thread_id'),str):
@@ -68,12 +90,35 @@ class ActivityStore:
             if event.get('type')=='turn.completed' and isinstance(event.get('usage'),dict):
                 db.execute('UPDATE agent_activity_runs SET usage=? WHERE id=?',(json.dumps(event['usage']),run))
 
-    def finish(self, run, status, *, complete=False, reason=None):
+    def bind(self, run, runner_run_id, *, native_session=None, model=None):
+        with self.db() as db:
+            row=db.execute('SELECT runner_run_id FROM agent_activity_runs WHERE id=?',(run,)).fetchone()
+            if row is None or row['runner_run_id'] not in (None,runner_run_id):
+                raise ValueError('agent_activity_binding_conflict')
+            db.execute('UPDATE agent_activity_runs SET runner_run_id=?,native_session=COALESCE(?,native_session),model=COALESCE(?,model) WHERE id=?',
+                       (runner_run_id,native_session,model,run))
+
+    def graph_runs(self, owner, flow, execution=None):
+        with self.db() as db:
+            rows=db.execute('''SELECT r.*, (SELECT COUNT(*) FROM agent_activity_receipts e WHERE e.run=r.id) event_count
+                FROM agent_activity_runs r WHERE owner=? AND flow=? AND (? IS NULL OR execution=?)
+                ORDER BY started DESC,id DESC LIMIT 500''',(owner,flow,execution,execution)).fetchall()
+        return [{**self._summary(row),'node':row['node']} for row in rows]
+
+    def claim_attempt(self, invocation, runner_run, attempt):
+        with self.db() as db:
+            db.execute('INSERT OR IGNORE INTO agent_activity_attempts VALUES (?,?,?)',
+                       (runner_run,attempt,invocation))
+            row=db.execute('SELECT invocation FROM agent_activity_attempts WHERE runner_run=? AND attempt=?',
+                           (runner_run,attempt)).fetchone()
+            return row['invocation']==invocation
+
+    def finish(self, run, status, *, complete=False, reason=None, ended_at=None):
         if status not in {'completed','failed','cancelled','timed_out'}:
             raise ValueError('agent_activity_status_invalid')
         with self.db() as db:
             db.execute('UPDATE agent_activity_runs SET ended=?,status=?,stream_state=?,reason=? WHERE id=? AND ended IS NULL',
-                       (now(),status,'complete' if complete else 'partial',reason,run))
+                       (ended_at or now(),status,'complete' if complete else 'partial',reason,run))
 
     def runs(self, owner, flow, node):
         with self.db() as db:
@@ -102,7 +147,7 @@ class ActivityStore:
         for item in rows:
             raw=json.loads(item['raw'])
             events.append({'sequence':item['sequence'],'received_at':item['received'],
-                           'kind':raw.get('type','unknown'),'provenance':'observed','raw':raw})
+                           'kind':raw.get('method',raw.get('type','unknown')),'provenance':'observed','raw':raw})
         return {'run':{**self._summary(row),'event_count':count},'events':events,
                 'next_after':events[-1]['sequence'] if events else after,
                 'has_more':bool(events and events[-1]['sequence']<count)}
@@ -114,5 +159,8 @@ def capture_for(component):
     if not path: return None
     graph=component.graph
     store=ActivityStore(path)
-    run=store.start(str(component._user_id or ''),str(graph.flow_id or ''),component._vertex.id)
+    execution=str(graph.run_id or '')
+    if not execution:
+        raise ValueError('agent_activity_execution_required')
+    run=store.start(str(component._user_id or ''),str(getattr(graph,'source_flow_id',None) or graph.flow_id or ''),component._vertex.id,execution=execution)
     return store,run
