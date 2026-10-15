@@ -163,3 +163,19 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(operation_value(Message(text=json.dumps(operation))),operation)
         for value in ('not-json','x'*(1024*1024+1),{'action':'merge'},None):
             with self.assertRaisesRegex(ValueError,'pr_operation_invalid'): operation_value(value)
+
+
+    async def test_feedback_with_downstream_result_starts_pr_and_runs_agent_once(self):
+        flow=builder.build()
+        inspector=builder.builder.node(ROOT/'examples/github-pr/result.py','result',{},1100,0)
+        flow['data']['nodes'].append(inspector)
+        flow['data']['edges'].append(builder.builder.helper.edge(flow['data']['nodes'][0],
+            'operation_result',inspector,'result'))
+        flow['data']['nodes'].reverse()
+        graph=Graph.from_payload(flow)
+        graph.prepare()
+        self.assertEqual(graph.first_layer,['pr'])
+        result=await asyncio.wait_for(graph.arun(inputs=[{}],outputs=['result']),timeout=25)
+        self.assertIn('succeeded',str(result))
+        self.assertEqual(len(self.agent_calls),1)
+        self.assertEqual(len(self.fake.writes),1)

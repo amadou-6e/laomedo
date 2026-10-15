@@ -1,9 +1,14 @@
-# Agent activity in Langflow
+# Historical agent activity prototype
 
-The Codex PR Agent toolbar has an **Agent activity** button. It opens retained
-invocations for that node, ordered native events, status, session identity and
-usage when the native stream supplies it. Refresh and pagination are read-only.
-Every invocation stays separate; receipt counts do not imply unique actions.
+The prototype at `aee7d1c` inspected a separate PR-specific CLI adapter. The user
+requested the existing `LaomedoCodexAgent`, and explicitly selected removal of
+the PR-specific agent on 2026-10-15. That component, its live graph builder/export
+and toolbar coupling have been removed from the product. The retained API/store
+and modal source are unwired preparatory code, not a completed product feature.
+
+See the [real feasibility study](../experiments/feasibility/agent-observability/README.md).
+The target is a graph-wide Agents tab with multiple turns, tool/message details,
+subagent hierarchy and token/cost series. No replacement agent node is needed.
 
 Set `LAOMEDO_AGENT_ACTIVITY_DB` on the Langflow host to a private SQLite database
 outside the checkout. Only the host chooses this path. Capture reserves the
@@ -28,7 +33,7 @@ The API is under `/api/v1/laomedo/agent-activity/{flow}/{node}`. The invocation
 endpoint adds `/{invocation}?after=0&limit=100` (maximum 200). It never calls the
 agent or a provider. No database filesystem path comes from the browser.
 
-This slice supports `NativePRAgent`. Docker-runner event integration, Claude,
+The historical prototype supported `NativePRAgent` only. Docker-runner integration, Claude,
 cross-agent overview, deletion UI and hard-crash durability acceptance remain
 unfinished. The existing RunnerTraceBridge and WorkflowRunStore keep their
 separate runner correlation responsibilities; this viewer does not replace or

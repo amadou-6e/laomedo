@@ -1,24 +1,19 @@
 # GitHub PR node and operation graph
 
-For a real Agent, `build_real_flow.py` exports the same two-node loop with
-`components/laomedo/native_pr_agent.py`. It invokes the installed Codex CLI once,
-using the existing host login and configured model, with read-only shell access.
-The Agent returns a schema-constrained proposal; the PR node owns the write.
-Set `LAOMEDO_CODEX_EXECUTABLE` and `LAOMEDO_PR_AGENT_WORKSPACE` on the app host.
-Supply the actual repository, selected PR, requested change, stable request ID
-and host grant reference to the builder. Credentials never enter graph fields.
-The host must separately configure a live GitHub connection and scoped grant.
-Without them the operation is refused; that refusal is not successful acceptance.
+The intended workflow is **PR → existing Laomedo Codex Agent → the same PR**.
+The PR-specific CLI agent, its builder and live export were removed at the user's
+request. The original agent remains `components/laomedo/codex_agent.py` and uses
+the existing Docker runner. Its full PR round trip remains unverified while
+Docker is unavailable; there is no replacement agent or working original-runner
+example claimed here.
 
-`real-flow.json` records the live example using disposable PR
-[#20](https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/20).
-`operation-feedback-evidence.json` records the current Operation-input graph,
-one native Codex turn, a confirmed description update, GitHub readback and
-manual editor reconnection. `real-evidence.json` preserves the earlier infinity
-socket demonstration as history.
-The saved grant reference is an opaque campaign identity, not a credential;
-the original short-lived grant is not a reusable deployment configuration.
-The CLI adapter covers this local demonstration, not Docker runner isolation.
+`operation-feedback-evidence.json` and `real-evidence.json` are historical checks
+of earlier source revisions, including the removed CLI adapter. They do not
+establish live acceptance of this head or the original Codex agent.
+A grant reference authorizes use of its host-bound capability; treat it as
+sensitive, not harmless metadata. Owner/flow binding is not yet implemented:
+this connection is only suitable for a trusted single-user host. The old
+short-lived campaign grant is not a reusable deployment configuration.
 After applying the pinned viewer overlay, run
 `python tools/apply_pr_operation_feedback.py PATH_TO_LANGFLOW` and rebuild its
 frontend to enable manually drawing the bounded Operation feedback connection.
@@ -62,6 +57,12 @@ The fixture runner injects a fake REST provider, uses real mediation and graph
 ports, and runs twice to verify one mutation. Merely importing flow.json does
 not configure a service; the fixture grant has meaning only inside that runner.
 The earlier acyclic example is preserved in four-node-flow.json.
+
+Durable replay prevents repeating a confirmed write only for an identical
+operation payload and request identity. A fresh graph run still invokes its
+Agent; a different returned payload with the same identity is refused as a
+conflict. The internal deterministic replay test does not establish reuse of
+a real model response without another model turn. Do not automatically retry.
 
 For a separately approved deployment, copy github_pr.py into the installed
 custom component category and apply/build the pinned frontend overlay. Set
