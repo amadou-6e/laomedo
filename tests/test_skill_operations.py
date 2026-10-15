@@ -1,0 +1,133 @@
+import copy
+import json
+from pathlib import Path
+import tempfile
+import threading
+import unittest
+from urllib import request, error
+
+from laomedo.skill_store import SkillStore, SkillStoreError, ConflictError
+from laomedo.skill_operations import SkillOperations, proposal
+from laomedo.skill_operation_server import server
+
+
+class SkillOperationTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        source = self.root/'source'
+        (source/'rules').mkdir(parents=True)
+        self.original = '---\nname: internal-test\ndescription: Internal unit fixture.\n---\n'
+        (source/'SKILL.md').write_bytes(self.original.encode())
+        (source/'rules/one.md').write_bytes(b'original\n')
+        self.store = SkillStore(self.root/'registry')
+        self.initial = self.store.import_skill('internal-test', source)
+        self.policy = {'policy_id': 'test-policy', 'revision_id': '1',
+            'allowed_paths': ['SKILL.md', 'rules/one.md', 'rules/two.md'],
+            'allowed_suffixes': ['.md'], 'allow_new_files': True, 'allow_deletions': True,
+            'allow_scripts': False, 'allow_dependencies': False, 'allow_assets': False,
+            'required_frontmatter': ['name', 'description'], 'permitted_validation_commands': [],
+            'max_files': 8, 'max_file_bytes': 8192}
+        self.service = SkillOperations(self.store, self.root/'history.db', {'internal-test': self.policy})
+        self.operation = {'action': 'modify', 'message': 'Change two files together', 'files': [
+            {'path': 'SKILL.md', 'content': self.original+'\nUpdated.\n'},
+            {'path': 'rules/one.md', 'content': 'updated\n'}]}
+
+    def prepare(self, revision=None, commit=''):
+        return self.service.prepare('internal-test', revision or self.initial['revision_id'], commit)
+
+    def test_atomic_multifile_revision_and_replay(self):
+        reservation = self.prepare()
+        result = self.service.apply(reservation['ticket'], self.operation)
+        self.assertEqual(result['commit']['files'], ['SKILL.md', 'rules/one.md'])
+        self.assertEqual(result['commit']['parent_commit'], reservation['base_commit'])
+        self.assertEqual(self.store.revision('internal-test'), self.initial)
+        self.assertEqual(self.service.apply(reservation['ticket'], self.operation), result)
+        self.assertFalse(result['promotion_performed'])
+        self.assertIn('updated', result['commit']['patch'])
+        history = self.service.history('internal-test', result['skill']['revision_id'])
+        self.assertEqual(len(history['commits']), 2)
+        self.assertEqual(history['commits'][0]['commit_id'], result['commit']['commit_id'])
+
+    def test_conflicting_concurrent_edits_do_not_partially_apply(self):
+        first, second = self.prepare(), self.prepare()
+        self.service.apply(first['ticket'], self.operation)
+        with self.assertRaisesRegex(ConflictError, 'skill_base_changed'):
+            self.service.apply(second['ticket'], self.operation)
+        self.assertEqual(len(self.service.history('internal-test', self.initial['revision_id'])['commits']), 2)
+
+    def test_policy_denies_entire_batch(self):
+        reservation = self.prepare()
+        operation = copy.deepcopy(self.operation)
+        operation['files'].append({'path': 'secret.md', 'content': 'no'})
+        with self.assertRaisesRegex(SkillStoreError, 'skill_edit_policy_denied'):
+            self.service.apply(reservation['ticket'], operation)
+        self.assertEqual(self.store.revision('internal-test'), self.initial)
+        self.assertEqual(len(self.service.history('internal-test', self.initial['revision_id'])['commits']), 1)
+
+    def test_revert_has_distinct_commit_but_same_tree(self):
+        first = self.service.apply(self.prepare()['ticket'], self.operation)
+        reservation = self.prepare(first['skill']['revision_id'], first['commit']['commit_id'])
+        reverted = self.service.apply(reservation['ticket'], {'action': 'modify', 'message': 'Revert',
+            'files': [{'path': 'SKILL.md', 'content': self.original},
+                      {'path': 'rules/one.md', 'content': 'original\n'}]})
+        self.assertEqual(reverted['skill']['revision_id'], self.initial['revision_id'])
+        self.assertNotEqual(reverted['commit']['commit_id'], reservation['base_commit'])
+        self.assertEqual(len(self.service.history('internal-test', self.initial['revision_id'])['commits']), 3)
+        with self.assertRaises(ConflictError):
+            self.prepare()
+
+    def test_path_aliases_and_model_authority_rejected(self):
+        for path in ('../escape.md', 'rules/../escape.md', 'rules\\one.md'):
+            with self.assertRaises(ValueError):
+                proposal({**self.operation, 'files': [{'path': path, 'content': 'no'}]})
+        with self.assertRaises(ValueError):
+            proposal({**self.operation, 'run_id': 'model-forged'})
+        with self.assertRaises(ValueError):
+            proposal({**self.operation, 'files': [{'path': 'a.md', 'content': ''},
+                                                {'path': 'A.md', 'content': ''}]})
+
+    def test_replay_conflict_expiry_and_revocation(self):
+        reservation = self.prepare()
+        self.service.apply(reservation['ticket'], self.operation)
+        with self.assertRaises(ConflictError):
+            self.service.apply(reservation['ticket'], {**self.operation, 'message': 'different'})
+        self.service.policies.clear()
+        with self.assertRaisesRegex(ValueError, 'skill_edit_not_authorized'):
+            self.service.apply(reservation['ticket'], self.operation)
+        self.service.policies['internal-test'] = self.policy
+        with self.service.connect() as db:
+            db.execute('UPDATE requests SET expires=0')
+        with self.assertRaisesRegex(ValueError, 'skill_ticket_expired'):
+            self.service.apply(reservation['ticket'], self.operation)
+
+    def test_add_delete_and_history_integrity(self):
+        operation = {'action': 'modify', 'message': 'Replace a rule', 'files': [
+            {'path': 'rules/one.md', 'content': None}, {'path': 'rules/two.md', 'content': 'new\n'}]}
+        result = self.service.apply(self.prepare()['ticket'], operation,
+            editor={'kind': 'agent', 'run_id': 'trusted-adapter-run'})
+        self.assertEqual(result['commit']['editor']['run_id'], 'trusted-adapter-run')
+        with self.service.connect() as db:
+            db.execute("UPDATE commits SET record='{}' WHERE id=?", (result['commit']['commit_id'],))
+        with self.assertRaisesRegex(ValueError, 'skill_history_integrity_failure'):
+            self.service.history('internal-test', result['skill']['revision_id'])
+
+    def test_http_auth_and_exact_shape(self):
+        service = server(self.service, 'x'*32, port=0)
+        thread = threading.Thread(target=service.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(service.server_close)
+        self.addCleanup(service.shutdown)
+        url = 'http://127.0.0.1:'+str(service.server_port)+'/v1/skill-operations/prepare'
+        payload = {'skill_id': 'internal-test', 'revision_id': self.initial['revision_id'], 'commit_id': ''}
+        def call(token, body):
+            return request.urlopen(request.Request(url, data=json.dumps(body).encode(),
+                headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/json'}), timeout=5)
+        with self.assertRaises(error.HTTPError) as failure:
+            call('wrong', payload)
+        self.assertEqual(failure.exception.code, 401)
+        with call('x'*32, payload) as response:
+            self.assertIn('ticket', json.load(response))
+        with self.assertRaises(error.HTTPError):
+            call('x'*32, {**payload, 'policy': self.policy})

@@ -16,6 +16,29 @@ def install_routes(app, root: Path, authenticate):
     from fastapi.responses import JSONResponse
     from starlette.concurrency import run_in_threadpool
 
+    @app.get('/api/v1/laomedo/skills/{skill_id}/{revision_id}/history',
+             dependencies=[Depends(authenticate)])
+    async def skill_history(skill_id: str, revision_id: str, before: str = ''):
+        from .skill_operation_client import skill_request
+        try:
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
+            value = await run_in_threadpool(skill_request, 'history', skill_id=skill_id,
+                                           revision_id=revision_id, before=before)
+        except Exception:
+            raise HTTPException(400, detail={'code': 'skill_history_unavailable'}) from None
+        return JSONResponse(value, headers={'Cache-Control': 'no-store'})
+
+    @app.get('/api/v1/laomedo/skills/{skill_id}/{revision_id}/commits/{commit_id}',
+             dependencies=[Depends(authenticate)])
+    async def skill_diff(skill_id: str, revision_id: str, commit_id: str):
+        from .skill_operation_client import skill_request
+        try:
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
+            value = await run_in_threadpool(skill_request, 'diff', skill_id=skill_id, commit_id=commit_id)
+        except Exception:
+            raise HTTPException(400, detail={'code': 'skill_history_unavailable'}) from None
+        return JSONResponse(value, headers={'Cache-Control': 'no-store'})
+
     @app.get("/api/v1/laomedo/skills/{skill_id}/{revision_id}",
              dependencies=[Depends(authenticate)])
     async def read_skill(skill_id: str, revision_id: str):

@@ -13,6 +13,7 @@ import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import { useDarkStore } from "@/stores/darkStore";
 import BaseModal from "@/modals/baseModal";
+import SkillHistory from "./SkillHistory";
 
 // Bundle the editor and worker locally. No Monaco CDN or remote file loader.
 (self as typeof self & { MonacoEnvironment?: object }).MonacoEnvironment = {
@@ -95,9 +96,10 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   const [tabs, setTabs] = useState<string[]>([]);
   const [active, setActive] = useState("");
   const [preview, setPreview] = useState(false);
+  const [history, setHistory] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false);
+    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setHistory(false);
     if (!open) { setLoading(false); return () => controller.abort(); }
     if (!skillId || !revision) {
       setError("Select a skill and revision first."); setLoading(false);
@@ -130,10 +132,15 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
     </BaseModal.Header>
     <BaseModal.Content overflowHidden>
       <div className="mb-2 break-all text-sm" data-testid="skill-selection">{skillId}<br /><code>{revision}</code></div>
-      {loading && <p role="status">Loading selected skill revision…</p>}
-      {error && <div role="alert"><p>Skill files unavailable: {error}</p>
+      <div className="mb-2 flex gap-2">
+        <button type="button" aria-pressed={!history} className="rounded border px-3 py-1" onClick={() => setHistory(false)}>Files</button>
+        <button type="button" aria-pressed={history} className="rounded border px-3 py-1" onClick={() => setHistory(true)}>History</button>
+      </div>
+      {history && <SkillHistory key={`${skillId}:${revision}`} skillId={skillId} revision={revision} />}
+      {!history && loading && <p role="status">Loading selected skill revision…</p>}
+      {!history && error && <div role="alert"><p>Skill files unavailable: {error}</p>
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
-      {snapshot && <div className="flex min-h-0 flex-1 gap-3">
+      {!history && snapshot && <div className="flex min-h-0 flex-1 gap-3">
         <nav aria-label="Skill file explorer" className="w-56 shrink-0 overflow-auto border-r pr-2">
           <ul>{tree(snapshot.files).map((item) => <Folder key={item.path} item={item} select={select} active={active} />)}</ul>
         </nav>

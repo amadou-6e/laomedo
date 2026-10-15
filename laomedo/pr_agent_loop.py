@@ -28,8 +28,10 @@ def bind_feedback_parameters(vertex):
 def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
     from lfx.graph.graph.base import Graph
     controllers = [v for v in graph.vertices
-        if getattr(getattr(v, 'custom_component', None), 'name', None) == 'LaomedoGitHubPR'
+        if getattr(getattr(v, 'custom_component', None), 'name', None) in {'LaomedoGitHubPR', 'LaomedoSkill'}
         and feedback_edge(v.custom_component) is not None]
+    if len(controllers) > 1:
+        raise ValueError('pr_agent_loop_invalid')
     if len(controllers) == 1:
         controller = controllers[0]
         feedback = feedback_edge(controller.custom_component)
@@ -93,7 +95,7 @@ def operation_value(value):
     return value
 
 
-async def agent_operation(component, seed):
+async def agent_operation(component, seed, decoder=operation_value, with_provenance=False):
     feedback = feedback_edge(component)
     starts = [edge for edge in component._vertex.outgoing_edges if edge.source_handle.name == 'task']
     body = {feedback.source_id} if feedback is not None else set()
@@ -118,4 +120,6 @@ async def agent_operation(component, seed):
                     if feedback.source_handle.name in outputs:
                         output = outputs[feedback.source_handle.name]
                         selected = output.get('message') if isinstance(output, dict) else getattr(output,'message',None)
-    return operation_value(selected)
+        provenance = getattr(subgraph.get_vertex(start.target_id).custom_component, '_last_reference', None)
+    operation = decoder(selected)
+    return (operation, provenance) if with_provenance else operation
