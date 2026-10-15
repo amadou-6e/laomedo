@@ -1,4 +1,4 @@
-"""Execute the real two-node feedback graph, including negative controls."""
+"""Exercise the native graph with internal fake-provider controls, including negative controls."""
 import asyncio
 import importlib.util
 import json
@@ -75,6 +75,21 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('succeeded',await self.execute(flow=flow))
         self.assertEqual(len(self.fake.writes),1)
         self.assertEqual(len(self.agent_calls),0)
+
+    async def test_external_agent_input_is_refused_before_agent(self):
+        flow=builder.build()
+        extra=builder.builder.node(ROOT/'components/laomedo/github_pr.py','extra',{},900,0)
+        flow['data']['nodes'].append(extra)
+        flow['data']['edges'].append(builder.builder.helper.edge(extra,'task',flow['data']['nodes'][1],'task'))
+        with self.assertRaisesRegex(Exception,'pr_agent_loop_invalid'):await self.execute(flow=flow)
+        self.assertEqual(len(self.agent_calls),0);self.assertEqual(len(self.fake.writes),0)
+
+    async def test_legacy_infinity_feedback_still_runs_once(self):
+        flow=builder.build();feedback=flow['data']['edges'][1]
+        target={'dataType':'LaomedoGitHubPR','id':'pr','name':'task','output_types':['Message','Data']}
+        feedback['targetHandle']=json.dumps(target);feedback['data']['targetHandle']=target
+        self.assertIn('succeeded',await self.execute(flow=flow))
+        self.assertEqual(len(self.agent_calls),1);self.assertEqual(len(self.fake.writes),1)
 
     async def test_multiple_operation_sources_are_refused_before_agent(self):
         flow=builder.build()
@@ -158,8 +173,47 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.agent_calls),1)
         self.assertEqual(len(self.fake.writes),1)
 
+
+    async def test_feedback_with_downstream_result_starts_pr_and_runs_agent_once(self):
+        flow=builder.build()
+        inspector=builder.builder.node(ROOT/'examples/github-pr/result.py','result',{},1100,0)
+        flow['data']['nodes'].append(inspector)
+        flow['data']['edges'].append(builder.builder.helper.edge(flow['data']['nodes'][0],
+            'operation_result',inspector,'result'))
+        flow['data']['nodes'].reverse()
+        graph=Graph.from_payload(flow)
+        graph.prepare()
+        self.assertEqual(graph.first_layer,['pr'])
+        result=await asyncio.wait_for(graph.arun(inputs=[{}],outputs=['result']),timeout=25)
+        self.assertIn('succeeded',str(result))
+        self.assertEqual(len(self.agent_calls),1)
+        self.assertEqual(len(self.fake.writes),1)
+
     def test_message_feedback_json_is_supported_but_invalid_or_oversized_refused(self):
         operation={'action':'close','request_id':'once','grant_ref':'fixture-grant'}
         self.assertEqual(operation_value(Message(text=json.dumps(operation))),operation)
         for value in ('not-json','x'*(1024*1024+1),{'action':'merge'},None):
             with self.assertRaisesRegex(ValueError,'pr_operation_invalid'): operation_value(value)
+
+
+class ExportedPRFlowTests(unittest.TestCase):
+    def test_saved_internal_export_uses_operation_feedback(self):
+        flow=json.loads((ROOT/'examples/github-pr/flow.json').read_text())
+        Graph.from_payload(flow)
+        edges=flow['data']['edges']
+        feedback=next(edge for edge in edges if edge['target']=='pr')
+        self.assertEqual(json.loads(feedback['targetHandle'])['fieldName'],'operation')
+        self.assertEqual(flow,builder.build())
+
+    def test_original_agent_export_uses_explicit_pinned_skill(self):
+        spec=importlib.util.spec_from_file_location('original_pr_builder',ROOT/'examples/github-pr/build_real_flow.py')
+        original=importlib.util.module_from_spec(spec);spec.loader.exec_module(original)
+        flow=original.build('owner/repo',1,'Selected PR','operation-skill','immutable-revision')
+        agent=next(node for node in flow['data']['nodes'] if node['id']=='agent')
+        self.assertEqual(agent['data']['type'],'LaomedoCodexAgent')
+        template=agent['data']['node']['template']
+        self.assertEqual(template['skill_id']['value'],'operation-skill')
+        self.assertEqual(template['revision_id']['value'],'immutable-revision')
+        feedback=next(edge for edge in flow['data']['edges'] if edge['target']=='pr')
+        self.assertEqual(json.loads(feedback['sourceHandle'])['name'],'answer')
+        self.assertEqual(json.loads(feedback['targetHandle'])['fieldName'],'operation')

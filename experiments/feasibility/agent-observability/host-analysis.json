@@ -1,0 +1,109 @@
+{
+  "native_message_types": {
+    "userMessage": 3,
+    "agentMessage": 3,
+    "commandExecution": 1
+  },
+  "tool_calls_with_command": 1,
+  "tool_results_with_output": 1,
+  "tool_exit_codes": [
+    0
+  ],
+  "distinct_native_turns": 3,
+  "usage_updates": [
+    {
+      "received_at": "2026-10-15T09:26:29.479485+00:00",
+      "thread_id": "01a13ee2-44cd-7292-8190-adddb39ee2d4",
+      "turn_id": "01a13ee2-4555-7b91-9b6c-56d5823ff045",
+      "usage": {
+        "total": {
+          "totalTokens": 14470,
+          "inputTokens": 14404,
+          "cachedInputTokens": 12544,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 66,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 14470,
+          "inputTokens": 14404,
+          "cachedInputTokens": 12544,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 66,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 475000
+      }
+    },
+    {
+      "received_at": "2026-10-15T09:26:32.741250+00:00",
+      "thread_id": "01a13ee2-44cd-7292-8190-adddb39ee2d4",
+      "turn_id": "01a13ee2-4555-7b91-9b6c-56d5823ff045",
+      "usage": {
+        "total": {
+          "totalTokens": 29048,
+          "inputTokens": 28953,
+          "cachedInputTokens": 26752,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 95,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 14578,
+          "inputTokens": 14549,
+          "cachedInputTokens": 14208,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 29,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 475000
+      }
+    },
+    {
+      "received_at": "2026-10-15T09:26:35.017866+00:00",
+      "thread_id": "01a13ee2-44cd-7292-8190-adddb39ee2d4",
+      "turn_id": "01a13ee2-7c28-7fd2-892a-0d36f87c60b9",
+      "usage": {
+        "total": {
+          "totalTokens": 46162,
+          "inputTokens": 46060,
+          "cachedInputTokens": 39296,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 102,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 17114,
+          "inputTokens": 17107,
+          "cachedInputTokens": 12544,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 7,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 475000
+      }
+    }
+  ],
+  "otel_event_counts": {
+    "codex.conversation_starts": 1,
+    "codex.startup_phase": 8,
+    "codex.user_prompt": 3,
+    "codex.api_request": 1,
+    "codex.websocket_request": 4,
+    "codex.sse_event": 4,
+    "codex.turn_ttft": 2,
+    "codex.websocket_connect": 1,
+    "codex.tool_decision": 1,
+    "codex.tool_result": 2
+  },
+  "otel_logs_with_trace_id": 23,
+  "otel_logs_with_source_timestamp": 0,
+  "otel_spans": 1529,
+  "otel_spans_with_parent_id": 1478,
+  "otel_spans_with_start_end": 1529,
+  "matching_native_otel_tool_call_ids": 1,
+  "correlation_warning": "A same-thread match is not a graph-run/invocation match; no inferred parent or billing identity.",
+  "raw_content_exported": false,
+  "native_sha256": "8ad0f75487573c624f56538cdeec55aa841ee3e61f664832ff0ef139e7d7d612",
+  "analyzer_sha256": "0b4d44adaf3292a51955f4e97c0775ec6d0a3878dc0f227b1382f038cf4beccf"
+}

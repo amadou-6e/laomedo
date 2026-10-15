@@ -30,12 +30,11 @@ def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
     controllers = [v for v in graph.vertices
         if getattr(getattr(v, 'custom_component', None), 'name', None) == 'LaomedoGitHubPR'
         and feedback_edge(v.custom_component) is not None]
-    if len(graph.vertices) == 2:
-        if len(controllers) == 1:
-            controller = controllers[0]
-            feedback = feedback_edge(controller.custom_component)
-            if start_component_id in (None, controller.id, feedback.source_id):
-                start_component_id = controller.id
+    if len(controllers) == 1:
+        controller = controllers[0]
+        feedback = feedback_edge(controller.custom_component)
+        if start_component_id in (None, controller.id, feedback.source_id):
+            start_component_id = controller.id
     return Graph.sort_vertices(graph, stop_component_id, start_component_id)
 
 
@@ -66,6 +65,11 @@ def feedback_edge(component):
     if not edges:
         return None
     if len(edges) != 1 or (returns and len(operations) != 1) or (legacy and operations):
+        raise ValueError('pr_agent_loop_invalid')
+    source = vertex.graph.get_vertex(edges[0].source_id)
+    # The isolated body consists of this Agent only. Dropping another upstream
+    # input would silently change the task, so refuse it before dispatch.
+    if any(edge.source_id != vertex.id for edge in source.incoming_edges):
         raise ValueError('pr_agent_loop_invalid')
     return edges[0]
 

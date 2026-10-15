@@ -323,14 +323,13 @@ diff --git a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/ind
 index 4069ff6..0edaa72 100644
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
-@@ -1,3 +1,6 @@
-+import AgentActivity from "@/modals/agentActivity";
+@@ -1,3 +1,5 @@
 +import { prSelection } from "@/modals/prViewerModal";
 +import { issueSelection, nodeKind } from "@/modals/issueViewerModal";
  import { useUpdateNodeInternals } from "@xyflow/react";
  import _, { cloneDeep } from "lodash";
  import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-@@ -188,6 +191,7 @@ const NodeToolbarComponent = memo(
+@@ -188,6 +190,7 @@ const NodeToolbarComponent = memo(
      }, [hasApiKey, hasStore]);
  
      const handleCodeModal = useCallback(() => {
@@ -338,7 +337,7 @@ index 4069ff6..0edaa72 100644
        if (!hasCode) {
          setNoticeData({ title: t("node.cannotAccessCode", { id: data.id }) });
          return;
-@@ -197,7 +201,7 @@ const NodeToolbarComponent = memo(
+@@ -197,7 +200,7 @@ const NodeToolbarComponent = memo(
          return;
        }
        setOpenModal((state) => !state);
@@ -347,11 +346,10 @@ index 4069ff6..0edaa72 100644
  
      const saveComponent = useCallback(() => {
        if (isSaved) {
-@@ -421,8 +425,14 @@ const NodeToolbarComponent = memo(
+@@ -421,8 +424,13 @@ const NodeToolbarComponent = memo(
        <>
          <div className="noflow nopan nodelete nodrag">
            <div className="toolbar-wrapper">
-+            {nodeKind(data.type) === "NativePRAgent" && currentFlowId && <AgentActivity flowId={currentFlowId} nodeId={data.id} />}
              <ToolbarButtonRow
                canEditCode={canEditCode}
 +              isSkillNode={nodeKind(data.type) === "LaomedoSkill"}

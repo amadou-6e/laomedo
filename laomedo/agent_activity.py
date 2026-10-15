@@ -13,8 +13,13 @@ def now():
 
 
 class ActivityStore:
-    def __init__(self, path):
-        self.path = Path(path)
+    def __init__(self, path, *, read_only=False):
+        self.path = Path(path).resolve()
+        self.read_only = read_only
+        if read_only:
+            if not self.path.is_file():
+                raise LookupError('agent_activity_not_found')
+            return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.db() as db:
             db.executescript('''
@@ -31,7 +36,7 @@ class ActivityStore:
 
     @contextmanager
     def db(self):
-        db = sqlite3.connect(self.path, timeout=15)
+        db = sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=15) if self.read_only else sqlite3.connect(self.path, timeout=15)
         db.row_factory = sqlite3.Row
         try:
             with db:

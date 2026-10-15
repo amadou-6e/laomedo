@@ -1,9 +1,10 @@
 # laomedo
 Design, inspect, and experiment with Codex and Claude Code agent workflows
 
-The [Agent activity viewer](docs/agent-activity.md) adds owner-scoped retained
-native Codex PR agent events to the Langflow node toolbar. Capture is enabled
-through host configuration; Docker runner and Claude integration remain separate.
+The [agent observability feasibility study](experiments/feasibility/agent-observability/README.md)
+assesses native App Server events and OpenTelemetry for the original Codex agent.
+The [earlier activity prototype](docs/agent-activity.md) is historical preparation,
+not completed original-agent integration.
 
 The [Work Graph foundation](docs/work-graph.md) imports GitHub work and native
 blocker relationships using an existing `gh` login. It stores verified,

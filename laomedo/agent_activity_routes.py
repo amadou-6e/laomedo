@@ -11,7 +11,10 @@ def install_activity_routes(app, authenticate, store=None):
         path=os.environ.get('LAOMEDO_AGENT_ACTIVITY_DB')
         if store is None and not path:
             raise HTTPException(503,detail={'code':'agent_activity_not_configured'})
-        return store if store is not None else ActivityStore(path)
+        try:
+            return store if store is not None else ActivityStore(path,read_only=True)
+        except LookupError:
+            raise HTTPException(503,detail={'code':'agent_activity_not_initialized'}) from None
 
     def owner(user):
         identity=getattr(user,'id',None)

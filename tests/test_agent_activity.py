@@ -1,11 +1,17 @@
 import tempfile
 import unittest
+import os
+import sqlite3
+from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
-from fastapi import FastAPI,Header,HTTPException
-from fastapi.testclient import TestClient
+try:
+    from fastapi import FastAPI,Header,HTTPException
+    from fastapi.testclient import TestClient
+    from laomedo.agent_activity_routes import install_activity_routes
+except ImportError:
+    FastAPI=None
 from laomedo.agent_activity import ActivityStore
-from laomedo.agent_activity_routes import install_activity_routes
 
 
 class ActivityTests(unittest.TestCase):
@@ -13,6 +19,7 @@ class ActivityTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.store=ActivityStore(Path(self.temp.name)/'activity.db')
         self.run=self.store.start('alice','flow','agent')
+        if FastAPI is None:return
         app=FastAPI()
         def authenticate(authorization:str=Header(default='')):
             if authorization not in {'alice','bob'}:raise HTTPException(401)
@@ -20,6 +27,7 @@ class ActivityTests(unittest.TestCase):
         install_activity_routes(app,authenticate,self.store)
         self.client=TestClient(app);self.base='/api/v1/laomedo/agent-activity/flow/agent'
 
+    @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
     def test_owner_isolation_and_authentication(self):
         self.assertEqual(self.client.get(self.base).status_code,401)
         self.assertEqual(self.client.get(self.base,headers={'Authorization':'bob'}).json()['runs'],[])
@@ -58,6 +66,7 @@ class ActivityTests(unittest.TestCase):
         self.assertEqual(len(self.store.runs('alice','flow','agent')),2)
         self.assertEqual(self.store.runs('alice','other-flow','agent'),[])
 
+    @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
     def test_pagination_validation_and_no_html_transformation(self):
         self.store.append(self.run,{'type':'item.completed','item':{'text':'<script>bad()</script>'}})
         response=self.client.get(self.base+'/'+self.run,headers={'Authorization':'alice'})
@@ -67,3 +76,19 @@ class ActivityTests(unittest.TestCase):
 
     def test_reservation_requires_durable_identity(self):
         with self.assertRaisesRegex(ValueError,'agent_activity_identity_required'):self.store.start('','flow','node')
+
+    def test_read_only_store_uses_existing_database_without_schema_writes(self):
+        original=self.store.path.read_bytes()
+        reader=ActivityStore(self.store.path,read_only=True)
+        self.assertEqual(len(reader.runs('alice','flow','agent')),1)
+        self.assertEqual(self.store.path.read_bytes(),original)
+        with self.assertRaises(sqlite3.OperationalError):reader.start('alice','flow','agent')
+
+    @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
+    def test_get_does_not_create_uninitialized_database_or_directory(self):
+        missing=Path(self.temp.name)/'missing'/'activity.db'
+        app=FastAPI();install_activity_routes(app,lambda:SimpleNamespace(id='alice'))
+        with patch.dict(os.environ,{'LAOMEDO_AGENT_ACTIVITY_DB':str(missing)}):
+            response=TestClient(app).get(self.base)
+        self.assertEqual(response.status_code,503)
+        self.assertFalse(missing.parent.exists())
