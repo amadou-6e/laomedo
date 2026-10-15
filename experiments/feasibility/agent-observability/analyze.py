@@ -1,5 +1,6 @@
 """Extract a content-free structural report from this probe's private receipts."""
 from collections import Counter
+from datetime import datetime
 import argparse
 import hashlib
 import json
@@ -17,7 +18,8 @@ def analyze(private, output):
     usage=[{'received_at':record['received_at'],'thread_id':record['native']['params'].get('threadId'),
             'turn_id':record['native']['params'].get('turnId'),'usage':record['native']['params']['tokenUsage']}
            for record in native if record['native'].get('method')=='thread/tokenUsage/updated']
-    names=Counter();span_count=0;parent_count=0;span_timed=0;log_traces=0;source_times=0
+    names=Counter();span_count=0;parent_count=0;span_timed=0;log_traces=0;source_times=0;attribute_times=0
+    models=set()
     otel_call_ids=set();native_call_ids={params['item']['id'] for params in tools};attribute_kinds={}
     for path in sorted(private.glob('otlp-*.pb')):
         # Read both protobuf schemas only when their top-level resource shape
@@ -37,6 +39,12 @@ def analyze(private, output):
                     if re.fullmatch(r'codex\.[a-zA-Z0-9_.]+',name):names[name]+=1
                     else:names['other_or_unnamed']+=1
                     source_times+=bool(record.time_unix_nano)
+                    clock=attributes.get('event.timestamp')
+                    if clock and clock.string_value:
+                        try:datetime.fromisoformat(clock.string_value.replace('Z','+00:00'));attribute_times+=1
+                        except ValueError:pass
+                    model=attributes.get('model')
+                    if model and re.fullmatch(r'gpt-[A-Za-z0-9._-]+',model.string_value):models.add(model.string_value)
                     log_traces+=bool(record.trace_id)
                     for key,value in attributes.items():attribute_kinds[key]=value.WhichOneof('value')
                     value=attributes.get('call_id')
@@ -53,7 +61,8 @@ def analyze(private, output):
         'tool_exit_codes':[params['item'].get('exitCode') for params in tools],
         'distinct_native_turns':len({record['native']['params']['turn']['id'] for record in native if record['native'].get('method')=='turn/started'}),
         'usage_updates':usage,'otel_event_counts':dict(names),'otel_logs_with_trace_id':log_traces,
-        'otel_logs_with_source_timestamp':source_times,'otel_spans':span_count,
+        'otel_logs_with_source_timestamp':source_times,'otel_logs_with_event_timestamp_attribute':attribute_times,
+        'observed_models':sorted(models),'otel_spans':span_count,
         'otel_spans_with_parent_id':parent_count,'otel_spans_with_start_end':span_timed,
         'matching_native_otel_tool_call_ids':len(native_call_ids & otel_call_ids),
         'correlation_warning':'A same-thread match is not a graph-run/invocation match; no inferred parent or billing identity.',

@@ -204,16 +204,3 @@ class ExportedPRFlowTests(unittest.TestCase):
         feedback=next(edge for edge in edges if edge['target']=='pr')
         self.assertEqual(json.loads(feedback['targetHandle'])['fieldName'],'operation')
         self.assertEqual(flow,builder.build())
-
-    def test_original_agent_export_uses_explicit_pinned_skill(self):
-        spec=importlib.util.spec_from_file_location('original_pr_builder',ROOT/'examples/github-pr/build_real_flow.py')
-        original=importlib.util.module_from_spec(spec);spec.loader.exec_module(original)
-        flow=original.build('owner/repo',1,'Selected PR','operation-skill','immutable-revision')
-        agent=next(node for node in flow['data']['nodes'] if node['id']=='agent')
-        self.assertEqual(agent['data']['type'],'LaomedoCodexAgent')
-        template=agent['data']['node']['template']
-        self.assertEqual(template['skill_id']['value'],'operation-skill')
-        self.assertEqual(template['revision_id']['value'],'immutable-revision')
-        feedback=next(edge for edge in flow['data']['edges'] if edge['target']=='pr')
-        self.assertEqual(json.loads(feedback['sourceHandle'])['name'],'answer')
-        self.assertEqual(json.loads(feedback['targetHandle'])['fieldName'],'operation')

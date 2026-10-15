@@ -1,15 +1,15 @@
 # Historical agent activity prototype
 
-The original prototype at `aee7d1c` inspected a separate PR-specific CLI adapter.
-The user requested the existing `LaomedoCodexAgent`, so that adapter and its
-toolbar coupling have been removed from the product path. No new agent node is
-part of the intended architecture. The retained API/store and modal source are
-unwired preparatory code, not a completed observability feature.
+The prototype at `aee7d1c` inspected a separate PR-specific CLI adapter. The user
+requested the existing `LaomedoCodexAgent`, and explicitly selected removal of
+the PR-specific agent on 2026-10-15. That component, its live graph builder/export
+and toolbar coupling have been removed from the product. The retained read-only
+API remains mounted, but has no producer; the modal has no toolbar entry. These
+are preparatory code, not a completed original-agent product feature.
 
-See the [real feasibility study](../experiments/feasibility/agent-observability/README.md)
-for the available native/OTLP signals and original Docker-runner blocker.
+See the [real feasibility study](../experiments/feasibility/agent-observability/README.md).
 The target is a graph-wide Agents tab with multiple turns, tool/message details,
-subagent hierarchy and token/cost series, not a one-node transcript modal.
+subagent hierarchy and token/cost series. No replacement agent node is needed.
 
 Set `LAOMEDO_AGENT_ACTIVITY_DB` on the Langflow host to a private SQLite database
 outside the checkout. Only the host chooses this path. Capture reserves the
@@ -26,15 +26,15 @@ displayed as zero. Native event bodies can contain sensitive task content:
 protect the database with the same private host permissions as the Langflow
 state. There is no public export or automatic expiry.
 
-Historical saved graphs embed the removed adapter's component source. They must
-not be reimported as the current Agent. The retained store cannot reconstruct
-events from older turns whose temporary event files have already been removed.
+Historical saved graphs embed the removed adapter's component source. Do not
+reimport those as the current Agent. The retained store cannot reconstruct older
+events whose temporary files have already been removed.
 
 The API is under `/api/v1/laomedo/agent-activity/{flow}/{node}`. The invocation
 endpoint adds `/{invocation}?after=0&limit=100` (maximum 200). It never calls the
 agent or a provider. No database filesystem path comes from the browser.
 
-The old prototype supported `NativePRAgent` only. Docker-runner event integration, Claude,
+The historical prototype supported `NativePRAgent` only. Docker-runner integration, Claude,
 cross-agent overview, deletion UI and hard-crash durability acceptance remain
 unfinished. The existing RunnerTraceBridge and WorkflowRunStore keep their
 separate runner correlation responsibilities; this viewer does not replace or

@@ -1,36 +1,31 @@
 # GitHub PR node and operation graph
 
-`build_real_flow.py` exports PR Task → the existing Laomedo Codex Agent → PR
-Operation. Configure the original trusted runner and a real pinned skill that
-defines the requested operation and returns its JSON envelope. Request identity
-and the opaque grant reference may be model-authored in feedback mode; trusted
-host stamping is an unimplemented original-agent acceptance gate. The gateway
-validates the submitted grant and target. The host separately configures the live GitHub
-connection and exact scoped grant. Extra downstream result inspectors are
-supported; other upstream inputs to the Agent are currently refused explicitly.
-The original runner round trip remains unverified because Docker is unavailable.
-That blocker is not permission to substitute a separate agent or a fixture.
+The intended workflow is **PR → existing Laomedo Codex Agent → the same PR**.
+The PR-specific CLI agent, its builder and live export were removed at the user's
+request. The original agent remains `components/laomedo/codex_agent.py` and uses
+the existing Docker runner. Its full PR round trip remains unverified while
+Docker is unavailable; there is no replacement agent or working original-runner
+example claimed here.
 
-Historical [live evidence](real-evidence.json) used disposable PR
-[#20](https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/20).
-`operation-feedback-evidence.json` records the historical Operation-input graph,
-one native Codex turn, a confirmed description update, GitHub readback and
-manual editor reconnection. `real-evidence.json` preserves the earlier infinity
-socket demonstration as history.
-The removed PR-specific CLI adapter and its executable graph are available only
-in Git history (for example implementation commit `8b10e8d`). They are not the
-product's Agent and their model turns do not validate the original runner.
-Graph reruns may consume another paid model turn before durable replay prevents
-a duplicate GitHub effect. The original short-lived demonstration grant is not
-a reusable deployment configuration.
+`operation-feedback-evidence.json` and `real-evidence.json` are historical checks
+of earlier source revisions, including the removed CLI adapter. They do not
+establish live acceptance of this head or the original Codex agent.
+A grant reference authorizes use of its host-bound capability; treat it as
+sensitive, not harmless metadata. Owner/flow binding is not yet implemented:
+this connection is only suitable for a trusted single-user host. The old
+short-lived campaign grant is not a reusable deployment configuration.
 After applying the pinned viewer overlay, run
 `python tools/apply_pr_operation_feedback.py PATH_TO_LANGFLOW` and rebuild its
 frontend to enable manually drawing the bounded Operation feedback connection.
 The normal input also accepts a Message containing the operation JSON.
-Only one PR feedback controller per graph is supported. Multiple independent PR
-loops in one graph are unverified and may start incorrectly. External Agent
-inputs added after closing the cycle are refused by the backend at dispatch.
-The scheduler adaptation is specific to the pinned Langflow revision.
+The isolated body contains only the returning Agent; other upstream Agent inputs
+are refused before dispatch. Only one PR feedback controller per graph is
+supported. Multiple independent PR loops are unverified and may start incorrectly.
+The editor refuses existing external Agent inputs when closing the cycle; inputs
+added afterwards are refused by the backend. The adaptation requires the pinned
+Langflow revision. Feedback envelopes may be model-authored; trusted host stamping
+of request identity/grant reference remains an original-agent acceptance gate.
+Reruns may incur another paid Agent turn before replay prevents duplicate writes.
 
 The historical fixture files below are internal test material. They require
 explicit user approval before being presented as a demo or deliverable.
@@ -70,6 +65,16 @@ The fixture runner injects a fake REST provider, uses real mediation and graph
 ports, and runs twice to verify one mutation. Merely importing flow.json does
 not configure a service; the fixture grant has meaning only inside that runner.
 The earlier acyclic example is preserved in four-node-flow.json.
+
+The reviewed feedback slice covers a selected PR and one Agent, optionally with
+a downstream result inspector. Supplying PR Reference from an upstream source
+inside a feedback graph is untested and unsupported; do not use that topology.
+
+Durable replay prevents repeating a confirmed write only for an identical
+operation payload and request identity. A fresh graph run still invokes its
+Agent; a different returned payload with the same identity is refused as a
+conflict. The internal deterministic replay test does not establish reuse of
+a real model response without another model turn. Do not automatically retry.
 
 For a separately approved deployment, copy github_pr.py into the installed
 custom component category and apply/build the pinned frontend overlay. Set

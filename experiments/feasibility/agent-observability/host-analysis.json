@@ -98,6 +98,10 @@
   },
   "otel_logs_with_trace_id": 23,
   "otel_logs_with_source_timestamp": 0,
+  "otel_logs_with_event_timestamp_attribute": 26,
+  "observed_models": [
+    "gpt-6.1-sol"
+  ],
   "otel_spans": 1529,
   "otel_spans_with_parent_id": 1478,
   "otel_spans_with_start_end": 1529,
@@ -105,5 +109,5 @@
   "correlation_warning": "A same-thread match is not a graph-run/invocation match; no inferred parent or billing identity.",
   "raw_content_exported": false,
   "native_sha256": "8ad0f75487573c624f56538cdeec55aa841ee3e61f664832ff0ef139e7d7d612",
-  "analyzer_sha256": "0b4d44adaf3292a51955f4e97c0775ec6d0a3878dc0f227b1382f038cf4beccf"
+  "analyzer_sha256": "50c5e2a60dd583090b294bd5e9b2570f835b5b11f4daf762bdfec4fbfa66857d"
 }
