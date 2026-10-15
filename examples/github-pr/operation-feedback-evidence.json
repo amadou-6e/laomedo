@@ -1,0 +1,28 @@
+{
+  "scope": "real Codex and live GitHub, feedback through Operation input",
+  "pr_url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/20",
+  "agent_thread_id": "01a1398c-80bb-7861-9c45-59b8f3b10c2b",
+  "agent_turns": 1,
+  "native_completion": true,
+  "operation_status": "succeeded",
+  "feedback_port": "operation",
+  "graph_nodes": 2,
+  "github_independent_readback": true,
+  "live_viewer": true,
+  "manual_remove_and_reconnect_operation_edge": true,
+  "normal_input_regression": true,
+  "json_message_regression": true,
+  "tests": {
+    "feedback_graph": 14,
+    "native_pr": 5
+  },
+  "frontend_build": "emitted successfully",
+  "hash_basis": "SHA256 raw workspace bytes",
+  "source_sha256": {
+    "components/laomedo/github_pr.py": "f3e3ad050759ed44bf904e5b4c462c98452de6a00d3df766c6ddc05cb4ddc404",
+    "laomedo/pr_agent_loop.py": "0a00c29e38b77ab9183fcac4045dcb1f00f0e9ac865c1f3fdb6dd6e3acdf711a",
+    "examples/github-pr/build_real_flow.py": "cf84f677dd49bd4ad481dbe81c0befaed0b3be79c3032012702a623e16c8164b",
+    "examples/github-pr/real-flow.json": "63ab1b83e776007dd0624cea0033ee9d32a8daa6772ef6781eb6fdc98c02bf38",
+    "frontend/langflow-skill-viewer/pr-operation-feedback.patch": "b89940dfe5f22917033b7f12989c1260cf5f2713c558722b18ba7efb74ae48d1"
+  }
+}

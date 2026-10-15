@@ -11,6 +11,7 @@ import json
 import re
 import time
 from .github_issue_contract import issue_value, issue_digest, labels_value, validate_patch
+from .github_pr_contract import pr_value, pr_digest, validate_patch as validate_pr_patch
 from urllib import error, parse, request
 
 from .github_mediation import KnownRejected
@@ -44,6 +45,69 @@ class GitHubRestTransport:
             raise KnownRejected("repository_denied")
         prefix = f"/repos/{self.repository}"
         method, path, body = "GET", "", None
+        if operation == "pr_node_query":
+            if set(payload) != {"labels", "state"} or payload["state"] not in {"open", "closed", "all"}:
+                raise KnownRejected("prs_request_invalid")
+            selected = set(labels_value(payload["labels"]))
+            raw = self._pages(prefix + "/pulls", connection_id, connection_generation,
+                              query={"state": payload["state"]})
+            prs = [pr_value(item, repository, item["number"]) for item in raw]
+            return {"items": [item for item in prs if selected <= set(item["labels"])]}
+        if operation == "pr_node_read":
+            if set(payload) != {"number"} or type(payload["number"]) is not int or payload["number"] < 1:
+                raise KnownRejected("pr_read_target_invalid")
+            return pr_value(self._call("GET", prefix + f"/pulls/{payload['number']}", None,
+                            connection_id, connection_generation), repository, payload["number"])
+        if operation == "pr_node_update":
+            try:
+                if set(payload) != {"number", "changes", "expected", "head", "base"}:
+                    raise ValueError()
+                changes = validate_pr_patch(payload["changes"])
+            except (ValueError, TypeError):
+                raise KnownRejected("pr_patch_invalid") from None
+            current = self(repository, "pr_node_read", {"number": payload["number"]},
+                           connection_id=connection_id, connection_generation=connection_generation)
+            if (current["head"]["repository"] != repository or current["head"]["branch"] != payload["head"] or
+                    current["base"] != payload["base"] or current["merged"]):
+                raise KnownRejected("pr_target_denied")
+            if pr_digest(current) != payload["expected"]:
+                raise KnownRejected("pr_changed_since_read")
+            if before_write is None:
+                raise KnownRejected("pr_write_guard_required")
+            if "labels" in changes:
+                available = {x["name"] for x in self._pages(prefix + "/labels", connection_id, connection_generation, label_list=True)}
+                if not set(changes["labels"]) <= available:
+                    raise KnownRejected("pr_labels_unknown")
+            metadata = {key: value for key, value in changes.items() if key != "labels"}
+            wrote = False
+            try:
+                acknowledged = current
+                if metadata:
+                    before_write()
+                    acknowledged = pr_value(self._call("PATCH", prefix + f"/pulls/{payload['number']}", metadata,
+                                            connection_id, connection_generation), repository, payload["number"])
+                    wrote = True
+                if "labels" in changes:
+                    # Labels use GitHub's issue-label endpoint, after proving the target is a PR.
+                    observed = self(repository, "pr_node_read", {"number": payload["number"]},
+                                    connection_id=connection_id, connection_generation=connection_generation)
+                    if pr_digest(observed) != pr_digest(acknowledged):
+                        raise ValueError("pr_update_readback_unknown")
+                    before_write()
+                    self._call("PUT", prefix + f"/issues/{payload['number']}/labels", {"labels": changes["labels"]},
+                               connection_id, connection_generation, allow_list=True, label_list=True)
+                    wrote = True
+                confirmed = self(repository, "pr_node_read", {"number": payload["number"]},
+                                 connection_id=connection_id, connection_generation=connection_generation)
+                if (confirmed["node_id"] != current["node_id"] or confirmed["head"] != current["head"] or
+                        confirmed["base"] != current["base"] or
+                        any(confirmed[key] != (sorted(value) if key == "labels" else value) for key, value in changes.items())):
+                    raise ValueError("pr_update_readback_unknown")
+                return confirmed
+            except KnownRejected:
+                if wrote:
+                    raise ValueError("pr_partial_update_unknown") from None
+                raise
         if operation == "label_list":
             if payload != {}:
                 raise KnownRejected("labels_request_invalid")

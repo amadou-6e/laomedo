@@ -38,6 +38,22 @@ Activation is separately gated. See [deployment draft](DEPLOYMENT.md). The
 existing application server, graph, database and runner remain unchanged until
 that concrete configuration is approved.
 
+## GitHub PR alignment
+
+LaomedoGitHubPR uses the Issue node's selector clearing and stale-response guards.
+Its primary toolbar actions are PR viewer and Open in GitHub. PRViewerModal reads
+the exact configured repository/number through authenticated POST
+`/api/v1/laomedo/github-prs/inspect`, with no operation payload or model call.
+It displays current PR metadata, branch pair and safe Markdown. A runtime-only
+reference without picker selection does not become a saved selection.
+
+Copy PRViewerModal.test.tsx beside the applied PR modal as index.tsx's sibling
+and run the upstream Jest suite for that file. The tests unmock Markdown so they
+exercise real rendering. The local evidence is recorded with source hashes in
+`examples/github-pr/evidence.json`. The full production build and five viewer
+tests passed; isolated Edge rendering exercised the real dialog. This does not
+claim an installed full-app selector test or active GitHub PR service deployment.
+
 ## Recorded verification
 
 On 2026-10-12, the pinned Langflow image passed all ten file and authenticated

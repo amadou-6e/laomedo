@@ -10,6 +10,8 @@ from .skill_inspection import InspectionError, inspect_skill
 
 
 def install_routes(app, root: Path, authenticate):
+    from .agent_activity_routes import install_activity_routes
+    install_activity_routes(app, authenticate)
     from fastapi import Depends, HTTPException
     from fastapi.responses import JSONResponse
     from starlette.concurrency import run_in_threadpool
@@ -50,6 +52,31 @@ def install_routes(app, root: Path, authenticate):
         return JSONResponse({"schema_version":"laomedo.issue-inspection.v1", "issue":issue,
                              "fetched_at":result.get("fetched_at")},
                             headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"})
+
+
+    @app.post("/api/v1/laomedo/github-prs/inspect",
+              dependencies=[Depends(authenticate)])
+    async def read_pr(payload: dict):
+        from .github_pr_client import pr_request
+        from .github_pr_contract import repository_from_url, labels_value, ERROR_CODES
+        try:
+            if set(payload) != {"repository_url", "pr_number", "labels", "state"}:
+                raise ValueError("invalid_request")
+            repository_from_url(payload["repository_url"])
+            labels_value(payload["labels"])
+            if (type(payload["pr_number"]) is not int or not 0 < payload["pr_number"] <= 2**53-1 or
+                    payload["state"] not in {"open", "closed", "all"}):
+                raise ValueError("selected_pr_invalid")
+            result = await run_in_threadpool(pr_request, "execute", **payload, operation=None)
+            pr = result.get("pr")
+            if not pr or result["operation"]["status"] != "not_requested":
+                raise ValueError("github_pr_unavailable")
+        except Exception as exc:
+            code = str(exc) if str(exc) in ERROR_CODES else "github_pr_unavailable"
+            raise HTTPException(status_code=400, detail={"code": code}) from None
+        return JSONResponse({"schema_version": "laomedo.pr-inspection.v1", "pr": pr,
+                             "fetched_at": result.get("fetched_at")},
+                            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
 def create_app():

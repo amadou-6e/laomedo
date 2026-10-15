@@ -1,6 +1,11 @@
 # laomedo
 Design, inspect, and experiment with Codex and Claude Code agent workflows
 
+The [agent observability feasibility study](experiments/feasibility/agent-observability/README.md)
+assesses native App Server events and OpenTelemetry for the original Codex agent.
+The [earlier activity prototype](docs/agent-activity.md) is historical preparation,
+not completed original-agent integration.
+
 The [Work Graph foundation](docs/work-graph.md) imports GitHub work and native
 blocker relationships using an existing `gh` login. It stores verified,
 immutable snapshots and inspects filtered projections with dependency
