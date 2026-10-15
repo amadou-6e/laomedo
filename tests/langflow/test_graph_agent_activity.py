@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from laomedo.agent_activity import ActivityStore
 from laomedo.agent_activity_projection import project
 from laomedo.agent_activity_cost import estimate
-from laomedo.runner_activity import notification, read_feed, closed_boundary
+from laomedo.runner_activity import notification, read_feed
 
 
 class GraphActivityTests(unittest.TestCase):
@@ -59,17 +59,6 @@ class GraphActivityTests(unittest.TestCase):
             with path.open('ab') as output:output.write(b'{}}\n')
             self.assertEqual(read_feed(path,after=1)['events'][0]['cursor'],2)
 
-    def test_durable_source_boundary_survives_late_resume(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory)
-            (root/'events.jsonl').write_text(''.join(json.dumps({'event':{'turn':turn}})+'\n' for turn in ['first','first','second']))
-            (root/'activity-boundaries.jsonl').write_text(json.dumps({'native_start':0,'native_end':2})+'\n')
-            bound=closed_boundary(root,0)
-            page=read_feed(root/'events.jsonl',before=bound['native_end'])
-            self.assertEqual([event['event']['turn'] for event in page['events']],['first','first'])
-            self.assertEqual(page['next_after'],2)
-            self.assertIsNone(closed_boundary(root,2))
-
     def test_counter_regression_is_unknown_even_after_positive_snapshot(self):
         events=[{'raw':{'method':'thread/tokenUsage/updated','params':{'threadId':'thread','tokenUsage':{'total':{
             'inputTokens':value,'cachedInputTokens':0,'outputTokens':1}}}},'received_at':'2026-10-15T00:00:00Z'} for value in [100,50,120]]
@@ -104,20 +93,41 @@ class GraphActivityTests(unittest.TestCase):
              'tokenUsage':{'total':{'inputTokens':10,'cachedInputTokens':0,'outputTokens':0}}}}
         self.assertEqual(project([{'raw':raw,'received_at':'2026-10-15T00:00:00Z'}])['turns'],[])
 
-    def test_frozen_boundary_excludes_downstream_resume(self):
+    def test_refused_attempt_cannot_adopt_another_resume(self):
         from laomedo.agent_activity_capture import RunnerCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
-            run=store.start('alice','flow','agent',execution='graph')
+            invocation=store.start('alice','flow','refused',execution='graph')
             capture=RunnerCapture.__new__(RunnerCapture)
-            capture.capture=(store,run);capture.timeout=1;capture.after=0;capture.otel_after=0
-            capture.boundary=(2,0);capture.boundary_status='completed';capture.boundary_time='2026-10-15T00:00:01Z'
-            capture.component=SimpleNamespace(operation='fresh');capture.done=threading.Event();capture.done.set()
-            events=[{'cursor':index,'received_at':'2026-10-15T00:00:00Z','event':{'method':method}}
-                    for index,method in enumerate(('turn/started','turn/completed','turn/started'),1)]
-            capture.feed=lambda _: {'events':events,'next_after':3,'status':'running','thread_id':'thread','model':'gpt-6-luna'}
+            capture.capture=(store,invocation);capture.timeout=1;capture.accepted=False
+            capture.attempt_id='22222222-2222-4222-8222-222222222222'
+            capture.refused=threading.Event();capture.done=threading.Event();capture.done.set()
+            capture.outcome='failed'
+            capture.feed=lambda *args: {'accepted':False,'events':[{'event':{'method':'turn/completed'}}]}
             capture.observe('runner')
-            page=store.read('alice','flow','agent',run)
+            page=store.read('alice','flow','refused',invocation)
+            self.assertEqual(page['events'],[])
+            self.assertEqual(page['run']['status'],'failed')
+            self.assertEqual(page['run']['reason'],'dispatch_not_accepted')
+
+    def test_accepted_attempt_baseline_and_boundary_are_authoritative(self):
+        from laomedo.agent_activity_capture import RunnerCapture
+        with tempfile.TemporaryDirectory() as directory:
+            store=ActivityStore(Path(directory)/'activity.db')
+            invocation=store.start('alice','flow','agent',execution='graph')
+            capture=RunnerCapture.__new__(RunnerCapture)
+            capture.capture=(store,invocation);capture.timeout=1;capture.accepted=False
+            capture.attempt_id='11111111-1111-4111-8111-111111111111'
+            capture.refused=threading.Event();capture.done=threading.Event();capture.outcome=None
+            capture.feed=lambda *args: {'accepted':True,'attempt':{'id':capture.attempt_id,
+                'native_start':10,'native_end':11,'otel_start':3,'otel_end':3,
+                'usage_baseline':{},'status':'completed','ended_at':'2026-10-15T00:00:01Z'},
+                'events':[{'cursor':11,'received_at':'2026-10-15T00:00:00Z','event':{'method':'turn/completed'}}],
+                'next_after':11,'telemetry':{'events':[],'next_after':3},'thread_id':'thread','model':'gpt-6-luna'}
+            capture.observe('runner')
+            page=store.read('alice','flow','agent',invocation)
             self.assertEqual(page['run']['status'],'completed')
             self.assertEqual(page['run']['ended'],'2026-10-15T00:00:01Z')
-            self.assertEqual(len(page['events']),2)
+            self.assertEqual(len(page['events']),2)  # baseline plus this attempt's terminal
+            other=store.start('alice','flow','duplicate',execution='other')
+            self.assertFalse(store.claim_attempt(other,'runner',capture.attempt_id))

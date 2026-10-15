@@ -1358,6 +1358,7 @@ class LocalRunner:
                       "turns": [], "answer": None, "output_ref": None,
                       "raw_event_ref": f"laomedo:run:{run_id}:events",
                       "client_request_id": client_request_id,
+                      "activity_initial_attempt_id": str(uuid4()),
                       "output_requirements": output_requirements,
                       "requirements_revision": (output_requirements or {}).get("requirements_revision"),
                       "output_retries": output_retries,
@@ -1463,7 +1464,8 @@ class LocalRunner:
         return json.loads(json.dumps(value))
 
     def resume(self, run_id: str, task: str, *, expected_post_run_hash: str,
-               expected_thread_id: str, model: str, effort: str) -> dict:
+               expected_thread_id: str, model: str, effort: str,
+               activity_attempt_id: str | None = None) -> dict:
         record = self.status(run_id)
         if self.publication_controller is not None and run_id in self.publication_controller.owned:
             raise RunnerError("publication_handoff_resume_denied")
@@ -1484,6 +1486,12 @@ class LocalRunner:
                 record["config_sha256"] != CONFIG_SHA256):
             raise RunnerError("resume_binding_mismatch")
         run_dir = self._run_dir(run_id)
+        if activity_attempt_id is not None:
+            if not isinstance(activity_attempt_id,str):
+                raise RunnerError('invalid_activity_attempt_id')
+            _id(activity_attempt_id)
+            if (run_dir/'activity-attempts'/(activity_attempt_id+'.json')).exists():
+                raise RunnerError('activity_attempt_already_exists')
         snapshot = run_dir / "post-run"
         workspace = run_dir / "workspace"
         if not snapshot.exists() or _hash_tree(snapshot) != expected_post_run_hash:
@@ -1502,7 +1510,7 @@ class LocalRunner:
             if any(current.get(key) != prior.get(key) for key in
                    ("credential_ref", "provider_subject_hash")):
                 raise RunnerError("resume_auth_identity_mismatch")
-        return self._execute(run_id, task, resume=True)
+        return self._execute(run_id, task, resume=True, activity_attempt_id=activity_attempt_id)
 
     def _mediator_route(self) -> tuple[str, str]:
         # host.docker.internal -> host loopback is checked by the Windows
@@ -1525,13 +1533,19 @@ class LocalRunner:
             raise RunnerError("mediator_unavailable") from error
         return f"http://host.docker.internal:{port}/v1/mediate", instance
 
-    def _execute(self, run_id: str, task: str, *, resume: bool) -> dict:
+    def _execute(self, run_id: str, task: str, *, resume: bool,
+                 activity_attempt_id: str | None = None) -> dict:
+        if activity_attempt_id is not None:
+            if not isinstance(activity_attempt_id,str):
+                raise RunnerError('invalid_activity_attempt_id')
+            _id(activity_attempt_id)
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
         run_dir, record, cancelled, server, lease = None, None, None, None, None
         evidence_offset, attempt_turn_offset = 0, 0
         launch_attempted = False
         activity_start = None
+        activity_attempt = None
         try:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
@@ -1548,6 +1562,18 @@ class LocalRunner:
                 from .runner_activity import line_count
                 activity_start = (line_count(run_dir/'activity-events.jsonl'),
                                   line_count(run_dir/'otel-events.jsonl'))
+                from .runner_activity import read_feed
+                attempt_id = (activity_attempt_id if resume else record.get('activity_initial_attempt_id')) or str(uuid4())
+                attempts=run_dir/'activity-attempts'
+                attempts.mkdir(exist_ok=True)
+                if (attempts/(attempt_id+'.json')).exists():
+                    raise RunnerError('activity_attempt_already_exists')
+                activity_attempt={'id':attempt_id,'native_start':activity_start[0],
+                    'otel_start':activity_start[1],'native_end':None,'otel_end':None,
+                    'usage_baseline':read_feed(run_dir/'activity-events.jsonl',tail=True)['usage_baseline'],
+                    'status':'running','ended_at':None}
+                _json(attempts/(attempt_id+'.json'),activity_attempt)
+                record['activity_attempt_id']=attempt_id
                 record.update(evidence_complete="unknown", completion_basis=None)
                 self.cancel_flags[run_id] = cancelled
                 record["status"] = "running"
@@ -1974,15 +2000,12 @@ class LocalRunner:
                                 record["output_ref"] = None
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
-                            if activity_start is not None:
+                            if activity_attempt is not None:
                                 from .agent_activity import now
                                 try:
-                                    with (run_dir/'activity-boundaries.jsonl').open('a',encoding='utf-8') as output:
-                                        output.write(json.dumps({'native_start':activity_start[0],
-                                            'native_end':line_count(run_dir/'activity-events.jsonl'),
-                                            'otel_start':activity_start[1],
-                                            'otel_end':line_count(run_dir/'otel-events.jsonl'),
-                                            'status':record['status'],'ended_at':now()})+'\n')
+                                    activity_attempt.update(native_end=line_count(run_dir/'activity-events.jsonl'),
+                                        otel_end=line_count(run_dir/'otel-events.jsonl'),status=record['status'],ended_at=now())
+                                    _json(run_dir/'activity-attempts'/(activity_attempt['id']+'.json'),activity_attempt)
                                 except OSError:
                                     pass  # An observation failure cannot change execution success.
                             _json(run_dir / "record.json", record)
@@ -2031,19 +2054,28 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                     from .runner_activity import read_feed
                     query = parse_qs(parsed.query)
                     record = runner.status(parts[2])
-                    from .runner_activity import closed_boundary
-                    boundary = (None if query.get('tail',['0'])[0]=='1' else
-                        closed_boundary(runner._run_dir(parts[2]),int(query.get('from',['0'])[0])))
+                    attempt_id=query.get('attempt',[''])[0]
+                    attempt_path=runner._run_dir(parts[2])/'activity-attempts'/(_id(attempt_id)+'.json') if attempt_id else None
+                    attempt = _read(attempt_path) if attempt_path and attempt_path.is_file() else None
+                    if not attempt:
+                        self._reply(200,{'run_id':parts[2],'accepted':False,'events':[]})
+                        return
+                    if attempt.get('id') != attempt_id:
+                        raise RunnerError('activity_attempt_identity_mismatch')
+                    boundary=attempt if attempt.get('native_end') is not None else None
+                    native_after=max(int(query.get('after',['0'])[0]),attempt['native_start'])
+                    otel_after=max(int(query.get('otel_after',['0'])[0]),attempt['otel_start'])
                     feed = read_feed(runner._run_dir(parts[2]) / "activity-events.jsonl",
-                        after=int(query.get('after',['0'])[0]),
+                        after=native_after,
                         limit=int(query.get('limit',['100'])[0]),
                         tail=query.get('tail',['0'])[0] == '1',
                         before=boundary['native_end'] if boundary else None)
                     telemetry = read_feed(runner._run_dir(parts[2]) / "otel-events.jsonl",
-                        after=int(query.get('otel_after',['0'])[0]),limit=200,
+                        after=otel_after,limit=200,
                         tail=query.get('tail',['0'])[0] == '1',
                         before=boundary['otel_end'] if boundary else None)
                     self._reply(200, {**feed, 'run_id':parts[2],
+                        'accepted':True,'attempt':attempt,
                         'telemetry':telemetry,
                         'closed_boundary':boundary,
                         'status':record.get('status'), 'thread_id':record.get('thread_id'),
@@ -2085,7 +2117,8 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                     result = runner.resume(parts[2], body["task"],
                         expected_post_run_hash=body["expected_post_run_hash"],
                         expected_thread_id=body["expected_thread_id"],
-                        model=body["model"], effort=body["effort"])
+                        model=body["model"], effort=body["effort"],
+                        activity_attempt_id=body.get('activity_attempt_id'))
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel":
                     result = runner.cancel(parts[2])
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "publish":

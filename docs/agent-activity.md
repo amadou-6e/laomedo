@@ -46,9 +46,12 @@ Binding follows the original request-identity validation. Source cursors dedupe
 network retries, while distinct repeated/conflicting native receipts remain
 retained. Native thread/item IDs drive the projection. Explicit child links
 define agent membership; overlapping internal spans never imply subagents.
-Each runner attempt records durable native/OTLP source boundaries after streams
-close. Later resumes cannot enter previous invocations. Resume capture records
-the previous cumulative token baseline before dispatch. Updates are differenced,
+Each accepted runner attempt has a unique identity and records durable native/OTLP
+source boundaries after streams close. The observer reads only that exact attempt;
+busy/refused dispatches receive no native receipts or attributed usage. Repeated
+references to an already captured attempt do not count its usage again. Resume
+baselines come from the runner's accepted-attempt record before the model turn,
+not a caller's earlier snapshot. Later resumes cannot enter previous invocations. Updates are differenced,
 never summed; regressing counters and missing usage remain unknown.
 
 A captured native terminal event closes native stream evidence, not task success.
@@ -69,6 +72,10 @@ Unknown models/categories, nonzero cache-write overlap, counter regressions,
 and totals above the long-context threshold remain unpriced. Child estimates
 require independently observed child model metadata and usage. Native and OTLP
 usage observations are never added together.
+OTLP child-model attribution is runtime-reported, not independently attested.
+The configured sandbox denies tool network access; enabling a different network
+profile would need a separate trust assessment. Truncated detail views suppress
+usage and cost totals rather than reporting a partial snapshot as a full total.
 
 Sources: [Luna pricing](https://developers.openai.com/api/docs/models/gpt-6-luna),
 [Sol pricing](https://developers.openai.com/api/docs/models/gpt-6.1-sol).
@@ -103,3 +110,9 @@ image, real README reads, concurrent runners and a resumed thread. Exact graph
 executions and source revisions are recorded separately. Other providers, OTLP
 metrics, historical-image parity, hard-crash recovery and cross-machine collector
 setups remain outside this verified implementation.
+
+The real [competing-resume check](../examples/agent-activity/resume-contention-evidence.json)
+adds the adversarial case: two original nodes target one completed run, one resume
+is accepted and the refused node has zero events/turns and unassigned usage/cost.
+The source hashes identify the tested controller mechanism. This is separate from
+the positive concurrent/subagent example and from internal fixture tests.

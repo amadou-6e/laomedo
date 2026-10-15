@@ -52,6 +52,7 @@ class LaunchTelemetry:
                         for scope in resource.scope_logs if self.path=='/v1/logs' else resource.scope_spans:
                             for record in scope.log_records if self.path=='/v1/logs' else scope.spans:
                                 value={'signal':'log' if self.path=='/v1/logs' else 'span',
+                                    'provenance':'runtime-reported',
                                     'trace_id':record.trace_id.hex(),'span_id':record.span_id.hex(),
                                     'attributes':attributes(record.attributes)}
                                 if self.path=='/v1/traces':

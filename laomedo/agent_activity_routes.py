@@ -45,11 +45,13 @@ def install_activity_routes(app, authenticate, store=None):
                 after=page['next_after']
                 if not page['has_more'] or len(events)>=20000:
                     projection=project(events,root_thread=page['run']['native_session'],model=page['run']['model'])
-                    if page['run'].get('reason') == 'invocation_boundary_unverified':
+                    if page['has_more'] or page['run'].get('reason') == 'invocation_boundary_unverified':
                         projection['usage']=None
                         projection['usage_points']=[]
-                        projection['cost']={**projection['cost'],'amount':None,'per_thread':{},'reason':'Invocation boundary is unverified.'}
-                        projection['cost_reason']='Invocation boundary is unverified; retained receipts are partial evidence.'
+                        projection['cost']={**projection['cost'],'amount':None,'per_thread':{},
+                            'reason':'Detail limit reached.' if page['has_more'] else 'Invocation boundary is unverified.'}
+                        projection['cost_reason']=('Detail limit reached; complete token and cost totals are unavailable.'
+                            if page['has_more'] else 'Invocation boundary is unverified; retained receipts are partial evidence.')
                     return {**page,'run':{**page['run'],'node':node},'events':events,'projection':projection,
                             'truncated':page['has_more']}
         try:

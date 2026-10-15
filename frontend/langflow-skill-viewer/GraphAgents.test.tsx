@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import GraphAgents, { HighlightedJson } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
@@ -27,4 +27,22 @@ test("execution selection separates repeated node invocations and exposes unknow
   await screen.findByRole("button",{name:"node-two · completed"});
   expect(screen.queryByRole("button",{name:"node-one · completed"})).toBeNull();
   await waitFor(()=>expect(api.get).toHaveBeenCalledWith(expect.stringContaining("/node-two/two"),expect.anything()));
+});
+
+test("live summary updates do not restart a slower detail request",async()=>{
+  jest.useFakeTimers();
+  let view:ReturnType<typeof render>|undefined;
+  try {
+    let count=0;
+    const current={...run("live","execution"),status:"running",ended:null};
+    (api.get as jest.Mock).mockImplementation((url:string)=>url.endsWith("/flow")
+      ?Promise.resolve({data:{runs:[{...current,event_count:++count}]}})
+      :new Promise(resolve=>setTimeout(()=>resolve({data:{run:current,projection,truncated:false}}),5000)));
+    view=render(<GraphAgents flowId="flow"/>);
+    await act(async()=>{await Promise.resolve()});
+    fireEvent.click(screen.getByRole("button",{name:"node-live · running"}));
+    for(let index=0;index<5;index++)await act(async()=>{jest.advanceTimersByTime(1000)});
+    expect(screen.getByRole("heading",{name:"Messages and tools"})).toBeInTheDocument();
+    expect((api.get as jest.Mock).mock.calls.filter(([url])=>String(url).includes("/node-live/live"))).toHaveLength(1);
+  } finally {view?.unmount();jest.clearAllTimers();jest.useRealTimers()}
 });

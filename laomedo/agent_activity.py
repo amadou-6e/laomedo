@@ -41,6 +41,9 @@ class ActivityStore:
             db.execute('''CREATE TABLE IF NOT EXISTS agent_activity_sources (
                 run TEXT NOT NULL, source TEXT NOT NULL, cursor INTEGER NOT NULL,
                 PRIMARY KEY(run,source,cursor))''')
+            db.execute('''CREATE TABLE IF NOT EXISTS agent_activity_attempts (
+                runner_run TEXT NOT NULL, attempt TEXT NOT NULL, invocation TEXT NOT NULL,
+                PRIMARY KEY(runner_run,attempt))''')
 
     @contextmanager
     def db(self):
@@ -101,6 +104,14 @@ class ActivityStore:
                 FROM agent_activity_runs r WHERE owner=? AND flow=? AND (? IS NULL OR execution=?)
                 ORDER BY started DESC,id DESC LIMIT 500''',(owner,flow,execution,execution)).fetchall()
         return [{**self._summary(row),'node':row['node']} for row in rows]
+
+    def claim_attempt(self, invocation, runner_run, attempt):
+        with self.db() as db:
+            db.execute('INSERT OR IGNORE INTO agent_activity_attempts VALUES (?,?,?)',
+                       (runner_run,attempt,invocation))
+            row=db.execute('SELECT invocation FROM agent_activity_attempts WHERE runner_run=? AND attempt=?',
+                           (runner_run,attempt)).fetchone()
+            return row['invocation']==invocation
 
     def finish(self, run, status, *, complete=False, reason=None, ended_at=None):
         if status not in {'completed','failed','cancelled','timed_out'}:

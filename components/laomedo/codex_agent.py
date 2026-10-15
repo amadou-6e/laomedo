@@ -475,7 +475,7 @@ class LaomedoCodexAgent(Component):
             self._active_run_id = result["run_id"]
             capture = getattr(self, "_activity_capture", None)
             if capture is not None:
-                capture.bind(result["run_id"])
+                capture.bind(result["run_id"],result.get('activity_initial_attempt_id'))
         self._last_reference = self._run_reference(result)
         if self.operation == "fresh":
             deadline = time.monotonic() + int(self.timeout_seconds)

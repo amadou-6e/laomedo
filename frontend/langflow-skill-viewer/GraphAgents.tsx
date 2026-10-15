@@ -30,27 +30,46 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   useEffect(()=>{
     if(!flowId)return;
     const controller=new AbortController();
+    let loading=false;
     const load=async()=>{
+      if(loading||controller.signal.aborted)return;
+      loading=true;
       try {
         const {data}=await api.get<{runs:Run[]}>(base,{signal:controller.signal});
         if(controller.signal.aborted)return;
         setRuns(data.runs);setError("");
         setExecution(current=>data.runs.some(run=>run.execution===current)?current:data.runs.find(run=>run.execution)?.execution??"");
       } catch {if(!controller.signal.aborted)setError("Activity unavailable. Enable capture on the app host before running the graph.")}
+      finally {loading=false}
     };
     void load();const timer=setInterval(load,2000);
     return()=>{controller.abort();clearInterval(timer)};
   },[base,flowId,refresh]);
   const visible=runs.filter(run=>run.execution===execution).sort((a,b)=>a.started.localeCompare(b.started));
-  const signature=visible.map(run=>`${run.id}:${run.status}:${run.event_count}`).join(",");
+  const invocationIds=visible.map(run=>run.id).join(",");
+  const live=visible.some(run=>run.status==="running");
   useEffect(()=>{
     const controller=new AbortController();
-    void Promise.all(visible.map(async run=>{
-      const {data}=await api.get<Detail>(`${base}/${encodeURIComponent(run.node)}/${run.id}`,{signal:controller.signal});
-      if(!controller.signal.aborted)setDetails(current=>({...current,[run.id]:data}));
-    })).catch(()=>{if(!controller.signal.aborted)setError("Some invocation details could not be loaded.")});
-    return()=>controller.abort();
-  },[base,execution,signature]);
+    let inFlight=false;
+    const load=async()=>{
+      if(inFlight||controller.signal.aborted)return;
+      inFlight=true;
+      const queue=[...visible];
+      try {
+        const results=await Promise.allSettled(Array.from({length:Math.min(4,queue.length)},async()=>{
+          while(queue.length&&!controller.signal.aborted){
+            const run=queue.shift()!;
+            const {data}=await api.get<Detail>(`${base}/${encodeURIComponent(run.node)}/${run.id}`,{signal:controller.signal});
+            if(!controller.signal.aborted)setDetails(current=>({...current,[run.id]:data}));
+          }
+        }));
+        if(results.some(result=>result.status==="rejected"))throw Error("activity_detail_unavailable");
+      } catch {if(!controller.signal.aborted)setError("Some invocation details could not be loaded.")}
+      finally {inFlight=false}
+    };
+    void load();const timer=live?setInterval(load,2000):null;
+    return()=>{controller.abort();if(timer!==null)clearInterval(timer)};
+  },[base,execution,invocationIds,live,refresh]);
   const start=Math.min(...visible.map(run=>Date.parse(run.started)));
   const end=Math.max(...visible.map(run=>Date.parse(run.ended??new Date().toISOString())));
   const span=Math.max(1000,end-start);
@@ -71,7 +90,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
     {!error&&!runs.length&&<p>No captured agent runs yet.</p>}
     {visible.length>0&&<><div className="overflow-x-auto rounded border p-4"><div className="mb-2 flex justify-between pl-[232px] text-xs text-muted-foreground"><span>{time(new Date(start).toISOString())}</span><span>{((end-start)/1000).toFixed(1)} seconds</span><span>{time(new Date(end).toISOString())}</span></div>
       {visible.map(run=><div key={run.id}>{bar({...run,id:run.id},`${run.node} · ${run.status}`,()=>setSelected(run.id))}
-        {details[run.id]?.projection.turns.map(turn=>bar(turn,`↳ ${turn.thread===run.native_session?"Turn":"Subagent turn"} ${turn.id.slice(0,8)} · ${turn.status}`,()=>setSelected(run.id)))}</div>)}</div>
+        {details[run.id]?.projection.turns.map(turn=>bar(turn,`↳ ${turn.thread===run.native_session?"Turn":"Subagent turn"} ${turn.id.slice(-8)} · ${turn.status}`,()=>setSelected(run.id)))}</div>)}</div>
       <p className="my-2 text-xs text-muted-foreground">Bars use runner receipt times. Viewing activity never starts an agent. Select an invocation to inspect it.</p></>}
     {detail&&<article className="mt-6 space-y-4"><h2 className="font-semibold">{detail.run.node} · {detail.run.status}</h2>
       <p className="text-sm">{time(detail.run.started)} · {duration(detail.run.started,detail.run.ended)} · {detail.run.model??"Model unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
@@ -82,7 +101,12 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       <h3 className="font-semibold">Messages and tools</h3>
       {detail.projection.items.map(item=><div key={`${item.thread}:${item.id}`} className="rounded border p-4"><div className="mb-2 flex justify-between text-sm"><strong>{String(item.item?.type??"Item")}</strong><span title={item.started}>{time(item.started)} · {duration(item.started,item.ended)}</span></div>
         {item.conflicting_receipts&&<p>Conflicting native receipts retained.</p>}
-        {messageText(item.item)!==null?<p className="whitespace-pre-wrap break-words">{messageText(item.item)}</p>:<HighlightedJson value={item.item}/>}</div>)}
+        {messageText(item.item)!==null?<p className="whitespace-pre-wrap break-words">{messageText(item.item)}</p>:item.item?.type==="commandExecution"?<>
+          <pre className="mb-2 overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-sm">{String(item.item.command??"")}</pre>
+          <p className="mb-2 text-xs">Exit: {String(item.item.exitCode??"Unknown")}</p>
+          <pre className="overflow-auto whitespace-pre-wrap break-words text-sm">{String(item.item.aggregatedOutput??"Output not retained")}</pre>
+          <details className="mt-3"><summary>Native tool metadata</summary><HighlightedJson value={item.item}/></details>
+        </>:<HighlightedJson value={item.item}/>}</div>)}
       <details><summary className="cursor-pointer">Tokens and API-equivalent cost over time</summary><table className="my-3 w-full text-left text-sm"><thead><tr><th>Observed</th><th>Thread</th><th>Input</th><th>Cached input</th><th>Output</th><th>Estimate (USD)</th></tr></thead><tbody>{detail.projection.usage_points.map((point,index)=><tr key={index}><td title={point.at}>{time(point.at)}</td><td>{point.thread.slice(0,8)}</td>{["inputTokens","cachedInputTokens","outputTokens"].map(key=><td key={key}>{point.usage[key]?.toLocaleString()??"Unknown"}</td>)}<td>{point.cost?.amount==null?"Unknown":`$${point.cost.amount.toFixed(6)}`}</td></tr>)}</tbody></table></details>
       <details><summary className="cursor-pointer">Thread and subagent links</summary><HighlightedJson value={detail.projection.threads}/></details>
       <details><summary className="cursor-pointer">OpenTelemetry · {detail.projection.telemetry.length} records</summary><p className="my-2 text-sm">{detail.projection.telemetry_coverage}. Runtime spans are not counted as agent invocations or token charges.</p>{detail.projection.telemetry.slice(0,50).map((record,index)=><HighlightedJson key={index} value={record}/>)}{detail.projection.telemetry.length>50&&<p>Showing the first 50 runtime records.</p>}</details>

@@ -1118,6 +1118,31 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(json.load(caught.exception)["error_category"],
                          "json_content_type_required")
 
+    def test_activity_feed_requires_exact_accepted_attempt(self):
+        record=self.runner.start(self.request())
+        directory=self.runner._run_dir(record['run_id'])
+        identity=record['activity_attempt_id']
+        path=directory/'activity-attempts'/(identity+'.json')
+        attempt=json.loads(path.read_text())
+        attempt.update(native_start=0,native_end=2)
+        path.write_text(json.dumps(attempt))
+        (directory/'activity-events.jsonl').write_text(''.join(json.dumps({
+            'received_at':'2026-10-15T00:00:00Z','event':{'method':'turn/completed','attempt':value}})+'\n'
+            for value in ['owned','owned','other-resume']))
+        server=serve(self.runner,port=0)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        self.addCleanup(lambda:(server.shutdown(),server.server_close(),thread.join(2)))
+        base=f'http://127.0.0.1:{server.server_port}/v1/runs/{record["run_id"]}/events?attempt='
+        def get(value):
+            with http_request.urlopen(http_request.Request(base+value,headers=self.auth_headers())) as response:
+                return json.load(response)
+        owned=get(identity)
+        self.assertEqual([event['event']['attempt'] for event in owned['events']],['owned','owned'])
+        self.assertEqual(owned['next_after'],2)
+        refused=get('22222222-2222-4222-8222-222222222222')
+        self.assertFalse(refused['accepted'])
+        self.assertEqual(refused['events'],[])
+
     def test_http_failure_preserves_run_id_and_partial_events(self):
         class TimedOut(FakeServer):
             def wait_turn(self, turn_id, timeout, cancelled):

@@ -82,6 +82,7 @@ def project(events, *, root_thread=None, model=None):
         usage=None
     from .agent_activity_cost import estimate
     models={root_thread:model} if root_thread and model else {}
+    model_provenance={root_thread:'native runner effective model'} if root_thread and model else {}
     observed_models={}
     for record in telemetry:
         attrs=record.get('attributes',{})
@@ -94,6 +95,7 @@ def project(events, *, root_thread=None, model=None):
             models[thread]=None
         elif thread not in models and len(values)==1:
             models[thread]=next(iter(values))
+            model_provenance[thread]='runtime-reported OTLP metadata; not independently attested'
     for point in points:
         point['cost']=estimate(models.get(point['thread']),point['usage'])
     # Child model and usage must be independently observed; do not price all
@@ -106,9 +108,13 @@ def project(events, *, root_thread=None, model=None):
         else:
             cost={**cost,'amount':None,'reason':'Inclusive subagent pricing requires independently confirmed child models and usage.'}
     cost['per_thread']=per_thread
+    cost['model_provenance']=model_provenance
+    if any(thread != root_thread for thread in related):
+        cost['basis']+='; child model attribution is runtime-reported, not independently attested'
+    cost_reason=cost.get('reason') or cost['basis']
     return {'turns':list(turns.values()),'items':list(items.values()),'threads':list(threads.values()),
             'telemetry':telemetry,'telemetry_coverage':'observed; exporter flush completeness unverified' if telemetry else 'not observed',
             'uncorrelated_thread_count':len(uncorrelated),
             'usage':usage,'usage_by_thread':latest,'usage_points':points,
             'clock':'runner receipt time','cost':cost,
-            'cost_reason':cost.get('reason') or cost['basis']}
+            'cost_reason':cost_reason}

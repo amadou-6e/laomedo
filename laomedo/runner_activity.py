@@ -63,14 +63,3 @@ def line_count(path):
         return 0
     with path.open('rb') as source:
         return sum(1 for line in source if line.endswith(b'\n'))
-
-
-def closed_boundary(directory, origin):
-    path=directory/'activity-boundaries.jsonl'
-    if path.exists():
-        with path.open(encoding='utf-8') as source:
-            for line in source:
-                value=json.loads(line)
-                if value['native_start']==origin:
-                    return value
-    return None

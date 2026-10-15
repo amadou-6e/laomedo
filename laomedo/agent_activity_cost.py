@@ -6,12 +6,15 @@ RATES = {
     'gpt-6-luna': ('0.1','0.01','0.5'),
     'gpt-6.1-sol': ('2','0.1','10'),
 }
+SOURCES = {model:{'url':f'https://developers.openai.com/api/docs/models/{model}',
+                  'fetched_at':'2026-10-15','tier':'Standard','currency':'USD'} for model in RATES}
 
 
 def estimate(model, usage):
     metadata={'currency':'USD','catalog_date':CATALOG_DATE,'model':model,
               'basis':'API-equivalent token estimate; assumes Standard tier, no regional premium; excludes tool fees; not a subscription charge',
               'source':f'https://developers.openai.com/api/docs/models/{model}' if model in RATES else None}
+    metadata['source_record']=SOURCES.get(model)
     def unknown(reason):
         return {**metadata,'amount':None,'reason':reason}
     if model not in RATES:
