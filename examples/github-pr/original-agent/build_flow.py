@@ -1,5 +1,5 @@
 """Build the real two-node graph; never starts an Agent or provider call."""
-import importlib.util
+import argparse,importlib.util,json
 from pathlib import Path
 from uuid import uuid5,NAMESPACE_URL
 from lfx.graph.graph.base import Graph
@@ -8,7 +8,7 @@ spec=importlib.util.spec_from_file_location('pr_original_builder',ROOT/'examples
 builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
 
 
-def build(repository,number,title,revision,runner_url,skill_id='pr-feedback-proposal'):
+def build(repository,number,title,revision,runner_url,skill_id='pr-feedback-title'):
     node,edge=builder.node,builder.helper.edge
     pr=node(ROOT/'components/laomedo/github_pr.py','pr',{
         'repository_url':'https://github.com/'+repository,'pr_choice':f'#{number} {title}',
@@ -24,3 +24,16 @@ def build(repository,number,title,revision,runner_url,skill_id='pr-feedback-prop
                 'viewport':{'x':60,'y':50,'zoom':0.8}}}
     Graph.from_payload(flow)
     return flow
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    for field in ('repository','title','revision','runner-url','output'):
+        parser.add_argument('--'+field,required=True)
+    parser.add_argument('--number',type=int,required=True)
+    parser.add_argument('--skill-id',default='pr-feedback-title')
+    args=parser.parse_args()
+    from lfx.services.deps import get_settings_service
+    get_settings_service()
+    flow=build(args.repository,args.number,args.title,args.revision,args.runner_url,args.skill_id)
+    Path(args.output).write_text(json.dumps(flow,indent=2)+'\n',encoding='utf-8')

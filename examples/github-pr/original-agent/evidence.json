@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-15",
+  "repository": "ga84jog/laomedo-exp104-disposable-20261007",
+  "pr_url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/22",
+  "agent_component": "LaomedoCodexAgent",
+  "runner": "LocalRunner",
+  "cli_version": "codex-cli 0.159.2",
+  "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+  "skill_revision": "sha256:9b62909b329ea137fa0059171578fe0eda461ba410165383859ec5cf27122f59",
+  "run_id": "7cd3777d-8e7d-426c-98a9-e1d604229627",
+  "native_thread_id": "01a13f99-3835-7982-895d-e3e2dad2daec",
+  "native_turns": [
+    {
+      "id": "01a13f99-3a15-74b3-82a6-33e73964ad85",
+      "status": "completed"
+    }
+  ],
+  "agent_invocations": 1,
+  "host_intents": 1,
+  "operation_status": "succeeded",
+  "container_cleanup_verified": true,
+  "independent_github_readback": true,
+  "ticket_replay_without_model": true,
+  "missing_scope_refused_before_model": true,
+  "stale_digest_refused_before_model": true,
+  "host_stamped_identity": true,
+  "authority_fields_in_agent_proposal": false,
+  "title": "Original Codex Agent feedback verified",
+  "description_preserved": true,
+  "campaign_model_turns": 2,
+  "earlier_trial": {
+    "pr_url": "https://github.com/ga84jog/laomedo-exp104-disposable-20261007/pull/21",
+    "status": "confirmed write, task-quality failure: description not preserved"
+  },
+  "graph_sha256": "e7af6f5ed29d94bf8bcde29e23f5872d8cf99341f4561c61c15e370766a9fc76",
+  "source_revision": "f624d0c82ce3d3122681572de03c145c249f3809",
+  "source_has_uncommitted_changes": false,
+  "cancellation_live": "verified separately in cancellation-evidence.json (third campaign turn)",
+  "unknown_write_live": "not induced",
+  "executed_graph_sha256": "21584978f32373432a32c7df174a5844795033f5da5aca2de14260bb7b3e2e6d",
+  "graph_hash_basis": "graph_sha256 hashes the LF-normalized export; executed_graph_sha256 retains the original Windows-encoded execution artifact"
+}
