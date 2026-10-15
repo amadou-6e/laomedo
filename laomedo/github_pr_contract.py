@@ -61,3 +61,5 @@ ERROR_CODES = frozenset({"repository_url_invalid", "repository_connection_unavai
 PRE_DISPATCH_ERRORS = ERROR_CODES - {"github_pr_unavailable", "pr_write_unknown", "pr_response_invalid", "github_discovery_incomplete"}
 ERROR_CODES = ERROR_CODES | {'pr_agent_loop_invalid','pr_agent_failed','pr_agent_cancelled','pr_changed_since_agent_read'}
 PRE_DISPATCH_ERRORS = PRE_DISPATCH_ERRORS | {'pr_agent_loop_invalid','pr_agent_failed','pr_agent_cancelled','pr_changed_since_agent_read'}
+ERROR_CODES = ERROR_CODES | {'pr_feedback_not_configured','pr_feedback_ticket_invalid'}
+PRE_DISPATCH_ERRORS = PRE_DISPATCH_ERRORS | {'pr_feedback_not_configured','pr_feedback_ticket_invalid'}

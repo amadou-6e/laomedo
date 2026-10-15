@@ -23,7 +23,7 @@ class PRFixtureAgent(Component):
             raise ValueError('fixture_agent_failure')
         if self.action == 'invalid':
             return Data(data={'unexpected':'not an operation'})
-        operation = {'action':self.action,'request_id':'pr-demo-loop-1','grant_ref':'fixture-grant'}
+        operation = {'action':self.action}
         if self.action == 'modify':
             operation['changes'] = {'title':'PR operation verified','body':'Updated through the two-node PR/Agent loop.'}
         return Data(data=operation)
