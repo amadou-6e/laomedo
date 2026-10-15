@@ -14,6 +14,20 @@ from laomedo.container_lease import (cleanup_after_loss, cleanup_exact,
 
 
 class ContainerLeaseTests(unittest.TestCase):
+    def test_absence_accepts_docker_casing_but_not_control_failures(self):
+        for message, expected in (
+                ("Error: No such object: exact-name", "absent"),
+                ("error: no such object: exact-name", "absent"),
+                ("Error response from daemon: No such container: exact-name", "absent"),
+                ("error: no such container: exact-name", "absent"),
+                ("permission denied connecting to Docker", "unknown"),
+                ("cannot connect to the Docker daemon", "unknown")):
+            with self.subTest(message=message), patch(
+                    "laomedo.container_lease.subprocess.run", return_value=
+                    subprocess.CompletedProcess([], 1, "", message)):
+                self.assertEqual(inspect_exact("exact-name", "run-one", "token-one"),
+                                 (expected, None))
+
     def test_supervisor_is_detached_from_runner_group(self):
         options = _detached_process_options()
         if "creationflags" in options:

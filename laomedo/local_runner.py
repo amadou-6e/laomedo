@@ -42,6 +42,8 @@ SPLIT_TOOLS = frozenset({
     "write_stdin",
 })
 CONFIG = Path(__file__).resolve().parent / "runner-config.toml"
+SECCOMP = Path(__file__).resolve().parent / "resources" / "codex-seccomp.json"
+SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf50691"
 MEDIATION_CLIENT = Path(__file__).resolve().parent / "agent_mediation_client.mjs"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
@@ -244,9 +246,14 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
                    command_directory: Path | None = None,
                    repository: str | None = None,
                    branch: str | None = None,
-                   base_branch: str = "main") -> list[str]:
+                   base_branch: str = "main", nested_sandbox: bool = True) -> list[str]:
     """The #146 Docker grant and mounts, with only per-run paths substituted."""
     name = name or "laomedo-codex-" + uuid4().hex
+    seccomp = []
+    if nested_sandbox:
+        if hashlib.sha256(SECCOMP.read_bytes()).hexdigest() != SECCOMP_SHA256:
+            raise RunnerError("seccomp_profile_changed")
+        seccomp = ["--security-opt", "seccomp=" + str(SECCOMP)]
     labels = (["--label", f"{LABEL_RUN}={run_id}",
                "--label", f"{LABEL_TOKEN}={launch_token}"]
               if run_id and launch_token else [])
@@ -280,6 +287,7 @@ def _docker_prefix(workspace: Path, canonical: Path, store_mount: Path, *,
     return ["run", "--rm", "-i", "--name", name, *labels,
             "--pull=never", "--network", "bridge",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+            *seccomp,
             "--pids-limit", "128", "--memory", "1g", "--user", "10001:10001",
             "--mount", f"type=volume,source={VOLUME},target=/home/runner/.codex",
             "--mount", f"type=bind,source={workspace},target=/draft",
@@ -464,7 +472,7 @@ class AppServer:
                     if isinstance(stderr, str):
                         stderr = stderr.encode()
                     verified = (probe.returncode != 0 and
-                                (b"No such object:" in stderr or b"No such container:" in stderr))
+                                (b"no such object:" in stderr.lower() or b"no such container:" in stderr.lower()))
             except (OSError, subprocess.TimeoutExpired):
                 verified = False
         finally:
@@ -542,7 +550,7 @@ class SplitAppServer(AppServer):
         try:
             _docker_checked(*executor, timeout=30)
             self._executor_started = True
-            command = _docker_prefix(workspace, canonical, store_mount)
+            command = _docker_prefix(workspace, canonical, store_mount, nested_sandbox=False)
             command[command.index("--network") + 1] = "container:" + self.executor_name
             old_mount = f"type=volume,source={VOLUME},target=/home/runner/.codex"
             index = command.index(old_mount)
@@ -864,13 +872,18 @@ class LocalRunner:
                  git_workspace: bool = False,
                  split_executor: bool = False, split_provider_config=(),
                  split_access_token=None, auth_store: Path | None = None,
-                 publication_controller=None):
+                 publication_controller=None, image_id: str | None = None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
         self.git_workspace = git_workspace
         self.image = GIT_IMAGE if git_workspace else IMAGE
         self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
+        if image_id is not None:
+            if git_workspace or not isinstance(image_id, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
+                raise RunnerError("invalid_local_image_id")
+            # Trusted host startup configuration, never a per-run API input.
+            self.image_id = image_id
         if not self.source.is_dir() or (self.source / ".git").is_dir() != git_workspace or \
                 (not git_workspace and not _git_tree(self.source)):
             raise RunnerError("source_workspace_must_be_git_tree")
@@ -1003,7 +1016,7 @@ class LocalRunner:
         # Launch the opt-in image by its verified ID, not a mutable local tag.
         command = ["docker", *_docker_prefix(
             workspace, canonical, store_mount,
-            image=self.image_id if self.git_workspace else self.image,
+            image=self.image_id,
             name=name, run_id=run_id,
             launch_token=launch_token, capability=capability,
             mediator_url=mediator_url,
@@ -2040,6 +2053,7 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--preflight", action="store_true")
     parser.add_argument("--max-model-turns", type=int, default=0)
+    parser.add_argument("--image-id", help="Operator-approved SHA256 ID of a locally rebuilt non-Git image; the fixed version tag must match it")
     parser.add_argument("--lease-service", type=Path,
                         help="State directory of an independently started lease service")
     parser.add_argument("--github-authority-store", type=Path,
@@ -2062,7 +2076,7 @@ def main():
                          github_authority=authority,
                          mediator_state=args.mediator_state,
                          split_executor=args.split_executor,
-                         auth_store=args.auth_store)
+                         auth_store=args.auth_store, image_id=args.image_id)
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return

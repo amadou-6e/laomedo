@@ -1079,7 +1079,7 @@ class LocalRunnerTests(unittest.TestCase):
             "threadId": "thread-test", "turnId": "turn-test"}, timeout=5)
         with patch("laomedo.local_runner.subprocess.run", side_effect=[
                 Mock(returncode=0), Mock(returncode=0),
-                Mock(returncode=1, stderr=b"Error: No such object: laomedo-codex-test")]) as docker:
+                Mock(returncode=1, stderr=b"error: no such object: laomedo-codex-test")]) as docker:
             app.close()
         self.assertEqual(docker.call_args_list[0].args[0],
                          ["docker", "rm", "-f", "laomedo-codex-test"])

@@ -121,7 +121,7 @@ def inspect_exact(name: str, run_id: str, token: str) -> tuple[str, str | None]:
     except (OSError, subprocess.TimeoutExpired):
         return "unknown", None
     if result.returncode:
-        if "No such object:" in result.stderr or "No such container:" in result.stderr:
+        if "no such object:" in result.stderr.lower() or "no such container:" in result.stderr.lower():
             return "absent", None
         return "unknown", None
     try:
