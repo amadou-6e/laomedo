@@ -91,9 +91,10 @@ class LaomedoSkill(Component):
                 raise ValueError('skill_agent_provenance_required')
             editor = {'kind': 'agent', **{key: provenance[key] for key in
                 ('run_id', 'thread_id', 'turn_id', 'trace_ref') if isinstance(provenance.get(key), str)}}
+        operation = proposal(operation)
         self._skill_apply_started = True
         return await asyncio.to_thread(skill_request, 'apply', ticket=prepared['ticket'],
-                                       operation=proposal(operation), editor=editor)
+                                       operation=operation, editor=editor)
 
     async def _completed_operation(self):
         if getattr(self, '_skill_operation_task', None) is None:
@@ -105,22 +106,34 @@ class LaomedoSkill(Component):
         except asyncio.CancelledError:
             raise
         except Exception:
+            # Reference-only validation/resolution errors retain their visible
+            # failure at this node, rather than emitting an empty descriptor.
+            if getattr(self, '_skill_base_reference', None) is None:
+                raise
             result = {'status': 'unknown' if getattr(self, '_skill_apply_started', False) else 'failed',
                       'error_category': 'skill_operation_unavailable',
-                      'skill': getattr(self, '_skill_base_reference', None) or {}}
+                      'skill': None}
+        if result['status'] in {'failed', 'unknown'}:
+            # Persistent exclusion survives the scheduler's transient stop reset.
+            self.graph.exclude_branches_conditionally(self._vertex.id, ['skill', 'task'])
         self.status = result['status']
         return result
 
     async def routed_skill_output(self) -> Data:
-        return Data(data=(await self._completed_operation())['skill'])
+        result = await self._completed_operation()
+        return Data(data=result['skill'] or {'status': result['status'],
+                                            'error_category': result['error_category']})
 
     async def operation_output(self) -> Data:
         return Data(data=await self._completed_operation())
 
     async def agent_task_output(self) -> Message:
+        result = await self._completed_operation()
+        if result['status'] in {'failed', 'unknown'}:
+            return Message(text='')
         if feedback_edge(self) is not None:
-            return Message(text=json.dumps(await self._completed_operation()))
-        return Message(text=json.dumps(self.skill_output().data))
+            return Message(text=json.dumps(result))
+        return Message(text=json.dumps(result['skill']))
 
     def skill_output(self) -> Data:
         if getattr(self, "source", ""):

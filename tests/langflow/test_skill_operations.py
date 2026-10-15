@@ -115,3 +115,45 @@ class InternalSkillOperation(Component):
         flow['data']['nodes'] = [operation, skill]
         flow['data']['edges'] = [builder.builder.helper.edge(operation, 'operation', skill, 'operation')]
         return flow
+
+    async def test_failed_operation_stops_downstream_reference_and_task(self):
+        from lfx.custom.custom_component.component import Component
+        flow = self.normal_flow()
+        self.control.service.policies.clear()
+        path = self.control.root/'internal_consumer.py'
+        path.write_text('''from lfx.custom.custom_component.component import Component
+from lfx.io import DataInput, MessageTextInput, Output
+from lfx.schema import Data
+class InternalSkillConsumer(Component):
+    display_name = "Internal consumer control"
+    name = "InternalSkillConsumer"
+    inputs = [DataInput(name="reference",display_name="Reference"), MessageTextInput(name="task",display_name="Task")]
+    outputs = [Output(name="result",display_name="Result",method="consume")]
+    def consume(self) -> Data:
+        self.update_ctx({"internal_skill_consumer_called":1})
+        return Data(data={"consumed":True})
+''')
+        consumer = builder.builder.node(path, 'consumer', {}, 900, 0)
+        skill = flow['data']['nodes'][1]
+        flow['data']['nodes'].append(consumer)
+        flow['data']['edges'].extend([builder.builder.helper.edge(skill, 'skill', consumer, 'reference'),
+                                     builder.builder.helper.edge(skill, 'task', consumer, 'task')])
+        calls = []
+        original = Component.update_ctx
+        def observe(component, values):
+            if 'internal_skill_consumer_called' in values: calls.append(True)
+            return original(component, values)
+        with patch.object(Component, 'update_ctx', observe):
+            result = await asyncio.wait_for(Graph.from_payload(flow).arun(inputs=[{}], outputs=['skill', 'consumer']), timeout=20)
+        self.assertIn('failed', str(result))
+        self.assertNotIn('consumed', str(result))
+        self.assertEqual(calls, [])
+
+    async def test_invalid_read_only_reference_still_fails_at_skill(self):
+        flow = self.build()
+        flow['data']['nodes'] = flow['data']['nodes'][:1]
+        flow['data']['edges'] = []
+        flow['data']['nodes'][0]['data']['node']['template']['revision_id']['value'] = 'latest'
+        with self.assertRaisesRegex(Exception, 'immutable_skill_revision_required'):
+            await asyncio.wait_for(Graph.from_payload(flow).arun(inputs=[{}]), timeout=20)
+        self.assertEqual(self.calls, 0)

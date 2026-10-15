@@ -45,12 +45,12 @@
   "source_unchanged": true,
   "same_ticket_replay_without_model": true,
   "container_cleanup_verified": true,
-  "graph_sha256": "3174743024ec869e5f11c03ac59b9b6c7b6e7f1ac1c8f0662514a1fec40b88db",
+  "graph_sha256": "45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf",
   "executed_graph_sha256": "eec3ea4595003a1d0171d2b53cfc00d1adae5987c491cda51fcecdbeab12a29c",
   "executed_node_code_sha256": "c5ad6601888b63f41afd8cbba62d0b40072e7532558869adcf209b9ce54d20d0",
   "executed_node_matches_source_revision": true,
   "runtime_source_note": "Exact executed node and core host operations, store, loop helper and runner at 95b8152. Exact embedded code is retained in executed-flow.json. Later manual selection, task-input refusal and routable failure handling do not change successful apply.",
-  "review_graph_note": "Candidate revision selected for inspection; node code refreshed after real execution with routable failures and manual exact-ID selection. No additional model turn.",
+  "review_graph_note": "Candidate revision selected for inspection; node code refreshed after real execution with fail-closed failure output routing, task-only feedback and manual exact-ID selection. No additional model turn.",
   "provenance_independently_matched_to_runner_for_this_run": true,
   "zero_dispatch_startup_recovery": {
     "prior_failure": "credential-free version check timeout",
@@ -71,10 +71,15 @@
     "browser_errors": []
   },
   "local_test_summary": {
-    "tests": 82,
-    "passed": 79,
+    "tests": 84,
+    "passed": 81,
     "skipped": 3,
     "skip_reason": "Existing Windows/platform link capability controls; no fixture acceptance claim",
     "suite": ".tools/check_skill_operations.py (local optional Langflow tests included; CI only discovers core tests)"
+  },
+  "frontend_tests": {
+    "suite": "SkillHistory.test.tsx",
+    "passed": 3,
+    "environment": "Isolated Jest29.7/ts-jest29.4.6/jsdom29.7; no product dependency manifest changes"
   }
 }
