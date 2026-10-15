@@ -13,7 +13,7 @@ def pr_request(action, **payload):
     url = urlsplit(base)
     if (url.scheme != "http" or url.hostname not in {"127.0.0.1", "localhost", "host.docker.internal"} or
             url.username or url.password or url.query or url.fragment or url.path not in {"", "/"} or
-            action not in {"discover", "execute"}):
+            action not in {"discover", "execute", "prepare-feedback", "apply-feedback"}):
         raise ValueError("pr_service_not_configured")
     try:
         token = Path(os.environ.get("LAOMEDO_GITHUB_PR_TOKEN_FILE", "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
@@ -29,7 +29,10 @@ def pr_request(action, **payload):
         result = json.loads(data)
         if not isinstance(result, dict):
             raise ValueError()
-        if action == "execute" and (result.get("schema_version") != "laomedo.github-pr.v1" or
+        if action == 'prepare-feedback' and (result.get('schema_version') != 'laomedo.pr-feedback-ticket.v1' or
+                not isinstance(result.get('ticket'),str) or len(result['ticket']) != 64):
+            raise ValueError()
+        if action in {"execute", "apply-feedback"} and (result.get("schema_version") != "laomedo.github-pr.v1" or
                 not isinstance(result.get("operation"), dict) or
                 result["operation"].get("status") not in {"not_requested", "succeeded", "failed", "unknown"} or
                 "pr" not in result or result["pr"] is not None and not isinstance(result["pr"], dict)):
@@ -43,8 +46,8 @@ def pr_request(action, **payload):
                 category = parsed["error_category"]
         except Exception:
             pass
-        if action == "execute" and payload.get("operation") and (exc.code not in {400, 401} or category not in PRE_DISPATCH_ERRORS):
+        if action in {"execute", "apply-feedback"} and payload.get("operation") and (exc.code not in {400, 401} or category not in PRE_DISPATCH_ERRORS):
             category = "pr_write_unknown"
         raise ValueError(category) from None
     except Exception:
-        raise ValueError("pr_write_unknown" if action == "execute" and payload.get("operation") else "github_pr_unavailable") from None
+        raise ValueError("pr_write_unknown" if action in {"execute", "apply-feedback"} and payload.get("operation") else "github_pr_unavailable") from None

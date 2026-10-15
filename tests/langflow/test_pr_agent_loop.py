@@ -32,7 +32,8 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         _, token = self.store.issue(run_id='fixture-run',invocation_id='fixture-invoke',repository='owner/repo',
             operations={'pr_node_update'},branch='demo',target_prs={1:'main'},ttl_seconds=60)
         self.gateway = GitHubPRGateway({'owner/repo':GitHubRestTransport('owner/repo',lambda:'DUMMY',opener=self.fake)},
-            self.store,lambda ref:{'token':token,'run_id':'fixture-run','repository':'owner/repo'} if ref=='fixture-grant' else None)
+            self.store,lambda ref:{'token':token,'run_id':'fixture-run','repository':'owner/repo'} if ref=='fixture-grant' else None,
+            feedback_grants={'owner/repo#1':'fixture-grant'})
         self.operations = 0
         self.agent_calls = []
         original_update = Component.update_ctx
@@ -47,7 +48,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
             if body.get('operation'):
                 self.operations += 1
                 if self.before_apply: self.before_apply()
-            return self.gateway.discover(**body) if action=='discover' else self.gateway.execute(**body)
+            return getattr(self.gateway,action.replace('-','_'))(**body)
         self.client = patch('laomedo.github_pr_client.pr_request',side_effect=request)
         self.client.start(); self.addCleanup(self.client.stop)
 
@@ -106,9 +107,9 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.fake.prs[1]['state'],'closed')
         self.assertEqual(len(self.agent_calls),1)
 
-    async def test_repeated_graph_run_does_not_repeat_mutation(self):
+    async def test_new_graph_invocation_reserves_fresh_host_identity(self):
         await self.execute(); self.assertIn('succeeded',await self.execute())
-        self.assertEqual(len(self.fake.writes),1)
+        self.assertEqual(len(self.fake.writes),2)
         self.assertEqual(len(self.agent_calls),2)
 
     async def test_failed_initial_read_does_not_run_agent(self):
