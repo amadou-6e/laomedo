@@ -36,3 +36,13 @@ Publish only sanitized evidence, source/graph hashes, public PR URL, native IDs,
 outcome counters and limitations. Keep auth, API tokens, capabilities, tickets and
 raw provider/model receipts in private local runtime state outside Git. Do not
 publish raw account/tool data. Leave the real PR available for user inspection.
+
+## Prospective correction after turn 1
+
+Turn 1 completed and wrote exactly its proposed description to PR #21, but the
+model failed its preserve-and-append instruction. Native receipts confirmed that
+the original description and pinned skill were delivered/read. The write was
+confirmed, not uncertain; do not retry it. Preserve this trial as a task-quality
+failure. Allocate turn 2 to a fresh PR and an exact title-only skill, with unchanged
+three-turn ledger/cap. This is a separately scoped corrective test, not a repeated
+write or retroactive acceptance of turn 1. Turn 3 remains reserved for cancellation.

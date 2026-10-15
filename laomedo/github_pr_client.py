@@ -1,6 +1,7 @@
 """Backend-only pr client, with no graph credential inputs."""
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib import request, error
@@ -30,7 +31,7 @@ def pr_request(action, **payload):
         if not isinstance(result, dict):
             raise ValueError()
         if action == 'prepare-feedback' and (result.get('schema_version') != 'laomedo.pr-feedback-ticket.v1' or
-                not isinstance(result.get('ticket'),str) or len(result['ticket']) != 64):
+                not isinstance(result.get('ticket'),str) or not re.fullmatch(r'[0-9a-f]{64}',result['ticket'])):
             raise ValueError()
         if action in {"execute", "apply-feedback"} and (result.get("schema_version") != "laomedo.github-pr.v1" or
                 not isinstance(result.get("operation"), dict) or

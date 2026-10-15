@@ -83,6 +83,24 @@ class FeedbackIdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'pr_grant_unavailable'):self.apply(ticket)
         self.assertEqual(len(self.fake.writes),0)
 
+    def test_disabled_host_configuration_invalidates_reserved_ticket(self):
+        ticket=self.prepare();self.gateway.feedback_grants={}
+        with self.assertRaisesRegex(ValueError,'pr_feedback_not_configured'):self.apply(ticket)
+        self.assertEqual(len(self.fake.writes),0)
+
+    def test_clock_rollback_cannot_extend_ticket_lifetime(self):
+        ticket=self.prepare();issued=self.store.monotonic()
+        with patch.object(self.store,'now',return_value=self.store.now()-10000), \
+                patch.object(self.store,'monotonic',return_value=issued+301):
+            with self.assertRaisesRegex(ValueError,'pr_feedback_ticket_invalid'):self.apply(ticket)
+        self.assertEqual(len(self.fake.writes),0)
+
+    def test_monotonic_clock_reset_refuses_ticket(self):
+        ticket=self.prepare()
+        with patch.object(self.store,'monotonic',return_value=0):
+            with self.assertRaisesRegex(ValueError,'pr_feedback_ticket_invalid'):self.apply(ticket)
+        self.assertEqual(len(self.fake.writes),0)
+
     def test_restart_preserves_ticket_identity_and_replay(self):
         ticket=self.prepare();first=self.apply(ticket)
         restarted=GitHubPRGateway({'owner/repo':self.transport},self.store,self.gateway.grant_resolver,

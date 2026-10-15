@@ -8,13 +8,13 @@ spec=importlib.util.spec_from_file_location('pr_original_builder',ROOT/'examples
 builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
 
 
-def build(repository,number,title,revision,runner_url):
+def build(repository,number,title,revision,runner_url,skill_id='pr-feedback-proposal'):
     node,edge=builder.node,builder.helper.edge
     pr=node(ROOT/'components/laomedo/github_pr.py','pr',{
         'repository_url':'https://github.com/'+repository,'pr_choice':f'#{number} {title}',
         'labels':[],'state':'open'},0,0)
     agent=node(ROOT/'components/laomedo/codex_agent.py','agent',{
-        'operation':'fresh','skill_id':'pr-feedback-proposal','revision_id':revision,
+        'operation':'fresh','skill_id':skill_id,'revision_id':revision,
         'runner_url':runner_url,'output_retries':0},600,100)
     flow={'id':str(uuid5(NAMESPACE_URL,'laomedo-original-pr-feedback-170')),
         'name':'PR → original Codex Agent → same PR',

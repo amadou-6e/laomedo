@@ -52,8 +52,10 @@ class GitHubPRGateway:
             raise ValueError('pr_feedback_not_configured')
         binding_digest = self._feedback_binding(ref,pr)
         ticket, request_id = secrets.token_hex(32), 'pr-feedback-'+secrets.token_hex(24)
+        issued_monotonic=self.mediation.monotonic()
         context = {'repository_url':repository_url,'labels':labels,'state':state,
-                   'pr_number':pr_number,'expected':expected,'pr':pr}
+                   'pr_number':pr_number,'expected':expected,'pr':pr,
+                   'issued_monotonic':issued_monotonic,'expires_monotonic':issued_monotonic+300}
         with closing(self.mediation._connect()) as db, db:
             db.execute('INSERT INTO pr_feedback_tickets VALUES (?,?,?,?,?,?)',
                 (ticket,request_id,ref,binding_digest,json.dumps(context),self.mediation.now()+300))
@@ -74,6 +76,12 @@ class GitHubPRGateway:
         if row is None or self.mediation.now() >= row['expires']:
             raise ValueError('pr_feedback_ticket_invalid')
         context=json.loads(row['context'])
+        issued=context.pop('issued_monotonic',None)
+        deadline=context.pop('expires_monotonic',None)
+        now_monotonic=self.mediation.monotonic()
+        if (not isinstance(issued,(int,float)) or not isinstance(deadline,(int,float)) or
+                now_monotonic<issued or now_monotonic>=deadline):
+            raise ValueError('pr_feedback_ticket_invalid')
         pr=context.pop('pr')
         if self.feedback_grants.get(f"{pr['repository']}#{pr['number']}") != row['grant_ref']:
             raise ValueError('pr_feedback_not_configured')
