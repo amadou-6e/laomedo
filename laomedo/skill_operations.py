@@ -253,9 +253,12 @@ class SkillOperations:
                 chunks.append('Binary files differ\n')
                 continue
             # Keep actual lines readable; explicitly preserve missing-final-newline evidence.
+            def lf_lines(text):
+                parts = text.split('\n')
+                return [part+'\n' for part in parts[:-1]] + ([parts[-1]] if parts[-1] else [])
             lines = list(difflib.unified_diff(
-                (old['text'] if old else '').splitlines(keepends=True),
-                (new['text'] if new else '').splitlines(keepends=True),
+                lf_lines(old['text'] if old else ''),
+                lf_lines(new['text'] if new else ''),
                 fromfile='a/'+path if old else '/dev/null',
                 tofile='b/'+path if new else '/dev/null'))
             for line in lines:

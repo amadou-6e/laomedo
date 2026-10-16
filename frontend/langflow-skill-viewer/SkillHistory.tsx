@@ -38,8 +38,8 @@ export default function CommitTree({ skillId, revision, selected, onSelect }: {
         title={`${item.commit_id}\n${item.message}\n${item.created_at}`}
         className={`relative flex w-full items-start gap-2 rounded px-2 py-2 text-left text-sm hover:bg-muted ${selected === item.commit_id ? "bg-muted" : ""}`}
         onClick={() => onSelect(item)}>
+        {item.parent_commit && <span aria-hidden="true" className="pointer-events-none absolute bottom-[-12px] left-[14px] top-[18px] w-px bg-muted-foreground/50" />}
         <span aria-hidden="true" className="relative mt-1 block w-4 shrink-0 self-stretch">
-          {item.parent_commit && <span className="absolute bottom-[-12px] left-[6px] top-1 w-px bg-border" />}
           <span className="relative block h-[13px] w-[13px] rounded-full border-2 border-primary bg-background" />
         </span>
         <span className="min-w-0 flex-1"><span className="block break-words leading-snug">{item.message}</span>

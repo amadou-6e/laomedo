@@ -185,3 +185,11 @@ class SkillOperationTests(unittest.TestCase):
         self.assertIn('Binary files differ', result['patch'])
         self.assertNotIn('private-before', json.dumps(result))
         self.assertNotIn('private-after', json.dumps(result))
+
+    def test_comparison_unicode_separators_do_not_create_false_missing_newlines(self):
+        prepared = self.prepare()
+        result = self.service.apply(prepared['ticket'], {'action': 'modify', 'message': 'Keep Unicode line content',
+            'files': [{'path': 'rules/one.md', 'content': 'first\fmiddle\u2028last\n'}]})
+        comparison = self.service.compare('internal-test', prepared['base_commit'], result['skill']['revision_id'])
+        self.assertIn('+first\fmiddle\u2028last\n', comparison['patch'])
+        self.assertNotIn('\\ No newline at end of file', comparison['patch'])
