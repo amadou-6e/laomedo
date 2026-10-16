@@ -55,6 +55,9 @@ to return to its current contents. Drag the vertical separator to set the
 navigation width; arrow keys and Home/End also resize it. No Files/History switch
 or new Agent turn is needed. The per-commit parent diff remains an API record;
 the viewer deliberately shows the cumulative selected-snapshot-to-current diff.
+The [viewer verification](viewer-evidence.json) records this combined interface
+against the existing real Agent edit, including cumulative comparison, empty
+current-to-current comparison, pointer/keyboard resizing and return to source.
 File/history browsing never runs the graph. Ordinary reference-only graphs work
 without an operations service. The journal is append-only through this API, but
 local administrators can alter it; no signed audit or automatic pruning exists.
