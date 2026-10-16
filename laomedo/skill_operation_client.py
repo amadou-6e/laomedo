@@ -12,7 +12,7 @@ def skill_request(action, **body):
     parsed = urlsplit(base)
     if (parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost', 'host.docker.internal'} or
             parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment or
-            action not in {'prepare', 'apply', 'history', 'diff'}):
+            action not in {'prepare', 'apply', 'history', 'diff', 'compare'}):
         raise ValueError('skill_operation_service_not_configured')
     try:
         token = Path(os.environ['LAOMEDO_SKILL_OPERATION_TOKEN_FILE']).read_text().strip()

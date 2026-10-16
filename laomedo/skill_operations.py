@@ -7,6 +7,7 @@ when a later edit returns to the same bytes. No operation promotes canonical lat
 from copy import deepcopy
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import difflib
 import hashlib
 import json
 from pathlib import Path
@@ -229,3 +230,44 @@ class SkillOperations:
             if patch_for(before, after) != record['patch']:
                 raise SkillStoreError('skill_history_integrity_failure')
             return record
+
+    def compare(self, skill_id, commit_id, revision_id):
+        """Compare a historical snapshot to the viewer's pinned current bytes."""
+        with self.connect() as db:
+            commit = self._read(db, skill_id, commit_id)
+        base = inspect_skill(self.store.root, skill_id, commit['revision_id'])
+        current = inspect_skill(self.store.root, skill_id, revision_id)
+        before = {file['path']: file for file in base['files']}
+        after = {file['path']: file for file in current['files']}
+        files, chunks = [], []
+        for path in sorted(before.keys() | after.keys()):
+            old, new = before.get(path), after.get(path)
+            if old and new and old['file_hash'] == new['file_hash']:
+                continue
+            binary = any(file and file['kind'] == 'binary' for file in (old, new))
+            files.append({'path': path, 'status': 'added' if old is None else 'deleted' if new is None else 'modified',
+                'before_hash': old['file_hash'] if old else None,
+                'after_hash': new['file_hash'] if new else None, 'binary': binary})
+            chunks.append('diff --git a/'+path+' b/'+path+'\n')
+            if binary:
+                chunks.append('Binary files differ\n')
+                continue
+            # Keep actual lines readable; explicitly preserve missing-final-newline evidence.
+            lines = list(difflib.unified_diff(
+                (old['text'] if old else '').splitlines(keepends=True),
+                (new['text'] if new else '').splitlines(keepends=True),
+                fromfile='a/'+path if old else '/dev/null',
+                tofile='b/'+path if new else '/dev/null'))
+            for line in lines:
+                chunks.append(line)
+                if not line.endswith('\n'):
+                    chunks.append('\n\\ No newline at end of file\n')
+            if not lines:  # Added/deleted empty files still have a visible diff entry.
+                chunks.append('--- '+('a/'+path if old else '/dev/null')+'\n')
+                chunks.append('+++ '+('b/'+path if new else '/dev/null')+'\n')
+        result = {'skill_id': skill_id, 'base_commit': {key: value for key, value in commit.items() if key != 'patch'},
+                  'base_revision': commit['revision_id'], 'current_revision': revision_id,
+                  'files': files, 'patch': ''.join(chunks)}
+        if len(json.dumps(result).encode()) > 16 * 1024 * 1024:
+            raise SkillStoreError('skill_diff_too_large')
+        return result

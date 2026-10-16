@@ -23,6 +23,8 @@ def apply(checkout):
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
     shutil.copy2(overlay / "SkillHistory.tsx", target / "SkillHistory.tsx")
     shutil.copy2(overlay / "SkillHistory.test.tsx", target / "SkillHistory.test.tsx")
+    shutil.copy2(overlay / "SkillSplitPane.tsx", target / "SkillSplitPane.tsx")
+    shutil.copy2(overlay / "SkillSplitPane.test.tsx", target / "SkillSplitPane.test.tsx")
     shutil.copy2(overlay / "selection.ts", target / "selection.ts")
     shutil.copy2(overlay / "MONACO-LICENSE.txt", checkout / "src/frontend/public/monaco-LICENSE.txt")
     issue_target = checkout / "src/frontend/src/modals/issueViewerModal"

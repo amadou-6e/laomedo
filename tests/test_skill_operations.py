@@ -131,3 +131,57 @@ class SkillOperationTests(unittest.TestCase):
             self.assertIn('ticket', json.load(response))
         with self.assertRaises(error.HTTPError):
             call('x'*32, {**payload, 'policy': self.policy})
+
+    def test_comparison_is_cumulative_from_selected_snapshot_to_pinned_current(self):
+        prepared = self.prepare()
+        first = self.service.apply(prepared['ticket'], self.operation)
+        prepared2 = self.prepare(first['skill']['revision_id'], first['commit']['commit_id'])
+        second = self.service.apply(prepared2['ticket'], {'action': 'modify', 'message': 'Add another rule',
+            'files': [{'path': 'rules/two.md', 'content': 'another rule\n'}]})
+        compared = self.service.compare('internal-test', prepared['base_commit'], second['skill']['revision_id'])
+        self.assertEqual(compared['base_revision'], self.initial['revision_id'])
+        self.assertEqual(compared['current_revision'], second['skill']['revision_id'])
+        self.assertEqual([file['path'] for file in compared['files']], ['SKILL.md', 'rules/one.md', 'rules/two.md'])
+        self.assertIn('+another rule\n', compared['patch'])
+        self.assertIn('+updated\n', compared['patch'])
+        self.assertNotIn('another rule\\n', compared['patch'])
+        pinned = self.service.compare('internal-test', prepared['base_commit'], first['skill']['revision_id'])
+        self.assertEqual(len(pinned['files']), 2)
+        same = self.service.compare('internal-test', first['commit']['commit_id'], first['skill']['revision_id'])
+        self.assertEqual(same['files'], [])
+        self.assertEqual(same['patch'], '')
+
+    def test_comparison_additions_deletions_and_missing_final_newline(self):
+        prepared = self.prepare()
+        result = self.service.apply(prepared['ticket'], {'action': 'modify', 'message': 'Replace rule',
+            'files': [{'path': 'rules/one.md', 'content': None}, {'path': 'rules/two.md', 'content': 'no final newline'}]})
+        compared = self.service.compare('internal-test', prepared['base_commit'], result['skill']['revision_id'])
+        self.assertEqual([item['status'] for item in compared['files']], ['deleted', 'added'])
+        self.assertIn('\\ No newline at end of file', compared['patch'])
+        self.assertIn('--- /dev/null', compared['patch'])
+        self.assertIn('+++ /dev/null', compared['patch'])
+
+    def test_comparison_refuses_cross_skill_commit_and_corrupt_current(self):
+        prepared = self.prepare()
+        with self.assertRaises(SkillStoreError):
+            self.service.compare('other-skill', prepared['base_commit'], self.initial['revision_id'])
+        folder = self.store._revision_dir('internal-test', self.initial['revision_id'])/'bundle'
+        (folder/'SKILL.md').write_bytes(b'corrupt')
+        with self.assertRaises(ValueError):
+            self.service.compare('internal-test', prepared['base_commit'], self.initial['revision_id'])
+
+    def test_comparison_binary_metadata_does_not_export_bytes(self):
+        source = self.root/'binary-source'
+        source.mkdir()
+        (source/'SKILL.md').write_bytes(self.original.encode())
+        (source/'asset.pdf').write_bytes(b'\0private-before')
+        base = self.store.import_skill('binary-skill', source)
+        service = SkillOperations(self.store, self.root/'binary.db', {'binary-skill': self.policy})
+        root_commit = service.prepare('binary-skill', base['revision_id'])['base_commit']
+        (source/'asset.pdf').write_bytes(b'\0private-after')
+        current = self.store._store_revision('binary-skill', source, base['revision_id'])
+        result = service.compare('binary-skill', root_commit, current['revision_id'])
+        self.assertTrue(result['files'][0]['binary'])
+        self.assertIn('Binary files differ', result['patch'])
+        self.assertNotIn('private-before', json.dumps(result))
+        self.assertNotIn('private-after', json.dumps(result))

@@ -40,7 +40,8 @@ def server(operations, token, port=8787):
                 fields = {'prepare': {'skill_id', 'revision_id', 'commit_id'},
                           'apply': {'ticket', 'operation', 'editor'},
                           'history': {'skill_id', 'revision_id', 'before'},
-                          'diff': {'skill_id', 'commit_id'}}
+                          'diff': {'skill_id', 'commit_id'},
+                          'compare': {'skill_id', 'commit_id', 'revision_id'}}
                 if (action not in fields or self.path != '/v1/skill-operations/'+action or
                         not isinstance(body, dict) or set(body) != fields[action]):
                     raise ValueError('skill_request_invalid')

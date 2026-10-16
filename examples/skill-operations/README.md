@@ -48,7 +48,13 @@ a fresh operation; expired or uncertain replies must be reconciled, not blindly
 rerun. Five-minute capabilities are backend-only and expire using wall and
 monotonic clocks. Exact valid-ticket replay produces no extra commit.
 
-Open Skill files → History to inspect paginated commits and per-commit diffs.
+Open Skill files to see current files above a Git-style commit graph in the
+left navigation pane. Click any commit to compare its entire snapshot to the
+node's pinned current revision, including all intervening changes. Click a file
+to return to its current contents. Drag the vertical separator to set the
+navigation width; arrow keys and Home/End also resize it. No Files/History switch
+or new Agent turn is needed. The per-commit parent diff remains an API record;
+the viewer deliberately shows the cumulative selected-snapshot-to-current diff.
 File/history browsing never runs the graph. Ordinary reference-only graphs work
 without an operations service. The journal is append-only through this API, but
 local administrators can alter it; no signed audit or automatic pruning exists.
