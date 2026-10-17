@@ -42,7 +42,7 @@ jest.mock("@/utils/reactflowUtils", () => ({ scapedJSONStringfy: JSON.stringify 
 jest.mock("./utils", () => ({ findPrimaryInput: (fields: string[]) => ({ displayHandleMap: new Map(fields.map(name => [name, name === "skill_reference"])), primaryInputFieldName: "skill_reference" }) }));
 jest.mock("../NodeInputField", () => ({ __esModule: true, default: (props: any) => <input aria-label={props.name} data-handle={String(props.displayHandle)} defaultValue={props.data.node.template[props.name].value || ""} /> }));
 test("renderer puts each field in exactly one group and preserves ordinary ports", () => {
- const normal = { ...data, node: { template: { ...data.node.template, model: { ...field, advanced: false } } } };
+ const normal = { ...data, node: { template: { ...data.node.template, model: { ...field, advanced: false }, skill_reference: { ...field, type: "other", advanced: false } } } };
  render(<RenderInputParameters data={normal} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false} />);
  expect(screen.getByRole("textbox", { name: "model" })).toBeVisible();
  expect(screen.getByRole("textbox", { name: "skill_reference" })).toHaveAttribute("data-handle", "true");
