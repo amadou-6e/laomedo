@@ -52,7 +52,10 @@ Open Skill files to see files above a Git-style commit graph in the left
 navigation pane. Click any commit to compare the selected file from that
 revision with its pinned current contents, including intervening changes.
 The visual inline editor shows full current contents with historical changes
-highlighted. Unchanged lines use one number; changed lines retain old numbering.
+highlighted. Unchanged lines use one number; changed rows have explicit old/new cells
+with an em dash for the absent side. A dedicated24pxmarker column renders
+bold18px +/minus signs. A horizontal header rule and index divider separate
+the compact columns. The visible rows are virtualized; Monaco computes changes.
 Digit-sized index columns have a 4 px gap and thin divider. Revision hashes are
 shortened, with the full identity on hover. No aggregate raw patch or
 patch headers are displayed. Clicking another file retains the selected commit.
