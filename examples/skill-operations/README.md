@@ -104,3 +104,18 @@ workflow diagrams are supported. Remote media and active markup are not loaded.
 These documents/assets are ordinary versioned skill files and can be changed
 atomically through the existing Skill operations. No model turn generates the
 overview. Historical comparisons keep the overview pinned to the current revision.
+
+
+The [overview review graph](overview-flow.json) selects the real documentation
+candidate described in [overview evidence](overview-evidence.json). It adds
+OVERVIEW.md and assets/workflow.svg to the existing real Agent result through
+one atomic **operator-authored** SkillOperations commit, not another Agent turn.
+The exact purpose/usage documents are in [overview/](overview/OVERVIEW.md).
+All existing bundle files and canonical latest remain unchanged. The original
+Agent result graph and exact executed graph are preserved separately.
+
+The temporary host documentation policy scoped writes to SKILL.md (required by
+the existing policy schema), OVERVIEW.md and assets/workflow.svg; only the last
+two changed. SVG is classified as script-capable by that schema, so its flag was
+allowed for this exact vector-document path; no command execution or additional
+script path was authorized. This policy is not installed in the read-only preview.
