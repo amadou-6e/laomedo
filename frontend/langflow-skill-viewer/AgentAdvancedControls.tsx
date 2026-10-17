@@ -12,7 +12,7 @@ export function advancedAgentFields(data: any, fields: string[], edges: any[], t
   if (!["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind)) return [];
   return fields.filter((name) => {
     const field = data.node?.template?.[name];
-    return CONTROLS.has(name) && field?.show && field.type !== "other" &&
+    return CONTROLS.has(name) && field?.show && field.advanced === true && field.type !== "other" &&
       !(toolMode && field.tool_mode) && !edges.some((edge) =>
         edge.target === data.id && edge.data?.targetHandle?.fieldName === name);
   });

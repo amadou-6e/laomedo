@@ -37,13 +37,14 @@ const RenderInputParameters = ({
       );
   }, [data.node?.template, data.node?.field_order, isToolMode]);
 
-  const advancedFields = advancedAgentFields(data, templateFields, edges, isToolMode);
+  const advancedFields = useMemo(() => advancedAgentFields(data, templateFields, edges, isToolMode),
+    [data, templateFields, edges, isToolMode]);
   const shownTemplateFields = useMemo(() => {
     return templateFields.filter((templateField) => {
       const template = data.node?.template[templateField];
       return !advancedFields.includes(templateField) && isCanvasVisible(template, isToolMode);
     });
-  }, [templateFields, data.node?.template, isToolMode, advancedFields.join(",")]);
+  }, [templateFields, data.node?.template, isToolMode, advancedFields]);
 
   const memoizedColors = useMemo(() => {
     const colorMap = new Map();
@@ -122,7 +123,7 @@ const RenderInputParameters = ({
       return (
         <NodeInputField
           lastInput={
-            !(shownOutputs.length > 0 || showHiddenOutputs) &&
+            !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
             idx === fields.length - 1
           }
           key={memoizedKey}
