@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import SkillOverview, { bundlePath, skillDescription } from "./SkillOverview";
 import type { Snapshot } from "./SkillHistory";
 jest.unmock("react-markdown");
@@ -10,17 +10,17 @@ const snapshot: Snapshot = { schema_version: "laomedo.skill-inspection.v1", skil
   textFile("references/details.md", '# More detail\n![Diagram](../assets/flow.svg)'),
 ] };
 
-test("summary is visible, collapsible, and full documentation opens separately", () => {
+test("complete summary stays visible while details toggle from initially collapsed", () => {
   render(<SkillOverview snapshot={snapshot} />);
   expect(screen.getByTestId("skill-summary")).toHaveTextContent("Explain the purpose.");
   expect(screen.queryByRole("article")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /About this skill/ }));
-  expect(screen.queryByTestId("skill-summary")).toBeNull();
+  expect(screen.getByRole("button", { name: "Read full overview" })).toHaveAttribute("aria-expanded", "false");
   fireEvent.click(screen.getByRole("button", { name: "Read full overview" }));
   expect(screen.getByRole("article", { name: "Full skill overview" })).toHaveTextContent("How it works");
   expect(screen.getByTestId("skill-summary")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Close full overview" }));
   expect(screen.queryByRole("article")).toBeNull();
+  expect(screen.getByTestId("skill-summary")).toBeVisible();
 });
 
 test("bundled SVG diagram is sanitized; remote assets and raw HTML never become active", () => {

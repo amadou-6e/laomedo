@@ -1,7 +1,7 @@
 # Skill operations
 
 The existing Skill node accepts ordinary operations and direct feedback from
-the original Codex Agent: **Skill Task → Agent Task → same Skill Operation**.
+the original Codex Agent: **Skill Task â†’ Agent Task â†’ same Skill Operation**.
 No new Agent component is introduced. `build_flow.py` exports without execution.
 
 An operation replaces/adds/deletes multiple UTF-8 files in one validated batch:
@@ -94,9 +94,10 @@ or outside this campaign. User graph review and final CI/review remain pending.
 
 ## Overview authoring
 
-About this skill appears above files/history. Its default one-sentence summary
-uses the pinned `SKILL.md` description, with a prose fallback. Collapse hides it;
-Read full overview opens a scrollable full description. Provide optional root
+A complete summary appears above files/history between horizontal dividers,
+without a frame. It uses the pinned `SKILL.md` description, with a prose fallback.
+Clicking the summary row opens/closes the full description, initially collapsed;
+the summary stays visible. Provide optional root
 `OVERVIEW.md` for purpose, usage and workflow illustrations; otherwise the full
 view renders SKILL.md without frontmatter. Local Markdown links and image paths
 stay within the same immutable snapshot. PNG/JPEG/GIF/WebP and sanitized SVG
@@ -119,3 +120,7 @@ the existing policy schema), OVERVIEW.md and assets/workflow.svg; only the last
 two changed. SVG is classified as script-capable by that schema, so its flag was
 allowed for this exact vector-document path; no command execution or additional
 script path was authorized. This policy is not installed in the read-only preview.
+
+The internal [skill-summary](../../skills/skill-summary/SKILL.md) authoring skill
+fills missing descriptions through ordinary versioned edits and preserves user
+summaries. It is not invoked by opening the read-only viewer.

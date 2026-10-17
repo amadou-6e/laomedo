@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import DOMPurify from "dompurify";
 import type { Snapshot } from "./SkillHistory";
@@ -60,21 +60,19 @@ export default function SkillOverview({ snapshot }: { snapshot: Snapshot }) {
   const skill = snapshot.files.find((file) => file.path === "SKILL.md");
   const description = useMemo(() => skillDescription(skill?.text || ""), [skill]);
   const root = snapshot.files.find((file) => file.path === "OVERVIEW.md" && file.kind === "text")?.path || "SKILL.md";
-  const [expanded, setExpanded] = useState(true);
   const [full, setFull] = useState(false);
   const [document, setDocument] = useState(root);
   const file = snapshot.files.find((entry) => entry.path === document);
   const markdown = document === "SKILL.md" ? skillDescription(file?.text || "").body : file?.text || "";
-  return <section aria-label="Skill overview" className="mb-3 shrink-0 rounded border bg-muted/20 px-3 py-2">
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <button type="button" className="font-medium" aria-expanded={expanded} aria-controls="skill-overview-content"
-        onClick={() => { setExpanded(!expanded); if (expanded) setFull(false); }}>{expanded ? "▾" : "▸"} About this skill</button>
-      <button type="button" className="shrink-0 text-xs underline" aria-expanded={full} onClick={() => { setExpanded(true); setFull(!full); setDocument(root); }}>{full ? "Close full overview" : "Read full overview"}</button>
-    </div>
-    {expanded && <div id="skill-overview-content">
-      <p data-testid="skill-summary" className="mt-1 text-sm text-muted-foreground">{description.summary}</p>
-      {full && <article aria-label="Full skill overview" className="mt-3 max-h-[35vh] overflow-auto border-t pt-3">
-        <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground"><span>{document} · Current revision</span>
+  return <section aria-label="Skill overview" className="mb-3 shrink-0 border-y py-2">
+    <button type="button" className="flex w-full items-start gap-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      aria-label={full ? "Close full overview" : "Read full overview"} aria-expanded={full} aria-controls="skill-overview-content"
+      onClick={() => { setFull(!full); setDocument(root); }}>
+      <span aria-hidden="true" className="shrink-0">{full ? "\u25be" : "\u25b8"}</span>
+      <span data-testid="skill-summary" className="min-w-0 break-words">{description.summary}</span>
+    </button>
+      {full && <article id="skill-overview-content" aria-label="Full skill overview" className="mt-3 max-h-[35vh] overflow-auto pt-1">
+        <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground"><span>{document} Â· Current revision</span>
           {document !== root && <button type="button" className="underline" onClick={() => setDocument(root)}>Back to overview</button>}</div>
         <div className="prose prose-sm max-w-none break-words dark:prose-invert" data-testid="skill-full-overview">
           <ReactMarkdown skipHtml urlTransform={(url) => url} components={{
@@ -87,6 +85,5 @@ export default function SkillOverview({ snapshot }: { snapshot: Snapshot }) {
           }}>{markdown || "No full description is provided for this skill revision."}</ReactMarkdown>
         </div>
       </article>}
-    </div>}
   </section>;
 }
