@@ -46,6 +46,13 @@ def component(**values):
                        "timeout_seconds": 210, "run_reference": None, **values}.items():
         setattr(node, key, value)
     node._pre_run_setup()
+    # Deterministic internal allocation for synthetic runner receipts, not an
+    # editable request-ID override. Production always allocates this itself.
+    if values.get("request_id") == RUN:
+        node._generated_request_id = RUN
+    if "skill_reference" not in values:
+        node.skill_reference = module.Data(data={"skill_id": node.skill_id,
+            "revision_id": node.revision_id, "tree_hash": node.revision_id})
     return node
 
 
@@ -415,8 +422,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["skill_refs"], [ref.data for ref in refs])
         with self.assertRaisesRegex(ValueError, "duplicate_skill_id"):
             component(skill_reference=[refs[0], refs[0]], skill_id="", revision_id="")._prepare()
-        with self.assertRaisesRegex(ValueError, "conflicting_skill_inputs"):
-            component(skill_reference=refs)._prepare()
+        self.assertEqual(component(skill_reference=refs)._prepare()[1]["skill_refs"], [ref.data for ref in refs])
 
     async def test_skill_node_validates_and_agent_consumes_reference(self):
         skill = skill_module.LaomedoSkill()
@@ -425,8 +431,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         node = component(skill_id="", revision_id="", skill_reference=ref)
         _url, payload, _method = node._prepare()
         self.assertEqual(payload["skill_ref"], ref.data)
-        with self.assertRaisesRegex(ValueError, "conflicting_skill_inputs"):
-            component(skill_reference=ref, revision_id="sha256:" + "b" * 64)._prepare()
+        self.assertEqual(component(skill_reference=ref, revision_id="sha256:" + "b" * 64)._prepare()[1]["skill_ref"], ref.data)
         for skill_id, revision in [("../escape", HASH), ("fixture", "latest")]:
             skill.skill_id, skill.revision_id = skill_id, revision
             with self.assertRaises(ValueError):
@@ -598,9 +603,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             node.request_id = seen[0]
             node._pre_run_setup()
             await node.run_output()
-            self.assertEqual(seen[0], seen[1])
-        with self.assertRaisesRegex(ValueError, "invalid_request_id"):
-            await component(operation="start", request_id="not-a-uuid").run_output()
+            self.assertNotEqual(seen[0], seen[1])
+        ignored = component(operation="start", request_id="not-a-uuid")._prepare_request()[1]
+        self.assertEqual(str(module.UUID(ignored["request_id"])), ignored["request_id"])
 
     async def test_uncertain_start_error_retains_retry_identity(self):
         node = component(operation="start")
@@ -775,6 +780,18 @@ class AgentControlOwnershipTests(unittest.TestCase):
         self.assertEqual(first["request_id"], second["request_id"])
         self.assertEqual(str(module.UUID(first["request_id"])), first["request_id"])
         self.assertEqual(first["skill_ref"]["skill_id"], "connected-skill")
+
+
+class ObsoleteAgentControlTests(unittest.TestCase):
+    def test_hidden_overrides_cannot_drive_execution(self):
+        node = component(request_id="legacy-id", skill_reference=module.Data(data={
+            "skill_id": "authoritative", "revision_id": HASH, "tree_hash": HASH}),
+            skill_id="old-skill", revision_id="old-revision")
+        payload = node._prepare_request()[1]
+        self.assertNotEqual(payload["request_id"], "legacy-id")
+        self.assertEqual(payload["skill_ref"]["skill_id"], "authoritative")
+        with self.assertRaisesRegex(ValueError, "skill_reference_required_use_skill_node"):
+            component(skill_reference=None)._prepare_request()
 
 
 if __name__ == "__main__":

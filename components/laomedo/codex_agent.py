@@ -164,11 +164,9 @@ class LaomedoCodexAgent(Component):
         if operation in {"fresh", "start", "resume"} and (not model.strip() or not effort.strip()):
             raise ValueError("model_and_effort_required")
         if operation in {"fresh", "start"}:
-            selected_request_id = str(getattr(self, "request_id", "") or "")
-            if not selected_request_id:
-                selected_request_id = (getattr(self, "_generated_request_id", None)
-                                       or str(uuid4()))
-                self._generated_request_id = selected_request_id
+            # Imported manual values are not authoritative node settings.
+            selected_request_id = (getattr(self, "_generated_request_id", None) or str(uuid4()))
+            self._generated_request_id = selected_request_id
             try:
                 if str(UUID(selected_request_id)) != selected_request_id:
                     raise ValueError()
@@ -179,7 +177,7 @@ class LaomedoCodexAgent(Component):
             endpoint = base + "/v1/runs/async"
             connected = getattr(self, "skill_reference", None)
             if connected in (None, "", []):
-                connected = None
+                raise ValueError("skill_reference_required_use_skill_node")
             if connected is not None:
                 refs = connected if isinstance(connected, list) else [connected]
                 refs = [getattr(ref, "data", ref) for ref in refs]
@@ -198,15 +196,13 @@ class LaomedoCodexAgent(Component):
                         raise ValueError("duplicate_skill_id")
                     seen.add(ref["skill_id"])
                 if len(refs) > 1:
-                    if getattr(self, "skill_id", "") or getattr(self, "revision_id", ""):
-                        raise ValueError("conflicting_skill_inputs")
                     payload = {"task": task, "model": model,
                                "effort": effort, "skill_refs": refs}
                     payload["request_id"] = selected_request_id
                     return self._fresh_route(endpoint, payload, selected_request_id)
                 connected = refs[0]
-            revision = str(getattr(self, "revision_id", "") or "")
-            skill_id = str(getattr(self, "skill_id", "") or "")
+            revision = ""
+            skill_id = ""
             if connected is not None:
                 if not isinstance(connected, dict):
                     raise ValueError("invalid_skill_reference")
@@ -218,8 +214,6 @@ class LaomedoCodexAgent(Component):
                         not re.fullmatch(r"sha256:[0-9a-f]{64}", selected_revision) or
                         connected.get("tree_hash") != selected_revision):
                     raise ValueError("invalid_skill_reference")
-                if (skill_id and skill_id != selected_id) or (revision and revision != selected_revision):
-                    raise ValueError("conflicting_skill_inputs")
                 skill_id, revision = selected_id, selected_revision
             if not skill_id.strip() or not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
                 raise ValueError("pinned_skill_required")
