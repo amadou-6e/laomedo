@@ -90,3 +90,17 @@ alpha snapshots and a trusted Git fixture adapter offering main and tag v1.
 It uses real custom-component refresh APIs and no model or publisher node.
 Use a separate build output while a live viewer mounts upstream's default build.
 See [source service activation draft](SOURCE-DEPLOYMENT.md).
+
+## Agent node advanced controls
+
+The pinned overlay also adds an inline Advanced controls disclosure to Codex and
+OpenCode Agent nodes. It starts collapsed and preserves values when reopened.
+Model, effort and the existing lifecycle Operation remain on the main form;
+scalar technical controls move inside the disclosure. Hidden fields remain
+hidden, wired inputs remain on the normal renderer, and other node types retain
+the upstream behavior. No task/skill/output ports or execution semantics change.
+The node geometry refreshes on disclosure/minimize changes. Existing advanced
+edit-dialog access is retained. This slice does not add model discovery or a new
+session/execution-mode model. Test AgentAdvancedControls.test.tsx in the applied
+RenderInputParameters directory; production browser checks use the existing real
+Agent graph without a new model turn.
