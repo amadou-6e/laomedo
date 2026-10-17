@@ -21,6 +21,9 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
         'operation': 'fresh', 'runner_url': runner_url, 'output_retries': 0}, 600, 0)
     editor = builder.node(ROOT/'components/laomedo/skill.py', 'agent-skill', {
         'skill_id': 'skill-operation-editor', 'revision_id': editor_revision}, 0, 700)
+    for key in ('skill_id', 'revision_id'):
+        field = editor['data']['node']['template'][key]
+        field['options'] = [field['value']]
     flow = {'id': str(uuid5(NAMESPACE_URL, 'laomedo-skill-operations-176')),
         'name': 'Skill → Codex Agent → same Skill Operation',
         'description': 'Atomic multi-file candidate; immutable commit history and diffs. No automatic promotion or Git publishing.',

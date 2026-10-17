@@ -84,6 +84,12 @@ class LaomedoCodexAgent(Component):
         self.assertNotIn('agent', graph._first_layer)
         self.assertEqual(self.calls, 0)
 
+    async def test_starting_at_read_only_skill_seeds_feedback_controller(self):
+        graph = Graph.from_payload(self.build())
+        graph.prepare(start_component_id='agent-skill')
+        self.assertIn('skill', graph._first_layer)
+        self.assertEqual(self.calls, 0)
+
     async def test_ordinary_operation_remains_acyclic(self):
         flow = self.normal_flow()
         graph = Graph.from_payload(flow)

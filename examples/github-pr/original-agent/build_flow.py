@@ -17,6 +17,9 @@ def build(repository,number,title,revision,runner_url,skill_id='pr-feedback-titl
         'operation':'fresh',
         'runner_url':runner_url,'output_retries':0},600,100)
     skill=node(ROOT/'components/laomedo/skill.py','agent-skill',{'skill_id':skill_id,'revision_id':revision},0,600)
+    for key in ('skill_id', 'revision_id'):
+        field = skill['data']['node']['template'][key]
+        field['options'] = [field['value']]
     flow={'id':str(uuid5(NAMESPACE_URL,'laomedo-original-pr-feedback-170')),
         'name':'PR → original Codex Agent → same PR',
         'description':'Real Docker LocalRunner and live GitHub. Host-only feedback reservation; content-only Agent proposal.',

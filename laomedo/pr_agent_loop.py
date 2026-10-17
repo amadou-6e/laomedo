@@ -45,7 +45,8 @@ def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
                 pending.extend(edge.target_id for edge in graph.get_vertex(current).outgoing_edges)
             if stop_component_id not in reachable:
                 return Graph.sort_vertices(graph, stop_component_id, start_component_id)
-        if start_component_id in (None, controller.id, feedback.source_id):
+        skill_starts = skill_input_vertices(controller, graph.get_vertex(feedback.source_id))
+        if start_component_id in (None, controller.id, feedback.source_id) or start_component_id in skill_starts:
             start_component_id = controller.id
     first_layer = Graph.sort_vertices(graph, stop_component_id, start_component_id)
     # Independent Skill roots must not make the controller disappear behind
