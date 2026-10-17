@@ -51,9 +51,9 @@ function FileRows({ rows, oldCount, currentCount }: { rows: DiffRow[]; oldCount:
             lineHeight: `${lineHeight}px`, width: "max-content", gridTemplateColumns: columns,
             background: row.kind === "added" ? "#dcfce7" : row.kind === "deleted" ? "#fee2e2" : undefined,
             color: row.kind === "context" ? undefined : "#111827" }}>
-          {row.kind === "context" ? <span data-testid="single-line-index" className="pr-1 text-right text-muted-foreground" style={{ gridColumn: "1 / span 2" }}>{row.current}</span> : <>
-            <span data-testid="old-line-index" aria-label={`Old line ${row.old ?? "absent"}`} className="border-r border-slate-400 pr-1 text-right">{row.old ?? "—"}</span>
-            <span data-testid="new-line-index" aria-label={`Current line ${row.current ?? "absent"}`} className="pr-1 text-right">{row.current ?? "—"}</span>
+          {row.kind === "context" && row.old === row.current ? <span data-testid="single-line-index" className="pr-1 text-right text-muted-foreground" style={{ gridColumn: "1 / span 2" }}>{row.current}</span> : <>
+            <span data-testid="old-line-index" aria-label={`Old line ${row.old ?? "absent"}`} className="border-r border-slate-400 pr-1 text-right">{row.old ?? ""}</span>
+            <span data-testid="new-line-index" aria-label={`Current line ${row.current ?? "absent"}`} className="pr-1 text-right">{row.current ?? ""}</span>
           </>}
           <span aria-label={row.kind === "added" ? "Added" : row.kind === "deleted" ? "Deleted" : undefined}
             data-testid="diff-sign" className="text-center font-bold" style={{ fontSize: 18, color: row.kind === "added" ? "#166534" : "#991b1b" }}>{row.kind === "added" ? "+" : row.kind === "deleted" ? "−" : ""}</span>

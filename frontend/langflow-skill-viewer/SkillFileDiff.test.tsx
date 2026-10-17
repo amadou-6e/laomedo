@@ -1,4 +1,4 @@
-﻿import { render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import SkillFileDiff, { diffRows } from "./SkillFileDiff";
 import * as monaco from "monaco-editor/editor";
 let mockChanges: any[] = [];
@@ -16,7 +16,7 @@ test("addition rows have explicit old/new cells and a readable plus; context has
   mockChanges = [{ originalStartLineNumber: 1, originalEndLineNumber: 0, modifiedStartLineNumber: 2, modifiedEndLineNumber: 2 }];
   const view = render(<SkillFileDiff path={file.path} original={file} current={{ ...file, text: "hello\nnew\n", file_hash: "new" }} />);
   const addition = view.container.querySelector('[data-diff-kind="added"]')! as HTMLElement;
-  expect(within(addition).getByTestId("old-line-index")).toHaveTextContent("—");
+  expect(within(addition).getByTestId("old-line-index")).toBeEmptyDOMElement();
   expect(within(addition).getByTestId("new-line-index")).toHaveTextContent("2");
   expect(within(addition).getByLabelText("Added")).toHaveTextContent("+");
   expect(within(addition).getByLabelText("Added")).toHaveStyle({ fontSize: "18px" });
@@ -34,7 +34,7 @@ test("deleted file has an old index, absent current index and readable minus", (
   render(<SkillFileDiff path={file.path} original={file} />);
   expect(screen.getByRole("status")).toHaveTextContent("Deleted file");
   expect(screen.getAllByTestId("old-line-index")[0]).toHaveTextContent("1");
-  expect(screen.getAllByTestId("new-line-index")[0]).toHaveTextContent("—");
+  expect(screen.getAllByTestId("new-line-index")[0]).toBeEmptyDOMElement();
   expect(screen.getAllByLabelText("Deleted")[0]).toHaveTextContent("−");
 });
 test("replacement preserves old/new indexes and shifted unchanged lines", () => {
@@ -67,4 +67,14 @@ test("unchanged files keep one index per row", () => {
 test("line-ending-only changes disclose the difference hidden by Monaco", () => {
   render(<SkillFileDiff path={file.path} original={{ ...file, text: "hello\r\n" }} current={{ ...file, file_hash: "other" }} />);
   expect(screen.getByText(/Line endings: selected 1 CRLF; current 1 LF/)).toBeInTheDocument();
+});
+
+test("unchanged lines after an insertion keep both shifted indexes", () => {
+  mockChanges = [{ originalStartLineNumber: 1, originalEndLineNumber: 0, modifiedStartLineNumber: 2, modifiedEndLineNumber: 2 }];
+  const view = render(<SkillFileDiff path={file.path} original={{ ...file, text: "hello\ntail" }} current={{ ...file, text: "hello\nnew\ntail", file_hash: "new" }} />);
+  const tail = view.container.querySelectorAll('[data-diff-kind="context"]')[1] as HTMLElement;
+  expect(within(tail).getByTestId("old-line-index")).toHaveTextContent("2");
+  expect(within(tail).getByTestId("new-line-index")).toHaveTextContent("3");
+  expect(within(tail).queryByTestId("single-line-index")).toBeNull();
+  expect(within(tail).getByTestId("diff-sign")).toBeEmptyDOMElement();
 });
