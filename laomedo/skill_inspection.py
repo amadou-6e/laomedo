@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import json
 import stat
+import base64
 
 from .skill_store import HASH, NAME, SkillStoreError, _is_link, tree_hash, file_hashes
 
@@ -81,8 +82,16 @@ def inspect_skill(root: Path, skill_id: str, revision_id: str) -> dict:
                 text = data.decode("utf-8") if b"\0" not in data else None
             except UnicodeDecodeError:
                 text = None
-            files.append({"path": path, "bytes": len(data), "file_hash": digest,
-                          "kind": "text" if text is not None else "binary", "text": text})
+            item = {"path": path, "bytes": len(data), "file_hash": digest,
+                    "kind": "text" if text is not None else "binary", "text": text}
+            # Inline only inert raster image formats from the same verified snapshot.
+            mime = ("image/png" if data.startswith(b"\x89PNG\r\n\x1a\n") else
+                    "image/jpeg" if data.startswith(b"\xff\xd8\xff") else
+                    "image/gif" if data.startswith((b"GIF87a", b"GIF89a")) else
+                    "image/webp" if data.startswith(b"RIFF") and data[8:12] == b"WEBP" else None)
+            if mime:
+                item["image_data_url"] = "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
+            files.append(item)
         return {"schema_version": "laomedo.skill-inspection.v1", "skill_id": skill_id,
                 "revision_id": revision_id, "tree_hash": revision_id, "files": files}
     except InspectionError:

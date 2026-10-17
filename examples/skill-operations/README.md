@@ -90,3 +90,17 @@ services and authorize a new bounded campaign before another real execution.
 Internal fixtures are not real integration acceptance. Native cancellation,
 production ownership, multi-commit promotion and Git publication remain untested
 or outside this campaign. User graph review and final CI/review remain pending.
+
+
+## Overview authoring
+
+About this skill appears above files/history. Its default one-sentence summary
+uses the pinned `SKILL.md` description, with a prose fallback. Collapse hides it;
+Read full overview opens a scrollable full description. Provide optional root
+`OVERVIEW.md` for purpose, usage and workflow illustrations; otherwise the full
+view renders SKILL.md without frontmatter. Local Markdown links and image paths
+stay within the same immutable snapshot. PNG/JPEG/GIF/WebP and sanitized SVG
+workflow diagrams are supported. Remote media and active markup are not loaded.
+These documents/assets are ordinary versioned skill files and can be changed
+atomically through the existing Skill operations. No model turn generates the
+overview. Historical comparisons keep the overview pinned to the current revision.

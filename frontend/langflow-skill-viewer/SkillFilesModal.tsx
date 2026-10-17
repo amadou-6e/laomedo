@@ -15,6 +15,7 @@ import { useDarkStore } from "@/stores/darkStore";
 import BaseModal from "@/modals/baseModal";
 import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } from "./SkillHistory";
 import SkillSplitPane from "./SkillSplitPane";
+import SkillOverview from "./SkillOverview";
 
 // Bundle the editor and worker locally. No Monaco CDN or remote file loader.
 (self as typeof self & { MonacoEnvironment?: object }).MonacoEnvironment = {
@@ -135,6 +136,8 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
       {loading && <p role="status">Loading selected skill revision…</p>}
       {error && <div role="alert"><p>Skill files unavailable: {error}</p>
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
+      {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision &&
+        <SkillOverview key={`${skillId}:${revision}`} snapshot={snapshot} />}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigation={<>
         <nav aria-label="Skill file explorer" className="max-h-[45%] min-h-[100px] shrink-0 overflow-auto pb-3">
           <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Files {selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]);
