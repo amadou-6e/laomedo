@@ -29,8 +29,18 @@ export default function SkillFileDiff({ path, original, current }: {
   if (!original && !current) return <p className="p-4">Select a file.</p>;
   const status = !original ? "Added file" : !current ? "Deleted file" :
     original.file_hash === current.file_hash ? "No changes in this file" : "Modified file";
+  const endings = (text: string) => {
+    const crlf = (text.match(/\r\n/g) || []).length;
+    const lf = (text.match(/\n/g) || []).length - crlf;
+    const cr = (text.match(/\r(?!\n)/g) || []).length;
+    return [crlf && `${crlf} CRLF`, lf && `${lf} LF`, cr && `${cr} CR`].filter(Boolean).join(", ") || "None";
+  };
+  const endingNotice = !binary && original && current && original.text !== current.text &&
+    (endings(original.text || "") !== endings(current.text || "") ||
+      original.text?.replace(/\r\n/g, "\n") === current.text?.replace(/\r\n/g, "\n"));
   return <div className="flex min-h-0 flex-1 flex-col" data-testid="skill-file-comparison">
     <p className="shrink-0 border-b px-4 py-1 text-sm" role="status">{status}</p>
+    {endingNotice && <p className="shrink-0 px-4 py-1 text-xs text-muted-foreground">Line endings: selected {endings(original.text || "")}; current {endings(current.text || "")}. Endings are not highlighted in the editor.</p>}
     <div className="grid shrink-0 grid-cols-2 border-b px-4 py-1 text-xs text-muted-foreground">
       <span>Selected revision{!original && " (file absent)"}</span><span>Current{!current && " (file absent)"}</span>
     </div>

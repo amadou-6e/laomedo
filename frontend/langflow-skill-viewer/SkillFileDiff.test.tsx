@@ -33,3 +33,8 @@ test("unchanged files remain visible", () => {
   expect(screen.getByRole("status")).toHaveTextContent("No changes in this file");
   expect(monaco.editor.createModel).toHaveBeenCalledTimes(2);
 });
+
+test("line-ending-only changes disclose the difference hidden by Monaco", () => {
+  render(<SkillFileDiff path={file.path} original={{ ...file, text: "hello\r\n" }} current={{ ...file, file_hash: "other" }} />);
+  expect(screen.getByText(/Line endings: selected 1 CRLF; current 1 LF/)).toBeInTheDocument();
+});

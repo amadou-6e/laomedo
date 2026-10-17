@@ -48,16 +48,19 @@ a fresh operation; expired or uncertain replies must be reconciled, not blindly
 rerun. Five-minute capabilities are backend-only and expire using wall and
 monotonic clocks. Exact valid-ticket replay produces no extra commit.
 
-Open Skill files to see current files above a Git-style commit graph in the
-left navigation pane. Click any commit to compare its entire snapshot to the
-node's pinned current revision, including all intervening changes. Click a file
-to return to its current contents. Drag the vertical separator to set the
-navigation width; arrow keys and Home/End also resize it. No Files/History switch
-or new Agent turn is needed. The per-commit parent diff remains an API record;
-the viewer deliberately shows the cumulative selected-snapshot-to-current diff.
-The [viewer verification](viewer-evidence.json) records this combined interface
-against the existing real Agent edit, including cumulative comparison, empty
-current-to-current comparison, pointer/keyboard resizing and return to source.
+Open Skill files to see files above a Git-style commit graph in the left
+navigation pane. Click any commit to compare the selected file from that
+revision with its pinned current contents, including intervening changes.
+The visual editor shows full historical contents on the left and current
+contents on the right, with changes highlighted. No aggregate raw patch or
+patch headers are displayed. Clicking another file retains the selected commit.
+Historical-only files remain available to inspect deletions; absent sides are
+empty and binary files show metadata. Current source exits comparison.
+Drag the separator to resize navigation; arrow keys and Home/End also work.
+No Files/History switch or additional Agent turn is needed. Parent and cumulative
+patch endpoints remain read-only API records, separate from the visual editor.
+The [earlier viewer evidence](viewer-evidence.json) is historical for fe2857b:
+it verifies the replaced aggregate-patch interface, not the current visual editor.
 File/history browsing never runs the graph. Ordinary reference-only graphs work
 without an operations service. The journal is append-only through this API, but
 local administrators can alter it; no signed audit or automatic pruning exists.
