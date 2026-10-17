@@ -51,8 +51,10 @@ monotonic clocks. Exact valid-ticket replay produces no extra commit.
 Open Skill files to see files above a Git-style commit graph in the left
 navigation pane. Click any commit to compare the selected file from that
 revision with its pinned current contents, including intervening changes.
-The visual editor shows full historical contents on the left and current
-contents on the right, with changes highlighted. No aggregate raw patch or
+The visual inline editor shows full current contents with historical changes
+highlighted. Unchanged lines use one number; changed lines retain old numbering.
+Digit-sized index columns have a 4 px gap and thin divider. Revision hashes are
+shortened, with the full identity on hover. No aggregate raw patch or
 patch headers are displayed. Clicking another file retains the selected commit.
 Historical-only files remain available to inspect deletions; absent sides are
 empty and binary files show metadata. Current source exits comparison.

@@ -131,7 +131,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
       <span>Skill files · Read only</span>
     </BaseModal.Header>
     <BaseModal.Content overflowHidden>
-      <div className="mb-2 break-all text-sm" data-testid="skill-selection">{skillId}<br /><code>{revision}</code></div>
+      <div className="mb-2 text-sm" data-testid="skill-selection">{skillId}<br /><code title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}…` : revision}</code></div>
       {loading && <p role="status">Loading selected skill revision…</p>}
       {error && <div role="alert"><p>Skill files unavailable: {error}</p>
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}

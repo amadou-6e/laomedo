@@ -4,7 +4,13 @@ import * as monaco from "monaco-editor/editor";
 jest.mock("@/stores/darkStore", () => ({ useDarkStore: (select: any) => select({ dark: false }) }));
 jest.mock("monaco-editor/editor", () => ({ editor: {
   createModel: jest.fn(() => ({ dispose: jest.fn() })),
-  createDiffEditor: jest.fn(() => ({ setModel: jest.fn(), dispose: jest.fn() })),
+  createDiffEditor: jest.fn(() => {
+    const original = { updateOptions: jest.fn() };
+    return { setModel: jest.fn(), dispose: jest.fn(), getOriginalEditor: () => original,
+      getLineChanges: () => [{ originalStartLineNumber: 4, originalEndLineNumber: 5 },
+        { originalStartLineNumber: 9, originalEndLineNumber: 0 }],
+      onDidUpdateDiff: jest.fn(() => ({ dispose: jest.fn() })) };
+  }),
 } }));
 const file = { path: "SKILL.md", kind: "text" as const, bytes: 6, file_hash: "hash", text: "hello\n" };
 beforeEach(() => jest.clearAllMocks());
@@ -37,4 +43,13 @@ test("unchanged files remain visible", () => {
 test("line-ending-only changes disclose the difference hidden by Monaco", () => {
   render(<SkillFileDiff path={file.path} original={{ ...file, text: "hello\r\n" }} current={{ ...file, file_hash: "other" }} />);
   expect(screen.getByText(/Line endings: selected 1 CRLF; current 1 LF/)).toBeInTheDocument();
+});
+
+test("unchanged and insertion anchors have one index; changed old lines retain theirs", () => {
+  render(<SkillFileDiff path={file.path} original={file} current={file} />);
+  const instance = (monaco.editor.createDiffEditor as jest.Mock).mock.results[0].value;
+  const numbering = instance.getOriginalEditor().updateOptions.mock.calls[0][0].lineNumbers;
+  expect(numbering(1)).toBe(""); expect(numbering(4)).toBe("4"); expect(numbering(5)).toBe("5");
+  expect(numbering(6)).toBe(""); expect(numbering(9)).toBe("");
+  expect(monaco.editor.createDiffEditor).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ lineNumbersMinChars: 1, lineDecorationsWidth: 4, renderSideBySide: false }));
 });

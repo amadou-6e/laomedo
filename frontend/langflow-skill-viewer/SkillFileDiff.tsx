@@ -17,14 +17,24 @@ export default function SkillFileDiff({ path, original, current }: {
     const after = monaco.editor.createModel(current?.text ?? "", language);
     const editor = monaco.editor.createDiffEditor(container.current, {
       readOnly: true, originalEditable: false, domReadOnly: true,
-      automaticLayout: true, renderSideBySide: true, enableSplitViewResizing: true,
+      automaticLayout: true, renderSideBySide: false,
+      lineNumbersMinChars: 1, lineDecorationsWidth: 4, folding: false,
+      glyphMargin: false, renderFinalNewline: "off",
       ignoreTrimWhitespace: false, hideUnchangedRegions: { enabled: false },
       minimap: { enabled: false }, scrollBeyondLastLine: false,
       theme: dark ? "vs-dark" : "vs", fontSize: 14,
       fontFamily: "'JetBrains Mono', monospace",
     });
+    const updateNumbers = () => editor.getOriginalEditor().updateOptions({
+      // Only changed lines need an old index. Unchanged lines use the current index.
+      lineNumbers: (line) => (editor.getLineChanges() || []).some((change) =>
+        change.originalEndLineNumber !== 0 && line >= change.originalStartLineNumber &&
+        line <= change.originalEndLineNumber) ? String(line) : "",
+    });
+    const diffListener = editor.onDidUpdateDiff(updateNumbers);
     editor.setModel({ original: before, modified: after });
-    return () => { editor.dispose(); before.dispose(); after.dispose(); };
+    updateNumbers();
+    return () => { diffListener.dispose(); editor.dispose(); before.dispose(); after.dispose(); };
   }, [path, original, current, binary, dark]);
   if (!original && !current) return <p className="p-4">Select a file.</p>;
   const status = !original ? "Added file" : !current ? "Deleted file" :
@@ -41,12 +51,15 @@ export default function SkillFileDiff({ path, original, current }: {
   return <div className="flex min-h-0 flex-1 flex-col" data-testid="skill-file-comparison">
     <p className="shrink-0 border-b px-4 py-1 text-sm" role="status">{status}</p>
     {endingNotice && <p className="shrink-0 px-4 py-1 text-xs text-muted-foreground">Line endings: selected {endings(original.text || "")}; current {endings(current.text || "")}. Endings are not highlighted in the editor.</p>}
-    <div className="grid shrink-0 grid-cols-2 border-b px-4 py-1 text-xs text-muted-foreground">
-      <span>Selected revision{!original && " (file absent)"}</span><span>Current{!current && " (file absent)"}</span>
+    <div className="shrink-0 border-b px-4 py-1 text-xs text-muted-foreground">
+      Selected revision{!original && " (file absent)"} → Current{!current && " (file absent)"}
     </div>
     {binary ? <div className="overflow-auto p-4 text-sm">Binary file comparison unavailable.
       <p className="break-all">Selected: {original ? `${original.bytes} bytes · ${original.file_hash}` : "Absent"}</p>
       <p className="break-all">Current: {current ? `${current.bytes} bytes · ${current.file_hash}` : "Absent"}</p>
-    </div> : <div ref={container} className="min-h-0 flex-1" data-testid="skill-file-diff" aria-label={`Read-only file diff: ${path}`} />}
+    </div> : <>
+      <style>{`.skill-file-diff .original-in-monaco-diff-editor .margin { border-right: 1px solid var(--vscode-editorIndentGuide-background1, #94a3b866); box-sizing: border-box; }`}</style>
+      <div ref={container} className="skill-file-diff min-h-0 flex-1" data-testid="skill-file-diff" aria-label={`Read-only file diff: ${path}`} />
+    </>}
   </div>;
 }
