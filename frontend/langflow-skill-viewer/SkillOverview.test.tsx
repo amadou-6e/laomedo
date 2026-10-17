@@ -14,18 +14,19 @@ test("complete summary stays visible while details toggle from initially collaps
   render(<SkillOverview snapshot={snapshot} />);
   expect(screen.getByTestId("skill-summary")).toHaveTextContent("Explain the purpose.");
   expect(screen.queryByRole("article")).toBeNull();
-  expect(screen.getByRole("button", { name: "Read full overview" })).toHaveAttribute("aria-expanded", "false");
-  fireEvent.click(screen.getByRole("button", { name: "Read full overview" }));
+  expect(screen.getByRole("button", { name: "Explain the purpose. A second sentence." })).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(screen.getByRole("button", { name: "Explain the purpose. A second sentence." }));
   expect(screen.getByRole("article", { name: "Full skill overview" })).toHaveTextContent("How it works");
+  expect(screen.getByText(/Current revision/).textContent).toBe("OVERVIEW.md\u00a0\u00b7\u00a0Current revision");
   expect(screen.getByTestId("skill-summary")).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Close full overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Explain the purpose. A second sentence." }));
   expect(screen.queryByRole("article")).toBeNull();
   expect(screen.getByTestId("skill-summary")).toBeVisible();
 });
 
 test("bundled SVG diagram is sanitized; remote assets and raw HTML never become active", () => {
   const { container } = render(<SkillOverview snapshot={snapshot} />);
-  fireEvent.click(screen.getByRole("button", { name: "Read full overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Explain the purpose. A second sentence." }));
   const image = screen.getByRole("img", { name: "Flow" });
   const svg = decodeURIComponent(image.getAttribute("src")!.split(",")[1]);
   expect(svg).toContain("Read then propose");
@@ -41,13 +42,13 @@ test("bundled SVG diagram is sanitized; remote assets and raw HTML never become 
 
 test("fallback uses pinned SKILL.md when no optional overview exists", () => {
   render(<SkillOverview snapshot={{ ...snapshot, files: [snapshot.files[0]] }} />);
-  fireEvent.click(screen.getByRole("button", { name: "Read full overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Explain the purpose. A second sentence." }));
   expect(screen.getByTestId("skill-full-overview")).toHaveTextContent("Use the selected PR.");
   expect(screen.getByTestId("skill-full-overview")).not.toHaveTextContent("description:");
 });
 
-test("literal and folded descriptions become one sentence; relative paths stay inside bundle", () => {
-  expect(skillDescription('---\ndescription: >\n  Read the PR and\n  propose a title. More.\nname: skill\n---\n# Body').summary).toBe("Read the PR and propose a title.");
+test("literal and folded descriptions stay complete; relative paths stay inside bundle", () => {
+  expect(skillDescription('---\ndescription: >\n  Read the PR and\n  propose a title. More.\nname: skill\n---\n# Body').summary).toBe("Read the PR and propose a title. More.");
   expect(bundlePath("references/how.md", "../assets/flow.svg")).toBe("assets/flow.svg");
   for (const target of ["../../secret", "https://example.org/a", "data:image/png,abc", "/private", "%2e%2e/secret", "bad\\path"]) expect(bundlePath("OVERVIEW.md", target)).toBeNull();
 });
@@ -55,6 +56,14 @@ test("literal and folded descriptions become one sentence; relative paths stay i
 test("verified raster data renders, arbitrary image URL does not", () => {
   const png = "data:image/png;base64,iVBORw0KGgo=";
   render(<SkillOverview snapshot={{ ...snapshot, files: [snapshot.files[0], textFile("OVERVIEW.md", "![Raster](image.png)"), { ...textFile("image.png", ""), kind: "binary", text: null, image_data_url: png }] }} />);
-  fireEvent.click(screen.getByRole("button", { name: "Read full overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Explain the purpose. A second sentence." }));
   expect(screen.getByRole("img", { name: "Raster" })).toHaveAttribute("src", png);
+});
+
+test("abbreviations never truncate the full accessible summary", () => {
+  const description = "Formats files, e.g. Markdown and YAML. Keeps source context.";
+  const files = [textFile("SKILL.md", `---\ndescription: ${description}\n---\n# Instructions`)];
+  render(<SkillOverview snapshot={{ ...snapshot, files }} />);
+  expect(screen.getByRole("button", { name: description })).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByTestId("skill-summary")).toHaveTextContent(description);
 });

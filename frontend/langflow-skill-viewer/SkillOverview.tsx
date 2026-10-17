@@ -18,8 +18,7 @@ export function skillDescription(text: string): { summary: string; body: string 
   } else if (description.startsWith("'")) description = description.replace(/^'|'$/g, "").replace(/''/g, "'");
   if (!description) description = body.split(/\n\s*\n/).find((part) => !/^(#|```|~~~|\s*[-*] )/.test(part)) || "No description is provided for this skill revision.";
   description = description.replace(/\s+/g, " ").trim();
-  const sentence = description.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() || description;
-  return { summary: sentence, body };
+  return { summary: description, body };
 }
 
 export function bundlePath(document: string, target: string): string | null {
@@ -65,25 +64,25 @@ export default function SkillOverview({ snapshot }: { snapshot: Snapshot }) {
   const file = snapshot.files.find((entry) => entry.path === document);
   const markdown = document === "SKILL.md" ? skillDescription(file?.text || "").body : file?.text || "";
   return <section aria-label="Skill overview" className="mb-3 shrink-0 border-y py-2">
-    <button type="button" className="flex w-full items-start gap-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-      aria-label={full ? "Close full overview" : "Read full overview"} aria-expanded={full} aria-controls="skill-overview-content"
+    <button type="button" className="flex w-full items-start gap-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2"
+      aria-expanded={full} aria-controls="skill-overview-content"
       onClick={() => { setFull(!full); setDocument(root); }}>
       <span aria-hidden="true" className="shrink-0">{full ? "\u25be" : "\u25b8"}</span>
       <span data-testid="skill-summary" className="min-w-0 break-words">{description.summary}</span>
     </button>
-      {full && <article id="skill-overview-content" aria-label="Full skill overview" className="mt-3 max-h-[35vh] overflow-auto pt-1">
-        <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground"><span>{document} Â· Current revision</span>
-          {document !== root && <button type="button" className="underline" onClick={() => setDocument(root)}>Back to overview</button>}</div>
-        <div className="prose prose-sm max-w-none break-words dark:prose-invert" data-testid="skill-full-overview">
-          <ReactMarkdown skipHtml urlTransform={(url) => url} components={{
-            a: ({ href, children }) => {
-              const target = bundlePath(document, href || "");
-              const local = snapshot.files.find((entry) => entry.path === target && entry.kind === "text" && entry.path.toLowerCase().endsWith(".md"));
-              return local ? <button type="button" className="text-primary underline" onClick={() => setDocument(local.path)}>{children}</button> : <span>{children}</span>;
-            },
-            img: ({ src, alt }) => <BundleImage snapshot={snapshot} document={document} src={src} alt={alt} />,
-          }}>{markdown || "No full description is provided for this skill revision."}</ReactMarkdown>
-        </div>
-      </article>}
+    {full && <article id="skill-overview-content" aria-label="Full skill overview" className="mt-3 max-h-[35vh] overflow-auto pt-1">
+      <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground"><span>{document}{"\u00a0\u00b7\u00a0"}Current revision</span>
+        {document !== root && <button type="button" className="underline" onClick={() => setDocument(root)}>Back to overview</button>}</div>
+      <div className="prose prose-sm max-w-none break-words dark:prose-invert" data-testid="skill-full-overview">
+        <ReactMarkdown skipHtml urlTransform={(url) => url} components={{
+          a: ({ href, children }) => {
+            const target = bundlePath(document, href || "");
+            const local = snapshot.files.find((entry) => entry.path === target && entry.kind === "text" && entry.path.toLowerCase().endsWith(".md"));
+            return local ? <button type="button" className="text-primary underline" onClick={() => setDocument(local.path)}>{children}</button> : <span>{children}</span>;
+          },
+          img: ({ src, alt }) => <BundleImage snapshot={snapshot} document={document} src={src} alt={alt} />,
+        }}>{markdown || "No full description is provided for this skill revision."}</ReactMarkdown>
+      </div>
+    </article>}
   </section>;
 }
