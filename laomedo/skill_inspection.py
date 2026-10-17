@@ -34,7 +34,7 @@ def _read_regular(path: Path, limit: int) -> bytes:
     return data
 
 
-def inspect_skill(root: Path, skill_id: str, revision_id: str) -> dict:
+def inspect_skill(root: Path, skill_id: str, revision_id: str, *, include_images: bool = False) -> dict:
     if not isinstance(skill_id, str) or not NAME.fullmatch(skill_id):
         raise InspectionError("invalid_skill_id")
     if not isinstance(revision_id, str) or not HASH.fullmatch(revision_id):
@@ -89,7 +89,7 @@ def inspect_skill(root: Path, skill_id: str, revision_id: str) -> dict:
                     "image/jpeg" if data.startswith(b"\xff\xd8\xff") else
                     "image/gif" if data.startswith((b"GIF87a", b"GIF89a")) else
                     "image/webp" if data.startswith(b"RIFF") and data[8:12] == b"WEBP" else None)
-            if mime:
+            if include_images and mime:
                 item["image_data_url"] = "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
             files.append(item)
         return {"schema_version": "laomedo.skill-inspection.v1", "skill_id": skill_id,

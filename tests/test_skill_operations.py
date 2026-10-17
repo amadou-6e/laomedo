@@ -37,6 +37,17 @@ class SkillOperationTests(unittest.TestCase):
     def prepare(self, revision=None, commit=''):
         return self.service.prepare('internal-test', revision or self.initial['revision_id'], commit)
 
+    def test_prepare_does_not_embed_viewer_image_data_in_agent_snapshot(self):
+        source = self.root / "source"
+        (source / "image.png").write_bytes(b"\x89PNG\r\n\x1a\ninternal-control")
+        record = self.store.import_skill("image-test", source)
+        service = SkillOperations(self.store, self.root / "image-history.db", {"image-test": self.policy})
+        snapshot = service.prepare("image-test", record["revision_id"])["snapshot"]
+        image = next(file for file in snapshot["files"] if file["path"] == "image.png")
+        self.assertEqual(image["kind"], "binary")
+        self.assertIsNone(image["text"])
+        self.assertNotIn("image_data_url", json.dumps(snapshot))
+
     def test_atomic_multifile_revision_and_replay(self):
         reservation = self.prepare()
         result = self.service.apply(reservation['ticket'], self.operation)

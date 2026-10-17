@@ -47,7 +47,9 @@ class SkillInspectionTests(unittest.TestCase):
         (source / "pixel.png").write_bytes(image)
         (source / "diagram.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><text>Flow</text></svg>')
         record = self.store.import_skill("media", source)
-        result = inspect_skill(self.store.root, "media", record["revision_id"])
+        default = inspect_skill(self.store.root, "media", record["revision_id"])
+        self.assertTrue(all("image_data_url" not in file for file in default["files"]))
+        result = inspect_skill(self.store.root, "media", record["revision_id"], include_images=True)
         files = {file["path"]: file for file in result["files"]}
         self.assertEqual(files["pixel.png"]["image_data_url"], "data:image/png;base64," + base64.b64encode(image).decode())
         self.assertNotIn("image_data_url", files["asset.bin"])
