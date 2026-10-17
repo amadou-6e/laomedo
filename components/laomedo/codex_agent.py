@@ -451,7 +451,7 @@ class LaomedoCodexAgent(Component):
                     "remote execution may still be active") from None
             if self.operation == "start":
                 raise RuntimeError("runner_transport_failed; start outcome unknown; "
-                                   "retry only with request_id " +
+                                   "check status for request_id before starting again: " +
                                    str(payload.get("request_id"))) from None
             raise RuntimeError("runner_transport_failed; remote execution may still be active") from None
         except (ValueError, TypeError):

@@ -35,9 +35,51 @@ def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
     if len(controllers) == 1:
         controller = controllers[0]
         feedback = feedback_edge(controller.custom_component)
+        if stop_component_id is not None:
+            reachable, pending = set(), [controller.id]
+            while pending:
+                current = pending.pop()
+                if current in reachable:
+                    continue
+                reachable.add(current)
+                pending.extend(edge.target_id for edge in graph.get_vertex(current).outgoing_edges)
+            if stop_component_id not in reachable:
+                return Graph.sort_vertices(graph, stop_component_id, start_component_id)
         if start_component_id in (None, controller.id, feedback.source_id):
             start_component_id = controller.id
-    return Graph.sort_vertices(graph, stop_component_id, start_component_id)
+    first_layer = Graph.sort_vertices(graph, stop_component_id, start_component_id)
+    # Independent Skill roots must not make the controller disappear behind
+    # the feedback cycle. Starting it explicitly seeds that cycle, while keeping
+    # every ordinary root scheduled as before.
+    if len(controllers) == 1 and start_component_id == controllers[0].id:
+        if controllers[0].id not in first_layer:
+            first_layer = [controllers[0].id, *first_layer]
+    return first_layer
+
+
+def skill_input_vertices(controller, agent):
+    """Only independent read-only Skill outputs may accompany feedback Task."""
+    selected = set()
+    tasks = 0
+    for edge in agent.incoming_edges:
+        if edge.source_id == controller.id:
+            if edge.target_handle.field_name != 'task' or edge.source_handle.name != 'task':
+                raise ValueError('pr_agent_loop_invalid')
+            tasks += 1
+            continue
+        source = controller.graph.get_vertex(edge.source_id)
+        template = source.full_data['data']['node']['template']
+        if (edge.target_handle.field_name != 'skill_reference' or
+                edge.source_handle.name != 'skill' or source.data.get('type') != 'LaomedoSkill' or
+                source.incoming_edges or template.get('operation', {}).get('value') or
+                str(template.get('edit_request', {}).get('value') or '').strip()):
+            raise ValueError('pr_agent_loop_invalid')
+        selected.add(source.id)
+        if len(selected) > 16:
+            raise ValueError('pr_agent_loop_invalid')
+    if tasks != 1:
+        raise ValueError('pr_agent_loop_invalid')
+    return selected
 
 
 def feedback_edge(component):
@@ -69,10 +111,9 @@ def feedback_edge(component):
     if len(edges) != 1 or (returns and len(operations) != 1) or (legacy and operations):
         raise ValueError('pr_agent_loop_invalid')
     source = vertex.graph.get_vertex(edges[0].source_id)
-    # The isolated body consists of this Agent only. Dropping another upstream
-    # input would silently change the task, so refuse it before dispatch.
-    if any(edge.source_id != vertex.id for edge in source.incoming_edges):
-        raise ValueError('pr_agent_loop_invalid')
+    # Preserve independent read-only Skill references in the isolated body.
+    # Refuse other upstream inputs rather than silently dropping them.
+    skill_input_vertices(vertex, source)
     return edges[0]
 
 
@@ -103,6 +144,7 @@ async def agent_operation(component, seed, decoder=operation_value, with_provena
             starts[0].target_id != feedback.source_id):
         raise ValueError('pr_agent_loop_invalid')
     start = starts[0]
+    body |= skill_input_vertices(component._vertex, component.graph.get_vertex(feedback.source_id))
     selected = None
     async with component.graph.create_subgraph(body) as subgraph:
         for node in subgraph._vertices:

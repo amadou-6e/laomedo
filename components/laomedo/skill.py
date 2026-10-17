@@ -70,9 +70,9 @@ class LaomedoSkill(Component):
             source = self.graph.get_vertex(feedback.source_id)
             if source.data.get('type') != 'LaomedoCodexAgent' or feedback.source_handle.name != 'answer':
                 raise ValueError('skill_feedback_original_agent_required')
-            if (len(source.incoming_edges) != 1 or
-                    source.incoming_edges[0].target_handle.field_name != 'task'):
-                raise ValueError('skill_feedback_task_only')
+            # feedback_edge already validates the Task and independent read-only
+            # Skill references; those references must reach the isolated Agent.
+
         prepared = await asyncio.to_thread(skill_request, 'prepare',
             skill_id=reference['skill_id'], revision_id=reference['revision_id'],
             commit_id=str(getattr(self, 'commit_id', '') or ''))

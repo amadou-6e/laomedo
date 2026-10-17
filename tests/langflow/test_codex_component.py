@@ -610,7 +610,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_uncertain_start_error_retains_retry_identity(self):
         node = component(operation="start")
         with patch.object(module.request, "urlopen", side_effect=TimeoutError()):
-            with self.assertRaisesRegex(RuntimeError, "retry only with request_id") as caught:
+            with self.assertRaisesRegex(RuntimeError, "check status for request_id") as caught:
                 await node.run_output()
         self.assertIn(node._generated_request_id, str(caught.exception))
 

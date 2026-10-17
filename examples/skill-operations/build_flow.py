@@ -18,14 +18,16 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
     for field, value in [('skill_id', skill_id), ('revision_id', revision)]:
         skill['data']['node']['template'][field]['options'] = [value]
     agent = builder.node(ROOT/'components/laomedo/codex_agent.py', 'agent', {
-        'operation': 'fresh', 'skill_id': 'skill-operation-editor',
-        'revision_id': editor_revision, 'runner_url': runner_url, 'output_retries': 0}, 600, 0)
+        'operation': 'fresh', 'runner_url': runner_url, 'output_retries': 0}, 600, 0)
+    editor = builder.node(ROOT/'components/laomedo/skill.py', 'agent-skill', {
+        'skill_id': 'skill-operation-editor', 'revision_id': editor_revision}, 0, 700)
     flow = {'id': str(uuid5(NAMESPACE_URL, 'laomedo-skill-operations-176')),
         'name': 'Skill → Codex Agent → same Skill Operation',
         'description': 'Atomic multi-file candidate; immutable commit history and diffs. No automatic promotion or Git publishing.',
         'last_tested_version': '1.12.3', 'flow_type': 'workflow', 'access_type': 'PRIVATE',
-        'data': {'nodes': [skill, agent], 'edges': [builder.helper.edge(skill, 'task', agent, 'task'),
-            builder.helper.edge(agent, 'answer', skill, 'operation')],
+        'data': {'nodes': [skill, agent, editor], 'edges': [builder.helper.edge(skill, 'task', agent, 'task'),
+            builder.helper.edge(agent, 'answer', skill, 'operation'),
+            builder.helper.edge(editor, 'skill', agent, 'skill_reference')],
             'viewport': {'x': 60, 'y': 50, 'zoom': 0.8}}}
     Graph.from_payload(flow)
     return flow

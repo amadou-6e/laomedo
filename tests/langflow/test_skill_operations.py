@@ -39,12 +39,12 @@ class NativeSkillOperationTests(unittest.IsolatedAsyncioTestCase):
         flow = self.build()
         # Internal test-only component. Never export as the real working graph.
         code = '''from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput, Output
+from lfx.io import MessageTextInput, DataInput, Output
 from lfx.schema import Message, Data
 class LaomedoCodexAgent(Component):
     display_name = "Internal scheduler control"
     name = "LaomedoCodexAgent"
-    inputs = [MessageTextInput(name="task", display_name="Task")]
+    inputs = [MessageTextInput(name="task", display_name="Task"), DataInput(name="skill_reference", display_name="Skill References", is_list=True)]
     outputs = [Output(name="answer", display_name="Answer", method="answer_output")]
     def answer_output(self) -> Message:
         self._last_reference = {"status":"completed","run_id":"internal-run"}
@@ -69,12 +69,19 @@ class LaomedoCodexAgent(Component):
 
     async def test_external_agent_input_refused_before_operation(self):
         flow = self.build()
-        extra = builder.builder.node(ROOT/'components/laomedo/skill.py', 'extra', {}, 900, 0)
+        extra = builder.builder.node(ROOT/'components/laomedo/skill.py', 'extra', {'skill_id':'external','revision_id':'sha256:'+'2'*64,'edit_request':'Mutating dependency'}, 900, 0)
         flow['data']['nodes'].append(extra)
         flow['data']['edges'].append(builder.builder.helper.edge(extra, 'skill', flow['data']['nodes'][1], 'skill_reference'))
         with self.assertRaisesRegex(Exception, 'pr_agent_loop_invalid'):
             graph = Graph.from_payload(flow)
             await asyncio.wait_for(graph.arun(inputs=[{}], outputs=['skill']), timeout=20)
+        self.assertEqual(self.calls, 0)
+
+    async def test_playing_read_only_skill_does_not_schedule_feedback_agent(self):
+        graph = Graph.from_payload(self.build())
+        graph.prepare(stop_component_id='agent-skill')
+        self.assertEqual(graph.vertices_to_run, {'agent-skill'})
+        self.assertNotIn('agent', graph._first_layer)
         self.assertEqual(self.calls, 0)
 
     async def test_ordinary_operation_remains_acyclic(self):
