@@ -36,5 +36,6 @@
   "additional_agent_turns": 0,
   "scope": "Real operator-authored documentation candidate applied atomically through SkillOperations; not an Agent mutation run",
   "existing_bundle_files_unchanged": true,
-  "overview_flow_sha256": "sha256:0316a4e3ce47609d46ea05f80d2f77b267a4fff9da8ec7118557f5dd52e98781"
+  "overview_flow_sha256": "sha256:f36cff81a5856a9cef9c2379600c2e9187948b2aaaf11661e8f80ff60fce85eb",
+  "review_graph_edit_request": ""
 }

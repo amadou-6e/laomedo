@@ -120,7 +120,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "edit_request",
-                "value": "Preserve SKILL.md exactly and append this text: \"\\nRead references/operation-format.md for the output contract.\\n\". Also add references/operation-format.md with exactly this content: \"# PR operation format\\n\\nReturn one JSON object with action modify and changes.title set to the requested exact title.\\nDo not include request identity, authorization, tickets, repository, or PR number.\\nThe host validates authorization and applies the proposal. Do not change body or labels.\\n\". Return both file changes in one operation. Do not modify other files.",
+                "value": "",
                 "display_name": "Edit Request",
                 "advanced": false,
                 "api_editable": false,
