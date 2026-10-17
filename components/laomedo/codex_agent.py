@@ -16,6 +16,10 @@ from lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output,
 from lfx.schema import Data, Message
 
 
+# Configured choices captured from installed Codex metadata; availability and
+# effective capabilities remain validated by the runner before a model turn.
+_MODEL_EFFORTS = {'gpt-6.1-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-6-astra': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-6-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-6-luna': ['low', 'medium', 'high', 'xhigh', 'max'], 'gpt-5.6-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-5.6-terra': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-5.6-luna': ['low', 'medium', 'high', 'xhigh', 'max']}
+
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
@@ -68,15 +72,20 @@ class LaomedoCodexAgent(Component):
         StrInput(name="request_id", display_name="Request ID", advanced=True, show=False,
                  info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
-        DataInput(name="output_requirements", display_name="Output Requirements"),
+        DataInput(name="output_requirements", display_name="Output Requirements",
+                  info="Expected answer format, normally resolved from the next node. Connect explicit requirements only when needed."),
         IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
                  advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
         StrInput(name="skill_id", display_name="Skill ID", advanced=True, show=False),
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True, show=False),
-        StrInput(name="model", display_name="Model", value="gpt-6-luna"),
-        StrInput(name="effort", display_name="Reasoning Effort", value="low"),
-        DataInput(name="run_reference", display_name="Prior Run"),
+        DropdownInput(name="model", display_name="Model", value="gpt-6-luna",
+                      options=list(_MODEL_EFFORTS), combobox=False, real_time_refresh=True,
+                      info="Select a configured model. Runner availability is checked before execution."),
+        DropdownInput(name="effort", display_name="Reasoning Effort", value="low",
+                      options=_MODEL_EFFORTS["gpt-6-luna"], combobox=False),
+        DataInput(name="run_reference", display_name="Prior Run",
+                  info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
         StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
@@ -92,6 +101,29 @@ class LaomedoCodexAgent(Component):
         Output(name="submission", display_name="Submission / Outcome",
                method="submission_output", group_outputs=True),
     ]
+
+    async def update_build_config(self, build_config, field_value, field_name=None):
+        # OpenCode has a separate provider/model and variant contract.
+        if self.name != "LaomedoCodexAgent":
+            return build_config
+        model_field = build_config.get("model", {})
+        effort_field = build_config.get("effort", {})
+        if field_name == "model":
+            model_field["value"] = field_value
+        model = model_field.get("value", "")
+        choices = list(_MODEL_EFFORTS)
+        if model and model not in choices:
+            choices.append(model)  # Preserve imported selections, never substitute.
+        model_field.update(options=choices, combobox=False, real_time_refresh=True)
+        selected = effort_field.get("value", "")
+        efforts = list(_MODEL_EFFORTS.get(model, [selected] if selected else []))
+        if field_name == "model" and selected not in efforts:
+            effort_field["value"] = ""
+        elif selected and selected not in efforts:
+            # Preserve saved values on load; the runner remains authoritative.
+            efforts.append(selected)
+        effort_field.update(options=efforts, combobox=False)
+        return build_config
 
     def _pre_run_setup(self):
         # Langflow invokes this once per build. Both output methods share dispatch.

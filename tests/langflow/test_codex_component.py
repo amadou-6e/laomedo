@@ -794,5 +794,40 @@ class ObsoleteAgentControlTests(unittest.TestCase):
             component(skill_reference=None)._prepare_request()
 
 
+class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
+    async def test_model_switch_clears_incompatible_effort_without_defaulting(self):
+        config = {"model": {"value": "gpt-6-sol"}, "effort": {"value": "ultra"}}
+        changed = await component().update_build_config(config, "gpt-6-luna", "model")
+        self.assertEqual(changed["effort"]["value"], "")
+        self.assertNotIn("ultra", changed["effort"]["options"])
+        self.assertFalse(changed["model"]["combobox"])
+
+    async def test_compatible_effort_is_preserved(self):
+        config = {"model": {"value": "gpt-6-sol"}, "effort": {"value": "high"}}
+        changed = await component().update_build_config(config, "gpt-6-luna", "model")
+        self.assertEqual(changed["effort"]["value"], "high")
+
+    async def test_saved_unknown_selection_is_not_silently_replaced(self):
+        config = {"model": {"value": "saved-model"}, "effort": {"value": "saved-effort"}}
+        changed = await component().update_build_config(config, None)
+        self.assertEqual(changed["model"]["value"], "saved-model")
+        self.assertIn("saved-model", changed["model"]["options"])
+        self.assertEqual(changed["effort"]["options"], ["saved-effort"])
+
+    async def test_codex_callback_does_not_modify_opencode_settings(self):
+        node = component()
+        node.name = "LaomedoOpenCodeAgent"
+        config = {"model": {"value": "provider/model"}, "effort": {"value": "default"}}
+        self.assertEqual(await node.update_build_config(deepcopy(config), "other", "model"), config)
+
+    def test_main_controls_are_dropdowns_with_reported_options(self):
+        inputs = {item.name: item.to_dict() for item in module.LaomedoCodexAgent.inputs}
+        self.assertIn("gpt-6-luna", inputs["model"]["options"])
+        self.assertIn("high", inputs["effort"]["options"])
+        self.assertFalse(inputs["model"]["combobox"])
+        self.assertTrue(inputs["model"]["real_time_refresh"])
+        self.assertFalse(inputs["effort"]["combobox"])
+
+
 if __name__ == "__main__":
     unittest.main()
