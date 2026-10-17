@@ -13,7 +13,7 @@ import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import { useDarkStore } from "@/stores/darkStore";
 import BaseModal from "@/modals/baseModal";
-import CommitTree, { RevisionDiff, type Commit } from "./SkillHistory";
+import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } from "./SkillHistory";
 import SkillSplitPane from "./SkillSplitPane";
 
 // Bundle the editor and worker locally. No Monaco CDN or remote file loader.
@@ -21,8 +21,6 @@ import SkillSplitPane from "./SkillSplitPane";
   getWorker: (_module: string, label: string) => label === "json" ? new JsonWorker() : new EditorWorker(),
 };
 
-type SkillFile = { path: string; bytes: number; file_hash: string; kind: "text" | "binary"; text: string | null };
-type Snapshot = { schema_version: string; skill_id: string; revision_id: string; tree_hash: string; files: SkillFile[] };
 type Branch = { name: string; path: string; children?: Branch[] };
 
 function tree(files: SkillFile[]): Branch[] {
@@ -97,10 +95,11 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   const [tabs, setTabs] = useState<string[]>([]);
   const [active, setActive] = useState("");
   const [preview, setPreview] = useState(false);
+  const [historicalFiles, setHistoricalFiles] = useState<SkillFile[]>([]);
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null);
+    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]);
     if (!open) { setLoading(false); return () => controller.abort(); }
     if (!skillId || !revision) {
       setError("Select a skill and revision first."); setLoading(false);
@@ -122,7 +121,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   }, [open, skillId, revision, reload]);
   const file = snapshot?.files.find((entry) => entry.path === active);
   const markdown = file?.path.toLowerCase().endsWith(".md");
-  const select = (path: string) => { setTabs((current) => current.includes(path) ? current : [...current, path]); setActive(path); setPreview(false); setSelectedCommit(null); };
+  const select = (path: string) => { setTabs((current) => current.includes(path) ? current : [...current, path]); setActive(path); setPreview(false); };
   const close = (path: string) => {
     const next = tabs.filter((entry) => entry !== path); setTabs(next);
     if (active === path) { setActive(next[next.length - 1] || ""); setPreview(false); }
@@ -138,14 +137,14 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigation={<>
         <nav aria-label="Skill file explorer" className="max-h-[45%] min-h-[100px] shrink-0 overflow-auto pb-3">
-          <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current files</h3>
-          <ul>{tree(snapshot.files).map((item) => <Folder key={item.path} item={item} select={select} active={active} />)}</ul>
+          <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Files {selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]); }}>Current source</button>}</h3>
+          <ul>{tree([...snapshot.files, ...historicalFiles.filter((old) => !snapshot.files.some((current) => current.path === old.path))]).map((item) => <Folder key={item.path} item={item} select={select} active={active} />)}</ul>
         </nav>
         <CommitTree key={`${skillId}:${revision}`} skillId={skillId} revision={revision}
           selected={selectedCommit?.commit_id || ""} onSelect={setSelectedCommit} />
       </>}>
         {selectedCommit ? <RevisionDiff key={`${skillId}:${revision}:${selectedCommit.commit_id}`}
-          skillId={skillId} revision={revision} commit={selectedCommit} /> : <section aria-label="Selected skill file" className="flex min-h-0 min-w-0 flex-1 flex-col">
+          skillId={skillId} revision={revision} commit={selectedCommit} path={active} current={file} onFiles={setHistoricalFiles} /> : <section aria-label="Selected skill file" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex overflow-x-auto border-b" aria-label="Open files">
             {tabs.map((path) => <div className="flex shrink-0 items-center" key={path}>
               <button type="button" aria-pressed={path === active} className="px-3 py-2 text-sm hover:bg-muted" onClick={() => { setActive(path); setPreview(false); }}>{path}</button>

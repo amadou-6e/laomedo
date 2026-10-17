@@ -21,6 +21,8 @@ def apply(checkout):
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
+    shutil.copy2(overlay / "SkillFileDiff.tsx", target / "SkillFileDiff.tsx")
+    shutil.copy2(overlay / "SkillFileDiff.test.tsx", target / "SkillFileDiff.test.tsx")
     shutil.copy2(overlay / "SkillHistory.tsx", target / "SkillHistory.tsx")
     shutil.copy2(overlay / "SkillHistory.test.tsx", target / "SkillHistory.test.tsx")
     shutil.copy2(overlay / "SkillSplitPane.tsx", target / "SkillSplitPane.tsx")

@@ -5,8 +5,13 @@ jest.mock("@/controllers/API/api", () => ({ api: { get: jest.fn() } }));
 jest.mock("@/customization/utils/urls", () => ({ getBaseUrl: () => "/api/v1/" }));
 const commit = { commit_id: "commit-one", parent_commit: "root", revision_id: "old-tree",
   message: "Clarify two files", created_at: "2026-10-16T00:00:00Z", editor: { kind: "agent", run_id: "run-one" } };
-const compared = { skill_id: "skill", base_commit: commit, base_revision: "old-tree", current_revision: "current-tree",
-  files: [{ path: "SKILL.md", status: "modified", binary: false }], patch: "--- a/SKILL.md\n+++ b/SKILL.md\n+<script>hostile</script>\n" };
+jest.mock("./SkillFileDiff", () => ({ __esModule: true, default: (props: any) =>
+  <div data-testid="visual-diff">{props.path}: {props.original?.text} / {props.current?.text}</div> }));
+const oldFile = { path: "SKILL.md", kind: "text" as const, bytes: 10, file_hash: "old", text: "old contents" };
+const currentFile = { ...oldFile, file_hash: "current", text: "<script>hostile</script>" };
+const compared = { schema_version: "laomedo.skill-inspection.v1", skill_id: "skill", revision_id: "old-tree", tree_hash: "old-tree", files: [oldFile] };
+const onFiles = jest.fn();
+const props = { skillId: "skill", revision: "current-tree", commit, path: "SKILL.md", current: currentFile, onFiles };
 beforeEach(() => jest.clearAllMocks());
 
 test("commit graph selects revision without requesting the old per-commit patch", async () => {
@@ -21,28 +26,39 @@ test("commit graph selects revision without requesting the old per-commit patch"
 
 test("comparison pins direction, labels provenance and renders hostile diff as text", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: compared });
-  const { container } = render(<RevisionDiff skillId="skill" revision="current-tree" commit={commit} />);
-  expect(await screen.findByTestId("skill-commit-diff")).toHaveTextContent("<script>hostile</script>");
+  const { container } = render(<RevisionDiff {...props} />);
+  expect(await screen.findByTestId("visual-diff")).toHaveTextContent("<script>hostile</script>");
   expect(container.querySelector("script")).toBeNull();
   expect(screen.getByText("Backend-asserted; not independently runner-verified")).toBeInTheDocument();
-  expect(api.get).toHaveBeenCalledWith(expect.stringContaining("/current-tree/compare/commit-one"), expect.anything());
+  expect(api.get).toHaveBeenCalledWith(expect.stringContaining("/skill/old-tree"), expect.anything());
 });
 
 test("mismatched comparison fails and retries without stale content", async () => {
-  (api.get as jest.Mock).mockResolvedValueOnce({ data: { ...compared, current_revision: "wrong-tree" } })
-    .mockResolvedValueOnce({ data: { ...compared, files: [], patch: "" } });
-  render(<RevisionDiff skillId="skill" revision="current-tree" commit={commit} />);
+  (api.get as jest.Mock).mockResolvedValueOnce({ data: { ...compared, tree_hash: "wrong-tree" } })
+    .mockResolvedValueOnce({ data: compared });
+  render(<RevisionDiff {...props} />);
   await screen.findByRole("alert");
-  expect(screen.queryByTestId("skill-commit-diff")).toBeNull();
+  expect(screen.queryByTestId("visual-diff")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await screen.findByText("No differences from current revision.");
+  await screen.findByTestId("visual-diff");
 });
 
 test("unmounted revision cannot display a late comparison", async () => {
   let finish: ((value: unknown) => void) | undefined;
   (api.get as jest.Mock).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
-  const view = render(<RevisionDiff skillId="skill" revision="current-tree" commit={commit} />);
+  const view = render(<RevisionDiff {...props} />);
   view.unmount();
   await act(async () => { finish?.({ data: compared }); });
-  expect(screen.queryByTestId("skill-commit-diff")).toBeNull();
+  expect(screen.queryByTestId("visual-diff")).toBeNull();
+});
+
+test("switching files retains the revision and does not refetch or render an aggregate patch", async () => {
+  (api.get as jest.Mock).mockResolvedValue({ data: compared });
+  const view = render(<RevisionDiff {...props} />);
+  await screen.findByTestId("visual-diff");
+  view.rerender(<RevisionDiff {...props} path="references/new.md" current={{ ...currentFile, path: "references/new.md", text: "new file" }} />);
+  expect(screen.getByTestId("visual-diff")).toHaveTextContent("references/new.md: / new file");
+  expect(api.get).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(/diff --git/)).toBeNull();
+  expect(onFiles).toHaveBeenCalledWith([oldFile]);
 });
