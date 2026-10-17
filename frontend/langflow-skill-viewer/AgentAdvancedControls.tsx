@@ -5,8 +5,13 @@ import { useUpdateNodeInternals } from "@xyflow/react";
 // the normal canvas path so collapsing this section never hides a wired port.
 const CONTROLS = new Set([
   "output_retries", "timeout_seconds", "runner_url", "bridge_url",
-  "request_id", "run_reference_json", "skill_id", "revision_id",
+  "run_reference_json",
 ]);
+export function isAgentControlHidden(data: any, name: string): boolean {
+  const kind = data.node?.name || data.type;
+  return ["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind) &&
+    ["request_id", "skill_id", "revision_id"].includes(name);
+}
 export function advancedAgentFields(data: any, fields: string[], edges: any[], toolMode: boolean): string[] {
   const kind = data.node?.name || data.type;
   if (!["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind)) return [];

@@ -9,10 +9,10 @@ const data = { id: "agent", type: "LaomedoCodexAgent", node: { template: {
 } } };
 test("only Agent scalar controls are grouped; hidden and connected fields stay out", () => {
   const fields = Object.keys(data.node.template);
-  expect(advancedAgentFields(data, fields, [], false)).toEqual(["runner_url", "request_id"]);
-  expect(advancedAgentFields(data, fields, [{ target: "agent", data: { targetHandle: { fieldName: "runner_url" } } }], false)).toEqual(["request_id"]);
+  expect(advancedAgentFields(data, fields, [], false)).toEqual(["runner_url"]);
+  expect(advancedAgentFields(data, fields, [{ target: "agent", data: { targetHandle: { fieldName: "runner_url" } } }], false)).toEqual([]);
   expect(advancedAgentFields({ ...data, type: "Other" }, fields, [], false)).toEqual([]);
-  expect(advancedAgentFields({ ...data, type: "LaomedoOpenCodeAgent" }, fields, [], false)).toEqual(["runner_url", "request_id"]);
+  expect(advancedAgentFields({ ...data, type: "LaomedoOpenCodeAgent" }, fields, [], false)).toEqual(["runner_url"]);
 });
 test("starts collapsed and retains edited values through collapse and reopen", () => {
   render(<AgentAdvancedControls nodeId="a" visible><input aria-label="Runner URL" defaultValue="local" /></AgentAdvancedControls>);
@@ -51,6 +51,7 @@ test("renderer puts each field in exactly one group and preserves ordinary ports
  expect(screen.getAllByRole("textbox", { name: "runner_url" })).toHaveLength(1);
  expect(screen.getByRole("textbox", { name: "runner_url" })).toHaveAttribute("data-handle", "false");
  expect(screen.queryByRole("textbox", { name: "bridge_url" })).toBeNull();
+ expect(screen.queryByRole("textbox", { name: "request_id" })).toBeNull();
 });
 test("non-Agent renderer retains upstream advanced visibility", () => {
  render(<RenderInputParameters data={{ ...data, type: "Other" }} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false} />);

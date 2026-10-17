@@ -11,7 +11,7 @@ import useFlowStore from "@/stores/flowStore";
 import { scapedJSONStringfy } from "@/utils/reactflowUtils";
 import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
-import AgentAdvancedControls, { advancedAgentFields } from "./AgentAdvancedControls";
+import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
 
 const RenderInputParameters = ({
   data,
@@ -25,7 +25,7 @@ const RenderInputParameters = ({
 
   const templateFields = useMemo(() => {
     return Object.keys(data.node?.template || {})
-      .filter((templateField) => !isInternalField(templateField))
+      .filter((templateField) => !isInternalField(templateField) && !isAgentControlHidden(data, templateField))
       .sort((a, b) =>
         sortToolModeFields(
           a,
@@ -35,7 +35,7 @@ const RenderInputParameters = ({
           isToolMode,
         ),
       );
-  }, [data.node?.template, data.node?.field_order, isToolMode]);
+  }, [data, data.node?.template, data.node?.field_order, isToolMode]);
 
   const advancedFields = useMemo(() => advancedAgentFields(data, templateFields, edges, isToolMode),
     [data, templateFields, edges, isToolMode]);

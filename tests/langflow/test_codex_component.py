@@ -760,5 +760,22 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 http.assert_not_called()
 
 
+class AgentControlOwnershipTests(unittest.TestCase):
+    def test_identity_and_manual_skills_are_not_exposed_controls(self):
+        fields = {item.name: item.to_dict() for item in module.LaomedoCodexAgent.inputs}
+        for name in ("request_id", "skill_id", "revision_id"):
+            self.assertFalse(fields[name]["show"], name)
+        self.assertTrue(fields["skill_reference"]["show"])
+
+    def test_request_identity_is_generated_and_stable_within_build(self):
+        node = component(skill_id="", revision_id="", skill_reference=module.Data(data={
+            "skill_id": "connected-skill", "revision_id": HASH, "tree_hash": HASH}))
+        first = node._prepare_request()[1]
+        second = node._prepare_request()[1]
+        self.assertEqual(first["request_id"], second["request_id"])
+        self.assertEqual(str(module.UUID(first["request_id"])), first["request_id"])
+        self.assertEqual(first["skill_ref"]["skill_id"], "connected-skill")
+
+
 if __name__ == "__main__":
     unittest.main()
