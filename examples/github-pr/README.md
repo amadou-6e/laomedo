@@ -20,7 +20,7 @@ frontend to enable manually drawing the bounded Operation feedback connection.
 The normal input also accepts a Message containing the operation JSON.
 The isolated body contains only the returning Agent; other upstream Agent inputs
 are refused before dispatch. Only one PR feedback controller per graph is
-supported. Multiple independent PR loops are unverified and may start incorrectly.
+supported. Graphs with multiple feedback controllers are refused.
 The editor refuses existing external Agent inputs when closing the cycle; inputs
 added afterwards are refused by the backend. The adaptation requires the pinned
 Langflow revision. Feedback returns a content-only proposal; the trusted host
