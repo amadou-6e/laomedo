@@ -37,7 +37,7 @@ export default function SkillActions({ label, children }: { label: string; child
         if (!(event.target as HTMLElement).closest('button')) return;
         if (disclosure.current) disclosure.current.open = false;
         // A hide-navigation action moves focus to the persistent separator instead.
-        if (trigger.current?.getClientRects().length) trigger.current.focus();
+        queueMicrotask(() => { if (trigger.current?.getClientRects().length) trigger.current.focus(); });
       }}>{children}</div>
   </details>;
 }
