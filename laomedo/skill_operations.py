@@ -167,7 +167,7 @@ class SkillOperations:
                     del after[edit['path']]
                 else:
                     after[edit['path']] = edit['content'].encode()
-            if not has_description(before['SKILL.md'].decode('utf-8-sig')) and not has_description(after.get('SKILL.md', b'').decode('utf-8-sig')):
+            if not has_description(after.get('SKILL.md', b'').decode('utf-8-sig')):
                 raise SkillStoreError('skill_summary_required')
             _bundle(after)
             errors = validate_draft(before, after, policy)

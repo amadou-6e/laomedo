@@ -44,6 +44,7 @@ test("drag past the collapse threshold then restore without losing navigation st
   expect(selection).not.toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Show skill navigation" }));
   expect(selection).toBeVisible();
+  expect(separator).toHaveFocus();
   expect(selection).toHaveValue("OVERVIEW.md");
   expect(separator).toHaveAttribute("aria-valuenow", "280");
 });

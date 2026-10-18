@@ -2,12 +2,16 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.skill_summary import has_description
+from laomedo.skill_summary import has_description, summary_authoring
 from laomedo.skill_store import SkillStore, SkillStoreError
 from laomedo.skill_operations import SkillOperations
 
 
 class SkillSummaryTests(unittest.TestCase):
+    def test_unreadable_skill_fails_before_authoring(self):
+        with self.assertRaisesRegex(SkillStoreError, 'skill_summary_source_unavailable'):
+            summary_authoring({'files': [{'path': 'SKILL.md', 'text': None}]})
+
     def test_missing_and_user_authored_yaml_descriptions(self):
         for value in ['', ' # not a value', 'null', '~', '""', "''", '>\n  ', '|-\n  ']:
             self.assertFalse(has_description('---\nname: unit\ndescription: '+value+'\n---\nBody'), value)
@@ -31,7 +35,10 @@ class SkillSummaryTests(unittest.TestCase):
             service = SkillOperations(store, root / 'history.db', {'summary-unit': policy})
             prepared = service.prepare('summary-unit', initial['revision_id'])
             self.assertTrue(prepared['summary_required'])
-            self.assertIn('name: skill-summary', prepared['authoring_instructions'])
+            self.assertIn('Return exactly one Skill Operation JSON object', prepared['authoring_instructions'])
+            self.assertNotIn('---', prepared['authoring_instructions'])
+            self.assertNotIn('## Host integration', prepared['authoring_instructions'])
+            self.assertNotIn('records the accepted immutable revision', prepared['authoring_instructions'])
             with self.assertRaisesRegex(SkillStoreError, 'skill_summary_required'):
                 service.apply(prepared['ticket'], {'action': 'modify', 'message': 'No summary',
                     'files': [{'path': 'SKILL.md', 'content': original+'More instructions.\n'}]})
@@ -44,6 +51,9 @@ class SkillSummaryTests(unittest.TestCase):
             next_task = service.prepare('summary-unit', result['skill']['revision_id'], result['commit']['commit_id'])
             self.assertFalse(next_task['summary_required'])
             self.assertEqual(next_task['authoring_instructions'], '')
+            with self.assertRaisesRegex(SkillStoreError, 'skill_summary_required'):
+                service.apply(next_task['ticket'], {'action': 'modify', 'message': 'Remove existing summary',
+                    'files': [{'path': 'SKILL.md', 'content': original}]})
 
 
 if __name__ == '__main__':

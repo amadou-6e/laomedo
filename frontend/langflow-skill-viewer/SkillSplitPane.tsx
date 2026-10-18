@@ -1,3 +1,4 @@
+import SkillActions from "./SkillActions";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export default function SkillSplitPane({ navigation, children }: { navigation: ReactNode; children: ReactNode }) {
@@ -22,19 +23,15 @@ export default function SkillSplitPane({ navigation, children }: { navigation: R
   }, []);
   useEffect(() => { if (width > 0) lastWidth.current = width; }, [width]);
   const collapse = () => { setWidth(0); separator.current?.focus(); };
-  const restore = () => setWidth(clamp(lastWidth.current));
+  const restore = () => { setWidth(clamp(lastWidth.current)); separator.current?.focus(); };
   return <div ref={container} className="flex min-h-0 min-w-0 flex-1" style={{ userSelect: dragging ? "none" : undefined }}>
     <aside aria-label="Skill navigation" className="flex min-h-0 shrink-0 flex-col border-r bg-muted/20" style={{ width, display: width === 0 ? "none" : undefined }}>
       <div className="flex h-8 shrink-0 items-center justify-between px-2 text-xs tracking-wide text-muted-foreground">
         <span>SKILL</span>
-        <details className="relative">
-          <summary aria-label="Navigation actions" className="flex h-6 w-7 cursor-pointer list-none items-center justify-center rounded text-lg hover:bg-muted [&::-webkit-details-marker]:hidden">{"\u22ef"}</summary>
-          <div className="absolute right-0 top-7 z-30 w-44 rounded border bg-background p-1 shadow-md"
-            onClick={(event) => event.currentTarget.parentElement?.removeAttribute("open")}>
+        <SkillActions label="Navigation actions">
             <button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-muted" onClick={collapse}>Hide navigation</button>
             <button type="button" className="w-full px-2 py-1 text-left text-sm hover:bg-muted" onClick={() => setWidth(clamp(280))}>Reset navigation width</button>
-          </div>
-        </details>
+        </SkillActions>
       </div>
       {navigation}
     </aside>

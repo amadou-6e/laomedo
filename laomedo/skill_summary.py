@@ -1,6 +1,7 @@
 """Conservative missing-description detection for host-owned authoring tasks."""
 from pathlib import Path
 import re
+from .skill_store import SkillStoreError
 
 
 def has_description(text):
@@ -43,8 +44,9 @@ def has_description(text):
 def summary_authoring(snapshot):
     skill = next((f for f in snapshot['files'] if f['path'] == 'SKILL.md'), None)
     if not skill or not isinstance(skill.get('text'), str):
-        raise ValueError('skill_summary_source_unavailable')
+        raise SkillStoreError('skill_summary_source_unavailable')
     if has_description(skill['text']):
         return {'summary_required': False, 'authoring_instructions': ''}
     instructions = (Path(__file__).parent / 'resources/skills/skill-summary/SKILL.md').read_text(encoding='utf-8')
-    return {'summary_required': True, 'authoring_instructions': instructions}
+    agent = instructions.split('\n## Agent instructions\n', 1)[1].split('\n## Host integration\n', 1)[0].strip()
+    return {'summary_required': True, 'authoring_instructions': agent}

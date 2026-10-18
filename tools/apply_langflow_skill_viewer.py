@@ -21,6 +21,8 @@ def apply(checkout):
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
+    shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
+    shutil.copy2(overlay / "SkillActions.test.tsx", target / "SkillActions.test.tsx")
     shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")
     shutil.copy2(overlay / "SkillNavigation.test.tsx", target / "SkillNavigation.test.tsx")
     shutil.copy2(overlay / "SkillOverview.tsx", target / "SkillOverview.tsx")
@@ -43,7 +45,7 @@ def apply(checkout):
     activity_target.mkdir()
     shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")
     agents_patch = overlay / "agents.patch"
-    # The exact pinned Windows checkout may have CRLF context; no revision drift is allowed.
+    # HEAD stays pinned; patch context tolerates whitespace differences, including Windows CRLF.
     subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", "--check", str(agents_patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", str(agents_patch)], check=True)
     agents_target = checkout / "src/frontend/src/modals/graphAgents"

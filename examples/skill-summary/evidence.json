@@ -53,5 +53,19 @@
   "applied_result_count": 0,
   "last_attempt_graph_sha256": "3922ce245723457705b82cd69c84760a584e238e3d4a6dcf05b38decb1fe73f7",
   "runner_and_edit_services_stopped": true,
-  "scope": "Actual LaomedoCodexAgent + Docker LocalRunner. No fixture provider. No successful end-to-end edit claim. Public graph is the second executed attempt; original inputs retained by input hashes and private receipts."
+  "scope": "Actual LaomedoCodexAgent + Docker LocalRunner. No fixture provider. No successful end-to-end edit claim. Public graph is the second executed attempt; original inputs retained by input hashes and private receipts.",
+  "startup_failures": [
+    {
+      "stage": "credential-free Docker codex --version check",
+      "error_category": "startup_version_check_timeout",
+      "timeout_seconds": 20,
+      "model_dispatches_before_recovery": 0,
+      "operation_requests_before_recovery": 0,
+      "commits_before_recovery": 0,
+      "network": "none",
+      "credentials_mounted": false,
+      "recovery": "separate credential-free version check succeeded; same zero-dispatch state resumed, no ledger reset"
+    }
+  ],
+  "subsequent_prompt_fix": "Separate Agent-only instructions from host documentation, omit skill YAML frontmatter and restate JSON-only last; not rerun because authorized two-turn limit is exhausted."
 }
