@@ -24,3 +24,15 @@ Record all failures, exact source revision, actual run/thread/turn identity,
 image digest and container cleanup. Do not call a failed or uncertain run a
 success. Keep public evidence free of tickets, credentials and raw transcripts.
 Stop the edit/runner services afterward; any viewer must have an empty policy map.
+
+
+## User-approved additional turn
+
+The first actual Agent turn completed and generated a grounded summary, but
+returned extra `]}` after its JSON object. The host correctly refused it; the
+registry has only the import commit and no accepted edit. Preserve the run and
+its ledger. The user explicitly replied "Allow one additional turn" on
+2026-10-18. Permit exactly one further turn (maximum total two), with output
+continuations still disabled. Check the existing completed run, invalid JSON,
+one attempted turn and zero applied results before starting it. Never erase
+records or replace this failure with a success claim.

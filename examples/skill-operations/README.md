@@ -103,8 +103,7 @@ view renders SKILL.md without frontmatter. Local Markdown links and image paths
 stay within the same immutable snapshot. PNG/JPEG/GIF/WebP and sanitized SVG
 workflow diagrams are supported. Remote media and active markup are not loaded.
 These documents/assets are ordinary versioned skill files and can be changed
-atomically through the existing Skill operations. No model turn generates the
-overview. Historical comparisons keep the overview pinned to the current revision.
+atomically through the existing Skill operations. Opening the overview never calls a model or changes a revision. Historical comparisons keep the overview pinned to the current revision.
 
 
 The [overview review graph](overview-flow.json) selects the real documentation
