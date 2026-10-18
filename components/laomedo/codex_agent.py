@@ -16,10 +16,6 @@ from lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output,
 from lfx.schema import Data, Message
 
 
-# Configured choices captured from installed Codex metadata; availability and
-# effective capabilities remain validated by the runner before a model turn.
-_MODEL_EFFORTS = {'gpt-6.1-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-6-astra': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-6-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-6-luna': ['low', 'medium', 'high', 'xhigh', 'max'], 'gpt-5.6-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-5.6-terra': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], 'gpt-5.6-luna': ['low', 'medium', 'high', 'xhigh', 'max']}
-
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
@@ -72,24 +68,24 @@ class LaomedoCodexAgent(Component):
         StrInput(name="request_id", display_name="Request ID", advanced=True, show=False,
                  info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
-        DataInput(name="output_requirements", display_name="Output Requirements",
+        DataInput(name="output_requirements", display_name="Output Requirements", show=False,
                   info="Expected answer format, normally resolved from the next node. Connect explicit requirements only when needed."),
         IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
                  advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
         StrInput(name="skill_id", display_name="Skill ID", advanced=True, show=False),
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True, show=False),
-        DropdownInput(name="model", display_name="Model", value="gpt-6-luna",
-                      options=list(_MODEL_EFFORTS), combobox=False, real_time_refresh=True,
+        DropdownInput(name="model", display_name="Model", value="",
+                      options=[], combobox=False, real_time_refresh=True, refresh_button=True,
                       info="Select a configured model. Runner availability is checked before execution."),
-        DropdownInput(name="effort", display_name="Reasoning Effort", value="low",
-                      options=_MODEL_EFFORTS["gpt-6-luna"], combobox=False),
-        DataInput(name="run_reference", display_name="Prior Run",
+        DropdownInput(name="effort", display_name="Reasoning Effort", value="",
+                      options=[], combobox=False),
+        DataInput(name="run_reference", display_name="Prior Run", show=False,
                   info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
-        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True,
+        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
-                 value="http://host.docker.internal:8765"),
+                 value="http://host.docker.internal:8765", real_time_refresh=True),
         StrInput(name="bridge_url", display_name="Join Bridge URL", advanced=True,
                  value="", info="Optional local host bridge for a durable first-call join."),
         IntInput(name="timeout_seconds", display_name="HTTP Timeout", value=210,
@@ -115,14 +111,15 @@ class LaomedoCodexAgent(Component):
         model = model_field.get("value", "")
         if not isinstance(model, str):
             raise ValueError("invalid_model_selection")
-        choices = list(_MODEL_EFFORTS)
+        catalog = await asyncio.to_thread(self._model_catalog, build_config)
+        choices = list(catalog)
         if model and model not in choices:
             choices.append(model)  # Preserve imported selections, never substitute.
         model_field.update(options=choices, combobox=False, real_time_refresh=True)
         selected = effort_field.get("value", "")
         if not isinstance(selected, str):
             raise ValueError("invalid_effort_selection")
-        efforts = list(_MODEL_EFFORTS.get(model, [selected] if selected else []))
+        efforts = list(catalog.get(model, []))
         if field_name == "model" and selected not in efforts:
             effort_field["value"] = ""
         elif selected and selected not in efforts:
@@ -130,6 +127,34 @@ class LaomedoCodexAgent(Component):
             efforts.append(selected)
         effort_field.update(options=efforts, combobox=False)
         return build_config
+
+    def _model_catalog(self, build_config):
+        base = str(build_config.get("runner_url", {}).get("value") or self.runner_url).rstrip("/")
+        parsed = urlsplit(base)
+        if (parsed.scheme != "http" or parsed.hostname not in
+                {"127.0.0.1", "localhost", "::1", "host.docker.internal"} or
+                parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment):
+            raise ValueError("local_runner_url_required")
+        # Discovery talks directly to the runner, never with the bridge token.
+        try:
+            token = Path(os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                         "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
+            if not token:
+                raise ValueError("empty_token")
+            req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
+            with _HTTP.open(req, timeout=30) as response:
+                payload = json.load(response)
+            catalog = {}
+            for item in payload["models"]:
+                model, efforts = item["id"], item["efforts"]
+                if not isinstance(model, str) or not model or not isinstance(efforts, list) or not all(isinstance(x, str) and x for x in efforts):
+                    raise ValueError("invalid_catalog")
+                catalog[model] = efforts
+            if not catalog:
+                raise ValueError("empty_catalog")
+            return catalog
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ValueError("runner_model_catalog_unavailable_check_runner_connection") from None
 
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
         updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)

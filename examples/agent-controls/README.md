@@ -49,3 +49,5 @@ resume/status/cancel; fresh/start does not continue that run.
 actual fresh-palette DropdownInput metadata, the real component-update endpoint
 preserving an older gpt-6-sol/ultra selection, and browser checks for choices,
 incompatible clearing, persistence and restoration. No Agent was executed.
+
+See [runtime capability discovery and remaining assumptions](runtime-capabilities-audit.md) for the replacement of the historical fixed dropdown snapshot. Earlier dropdown evidence describes the previous implementation.

@@ -1056,6 +1056,26 @@ class LocalRunner:
                 capability.read_text(encoding="utf-8").strip(),))
         return self.transport(command, root)
 
+    def model_catalog(self) -> dict:
+        """Read the running installation's model metadata without a thread or turn."""
+        root = self.state / "catalog" / str(uuid4())
+        for name in ("workspace", "canonical", "store"):
+            (root / name).mkdir(parents=True)
+        server = None
+        try:
+            token = self.auth.access_token()[0] if self.auth else None
+            server = self._open_server(root, access_token=token)
+            initialized = server.request("initialize", {"clientInfo": {
+                "name": "laomedo_model_catalog", "version": "0.1.0"},
+                **({"capabilities": {"experimentalApi": True}} if self.split_executor else {})})
+            if "result" not in initialized:
+                raise RunnerError("initialize_rejected")
+            server.notify("initialized", {})
+            return {"models": _advertised_models(server), "submitted_turns": 0}
+        finally:
+            if server is not None:
+                server.close()
+
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
         root = self.state / "preflight" / str(uuid4())
@@ -1078,9 +1098,7 @@ class LocalRunner:
             server.notify("initialized", {})
             if self.split_executor:
                 server.register_executor()
-            models = server.request("model/list", {})
-            if "result" not in models:
-                raise RunnerError("model_list_rejected")
+            models = _advertised_models(server)
             checks = {}
             if self.split_executor:
                 # Direct checks against the tool executor. Calling command/exec
@@ -1118,11 +1136,7 @@ class LocalRunner:
                     "CANONICAL-ORIGINAL" and
                     (root / "store/sentinel.txt").read_text() == "STORE-ORIGINAL"):
                 raise RunnerError("permission_preflight_failed")
-            return {"status": "ready", "models": [{
-                "id": x.get("id"), "efforts": [
-                    y.get("reasoningEffort") if isinstance(y, dict) else y
-                    for y in x.get("supportedReasoningEfforts", [])]}
-                for x in models["result"].get("data", [])],
+            return {"status": "ready", "models": models,
                 "image": self.image, "image_id": self.image_id,
                 "cli_version": CLI_VERSION,
                 "profile": self.profile,
@@ -1650,11 +1664,9 @@ class LocalRunner:
             server.notify("initialized", {})
             if self.split_executor:
                 server.register_executor()
-            models = server.request("model/list", {})
-            entries = (models.get("result") or {}).get("data") or []
-            choice = next((x for x in entries if x.get("id") == record["requested_model"]), None)
-            levels = {item.get("reasoningEffort") if isinstance(item, dict) else item
-                      for item in (choice or {}).get("supportedReasoningEfforts", [])}
+            entries = _advertised_models(server)
+            choice = next((x for x in entries if x["id"] == record["requested_model"]), None)
+            levels = set((choice or {}).get("efforts", []))
             if choice is None or record["requested_effort"] not in levels:
                 raise RunnerError("unsupported_model_effort")
             if cancelled.is_set():
@@ -2015,6 +2027,25 @@ class LocalRunner:
         return record
 
 
+def _advertised_models(server):
+    models, seen, cursor = [], set(), None
+    while True:
+        response = server.request("model/list", {"cursor": cursor} if cursor else {})
+        result = response.get("result")
+        if not isinstance(result, dict) or not isinstance(result.get("data"), list):
+            raise RunnerError("model_list_rejected")
+        for item in result["data"]:
+            models.append({"id": item.get("id"), "efforts": [
+                level.get("reasoningEffort") if isinstance(level, dict) else level
+                for level in item.get("supportedReasoningEfforts", [])]})
+        cursor = result.get("nextCursor")
+        if not cursor:
+            return models
+        if not isinstance(cursor, str) or cursor in seen:
+            raise RunnerError("model_list_invalid_cursor")
+        seen.add(cursor)
+
+
 def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
     if host not in ("127.0.0.1", "::1"):
         raise RunnerError("loopback_only")
@@ -2050,6 +2081,9 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 from urllib.parse import urlsplit, parse_qs
                 parsed = urlsplit(self.path)
                 parts = parsed.path.strip("/").split("/")
+                if parts == ["v1", "models"] and not parsed.query:
+                    self._reply(200, runner.model_catalog())
+                    return
                 if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
                     from .runner_activity import read_feed
                     query = parse_qs(parsed.query)

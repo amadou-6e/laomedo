@@ -795,6 +795,23 @@ class ObsoleteAgentControlTests(unittest.TestCase):
 
 
 class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.catalog_patch = patch.object(module.LaomedoCodexAgent, "_model_catalog", return_value={
+            "gpt-6-luna": ["low", "high"], "gpt-6-sol": ["low", "high", "ultra"],
+            "new-runtime-model": ["new-runtime-effort"]})
+        self.catalog_patch.start()
+        self.addCleanup(self.catalog_patch.stop)
+
+    async def test_new_runtime_choices_are_discovered_without_code_changes(self):
+        changed = await component().update_build_config({"model": {"value": "new-runtime-model"}, "effort": {}}, None)
+        self.assertIn("new-runtime-model", changed["model"]["options"])
+        self.assertEqual(changed["effort"]["options"], ["new-runtime-effort"])
+
+    async def test_unavailable_runner_does_not_fall_back_to_static_choices(self):
+        with patch.object(module.LaomedoCodexAgent, "_model_catalog", side_effect=ValueError("catalog_unavailable")):
+            with self.assertRaisesRegex(ValueError, "catalog_unavailable"):
+                await component().update_build_config({"model": {}, "effort": {}}, None)
+
     async def test_model_switch_clears_incompatible_effort_without_defaulting(self):
         config = {"model": {"value": "gpt-6-sol"}, "effort": {"value": "ultra"}}
         changed = await component().update_build_config(config, "gpt-6-luna", "model")
@@ -838,8 +855,8 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
 
     def test_main_controls_are_dropdowns_with_reported_options(self):
         inputs = {item.name: item.to_dict() for item in module.LaomedoCodexAgent.inputs}
-        self.assertIn("gpt-6-luna", inputs["model"]["options"])
-        self.assertIn("high", inputs["effort"]["options"])
+        self.assertEqual(inputs["model"]["options"], [])
+        self.assertEqual(inputs["effort"]["options"], [])
         self.assertFalse(inputs["model"]["combobox"])
         self.assertTrue(inputs["model"]["real_time_refresh"])
         self.assertFalse(inputs["effort"]["combobox"])
