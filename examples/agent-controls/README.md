@@ -32,3 +32,20 @@ additional Agent turn. The migrated provider workflow was not rerun. Independent
 Skill dependencies resolve twice in the bounded executor, which can read linked
 sources twice; this accepted limitation is recorded in the contract. The branch
 remains unmerged pending user review.
+
+## Model and reasoning dropdowns
+
+Model and Reasoning Effort use native Langflow dropdown controls. Selecting a
+model refreshes its configured effort choices; incompatible effort is cleared,
+without silently lowering it. A component upgrade preserves saved values and
+adds them to the visible options. The list is a configured capability snapshot,
+not live provider/account discovery; the runner remains authoritative.
+
+Output Requirements supplies the expected answer format, normally derived from
+the downstream consumer. Prior Run is an earlier execution reference for
+resume/status/cancel; fresh/start does not continue that run.
+
+[dropdown-evidence.json](dropdown-evidence.json) records53componenttests,
+actual fresh-palette DropdownInput metadata, the real component-update endpoint
+preserving an older gpt-6-sol/ultra selection, and browser checks for choices,
+incompatible clearing, persistence and restoration. No Agent was executed.
