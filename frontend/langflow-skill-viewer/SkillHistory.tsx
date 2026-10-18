@@ -32,8 +32,7 @@ export default function CommitTree({ skillId, revision, selected, onSelect }: {
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [skillId, revision, cursor, reload]);
-  return <nav aria-label="Skill commit history" className="min-h-0 flex-1 overflow-auto border-t pt-3">
-    <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Commits</h3>
+  return <nav aria-label="Skill commit history" className="min-h-0 flex-1 overflow-auto py-1">
     <ol>{items.map((item) => <li key={item.commit_id} className="relative">
       <button type="button" aria-label={`Compare revision: ${item.message}`} aria-pressed={selected === item.commit_id}
         title={`${item.commit_id}\n${item.message}\n${item.created_at}`}

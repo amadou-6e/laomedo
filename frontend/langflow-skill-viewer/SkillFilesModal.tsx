@@ -1,3 +1,4 @@
+import SkillNavigation from "./SkillNavigation";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as monaco from "monaco-editor/editor";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
@@ -138,19 +139,18 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
         <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision &&
         <SkillOverview key={`${skillId}:${revision}`} snapshot={snapshot} />}
-      {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigation={<>
-        <nav aria-label="Skill file explorer" className="max-h-[45%] min-h-[100px] shrink-0 overflow-auto pb-3">
-          <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Files {selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]);
+      {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigation={<SkillNavigation files={<>
+        <nav aria-label="Skill file explorer" className="min-h-0 flex-1 overflow-auto pb-2">
+          <div className="px-2 text-xs">{selectedCommit && <button type="button" className="float-right normal-case underline" onClick={() => { setSelectedCommit(null); setHistoricalFiles([]);
             const currentTabs = tabs.filter((path) => snapshot.files.some((file) => file.path === path));
             const next = snapshot.files.some((file) => file.path === active) ? active :
               currentTabs[0] || snapshot.files.find((file) => file.path === "SKILL.md")?.path || snapshot.files[0]?.path || "";
             setTabs(currentTabs.includes(next) || !next ? currentTabs : [...currentTabs, next]); setActive(next);
-          }}>Current source</button>}</h3>
+          }}>Current source</button>}</div>
           <ul>{tree([...snapshot.files, ...historicalFiles.filter((old) => !snapshot.files.some((current) => current.path === old.path))]).map((item) => <Folder key={item.path} item={item} select={select} active={active} />)}</ul>
         </nav>
-        <CommitTree key={`${skillId}:${revision}`} skillId={skillId} revision={revision}
-          selected={selectedCommit?.commit_id || ""} onSelect={setSelectedCommit} />
-      </>}>
+        </>} commits={<CommitTree key={`${skillId}:${revision}`} skillId={skillId} revision={revision}
+          selected={selectedCommit?.commit_id || ""} onSelect={setSelectedCommit} />} />}>
         {selectedCommit ? <RevisionDiff key={`${skillId}:${revision}:${selectedCommit.commit_id}`}
           skillId={skillId} revision={revision} commit={selectedCommit} path={active} current={file} onFiles={setHistoricalFiles} /> : <section aria-label="Selected skill file" className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex overflow-x-auto border-b" aria-label="Open files">

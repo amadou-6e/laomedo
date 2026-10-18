@@ -27,6 +27,23 @@ test("separator supports keyboard resizing while keeping content visible", () =>
   fireEvent.keyDown(separator, { key: "ArrowRight" });
   expect(separator).toHaveAttribute("aria-valuenow", "296");
   fireEvent.keyDown(separator, { key: "Home" });
-  expect(separator).toHaveAttribute("aria-valuenow", "180");
+  expect(separator).toHaveAttribute("aria-valuenow", "0");
   expect(screen.getByText("Source or comparison")).toBeVisible();
+});
+
+
+test("drag past the collapse threshold then restore without losing navigation state", () => {
+  render(<SkillSplitPane navigation={<input aria-label="File selection" defaultValue="SKILL.md" />}><p>Source</p></SkillSplitPane>);
+  const separator = screen.getByRole("separator", { name: "Resize navigation pane" });
+  const selection = screen.getByRole("textbox", { name: "File selection" });
+  fireEvent.change(selection, { target: { value: "OVERVIEW.md" } });
+  fireEvent.pointerDown(separator, { button: 0 });
+  fireEvent.pointerMove(separator, { clientX: 150 });
+  fireEvent.pointerUp(separator);
+  expect(separator).toHaveAttribute("aria-valuenow", "0");
+  expect(selection).not.toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Show skill navigation" }));
+  expect(selection).toBeVisible();
+  expect(selection).toHaveValue("OVERVIEW.md");
+  expect(separator).toHaveAttribute("aria-valuenow", "280");
 });
