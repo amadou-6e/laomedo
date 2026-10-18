@@ -64,7 +64,8 @@ class LaomedoCodexAgent(Component):
     inputs = [
         MessageTextInput(name="task", display_name="Task"),
         DropdownInput(name="operation", display_name="Operation",
-                      options=["fresh", "start", "resume", "status", "cancel"], value="fresh"),
+                      options=["fresh", "start", "resume", "status", "cancel"], value="fresh",
+                      info="Resume/status/cancel require a reference in an existing serialized flow or API request; node-local run selection is not yet available."),
         StrInput(name="request_id", display_name="Request ID", advanced=True, show=False,
                  info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
@@ -77,7 +78,7 @@ class LaomedoCodexAgent(Component):
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True, show=False),
         DropdownInput(name="model", display_name="Model", value="",
                       options=[], combobox=False, real_time_refresh=True, refresh_button=True,
-                      info="Select a configured model. Runner availability is checked before execution."),
+                      info="Refresh to load models from the configured runner. Runner availability is checked before execution."),
         DropdownInput(name="effort", display_name="Reasoning Effort", value="",
                       options=[], combobox=False),
         DataInput(name="run_reference", display_name="Prior Run", show=False,
@@ -147,11 +148,14 @@ class LaomedoCodexAgent(Component):
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
             with _HTTP.open(req, timeout=30) as response:
-                payload = json.load(response)
+                raw = response.read(1024 * 1024 + 1)
+                if len(raw) > 1024 * 1024:
+                    raise ValueError("catalog_too_large")
+                payload = json.loads(raw)
             catalog = {}
             for item in payload["models"]:
                 model, efforts = item["id"], item["efforts"]
-                if not isinstance(model, str) or not model or not isinstance(efforts, list) or not all(isinstance(x, str) and x for x in efforts):
+                if not isinstance(model, str) or not model or model in catalog or not isinstance(efforts, list) or not all(isinstance(x, str) and x for x in efforts):
                     raise ValueError("invalid_catalog")
                 catalog[model] = efforts
             if not catalog:
@@ -163,7 +167,17 @@ class LaomedoCodexAgent(Component):
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
         updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
         if self.name == "LaomedoCodexAgent":
-            await self.update_build_config(updated["template"], None)
+            try:
+                await self.update_build_config(updated["template"], None)
+            except ValueError as exc:
+                if str(exc) != "runner_model_catalog_unavailable_check_runner_connection":
+                    raise
+                # Offline component upgrades must not block unrelated fields.
+                # Retain saved choices only; explicit refresh still reports failure.
+                for name in ("model", "effort"):
+                    field = updated["template"].get(name, {})
+                    value = field.get("value")
+                    field["options"] = [value] if isinstance(value, str) and value else []
         return updated
 
     def _pre_run_setup(self):

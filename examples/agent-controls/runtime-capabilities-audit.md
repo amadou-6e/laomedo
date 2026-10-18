@@ -2,7 +2,7 @@
 
 Codex model and effort dropdowns now query authenticated GET /v1/models on the configured runner. The runner starts its configured Codex app-server, reads all model/list pages, then closes it; it never starts a thread or turn. Model/effort names and initial defaults are no longer embedded in component source. Refresh explicitly or change Runner URL/model to query again. Saved selections are preserved on load, not silently substituted. Connection failures are explicit errors, not static fallback data.
 
-Live verification: actual local Docker image laomedo-codex-boundary:0.159.2 advertised eight models through the HTTP endpoint. Network disabled, no login mounted, zero model turns. This verifies installed runtime metadata, not account-specific entitlement or execution acceptance. Component HTTP verification is recorded separately when complete.
+Live verification: actual local Docker image laomedo-codex-boundary:0.159.2 advertised eight models through the HTTP endpoint. Network disabled, no login mounted, zero model turns. This verifies installed runtime metadata, not account-specific entitlement or execution acceptance. Actual component HTTP discovery matched all eight model IDs from that endpoint.
 
 ## Audit scope
 
@@ -19,3 +19,11 @@ Reviewed all product Python components in components/laomedo, their dropdown dec
 - Runner/bridge URLs, timeout/retry bounds, Skill count limit, snapshot/body limits, terminal/error status enums and tool allowlists remain configured defaults or policy/protocol constraints. They are not arbitrary runtime capability claims and were not removed in this change.
 - Automatic Output Requirements discovery currently recognizes a dedicated Output Contract connection only; ordinary Skill/PR consumers describe proposal formats through their task prompts. Hiding the input did not extend contract discovery.
 - Prior Run inputs are hidden for the node interface, but resume/status/cancel still require an underlying reference; durable node-local history selection is not implemented by hiding those ports.
+
+## Additional audit findings and discovery limits
+
+- agent_activity_cost.py embeds a dated, two-model API-equivalent price table, Standard-tier/no-region assumptions, and a 272000-token cutoff. These are explicitly labeled estimates; they are not live price discovery.
+- OpenCode Provider/Model remains manual free text, not runtime discovery.
+- Discovery is serialized per runner and cached for 30 seconds, cleans its temporary directory, limits pagination to 50 pages, rejects duplicate model IDs and malformed entries, and caps component HTTP metadata at 1 MiB. Configured runner auth is deliberately used when present because advertised metadata may vary by account; no turn is submitted.
+- New nodes need a Model refresh to populate initially empty choices. Component upgrades work offline and retain saved selections without asserting availability; explicit refresh still reports connection failures.
+- Historical workgraph fixture exports embed their earlier component code and explicit requirements wiring. They are internal test snapshots, not current live workflow demonstrations; upgrading those old schemas to hidden ports needs separate migration validation.

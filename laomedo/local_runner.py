@@ -47,6 +47,7 @@ SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf506
 MEDIATION_CLIENT = Path(__file__).resolve().parent / "agent_mediation_client.mjs"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
+_CATALOG_INIT_LOCK = threading.Lock()
 MAX_BODY = 64 * 1024
 MAX_GIT_WORKSPACE_SNAPSHOT_BYTES = 64 * 1024 * 1024
 MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES = 10000
@@ -1057,24 +1058,40 @@ class LocalRunner:
         return self.transport(command, root)
 
     def model_catalog(self) -> dict:
-        """Read the running installation's model metadata without a thread or turn."""
-        root = self.state / "catalog" / str(uuid4())
-        for name in ("workspace", "canonical", "store"):
-            (root / name).mkdir(parents=True)
-        server = None
-        try:
-            token = self.auth.access_token()[0] if self.auth else None
-            server = self._open_server(root, access_token=token)
-            initialized = server.request("initialize", {"clientInfo": {
-                "name": "laomedo_model_catalog", "version": "0.1.0"},
-                **({"capabilities": {"experimentalApi": True}} if self.split_executor else {})})
-            if "result" not in initialized:
-                raise RunnerError("initialize_rejected")
-            server.notify("initialized", {})
-            return {"models": _advertised_models(server), "submitted_turns": 0}
-        finally:
-            if server is not None:
-                server.close()
+        """Serialize and briefly cache metadata discovery; never submit a turn."""
+        # Lazy initialization also supports existing host-created runner objects.
+        with _CATALOG_INIT_LOCK:
+            if not hasattr(self, "_catalog_lock"):
+                self._catalog_lock = threading.Lock()
+                self._catalog_cached = None
+        with self._catalog_lock:
+            cached = self._catalog_cached
+            if cached and time.monotonic() - cached[0] < 30:
+                return cached[1]
+            root = self.state / "catalog" / str(uuid4())
+            server = None
+            try:
+                for name in ("workspace", "canonical", "store"):
+                    (root / name).mkdir(parents=True)
+                # Deliberately use runner authentication when configured: metadata
+                # may be account-specific. No thread or turn is requested.
+                token = self.auth.access_token()[0] if self.auth else None
+                server = self._open_server(root, access_token=token)
+                initialized = server.request("initialize", {"clientInfo": {
+                    "name": "laomedo_model_catalog", "version": "0.1.0"},
+                    **({"capabilities": {"experimentalApi": True}} if self.split_executor else {})})
+                if "result" not in initialized:
+                    raise RunnerError("initialize_rejected")
+                server.notify("initialized", {})
+                result = {"models": _advertised_models(server), "submitted_turns": 0}
+                self._catalog_cached = (time.monotonic(), result)
+                return result
+            finally:
+                try:
+                    if server is not None:
+                        server.close()
+                finally:
+                    shutil.rmtree(root, ignore_errors=True)
 
     def preflight(self) -> dict:
         """Check the existing Docker app-server and advertised models without a turn."""
@@ -2028,22 +2045,30 @@ class LocalRunner:
 
 
 def _advertised_models(server):
-    models, seen, cursor = [], set(), None
-    while True:
+    models, seen, ids, cursor = [], set(), set(), None
+    for _ in range(50):
         response = server.request("model/list", {"cursor": cursor} if cursor else {})
         result = response.get("result")
         if not isinstance(result, dict) or not isinstance(result.get("data"), list):
             raise RunnerError("model_list_rejected")
         for item in result["data"]:
-            models.append({"id": item.get("id"), "efforts": [
-                level.get("reasoningEffort") if isinstance(level, dict) else level
-                for level in item.get("supportedReasoningEfforts", [])]})
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"] or item["id"] in ids:
+                raise RunnerError("model_list_invalid_entry")
+            efforts = item.get("supportedReasoningEfforts", [])
+            if not isinstance(efforts, list):
+                raise RunnerError("model_list_invalid_entry")
+            efforts = [level.get("reasoningEffort") if isinstance(level, dict) else level for level in efforts]
+            if not all(isinstance(level, str) and level for level in efforts):
+                raise RunnerError("model_list_invalid_entry")
+            ids.add(item["id"])
+            models.append({"id": item["id"], "efforts": efforts})
         cursor = result.get("nextCursor")
         if not cursor:
             return models
         if not isinstance(cursor, str) or cursor in seen:
             raise RunnerError("model_list_invalid_cursor")
         seen.add(cursor)
+    raise RunnerError("model_list_page_limit")
 
 
 def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):

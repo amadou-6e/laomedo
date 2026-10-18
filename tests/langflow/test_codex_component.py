@@ -802,6 +802,16 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
         self.catalog_patch.start()
         self.addCleanup(self.catalog_patch.stop)
 
+    async def test_offline_component_upgrade_preserves_saved_choices(self):
+        new = {"display_name": "Laomedo Codex Agent", "template": {"code": {"type": "code", "value": "new"}, "model": {"type": "str", "value": ""}, "effort": {"type": "str", "value": ""}}}
+        old = deepcopy(new)
+        old["template"]["model"]["value"] = "saved-model"
+        old["template"]["effort"]["value"] = "saved-effort"
+        with patch.object(module.LaomedoCodexAgent, "_model_catalog", side_effect=ValueError("runner_model_catalog_unavailable_check_runner_connection")):
+            updated = await component().update_frontend_node(new, old)
+        self.assertEqual(updated["template"]["model"]["options"], ["saved-model"])
+        self.assertEqual(updated["template"]["effort"]["options"], ["saved-effort"])
+
     async def test_runner_change_queries_the_new_endpoint(self):
         config = {"runner_url": {"value": "http://localhost:1"}, "model": {}, "effort": {}}
         changed = await component().update_build_config(config, "http://localhost:2", "runner_url")
