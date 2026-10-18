@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import SkillActions from "./SkillActions";
+import SkillActions, { dismissSkillActions } from "./SkillActions";
 
 test("Escape closes actions and returns focus without propagating to the dialog", () => {
   const escape = jest.fn();
@@ -25,4 +25,15 @@ test("outside pointer and leaving the actions close the disclosure", () => {
   fireEvent.blur(trigger, { relatedTarget: screen.getByRole("button", { name: "Outside" }) });
   expect(trigger.closest("details")).not.toHaveAttribute("open");
   expect(screen.getByText("Action")).not.toBeVisible();
+});
+
+
+test("the native dialog listener still sees Escape as consumed after React closes actions", () => {
+  render(<SkillActions label="Section actions"><button>Action</button></SkillActions>);
+  fireEvent.click(screen.getByLabelText("Section actions"));
+  const action = screen.getByRole("button", { name: "Action" });
+  const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+  action.dispatchEvent(event);
+  expect(dismissSkillActions(event)).toBe(true);
+  expect(action).not.toBeVisible();
 });

@@ -1,9 +1,14 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
-export function dismissSkillActions(target: EventTarget | null): boolean {
-  const dialog = target instanceof Element ? target.closest('[role="dialog"]') : null;
-  const open = dialog?.querySelector<HTMLDetailsElement>('details[data-skill-actions][open]');
+const dismissedEscapes = new WeakSet<Event>();
+
+export function dismissSkillActions(event: KeyboardEvent): boolean {
+  // React and the dialog's native Escape listener can see the same event in either order.
+  if (dismissedEscapes.has(event)) return true;
+  const target = event.target instanceof Element ? event.target : document.activeElement;
+  const open = target?.closest<HTMLDetailsElement>('details[data-skill-actions][open]');
   if (!open) return false;
+  dismissedEscapes.add(event);
   open.open = false;
   open.querySelector('summary')?.focus();
   return true;
@@ -23,8 +28,8 @@ export default function SkillActions({ label, children }: { label: string; child
   return <details data-skill-actions ref={disclosure} className="relative mr-1"
     onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false; }}
     onKeyDown={(event) => {
-      if (event.key !== "Escape" || !event.currentTarget.open) return;
-      event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; trigger.current?.focus();
+      if (event.key !== "Escape" || !dismissSkillActions(event.nativeEvent)) return;
+      event.preventDefault(); event.stopPropagation();
     }}>
     <summary ref={trigger} aria-label={label} className="flex h-6 w-7 cursor-pointer list-none items-center justify-center rounded text-lg leading-none hover:bg-muted [&::-webkit-details-marker]:hidden">{'\u22ef'}</summary>
     <div className="absolute right-0 top-7 z-30 w-max min-w-44 rounded border bg-background p-1 text-foreground shadow-md"
