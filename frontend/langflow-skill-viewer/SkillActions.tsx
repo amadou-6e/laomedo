@@ -1,5 +1,14 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
+export function dismissSkillActions(target: EventTarget | null): boolean {
+  const dialog = target instanceof Element ? target.closest('[role="dialog"]') : null;
+  const open = dialog?.querySelector<HTMLDetailsElement>('details[data-skill-actions][open]');
+  if (!open) return false;
+  open.open = false;
+  open.querySelector('summary')?.focus();
+  return true;
+}
+
 /** Native disclosure with menu dismissal and focus return, without menu-role arrow-key semantics. */
 export default function SkillActions({ label, children }: { label: string; children: ReactNode }) {
   const disclosure = useRef<HTMLDetailsElement>(null);
@@ -11,7 +20,7 @@ export default function SkillActions({ label, children }: { label: string; child
     document.addEventListener("pointerdown", outside, true);
     return () => document.removeEventListener("pointerdown", outside, true);
   }, []);
-  return <details ref={disclosure} className="relative mr-1"
+  return <details data-skill-actions ref={disclosure} className="relative mr-1"
     onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false; }}
     onKeyDown={(event) => {
       if (event.key !== "Escape" || !event.currentTarget.open) return;

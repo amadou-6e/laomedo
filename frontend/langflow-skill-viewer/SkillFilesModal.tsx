@@ -1,3 +1,4 @@
+import { dismissSkillActions } from "./SkillActions";
 import SkillNavigation from "./SkillNavigation";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as monaco from "monaco-editor/editor";
@@ -128,7 +129,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
     const next = tabs.filter((entry) => entry !== path); setTabs(next);
     if (active === path) { setActive(next[next.length - 1] || ""); setPreview(false); }
   };
-  return <BaseModal open={open} setOpen={setOpen} size="large" onEscapeKeyDown={(event) => { if (closeFind.current?.()) event.preventDefault(); }}>
+  return <BaseModal open={open} setOpen={setOpen} size="large" onEscapeKeyDown={(event) => { if (dismissSkillActions(event.target) || closeFind.current?.()) event.preventDefault(); }}>
     <BaseModal.Header description="Inspect the exact registered skill bundle. No files can be edited or executed.">
       <span>Skill files · Read only</span>
     </BaseModal.Header>
