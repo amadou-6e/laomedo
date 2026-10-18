@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-18",
+  "status": "incomplete",
+  "acceptance": "BLOCKED: both completed Agent turns returned invalid operation JSON; host refused both; no candidate revision",
+  "source_revision": "e9f1382794962b90f0b12c745ca5f7493a6dbef2",
+  "base_revision": "sha256:3d44565e5224eaa2dcd598828d047aedc941b104efc4daadd93fe06723b032c2",
+  "runs": [
+    {
+      "run_id": "d29f980a-ae10-40b4-8ef2-35b4bf77aa5f",
+      "thread_id": "01a15025-495f-7573-9c50-59d7eb8d39a5",
+      "status": "completed",
+      "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+      "cli_version": "codex-cli 0.159.2",
+      "input_hash": "sha256:4063e59f3809358695578580b9a46196c24a435ed33ddedea72ea72d8ffff3aa",
+      "turns": [
+        {
+          "turn_id": "01a15025-4fdb-7bf3-bb72-1b81fcc3c8e3",
+          "status": "completed"
+        }
+      ],
+      "proposal_json_valid": false,
+      "extra_trailing_bytes": "]}",
+      "proposed_description_unapplied": "description: Help users inspect a selected skill\u2019s pinned files and revision differences in Laomedo while keeping the inspection read-only.",
+      "container_cleanup_verified": true
+    },
+    {
+      "run_id": "ff99bac7-3db6-4d54-84f6-7e8f3186f3d9",
+      "thread_id": "01a1502b-2d78-73f3-951d-3241a44ae1ac",
+      "status": "completed",
+      "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+      "cli_version": "codex-cli 0.159.2",
+      "input_hash": "sha256:20f664051ad6a2b0467da99767dbbe50aeb9baf2b00384b1609265875ec3b334",
+      "turns": [
+        {
+          "turn_id": "01a1502b-30b1-7941-af88-69dd900ed5be",
+          "status": "completed"
+        }
+      ],
+      "proposal_json_valid": false,
+      "extra_trailing_bytes": "]}",
+      "proposed_description_unapplied": "description: Help users inspect a selected skill\u2019s pinned files and revision differences while keeping the workspace read-only.",
+      "container_cleanup_verified": true
+    }
+  ],
+  "attempted_model_turns": 2,
+  "max_authorized_turns": 2,
+  "second_turn_explicitly_user_approved": true,
+  "ledger_reset": false,
+  "canonical_unchanged": true,
+  "source_unchanged": true,
+  "journal_commit_count": 1,
+  "journal_request_count": 2,
+  "applied_result_count": 0,
+  "last_attempt_graph_sha256": "3922ce245723457705b82cd69c84760a584e238e3d4a6dcf05b38decb1fe73f7",
+  "runner_and_edit_services_stopped": true,
+  "scope": "Actual LaomedoCodexAgent + Docker LocalRunner. No fixture provider. No successful end-to-end edit claim. Public graph is the second executed attempt; original inputs retained by input hashes and private receipts."
+}

@@ -19,13 +19,21 @@ def has_description(text):
             # Only an unambiguously empty quoted scalar is missing.
             return not bool(re.fullmatch(r'''(?:"\s*"|'\s*')\s*(?:#.*)?''', value))
         value = value.split(' #', 1)[0].strip()
-        if value.startswith('#') or value in {'', 'null', 'Null', 'NULL', '~'}:
+        if value.startswith('#') or value == '':
+            # YAML also permits a plain scalar beginning on the following line.
+            for following in lines[index + 1:]:
+                if following and not following[0].isspace():
+                    break
+                if following.strip() and not following.lstrip().startswith('#'):
+                    return True
+            return False
+        if value in {'null', 'Null', 'NULL', '~'}:
             return False
         if re.fullmatch(r'[>|][1-9]?[+-]?', value):
             for following in lines[index + 1:]:
                 if following and not following[0].isspace():
                     break
-                if following.strip() and not following.lstrip().startswith('#'):
+                if following.strip():
                     return True
             return False
         return True
