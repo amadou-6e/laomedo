@@ -820,6 +820,22 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
         config = {"model": {"value": "provider/model"}, "effort": {"value": "default"}}
         self.assertEqual(await node.update_build_config(deepcopy(config), "other", "model"), config)
 
+    async def test_component_update_preserves_saved_model_and_effort_options(self):
+        new = {"display_name": "Laomedo Codex Agent", "template": {"code": {"type": "code", "value": "new"},
+            "model": {"type": "str", "value": "gpt-6-luna", "options": ["gpt-6-luna"]},
+            "effort": {"type": "str", "value": "low", "options": ["low"]}}}
+        old = {"display_name": "Laomedo Codex Agent", "template": {"code": {"type": "code", "value": "old"},
+            "model": {"type": "str", "value": "gpt-6-sol"},
+            "effort": {"type": "str", "value": "ultra"}}}
+        updated = await component().update_frontend_node(new, old)
+        self.assertEqual(updated["template"]["model"]["value"], "gpt-6-sol")
+        self.assertEqual(updated["template"]["effort"]["value"], "ultra")
+        self.assertIn("ultra", updated["template"]["effort"]["options"])
+
+    async def test_malformed_model_change_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_model_selection"):
+            await component().update_build_config({"model":{},"effort":{}}, {"bad":"value"}, "model")
+
     def test_main_controls_are_dropdowns_with_reported_options(self):
         inputs = {item.name: item.to_dict() for item in module.LaomedoCodexAgent.inputs}
         self.assertIn("gpt-6-luna", inputs["model"]["options"])

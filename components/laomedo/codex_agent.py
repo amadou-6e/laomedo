@@ -109,13 +109,19 @@ class LaomedoCodexAgent(Component):
         model_field = build_config.get("model", {})
         effort_field = build_config.get("effort", {})
         if field_name == "model":
+            if not isinstance(field_value, str):
+                raise ValueError("invalid_model_selection")
             model_field["value"] = field_value
         model = model_field.get("value", "")
+        if not isinstance(model, str):
+            raise ValueError("invalid_model_selection")
         choices = list(_MODEL_EFFORTS)
         if model and model not in choices:
             choices.append(model)  # Preserve imported selections, never substitute.
         model_field.update(options=choices, combobox=False, real_time_refresh=True)
         selected = effort_field.get("value", "")
+        if not isinstance(selected, str):
+            raise ValueError("invalid_effort_selection")
         efforts = list(_MODEL_EFFORTS.get(model, [selected] if selected else []))
         if field_name == "model" and selected not in efforts:
             effort_field["value"] = ""
@@ -124,6 +130,12 @@ class LaomedoCodexAgent(Component):
             efforts.append(selected)
         effort_field.update(options=efforts, combobox=False)
         return build_config
+
+    async def update_frontend_node(self, new_frontend_node, current_frontend_node):
+        updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
+        if self.name == "LaomedoCodexAgent":
+            await self.update_build_config(updated["template"], None)
+        return updated
 
     def _pre_run_setup(self):
         # Langflow invokes this once per build. Both output methods share dispatch.
