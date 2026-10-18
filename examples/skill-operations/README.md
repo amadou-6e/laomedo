@@ -1,7 +1,7 @@
 # Skill operations
 
 The existing Skill node accepts ordinary operations and direct feedback from
-the original Codex Agent: **Skill Task â†’ Agent Task â†’ same Skill Operation**.
+the original Codex Agent: **Skill Task → Agent Task → same Skill Operation**.
 No new Agent component is introduced. `build_flow.py` exports without execution.
 
 An operation replaces/adds/deletes multiple UTF-8 files in one validated batch:
@@ -54,8 +54,8 @@ revision with its pinned current contents, including intervening changes.
 The visual inline editor shows full current contents with historical changes
 highlighted. Unchanged lines with equal old/current indexes use one number. Changed rows
 and unchanged lines with shifted numbers show both index cells; missing indexes
-are blank. A dedicated24pxmarker column renders
-bold18px +/minus signs. A horizontal header rule and index divider separate
+are blank. A dedicated 24 px marker column renders
+bold 18 px +/minus signs. A horizontal header rule and index divider separate
 the compact columns. The visible rows are virtualized; Monaco computes changes.
 Digit-sized index columns have a 4 px gap and thin divider. Revision hashes are
 shortened, with the full identity on hover. No aggregate raw patch or
