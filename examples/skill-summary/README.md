@@ -4,7 +4,8 @@ Normal authorized Skill preparation adds the packaged internal
 [summary skill](../../laomedo/resources/skills/skill-summary/SKILL.md) when the
 pinned SKILL.md description is absent or blank. The existing Agent receives
 those instructions alongside the requested edit. Applying the operation must
-leave a nonempty description; the ordinary immutable journal records any
+leave a nonempty description (older files without frontmatter must add valid
+frontmatter before an edit can be accepted); the ordinary immutable journal records any
 accepted edit. Existing descriptions, including multiline descriptions, do not
 trigger generation. Reads, discovery and import do not dispatch models.
 

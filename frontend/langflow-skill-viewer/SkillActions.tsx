@@ -32,11 +32,12 @@ export default function SkillActions({ label, children }: { label: string; child
       event.preventDefault(); event.stopPropagation();
     }}>
     <summary ref={trigger} aria-label={label} className="flex h-6 w-7 cursor-pointer list-none items-center justify-center rounded text-lg leading-none hover:bg-muted [&::-webkit-details-marker]:hidden">{'\u22ef'}</summary>
-    <div className="absolute right-0 top-7 z-30 w-max min-w-44 rounded border bg-background p-1 text-foreground shadow-md"
+    <div className="absolute left-0 top-7 z-30 w-max min-w-44 max-w-[260px] rounded border bg-background p-1 text-foreground shadow-md"
       onClick={(event) => {
         if (!(event.target as HTMLElement).closest('button')) return;
         if (disclosure.current) disclosure.current.open = false;
         // A hide-navigation action moves focus to the persistent separator instead.
+        // Check trigger visibility after the hide action commits its queued layout update.
         queueMicrotask(() => { if (trigger.current?.getClientRects().length) trigger.current.focus(); });
       }}>{children}</div>
   </details>;
