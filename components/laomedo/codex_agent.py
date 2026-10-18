@@ -102,6 +102,10 @@ class LaomedoCodexAgent(Component):
         # OpenCode has a separate provider/model and variant contract.
         if self.name != "LaomedoCodexAgent":
             return build_config
+        if field_name == "runner_url":
+            if not isinstance(field_value, str):
+                raise ValueError("local_runner_url_required")
+            build_config["runner_url"]["value"] = field_value
         model_field = build_config.get("model", {})
         effort_field = build_config.get("effort", {})
         if field_name == "model":

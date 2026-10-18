@@ -802,6 +802,11 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
         self.catalog_patch.start()
         self.addCleanup(self.catalog_patch.stop)
 
+    async def test_runner_change_queries_the_new_endpoint(self):
+        config = {"runner_url": {"value": "http://localhost:1"}, "model": {}, "effort": {}}
+        changed = await component().update_build_config(config, "http://localhost:2", "runner_url")
+        self.assertEqual(changed["runner_url"]["value"], "http://localhost:2")
+
     async def test_new_runtime_choices_are_discovered_without_code_changes(self):
         changed = await component().update_build_config({"model": {"value": "new-runtime-model"}, "effort": {}}, None)
         self.assertIn("new-runtime-model", changed["model"]["options"])
