@@ -36,3 +36,18 @@ its ledger. The user explicitly replied "Allow one additional turn" on
 continuations still disabled. Check the existing completed run, invalid JSON,
 one attempted turn and zero applied results before starting it. Never erase
 records or replace this failure with a success claim.
+
+
+## Reviewed-prompt verification authorization
+
+After both invalid JSON attempts, independent Claude review found conflicting
+Agent/host output instructions. The implementation now sends only the internal
+skill's Agent instructions, excludes YAML metadata and host integration prose,
+and repeats the JSON-only operation contract last. Claude approved that prompt
+fix in design; it has not yet established real acceptance.
+
+On 2026-10-19 the user explicitly replied "Allow one verification turn". Permit
+exactly one new native turn against the corrected prompt (maximum total three).
+Before dispatch, verify the existing two completed invalid-JSON runs, ledger
+count two, import-only history and zero applied results. Preserve both prior
+runs and authorizations; never reset the ledger or silently retry a third turn.
