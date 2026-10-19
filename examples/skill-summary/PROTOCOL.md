@@ -51,3 +51,8 @@ exactly one new native turn against the corrected prompt (maximum total three).
 Before dispatch, verify the existing two completed invalid-JSON runs, ledger
 count two, import-only history and zero applied results. Preserve both prior
 runs and authorizations; never reset the ledger or silently retry a third turn.
+
+The authorized third turn completed on 2026-10-19 but again returned trailing
+`]}` after its operation JSON. The host refused it. Ledger: three attempted
+turns, three requests, one import commit, zero applied results. No further turn
+is authorized. All three native runs and the original source are preserved.
