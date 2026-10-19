@@ -68,7 +68,6 @@ class LaomedoCodexAgent(Component):
                       info="Resume/status/cancel require a reference in an existing serialized flow or API request; node-local run selection is not yet available."),
         StrInput(name="request_id", display_name="Request ID", advanced=True, show=False,
                  info="Optional stable UUID for nonblocking Start retries."),
-        DataInput(name="skill_reference", display_name="Skill References", is_list=True),
         DataInput(name="output_requirements", display_name="Output Requirements", show=False,
                   info="Expected answer format, normally resolved from the next node. Connect explicit requirements only when needed."),
         IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
@@ -81,13 +80,14 @@ class LaomedoCodexAgent(Component):
                       info="Refresh to load models from the configured runner. Runner availability is checked before execution."),
         DropdownInput(name="effort", display_name="Reasoning Effort", value="",
                       options=[], combobox=False),
+        DataInput(name="skill_reference", display_name="Skill References", is_list=True),
         DataInput(name="run_reference", display_name="Prior Run", show=False,
                   info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
         StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
                  value="http://host.docker.internal:8765", real_time_refresh=True),
-        StrInput(name="bridge_url", display_name="Join Bridge URL", advanced=True,
+        StrInput(name="bridge_url", display_name="Join Bridge URL", advanced=True, show=False,
                  value="", info="Optional local host bridge for a durable first-call join."),
         IntInput(name="timeout_seconds", display_name="HTTP Timeout", value=210,
                  advanced=True),
@@ -342,7 +342,7 @@ class LaomedoCodexAgent(Component):
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
     def _bridge_base(self):
-        base = str(getattr(self, "bridge_url", "") or "").rstrip("/")
+        base = str(os.environ.get("LAOMEDO_BRIDGE_URL", getattr(self, "bridge_url", "")) or "").rstrip("/")
         if not base:
             return ""
         parsed = urlsplit(base)
