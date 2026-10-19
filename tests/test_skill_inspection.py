@@ -40,6 +40,24 @@ class SkillInspectionTests(unittest.TestCase):
         self.assertEqual(files["references/example.md"]["file_hash"], self.record["file_hashes"]["references/example.md"])
         self.assertEqual(before, {p.relative_to(self.root): p.stat().st_mtime_ns for p in self.root.rglob("*")})
 
+    def test_verified_raster_images_are_inlined_but_other_binary_files_are_not(self):
+        import base64
+        source = self.root / "source"
+        image = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT1kAAAAASUVORK5CYII=")
+        (source / "pixel.png").write_bytes(image)
+        (source / "diagram.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><text>Flow</text></svg>')
+        record = self.store.import_skill("media", source)
+        default = inspect_skill(self.store.root, "media", record["revision_id"])
+        self.assertTrue(all("image_data_url" not in file for file in default["files"]))
+        result = inspect_skill(self.store.root, "media", record["revision_id"], include_images=True)
+        files = {file["path"]: file for file in result["files"]}
+        self.assertEqual(files["pixel.png"]["image_data_url"], "data:image/png;base64," + base64.b64encode(image).decode())
+        self.assertNotIn("image_data_url", files["asset.bin"])
+        self.assertNotIn("image_data_url", files["diagram.svg"])
+        (self.store._revision_dir("media", record["revision_id"]) / "bundle/pixel.png").write_bytes(b"tampered")
+        with self.assertRaisesRegex(InspectionError, "skill_revision_unavailable"):
+            inspect_skill(self.store.root, "media", record["revision_id"])
+
     def test_no_latest_or_path_selection(self):
         for skill, revision in (("../secret", self.revision), ("sample", "latest"), ("sample", "../../secret")):
             with self.subTest(skill=skill, revision=revision), self.assertRaises(InspectionError):

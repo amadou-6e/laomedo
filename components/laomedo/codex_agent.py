@@ -69,6 +69,8 @@ class LaomedoCodexAgent(Component):
                  info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="skill_reference", display_name="Skill References", is_list=True),
         DataInput(name="output_requirements", display_name="Output Requirements"),
+        StrInput(name="output_requirements_json", display_name="Output Requirements JSON",
+                 value="", advanced=True, info="Static pinned requirements when no Output Requirements connection is supplied."),
         IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
                  advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
@@ -112,6 +114,16 @@ class LaomedoCodexAgent(Component):
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
         connected = getattr(self, "output_requirements", None)
+        static = str(getattr(self, "output_requirements_json", "") or "").strip()
+        if static:
+            from laomedo.output_contract import verify_requirements
+            try:
+                pinned = verify_requirements(json.loads(static))
+            except (TypeError, ValueError):
+                raise ValueError("invalid_static_output_requirements") from None
+            if connected not in (None, "", []) and verify_requirements(getattr(connected, "data", connected)) != pinned:
+                raise ValueError("conflicting_output_requirements")
+            connected = pinned
         if self.name == "LaomedoCodexAgent":
             from laomedo.contract_graph import downstream_requirements
             from laomedo.output_contract import verify_requirements

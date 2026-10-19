@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-16",
+  "source_revision": "95b8152db5c76a23f4a712d7af2ec21f69848c7b",
+  "agent": "LaomedoCodexAgent",
+  "runner": "LocalRunner",
+  "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+  "run_id": "1352ab4f-0994-49b3-9a20-075f27a971f4",
+  "thread_id": "01a141bc-0c95-7b22-a7de-0b19970b0750",
+  "turns": [
+    {
+      "id": "01a141bc-121d-7c81-a265-2221286aad3f",
+      "status": "completed"
+    }
+  ],
+  "base_revision": "sha256:4f0efb08e4956c433413b5b612149a172b31789f37290f15fc947337f10c50b2",
+  "candidate_revision": "sha256:61e9b9220170c365d9932caf79f691455b5f1171f9723ac82d6f2d783c6852bf",
+  "commit": {
+    "commit_id": "sha256:e081d0f6f5c1edef841d3ecf4768b4d145a488301fe867afbfdeffc526317cd4",
+    "skill_id": "pr-feedback-title",
+    "revision_id": "sha256:61e9b9220170c365d9932caf79f691455b5f1171f9723ac82d6f2d783c6852bf",
+    "parent_commit": "sha256:3bef1e922a77758912fa44f85e0d13cbad4649ccd3d160109c2c684f68d844e9",
+    "created_at": "2026-10-15T22:43:37.344789+00:00",
+    "message": "Appended the requested output-contract reference and added the operation format file.",
+    "files": [
+      "SKILL.md",
+      "references/operation-format.md"
+    ],
+    "patch": "--- base/SKILL.md\n+++ draft/SKILL.md\n@@ -12,3 +12,5 @@\n capabilities. Do not write files, invoke GitHub or read credentials. The host\\r\\n\n validates authorization and performs the eventual update. Do not claim success\\r\\n\n before that update; your response is a proposal.\\r\\n\n+\\n\n+Read references/operation-format.md for the output contract.\\n\n--- base/references/operation-format.md\n+++ draft/references/operation-format.md\n@@ -0,0 +1,5 @@\n+# PR operation format\\n\n+\\n\n+Return one JSON object with action modify and changes.title set to the requested exact title.\\n\n+Do not include request identity, authorization, tickets, repository, or PR number.\\n\n+The host validates authorization and applies the proposal. Do not change body or labels.\\n\n",
+    "editor": {
+      "kind": "agent",
+      "run_id": "1352ab4f-0994-49b3-9a20-075f27a971f4",
+      "thread_id": "01a141bc-0c95-7b22-a7de-0b19970b0750",
+      "trace_ref": "laomedo:run:1352ab4f-0994-49b3-9a20-075f27a971f4:events"
+    },
+    "draft_id": "e31feb6c-5232-4295-9021-aba97f5f0dfc",
+    "policy_ref": {
+      "policy_id": "skill176-title-policy",
+      "revision_id": "1",
+      "hash": "sha256:f6841d0950a7e8e22ab182a2ea47ab78f2843815b545478ff27228aa92eff22e"
+    },
+    "nonce": "13ee7efe541340608e32f00575927507"
+  },
+  "exact_two_file_readback": true,
+  "canonical_unchanged": true,
+  "source_unchanged": true,
+  "same_ticket_replay_without_model": true,
+  "container_cleanup_verified": true,
+  "graph_sha256": "45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf",
+  "executed_graph_sha256": "eec3ea4595003a1d0171d2b53cfc00d1adae5987c491cda51fcecdbeab12a29c",
+  "executed_node_code_sha256": "c5ad6601888b63f41afd8cbba62d0b40072e7532558869adcf209b9ce54d20d0",
+  "executed_node_matches_source_revision": true,
+  "runtime_source_note": "Exact executed node and core host operations, store, loop helper and runner at 95b8152. Exact embedded code is retained in executed-flow.json. Later manual selection, task-input refusal and routable failure handling do not change successful apply.",
+  "review_graph_note": "Candidate revision selected for inspection; node code refreshed after real execution with fail-closed failure output routing, task-only feedback and manual exact-ID selection. No additional model turn.",
+  "provenance_independently_matched_to_runner_for_this_run": true,
+  "zero_dispatch_startup_recovery": {
+    "prior_failure": "credential-free version check timeout",
+    "runs": 0,
+    "model_turns": 0,
+    "requests": 0,
+    "commits": 0,
+    "ledger_reset": false
+  },
+  "browser_inspection": {
+    "graph_nodes": 2,
+    "graph_edges": 2,
+    "real_candidate_files_visible": true,
+    "commits": 2,
+    "real_run_reference_visible": true,
+    "diff_visible": true,
+    "inspection_dispatch_requests": 0,
+    "browser_errors": []
+  },
+  "local_test_summary": {
+    "tests": 84,
+    "passed": 81,
+    "skipped": 3,
+    "skip_reason": "Existing Windows/platform link capability controls; no fixture acceptance claim",
+    "suite": ".tools/check_skill_operations.py (local optional Langflow tests included; CI only discovers core tests)"
+  },
+  "frontend_tests": {
+    "suite": "SkillHistory.test.tsx",
+    "passed": 3,
+    "environment": "Isolated Jest29.7/ts-jest29.4.6/jsdom29.7; no product dependency manifest changes"
+  }
+}

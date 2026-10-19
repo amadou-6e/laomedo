@@ -1,0 +1,217 @@
+{
+  "date": "2026-10-19",
+  "source_revision": "8bd3f4e59e0b5f63e9329930a8401d6ccde0520e",
+  "status": "passed",
+  "attempted_model_turns": 5,
+  "max_authorized_turns": 6,
+  "total_model_turns": 5,
+  "failed_prior_runs": [
+    "4928d4d0-fc02-4a3d-aca3-3b8d36cfba91",
+    "b8080ddd-a794-44ec-9702-1df87e6b9a33",
+    "d29f980a-ae10-40b4-8ef2-35b4bf77aa5f",
+    "ff99bac7-3db6-4d54-84f6-7e8f3186f3d9"
+  ],
+  "additional_turn_user_approved": true,
+  "agent": "LaomedoCodexAgent",
+  "runner": "LocalRunner",
+  "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+  "run_id": "8820fc3f-6953-4747-aca4-804b46ac08e4",
+  "thread_id": "01a154f8-9bf5-7330-bdd3-6782266ebcaf",
+  "turns": [
+    {
+      "id": "01a154f8-a042-73c2-a04c-226266271899",
+      "status": "completed"
+    }
+  ],
+  "base_revision": "sha256:3d44565e5224eaa2dcd598828d047aedc941b104efc4daadd93fe06723b032c2",
+  "candidate_revision": "sha256:db60d3f1c39d2b4596fcf1195c102d0944bb1cef00a9e713f8b77bf447bd3aaf",
+  "commit": {
+    "commit_id": "sha256:1e4f984c130b9defcb5ff00df32840e4251323a6a44b51b2c1b1ea9afe24af6a",
+    "skill_id": "skill-workspace-guide",
+    "revision_id": "sha256:db60d3f1c39d2b4596fcf1195c102d0944bb1cef00a9e713f8b77bf447bd3aaf",
+    "parent_commit": "sha256:c3aa130349cde5a7897d5f1ae851d44350ae4ff81ce49353cbfad5eb6fbff9cc",
+    "created_at": "2026-10-19T16:22:34.737052+00:00",
+    "message": "Add a concise description of the workspace guide\u2019s read-only skill inspection and revision comparison instructions.",
+    "files": [
+      "SKILL.md"
+    ],
+    "patch": "--- base/SKILL.md\n+++ draft/SKILL.md\n@@ -1,5 +1,6 @@\n ---\\n\n name: skill-workspace-guide\\n\n+description: Help users inspect a registered skill\\u2019s pinned files and compare revisions while keeping the process read-only.\\n\n ---\\n\n \\n\n # Inspect a skill workspace\\n\n",
+    "editor": {
+      "kind": "agent",
+      "run_id": "8820fc3f-6953-4747-aca4-804b46ac08e4",
+      "thread_id": "01a154f8-9bf5-7330-bdd3-6782266ebcaf",
+      "trace_ref": "laomedo:run:8820fc3f-6953-4747-aca4-804b46ac08e4:events"
+    },
+    "draft_id": "5a10cf12-b85c-48c8-a76a-f35d8003a830",
+    "policy_ref": {
+      "policy_id": "skill-summary-guide-policy",
+      "revision_id": "1",
+      "hash": "sha256:ddb4ecdb4a76089189c1bbd9e5cad5300a6f77b7b72adfddf16a469f7ed9edeb"
+    },
+    "nonce": "381805f082e14a74b585cb25c7bc7e5f"
+  },
+  "only_description_line_changed": true,
+  "already_described_preparation_skips_generation": true,
+  "canonical_unchanged": true,
+  "source_unchanged": true,
+  "same_ticket_replay_without_model": true,
+  "container_cleanup_verified": true,
+  "graph_sha256": "6fbe80943822d79b567a9c170d3b1508aa8363ffcda77c554b6361265d5215f9",
+  "prior_failed_attempts": [
+    {
+      "run_id": "d29f980a-ae10-40b4-8ef2-35b4bf77aa5f",
+      "thread_id": "01a15025-495f-7573-9c50-59d7eb8d39a5",
+      "status": "completed",
+      "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+      "cli_version": "codex-cli 0.159.2",
+      "input_hash": "sha256:4063e59f3809358695578580b9a46196c24a435ed33ddedea72ea72d8ffff3aa",
+      "turns": [
+        {
+          "turn_id": "01a15025-4fdb-7bf3-bb72-1b81fcc3c8e3",
+          "status": "completed"
+        }
+      ],
+      "proposal_json_valid": false,
+      "extra_trailing_bytes": "]}",
+      "proposed_description_unapplied": "description: Help users inspect a selected skill\u2019s pinned files and revision differences in Laomedo while keeping the inspection read-only.",
+      "container_cleanup_verified": true,
+      "date": "2026-10-18",
+      "source_revision": "e9f1382794962b90f0b12c745ca5f7493a6dbef2",
+      "native_answer_equals_answer": true
+    },
+    {
+      "run_id": "ff99bac7-3db6-4d54-84f6-7e8f3186f3d9",
+      "thread_id": "01a1502b-2d78-73f3-951d-3241a44ae1ac",
+      "status": "completed",
+      "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+      "cli_version": "codex-cli 0.159.2",
+      "input_hash": "sha256:20f664051ad6a2b0467da99767dbbe50aeb9baf2b00384b1609265875ec3b334",
+      "turns": [
+        {
+          "turn_id": "01a1502b-30b1-7941-af88-69dd900ed5be",
+          "status": "completed"
+        }
+      ],
+      "proposal_json_valid": false,
+      "extra_trailing_bytes": "]}",
+      "proposed_description_unapplied": "description: Help users inspect a selected skill\u2019s pinned files and revision differences while keeping the workspace read-only.",
+      "container_cleanup_verified": true,
+      "date": "2026-10-18",
+      "source_revision": "e9f1382794962b90f0b12c745ca5f7493a6dbef2",
+      "native_answer_equals_answer": true
+    },
+    {
+      "run_id": "4928d4d0-fc02-4a3d-aca3-3b8d36cfba91",
+      "thread_id": "01a154e9-5626-7780-90bd-e99526146b4d",
+      "status": "completed",
+      "turns": [
+        {
+          "turn_id": "01a154e9-5ab0-7490-81b0-0b0bedae17de",
+          "status": "completed"
+        }
+      ],
+      "proposal_json_valid": false,
+      "extra_trailing_bytes": "]}",
+      "container_cleanup_verified": true,
+      "input_hash": "sha256:965b4d2a4621b22232a99fa3c5e26ca9cbd45795c9e2258ad1b58cee4a23392c",
+      "source_revision": "b873358adaacd94cb0896ad6e0ab295d35d943fd",
+      "date": "2026-10-19",
+      "native_answer_equals_answer": true,
+      "proposed_description_unapplied": "description: Guide users in inspecting a skill\u2019s pinned files and revision differences while keeping the workspace read-only.",
+      "image_id": "sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738",
+      "cli_version": "codex-cli 0.159.2"
+    },
+    {
+      "run_id": "b8080ddd-a794-44ec-9702-1df87e6b9a33",
+      "thread_id": "01a154f5-5e3c-7793-bb19-393650e5e5d7",
+      "status": "completed",
+      "turns": [
+        {
+          "turn_id": "01a154f5-61c2-7f02-b70f-5338a7aa98eb",
+          "status": "completed"
+        }
+      ],
+      "proposal_json_valid": false,
+      "extra_trailing_bytes": "]}",
+      "container_cleanup_verified": true,
+      "date": "2026-10-19",
+      "output_retries": 1,
+      "output_requirements": null,
+      "precheck": {
+        "call_count": 0,
+        "installed": false
+      },
+      "failure_reason": "Static DataInput template value discarded by Langflow; no requirements reached runner, so no correction triggered."
+    }
+  ],
+  "startup_failures": [
+    {
+      "stage": "credential-free Docker codex --version check",
+      "error_category": "startup_version_check_timeout",
+      "timeout_seconds": 20,
+      "model_dispatches_before_recovery": 0,
+      "operation_requests_before_recovery": 0,
+      "commits_before_recovery": 0,
+      "network": "none",
+      "credentials_mounted": false,
+      "recovery": "separate credential-free version check succeeded; same zero-dispatch state resumed, no ledger reset"
+    }
+  ],
+  "verification_turn_explicitly_user_approved": true,
+  "applied_result_count": 1,
+  "output_correction_count": 0,
+  "output_validation": {
+    "contract_status": "accepted",
+    "errors": [],
+    "requirements_revision": "sha256:a9561f8b55481f4a6503a90006ab6d7fff611db98cced480cda7d508adbcfa9d",
+    "schema_version": "laomedo.output-validation.v1"
+  },
+  "output_retries": 1,
+  "ledger_reset": false,
+  "output_requirements": {
+    "requirements": {
+      "fields": [
+        {
+          "checks": {
+            "enum": [
+              "modify"
+            ]
+          },
+          "name": "action",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "checks": {
+            "max_length": 2000,
+            "min_length": 1
+          },
+          "name": "message",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "checks": {
+            "max_length": 128,
+            "min_length": 1
+          },
+          "name": "files",
+          "required": true,
+          "type": "array"
+        }
+      ],
+      "schema_version": 1
+    },
+    "requirements_revision": "sha256:a9561f8b55481f4a6503a90006ab6d7fff611db98cced480cda7d508adbcfa9d",
+    "schema_version": "laomedo.output-requirements.v1"
+  },
+  "precheck": {
+    "call_count": 1,
+    "installed": true
+  },
+  "user_authorization": "fix and rerun",
+  "correction_exercised": false,
+  "journal_commit_count": 2,
+  "journal_request_count": 5,
+  "runner_and_edit_services_stopped": true
+}

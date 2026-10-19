@@ -21,6 +21,18 @@ def apply(checkout):
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
+    shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
+    shutil.copy2(overlay / "SkillActions.test.tsx", target / "SkillActions.test.tsx")
+    shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")
+    shutil.copy2(overlay / "SkillNavigation.test.tsx", target / "SkillNavigation.test.tsx")
+    shutil.copy2(overlay / "SkillOverview.tsx", target / "SkillOverview.tsx")
+    shutil.copy2(overlay / "SkillOverview.test.tsx", target / "SkillOverview.test.tsx")
+    shutil.copy2(overlay / "SkillFileDiff.tsx", target / "SkillFileDiff.tsx")
+    shutil.copy2(overlay / "SkillFileDiff.test.tsx", target / "SkillFileDiff.test.tsx")
+    shutil.copy2(overlay / "SkillHistory.tsx", target / "SkillHistory.tsx")
+    shutil.copy2(overlay / "SkillHistory.test.tsx", target / "SkillHistory.test.tsx")
+    shutil.copy2(overlay / "SkillSplitPane.tsx", target / "SkillSplitPane.tsx")
+    shutil.copy2(overlay / "SkillSplitPane.test.tsx", target / "SkillSplitPane.test.tsx")
     shutil.copy2(overlay / "selection.ts", target / "selection.ts")
     shutil.copy2(overlay / "MONACO-LICENSE.txt", checkout / "src/frontend/public/monaco-LICENSE.txt")
     issue_target = checkout / "src/frontend/src/modals/issueViewerModal"
@@ -33,8 +45,9 @@ def apply(checkout):
     activity_target.mkdir()
     shutil.copy2(overlay / "AgentActivity.tsx", activity_target / "index.tsx")
     agents_patch = overlay / "agents.patch"
-    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(agents_patch)], check=True)
-    subprocess.run(["git", "-C", str(checkout), "apply", str(agents_patch)], check=True)
+    # HEAD stays pinned; patch context tolerates whitespace differences, including Windows CRLF.
+    subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", "--check", str(agents_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", str(agents_patch)], check=True)
     agents_target = checkout / "src/frontend/src/modals/graphAgents"
     agents_target.mkdir()
     shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
