@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from uuid import uuid5, NAMESPACE_URL
 from lfx.graph.graph.base import Graph
+from laomedo.output_contract import requirements
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('skill_operation_builder', ROOT/'examples/langflow-workgraph-demo/build_flow.py')
 builder = importlib.util.module_from_spec(spec)
@@ -18,7 +19,12 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
     for field, value in [('skill_id', skill_id), ('revision_id', revision)]:
         skill['data']['node']['template'][field]['options'] = [value]
     agent = builder.node(ROOT/'components/laomedo/codex_agent.py', 'agent', {
-        'operation': 'fresh', 'runner_url': runner_url, 'output_retries': 0}, 600, 0)
+        'operation': 'fresh', 'runner_url': runner_url, 'output_retries': 1,
+        'output_requirements_json': json.dumps(requirements({'schema_version': 1, 'fields': [
+            {'name': 'action', 'type': 'string', 'required': True, 'checks': {'enum': ['modify']}},
+            {'name': 'message', 'type': 'string', 'required': True, 'checks': {'min_length': 1, 'max_length': 2000}},
+            {'name': 'files', 'type': 'array', 'required': True, 'checks': {'min_length': 1, 'max_length': 128}},
+        ]}))}, 600, 0)
     editor = builder.node(ROOT/'components/laomedo/skill.py', 'agent-skill', {
         'skill_id': 'skill-operation-editor', 'revision_id': editor_revision}, 0, 700)
     for key in ('skill_id', 'revision_id'):

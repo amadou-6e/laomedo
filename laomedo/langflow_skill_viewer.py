@@ -55,7 +55,7 @@ def install_routes(app, root: Path, authenticate):
              dependencies=[Depends(authenticate)])
     async def read_skill(skill_id: str, revision_id: str):
         try:
-            result = await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
+            result = await run_in_threadpool(inspect_skill, root, skill_id, revision_id, include_images=True)
         except InspectionError as exc:
             code = str(exc)
             status = 400 if code in {"invalid_skill_id", "immutable_skill_revision_required"} else 404

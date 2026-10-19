@@ -6,7 +6,7 @@ import SkillFileDiff from "./SkillFileDiff";
 export type Commit = { commit_id: string; parent_commit: string | null; revision_id: string;
   message: string; created_at: string; editor: Record<string, string>; policy_ref?: Record<string, string> };
 type History = { skill_id: string; selected_revision: string; commits: Commit[]; next: string | null };
-export type SkillFile = { path: string; bytes: number; file_hash: string; kind: "text" | "binary"; text: string | null };
+export type SkillFile = { path: string; bytes: number; file_hash: string; kind: "text" | "binary"; text: string | null; image_data_url?: string };
 export type Snapshot = { schema_version: string; skill_id: string; revision_id: string; tree_hash: string; files: SkillFile[] };
 const short = (identity: string) => identity.replace(/^sha256:/, "").slice(0, 8);
 
@@ -32,8 +32,7 @@ export default function CommitTree({ skillId, revision, selected, onSelect }: {
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [skillId, revision, cursor, reload]);
-  return <nav aria-label="Skill commit history" className="min-h-0 flex-1 overflow-auto border-t pt-3">
-    <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Commits</h3>
+  return <nav aria-label="Skill commit history" className="min-h-0 flex-1 overflow-auto py-1">
     <ol>{items.map((item) => <li key={item.commit_id} className="relative">
       <button type="button" aria-label={`Compare revision: ${item.message}`} aria-pressed={selected === item.commit_id}
         title={`${item.commit_id}\n${item.message}\n${item.created_at}`}

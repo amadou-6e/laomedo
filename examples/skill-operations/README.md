@@ -54,8 +54,8 @@ revision with its pinned current contents, including intervening changes.
 The visual inline editor shows full current contents with historical changes
 highlighted. Unchanged lines with equal old/current indexes use one number. Changed rows
 and unchanged lines with shifted numbers show both index cells; missing indexes
-are blank. A dedicated24pxmarker column renders
-bold18px +/minus signs. A horizontal header rule and index divider separate
+are blank. A dedicated 24 px marker column renders
+bold 18 px +/minus signs. A horizontal header rule and index divider separate
 the compact columns. The visible rows are virtualized; Monaco computes changes.
 Digit-sized index columns have a 4 px gap and thin divider. Revision hashes are
 shortened, with the full identity on hover. No aggregate raw patch or
@@ -100,3 +100,41 @@ is automatic. These updated exports were not executed against a model/provider.
 The earlier flow is preserved in historical-flow-before-skill-input.json;
 previous evidence describes that historical run, not execution of the migrated
 export. No execution budget or ledger has been reset.
+
+
+## Overview authoring
+
+A complete summary appears above files/history between horizontal dividers,
+without a frame. It uses the pinned `SKILL.md` description, with a prose fallback.
+Clicking the summary row opens/closes the full description, initially collapsed;
+the summary stays visible. Provide optional root
+`OVERVIEW.md` for purpose, usage and workflow illustrations; otherwise the full
+view renders SKILL.md without frontmatter. Local Markdown links and image paths
+stay within the same immutable snapshot. PNG/JPEG/GIF/WebP and sanitized SVG
+workflow diagrams are supported. Remote media and active markup are not loaded.
+These documents/assets are ordinary versioned skill files and can be changed
+atomically through the existing Skill operations. Opening the overview never calls a model or changes a revision. Historical comparisons keep the overview pinned to the current revision.
+
+
+The [overview review graph](overview-flow.json) selects the real documentation
+candidate described in [overview evidence](overview-evidence.json). It adds
+OVERVIEW.md and assets/workflow.svg to the existing real Agent result through
+one atomic **operator-authored** SkillOperations commit, not another Agent turn.
+The exact purpose/usage documents are in [overview/](overview/OVERVIEW.md).
+All existing bundle files and canonical latest remain unchanged. The original
+Agent result graph and exact executed graph are preserved separately.
+
+The temporary host documentation policy scoped writes to SKILL.md (required by
+the existing policy schema), OVERVIEW.md and assets/workflow.svg; only the last
+two changed. SVG is classified as script-capable by that schema, so its flag was
+allowed for this exact vector-document path; no command execution or additional
+script path was authorized. This policy is not installed in the read-only preview.
+
+The internal [skill-summary](../../laomedo/resources/skills/skill-summary/SKILL.md) authoring skill
+fills missing descriptions through ordinary versioned edits and preserves user
+summaries. It is not invoked by opening the read-only viewer.
+
+Host preparation adds the packaged internal summary skill to authoring tasks only
+when the pinned SKILL.md description is missing or blank. Applying such a task
+requires a nonempty description in the new revision. Existing descriptions do
+not trigger summary generation; the read-only viewer never triggers an edit.

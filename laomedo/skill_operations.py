@@ -21,6 +21,7 @@ from .skill_store import (SkillStore, SkillStoreError, ConflictError, _safe_rela
                           tree_hash, patch_for)
 from .skill_sources import _bundle
 from .skill_inspection import inspect_skill
+from .skill_summary import summary_authoring, has_description
 
 
 def proposal(value):
@@ -103,6 +104,7 @@ class SkillOperations:
         if policy is None:
             raise SkillStoreError('skill_edit_not_authorized')
         snapshot = inspect_skill(self.store.root, skill_id, revision_id)
+        authoring = summary_authoring(snapshot)
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             head = db.execute('SELECT id FROM heads WHERE skill=?', (skill_id,)).fetchone()
@@ -121,7 +123,7 @@ class SkillOperations:
             db.execute('INSERT INTO requests(ticket,skill,base,policy,expires,monotonic) VALUES (?,?,?,?,?,?)',
                        (ticket, skill_id, head['id'], json.dumps(policy), time.time()+300, time.monotonic()))
         return {'ticket': ticket, 'base_commit': head['id'], 'snapshot': snapshot,
-                'policy': policy}
+                'policy': policy, **authoring}
 
     def apply(self, ticket, operation, editor=None):
         operation = proposal(operation)
@@ -165,6 +167,8 @@ class SkillOperations:
                     del after[edit['path']]
                 else:
                     after[edit['path']] = edit['content'].encode()
+            if not has_description(after.get('SKILL.md', b'').decode('utf-8-sig')):
+                raise SkillStoreError('skill_summary_required')
             _bundle(after)
             errors = validate_draft(before, after, policy)
             if errors:

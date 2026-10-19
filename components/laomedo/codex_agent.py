@@ -69,7 +69,9 @@ class LaomedoCodexAgent(Component):
         StrInput(name="request_id", display_name="Request ID", advanced=True, show=False,
                  info="Optional stable UUID for nonblocking Start retries."),
         DataInput(name="output_requirements", display_name="Output Requirements", show=False,
-                  info="Expected answer format, normally resolved from the next node. Connect explicit requirements only when needed."),
+                  info="Internal expected-answer contract; dedicated Output Contract connections support automatic discovery."),
+        StrInput(name="output_requirements_json", display_name="Output Requirements JSON",
+                 value="", advanced=True, show=False, info="Internal static pinned requirements when no contract connection is supplied."),
         IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
                  advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
@@ -199,6 +201,16 @@ class LaomedoCodexAgent(Component):
     def _prepare(self):
         endpoint, payload, method = self._prepare_request()
         connected = getattr(self, "output_requirements", None)
+        static = str(getattr(self, "output_requirements_json", "") or "").strip()
+        if static:
+            from laomedo.output_contract import verify_requirements
+            try:
+                pinned = verify_requirements(json.loads(static))
+            except (TypeError, ValueError):
+                raise ValueError("invalid_static_output_requirements") from None
+            if connected not in (None, "", []) and verify_requirements(getattr(connected, "data", connected)) != pinned:
+                raise ValueError("conflicting_output_requirements")
+            connected = pinned
         if self.name == "LaomedoCodexAgent":
             from laomedo.contract_graph import downstream_requirements
             from laomedo.output_contract import verify_requirements

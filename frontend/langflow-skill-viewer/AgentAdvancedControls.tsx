@@ -9,7 +9,7 @@ const CONTROLS = new Set([
 export function isAgentControlHidden(data: any, name: string): boolean {
   const kind = data.node?.name || data.type;
   return ["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind) &&
-    ["request_id", "skill_id", "revision_id", "output_requirements", "run_reference", "run_reference_json", "bridge_url"].includes(name);
+    ["request_id", "skill_id", "revision_id", "output_requirements", "output_requirements_json", "run_reference", "run_reference_json", "bridge_url"].includes(name);
 }
 export function advancedAgentFields(data: any, fields: string[], edges: any[], toolMode: boolean): string[] {
   const kind = data.node?.name || data.type;

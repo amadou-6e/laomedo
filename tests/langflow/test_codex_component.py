@@ -65,6 +65,27 @@ def result(**changes):
 
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
+    def test_static_output_requirements_reach_request_and_reject_conflicts(self):
+        from laomedo.output_contract import requirements
+        from lfx.schema import Data
+        pin = requirements({"schema_version": 1, "fields": [
+            {"name": "action", "type": "string", "required": True, "checks": {"enum": ["modify"]}}]})
+        node = component(output_requirements_json=json.dumps(pin), output_retries=1)
+        body = node._prepare()[1]
+        self.assertEqual(body["output_requirements"], pin)
+        self.assertEqual(body["output_retries"], 1)
+        node.output_requirements = Data(data=pin)
+        self.assertEqual(node._prepare()[1]["output_requirements"], pin)
+        other = requirements({"schema_version": 1, "fields": []})
+        node.output_requirements = Data(data=other)
+        with self.assertRaisesRegex(ValueError, "conflicting_output_requirements"):
+            node._prepare()
+        node.output_requirements = None
+        for bad in ["{", json.dumps({**pin, "requirements_revision": "sha256:" + "0" * 64})]:
+            node.output_requirements_json = bad
+            with self.assertRaisesRegex(ValueError, "invalid_static_output_requirements"):
+                node._prepare()
+
     async def test_predispatch_refusal_retains_safe_reason_without_inventing_run(self):
         for status, category, expected in (
             (400, "experiment_request_binding_denied", "experiment_request_binding_denied"),
