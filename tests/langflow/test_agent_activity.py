@@ -15,6 +15,18 @@ from laomedo.agent_activity import ActivityStore
 
 
 class ActivityTests(unittest.TestCase):
+    def test_capture_records_visible_name_without_changing_node_identity(self):
+        from laomedo.agent_activity import capture_for
+        component=SimpleNamespace(_user_id='alice',graph=SimpleNamespace(run_id='execution',flow_id='flow'),
+                                  _vertex=SimpleNamespace(id='stable-node',display_name='Review PR'))
+        with patch.dict(os.environ,{'LAOMEDO_AGENT_ACTIVITY_DB':str(self.store.path)}):
+            store,run=capture_for(component)
+        component._vertex.display_name='Renamed later'
+        summary=store.graph_runs('alice','flow')[0]
+        self.assertEqual(summary['node'],'stable-node')
+        self.assertEqual(summary['node_label'],'Review PR')
+        self.assertEqual(store.read('alice','flow','stable-node',run)['run']['node_label'],'Review PR')
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.store=ActivityStore(Path(self.temp.name)/'activity.db')

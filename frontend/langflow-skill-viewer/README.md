@@ -1,5 +1,35 @@
 # Langflow Skill files overlay
 
+## Agent activity appearance and node names
+
+The graph selector lists captured executions of the current graph. Labelled
+rules separate Graph run timeline and Selected agent run. Invocation metadata
+uses plain labelled values; usage and diagnostic evidence precede Conversation.
+Conversation uses the selected open-section style, right-aligned user messages,
+left-aligned agent messages and safe Markdown (no raw HTML or remote images).
+Its keyboard-focusable body scrolls independently at a maximum height of
+`min(360px, 60vh)`; the heading stays outside that scroll area. Short threads
+size to their content. No automatic scroll or model execution occurs on viewing.
+Tool calls use compact utility rows with exact commands and native read-action
+names when available. Output and raw metadata start collapsed; unknown tool
+payloads remain inspectable. A small source icon at the right of each message
+opens its exact source in a bounded popover, without an extra disclosure row. Child-thread messages use
+a distinct Subagent label with a short native thread ID (full ID on hover);
+subagent start/completion rows use observed native kind and path. Evidence warnings and
+capture limits remain visible. This is a display change, not new trace capture.
+
+
+The Agents tab uses Langflow's existing buttons, status badges and JSON code
+viewer, with compact trace-style headers, rows and metric cards. Its ChartGantt
+navigation icon is distinct from Traces' Activity icon. All existing activity
+details, timeline lanes, usage and evidence warnings remain available.
+
+To name an agent, select its canvas node, choose the pencil (Edit node details),
+edit the title, and save. Capture records that visible title at invocation start;
+later renames do not rewrite recorded names. Older invocations with no recorded
+title use the current canvas title, falling back to the node ID if unavailable.
+Node identity details disclose that fallback and retain the stable routing ID.
+
 Tracking: Laomedo #154, specs #370. This is a small frontend overlay for upstream
 Langflow v1.12.3, commit `fec71dca901949c09ed4d63315804337cd2eb13d`.
 It is not an upstream plugin API or a vendored Langflow distribution.
@@ -90,3 +120,7 @@ alpha snapshots and a trusted Git fixture adapter offering main and tag v1.
 It uses real custom-component refresh APIs and no model or publisher node.
 Use a separate build output while a live viewer mounts upstream's default build.
 See [source service activation draft](SOURCE-DEPLOYMENT.md).
+
+The original Codex agent node offers Activity in place of Code. It opens the graph Agents view with that node selected, choosing its newest captured graph execution and invocation. The timeline still shows the other agents in that execution. If the node has no capture in the selected execution, the view says so; viewing never starts a run.
+
+The overlay applicator installs AgentActivityNavigation.ts at src/frontend/src/stores/agentActivityStore.ts. The node entry point uses an explicit transient target scoped to the graph, clears it when leaving Activity, and does not change canvas selection or save graph data. Opening Agents directly from the sidebar does not infer a target from selected canvas nodes.

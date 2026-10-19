@@ -31,6 +31,15 @@
  
    if (showAgent) {
      return <AgentMainContent />;
+--- a/src/frontend/src/pages/FlowPage/index.tsx
++++ b/src/frontend/src/pages/FlowPage/index.tsx
+@@ -277,5 +282,5 @@
+       <div className="flow-page-positioning">
+         {currentFlow && (
+-          <div className="flex h-full overflow-hidden">
++          <div className="flex h-full overflow-clip">
+             {/* Main content + Playground Sidebar (right) */}
+             <SimpleSidebarProvider
 --- a/src/frontend/src/pages/FlowPage/components/flowSidebarComponent/index.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/flowSidebarComponent/index.tsx
 @@ -417,7 +417,7 @@
@@ -48,7 +57,7 @@
  }
  
  export const NAV_ITEMS: SidebarNavItem[] = [
-+  {id:"agents",icon:"Activity",label:"Agents",tooltip:"Graph agent activity"},
++  {id:"agents",icon:"ChartGantt",label:"Agents",tooltip:"Graph agent activity"},
    {
      id: "components",
      icon: "component",
@@ -73,3 +82,93 @@
                        setPlaygroundOpen(false);
                        setPlaygroundFullscreen(false);
                      }
+--- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
++++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/index.tsx
+@@ -1,3 +1,7 @@
++import { useAgentActivityStore } from "@/stores/agentActivityStore";
++import { useSidebar } from "@/components/ui/sidebar";
++import { usePlaygroundStore } from "@/stores/playgroundStore";
++import { ENABLE_NEW_SIDEBAR } from "@/customization/feature-flags";
+ import { prSelection } from "@/modals/prViewerModal";
+ import { issueSelection, nodeKind } from "@/modals/issueViewerModal";
+ import { useUpdateNodeInternals } from "@xyflow/react";
+@@ -54,6 +58,8 @@
+     openDropdownOnRightClick?: boolean;
+   }): JSX.Element => {
+     const { t } = useTranslation();
++    const { setActiveSection } = useSidebar();
++    const isAgentNode = ENABLE_NEW_SIDEBAR && nodeKind(data.type) === "LaomedoCodexAgent";
+     const version = useDarkStore((state) => state.version);
+     const [showconfirmShare, setShowconfirmShare] = useState(false);
+     const [showOverrideModal, setShowOverrideModal] = useState(false);
+@@ -190,6 +196,13 @@
+     }, [hasApiKey, hasStore]);
+ 
+     const handleCodeModal = useCallback(() => {
++      if (isAgentNode) {
++        useAgentActivityStore.getState().openActivity(currentFlowId, data.id);
++        usePlaygroundStore.getState().setIsOpen(false);
++        usePlaygroundStore.getState().setIsFullscreen(false);
++        setActiveSection("agents");
++        return;
++      }
+       if (["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(data.type))) { setOpenModal(true); return; }
+       if (!hasCode) {
+         setNoticeData({ title: t("node.cannotAccessCode", { id: data.id }) });
+@@ -200,7 +213,7 @@
+         return;
+       }
+       setOpenModal((state) => !state);
+-    }, [hasCode, allowCustomComponents, data.id, data.type, data.node?.name]);
++    }, [isAgentNode, currentFlowId, setActiveSection, hasCode, allowCustomComponents, data.id, data.type, data.node?.name]);
+ 
+     const saveComponent = useCallback(() => {
+       if (isSaved) {
+@@ -425,6 +438,7 @@
+         <div className="noflow nopan nodelete nodrag">
+           <div className="toolbar-wrapper">
+             <ToolbarButtonRow
++              isAgentNode={isAgentNode}
+               canEditCode={canEditCode}
+               isSkillNode={nodeKind(data.type) === "LaomedoSkill"}
+               isPRNode={nodeKind(data.type) === "LaomedoGitHubPR"}
+--- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
++++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
+@@ -14,6 +14,7 @@
+   isSkillNode?: boolean;
+   isIssueNode?: boolean;
+   isPRNode?: boolean;
++  isAgentNode?: boolean;
+   canOpenIssue?: boolean;
+   onOpenIssue?: () => void;
+   isCustomComponent: boolean;
+@@ -39,6 +40,7 @@
+   isSkillNode = false,
+   isIssueNode = false,
+   isPRNode = false,
++  isAgentNode = false,
+   canOpenIssue = false,
+   onOpenIssue,
+   isCustomComponent,
+@@ -55,16 +57,16 @@
+   const shortcuts = useShortcutsStore((state) => state.shortcuts);
+   return (
+     <>
+-      {(canEditCode || isSkillNode || isIssueNode || isPRNode) && (
++      {(canEditCode || isSkillNode || isIssueNode || isPRNode || isAgentNode) && (
+         <ToolbarButton
+           className={isCustomComponent ? "animate-pulse-pink" : ""}
+-          icon={isPRNode ? "GitPullRequest" : isIssueNode ? "FileText" : isSkillNode ? "FolderOpen" : "Code"}
+-          label={isPRNode ? "PR viewer" : isIssueNode ? "Issue viewer" : isSkillNode ? "Skill files" : t("nodeToolbar.code")}
++          icon={isAgentNode ? "ChartGantt" : isPRNode ? "GitPullRequest" : isIssueNode ? "FileText" : isSkillNode ? "FolderOpen" : "Code"}
++          label={isAgentNode ? "Activity" : isPRNode ? "PR viewer" : isIssueNode ? "Issue viewer" : isSkillNode ? "Skill files" : t("nodeToolbar.code")}
+           onClick={onCode}
+-          shortcut={shortcuts.find((s) =>
++          shortcut={isAgentNode ? undefined : shortcuts.find((s) =>
+             s.name.toLowerCase().startsWith("code"),
+           )}
+-          dataTestId={isPRNode ? "pr-viewer-button" : isIssueNode ? "issue-viewer-button" : isSkillNode ? "skill-files-button" : "code-button-modal"}
++          dataTestId={isAgentNode ? "agent-activity-button" : isPRNode ? "pr-viewer-button" : isIssueNode ? "issue-viewer-button" : isSkillNode ? "skill-files-button" : "code-button-modal"}
+         />
+       )}
+       {(isIssueNode || isPRNode) && <ToolbarButton disabled={!canOpenIssue} icon="ExternalLink" label="Open in GitHub" onClick={onOpenIssue!} dataTestId={isPRNode ? "pr-browser-button" : "issue-browser-button"} />}
