@@ -37,6 +37,7 @@ def apply(checkout):
     subprocess.run(["git", "-C", str(checkout), "apply", str(agents_patch)], check=True)
     agents_target = checkout / "src/frontend/src/modals/graphAgents"
     agents_target.mkdir()
+    shutil.copy2(overlay / "AgentActivityNavigation.ts", checkout / "src/frontend/src/stores/agentActivityStore.ts")
     shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
     shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
     print("pinned_skill_viewer_overlay_applied")
