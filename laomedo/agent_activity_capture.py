@@ -31,7 +31,7 @@ class RunnerCapture:
         self.opener = build_opener(ProxyHandler({}))
         if self.capture:
             try:
-                path=os.environ.get('LAOMEDO_RUNNER_TOKEN_FILE','/run/secrets/laomedo-runner-token')
+                path=component._token_file_path()
                 self.token=Path(path).read_text().strip()
                 if not self.token:
                     raise ValueError('activity_runner_token_missing')

@@ -164,5 +164,6 @@ def capture_for(component):
         raise ValueError('agent_activity_execution_required')
     label=getattr(component._vertex,'display_name',None)
     run=store.start(str(component._user_id or ''),str(getattr(graph,'source_flow_id',None) or graph.flow_id or ''),component._vertex.id,execution=execution,
-                    node_label=label if isinstance(label,str) and label.strip() else None)
+                    node_label=label if isinstance(label,str) and label.strip() else None,
+                    provider=getattr(component,'activity_provider','codex-cli'))
     return store,run

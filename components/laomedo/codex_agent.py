@@ -124,7 +124,7 @@ class LaomedoCodexAgent(Component):
             if connected not in (None, "", []) and verify_requirements(getattr(connected, "data", connected)) != pinned:
                 raise ValueError("conflicting_output_requirements")
             connected = pinned
-        if self.name == "LaomedoCodexAgent":
+        if self.name in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             from laomedo.contract_graph import downstream_requirements
             from laomedo.output_contract import verify_requirements
             explicit = (verify_requirements(getattr(connected, "data", connected))
