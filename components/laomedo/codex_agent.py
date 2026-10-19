@@ -354,6 +354,11 @@ class LaomedoCodexAgent(Component):
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
     def _bridge_base(self):
+        # A host-wide Codex join setting must not redirect OpenCode or lifecycle
+        # operations. Stop handling during a fresh/start invocation still uses
+        # the bridge so its in-flight request can be reconciled correctly.
+        if self.name != "LaomedoCodexAgent" or str(self.operation) not in {"fresh", "start"}:
+            return ""
         base = str(os.environ.get("LAOMEDO_BRIDGE_URL", getattr(self, "bridge_url", "")) or "").rstrip("/")
         if not base:
             return ""

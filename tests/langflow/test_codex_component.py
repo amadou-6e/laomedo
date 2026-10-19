@@ -804,6 +804,14 @@ class AgentControlOwnershipTests(unittest.TestCase):
 
 
 class ObsoleteAgentControlTests(unittest.TestCase):
+    def test_global_codex_bridge_does_not_route_lifecycle_or_other_providers(self):
+        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+            for operation in ("resume", "status", "cancel"):
+                self.assertEqual(component(operation=operation)._bridge_base(), "")
+            node = component(operation="fresh")
+            node.name = "LaomedoOpenCodeAgent"
+            self.assertEqual(node._bridge_base(), "")
+
     def test_backend_bridge_configuration_overrides_legacy_node_value(self):
         node = component(bridge_url="http://localhost:8766")
         with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):

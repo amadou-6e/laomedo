@@ -31,5 +31,8 @@
     "specs": "APPROVE322d6a6"
   },
   "capability_scope": "Configured snapshot from installed model metadata intersected with previously advertised native runner IDs; runner checks actual availability before a turn",
-  "acceptance_scope": "Real node controls, palette and component-update endpoint. No new Agent/provider execution claimed."
+  "acceptance_scope": "Real node controls, palette and component-update endpoint. No new Agent/provider execution claimed.",
+  "superseded": true,
+  "superseded_by": "runtime-capabilities-audit.md",
+  "scope_note": "Historical fixed-table dropdown evidence, not current runtime discovery acceptance."
 }
