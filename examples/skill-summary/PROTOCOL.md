@@ -56,3 +56,21 @@ The authorized third turn completed on 2026-10-19 but again returned trailing
 `]}` after its operation JSON. The host refused it. Ledger: three attempted
 turns, three requests, one import commit, zero applied results. No further turn
 is authorized. All three native runs and the original source are preserved.
+
+## Output-correction verification
+
+On 2026-10-19 the user instructed ?fix and rerun? after clarification that the
+example disabled output retries and omitted requirements. Connect pinned
+action/message/files requirements and permit one same-thread output correction.
+Run once, using at most two new native turns (campaign ceiling five). Preserve
+the three prior refused runs and ledger; do not reset, silently restart, or
+weaken host proposal validation. Correction is output-only, subject to existing
+side-effect safety checks. All nested edits still require host validation.
+
+The first correction-configured attempt consumed one turn but Langflow discarded
+the DataInput template value: runner requirements were absent and no correction
+ran. Preserve that fourth failed run. Fix static configuration using a validated
+JSON input; verify the actual native-graph runner request offline before the
+corrected rerun. Under the user's fix-and-rerun instruction, run one further
+initial turn with at most one same-thread correction (campaign ceiling six).
+Do not reset the existing four-turn ledger.
