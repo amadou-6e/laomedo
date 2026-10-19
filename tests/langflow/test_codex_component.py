@@ -899,6 +899,9 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
 
     def test_main_controls_are_dropdowns_with_reported_options(self):
         inputs = {item.name: item.to_dict() for item in module.LaomedoCodexAgent.inputs}
+        order = [item.name for item in module.LaomedoCodexAgent.inputs]
+        self.assertEqual(order[order.index("effort") + 1], "skill_reference")
+        self.assertFalse(inputs["bridge_url"]["show"])
         self.assertEqual(inputs["model"]["options"], [])
         self.assertEqual(inputs["effort"]["options"], [])
         self.assertFalse(inputs["model"]["combobox"])

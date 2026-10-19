@@ -58,3 +58,10 @@ test("non-Agent renderer retains upstream advanced visibility", () => {
  expect(screen.queryByRole("button", { name: "Advanced controls" })).toBeNull();
  expect(screen.queryByRole("textbox", { name: "runner_url" })).toBeNull();
 });
+
+test("obsolete connection and bridge controls stay hidden in legacy Agent templates", () => {
+ const names = ["output_requirements", "output_requirements_json", "run_reference", "run_reference_json", "bridge_url"];
+ const legacy = { ...data, node: { template: { ...data.node.template, ...Object.fromEntries(names.map(name => [name, { ...field, advanced: false }])) } } };
+ render(<RenderInputParameters data={legacy} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false} />);
+ for (const name of names) expect(screen.queryByRole("textbox", { name })).toBeNull();
+});
