@@ -74,3 +74,9 @@ JSON input; verify the actual native-graph runner request offline before the
 corrected rerun. Under the user's fix-and-rerun instruction, run one further
 initial turn with at most one same-thread correction (campaign ceiling six).
 Do not reset the existing four-turn ledger.
+
+Result: the corrected run completed and host-applied the description-only edit.
+It used one new turn (five total of ceiling six). Pinned requirements, native
+precheck and final output validation were active; no correction was needed.
+Independent readback, parent history and same-ticket replay passed. Both source
+and canonical latest remained unchanged. No further run is planned.

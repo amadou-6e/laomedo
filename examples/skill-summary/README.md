@@ -12,19 +12,33 @@ trigger generation. Reads, discovery and import do not dispatch models.
 The [new workspace-guide skill](source-skill/SKILL.md) was created for the real
 test at the user's request. Its missing description is the actual authoring
 task. [Protocol](PROTOCOL.md) records the initial one-turn bound and the user's
-explicit authorizations for the second and third turns.
+explicit authorizations and the later fix-and-rerun instruction.
 
-## Real verification: incomplete
+## Real verification: passed
 
-All three actual LaomedoCodexAgent/Docker LocalRunner turns completed and authored a
-grounded description, but each appended `]}` after its complete operation JSON.
-The strict host parser refused all three answers. There is no accepted candidate
-revision or successful end-to-end generation claim. The original source and
-canonical registry revision remain unchanged; all three containers were cleaned and
-the edit/runner services stopped. No more model turns are authorized.
+The corrected two-node Skill -> real LaomedoCodexAgent -> same Skill Operation
+flow produced an accepted candidate revision. Only one description line was
+added to SKILL.md. The host recorded its parent commit and backend Agent
+provenance; independent registry readback and same-ticket replay succeeded.
+Canonical latest and source files remain unchanged.
 
-[Evidence](evidence.json) retains the three run identities, unapplied descriptions,
-failure reason, ledger count and journal counts. [Executed graph](executed-flow.json)
-is the third actual attempt, not a successful review graph. Internal unit tests
-verify preparation, refusal and revision history mechanics; they do not replace
-this missing real integration acceptance.
+The Agent has a pinned action/message/files output contract and one permitted
+same-session correction (`output_retries: 1`). The contract reaches the runner
+through the advanced **Output Requirements JSON** setting because Langflow
+ignores an unconnected static DataInput value. Connected requirements remain
+supported; malformed pins or conflicting values are refused. The generic
+contract checks the outer form; host policy still validates every file edit.
+
+The successful run used one turn: precheck and final output validation passed,
+so no correction was needed. This verifies the real authoring workflow and
+contract binding, not a live correction being exercised. Five campaign turns
+were used, with all four failed prior runs preserved. The first three had
+trailing punctuation; the fourth exposed the discarded static DataInput value.
+No parser repair, ledger reset or fixture provider was used.
+
+[Evidence](evidence.json) records the actual candidate, parent, diff, execution
+identity, validation and prior failures. [Executed graph](executed-flow.json)
+is the successful invocation; [review graph](flow.json) selects its candidate
+with the edit request cleared. [Generated skill](generated-skill/SKILL.md)
+contains the exact accepted bytes. The runner and edit services are stopped;
+the separate preview has an empty edit-policy map.
