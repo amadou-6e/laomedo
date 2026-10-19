@@ -35,7 +35,7 @@ class ActivityStore:
             ''')
             db.execute('BEGIN IMMEDIATE')
             columns = {row['name'] for row in db.execute('PRAGMA table_info(agent_activity_runs)')}
-            for name in ('execution', 'runner_run_id', 'model'):
+            for name in ('execution', 'runner_run_id', 'model', 'node_label'):
                 if name not in columns:
                     db.execute(f'ALTER TABLE agent_activity_runs ADD COLUMN {name} TEXT')
             db.execute('''CREATE TABLE IF NOT EXISTS agent_activity_sources (
@@ -57,15 +57,15 @@ class ActivityStore:
         finally:
             db.close()
 
-    def start(self, owner, flow, node, provider='codex-cli', *, execution=None):
+    def start(self, owner, flow, node, provider='codex-cli', *, execution=None, node_label=None):
         if not all(isinstance(v,str) and v and len(v)<=200 for v in (owner,flow,node)):
             raise ValueError('agent_activity_identity_required')
         run = str(uuid4())
         with self.db() as db:
             db.execute('''INSERT INTO agent_activity_runs
-                (id,owner,flow,node,provider,started,status,stream_state,execution)
-                VALUES (?,?,?,?,?,?,?,?,?)''',
-                       (run,owner,flow,node,provider,now(),'running','partial',execution))
+                (id,owner,flow,node,provider,started,status,stream_state,execution,node_label)
+                VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                       (run,owner,flow,node,provider,now(),'running','partial',execution,node_label))
         return run
 
     def append(self, run, event, *, source=None, cursor=None):
@@ -162,5 +162,7 @@ def capture_for(component):
     execution=str(graph.run_id or '')
     if not execution:
         raise ValueError('agent_activity_execution_required')
-    run=store.start(str(component._user_id or ''),str(getattr(graph,'source_flow_id',None) or graph.flow_id or ''),component._vertex.id,execution=execution)
+    label=getattr(component._vertex,'display_name',None)
+    run=store.start(str(component._user_id or ''),str(getattr(graph,'source_flow_id',None) or graph.flow_id or ''),component._vertex.id,execution=execution,
+                    node_label=label if isinstance(label,str) and label.strip() else None)
     return store,run
