@@ -33,21 +33,10 @@ Skill dependencies resolve twice in the bounded executor, which can read linked
 sources twice; this accepted limitation is recorded in the contract. The branch
 remains unmerged pending user review.
 
-## Model and reasoning dropdowns
+## Current model and reasoning controls
 
-Model and Reasoning Effort use native Langflow dropdown controls. Selecting a
-model refreshes its configured effort choices; incompatible effort is cleared,
-without silently lowering it. A component upgrade preserves saved values and
-adds them to the visible options. The list is a configured capability snapshot,
-not live provider/account discovery; the runner remains authoritative.
+Model and Reasoning Effort are native dropdowns populated from authenticated runner model metadata. Refresh Model to load choices; selecting another model preserves compatible effort and clears incompatible effort. There is no fixed model/effort table or default. Discovery is serialized, cached for 30 seconds, and bounded; offline component upgrades preserve saved selections. Metadata discovery does not prove account entitlement or provider execution.
 
-Output Requirements supplies the expected answer format, normally derived from
-the downstream consumer. Prior Run is an earlier execution reference for
-resume/status/cancel; fresh/start does not continue that run.
+Skill References follows Reasoning Effort. Output Requirements, its JSON alternative, Prior Run, and Join Bridge URL are internal compatibility fields, hidden from the node. Configure the bridge centrally with LAOMEDO_BRIDGE_URL. Legacy serialized bridge values remain a fallback; an explicitly configured environment value takes precedence.
 
-[dropdown-evidence.json](dropdown-evidence.json) records53componenttests,
-actual fresh-palette DropdownInput metadata, the real component-update endpoint
-preserving an older gpt-6-sol/ultra selection, and browser checks for choices,
-incompatible clearing, persistence and restoration. No Agent was executed.
-
-See [runtime capability discovery and remaining assumptions](runtime-capabilities-audit.md) for the replacement of the historical fixed dropdown snapshot. Earlier dropdown evidence describes the previous implementation.
+The earlier dropdown-evidence.json describes the historical fixed-table implementation, not current discovery. See [runtime capability audit](runtime-capabilities-audit.md) for remaining assumptions and [real Skill edit](real-skill-edit-evidence.json) for the successful original-Agent run. That real run predates develop integration and is not final-head provider acceptance. User reviewed the updated graph and approved merging on 2026-10-19.

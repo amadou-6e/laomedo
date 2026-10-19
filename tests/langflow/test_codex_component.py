@@ -804,6 +804,14 @@ class AgentControlOwnershipTests(unittest.TestCase):
 
 
 class ObsoleteAgentControlTests(unittest.TestCase):
+    def test_backend_bridge_configuration_overrides_legacy_node_value(self):
+        node = component(bridge_url="http://localhost:8766")
+        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+            self.assertEqual(node._bridge_base(), "http://localhost:8767")
+        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": ""}):
+            self.assertEqual(node._bridge_base(), "")
+
+
     def test_hidden_overrides_cannot_drive_execution(self):
         node = component(request_id="legacy-id", skill_reference=module.Data(data={
             "skill_id": "authoritative", "revision_id": HASH, "tree_hash": HASH}),
