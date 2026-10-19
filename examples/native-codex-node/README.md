@@ -39,8 +39,9 @@ URL if its runner uses a different loopback port. Trigger through the editor or
 Langflow run API with a task. Read the Run Reference output for native thread,
 snapshot hash, opaque artifacts and raw-event references.
 
-For a later resume, choose resume and connect the prior Data output, or supply
-the returned object as advanced Prior Run JSON through the editor/API tweaks.
+For a later resume, supply the prior run reference through existing serialized
+wiring or API tweaks; Prior Run controls are hidden and node-local run selection
+is not implemented.
 Keep model and effort identical. Restart the runner before the acceptance resume
 to demonstrate persistence. Missing snapshot or mismatched identity must fail,
 not silently create a new run. Status and cancel use only the prior run ID.
@@ -113,3 +114,5 @@ and explicitly reimport it when adopting a new component revision; a source
 update does not change an existing saved flow. No running instance or saved flow
 was changed by the credential-free #20 tests. The #104 lease and GitHub-write
 work remains separate.
+
+The current flow has been regenerated for the current Agent schema, including runtime model/effort dropdowns and hidden compatibility fields. Earlier execution receipts remain historical and do not establish a rerun of this regenerated export. This synthetic example is an internal structural test, not the real graph reviewed in the Agent-controls workflow.
