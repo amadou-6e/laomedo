@@ -13,3 +13,4 @@ experiments/exp104/native-localrunner-s13-a-provider-attempts.jsonl -text whites
 frontend/langflow-skill-viewer/upstream.patch text eol=lf whitespace=-blank-at-eol
 examples/skill-files-viewer/skill/** text eol=lf
 frontend/langflow-skill-viewer/agents.patch text eol=lf whitespace=-blank-at-eol
+examples/skill-operations/** text eol=lf

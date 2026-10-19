@@ -401,8 +401,11 @@ class SkillStore:
             raise SkillStoreError("draft_not_open")
         return self._workspace(draft_id)
 
-    def freeze_draft(self, draft_id: str) -> dict:
+    def freeze_draft(self, draft_id: str, *, editor_kind="human", edit_run_id=None, trace_ref=None) -> dict:
         """Create a review artifact. This never promotes it."""
+        if editor_kind not in {"human", "operator", "agent"} or (editor_kind == "agent" and
+                (not isinstance(edit_run_id, str) or not edit_run_id)):
+            raise SkillStoreError("invalid_editor_provenance")
         folder = self._draft(draft_id)
         record = _read_json(folder / "record.json")
         if record.get("status") != "open":
@@ -436,7 +439,7 @@ class SkillStore:
             "revision_id": record["base_revision"],
             "tree_hash": record["base_tree_hash"]},
             "policy_ref": record["policy_ref"],
-            "editor_kind": "human", "edit_run_id": None, "trace_ref": None,
+            "editor_kind": editor_kind, "edit_run_id": edit_run_id, "trace_ref": trace_ref,
             "observed_tree_hash": observed_hash,
             "proposed_tree_hash": observed_hash if eligible else None,
             "proposed_ref": ({"tree_hash": observed_hash,
