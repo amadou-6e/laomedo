@@ -33,6 +33,9 @@ class LaomedoClaudeAgent(Component):
         return super()._prepare()
 
     def _token_file_path(self):
+        return self._runner_token_file_path()
+
+    def _runner_token_file_path(self):
         return os.environ.get("LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE",
                               "/run/secrets/laomedo-claude-runner-token")
 

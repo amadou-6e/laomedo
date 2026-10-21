@@ -308,6 +308,10 @@ class LaomedoCodexAgent(Component):
         if self._bridge_base():
             return os.environ.get("LAOMEDO_BRIDGE_TOKEN_FILE",
                                   "/run/secrets/laomedo-bridge-token")
+        return self._runner_token_file_path()
+
+    def _runner_token_file_path(self):
+        """Activity always polls the runner, even when dispatch uses a bridge."""
         return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
                               "/run/secrets/laomedo-runner-token")
 

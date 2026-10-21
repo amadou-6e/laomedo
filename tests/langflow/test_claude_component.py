@@ -30,6 +30,12 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(answer.text, 'answer')
         self.assertEqual(reference.data['provider'], 'claude')
 
+    def test_runner_provider_mismatch_is_checked_by_subclass(self):
+        base = LaomedoClaudeAgent.__bases__[0]
+        with patch.object(base, '_http', return_value={'provider': 'codex'}):
+            with self.assertRaisesRegex(RuntimeError, 'runner_provider_mismatch'):
+                self.node()._http('http://localhost:8769', {}, 'POST')
+
     def test_static_contract_reaches_runner_and_foreign_provider_refuses(self):
         pin = requirements({'schema_version': 1, 'fields': []})
         prepared = self.node(output_requirements_json=json.dumps(pin), output_retries=1)._prepare()[1]
