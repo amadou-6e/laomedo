@@ -31,3 +31,10 @@ candidate has the normal immutable history/diff and backend run provenance.
 
 Official references: [CLI](https://code.claude.com/docs/en/cli-reference) and
 [programmatic runs](https://code.claude.com/docs/en/headless).
+
+Claude Code retains resumable session transcripts under the operator's normal
+Claude profile. Their location and retention are controlled by the official CLI,
+outside Laomedo's run-state boundary; the reviewer does not read them. Exported
+graphs contain neither login material nor raw transcripts. Only UTF-8 skill files
+are included; skipped binary paths are recorded explicitly. Parent CLI exit is
+observed, while descendant cleanup and complete SDK evidence remain unknown.

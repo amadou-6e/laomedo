@@ -7,7 +7,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.claude_runner import ClaudeRunner, CLI_VERSION, command, terminal_result
+from laomedo.claude_runner import ClaudeRunner, CLI_VERSION, command, terminal_result, cli_environment
 from laomedo.local_runner import RunnerError
 from laomedo.output_contract import requirements
 
@@ -81,6 +81,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual(result['status'], 'completed')
         self.assertEqual(result['output_validation']['contract_status'], 'accepted')
         self.assertEqual(result['output_correction_count'], 1)
+        self.assertEqual(result['turns'][0]['output_validation']['errors'][0]['code'], 'invalid_json')
         self.assertEqual(calls, [(result['thread_id'], False), (result['thread_id'], True)])
         self.assertEqual(json.loads((self.runner.state / 'turn-ledger.json').read_text())['attempted_turns'], 2)
 
@@ -97,6 +98,24 @@ class ClaudeRunnerTests(unittest.TestCase):
             refused = self.runner.start(self.payload)
         invoked.assert_not_called()
         self.assertEqual(refused['error_category'], 'model_turn_cap_reached')
+
+    def test_environment_excludes_host_service_credentials(self):
+        with patch.dict('os.environ', {'GITHUB_TOKEN': 'internal-secret',
+                'LAOMEDO_RUNNER_TOKEN_FILE': '/private/runner', 'PATH': '/tools'}):
+            env = cli_environment()
+        self.assertNotIn('GITHUB_TOKEN', env)
+        self.assertNotIn('LAOMEDO_RUNNER_TOKEN_FILE', env)
+        self.assertEqual(env['PATH'], '/tools')
+        self.assertEqual(env['CLAUDE_CODE_DISABLE_AUTO_MEMORY'], '1')
+
+    def test_trailing_data_has_specific_feedback_without_parser_repair(self):
+        pin = requirements({'schema_version': 1, 'fields': []})
+        with self.invoke('{"action":"modify"}]}'):
+            result = self.runner.start({**self.payload, 'output_requirements': pin, 'output_retries': 0})
+        self.assertEqual(result['answer'], '{"action":"modify"}]}')
+        self.assertEqual(result['output_validation']['errors'][0]['code'], 'trailing_data')
+        self.assertEqual(result['evidence_complete'], 'unknown')
+        self.assertNotIn('process_cleanup_verified', result)
 
     def test_invalid_model_effort_or_external_scope_refuse_before_prepare(self):
         for changes in [{'model': '--other'}, {'effort': 'unsupported'},

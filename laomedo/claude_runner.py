@@ -14,6 +14,8 @@ from pathlib import Path
 import re
 import signal
 import subprocess
+import sys
+import tempfile
 import threading
 import time
 from uuid import UUID, uuid4
@@ -32,6 +34,15 @@ SYSTEM = ("Use the pinned skill instructions and the user's task. Native tools, 
           "changes in your answer; the host validates and applies them. Do not "
           "claim an operation has been applied. When an output contract is "
           "provided, return exactly one JSON object, without fences or trailing text.")
+
+
+def cli_environment():
+    """Only OS/profile discovery needed by the official login, never service secrets."""
+    allowed = {"PATH", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SYSTEMROOT",
+               "WINDIR", "SYSTEMDRIVE", "COMSPEC", "PATHEXT", "TEMP", "TMP", "LANG",
+               "LC_ALL", "LC_CTYPE", "HOMEDRIVE", "HOMEPATH", "PROGRAMDATA", "USERNAME"}
+    return {**{key: value for key, value in os.environ.items() if key.upper() in allowed},
+            "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"}
 
 
 def command(executable, model, effort, thread, *, resume=False):
@@ -71,7 +82,7 @@ class ClaudeRunner(LocalRunner):
                  max_model_turns=0):
         self.executable = Path(executable).resolve(strict=True)
         version = subprocess.run([str(self.executable), "--version"], capture_output=True,
-                                 text=True, timeout=20, check=True).stdout.strip()
+                                 text=True, timeout=20, check=True, env=cli_environment()).stdout.strip()
         if version != CLI_VERSION + " (Claude Code)":
             raise RunnerError("unsupported_claude_cli_version")
         # Provider overrides could silently select API billing or another account.
@@ -87,7 +98,7 @@ class ClaudeRunner(LocalRunner):
 
     def _check_auth(self):
         checked = subprocess.run([str(self.executable), "auth", "status"],
-                                 capture_output=True, text=True, timeout=20)
+                                 capture_output=True, text=True, timeout=20, env=cli_environment())
         try:
             auth = json.loads(checked.stdout)
         except ValueError:
@@ -133,15 +144,18 @@ class ClaudeRunner(LocalRunner):
         skills = []
         for skill in record["skills"]:
             files = []
+            skipped = []
             for name in sorted(skill["file_hashes"]):
                 content = (root / "workspace/.agents/skills" / skill["skill_id"] / name).read_bytes()
                 try:
                     text = content.decode("utf-8")
                 except UnicodeError:
+                    skipped.append(name)
                     continue
                 files.append({"path": name, "content": text})
             skills.append({"skill_id": skill["skill_id"], "revision_id": skill["revision_id"], "files": files})
-            skill.update(delivery_mode="prompt_snapshot", use_evidence="included_in_prompt")
+            skill.update(delivery_mode="prompt_snapshot", use_evidence="included_in_prompt",
+                         prompt_files=[item["path"] for item in files], skipped_binary_paths=skipped)
         prompt = json.dumps({"pinned_skills": skills, "task": task,
                              "output_requirements": record.get("output_requirements")}, ensure_ascii=False)
         if len(prompt.encode()) > 262144:
@@ -162,12 +176,18 @@ class ClaudeRunner(LocalRunner):
     def _invoke(self, root, record, prompt, flag, *, resume):
         args = command(self.executable, record["requested_model"], record["requested_effort"],
                        record["thread_id"], resume=resume)
-        process = subprocess.Popen(args, cwd=root / "workspace", stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        stdout_file, stderr_file = tempfile.TemporaryFile(), tempfile.TemporaryFile()
+        try:
+            process = subprocess.Popen(args, cwd=root / "workspace", stdin=subprocess.PIPE,
+                                   stdout=stdout_file, stderr=stderr_file,
                                    encoding="utf-8", creationflags=(subprocess.CREATE_NO_WINDOW |
                                    subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == "nt" else 0,
                                    start_new_session=os.name != "nt",
-                                   env={**os.environ, "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"})
+                                   env=cli_environment())
+        except Exception:
+            stdout_file.close()
+            stderr_file.close()
+            raise
         self.processes[record["run_id"]] = process
         deadline = time.monotonic() + 180
         try:
@@ -177,13 +197,18 @@ class ClaudeRunner(LocalRunner):
                     raise RunnerError("claude_cancelled")
                 if time.monotonic() > deadline:
                     raise RunnerError("claude_turn_timeout")
+                if os.fstat(stdout_file.fileno()).st_size > 4 * 1024 * 1024 or os.fstat(stderr_file.fileno()).st_size > 4 * 1024 * 1024:
+                    raise RunnerError("claude_receipt_too_large")
                 try:
-                    stdout, stderr = process.communicate(prompt if first else None, timeout=.25)
+                    process.communicate(prompt if first else None, timeout=.25)
                     break
                 except subprocess.TimeoutExpired:
                     first = False
-            if len(stdout.encode()) > 4 * 1024 * 1024:
+            stdout_file.seek(0)
+            raw = stdout_file.read(4 * 1024 * 1024 + 1)
+            if len(raw) > 4 * 1024 * 1024:
                 raise RunnerError("claude_receipt_too_large")
+            stdout = raw.decode("utf-8")
             # Store native stdout only; stderr can contain machine-specific details.
             with (root / "claude-results.jsonl").open("a", encoding="utf-8") as output:
                 output.write(json.dumps({"stdout": stdout, "returncode": process.returncode}) + "\n")
@@ -191,8 +216,19 @@ class ClaudeRunner(LocalRunner):
                 raise RunnerError("claude_process_failed")
             return terminal_result(stdout, record["thread_id"])
         finally:
-            self._stop(process)
-            self.processes.pop(record["run_id"], None)
+            prior_error = sys.exc_info()[0] is not None
+            try:
+                self._stop(process)
+            except Exception:
+                record["cleanup_error"] = "claude_parent_stop_unverified"
+                if not prior_error:
+                    raise RunnerError("claude_parent_stop_unverified") from None
+            finally:
+                record["parent_exit_observed"] = process.poll() is not None
+                record["descendant_cleanup"] = "not_verified"
+                self.processes.pop(record["run_id"], None)
+                stdout_file.close()
+                stderr_file.close()
 
     def _event(self, root, method, params):
         # These are explicitly adapter-normalized receipts, not Codex RPC events.
@@ -262,10 +298,16 @@ class ClaudeRunner(LocalRunner):
                     break
                 try:
                     submission = json.loads(answer)
-                except ValueError:
+                except ValueError as exc:
                     submission = None
+                    parse_error = "trailing_data" if isinstance(exc, json.JSONDecodeError) and exc.msg == "Extra data" else "invalid_json"
+                else:
+                    parse_error = None
                 validation = evaluate(requirements, submission)
+                if parse_error:
+                    validation.update(contract_status="rejected", errors=[{"path": "", "code": parse_error}])
                 record["output_validation"] = validation
+                turn["output_validation"] = validation
                 if validation["contract_status"] == "accepted" or corrections >= record["output_retries"]:
                     break
                 try:
@@ -288,8 +330,8 @@ class ClaudeRunner(LocalRunner):
             snapshot.rename(root / "post-run")
             record.update(status="completed", post_run_hash=digest, snapshot_ready=True,
                           output_ref=f"laomedo:run:{run_id}:workspace",
-                          process_cleanup_verified=True, effective_model=None, effective_effort=None,
-                          evidence_complete=True, completion_basis="claude_terminal_receipt")
+                          effective_model=None, effective_effort=None,
+                          evidence_complete="unknown", completion_basis="claude_terminal_receipt_only")
         except Exception as exc:
             if record is None:
                 raise
