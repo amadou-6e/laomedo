@@ -163,6 +163,6 @@ def capture_for(component):
     if not execution:
         raise ValueError('agent_activity_execution_required')
     label=getattr(component._vertex,'display_name',None)
-    run=store.start(str(component._user_id or ''),str(getattr(graph,'source_flow_id',None) or graph.flow_id or ''),component._vertex.id,execution=execution,
+    run=store.start(str(component._user_id or ''),str(getattr(graph,'source_flow_id',None) or graph.flow_id or ''),component._vertex.id,provider="opencode" if getattr(component,"name",None)=="LaomedoOpenCodeAgent" else "codex-cli",execution=execution,
                     node_label=label if isinstance(label,str) and label.strip() else None)
     return store,run

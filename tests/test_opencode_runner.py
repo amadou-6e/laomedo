@@ -11,9 +11,11 @@ from laomedo.local_runner import _hash_tree, _json
 
 class Backend:
     sessions = 0
+    histories = {}
 
     def __init__(self, workspace, evidence):
         self.workspace = workspace
+        self.history = self.histories.setdefault(str(workspace),[])
         self.log = (evidence / "raw-events.jsonl").open("a")
 
     def call(self, method, path, payload=None):
@@ -26,14 +28,20 @@ class Backend:
         if path == "/session":
             type(self).sessions += 1
             return {"id": "ses_test" + str(self.sessions)}
+        if path.endswith("/message") and method == "GET":
+            return list(self.history)
         if path.endswith("/message"):
             (self.workspace / "output.txt").write_text("observed fixture")
-            return {"info": {"id": "msg_fixture", "role": "assistant", "time": {"completed": 1},
+            user_id = "user_" + str(len(self.history))
+            self.history.append({"info":{"id":user_id,"sessionID":path.split("/")[2],"role":"user","time":{"created":1}},"parts":[{"type":"text","text":payload["parts"][0]["text"]}]})
+            response = {"info": {"id": "msg_" + str(len(self.history)), "parentID":user_id, "role": "assistant", "time": {"created":1,"completed": 2},
                              "sessionID": path.split("/")[2], "providerID": "test", "modelID": "model"},
                     "parts": [{"type": "text", "text": "fixture answer"},
                               {"type": "tool", "tool": "skill", "callID": "tool1",
                                "state": {"status": "completed", "input": {"name": "sample"},
                                          "output": "skill body"}}]}
+            self.history.append(response)
+            return response
         raise AssertionError(path)
 
     def close(self):
@@ -203,6 +211,55 @@ class OpenCodeTests(unittest.TestCase):
         self.payload = {"task": "Read skill", "model": "test/model", "effort": "default",
                         "skill_ref": {"skill_id": "sample", "revision_id": self.revision["revision_id"],
                                       "tree_hash": self.revision["tree_hash"]}}
+
+
+    def test_async_start_uses_opencode_identity_and_cancel_before_dispatch_costs_no_turn(self):
+        from uuid import uuid4
+        gate = threading.Event()
+        record = self.runner.start_async({**self.payload,"request_id":str(uuid4())},response_gate=gate)
+        self.assertEqual(record["provider"],"opencode")
+        cancelled = self.runner.cancel(record["run_id"])
+        self.assertTrue(cancelled["cancel_confirmed"])
+        gate.set()
+        self.assertEqual(self.runner.status(record["run_id"])["status"],"cancelled")
+        self.assertFalse((self.runner.state / "turn-ledger.json").exists())
+
+    def test_resume_activity_contains_only_new_native_messages(self):
+        from uuid import uuid4
+        first = self.runner.start(self.payload)
+        root = self.runner._run_dir(first["run_id"])
+        initial = json.loads((root/"activity-attempts"/(first["activity_initial_attempt_id"]+".json")).read_text())
+        selected = str(uuid4())
+        second = self.runner.resume(first["run_id"],"New turn",expected_post_run_hash=first["post_run_hash"],
+            expected_thread_id=first["thread_id"],model="test/model",effort="default",activity_attempt_id=selected)
+        self.assertTrue(second["attempt_finished"])
+        self.assertTrue(second["snapshot_ready"])
+        attempt = json.loads((root/"activity-attempts"/(selected+".json")).read_text())
+        self.assertEqual(attempt["native_start"],initial["native_end"])
+        from laomedo.runner_activity import read_feed
+        events=read_feed(root/"activity-events.jsonl",after=attempt["native_start"],before=attempt["native_end"])["events"]
+        texts=[part["text"] for event in events for message in event["event"]["params"]["messages"]
+               for part in message["parts"] if part.get("type")=="text"]
+        self.assertIn("New turn",texts)
+        self.assertNotIn("Read skill",texts)
+        with self.assertRaisesRegex(RunnerError,"activity_attempt_already_exists"):
+            self.runner.resume(first["run_id"],"Replay",expected_post_run_hash=second["post_run_hash"],
+                expected_thread_id=first["thread_id"],model="test/model",effort="default",activity_attempt_id=selected)
+
+    def test_snapshot_capture_failure_does_not_change_execution_success(self):
+        from unittest.mock import patch
+        with patch('laomedo.opencode_activity.retain_messages',side_effect=OSError('capture unavailable')):
+            result=self.runner.start(self.payload)
+        self.assertEqual(result['status'],'completed')
+        self.assertTrue(result['snapshot_ready'])
+        attempt=json.loads((self.runner._run_dir(result['run_id'])/'activity-attempts'/(result['activity_initial_attempt_id']+'.json')).read_text())
+        self.assertEqual(attempt['capture_error'],'opencode_native_snapshot_unavailable')
+
+    def test_async_variant_rejected_before_workspace_preparation(self):
+        from uuid import uuid4
+        with self.assertRaisesRegex(RunnerError,"unsupported_opencode_effort"):
+            self.runner.start_async({**self.payload,"effort":"high","request_id":str(uuid4())})
+        self.assertEqual(list((self.runner.state/"runs").iterdir()),[])
 
     def test_fresh_restart_resume_and_evidence(self):
         run = self.runner.start(self.payload)

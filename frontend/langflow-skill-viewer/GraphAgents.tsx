@@ -10,7 +10,7 @@ import useFlowStore from "@/stores/flowStore";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 
-type Run = {id:string;node:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
+type Run = {provider?:string;id:string;node:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
 type Lane = {id:string;thread?:string;turn?:string;started:string;ended:string|null;status?:string;item?:Record<string,unknown>;conflicting_receipts?:boolean};
 type Cost = {amount:number|null;currency:string;basis:string;catalog_date:string;source:string|null};
 type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null}[];usage:Record<string,number>|null;usage_points:{at:string;thread:string;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string};
@@ -68,13 +68,14 @@ export function activityTitle(value:Record<string,unknown>) {
     return target?`${action} · ${target}`:action;
   }
   if(value.type==="collabAgentToolCall"||value.type==="collabAgentSpawnToolCall")return `Subagent tool${typeof value.tool==="string"?`: ${value.tool}`:""}${typeof value.status==="string"?` · ${value.status}`:""}`;
+  if(value.type==="toolCall"&&typeof value.toolName==="string")return value.toolName;
   return String(value.type??"Tool activity");
 }
 
-function ActivityItem({lane,rootThread}:{lane:Lane;rootThread:string|null}) {
+function ActivityItem({lane,rootThread,provider}:{lane:Lane;rootThread:string|null;provider?:string}) {
   const value=lane.item??{},message=messageText(value),user=value.type==="userMessage";
   const child=Boolean(rootThread&&lane.thread&&lane.thread!==rootThread);
-  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:"Codex";
+  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:provider==="opencode"?"OpenCode":"Codex";
   const timing=<span title={`${lane.started} → ${lane.ended??"running"}`} className="tabular-nums">{time(lane.started)}{!user&&` · ${duration(lane.started,lane.ended)}`}</span>;
   if(message!==null)return <div className={`flex min-w-0 flex-col gap-2 ${user?"items-end":"items-start"}`} data-message-role={user?"user":"agent"}>
     <div className="flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground"><div className={`flex flex-wrap items-center gap-2 ${user?"ml-auto":"flex-1"}`}><span title={lane.thread}>{user?"You":speaker}</span>{timing}</div><MessageSource value={value}/></div>
@@ -188,12 +189,12 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
     {visible.length>0&&<><div className="mb-4"><SectionHeading>Graph run timeline</SectionHeading></div><div className="overflow-x-auto rounded-md border border-border"><div className="flex min-w-[700px] justify-between border-b bg-muted/40 py-2 pl-[292px] pr-3 text-xs tabular-nums text-muted-foreground"><span>{time(new Date(start).toISOString())}</span><span>{((end-start)/1000).toFixed(1)} seconds</span><span>{time(new Date(end).toISOString())}</span></div>
       {visible.map(run=><div key={run.id}>{bar({...run,id:run.id},`${label(run)} · ${run.status}`,()=>setSelected(run.id),run.id)}
         {details[run.id]?.projection.turns.map(turn=>bar(turn,`${turn.thread===run.native_session?"Turn":"Subagent turn"} ${turn.id.slice(-8)} · ${turn.status}`,()=>setSelected(run.id),run.id,true))}</div>)}</div>
-      <p className="my-2 text-xs text-muted-foreground">Bars use runner receipt times. Viewing activity never starts an agent. Select an invocation to inspect it.</p></>}
+      <p className="my-2 text-xs text-muted-foreground">Agent bars use runner receipt times; turn bars use captured provider timestamps. Viewing activity never starts an agent. Select an invocation to inspect it.</p></>}
     {detail&&<article key={detail.run.id} className="mt-8 space-y-6" aria-label="Selected agent run">
       <SectionHeading>Selected agent run</SectionHeading>
       <section className="space-y-3 border bg-muted/30 px-4 py-3" aria-label="Invocation metadata">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 break-words text-lg font-semibold">{label(detail.run)}</h3><div className="flex items-center gap-2 text-xs text-muted-foreground">{statusBadge(detail.run.status)}<span>{duration(detail.run.started,detail.run.ended)}</span></div></div>
-        <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={detail.run.started}>Started {time(detail.run.started)} · Model {detail.run.model??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={detail.run.started}>Started {time(detail.run.started)} · Provider {detail.run.provider??"codex-cli"} · Model {detail.run.model??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
           <details><summary className="cursor-pointer">Node identity</summary><dl className="mt-2 grid gap-1 break-all"><dt>Node ID</dt><dd>{detail.run.node}</dd><dt>Name source</dt><dd>{detail.run.node_label?"Recorded when this invocation started":"Current canvas name; no name was recorded for this older invocation"}</dd></dl></details>
         </div>
         <dl className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">{[["inputTokens","Input"],["cachedInputTokens","Cached input"],["outputTokens","Output"],["reasoningOutputTokens","Reasoning"]].map(([key,name])=><div key={key} className="flex gap-1.5"><dt>{name}</dt><dd className="tabular-nums text-foreground">{detail.projection.usage?.[key]?.toLocaleString()??"Unknown"}</dd></div>)}<div className="flex gap-1.5"><dt>API-equivalent estimate</dt><dd className="tabular-nums text-foreground">{detail.projection.cost.amount===null?"Unknown":`$${detail.projection.cost.amount.toFixed(6)}`}</dd></div></dl>
@@ -211,7 +212,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         <SectionHeading id="agent-conversation-heading">Conversation</SectionHeading>
         <div role="region" aria-label="Conversation messages and tools" tabIndex={0} className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {detail.projection.items.length===0&&<p className="text-sm text-muted-foreground">No messages or tool calls captured.</p>}
-          {detail.projection.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session}/>)}
+          {detail.projection.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session} provider={detail.run.provider}/>)}
         </div>
       </section>
     </article>}

@@ -2,6 +2,9 @@
 
 
 def project(events, *, root_thread=None, model=None):
+    if any(receipt["raw"].get("event",receipt["raw"]).get("method", "").startswith("opencode/") for receipt in events):
+        from .opencode_activity import project as project_opencode
+        return project_opencode(events, root_thread=root_thread, model=model)
     turns, items, threads, latest, baselines = {}, {}, {}, {}, {}
     points = []
     telemetry = []
