@@ -25,3 +25,19 @@ provider or credential access is permitted. Stop the runner and writable host
 service afterward. The review preview must use an empty edit-policy map and
 clear the edit request. Do not merge before independent review, passing CI and
 the user's review of the actual working graph.
+
+## Verification-harness correction (2026-10-21)
+
+The first real edit completed and was host-applied using one turn. Exact byte
+readback confirmed a description-only insertion with CRLF preserved. The original
+verifier compared normalized LF text with raw CRLF and used an overescaped regex;
+its finally block stopped the runner before resume. Preserve that successful
+run, its native receipt, commit and the harness error. Do not replay its task.
+
+Use the remaining two turns for a new explicitly requested description revision
+and one resume of that new session. Preserve the original completed run and
+unchanged ledger (total ceiling still three). The old run is not reattached to a
+new runner instance. If the new edit needs a correction, it consumes the last
+turn and resume remains unverified; never dispatch a fourth turn. Compare exact
+bytes, write exported accepted bytes without newline conversion, and disable
+writable services after this case.
