@@ -10,7 +10,7 @@ import useFlowStore from "@/stores/flowStore";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 
-type Run = {id:string;node:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
+type Run = {id:string;node:string;provider?:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
 type Lane = {id:string;thread?:string;turn?:string;started:string;ended:string|null;status?:string;item?:Record<string,unknown>;conflicting_receipts?:boolean};
 type Cost = {amount:number|null;currency:string;basis:string;catalog_date:string;source:string|null};
 type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null}[];usage:Record<string,number>|null;usage_points:{at:string;thread:string;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string};
@@ -71,10 +71,11 @@ export function activityTitle(value:Record<string,unknown>) {
   return String(value.type??"Tool activity");
 }
 
-function ActivityItem({lane,rootThread}:{lane:Lane;rootThread:string|null}) {
+function ActivityItem({lane,rootThread,provider}:{lane:Lane;rootThread:string|null;provider?:string}) {
   const value=lane.item??{},message=messageText(value),user=value.type==="userMessage";
   const child=Boolean(rootThread&&lane.thread&&lane.thread!==rootThread);
-  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:"Codex";
+  const providerName=provider==="claude"||provider==="claude-code"?"Claude":provider==="opencode"||provider==="opencode-cli"?"OpenCode":!provider||provider==="codex"||provider==="codex-cli"?"Codex":"Agent";
+  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:providerName;
   const timing=<span title={`${lane.started} → ${lane.ended??"running"}`} className="tabular-nums">{time(lane.started)}{!user&&` · ${duration(lane.started,lane.ended)}`}</span>;
   if(message!==null)return <div className={`flex min-w-0 flex-col gap-2 ${user?"items-end":"items-start"}`} data-message-role={user?"user":"agent"}>
     <div className="flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground"><div className={`flex flex-wrap items-center gap-2 ${user?"ml-auto":"flex-1"}`}><span title={lane.thread}>{user?"You":speaker}</span>{timing}</div><MessageSource value={value}/></div>
@@ -211,7 +212,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         <SectionHeading id="agent-conversation-heading">Conversation</SectionHeading>
         <div role="region" aria-label="Conversation messages and tools" tabIndex={0} className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {detail.projection.items.length===0&&<p className="text-sm text-muted-foreground">No messages or tool calls captured.</p>}
-          {detail.projection.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session}/>)}
+          {detail.projection.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session} provider={detail.run.provider}/>)}
         </div>
       </section>
     </article>}

@@ -144,3 +144,13 @@ test("opening Agents directly ignores canvas selection without an Activity targe
   view.unmount();
   expect(clearTarget).toHaveBeenCalled();
 });
+
+test("Claude messages use their recorded provider instead of the Codex label",async()=>{
+  const first={...run("one","execution"),provider:"claude-code"};
+  const item={id:"message",thread:"one",turn:"turn",started:first.started,ended:first.ended,item:{type:"agentMessage",text:"A real provider label belongs here."}};
+  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,items:[item]},truncated:false}}));
+  render(<GraphAgents flowId="flow"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"node-one \u00b7 completed"}));
+  await screen.findByText("Claude",{exact:true});
+  expect(screen.queryByText("Codex",{exact:true})).toBeNull();
+});
