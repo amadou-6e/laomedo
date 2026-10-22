@@ -121,6 +121,19 @@ It uses real custom-component refresh APIs and no model or publisher node.
 Use a separate build output while a live viewer mounts upstream's default build.
 See [source service activation draft](SOURCE-DEPLOYMENT.md).
 
+## Agent node advanced controls
+
+The pinned overlay also adds an inline Advanced controls disclosure to Codex and
+OpenCode Agent nodes. It starts collapsed and preserves values when reopened.
+Model, effort and the existing lifecycle Operation remain on the main form;
+scalar technical controls move inside the disclosure. Hidden fields remain
+hidden, wired inputs remain on the normal renderer, and other node types retain
+the upstream behavior. No task/skill/output ports or execution semantics change.
+The node geometry refreshes on disclosure/minimize changes. Existing advanced
+edit-dialog access is retained. The disclosure itself does not define model discovery; Codex model/effort options are loaded separately from the runner catalogue. It does not add a new session/execution-mode model. Test AgentAdvancedControls.test.tsx in the applied
+RenderInputParameters directory; production browser checks use the existing real
+Agent graph without a new model turn.
+
 The original Codex agent node offers Activity in place of Code. It opens the graph Agents view with that node selected, choosing its newest captured graph execution and invocation. The timeline still shows the other agents in that execution. If the node has no capture in the selected execution, the view says so; viewing never starts a run.
 
 The overlay applicator installs AgentActivityNavigation.ts at src/frontend/src/stores/agentActivityStore.ts. The node entry point uses an explicit transient target scoped to the graph, clears it when leaving Activity, and does not change canvas selection or save graph data. Opening Agents directly from the sidebar does not infer a target from selected canvas nodes.
