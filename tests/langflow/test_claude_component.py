@@ -54,7 +54,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         node=self.node(model='fable',effort='max')
         catalog=codex._ModelCatalog()
         catalog['fable']=['low','medium','high','xhigh','max']
-        catalog.metadata['fable']={'name':'Fable test','resolved_model':'claude-fable-test'}
+        catalog.metadata['fable']={'id':'fable','display_name':'Fable test','resolved_model':'claude-fable-test'}
         with patch.object(node,'_model_catalog',return_value=catalog):
             config=await node.update_build_config({'model':{'value':'fable'},'effort':{'value':'max'}},'fable','model')
         self.assertEqual(config['model']['options_metadata'],[catalog.metadata['fable']])

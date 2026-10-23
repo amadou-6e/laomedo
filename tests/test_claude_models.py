@@ -83,10 +83,21 @@ class ClaudeModelTests(unittest.TestCase):
         for levels in (['unsupported'],['low','low'],[{}]):
             with self.assertRaises(ValueError): normalize_models([native(levels=levels)])
 
-    def test_concurrent_discovery_refuses_without_spawning_another_cli(self):
-        self.runner._catalog_lock.acquire()
-        try:
-            with patch('laomedo.claude_runner.subprocess.run') as run:
-                with self.assertRaises(RunnerError): self.runner.model_catalog()
-                run.assert_not_called()
-        finally:self.runner._catalog_lock.release()
+    def test_concurrent_refreshes_share_one_native_discovery_and_do_not_cache_next_refresh(self):
+        from concurrent.futures import ThreadPoolExecutor
+        entered=threading.Event();release=threading.Event()
+        def discover():
+            entered.set();self.assertTrue(release.wait(timeout=5))
+            return {'models':[{'id':'native'}]}
+        with patch.object(self.runner,'_discover_models',side_effect=discover) as run:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first=pool.submit(self.runner.model_catalog);self.assertTrue(entered.wait(timeout=5))
+                waiting=threading.Event();original=self.runner._catalog_pending.result
+                def wait_result(*args,**kwargs):
+                    waiting.set();return original(*args,**kwargs)
+                with patch.object(self.runner._catalog_pending,'result',side_effect=wait_result):
+                    second=pool.submit(self.runner.model_catalog)
+                    self.assertTrue(waiting.wait(timeout=5));release.set()
+                    self.assertEqual(first.result(timeout=5),second.result(timeout=5))
+            self.assertEqual(run.call_count,1)
+            self.runner.model_catalog();self.assertEqual(run.call_count,2)

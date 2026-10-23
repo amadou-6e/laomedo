@@ -8,6 +8,8 @@ the separate, policy-checked operation service, never through this transport.
 from __future__ import annotations
 
 import hashlib
+from concurrent.futures import Future, TimeoutError as FutureTimeout
+from copy import deepcopy
 import json
 import os
 from pathlib import Path
@@ -132,14 +134,35 @@ class ClaudeRunner(LocalRunner):
     provider = "claude"
 
     def model_catalog(self):
+        """Share an in-flight discovery across simultaneous editor refreshes."""
+        with self._catalog_lock:
+            pending = getattr(self, '_catalog_pending', None)
+            owner = pending is None
+            if owner:
+                pending = self._catalog_pending = Future()
+        if not owner:
+            try:
+                return deepcopy(pending.result(timeout=25))
+            except FutureTimeout:
+                raise RunnerError('runner_model_catalog_unavailable_check_runner_connection') from None
+        try:
+            result = self._discover_models()
+            pending.set_result(result)
+            return deepcopy(result)
+        except Exception as exc:
+            pending.set_exception(exc)
+            raise
+        finally:
+            with self._catalog_lock:
+                self._catalog_pending = None
+
+    def _discover_models(self):
         """The native account picker, using only an initialize control request.
 
         No user message, session resume, model turn, or transcript is created.
         Bound the entire CLI lifetime below the component's HTTP deadline.
         """
         failure = 'runner_model_catalog_unavailable_check_runner_connection'
-        if not self._catalog_lock.acquire(timeout=1):
-            raise RunnerError(failure)
         try:
             self._check_auth(timeout=5)
             args = [str(self.executable), '--print', '--input-format', 'stream-json',
@@ -178,8 +201,6 @@ class ClaudeRunner(LocalRunner):
                     'account_availability': 'cli_reported', 'submitted_turns': 0}
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             raise RunnerError(failure) from None
-        finally:
-            self._catalog_lock.release()
 
     def __init__(self, state, skill_store, source_workspace, *, executable,
                  max_model_turns=0):

@@ -13,12 +13,17 @@ def apply(checkout):
     if revision != UPSTREAM:
         raise SystemExit("pinned_langflow_checkout_required")
     overlay = ROOT / "frontend/langflow-skill-viewer"
+    models_patch = overlay / "claude-models.patch"
     patch = overlay / "upstream.patch"
     target = checkout / "src/frontend/src/modals/skillFilesModal"
     if target.exists() or subprocess.check_output(["git", "-C", str(checkout), "status", "--porcelain"]).strip():
         raise SystemExit("clean_upstream_checkout_required")
     subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(models_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", str(models_patch)], check=True)
+    shutil.copy2(overlay / "ClaudeModelDropdown.test.tsx",
+                 checkout / "src/frontend/src/components/core/dropdownComponent/ClaudeModelDropdown.test.tsx")
     agent_target = checkout / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
     shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
     shutil.copy2(overlay / "AgentAdvancedControls.tsx", agent_target / "AgentAdvancedControls.tsx")
