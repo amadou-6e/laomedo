@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-23",
+  "status": "passed",
+  "source_revision": "70e60fb91d5aef44f702e306a03d7cff40aba735",
+  "flow_id": "79b4a944-594d-4f09-85ad-8e1d197d5ef1",
+  "preview_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1",
+  "run_id": "ef54c538-d747-4ea7-938e-8fccd5e29bb6",
+  "native_session": "2d3f7111-3939-489d-b74c-b1f734c29fe0",
+  "activity_id": "aa212861-703b-44e9-9c18-422cb78bf47f",
+  "model": "claude-sonnet-5-5",
+  "answer": "The pinned claude-workspace-guide skill helps a user understand a selected registered skill in Laomedo by reading-only inspection of its pinned revision's files, commits, and diffs (including layout navigation), without implying the skill was used or authorizing any edits, execution, promotion, or publishing.",
+  "prompt_hash_verified": true,
+  "prompt_and_answer_captured": true,
+  "turn_status": "completed",
+  "token_usage": {
+    "inputTokens": 1403,
+    "cachedInputTokens": 0,
+    "cacheWriteInputTokens": 1401,
+    "outputTokens": 98,
+    "reasoningOutputTokens": 0,
+    "totalTokens": 1501
+  },
+  "usage_points": 1,
+  "diagnostics": [
+    {
+      "threadId": "2d3f7111-3939-489d-b74c-b1f734c29fe0",
+      "turnId": "46f5629f-ec05-497c-be43-92501d2ab30c",
+      "subtype": "success",
+      "duration_ms": 1809,
+      "duration_api_ms": 1683,
+      "native_session_id": "2d3f7111-3939-489d-b74c-b1f734c29fe0",
+      "tools_enabled": false,
+      "reported_models": [
+        "claude-sonnet-5-5"
+      ],
+      "evidence": "terminal_receipt_only",
+      "usage_scope": "native_session_cumulative",
+      "reported_session_cost_usd": 0.006588,
+      "cost_basis": "CLI estimate; cumulative session, not a subscription charge"
+    }
+  ],
+  "attempted_turns": 1,
+  "maximum_turns": 1,
+  "configured_output_retries": 0,
+  "effective_output_retries": 1,
+  "output_contract": null,
+  "corrections_used": 0,
+  "new_resume_tested": false,
+  "native_tools": [],
+  "source_unchanged": true,
+  "full_sdk_evidence": "unknown",
+  "api_equivalent_cost": null,
+  "historical_records_modified": false,
+  "runner_stopped": true,
+  "verifier_note": "Initial verifier assumed configured output_retries=0 would be sent without an output contract; runner default1 was inapplicable. Completed one-turn receipt preserved; remaining checks reconciled read-only without another dispatch."
+}

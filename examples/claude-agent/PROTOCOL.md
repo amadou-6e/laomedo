@@ -1,5 +1,20 @@
 # Real Claude proposal verification
 
+## Additional activity verification approval, 2026-10-23
+
+After the original campaign's three-turn ceiling was exhausted, the user
+explicitly answered **Allow one verification turn** for a separate read-only
+summary test of graph activity capture. Preserve the original ledger and runs.
+The additional dedicated runner has a durable ceiling of exactly one native
+turn, no output contract, no edits or operations, and no corrections or resume.
+Do not retry an uncertain dispatch. Stop the runner after that turn and keep
+the graph available for inspection. Verify prompt hash, native answer, completed
+timeline, native token counters, model and diagnostics through authenticated
+read-only APIs and the actual rendered Agents view. Never replace this proof
+with fixtures. A readback-harness failure may be reconciled without dispatch.
+
+The original proposal campaign protocol follows.
+
 Authorized by the user's request for a Claude node and explicit selection of
 Claude Code subscription on 2026-10-19. Use the normal official CLI login in
 place, without copying or reading credential files. Keep the reviewer session

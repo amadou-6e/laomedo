@@ -121,7 +121,10 @@ charge. No Claude prices are invented for the shared verified price catalog.
 
 Usage semantics: https://code.claude.com/docs/en/agent-sdk/cost-tracking
 The original proposal verification precedes this capture extension. Its receipts
-can verify normalization but do not establish a fresh end-to-end capture run.
+verify normalization. The separately approved one-turn
+[activity proof](../examples/claude-agent/activity-proof.json) verifies fresh
+successful capture through the real Langflow graph; live correction, failed-turn
+and resumed-capture scenarios remain outside that additional verification.
 
 Internal tests cover owner/execution isolation, read-only inspection, source
 pagination, retry deduplication, conflicting receipts, resume baselines, counter

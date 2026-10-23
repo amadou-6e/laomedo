@@ -72,3 +72,27 @@ requirements input/JSON: the runner retains the original contract; changing a
 contract on a resumed session is refused. Install the component category on the
 runtime package search path as in the OpenCode adapter. The dedicated example
 host adds `components/laomedo` to `laomedo.__path__` before component discovery.
+
+## Real graph activity verification
+
+On 2026-10-23 the user explicitly approved one additional, read-only Claude
+summary turn to verify the new capture. The original three-turn campaign and
+its ledger were preserved. A dedicated runner with a one-turn ceiling read the
+pinned test skill through the actual Claude node in Langflow; no edits,
+operations, correction or resume were requested. The runner is now stopped.
+
+[Activity proof](activity-proof.json) and [executed graph](activity-flow.json)
+record the tested source revision. Authenticated readback verified the exact
+submitted prompt against its turn hash, the answer against the native receipt,
+one completed timeline turn, the native-reported model, token counters and
+terminal diagnostics. Input was 1,403 tokens (including 1,401 cache-write tokens),
+output 98, cached reads and reported thinking both zero. The CLI's session cost
+is a labelled estimate, separate from the unknown independently priced cost.
+The source skill and older recorded runs were unchanged.
+
+The initial verifier stopped on an inapplicable retry-setting assertion: without
+an output contract the component does not send continuation settings, so the
+runner retains its default. The completed receipt and failure were preserved;
+remaining checks used read-only reconciliation, with no second dispatch. The
+hard ledger remained one of one turns. This verifies fresh successful capture,
+not new live correction, resume, cancellation, subagents or writable tool use.
