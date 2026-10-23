@@ -44,7 +44,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             root=Path(directory);(root/'claude-token').write_text('claude-control');(root/'codex-token').write_text('codex-control')
             with patch.dict(os.environ,{'LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE':str(root/'claude-token'),
                                        'LAOMEDO_RUNNER_TOKEN_FILE':str(root/'codex-token')}), \
-                 patch.object(codex._HTTP,'open',return_value=io.BytesIO(b'{"models":[{"id":"sonnet","efforts":["low"]}]}')) as http:
+                 patch.object(codex._HTTP,'open',return_value=io.BytesIO(b'{"provider":"claude","models":[{"id":"sonnet","efforts":["low"]}]}')) as http:
                 result=self.node()._model_catalog({'runner_url':{'value':'http://localhost:8769'}})
             self.assertEqual(result,{'sonnet':['low']})
             self.assertEqual(http.call_args.args[0].get_header('Authorization'),'Bearer claude-control')

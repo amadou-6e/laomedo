@@ -153,6 +153,8 @@ class LaomedoCodexAgent(Component):
                 if len(raw) > 1024 * 1024:
                     raise ValueError("catalog_too_large")
                 payload = json.loads(raw)
+            if self.name == 'LaomedoClaudeAgent' and payload.get('provider') != 'claude':
+                raise ValueError('catalog_provider_mismatch')
             catalog = {}
             for item in payload["models"]:
                 model, efforts = item["id"], item["efforts"]
