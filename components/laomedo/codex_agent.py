@@ -327,7 +327,7 @@ class LaomedoCodexAgent(Component):
             payload["request_id"] = selected_request_id
             return self._fresh_route(endpoint, payload, selected_request_id)
         prior = getattr(self.run_reference, "data", self.run_reference)
-        if prior is None and getattr(self, "run_reference_json", None):
+        if prior in (None, "", []) and getattr(self, "run_reference_json", None):
             try:
                 prior = json.loads(self.run_reference_json)
             except (ValueError, TypeError):

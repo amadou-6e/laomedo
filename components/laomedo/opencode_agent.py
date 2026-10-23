@@ -38,7 +38,7 @@ class LaomedoOpenCodeAgent(Component):
             raise ValueError("unsupported_opencode_effort")
         prior = getattr(self, "run_reference", None)
         prior = getattr(prior, "data", prior)
-        if prior is None and getattr(self, "run_reference_json", ""):
+        if prior in (None, "", []) and getattr(self, "run_reference_json", ""):
             prior = json.loads(self.run_reference_json)
         if self.operation not in {"fresh", "start"} and isinstance(prior, dict) and prior.get("provider") != "opencode":
             raise ValueError("run_provider_mismatch")

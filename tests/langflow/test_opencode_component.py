@@ -44,6 +44,18 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fields['model']['options'],['test/model','test/other'])
         self.assertEqual(fields['effort']['options'],['default'])
 
+    async def test_blank_port_uses_saved_json_reference_and_checks_provider(self):
+        import json
+        from uuid import uuid4
+        prior={'provider':'opencode','status':'completed','run_id':str(uuid4()),'thread_id':'session',
+               'post_run_hash':'sha256:'+'a'*64,'model':'test/model','effort':'default'}
+        node=self.node(operation='resume',run_reference='',run_reference_json=json.dumps(prior))
+        endpoint,payload,method=node._prepare()
+        self.assertTrue(endpoint.endswith('/'+prior['run_id']+'/resume'))
+        self.assertEqual(payload['expected_thread_id'],'session')
+        with self.assertRaisesRegex(ValueError,'run_provider_mismatch'):
+            self.node(operation='resume',run_reference='',run_reference_json=json.dumps({**prior,'provider':'codex'}))._prepare()
+
     async def test_both_outputs_share_one_dispatch(self):
         node = self.node()
         value = {"provider": "opencode", "run_id": "fixture", "status": "completed", "answer": "answer"}
