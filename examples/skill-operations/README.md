@@ -91,6 +91,16 @@ Internal fixtures are not real integration acceptance. Native cancellation,
 production ownership, multi-commit promotion and Git publication remain untested
 or outside this campaign. User graph review and final CI/review remain pending.
 
+### Agent control ownership migration
+
+The current flow.json and builder now configure the Agent skill on a separate
+Skill node connected to Skill References. The two-node feedback cycle remains;
+its read-only Skill dependency is included in the isolated body. Request identity
+is automatic. These updated exports were not executed against a model/provider.
+The earlier flow is preserved in historical-flow-before-skill-input.json;
+previous evidence describes that historical run, not execution of the migrated
+export. No execution budget or ledger has been reset.
+
 
 ## Overview authoring
 

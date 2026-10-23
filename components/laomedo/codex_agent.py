@@ -64,26 +64,32 @@ class LaomedoCodexAgent(Component):
     inputs = [
         MessageTextInput(name="task", display_name="Task"),
         DropdownInput(name="operation", display_name="Operation",
-                      options=["fresh", "start", "resume", "status", "cancel"], value="fresh"),
-        StrInput(name="request_id", display_name="Request ID", advanced=True,
+                      options=["fresh", "start", "resume", "status", "cancel"], value="fresh",
+                      info="Resume/status/cancel require a reference in an existing serialized flow or API request; node-local run selection is not yet available."),
+        StrInput(name="request_id", display_name="Request ID", advanced=True, show=False,
                  info="Optional stable UUID for nonblocking Start retries."),
-        DataInput(name="skill_reference", display_name="Skill References", is_list=True),
-        DataInput(name="output_requirements", display_name="Output Requirements"),
+        DataInput(name="output_requirements", display_name="Output Requirements", show=False,
+                  info="Internal expected-answer contract; dedicated Output Contract connections support automatic discovery."),
         StrInput(name="output_requirements_json", display_name="Output Requirements JSON",
-                 value="", advanced=True, info="Static pinned requirements when no Output Requirements connection is supplied."),
+                 value="", advanced=True, show=False, info="Internal static pinned requirements when no contract connection is supplied."),
         IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
                  advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
         DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
-        StrInput(name="skill_id", display_name="Skill ID", advanced=True),
-        StrInput(name="revision_id", display_name="Skill Revision", advanced=True),
-        StrInput(name="model", display_name="Model", value="gpt-6-luna"),
-        StrInput(name="effort", display_name="Reasoning Effort", value="low"),
-        DataInput(name="run_reference", display_name="Prior Run"),
-        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True,
+        StrInput(name="skill_id", display_name="Skill ID", advanced=True, show=False),
+        StrInput(name="revision_id", display_name="Skill Revision", advanced=True, show=False),
+        DropdownInput(name="model", display_name="Model", value="",
+                      options=[], combobox=False, real_time_refresh=True, refresh_button=True,
+                      info="Refresh to load models from the configured runner. Runner availability is checked before execution."),
+        DropdownInput(name="effort", display_name="Reasoning Effort", value="",
+                      options=[], combobox=False),
+        DataInput(name="skill_reference", display_name="Skill References", is_list=True),
+        DataInput(name="run_reference", display_name="Prior Run", show=False,
+                  info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
+        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
-                 value="http://host.docker.internal:8765"),
-        StrInput(name="bridge_url", display_name="Join Bridge URL", advanced=True,
+                 value="http://host.docker.internal:8765", real_time_refresh=True),
+        StrInput(name="bridge_url", display_name="Join Bridge URL", advanced=True, show=False,
                  value="", info="Optional local host bridge for a durable first-call join."),
         IntInput(name="timeout_seconds", display_name="HTTP Timeout", value=210,
                  advanced=True),
@@ -94,6 +100,87 @@ class LaomedoCodexAgent(Component):
         Output(name="submission", display_name="Submission / Outcome",
                method="submission_output", group_outputs=True),
     ]
+
+    async def update_build_config(self, build_config, field_value, field_name=None):
+        # OpenCode has a separate provider/model and variant contract.
+        if self.name != "LaomedoCodexAgent":
+            return build_config
+        if field_name == "runner_url":
+            if not isinstance(field_value, str):
+                raise ValueError("local_runner_url_required")
+            build_config["runner_url"]["value"] = field_value
+        model_field = build_config.get("model", {})
+        effort_field = build_config.get("effort", {})
+        if field_name == "model":
+            if not isinstance(field_value, str):
+                raise ValueError("invalid_model_selection")
+            model_field["value"] = field_value
+        model = model_field.get("value", "")
+        if not isinstance(model, str):
+            raise ValueError("invalid_model_selection")
+        catalog = await asyncio.to_thread(self._model_catalog, build_config)
+        choices = list(catalog)
+        if model and model not in choices:
+            choices.append(model)  # Preserve imported selections, never substitute.
+        model_field.update(options=choices, combobox=False, real_time_refresh=True)
+        selected = effort_field.get("value", "")
+        if not isinstance(selected, str):
+            raise ValueError("invalid_effort_selection")
+        efforts = list(catalog.get(model, []))
+        if field_name == "model" and selected not in efforts:
+            effort_field["value"] = ""
+        elif selected and selected not in efforts:
+            # Preserve saved values on load; the runner remains authoritative.
+            efforts.append(selected)
+        effort_field.update(options=efforts, combobox=False)
+        return build_config
+
+    def _model_catalog(self, build_config):
+        base = str(build_config.get("runner_url", {}).get("value") or self.runner_url).rstrip("/")
+        parsed = urlsplit(base)
+        if (parsed.scheme != "http" or parsed.hostname not in
+                {"127.0.0.1", "localhost", "::1", "host.docker.internal"} or
+                parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment):
+            raise ValueError("local_runner_url_required")
+        # Discovery talks directly to the runner, never with the bridge token.
+        try:
+            token = Path(os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                         "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
+            if not token:
+                raise ValueError("empty_token")
+            req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
+            with _HTTP.open(req, timeout=30) as response:
+                raw = response.read(1024 * 1024 + 1)
+                if len(raw) > 1024 * 1024:
+                    raise ValueError("catalog_too_large")
+                payload = json.loads(raw)
+            catalog = {}
+            for item in payload["models"]:
+                model, efforts = item["id"], item["efforts"]
+                if not isinstance(model, str) or not model or model in catalog or not isinstance(efforts, list) or not all(isinstance(x, str) and x for x in efforts):
+                    raise ValueError("invalid_catalog")
+                catalog[model] = efforts
+            if not catalog:
+                raise ValueError("empty_catalog")
+            return catalog
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ValueError("runner_model_catalog_unavailable_check_runner_connection") from None
+
+    async def update_frontend_node(self, new_frontend_node, current_frontend_node):
+        updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
+        if self.name == "LaomedoCodexAgent":
+            try:
+                await self.update_build_config(updated["template"], None)
+            except ValueError as exc:
+                if str(exc) != "runner_model_catalog_unavailable_check_runner_connection":
+                    raise
+                # Offline component upgrades must not block unrelated fields.
+                # Retain saved choices only; explicit refresh still reports failure.
+                for name in ("model", "effort"):
+                    field = updated["template"].get(name, {})
+                    value = field.get("value")
+                    field["options"] = [value] if isinstance(value, str) and value else []
+        return updated
 
     def _pre_run_setup(self):
         # Langflow invokes this once per build. Both output methods share dispatch.
@@ -176,11 +263,9 @@ class LaomedoCodexAgent(Component):
         if operation in {"fresh", "start", "resume"} and (not model.strip() or not effort.strip()):
             raise ValueError("model_and_effort_required")
         if operation in {"fresh", "start"}:
-            selected_request_id = str(getattr(self, "request_id", "") or "")
-            if not selected_request_id:
-                selected_request_id = (getattr(self, "_generated_request_id", None)
-                                       or str(uuid4()))
-                self._generated_request_id = selected_request_id
+            # Imported manual values are not authoritative node settings.
+            selected_request_id = (getattr(self, "_generated_request_id", None) or str(uuid4()))
+            self._generated_request_id = selected_request_id
             try:
                 if str(UUID(selected_request_id)) != selected_request_id:
                     raise ValueError()
@@ -191,7 +276,7 @@ class LaomedoCodexAgent(Component):
             endpoint = base + "/v1/runs/async"
             connected = getattr(self, "skill_reference", None)
             if connected in (None, "", []):
-                connected = None
+                raise ValueError("skill_reference_required_use_skill_node")
             if connected is not None:
                 refs = connected if isinstance(connected, list) else [connected]
                 refs = [getattr(ref, "data", ref) for ref in refs]
@@ -210,15 +295,13 @@ class LaomedoCodexAgent(Component):
                         raise ValueError("duplicate_skill_id")
                     seen.add(ref["skill_id"])
                 if len(refs) > 1:
-                    if getattr(self, "skill_id", "") or getattr(self, "revision_id", ""):
-                        raise ValueError("conflicting_skill_inputs")
                     payload = {"task": task, "model": model,
                                "effort": effort, "skill_refs": refs}
                     payload["request_id"] = selected_request_id
                     return self._fresh_route(endpoint, payload, selected_request_id)
                 connected = refs[0]
-            revision = str(getattr(self, "revision_id", "") or "")
-            skill_id = str(getattr(self, "skill_id", "") or "")
+            revision = ""
+            skill_id = ""
             if connected is not None:
                 if not isinstance(connected, dict):
                     raise ValueError("invalid_skill_reference")
@@ -230,8 +313,6 @@ class LaomedoCodexAgent(Component):
                         not re.fullmatch(r"sha256:[0-9a-f]{64}", selected_revision) or
                         connected.get("tree_hash") != selected_revision):
                     raise ValueError("invalid_skill_reference")
-                if (skill_id and skill_id != selected_id) or (revision and revision != selected_revision):
-                    raise ValueError("conflicting_skill_inputs")
                 skill_id, revision = selected_id, selected_revision
             if not skill_id.strip() or not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
                 raise ValueError("pinned_skill_required")
@@ -273,7 +354,12 @@ class LaomedoCodexAgent(Component):
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
     def _bridge_base(self):
-        base = str(getattr(self, "bridge_url", "") or "").rstrip("/")
+        # A host-wide Codex join setting must not redirect OpenCode or lifecycle
+        # operations. Stop handling during a fresh/start invocation still uses
+        # the bridge so its in-flight request can be reconciled correctly.
+        if self.name != "LaomedoCodexAgent" or str(self.operation) not in {"fresh", "start"}:
+            return ""
+        base = str(os.environ.get("LAOMEDO_BRIDGE_URL", getattr(self, "bridge_url", "")) or "").rstrip("/")
         if not base:
             return ""
         parsed = urlsplit(base)
@@ -473,7 +559,7 @@ class LaomedoCodexAgent(Component):
                     "remote execution may still be active") from None
             if self.operation == "start":
                 raise RuntimeError("runner_transport_failed; start outcome unknown; "
-                                   "retry only with request_id " +
+                                   "check status for request_id before starting again: " +
                                    str(payload.get("request_id"))) from None
             raise RuntimeError("runner_transport_failed; remote execution may still be active") from None
         except (ValueError, TypeError):

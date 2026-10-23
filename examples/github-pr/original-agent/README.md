@@ -64,3 +64,13 @@ run. Those test services have stopped and the grants were revoked. Reconfigure
 trusted services and obtain a newly bounded run before execution; importing the
 graph does not grant access or start a provider. Cancellation uses a separate
 invocation, and its ticket never reaches write mediation.
+
+### Agent control ownership migration
+
+The current flow.json and builder now configure the Agent skill on a separate
+Skill node connected to Skill References. The two-node feedback cycle remains;
+its read-only Skill dependency is included in the isolated body. Request identity
+is automatic. These updated exports were not executed against a model/provider.
+The earlier flow is preserved in historical-flow-before-skill-input.json;
+previous evidence describes that historical run, not execution of the migrated
+export. No execution budget or ledger has been reset.

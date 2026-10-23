@@ -1,4 +1,4 @@
-"""Build the real two-node graph; never starts an Agent or provider call."""
+"""Build the PR feedback graph with a Skill input; never starts an Agent or provider call."""
 import argparse,importlib.util,json
 from pathlib import Path
 from uuid import uuid5,NAMESPACE_URL
@@ -14,13 +14,17 @@ def build(repository,number,title,revision,runner_url,skill_id='pr-feedback-titl
         'repository_url':'https://github.com/'+repository,'pr_choice':f'#{number} {title}',
         'labels':[],'state':'open'},0,0)
     agent=node(ROOT/'components/laomedo/codex_agent.py','agent',{
-        'operation':'fresh','skill_id':skill_id,'revision_id':revision,
+        'operation':'fresh',
         'runner_url':runner_url,'output_retries':0},600,100)
+    skill=node(ROOT/'components/laomedo/skill.py','agent-skill',{'skill_id':skill_id,'revision_id':revision},0,600)
+    for key in ('skill_id', 'revision_id'):
+        field = skill['data']['node']['template'][key]
+        field['options'] = [field['value']]
     flow={'id':str(uuid5(NAMESPACE_URL,'laomedo-original-pr-feedback-170')),
         'name':'PR → original Codex Agent → same PR',
         'description':'Real Docker LocalRunner and live GitHub. Host-only feedback reservation; content-only Agent proposal.',
         'last_tested_version':'1.12.3','flow_type':'workflow','access_type':'PRIVATE',
-        'data':{'nodes':[pr,agent],'edges':[edge(pr,'task',agent,'task'),edge(agent,'answer',pr,'operation')],
+        'data':{'nodes':[pr,agent,skill],'edges':[edge(pr,'task',agent,'task'),edge(agent,'answer',pr,'operation'),edge(skill,'skill',agent,'skill_reference')],
                 'viewport':{'x':60,'y':50,'zoom':0.8}}}
     Graph.from_payload(flow)
     return flow

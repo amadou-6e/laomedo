@@ -46,6 +46,13 @@ def component(**values):
                        "timeout_seconds": 210, "run_reference": None, **values}.items():
         setattr(node, key, value)
     node._pre_run_setup()
+    # Deterministic internal allocation for synthetic runner receipts, not an
+    # editable request-ID override. Production always allocates this itself.
+    if values.get("request_id") == RUN:
+        node._generated_request_id = RUN
+    if "skill_reference" not in values:
+        node.skill_reference = module.Data(data={"skill_id": node.skill_id,
+            "revision_id": node.revision_id, "tree_hash": node.revision_id})
     return node
 
 
@@ -453,8 +460,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["skill_refs"], [ref.data for ref in refs])
         with self.assertRaisesRegex(ValueError, "duplicate_skill_id"):
             component(skill_reference=[refs[0], refs[0]], skill_id="", revision_id="")._prepare()
-        with self.assertRaisesRegex(ValueError, "conflicting_skill_inputs"):
-            component(skill_reference=refs)._prepare()
+        self.assertEqual(component(skill_reference=refs)._prepare()[1]["skill_refs"], [ref.data for ref in refs])
 
     async def test_skill_node_validates_and_agent_consumes_reference(self):
         skill = skill_module.LaomedoSkill()
@@ -463,8 +469,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         node = component(skill_id="", revision_id="", skill_reference=ref)
         _url, payload, _method = node._prepare()
         self.assertEqual(payload["skill_ref"], ref.data)
-        with self.assertRaisesRegex(ValueError, "conflicting_skill_inputs"):
-            component(skill_reference=ref, revision_id="sha256:" + "b" * 64)._prepare()
+        self.assertEqual(component(skill_reference=ref, revision_id="sha256:" + "b" * 64)._prepare()[1]["skill_ref"], ref.data)
         for skill_id, revision in [("../escape", HASH), ("fixture", "latest")]:
             skill.skill_id, skill.revision_id = skill_id, revision
             with self.assertRaises(ValueError):
@@ -636,14 +641,14 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             node.request_id = seen[0]
             node._pre_run_setup()
             await node.run_output()
-            self.assertEqual(seen[0], seen[1])
-        with self.assertRaisesRegex(ValueError, "invalid_request_id"):
-            await component(operation="start", request_id="not-a-uuid").run_output()
+            self.assertNotEqual(seen[0], seen[1])
+        ignored = component(operation="start", request_id="not-a-uuid")._prepare_request()[1]
+        self.assertEqual(str(module.UUID(ignored["request_id"])), ignored["request_id"])
 
     async def test_uncertain_start_error_retains_retry_identity(self):
         node = component(operation="start")
         with patch.object(module.request, "urlopen", side_effect=TimeoutError()):
-            with self.assertRaisesRegex(RuntimeError, "retry only with request_id") as caught:
+            with self.assertRaisesRegex(RuntimeError, "check status for request_id") as caught:
                 await node.run_output()
         self.assertIn(node._generated_request_id, str(caught.exception))
 
@@ -796,6 +801,137 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaisesRegex(RuntimeError, "runner_api_token_file_unavailable"):
                     await component().run_output()
                 http.assert_not_called()
+
+
+class AgentControlOwnershipTests(unittest.TestCase):
+    def test_identity_and_manual_skills_are_not_exposed_controls(self):
+        fields = {item.name: item.to_dict() for item in module.LaomedoCodexAgent.inputs}
+        for name in ("request_id", "skill_id", "revision_id"):
+            self.assertFalse(fields[name]["show"], name)
+        self.assertTrue(fields["skill_reference"]["show"])
+
+    def test_request_identity_is_generated_and_stable_within_build(self):
+        node = component(skill_id="", revision_id="", skill_reference=module.Data(data={
+            "skill_id": "connected-skill", "revision_id": HASH, "tree_hash": HASH}))
+        first = node._prepare_request()[1]
+        second = node._prepare_request()[1]
+        self.assertEqual(first["request_id"], second["request_id"])
+        self.assertEqual(str(module.UUID(first["request_id"])), first["request_id"])
+        self.assertEqual(first["skill_ref"]["skill_id"], "connected-skill")
+
+
+class ObsoleteAgentControlTests(unittest.TestCase):
+    def test_global_codex_bridge_does_not_route_lifecycle_or_other_providers(self):
+        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+            for operation in ("resume", "status", "cancel"):
+                self.assertEqual(component(operation=operation)._bridge_base(), "")
+            node = component(operation="fresh")
+            node.name = "LaomedoOpenCodeAgent"
+            self.assertEqual(node._bridge_base(), "")
+
+    def test_backend_bridge_configuration_overrides_legacy_node_value(self):
+        node = component(bridge_url="http://localhost:8766")
+        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+            self.assertEqual(node._bridge_base(), "http://localhost:8767")
+        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": ""}):
+            self.assertEqual(node._bridge_base(), "")
+
+
+    def test_hidden_overrides_cannot_drive_execution(self):
+        node = component(request_id="legacy-id", skill_reference=module.Data(data={
+            "skill_id": "authoritative", "revision_id": HASH, "tree_hash": HASH}),
+            skill_id="old-skill", revision_id="old-revision")
+        payload = node._prepare_request()[1]
+        self.assertNotEqual(payload["request_id"], "legacy-id")
+        self.assertEqual(payload["skill_ref"]["skill_id"], "authoritative")
+        with self.assertRaisesRegex(ValueError, "skill_reference_required_use_skill_node"):
+            component(skill_reference=None)._prepare_request()
+
+
+class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.catalog_patch = patch.object(module.LaomedoCodexAgent, "_model_catalog", return_value={
+            "gpt-6-luna": ["low", "high"], "gpt-6-sol": ["low", "high", "ultra"],
+            "new-runtime-model": ["new-runtime-effort"]})
+        self.catalog_patch.start()
+        self.addCleanup(self.catalog_patch.stop)
+
+    async def test_offline_component_upgrade_preserves_saved_choices(self):
+        new = {"display_name": "Laomedo Codex Agent", "template": {"code": {"type": "code", "value": "new"}, "model": {"type": "str", "value": ""}, "effort": {"type": "str", "value": ""}}}
+        old = deepcopy(new)
+        old["template"]["model"]["value"] = "saved-model"
+        old["template"]["effort"]["value"] = "saved-effort"
+        with patch.object(module.LaomedoCodexAgent, "_model_catalog", side_effect=ValueError("runner_model_catalog_unavailable_check_runner_connection")):
+            updated = await component().update_frontend_node(new, old)
+        self.assertEqual(updated["template"]["model"]["options"], ["saved-model"])
+        self.assertEqual(updated["template"]["effort"]["options"], ["saved-effort"])
+
+    async def test_runner_change_queries_the_new_endpoint(self):
+        config = {"runner_url": {"value": "http://localhost:1"}, "model": {}, "effort": {}}
+        changed = await component().update_build_config(config, "http://localhost:2", "runner_url")
+        self.assertEqual(changed["runner_url"]["value"], "http://localhost:2")
+
+    async def test_new_runtime_choices_are_discovered_without_code_changes(self):
+        changed = await component().update_build_config({"model": {"value": "new-runtime-model"}, "effort": {}}, None)
+        self.assertIn("new-runtime-model", changed["model"]["options"])
+        self.assertEqual(changed["effort"]["options"], ["new-runtime-effort"])
+
+    async def test_unavailable_runner_does_not_fall_back_to_static_choices(self):
+        with patch.object(module.LaomedoCodexAgent, "_model_catalog", side_effect=ValueError("catalog_unavailable")):
+            with self.assertRaisesRegex(ValueError, "catalog_unavailable"):
+                await component().update_build_config({"model": {}, "effort": {}}, None)
+
+    async def test_model_switch_clears_incompatible_effort_without_defaulting(self):
+        config = {"model": {"value": "gpt-6-sol"}, "effort": {"value": "ultra"}}
+        changed = await component().update_build_config(config, "gpt-6-luna", "model")
+        self.assertEqual(changed["effort"]["value"], "")
+        self.assertNotIn("ultra", changed["effort"]["options"])
+        self.assertFalse(changed["model"]["combobox"])
+
+    async def test_compatible_effort_is_preserved(self):
+        config = {"model": {"value": "gpt-6-sol"}, "effort": {"value": "high"}}
+        changed = await component().update_build_config(config, "gpt-6-luna", "model")
+        self.assertEqual(changed["effort"]["value"], "high")
+
+    async def test_saved_unknown_selection_is_not_silently_replaced(self):
+        config = {"model": {"value": "saved-model"}, "effort": {"value": "saved-effort"}}
+        changed = await component().update_build_config(config, None)
+        self.assertEqual(changed["model"]["value"], "saved-model")
+        self.assertIn("saved-model", changed["model"]["options"])
+        self.assertEqual(changed["effort"]["options"], ["saved-effort"])
+
+    async def test_codex_callback_does_not_modify_opencode_settings(self):
+        node = component()
+        node.name = "LaomedoOpenCodeAgent"
+        config = {"model": {"value": "provider/model"}, "effort": {"value": "default"}}
+        self.assertEqual(await node.update_build_config(deepcopy(config), "other", "model"), config)
+
+    async def test_component_update_preserves_saved_model_and_effort_options(self):
+        new = {"display_name": "Laomedo Codex Agent", "template": {"code": {"type": "code", "value": "new"},
+            "model": {"type": "str", "value": "gpt-6-luna", "options": ["gpt-6-luna"]},
+            "effort": {"type": "str", "value": "low", "options": ["low"]}}}
+        old = {"display_name": "Laomedo Codex Agent", "template": {"code": {"type": "code", "value": "old"},
+            "model": {"type": "str", "value": "gpt-6-sol"},
+            "effort": {"type": "str", "value": "ultra"}}}
+        updated = await component().update_frontend_node(new, old)
+        self.assertEqual(updated["template"]["model"]["value"], "gpt-6-sol")
+        self.assertEqual(updated["template"]["effort"]["value"], "ultra")
+        self.assertIn("ultra", updated["template"]["effort"]["options"])
+
+    async def test_malformed_model_change_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_model_selection"):
+            await component().update_build_config({"model":{},"effort":{}}, {"bad":"value"}, "model")
+
+    def test_main_controls_are_dropdowns_with_reported_options(self):
+        inputs = {item.name: item.to_dict() for item in module.LaomedoCodexAgent.inputs}
+        order = [item.name for item in module.LaomedoCodexAgent.inputs]
+        self.assertEqual(order[order.index("effort") + 1], "skill_reference")
+        self.assertFalse(inputs["bridge_url"]["show"])
+        self.assertEqual(inputs["model"]["options"], [])
+        self.assertEqual(inputs["effort"]["options"], [])
+        self.assertFalse(inputs["model"]["combobox"])
+        self.assertTrue(inputs["model"]["real_time_refresh"])
+        self.assertFalse(inputs["effort"]["combobox"])
 
 
 if __name__ == "__main__":

@@ -19,6 +19,10 @@ def apply(checkout):
         raise SystemExit("clean_upstream_checkout_required")
     subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
+    agent_target = checkout / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
+    shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
+    shutil.copy2(overlay / "AgentAdvancedControls.tsx", agent_target / "AgentAdvancedControls.tsx")
+    shutil.copy2(overlay / "AgentAdvancedControls.test.tsx", agent_target / "AgentAdvancedControls.test.tsx")
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
     shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
