@@ -28,7 +28,7 @@ class RunnerService:
         self.process = None
         self.opener = build_opener(ProxyHandler({}))
 
-    def config(self, url):
+    def config(self, url=None):
         if self.config_path is None:
             return None
         value = json.loads(self.config_path.read_text(encoding='utf-8'))
@@ -46,14 +46,15 @@ class RunnerService:
         for key in ('state', 'skill_store', 'source') + (('executable',) if value['provider'] == 'claude' else ()):
             if not isinstance(value[key], str) or not Path(value[key]).is_absolute():
                 raise ValueError('absolute_runner_service_paths_required')
-        if url != f"http://127.0.0.1:{value['port']}":
+        if url is not None and url != f"http://127.0.0.1:{value['port']}":
             return None
         return value
 
-    def status(self, url):
+    def status(self, url=None):
         config = self.config(url)
         if config is None:
             return {'state': 'unmanaged', 'can_start': False}
+        url = f"http://127.0.0.1:{config['port']}"
         token_path = Path(config['state']) / 'api-token'
         if not token_path.exists():
             try:
@@ -83,7 +84,7 @@ class RunnerService:
         return {'state': 'offline', 'can_start': True,
                 'reason': 'runner_start_failed' if self.process is not None else None}
 
-    def start(self, url):
+    def start(self, url=None):
         with self.lock:
             current = self.status(url)
             if current['state'] != 'offline' or not current['can_start']:
@@ -122,9 +123,9 @@ def install_runner_service_routes(app, authenticate, service=None):
         return JSONResponse(value, headers={'Cache-Control': 'no-store'})
 
     @app.get('/api/v1/laomedo/runner-service', dependencies=[Depends(authenticate)])
-    async def status(url: str):
+    async def status(url: str | None = None):
         return await respond(service.status, url)
 
     @app.post('/api/v1/laomedo/runner-service/start', dependencies=[Depends(authenticate)])
-    async def start(url: str):
+    async def start(url: str | None = None):
         return await respond(service.start, url)

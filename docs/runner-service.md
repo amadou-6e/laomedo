@@ -1,7 +1,9 @@
-# Start an offline runner from the graph
+# Restart the local runner from a connection error
 
-The Agents view checks each Codex/Claude node's Runner URL. If that exact API
-is configured for managed startup and is offline, it offers **Start runner**.
+The app connection-error panel checks the host-configured local runner API
+when a transport error occurs. If it is offline, it offers **Restart local backend**.
+This is an app UI recovery action, independent of graph elements, node settings,
+canvas banners, activity views or browser-supplied Runner URLs.
 The click starts only the API process. It does not run the graph, launch a
 model turn, change the approved ceiling, clear a ledger, or retry an uncertain
 dispatch. Once ready, the user explicitly runs the graph or inspects a prior run.
@@ -30,7 +32,8 @@ adapter and its supported official CLI/subscription login. The service does not
 copy credentials. For Codex, use `provider: "codex"` and omit `executable`; its
 normal Docker prerequisites and default runner options still apply.
 
-Authenticated status/start routes return only service state and remaining turns,
+Authenticated status/start routes select the configured host service when no URL
+is supplied. Legacy explicit URLs must still match exactly. They return only service state and remaining turns,
 never configuration paths, logs or credentials. An authenticated `/v1/health`
 checks the configured API/provider without dispatch. An unknown listener or
 authentication mismatch cannot be replaced. Repeated clicks in one app worker

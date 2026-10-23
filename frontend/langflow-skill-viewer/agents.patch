@@ -14,7 +14,7 @@
  import { cn } from "@/utils/utils";
  import useFlowStore from "../../stores/flowStore";
  import useFlowsManagerStore from "../../stores/flowsManagerStore";
-+import GraphAgents, { RunnerServices } from "@/modals/graphAgents";
++import GraphAgents from "@/modals/graphAgents";
  import AgentMainContent from "./components/AgentMainContent";
  import {
    FlowSearchProvider,
@@ -172,12 +172,3 @@
          />
        )}
        {(isIssueNode || isPRNode) && <ToolbarButton disabled={!canOpenIssue} icon="ExternalLink" label="Open in GitHub" onClick={onOpenIssue!} dataTestId={isPRNode ? "pr-browser-button" : "issue-browser-button"} />}
---- a/src/frontend/src/pages/FlowPage/index.tsx
-+++ b/src/frontend/src/pages/FlowPage/index.tsx
-@@ -83,5 +88,5 @@
-   }
- 
--  return <Page setIsLoading={setIsLoading} />;
-+  return <div className="flex h-full min-w-0 flex-1 flex-col"><RunnerServices/><div className="relative min-h-0 flex-1"><Page setIsLoading={setIsLoading} /></div></div>;
- }
- 

@@ -57,6 +57,27 @@ def apply(checkout):
     shutil.copy2(overlay / "AgentActivityNavigation.ts", checkout / "src/frontend/src/stores/agentActivityStore.ts")
     shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
     shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
+    recovery_target = checkout / "src/frontend/src/components/laomedoRecovery"
+    recovery_target.mkdir()
+    for name in ("RunnerRecovery.tsx", "RunnerRecovery.test.tsx"):
+        shutil.copy2(overlay / name, recovery_target / name)
+    flow_path = checkout / "src/frontend/src/pages/FlowPage/components/flowBuildingComponent/index.tsx"
+    flow = flow_path.read_text(encoding="utf-8")
+    flow = 'import RunnerRecovery, { isRunnerConnectionError } from "@/components/laomedoRecovery/RunnerRecovery";\n' + flow
+    replacements = [
+        ('  const errorButtonsRef = useRef<HTMLDivElement>(null);', '  const runnerRecoveryError = Boolean(buildInfo?.error?.some(isRunnerConnectionError));\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'),
+        ('                                  <Button size="sm" onClick={handleRetry}>', '                                  {!runnerRecoveryError && <Button size="sm" onClick={handleRetry}>'),
+        ('{t("flowBuild.retry")}\n                                  </Button>', '{t("flowBuild.retry")}\n                                  </Button>}'),
+        ('className="absolute right-0 font-mono text-xs"', 'className={cn("absolute right-0 font-mono text-xs", runnerRecoveryError && "hidden")}'),
+        ('className="max-h-48 overflow-y-auto"', 'className="max-h-[60vh] overflow-y-auto"'),
+        ('                        <Markdown\n', '                        {runnerRecoveryError ? <RunnerRecovery message={buildInfo?.error?.find(isRunnerConnectionError)} /> : <Markdown\n'),
+        ('                        </Markdown>', '                        </Markdown>}'),
+    ]
+    for before, after in replacements:
+        if flow.count(before) != 1:
+            raise SystemExit("pinned_runner_recovery_anchor_missing: " + before[:80])
+        flow = flow.replace(before, after)
+    flow_path.write_text(flow, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

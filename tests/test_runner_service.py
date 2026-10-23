@@ -100,4 +100,16 @@ class RunnerServiceTests(unittest.TestCase):
             result=client.post('/api/v1/laomedo/runner-service/start',params={'url':self.url},headers={'Authorization':'internal-auth'})
             self.assertEqual(result.status_code,200);self.assertEqual(result.headers['cache-control'],'no-store')
 
+    def test_default_host_service_needs_no_graph_url(self):
+        with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
+             patch('laomedo.runner_service.subprocess.Popen') as spawn:
+            spawn.return_value.poll.return_value = None
+            self.assertEqual(self.service.status()['state'], 'offline')
+            self.assertEqual(self.service.start()['state'], 'starting')
+            command = spawn.call_args.args[0]
+            self.assertEqual(command[command.index('--port') + 1], str(self.config['port']))
+            self.assertEqual(command[command.index('--max-model-turns') + 1], '1')
+            self.assertFalse(self.service.start('http://127.0.0.1:12345')['can_start'])
+            self.assertEqual(spawn.call_count, 1)
+
 if __name__=='__main__':unittest.main()
