@@ -91,11 +91,11 @@ def apply(checkout):
     status_path.write_text(status_source, encoding="utf-8")
     alerts_path = checkout / "src/frontend/src/stores/alertStore.ts"
     alerts = alerts_path.read_text(encoding="utf-8")
-    alerts = 'import { describeLaomedoAlert, describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";\nimport useFlowStore from "@/stores/flowStore";\n' + alerts
+    alerts = 'import { describeLaomedoAlert } from "@/components/laomedoErrors/nodeErrors";\nimport useFlowStore from "@/stores/flowStore";\n' + alerts
     marker = 'setErrorData: (newState: { title: string; list?: Array<string> }) => {'
     if alerts.count(marker) != 1:
         raise SystemExit("pinned_error_alert_anchor_missing")
-    alerts = replace_once(alerts, marker, marker + '\n    const original = newState;\n    newState = describeLaomedoAlert(newState, useFlowStore.getState().nodes?.some(node => node.data.type?.startsWith("Laomedo")));\n    const diagnosticCode = newState !== original ? describeNodeFailure(original.list?.[0], undefined).diagnostics.code : undefined;')
+    alerts = replace_once(alerts, marker, marker + '\n    const formatted = describeLaomedoAlert(newState, useFlowStore.getState().nodes?.some(node => node.data.type?.startsWith("Laomedo")));\n    const diagnosticCode = formatted.diagnosticCode;\n    newState = formatted;')
     marker = '      get().addNotificationToHistory(notification);'
     if alerts.count(marker) != 3:
         raise SystemExit("pinned_notification_history_anchor_missing")
@@ -114,6 +114,7 @@ def apply(checkout):
     flow_error = replace_once(flow_error, 'className="max-h-48 overflow-y-auto"', 'className="max-h-[60vh] overflow-y-auto"')
     flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
     flow_error = replace_once(flow_error, '                        </Markdown>', '                        </Markdown>}')
+    flow_error = replace_once(flow_error, 'className="absolute right-0 font-mono text-xs"', 'className={cn("absolute right-0 font-mono text-xs", descriptiveError && "hidden")}')
     flow_error_path.write_text(flow_error, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 

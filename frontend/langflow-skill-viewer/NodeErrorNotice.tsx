@@ -25,7 +25,7 @@ export default function NodeErrorNotice({ message, status, context, inline = fal
         <p role="status" className="mt-1 text-xs">{copied}</p>
       </details>
   </>;
-  if (inline) return <div className="space-y-3 p-1">{content}</div>;
+  if (inline) return <div className="space-y-3 p-1 text-foreground">{content}</div>;
   return <Popover>
     <PopoverTrigger asChild>
       <button type="button" className="nodrag nopan rounded px-1 py-0.5 text-xs font-medium text-error-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

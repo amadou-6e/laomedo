@@ -60,9 +60,9 @@
     "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
   },
   "runner_provider_mismatch": {
-    "title": "The previous run does not match this operation",
-    "description": "The provider, model, session, or workspace no longer matches the saved run.",
-    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+    "title": "The runner response could not be verified",
+    "description": "The response provider does not match the provider expected by this Agent.",
+    "recovery": "Preserve the original run and ask the runner operator to investigate the provider identity before continuing or starting another request."
   },
   "runner_api_token_file_empty": {
     "title": "The runner connection is not authorized",
@@ -521,8 +521,8 @@
   },
   "invalid_request_id": {
     "title": "The request identifier is invalid",
-    "description": "The supplied request identity is not a valid UUID.",
-    "recovery": "Remove the invalid Request ID override in the saved flow or API request so a fresh identity can be assigned. Preserve valid IDs for existing requests."
+    "description": "The execution request has an invalid UUID. Current node runs assign request IDs automatically.",
+    "recovery": "If this comes from an API request, correct its request identifier. For a node-generated request, share the safe details with the application maintainer and inspect any existing request before dispatching another."
   },
   "invalid_output_retry_count": {
     "title": "The continuation retry count is invalid",

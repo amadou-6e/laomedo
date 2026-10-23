@@ -78,3 +78,9 @@ test("unknown codes with numeric segments remain available without a claimed cau
  const other = {title:"Other application",list:["unauthorized"]};
  expect(describeLaomedoAlert(other)).toBe(other);
 });
+
+test("notification diagnostics come from the matched failure rather than the first item", () => {
+ const value = describeLaomedoAlert({title:"Failure",list:["Unrelated context", "prior_run_required"]}, true);
+ expect(value.diagnosticCode).toBe("prior_run_required");
+ expect(value.list).toHaveLength(2);
+});
