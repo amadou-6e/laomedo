@@ -5,7 +5,7 @@ import json
 import os
 
 from laomedo.codex_agent import LaomedoCodexAgent as Component
-from lfx.io import StrInput
+from lfx.io import DropdownInput, StrInput
 
 
 class LaomedoOpenCodeAgent(Component):
@@ -15,12 +15,23 @@ class LaomedoOpenCodeAgent(Component):
     inputs = [deepcopy(item) for item in Component.inputs if item.name not in
               {"model", "effort", "runner_url", "bridge_url", "output_requirements",
                "output_requirements_json", "output_retries"}] + [
-        StrInput(name="model", display_name="Provider/Model", required=True),
-        StrInput(name="effort", display_name="Variant", value="default",
+        DropdownInput(name="model", display_name="Provider/Model", required=True, value="",
+                      options=[], combobox=False, real_time_refresh=True, refresh_button=True,
+                      info="Refresh to load models from connected OpenCode providers on the configured runner."),
+        DropdownInput(name="effort", display_name="Variant", value="default",
+                      options=["default"], combobox=False,
                  info="Only default is currently verified; other variants fail explicitly."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
-                 value="http://host.docker.internal:8768"),
+                 value="http://host.docker.internal:8768", real_time_refresh=True),
     ]
+
+    # Keep the current Codex layout: task/operation, model/variant, skill port,
+    # then node-owned advanced settings. Hidden compatibility fields stay hidden.
+    inputs.sort(key=lambda item: next((index for index, field in enumerate(Component.inputs)
+                                      if field.name == item.name), len(Component.inputs)))
+
+    async def update_build_config(self, build_config, field_value, field_name=None):
+        return await self._update_model_config(build_config, field_value, field_name)
 
     def _prepare(self):
         if self.operation in {"fresh", "start", "resume"} and str(self.effort) != "default":
@@ -32,6 +43,9 @@ class LaomedoOpenCodeAgent(Component):
         if self.operation not in {"fresh", "start"} and isinstance(prior, dict) and prior.get("provider") != "opencode":
             raise ValueError("run_provider_mismatch")
         return super()._prepare()
+
+    def _model_catalog_token_file_path(self):
+        return self._token_file_path()
 
     def _token_file_path(self):
         return os.environ.get("LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE",

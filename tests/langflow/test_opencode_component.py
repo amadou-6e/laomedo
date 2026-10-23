@@ -28,6 +28,22 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         node._pre_run_setup()
         return node
 
+    async def test_current_controls_and_provider_model_refresh(self):
+        node=self.node()
+        fields={item.name:item.model_dump() for item in node.inputs}
+        self.assertEqual(fields['model']['options'],[])
+        self.assertFalse(fields['model']['combobox'])
+        self.assertEqual(fields['effort']['options'],['default'])
+        for name in ('run_reference','run_reference_json','skill_id','revision_id','request_id'):
+            self.assertFalse(fields[name]['show'])
+        order=[item.name for item in node.inputs]
+        self.assertLess(order.index('model'),order.index('skill_reference'))
+        with patch.object(LaomedoOpenCodeAgent,'_model_catalog',return_value={'test/model':['default'],'test/other':['default']}):
+            await node.update_build_config(fields,'test/other','model')
+        self.assertEqual(fields['model']['value'],'test/other')
+        self.assertEqual(fields['model']['options'],['test/model','test/other'])
+        self.assertEqual(fields['effort']['options'],['default'])
+
     async def test_both_outputs_share_one_dispatch(self):
         node = self.node()
         value = {"provider": "opencode", "run_id": "fixture", "status": "completed", "answer": "answer"}

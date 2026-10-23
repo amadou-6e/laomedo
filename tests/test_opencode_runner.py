@@ -49,6 +49,29 @@ class Backend:
 
 
 class OpenCodeTests(unittest.TestCase):
+    def test_catalog_refuses_shared_profile_access_while_runner_is_busy(self):
+        self.runner.lock.acquire()
+        try:
+            with self.assertRaisesRegex(RunnerError,'runner_busy'):
+                self.runner.model_catalog()
+        finally:
+            self.runner.lock.release()
+
+    def test_catalog_only_reads_native_metadata_without_charging_turns(self):
+        calls=[]
+        class CatalogBackend(Backend):
+            def call(self, method, path, payload=None):
+                calls.append((method,path))
+                return super().call(method,path,payload)
+        self.runner.transport_factory=CatalogBackend
+        result=self.runner.model_catalog()
+        self.assertEqual(result,{'models':[{'id':'test/model','efforts':['default']}],'submitted_turns':0})
+        self.assertEqual(self.runner.model_catalog(),result)
+        self.assertEqual(calls,[('GET','/global/health'),('GET','/provider')])
+        self.assertFalse((self.runner.state/'turn-ledger.json').exists())
+        self.assertEqual(list((self.runner.state/'catalog').iterdir()),[])
+
+
     def test_cancel_before_session_does_not_submit_or_charge(self):
         entered, released = threading.Event(), threading.Event()
         class PausingBackend(Backend):

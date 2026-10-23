@@ -102,9 +102,11 @@ class LaomedoCodexAgent(Component):
     ]
 
     async def update_build_config(self, build_config, field_value, field_name=None):
-        # OpenCode has a separate provider/model and variant contract.
         if self.name != "LaomedoCodexAgent":
             return build_config
+        return await self._update_model_config(build_config, field_value, field_name)
+
+    async def _update_model_config(self, build_config, field_value, field_name=None):
         if field_name == "runner_url":
             if not isinstance(field_value, str):
                 raise ValueError("local_runner_url_required")
@@ -135,6 +137,10 @@ class LaomedoCodexAgent(Component):
         effort_field.update(options=efforts, combobox=False)
         return build_config
 
+    def _model_catalog_token_file_path(self):
+        return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                              "/run/secrets/laomedo-runner-token")
+
     def _model_catalog(self, build_config):
         base = str(build_config.get("runner_url", {}).get("value") or self.runner_url).rstrip("/")
         parsed = urlsplit(base)
@@ -144,8 +150,7 @@ class LaomedoCodexAgent(Component):
             raise ValueError("local_runner_url_required")
         # Discovery talks directly to the runner, never with the bridge token.
         try:
-            token = Path(os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
-                         "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
+            token = Path(self._model_catalog_token_file_path()).read_text(encoding="utf-8").strip()
             if not token:
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
@@ -168,7 +173,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
         updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
-        if self.name == "LaomedoCodexAgent":
+        if self.name in {"LaomedoCodexAgent", "LaomedoOpenCodeAgent"}:
             try:
                 await self.update_build_config(updated["template"], None)
             except ValueError as exc:

@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import threading
+import time
 from urllib import request
 from urllib.parse import urlencode, urlsplit
 
@@ -118,6 +119,54 @@ class OpenCodeRunner(LocalRunner):
         super().__init__(*args, check_docker=False, **kwargs)
         self.transport_factory = transport_factory
         self.active_backends = {}
+        self._opencode_catalog_lock = threading.Lock()
+        self._opencode_catalog_cached = None
+
+    def model_catalog(self):
+        """Discover connected native models without creating a session or turn."""
+        if self.transport_factory is None:
+            raise RunnerError("opencode_isolated_transport_required")
+        with self._opencode_catalog_lock:
+            cached = self._opencode_catalog_cached
+            if cached and time.monotonic() - cached[0] < 30:
+                return cached[1]
+            if not self.lock.acquire(blocking=False):
+                raise RunnerError("runner_busy")
+            root = self.state / "catalog" / str(uuid4())
+            backend = None
+            try:
+                for name in ("workspace", "canonical", "store"):
+                    (root / name).mkdir(parents=True)
+                (root / "workspace/.agents/skills").mkdir(parents=True)
+                backend = self.transport_factory(root / "workspace", root)
+                health = backend.call("GET", "/global/health")
+                if health.get("version") != CLI_VERSION or health.get("healthy") is not True:
+                    raise RunnerError("opencode_runtime_pin_mismatch")
+                providers = backend.call("GET", "/provider")
+                connected = providers.get("connected", [])
+                models = []
+                for provider in providers.get("all", []):
+                    if provider.get("id") not in connected:
+                        continue
+                    for model in provider.get("models", {}):
+                        identity = provider['id'] + '/' + model
+                        self._validate_provider(identity, "default")
+                        models.append({"id": identity, "efforts": ["default"]})
+                if not models:
+                    raise RunnerError("opencode_model_not_connected")
+                result = {"models": models, "submitted_turns": 0}
+            finally:
+                try:
+                    if backend is not None:
+                        backend.close()
+                finally:
+                    try:
+                        if root.exists():
+                            shutil.rmtree(root)
+                    finally:
+                        self.lock.release()
+            self._opencode_catalog_cached = (time.monotonic(), result)
+            return result
 
     def _prepare(self, request, **kwargs):
         # Both blocking and asynchronous starts must validate before preparing

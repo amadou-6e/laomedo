@@ -6,6 +6,12 @@ and Submission / Outcome outputs. It uses a separate isolated Docker controller
 and the existing credential-free command worker, immutable skill store and bounded
 turn ledger. The original Codex node remains unchanged.
 
+The node follows the current Codex controls: Task and Operation, runner-backed
+Provider/Model and Variant dropdowns, then Skill References. Technical settings
+are under the collapsed Advanced controls section; legacy reference fields stay
+hidden. Refresh discovers connected provider models without creating a session
+or consuming a model turn. Only the default variant is supported.
+
 Select an OpenCode node and choose Activity to open graph agent activity with that
 node's newest captured invocation selected. The provider is identified as OpenCode
 in the conversation and metadata. Opening Activity does not start an agent.
