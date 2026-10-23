@@ -21,6 +21,12 @@ class LaomedoClaudeAgent(Component):
                  value="http://host.docker.internal:8769"),
     ]
 
+    async def update_build_config(self, build_config, field_value, field_name=None):
+        # Claude uses its proposal-mode text selections, not the Codex model API.
+        if field_name in {"model", "effort", "runner_url"} and field_name in build_config:
+            build_config[field_name]["value"] = field_value
+        return build_config
+
     def _prepare(self):
         if str(self.effort) not in {"low", "medium", "high"}:
             raise ValueError("unsupported_claude_effort")

@@ -11,6 +11,13 @@ from laomedo.output_contract import requirements
 
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_text_selection_refresh_does_not_use_codex_catalog(self):
+        node = self.node()
+        with patch.object(node, '_model_catalog', side_effect=AssertionError('Codex catalog must not be called')):
+            config = await node.update_build_config({'model': {'value': 'sonnet'}, 'effort': {'value': 'low'}}, 'opus', 'model')
+        self.assertEqual(config['model']['value'], 'opus')
+        self.assertEqual(config['effort']['value'], 'low')
+
     def node(self, **changes):
         node = LaomedoClaudeAgent()
         for key, value in {'operation': 'fresh', 'task': 'Internal control', 'model': 'sonnet',
