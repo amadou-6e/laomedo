@@ -58,6 +58,11 @@ function outputFailure(status: any): Record<string, unknown> | undefined {
   }
 }
 
+export function isKnownNodeError(raw: unknown): boolean {
+  const code = codeFromMessage(raw);
+  return Boolean(code && Object.prototype.hasOwnProperty.call(entries, code));
+}
+
 export function hasLaomedoFailure(status: unknown): boolean {
   return Boolean(outputFailure(status));
 }
@@ -117,8 +122,8 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
 // Toasts are presentation only: original API events and machine codes are untouched.
 export function describeLaomedoAlert(alert: { title: string; list?: string[] }) {
   const raw = (alert.list ?? []).find(value => typeof value === "string" &&
-    /^Error building Component Laomedo[^\r\n]*:/i.test(value));
+    (/^Error building Component Laomedo[^\r\n]*:/i.test(value) || isKnownNodeError(value)));
   if (!raw) return alert;
   const failure = describeNodeFailure(raw, undefined);
-  return { title: failure.title, list: [failure.description, failure.recovery, "Open Error details on the affected node for its code and safe diagnostics."] };
+  return { title: failure.title, list: [failure.description, failure.recovery, "Expand Technical details in the error panel for the code and safe diagnostics."] };
 }

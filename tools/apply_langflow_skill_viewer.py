@@ -74,6 +74,14 @@ def apply(checkout):
               operation: data.node?.template?.operation?.value,
               savedReferences: [data.node?.template?.run_reference?.value, data.node?.template?.run_reference_json?.value],
             }} /> : <ShadTooltip''')
+    marker = '  const conditionError = buildStatus === BuildStatus.ERROR;'
+    replacement = '  const scopedFlowError = useFlowStore((state) => state.nodes?.length === 1 && state.nodes[0].id === nodeId && data.type?.startsWith("Laomedo") ? state.buildInfo?.error?.[0] : undefined);\n  const conditionError = buildStatus === BuildStatus.ERROR;'
+    if status_source.count(marker) != 1:
+        raise SystemExit("pinned_node_error_scope_anchor_missing")
+    status_source = status_source.replace(marker, replacement)
+    status_source = status_source.replace('conditionSuccess || conditionError || conditionInactive;', 'conditionSuccess || conditionError || conditionInactive || Boolean(scopedFlowError);')
+    status_source = status_source.replace('(conditionError || hasLaomedoFailure(validationStatus))', '(conditionError || Boolean(scopedFlowError) || hasLaomedoFailure(validationStatus))')
+    status_source = status_source.replace('message={validationString} status={validationStatus}', 'message={scopedFlowError || validationString} status={validationStatus}')
     status_path.write_text(status_source, encoding="utf-8")
     alerts_path = checkout / "src/frontend/src/stores/alertStore.ts"
     alerts = alerts_path.read_text(encoding="utf-8")
@@ -83,6 +91,18 @@ def apply(checkout):
         raise SystemExit("pinned_error_alert_anchor_missing")
     alerts = alerts.replace(marker, marker + '\n    newState = describeLaomedoAlert(newState);')
     alerts_path.write_text(alerts, encoding="utf-8")
+    flow_error_path = checkout / "src/frontend/src/pages/FlowPage/components/flowBuildingComponent/index.tsx"
+    flow_error = flow_error_path.read_text(encoding="utf-8")
+    flow_error = 'import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";\n' + flow_error
+    marker = '  const errorButtonsRef = useRef<HTMLDivElement>(null);'
+    replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(isKnownNodeError) ?? (affectedNode ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
+    if flow_error.count(marker) != 1:
+        raise SystemExit("pinned_flow_error_anchor_missing")
+    flow_error = flow_error.replace(marker, replacement)
+    flow_error = flow_error.replace('                                  <Button size="sm" onClick={handleRetry}>', '                                  {!descriptiveError && <Button size="sm" onClick={handleRetry}>').replace('{t("flowBuild.retry")}\n                                  </Button>', '{t("flowBuild.retry")}\n                                  </Button>}')
+    flow_error = flow_error.replace('className="max-h-48 overflow-y-auto"', 'className="max-h-[60vh] overflow-y-auto"')
+    flow_error = flow_error.replace('                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n').replace('                        </Markdown>', '                        </Markdown>}')
+    flow_error_path.write_text(flow_error, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

@@ -63,10 +63,11 @@ test("start response loss preserves its request identity without repeating dispa
   expect(failure.diagnostics.request_id).toBe(request);
 });
 
-test("only branded Laomedo error toasts are replaced; API objects stay untouched", () => {
+test("known codes and branded Laomedo toasts are explained; API objects stay untouched", () => {
   const original = Object.freeze({ title: "Last build failed", list: ["Error building Component LaomedoCodexAgent: \n\nprior_run_required"] });
   expect(describeLaomedoAlert(original).title).toBe("No previous run is available");
   expect(original.list[0]).toContain("prior_run_required");
-  const other = { title: "Other application error", list: ["prior_run_required"] };
+  expect(describeLaomedoAlert({ title: "Workflow run failed", list: ["prior_run_required"] }).title).toBe("No previous run is available");
+  const other = { title: "Other application error", list: ["Unrelated failure"] };
   expect(describeLaomedoAlert(other)).toBe(other);
 });
