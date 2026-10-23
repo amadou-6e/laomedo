@@ -34,8 +34,10 @@ function LocalBackendRecovery() {
           if (data.state !== "starting") setStarting(false);
         }
       } catch {
-        if (!controller.signal.aborted && version === generation.current)
+        if (!controller.signal.aborted && version === generation.current) {
+          setService(null);
           setError("The local backend availability could not be checked. Check its host configuration.");
+        }
       } finally { loading = false; }
     };
     void load();
@@ -63,7 +65,9 @@ function LocalBackendRecovery() {
       ? "The local runner backend is online. Its approved turn limit is reached; status and recorded results remain available."
       : "The configured local runner backend is online. Inspect the existing run before retrying; the original connection failure may have another cause."
     : waiting ? "Restarting the local runner backend..."
-    : service?.state === "offline" ? "The local runner backend is offline. Restart it to restore the connection."
+    : service?.state === "offline" ? service.reason === "runner_start_failed"
+      ? "The local runner backend did not start. Check the host startup log before restarting again."
+      : "The local runner backend is offline. Restart it to restore the connection."
     : service?.state === "unmanaged" ? "Local backend recovery is not configured on this host. Ask the operator to configure it."
     : service ? "The local runner backend identity could not be verified. Check the host configuration."
     : "Checking the local runner backend connection...";
