@@ -86,7 +86,9 @@ test("notification diagnostics come from the matched failure rather than the fir
 });
 
 test("future safe codes and branded unknown failures use the descriptive flow path", () => {
- expect(isKnownNodeError("future_condition_240")).toBe(true);
+ expect(isKnownNodeError("future_condition_240", true)).toBe(true);
  expect(isKnownNodeError("Error building Component Laomedo Codex Agent: \n\nUnrecognized provider response")).toBe(true);
  expect(isKnownNodeError("An unrelated ordinary message")).toBe(false);
+ expect(isKnownNodeError("future_condition_240")).toBe(false);
+ expect(isKnownNodeError("unauthorized")).toBe(false);
 });

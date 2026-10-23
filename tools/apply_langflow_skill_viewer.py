@@ -95,7 +95,7 @@ def apply(checkout):
     marker = 'setErrorData: (newState: { title: string; list?: Array<string> }) => {'
     if alerts.count(marker) != 1:
         raise SystemExit("pinned_error_alert_anchor_missing")
-    alerts = replace_once(alerts, marker, marker + '\n    const formatted = describeLaomedoAlert(newState, useFlowStore.getState().nodes?.some(node => node.data.type?.startsWith("Laomedo")));\n    const diagnosticCode = formatted.diagnosticCode;\n    newState = formatted;')
+    alerts = replace_once(alerts, marker, marker + '\n    const formatted = describeLaomedoAlert(newState, useFlowStore.getState().nodes?.some(node => node.data.type?.startsWith("Laomedo")));\n    const diagnosticCode = formatted.diagnosticCode;\n    newState = { title: formatted.title, list: formatted.list };')
     marker = '      get().addNotificationToHistory(notification);'
     if alerts.count(marker) != 3:
         raise SystemExit("pinned_notification_history_anchor_missing")
@@ -105,7 +105,7 @@ def apply(checkout):
     flow_error = flow_error_path.read_text(encoding="utf-8")
     flow_error = 'import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";\n' + flow_error
     marker = '  const errorButtonsRef = useRef<HTMLDivElement>(null);'
-    replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(isKnownNodeError) ?? (affectedNode ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
+    replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(message => isKnownNodeError(message, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))) ?? (affectedNode ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
     if flow_error.count(marker) != 1:
         raise SystemExit("pinned_flow_error_anchor_missing")
     flow_error = replace_once(flow_error, marker, replacement)
