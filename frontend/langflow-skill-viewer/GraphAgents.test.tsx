@@ -1,8 +1,8 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle } from "./index";
+import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, RunnerServiceControl } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
-jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
+jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn(),post:jest.fn()}}));
 jest.mock("@/customization/utils/urls",()=>({getBaseUrl:()=>"/api/v1/"}));
 let canvasNodes:unknown[]=[];
 let activityTarget:{flowId:string;nodeId:string}|null=null;
@@ -19,6 +19,26 @@ jest.mock("@/components/ui/badge",()=>({Badge:({variant,size,...props}:any)=><sp
 jest.mock("@/components/common/genericIconComponent",()=>({__esModule:true,default:()=> <svg/>}));
 jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({code}:{code:string})=> <pre><span>{code}</span></pre>}));
 beforeEach(()=>{jest.clearAllMocks();canvasNodes=[];activityTarget=null});
+
+test("offline Claude offers explicit service startup without dispatching a graph",async()=>{
+ (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+ (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false}});
+ render(<RunnerServiceControl url="http://127.0.0.1:8769"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"Start runner"}));
+ await screen.findByRole("button",{name:"Starting runner…"});
+ expect(api.post).toHaveBeenCalledTimes(1);
+ expect(api.post).toHaveBeenCalledWith('/api/v1/laomedo/runner-service/start',null,{params:{url:'http://127.0.0.1:8769'}});
+ expect(screen.getByText(/does not run an agent or change/)).toBeInTheDocument();
+});
+
+test("service start failure keeps a retry action and approved limits stay visible",async()=>{
+ (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+ (api.post as jest.Mock).mockRejectedValue(new Error('offline'));
+ render(<RunnerServiceControl url="http://127.0.0.1:8769"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"Start runner"}));
+ await screen.findByRole('alert');
+ expect(screen.getByRole('button',{name:'Start runner'})).toBeEnabled();
+});
 
 test("recorded names survive canvas rename and older runs use the visible canvas name",async()=>{
   canvasNodes=[{id:"node-one",data:{node:{display_name:"Renamed on canvas"}}},{id:"node-two",data:{node:{display_name:"Follow up"}}}];
