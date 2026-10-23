@@ -42,7 +42,6 @@
   "attempted_turns": 1,
   "maximum_turns": 1,
   "configured_output_retries": 0,
-  "effective_output_retries": 1,
   "output_contract": null,
   "corrections_used": 0,
   "new_resume_tested": false,
@@ -52,5 +51,44 @@
   "api_equivalent_cost": null,
   "historical_records_modified": false,
   "runner_stopped": true,
-  "verifier_note": "Initial verifier assumed configured output_retries=0 would be sent without an output contract; runner default1 was inapplicable. Completed one-turn receipt preserved; remaining checks reconciled read-only without another dispatch."
+  "verifier_note": "Initial verifier assumed configured output_retries=0 would be sent without an output contract; runner default1 was inapplicable. Completed one-turn receipt preserved; remaining checks reconciled read-only without another dispatch.",
+  "runner_default_output_retries": 1,
+  "output_retries_applicability": "inapplicable without output contract",
+  "browser_verification": {
+    "preview_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1",
+    "views": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "prompt": true,
+        "answer": true,
+        "tokens": true,
+        "diagnostics": true,
+        "refresh_icon": true
+      },
+      {
+        "theme": "dark",
+        "width": 1600,
+        "height": 1050,
+        "prompt": true,
+        "answer": true,
+        "tokens": true,
+        "diagnostics": true,
+        "refresh_icon": true
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "prompt": true,
+        "answer": true,
+        "tokens": true,
+        "diagnostics": true,
+        "refresh_icon": true
+      }
+    ],
+    "page_errors": [],
+    "execution_requests": 0
+  }
 }
