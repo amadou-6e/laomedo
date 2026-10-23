@@ -44,6 +44,12 @@ class RunnerServiceTests(unittest.TestCase):
                     self.assertNotIn(key,env)
                 self.assertEqual(env['PATH'],'runtime-path')
                 self.assertEqual('DOCKER_HOST' in env,provider=='codex')
+            with patch.object(self.service.opener,'open',side_effect=URLError('offline')), \
+                 patch('laomedo.runner_service.subprocess.Popen',return_value=Mock(poll=lambda:None)) as spawn:
+                self.service.start(self.url)
+            env=spawn.call_args.kwargs['env']
+            for key in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','LANGFLOW_SECRET_KEY','DATABASE_URL','CLAUDE_CONFIG_DIR'):
+                self.assertNotIn(key,env)
 
     def test_concurrent_clicks_do_not_spawn_twice_or_change_turn_limit(self):
         (self.root/'runner/turn-ledger.json').write_text('{"attempted_turns":1}')
