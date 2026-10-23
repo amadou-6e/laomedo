@@ -37,6 +37,11 @@ component imports the Codex client lifecycle from that category. The runtime
 must make both the runtime and component package paths available, as in the
 existing experimental OpenCode deployment.
 
+Existing saved Codex/OpenCode templates must be upgraded to the current component
+to retain hidden saved run references during graph execution. The hidden
+`run_reference_json` field must have `override_skip: true`; this fixes saved-JSON
+Resume, Status and Cancel in both agent types. The local example is upgraded.
+
 ## Runtime and credentials
 
 Use OpenCode 1.18.33 with a dedicated controller profile. Credentials stay in the

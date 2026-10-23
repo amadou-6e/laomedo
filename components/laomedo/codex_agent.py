@@ -86,6 +86,7 @@ class LaomedoCodexAgent(Component):
         DataInput(name="run_reference", display_name="Prior Run", show=False,
                   info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
         StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False,
+                 override_skip=True,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
                  value="http://host.docker.internal:8765", real_time_refresh=True),

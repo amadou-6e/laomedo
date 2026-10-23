@@ -56,6 +56,32 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError,'run_provider_mismatch'):
             self.node(operation='resume',run_reference='',run_reference_json=json.dumps({**prior,'provider':'codex'}))._prepare()
 
+    async def test_saved_hidden_reference_survives_actual_graph_execution(self):
+        import json
+        from uuid import uuid4
+        from lfx.graph.graph.base import Graph
+        from lfx.services.manager import get_service_manager
+        from lfx.services.schema import ServiceType
+        from lfx.services.settings.service import SettingsService
+        manager=get_service_manager()
+        if ServiceType.SETTINGS_SERVICE not in manager.services:
+            manager.services[ServiceType.SETTINGS_SERVICE]=SettingsService.initialize()
+        flow=json.loads((ROOT/'examples/opencode-node/flow.json').read_text())
+        agent=next(n for n in flow['data']['nodes'] if n['id']=='OpenCode-read-project')
+        template,_=build_custom_component_template(Component(_code=(ROOT/'components/laomedo/opencode_agent.py').read_text()))
+        agent['data']['node']=template
+        fields=template['template'];run_id=str(uuid4())
+        fields['operation']['value']='status';fields['run_reference']['value']=''
+        fields['run_reference_json']['value']=json.dumps({'provider':'opencode','run_id':run_id})
+        flow['data']['nodes']=[agent];flow['data']['edges']=[]
+        from laomedo.codex_agent import LaomedoCodexAgent
+        with patch.object(LaomedoCodexAgent,'_http',return_value={'provider':'opencode','run_id':run_id,'status':'completed','answer':'Recorded result'}) as http:
+            await Graph.from_payload(flow).arun(inputs=[{'input_value':''}],types=['chat'])
+        self.assertEqual(http.call_count,1)
+        endpoint,body,method=http.call_args.args
+        self.assertEqual(method,'GET')
+        self.assertTrue(endpoint.endswith('/'+run_id))
+
     async def test_both_outputs_share_one_dispatch(self):
         node = self.node()
         value = {"provider": "opencode", "run_id": "fixture", "status": "completed", "answer": "answer"}
