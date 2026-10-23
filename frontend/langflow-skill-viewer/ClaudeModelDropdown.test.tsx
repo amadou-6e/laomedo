@@ -17,7 +17,7 @@ jest.mock("@/utils/utils",()=>({cn:(...items:any[])=>items.filter(x=>typeof x===
 jest.mock("@/utils/stringManipulation",()=>({getStatusColor:()=>'',convertStringToHTML:(v:string)=>v}));
 jest.mock("react-i18next",()=>({useTranslation:()=>({t:(key:string)=>key})}));
 
-const metadata=[{id:'sonnet',display_name:'Sonnet test',resolved_model:'claude-sonnet-test'}];
+const metadata=[{id:'sonnet',laomedo_native_model:true,display_name:'Sonnet test',resolved_model:'claude-sonnet-test'}];
 
 test('native model labels and IDs are separate; selection submits the original ID',()=>{
  const select=jest.fn();
@@ -37,6 +37,8 @@ test('selected native label is shown without changing ordinary dropdown text',()
  expect(screen.getByRole('combobox')).toHaveTextContent('Sonnet test');
  rerender(<DropdownTrigger {...props} filteredMetadata={undefined}/>);
  expect(screen.getByRole('combobox')).toHaveTextContent('sonnet');
+ rerender(<DropdownTrigger {...props} filteredMetadata={[{...metadata[0],laomedo_native_model:false}]}/>);
+ expect(screen.getByRole('combobox')).toHaveTextContent('sonnet');
 });
 
 test('search finds the native display name and resolved model ID while retaining selection IDs',async()=>{
@@ -46,4 +48,11 @@ test('search finds the native display name and resolved model ID while retaining
  expect(result.current.filteredOptions).toEqual(['sonnet']);
  await act(async()=>{await result.current.searchRoleByTerm({target:{value:'claude-sonnet-test'}} as any)});
  expect(result.current.filteredOptions).toEqual(['sonnet']);
+});
+
+test('metadata-only refresh updates a closed selector without changing option IDs',()=>{
+ const {result,rerender}=renderHook(({items})=>useDropdownOptions({value:'sonnet',options:['sonnet'],validOptions:['sonnet'],
+ optionsMetaData:items,hasChildren:false,onSelect:jest.fn()}),{initialProps:{items:metadata}});
+ const updated=[{...metadata[0],display_name:'Sonnet newer'}];rerender({items:updated});
+ expect(result.current.filteredMetadata).toEqual(updated);
 });

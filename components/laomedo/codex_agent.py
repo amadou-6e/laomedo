@@ -174,7 +174,7 @@ class LaomedoCodexAgent(Component):
                     raise ValueError("invalid_catalog")
                 catalog[model] = efforts
                 if self.name == "LaomedoClaudeAgent":
-                    catalog.metadata[model] = {"id": model,
+                    catalog.metadata[model] = {"id": model, "laomedo_native_model": True,
                         **({"display_name": item["name"]} if isinstance(item.get("name"), str) else {}),
                         **({"resolved_model": item["resolved_model"]} if isinstance(item.get("resolved_model"), str) else {})}
             if not catalog:
