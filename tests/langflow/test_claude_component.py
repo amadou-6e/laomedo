@@ -25,6 +25,9 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             'skill_id': 'sample', 'revision_id': 'sha256:' + 'a' * 64, **changes}.items():
             setattr(node, key, value)
         node._pre_run_setup()
+        if 'skill_reference' not in changes:
+            node.skill_reference = {'skill_id': 'sample', 'revision_id': 'sha256:' + 'a' * 64,
+                                    'tree_hash': 'sha256:' + 'a' * 64}
         return node
 
     async def test_outputs_share_one_dispatch_and_keep_claude_provider(self):
