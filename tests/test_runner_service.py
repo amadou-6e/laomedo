@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch, Mock
 from urllib.error import URLError
 from urllib.request import Request, urlopen
-from laomedo.runner_service import RunnerService, install_runner_service_routes
+from laomedo.runner_service import RunnerService, install_runner_service_routes, service_environment
 from laomedo.local_runner import serve
 try:
     from fastapi.testclient import TestClient
@@ -33,6 +33,17 @@ class RunnerServiceTests(unittest.TestCase):
             for url in ['https://external.test',self.url+'/path',self.url+'?port=5','http://127.0.0.1:12345']:
                 self.assertFalse(self.service.start(url)['can_start'])
             spawn.assert_not_called()
+
+    def test_service_start_excludes_host_secrets_and_provider_overrides(self):
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY':'internal-only','OPENAI_API_KEY':'internal-only',
+                'LANGFLOW_SECRET_KEY':'internal-only','DATABASE_URL':'internal-only',
+                'CLAUDE_CONFIG_DIR':'unrelated','DOCKER_HOST':'docker-context','PATH':'runtime-path'}):
+            for provider in ('claude','codex'):
+                env=service_environment(provider)
+                for key in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','LANGFLOW_SECRET_KEY','DATABASE_URL','CLAUDE_CONFIG_DIR'):
+                    self.assertNotIn(key,env)
+                self.assertEqual(env['PATH'],'runtime-path')
+                self.assertEqual('DOCKER_HOST' in env,provider=='codex')
 
     def test_concurrent_clicks_do_not_spawn_twice_or_change_turn_limit(self):
         (self.root/'runner/turn-ledger.json').write_text('{"attempted_turns":1}')

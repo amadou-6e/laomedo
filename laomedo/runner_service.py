@@ -10,6 +10,17 @@ from urllib.error import URLError, HTTPError
 from urllib.request import Request, build_opener, ProxyHandler
 
 
+def service_environment(provider):
+    allowed = {'PATH', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'SYSTEMROOT',
+        'WINDIR', 'SYSTEMDRIVE', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP', 'LANG',
+        'LC_ALL', 'LC_CTYPE', 'HOMEDRIVE', 'HOMEPATH', 'PROGRAMDATA', 'USERNAME'}
+    if provider == 'codex':
+        allowed.update({'DOCKER_HOST', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH',
+                        'DOCKER_CONTEXT', 'DOCKER_CONFIG'})
+    return {**{key: value for key, value in os.environ.items() if key.upper() in allowed},
+            'PYTHONPATH': str(Path(__file__).resolve().parents[1])}
+
+
 class RunnerService:
     def __init__(self, config_path):
         self.config_path = Path(config_path) if config_path else None
@@ -81,14 +92,13 @@ class RunnerService:
             module = 'laomedo.claude_runner' if config['provider'] == 'claude' else 'laomedo.local_runner'
             command = [sys.executable, '-m', module,
                 '--state', config['state'], '--skill-store', config['skill_store'],
-                '--source', config['source'],
+                '--source' if config['provider'] == 'claude' else '--source-workspace', config['source'],
                 '--port', str(config['port']), '--max-model-turns', str(config['max_model_turns'])]
             if config['provider'] == 'claude':
                 command.extend(['--executable', config['executable']])
             # The trusted host supplies all paths and the fixed turn ceiling.
             # Neither browser inputs nor model outputs become process arguments.
-            env = dict(os.environ)
-            env['PYTHONPATH'] = str(Path(__file__).resolve().parents[1])
+            env = service_environment(config['provider'])
             log_path = Path(config['state']) / 'service-startup.log'
             log_path.parent.mkdir(parents=True, exist_ok=True)
             with log_path.open('ab') as log:

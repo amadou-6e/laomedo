@@ -40,6 +40,18 @@ test("service start failure keeps a retry action and approved limits stay visibl
  expect(screen.getByRole('button',{name:'Start runner'})).toBeEnabled();
 });
 
+test("a successful availability poll clears an earlier connection error",async()=>{
+ jest.useFakeTimers();
+ try{
+  (api.get as jest.Mock).mockRejectedValueOnce(new Error('connection')).mockResolvedValue({data:{state:'ready',can_start:false,remaining_turns:0}});
+  render(<RunnerServiceControl url="http://127.0.0.1:8769"/>);
+  await screen.findByText('Runner availability could not be checked.');
+  await act(async()=>{await jest.advanceTimersByTimeAsync(2000)});
+  await screen.findByText(/runner is online/);
+  expect(screen.queryByText('Runner availability could not be checked.')).toBeNull();
+ }finally{jest.useRealTimers()}
+});
+
 test("recorded names survive canvas rename and older runs use the visible canvas name",async()=>{
   canvasNodes=[{id:"node-one",data:{node:{display_name:"Renamed on canvas"}}},{id:"node-two",data:{node:{display_name:"Follow up"}}}];
   const first={...run("one","execution"),node_label:"Review PR"},second=run("two","execution");

@@ -41,7 +41,7 @@ export function RunnerServiceControl({url,label="Agent"}:{url:string;label?:stri
     const controller=new AbortController();let loading=false;
     const load=async()=>{if(loading)return;loading=true;try {
       const {data}=await api.get<RunnerServiceState>(endpoint,{params:{url},signal:controller.signal});
-      if(!controller.signal.aborted){setService(data);if(data.state!=="starting")setStarting(false)}
+      if(!controller.signal.aborted){setService(data);setError("");if(data.state!=="starting")setStarting(false)}
     }catch{if(!controller.signal.aborted)setError("Runner availability could not be checked.")}
     finally{loading=false}};
     void load();const timer=setInterval(load,2000);
@@ -49,7 +49,7 @@ export function RunnerServiceControl({url,label="Agent"}:{url:string;label?:stri
   },[endpoint,url]);
   const start=async()=>{
     setStarting(true);setError("");
-    try{const {data}=await api.post<RunnerServiceState>(`${endpoint}/start`,null,{params:{url}});setService(data);if(data.state!=="starting")setStarting(false)}
+    try{const {data}=await api.post<RunnerServiceState>(`${endpoint}/start`,null,{params:{url}});setService(data);setError("");if(data.state!=="starting")setStarting(false)}
     catch{setStarting(false);setError("The runner could not be started. Check its host configuration and try again.")}
   };
   if(!service||service.state==="unmanaged")return error?<p role="status" className="px-4 py-2 text-sm text-muted-foreground">{error}</p>:null;
