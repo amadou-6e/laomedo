@@ -1,4 +1,4 @@
-import { describeNodeFailure, describeLaomedoAlert, hasLaomedoFailure } from "./nodeErrors";
+import { describeNodeFailure, describeLaomedoAlert, hasLaomedoFailure, isKnownNodeError } from "./nodeErrors";
 import catalog from "./node-error-catalog.json";
 
 const run = "11111111-1111-4111-8111-111111111111";
@@ -83,4 +83,10 @@ test("notification diagnostics come from the matched failure rather than the fir
  const value = describeLaomedoAlert({title:"Failure",list:["Unrelated context", "prior_run_required"]}, true);
  expect(value.diagnosticCode).toBe("prior_run_required");
  expect(value.list).toHaveLength(2);
+});
+
+test("future safe codes and branded unknown failures use the descriptive flow path", () => {
+ expect(isKnownNodeError("future_condition_240")).toBe(true);
+ expect(isKnownNodeError("Error building Component Laomedo Codex Agent: \n\nUnrecognized provider response")).toBe(true);
+ expect(isKnownNodeError("An unrelated ordinary message")).toBe(false);
 });

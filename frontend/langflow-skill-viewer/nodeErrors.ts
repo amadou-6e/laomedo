@@ -60,7 +60,7 @@ function outputFailure(status: any): Record<string, unknown> | undefined {
 
 export function isKnownNodeError(raw: unknown): boolean {
   const code = codeFromMessage(raw);
-  return Boolean(code && Object.prototype.hasOwnProperty.call(entries, code));
+  return Boolean(code) || typeof raw === "string" && /^Error building Component Laomedo[^\r\n]*:/i.test(raw);
 }
 
 export function hasLaomedoFailure(status: unknown): boolean {
