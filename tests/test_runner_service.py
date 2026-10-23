@@ -10,6 +10,10 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 from laomedo.runner_service import RunnerService, install_runner_service_routes
 from laomedo.local_runner import serve
+try:
+    from fastapi.testclient import TestClient
+except ImportError:
+    TestClient = None
 
 
 class RunnerServiceTests(unittest.TestCase):
@@ -64,9 +68,9 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertEqual(result['reason'],'runner_start_failed');self.assertTrue(result['can_start'])
         self.assertNotIn(str(self.root),json.dumps(result))
 
+    @unittest.skipIf(TestClient is None, 'optional FastAPI/httpx integration is not installed')
     def test_start_route_requires_authentication(self):
         from fastapi import FastAPI,Header,HTTPException
-        from fastapi.testclient import TestClient
         app=FastAPI()
         def auth(authorization:str=Header(default='')):
             if authorization!='internal-auth':raise HTTPException(401)
