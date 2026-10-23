@@ -322,6 +322,8 @@ class ClaudeRunner(LocalRunner):
                 # the entire session to the latest invocation.
                 if resume and baseline is None:
                     totals = None
+                elif resume and totals is not None and "reasoningOutputTokens" not in baseline:
+                    totals.pop("reasoningOutputTokens", None)
                 self._event(root, "thread/tokenUsage/updated", {"threadId": record["thread_id"],
                     "tokenUsage": {"total": totals}, "usage_scope": "native_session_cumulative"})
                 self._event(root, "claude/result", {"threadId": record["thread_id"], "turnId": host_turn,

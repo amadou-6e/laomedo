@@ -50,7 +50,7 @@ def project(events, *, root_thread=None, model=None):
                     threads.setdefault(child,{'id':child,'parent':thread})
         if method == 'thread/tokenUsage/updated' and thread:
             total=params.get('tokenUsage',{}).get('total')
-            if not isinstance(total,dict):
+            if total is None and params.get('usage_scope') in {'native_session_cumulative', 'terminal_receipt_unavailable'}:
                 invalid_usage.add(thread)
                 latest[thread]=None
             if isinstance(total,dict):

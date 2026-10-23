@@ -33,6 +33,17 @@ class ClaudeRunnerTests(unittest.TestCase):
         for invalid in [{}, {'modelUsage': {}}, native(True, 1), native(-1, 1)]:
             self.assertIsNone(activity_usage(invalid))
 
+    def test_codex_notification_without_total_preserves_last_measured_usage(self):
+        def event(params):
+            return {'raw': {'method': 'thread/tokenUsage/updated', 'params': {'threadId': 'session', **params}},
+                    'received_at': '2026-10-23T10:00:00Z'}
+        first = event({'tokenUsage': {'total': {'inputTokens': 10, 'outputTokens': 5}}})
+        result = project([first, event({'tokenUsage': {'last': {'inputTokens': 2}}})], root_thread='session')
+        self.assertEqual(result['usage']['inputTokens'], 10)
+        result = project([first, event({'tokenUsage': {'total': None},
+                          'usage_scope': 'terminal_receipt_unavailable'})], root_thread='session')
+        self.assertIsNone(result['usage'])
+
     def test_activity_contains_prompt_answer_and_unknown_usage_without_guessing(self):
         with self.invoke():
             result = self.runner.start(self.payload)
