@@ -20,9 +20,9 @@
     "recovery": "Restore the original Run Reference through your saved flow or API request. Do not reconstruct run identifiers or paste credentials into the graph."
   },
   "completed_snapshot_and_thread_required": {
-    "title": "The previous run does not match this operation",
-    "description": "The provider, model, session, or workspace no longer matches the saved run.",
-    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+    "title": "The previous run is not ready to resume",
+    "description": "Resume requires a completed run with its saved session and workspace snapshot. These requirements were not met.",
+    "recovery": "Check the previous run status and use its original completed Run Reference. Do not resume an active or incomplete run or reconstruct its session identifiers."
   },
   "workspace_changed_since_snapshot": {
     "title": "The previous run does not match this operation",
@@ -30,9 +30,9 @@
     "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
   },
   "post_run_snapshot_mismatch": {
-    "title": "The previous run does not match this operation",
-    "description": "The provider, model, session, or workspace no longer matches the saved run.",
-    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+    "title": "The saved workspace could not be verified",
+    "description": "The observed workspace snapshot does not match the recorded post-run snapshot.",
+    "recovery": "Preserve the run and its workspace. Ask the operator to investigate snapshot integrity before resuming or starting a replacement."
   },
   "resume_binding_mismatch": {
     "title": "The previous run does not match this operation",
@@ -135,19 +135,19 @@
     "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
   },
   "model_and_effort_required": {
-    "title": "Choose a model and reasoning setting",
-    "description": "The Agent does not have a complete model selection.",
-    "recovery": "Refresh the Model list from the configured runner, then choose a model and one of its supported reasoning settings."
+    "title": "The model or reasoning setting is missing or invalid",
+    "description": "The node rejected the supplied model or reasoning selection.",
+    "recovery": "Choose supported Model and Reasoning Effort values on Codex, or Provider/Model and Variant values on OpenCode. If choices are unavailable, ask the runner operator to check provider support."
   },
   "invalid_model_selection": {
-    "title": "Choose a model and reasoning setting",
-    "description": "The Agent does not have a complete model selection.",
-    "recovery": "Refresh the Model list from the configured runner, then choose a model and one of its supported reasoning settings."
+    "title": "The model or reasoning setting is missing or invalid",
+    "description": "The node rejected the supplied model or reasoning selection.",
+    "recovery": "Choose supported Model and Reasoning Effort values on Codex, or Provider/Model and Variant values on OpenCode. If choices are unavailable, ask the runner operator to check provider support."
   },
   "invalid_effort_selection": {
-    "title": "Choose a model and reasoning setting",
-    "description": "The Agent does not have a complete model selection.",
-    "recovery": "Refresh the Model list from the configured runner, then choose a model and one of its supported reasoning settings."
+    "title": "The model or reasoning setting is missing or invalid",
+    "description": "The node rejected the supplied model or reasoning selection.",
+    "recovery": "Choose supported Model and Reasoning Effort values on Codex, or Provider/Model and Variant values on OpenCode. If choices are unavailable, ask the runner operator to check provider support."
   },
   "unsupported_model_effort": {
     "title": "The runner does not support this model and reasoning pair",
@@ -320,9 +320,9 @@
     "recovery": "Inspect the active run and wait for a confirmed terminal status before starting new work. Do not cancel another run without checking its owner."
   },
   "skill_reference_required_use_skill_node": {
-    "title": "The Agent needs valid Skill References",
-    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
-    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+    "title": "No Skill Reference is connected",
+    "description": "A new agent session requires an immutable Skill Reference.",
+    "recovery": "Connect a Skill node's Skill Reference output to this Agent's Skill References input, then run the corrected request."
   },
   "pinned_skill_ref_required": {
     "title": "The Agent needs valid Skill References",
@@ -495,9 +495,9 @@
     "recovery": "Inspect the existing run and provider connection before starting another request. A failed response does not establish that no remote work occurred."
   },
   "local_runner_url_required": {
-    "title": "The service address is not supported",
-    "description": "This deployment requires an approved local service address.",
-    "recovery": "Ask the deployment owner to check the local runner or backend bridge configuration. Do not include credentials in the address."
+    "title": "The Runner URL is invalid",
+    "description": "The runner address must use an allowed local HTTP endpoint without embedded credentials.",
+    "recovery": "Open Advanced controls and correct Runner URL using the address provided by the local runner operator. Do not include credentials in the URL."
   },
   "local_bridge_url_required": {
     "title": "The service address is not supported",
@@ -508,5 +508,90 @@
     "title": "No changes were needed",
     "description": "The proposed files are identical to the selected Skill revision.",
     "recovery": "Review the current files and update the Edit Request if a different change is intended. An unchanged proposal does not create a new revision."
+  },
+  "timeout_must_be_1_to_240_seconds": {
+    "title": "The HTTP timeout is outside its allowed range",
+    "description": "The node rejected its timeout setting before dispatch.",
+    "recovery": "Open Advanced controls and set HTTP Timeout to a value from 1 to 240 seconds, then run the corrected request."
+  },
+  "invalid_operation": {
+    "title": "The operation is not supported",
+    "description": "The node rejected the selected operation before dispatch.",
+    "recovery": "Choose a supported operation from the Operation dropdown and review its required inputs."
+  },
+  "invalid_request_id": {
+    "title": "The request identifier is invalid",
+    "description": "The supplied request identity is not a valid UUID.",
+    "recovery": "Remove the invalid Request ID override in the saved flow or API request so a fresh identity can be assigned. Preserve valid IDs for existing requests."
+  },
+  "invalid_output_retry_count": {
+    "title": "The continuation retry count is invalid",
+    "description": "The node rejected the configured output continuation allowance.",
+    "recovery": "Open Advanced controls and set Output Continuation Retries to a supported nonnegative count within the node limits."
+  },
+  "invalid_static_output_requirements": {
+    "title": "The output requirements are invalid or conflict",
+    "description": "The saved output requirements could not be validated consistently.",
+    "recovery": "Review the downstream Output Contract and remove conflicting legacy requirements in the saved flow or API request. Do not change the contract of an existing run."
+  },
+  "conflicting_output_requirements": {
+    "title": "The output requirements are invalid or conflict",
+    "description": "The saved output requirements could not be validated consistently.",
+    "recovery": "Review the downstream Output Contract and remove conflicting legacy requirements in the saved flow or API request. Do not change the contract of an existing run."
+  },
+  "output_requirements_require_fresh_start": {
+    "title": "This configuration requires a new session",
+    "description": "The selected operation cannot use these start-only requirements or handoff settings.",
+    "recovery": "Use Fresh or Start for start-only requirements. To continue an existing run, preserve its original configuration and remove incompatible start-only overrides."
+  },
+  "join_bridge_requires_fresh_start": {
+    "title": "This configuration requires a new session",
+    "description": "The selected operation cannot use these start-only requirements or handoff settings.",
+    "recovery": "Use Fresh or Start for start-only requirements. To continue an existing run, preserve its original configuration and remove incompatible start-only overrides."
+  },
+  "handoff_requires_fresh_operation": {
+    "title": "This configuration requires a new session",
+    "description": "The selected operation cannot use these start-only requirements or handoff settings.",
+    "recovery": "Use Fresh or Start for start-only requirements. To continue an existing run, preserve its original configuration and remove incompatible start-only overrides."
+  },
+  "invalid_handoff_reference": {
+    "title": "The handoff reference is invalid",
+    "description": "The supplied handoff record is malformed or incomplete.",
+    "recovery": "Restore the original handoff record from its producing node or saved request. Do not invent execution identifiers."
+  },
+  "join_bridge_execution_identity_unavailable": {
+    "title": "The execution identity is unavailable",
+    "description": "The application could not obtain the execution identity needed for mediated dispatch.",
+    "recovery": "Ask the application operator to inspect this graph execution and its bridge configuration before submitting another request."
+  },
+  "stop_runner_http_error": {
+    "title": "Cancellation could not be confirmed",
+    "description": "The runner rejected the cancellation check or returned an unreadable response. The remote run may still be active.",
+    "recovery": "Ask the operator to query the original run and confirm its outcome before starting another request. A local Stop is not proof of remote cancellation."
+  },
+  "stop_runner_invalid_response": {
+    "title": "Cancellation could not be confirmed",
+    "description": "The runner rejected the cancellation check or returned an unreadable response. The remote run may still be active.",
+    "recovery": "Ask the operator to query the original run and confirm its outcome before starting another request. A local Stop is not proof of remote cancellation."
+  },
+  "catalog_too_large": {
+    "title": "The runner model catalogue could not be read",
+    "description": "The returned model catalogue is empty, invalid or exceeds the supported size.",
+    "recovery": "Check the local runner connection and ask the operator to restore its model catalogue. Do not guess provider model identifiers."
+  },
+  "invalid_catalog": {
+    "title": "The runner model catalogue could not be read",
+    "description": "The returned model catalogue is empty, invalid or exceeds the supported size.",
+    "recovery": "Check the local runner connection and ask the operator to restore its model catalogue. Do not guess provider model identifiers."
+  },
+  "empty_catalog": {
+    "title": "The runner model catalogue could not be read",
+    "description": "The returned model catalogue is empty, invalid or exceeds the supported size.",
+    "recovery": "Check the local runner connection and ask the operator to restore its model catalogue. Do not guess provider model identifiers."
+  },
+  "empty_token": {
+    "title": "The runner credential is empty",
+    "description": "The local runner credential file contains no usable token.",
+    "recovery": "Ask the operator to restore the configured runner credential file. Do not paste credentials into the graph."
   }
 }

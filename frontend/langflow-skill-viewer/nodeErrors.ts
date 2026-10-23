@@ -15,14 +15,14 @@ const operations = new Set(["fresh", "start", "resume", "status", "cancel", "mod
 const fallback: Description = {
   title: "The node could not confirm completion",
   description: "An unrecognized failure prevented a confirmed result. Its cause has not been established.",
-  recovery: "Review the safe technical details with the operator. Check for an existing active run before starting another request.",
+  recovery: "Review the safe technical details with the operator. If a request may have reached the runner, check its existing run before starting another request.",
 };
 
 // Never copy exception bodies, stack traces, endpoints, tasks or arbitrary params.
 function safeCode(value: unknown): string | undefined {
   if (typeof value !== "string") return;
   if (Object.prototype.hasOwnProperty.call(entries, value)) return value;
-  if (/^[a-z]+(?:_[a-z]+){1,11}$/.test(value) && value.length <= 80 &&
+  if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+){1,15}$/.test(value) && value.length <= 80 &&
       !/(?:secret|password|credential|bearer|token|api_key)/.test(value)) return value;
 }
 
@@ -31,7 +31,7 @@ function codeFromMessage(raw: unknown): string | undefined {
   // Native Langflow wraps a component error; only inspect the final message,
   // not arbitrary substrings in a response, URL, JSON payload or traceback.
   const message = raw.replace(/^Error building Component[^\r\n]*:\s*\r?\n\s*/, "").trim();
-  const failure = message.match(/^Laomedo run [0-9a-f-]{36} failed: ([a-z_]+)$/i);
+  const failure = message.match(/^Laomedo run [0-9a-f-]{36} failed: ([a-z0-9_]+)$/i);
   if (failure) return safeCode(failure[1]);
   return safeCode(message.split(";", 1)[0].trim());
 }
@@ -120,9 +120,9 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
 }
 
 // Toasts are presentation only: original API events and machine codes are untouched.
-export function describeLaomedoAlert(alert: { title: string; list?: string[] }) {
+export function describeLaomedoAlert(alert: { title: string; list?: string[] }, laomedoContext = false) {
   const raw = (alert.list ?? []).find(value => typeof value === "string" &&
-    (/^Error building Component Laomedo[^\r\n]*:/i.test(value) || isKnownNodeError(value)));
+    (/^Error building Component Laomedo[^\r\n]*:/i.test(value) || laomedoContext && isKnownNodeError(value)));
   if (!raw) return alert;
   const failure = describeNodeFailure(raw, undefined);
   return { title: failure.title, list: [failure.description, failure.recovery, "Expand Technical details in the error panel for the code and safe diagnostics."] };

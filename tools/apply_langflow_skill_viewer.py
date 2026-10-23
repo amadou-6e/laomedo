@@ -7,6 +7,12 @@ import subprocess
 UPSTREAM = "fec71dca901949c09ed4d63315804337cd2eb13d"
 ROOT = Path(__file__).resolve().parents[1]
 
+def replace_once(source, old, new):
+    if source.count(old) != 1:
+        raise SystemExit("pinned_error_presentation_anchor_missing: " + old[:80])
+    return source.replace(old, new)
+
+
 def apply(checkout):
     checkout = checkout.resolve()
     revision = subprocess.check_output(["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
@@ -67,7 +73,7 @@ def apply(checkout):
     marker = '{showNodeStatus && (\n            <ShadTooltip'
     if status_source.count(marker) != 1:
         raise SystemExit("pinned_node_status_error_anchor_missing")
-    status_source = status_source.replace(marker, '''{showNodeStatus && (
+    status_source = replace_once(status_source, marker, '''{showNodeStatus && (
             data.type?.startsWith("Laomedo") && (conditionError || hasLaomedoFailure(validationStatus)) ?
             <NodeErrorNotice message={validationString} status={validationStatus} context={{
               nodeId, nodeType: data.type, nodeLabel: display_name,
@@ -78,18 +84,22 @@ def apply(checkout):
     replacement = '  const scopedFlowError = useFlowStore((state) => state.nodes?.length === 1 && state.nodes[0].id === nodeId && data.type?.startsWith("Laomedo") ? state.buildInfo?.error?.[0] : undefined);\n  const conditionError = buildStatus === BuildStatus.ERROR;'
     if status_source.count(marker) != 1:
         raise SystemExit("pinned_node_error_scope_anchor_missing")
-    status_source = status_source.replace(marker, replacement)
-    status_source = status_source.replace('conditionSuccess || conditionError || conditionInactive;', 'conditionSuccess || conditionError || conditionInactive || Boolean(scopedFlowError);')
-    status_source = status_source.replace('(conditionError || hasLaomedoFailure(validationStatus))', '(conditionError || Boolean(scopedFlowError) || hasLaomedoFailure(validationStatus))')
-    status_source = status_source.replace('message={validationString} status={validationStatus}', 'message={scopedFlowError || validationString} status={validationStatus}')
+    status_source = replace_once(status_source, marker, replacement)
+    status_source = replace_once(status_source, 'conditionSuccess || conditionError || conditionInactive;', 'conditionSuccess || conditionError || conditionInactive || Boolean(scopedFlowError);')
+    status_source = replace_once(status_source, '(conditionError || hasLaomedoFailure(validationStatus))', '(conditionError || Boolean(scopedFlowError) || hasLaomedoFailure(validationStatus))')
+    status_source = replace_once(status_source, 'message={validationString} status={validationStatus}', 'message={scopedFlowError || validationString} status={validationStatus}')
     status_path.write_text(status_source, encoding="utf-8")
     alerts_path = checkout / "src/frontend/src/stores/alertStore.ts"
     alerts = alerts_path.read_text(encoding="utf-8")
-    alerts = 'import { describeLaomedoAlert } from "@/components/laomedoErrors/nodeErrors";\n' + alerts
+    alerts = 'import { describeLaomedoAlert, describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";\nimport useFlowStore from "@/stores/flowStore";\n' + alerts
     marker = 'setErrorData: (newState: { title: string; list?: Array<string> }) => {'
     if alerts.count(marker) != 1:
         raise SystemExit("pinned_error_alert_anchor_missing")
-    alerts = alerts.replace(marker, marker + '\n    newState = describeLaomedoAlert(newState);')
+    alerts = replace_once(alerts, marker, marker + '\n    const original = newState;\n    newState = describeLaomedoAlert(newState, useFlowStore.getState().nodes?.some(node => node.data.type?.startsWith("Laomedo")));\n    const diagnosticCode = newState !== original ? describeNodeFailure(original.list?.[0], undefined).diagnostics.code : undefined;')
+    marker = '      get().addNotificationToHistory(notification);'
+    if alerts.count(marker) != 3:
+        raise SystemExit("pinned_notification_history_anchor_missing")
+    alerts = alerts.replace(marker, '      get().addNotificationToHistory(diagnosticCode ? { ...notification, list: [...(notification.list ?? []), "Diagnostic code: " + diagnosticCode] } : notification);', 1)
     alerts_path.write_text(alerts, encoding="utf-8")
     flow_error_path = checkout / "src/frontend/src/pages/FlowPage/components/flowBuildingComponent/index.tsx"
     flow_error = flow_error_path.read_text(encoding="utf-8")
@@ -98,10 +108,12 @@ def apply(checkout):
     replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(isKnownNodeError) ?? (affectedNode ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
     if flow_error.count(marker) != 1:
         raise SystemExit("pinned_flow_error_anchor_missing")
-    flow_error = flow_error.replace(marker, replacement)
-    flow_error = flow_error.replace('                                  <Button size="sm" onClick={handleRetry}>', '                                  {!descriptiveError && <Button size="sm" onClick={handleRetry}>').replace('{t("flowBuild.retry")}\n                                  </Button>', '{t("flowBuild.retry")}\n                                  </Button>}')
-    flow_error = flow_error.replace('className="max-h-48 overflow-y-auto"', 'className="max-h-[60vh] overflow-y-auto"')
-    flow_error = flow_error.replace('                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n').replace('                        </Markdown>', '                        </Markdown>}')
+    flow_error = replace_once(flow_error, marker, replacement)
+    flow_error = replace_once(flow_error, '                                  <Button size="sm" onClick={handleRetry}>', '                                  {!descriptiveError && <Button size="sm" onClick={handleRetry}>')
+    flow_error = replace_once(flow_error, '{t("flowBuild.retry")}\n                                  </Button>', '{t("flowBuild.retry")}\n                                  </Button>}')
+    flow_error = replace_once(flow_error, 'className="max-h-48 overflow-y-auto"', 'className="max-h-[60vh] overflow-y-auto"')
+    flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
+    flow_error = replace_once(flow_error, '                        </Markdown>', '                        </Markdown>}')
     flow_error_path.write_text(flow_error, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 

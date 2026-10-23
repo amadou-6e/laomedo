@@ -67,7 +67,14 @@ test("known codes and branded Laomedo toasts are explained; API objects stay unt
   const original = Object.freeze({ title: "Last build failed", list: ["Error building Component LaomedoCodexAgent: \n\nprior_run_required"] });
   expect(describeLaomedoAlert(original).title).toBe("No previous run is available");
   expect(original.list[0]).toContain("prior_run_required");
-  expect(describeLaomedoAlert({ title: "Workflow run failed", list: ["prior_run_required"] }).title).toBe("No previous run is available");
+  expect(describeLaomedoAlert({ title: "Workflow run failed", list: ["prior_run_required"] }, true).title).toBe("No previous run is available");
   const other = { title: "Other application error", list: ["Unrelated failure"] };
   expect(describeLaomedoAlert(other)).toBe(other);
+});
+
+test("unknown codes with numeric segments remain available without a claimed cause", () => {
+ expect(describeNodeFailure("future_error_240", undefined).diagnostics.code).toBe("future_error_240");
+ expect(describeNodeFailure("timeout_must_be_1_to_240_seconds", undefined).title).toBe("The HTTP timeout is outside its allowed range");
+ const other = {title:"Other application",list:["unauthorized"]};
+ expect(describeLaomedoAlert(other)).toBe(other);
 });
