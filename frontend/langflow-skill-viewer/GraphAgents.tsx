@@ -128,10 +128,15 @@ function ActivityItem({lane,rootThread}:{lane:Lane;rootThread:string|null}) {
   </div>;
 }
 
-export default function GraphAgents({flowId}:{flowId?:string}) {
+export function RunnerServices() {
   const nodes=useFlowStore(state=>state.nodes);
   const runnerNodes=nodes.filter(node=>["LaomedoClaudeAgent","LaomedoCodexAgent"].includes(node.data.type));
   const runnerUrls=[...new Map(runnerNodes.map(node=>[node.data.node?.template?.runner_url?.value,node.data.type==="LaomedoClaudeAgent"?"Claude":"Codex"])).entries()].filter((entry):entry is [string,string]=>typeof entry[0]==="string"&&Boolean(entry[0]));
+  return <>{runnerUrls.map(([url,label])=><RunnerServiceControl key={url} url={url} label={label}/>)}</>;
+}
+
+export default function GraphAgents({flowId}:{flowId?:string}) {
+  const nodes=useFlowStore(state=>state.nodes);
   const target=useAgentActivityStore(state=>state.target);
   const targetNode=target?.flowId===flowId?target.nodeId:undefined;
   useEffect(()=>()=>useAgentActivityStore.getState().clearTarget(),[]);
@@ -210,7 +215,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
     <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-3"><h1 className="text-sm font-semibold">Agents</h1>
       <Button variant="ghost" size="icon" aria-label="Refresh" onClick={()=>setRefresh(value=>value+1)}><IconComponent name="RefreshCcw" className="h-4 w-4"/></Button></header>
     <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-    {runnerUrls.map(([url,label])=><RunnerServiceControl key={url} url={url} label={label}/>)}
+    <RunnerServices/>
     <div className="space-y-3 border-b px-4 py-3"><p className="text-sm text-muted-foreground">Recorded executions of the current graph.</p>
     <label className="flex flex-wrap items-center gap-3 text-sm">Graph execution <select className="max-w-full rounded-md border bg-background px-3 py-1.5 text-sm" value={execution} onChange={event=>{setExecution(event.target.value);setSelected("")}}>
       {executions.map(id=><option key={id} value={id}>{time(runs.find(run=>run.execution===id)!.started)} · {id}</option>)}</select></label></div>
