@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-23",
+  "status": "passed",
+  "issue": 182,
+  "pr": 183,
+  "recovery_source": "c5a354205701adc993469bb57393413ac853b94f",
+  "claude_source": "5861fbe6594cdac23cc779d1d7553d56100c5c23",
+  "integration_source": "47be670f5059b2b5e0f4461cd18e6fe966b5a1ba",
+  "provider": "claude",
+  "requires_claude_adapter_pr": 180,
+  "scope": "Real API service restart and completed-run inspection; no new model turn or live Codex process launch.",
+  "browser": {
+    "graph_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1",
+    "explicit_start_requests": 1,
+    "model_or_graph_dispatches": 0,
+    "page_errors": [],
+    "views": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "online": true,
+        "completed_native_activity": true
+      }
+    ]
+  },
+  "status_graph": {
+    "status": "passed",
+    "real_api_restart_via_ui": true,
+    "status_graph_executions": [
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      },
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      },
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      }
+    ],
+    "attempted_model_turns_before": 1,
+    "attempted_model_turns_after": 1,
+    "new_model_turns": 0,
+    "ceiling": 1,
+    "token_and_ledger_reused": true,
+    "api_ready_after_exhaustion": true,
+    "graph_default_operation": "status",
+    "graph_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1"
+  },
+  "code_controls": {
+    "service_tests": 6,
+    "ui_tests": 12,
+    "production_build": "passed"
+  },
+  "earlier_failure": "The verification host shut down its API but left the graph configured for fresh execution.",
+  "preview_default": "Status-only inspection of the completed real run. Fresh model work still requires a new approved allowance."
+}
