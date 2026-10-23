@@ -26,6 +26,7 @@ from .skill_store import inventory, tree_hash
 from . import workspace_skills
 from .runner_activity import line_count, receipt
 from .agent_activity import now
+from .claude_models import MODEL_ALIASES, EFFORTS
 
 
 CLI_VERSION = "2.1.301"
@@ -101,6 +102,12 @@ def terminal_result(text, thread):
 
 class ClaudeRunner(LocalRunner):
     provider = "claude"
+
+    def model_catalog(self):
+        """Pinned adapter choices only; never query Codex or submit a Claude turn."""
+        return {'models': [{'id': alias, 'efforts': list(EFFORTS)} for alias in MODEL_ALIASES],
+                'provider': 'claude', 'source': 'supported_cli_aliases',
+                'account_availability': 'not_checked', 'submitted_turns': 0}
 
     def __init__(self, state, skill_store, source_workspace, *, executable,
                  max_model_turns=0):

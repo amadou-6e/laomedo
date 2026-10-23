@@ -103,7 +103,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_build_config(self, build_config, field_value, field_name=None):
         # OpenCode has a separate provider/model and variant contract.
-        if self.name != "LaomedoCodexAgent":
+        if self.name not in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             return build_config
         if field_name == "runner_url":
             if not isinstance(field_value, str):
@@ -144,8 +144,7 @@ class LaomedoCodexAgent(Component):
             raise ValueError("local_runner_url_required")
         # Discovery talks directly to the runner, never with the bridge token.
         try:
-            token = Path(os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
-                         "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
+            token = Path(self._runner_token_file_path()).read_text(encoding="utf-8").strip()
             if not token:
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
@@ -168,7 +167,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
         updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
-        if self.name == "LaomedoCodexAgent":
+        if self.name in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             try:
                 await self.update_build_config(updated["template"], None)
             except ValueError as exc:

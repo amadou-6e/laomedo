@@ -14,6 +14,16 @@ from laomedo.output_contract import requirements
 
 
 class ClaudeRunnerTests(unittest.TestCase):
+    def test_alias_catalog_does_not_dispatch_or_claim_account_inventory(self):
+        before=(self.runner.state/'turn-ledger.json').exists()
+        with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \
+             patch.object(self.runner,'_open_server',side_effect=AssertionError('no Codex RPC')):
+            catalog=self.runner.model_catalog()
+        self.assertEqual([item['id'] for item in catalog['models']],['sonnet','opus','haiku'])
+        self.assertEqual(catalog['account_availability'],'not_checked')
+        self.assertEqual(catalog['submitted_turns'],0)
+        self.assertEqual((self.runner.state/'turn-ledger.json').exists(),before)
+
     def test_activity_usage_and_resume_do_not_double_count_session_totals(self):
         def native(inputs, outputs):
             return {'modelUsage': {'claude-test': {'inputTokens': inputs,

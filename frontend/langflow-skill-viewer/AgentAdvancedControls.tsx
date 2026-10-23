@@ -8,12 +8,12 @@ const CONTROLS = new Set([
 ]);
 export function isAgentControlHidden(data: any, name: string): boolean {
   const kind = data.node?.name || data.type;
-  return ["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind) &&
+  return ["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(kind) &&
     ["request_id", "skill_id", "revision_id", "output_requirements", "output_requirements_json", "run_reference", "run_reference_json", "bridge_url"].includes(name);
 }
 export function advancedAgentFields(data: any, fields: string[], edges: any[], toolMode: boolean): string[] {
   const kind = data.node?.name || data.type;
-  if (!["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind)) return [];
+  if (!["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(kind)) return [];
   return fields.filter((name) => {
     const field = data.node?.template?.[name];
     return CONTROLS.has(name) && field?.show && field.advanced === true && field.type !== "other" &&

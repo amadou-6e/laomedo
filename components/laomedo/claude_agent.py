@@ -5,7 +5,7 @@ import json
 import os
 
 from laomedo.codex_agent import LaomedoCodexAgent as Component
-from lfx.io import StrInput
+from laomedo.claude_models import MODEL_ALIASES, EFFORTS
 
 
 class LaomedoClaudeAgent(Component):
@@ -14,18 +14,19 @@ class LaomedoClaudeAgent(Component):
     name = "LaomedoClaudeAgent"
     activity_provider = "claude-code"
     inputs = [deepcopy(item) for item in Component.inputs if item.name not in
-              {"model", "effort", "runner_url", "bridge_url", "handoff_reference"}] + [
-        StrInput(name="model", display_name="Model", value="sonnet"),
-        StrInput(name="effort", display_name="Reasoning Effort", value="low"),
-        StrInput(name="runner_url", display_name="Runner URL", advanced=True,
-                 value="http://host.docker.internal:8769"),
-    ]
-
-    async def update_build_config(self, build_config, field_value, field_name=None):
-        # Claude uses its proposal-mode text selections, not the Codex model API.
-        if field_name in {"model", "effort", "runner_url"} and field_name in build_config:
-            build_config[field_name]["value"] = field_value
-        return build_config
+              {"bridge_url", "handoff_reference"}]
+    for _field in inputs:
+        if _field.name == 'model':
+            _field.value = 'sonnet'
+            _field.options = list(MODEL_ALIASES)
+            _field.info = ('Refresh the configured Claude runner for supported CLI aliases. '
+                           'These are adapter choices, not confirmed account availability.')
+        elif _field.name == 'effort':
+            _field.value = 'low'
+            _field.options = list(EFFORTS)
+        elif _field.name == 'runner_url':
+            _field.value = 'http://host.docker.internal:8769'
+    del _field
 
     def _prepare(self):
         if str(self.effort) not in {"low", "medium", "high"}:

@@ -103,8 +103,16 @@ The current builder uses an independent read-only Skill node connected to the
 Agent's Skill References input, matching current develop. The edit target still
 connects Task and receives Operation feedback. Earlier executed two-node exports
 retain their original tested source revisions; they are historical evidence,
-not newly executed proofs of this updated builder. Claude retains its own text
-model/effort selections and does not query the Codex model catalog.
+not newly executed proofs of this updated builder. Claude now preserves Codex's
+input order and dropdown/refresh widgets, uses the same hidden internal fields
+and collapsed Advanced controls, and loads its choices from the Claude runner
+with the Claude runner token. It never queries the Codex RPC model catalog.
+
+The Claude selector lists the proposal adapter's supported CLI aliases
+(`sonnet`, `opus`, `haiku`) and effort values (`low`, `medium`, `high`). Its
+catalog labels these as supported inputs, not a live account model inventory.
+Refreshing does not submit a model turn. Existing imported model selections
+are retained; actual availability is checked by Claude when executing a task.
 
 Runner availability recovery is tracked separately in issue #182 / PR #183.
 The inspection preview defaults to Status on the existing completed run; starting
