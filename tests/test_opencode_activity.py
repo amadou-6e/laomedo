@@ -1,5 +1,6 @@
 import unittest
 from laomedo.opencode_activity import project
+from laomedo.opencode_activity import estimate_native
 
 
 def message(identity, role, text, **changes):
@@ -12,6 +13,47 @@ def event(messages):
 
 
 class OpenCodeActivityTests(unittest.TestCase):
+    def test_live_parts_deltas_and_checkpoint_reconcile_without_double_charging(self):
+        user=message('user','user','Read README')
+        answer=message('answer','assistant','Hello',parentID='user',providerID='test',modelID='model',
+                       tokens={'input':4,'output':3,'reasoning':2,'cache':{'read':10,'write':1}})
+        def native(kind,**properties):
+            return {'received_at':'2026-10-23T10:00:00+00:00','raw':{'method':'opencode/event','params':{'sessionID':'ses_root','event':{'type':kind,'properties':properties}}}}
+        events=[native('message.updated',info=user['info']),native('message.updated',info=answer['info']),
+                native('message.part.updated',part={'id':'p','messageID':'answer','sessionID':'ses_root','type':'text','text':'Hel'}),
+                native('message.part.delta',messageID='answer',partID='p',field='text',delta='lo')]
+        live=project(events,root_thread='ses_root',model='test/model')
+        self.assertEqual(live['items'][-1]['item']['text'],'Hello')
+        final=project(events+[event([user,answer])],root_thread='ses_root',model='test/model')
+        self.assertEqual(final['usage'],live['usage'])
+        self.assertEqual(final['usage']['inputTokens'],15)
+        self.assertEqual(len(final['usage_points']),1)
+        late=native('message.part.updated',part={'id':'p','messageID':'answer','sessionID':'ses_root','type':'text','text':'Old partial'})
+        reconciled=project(events+[event([user,answer]),late],root_thread='ses_root',model='test/model')
+        self.assertEqual(reconciled['items'][-1]['item']['text'],'Hello')
+
+    def test_native_child_link_inclusive_usage_and_unpriced_child_unknown(self):
+        root=message('root','assistant','Parent',parentID='u',tokens={'input':4,'output':3,'reasoning':2,'cache':{'read':10,'write':1}})
+        child=message('child','assistant','Child',sessionID='ses_child',parentID='c',tokens={'input':2,'output':1,'reasoning':0,'cache':{'read':0,'write':0}})
+        link={'received_at':'2026-10-23T10:00:00+00:00','raw':{'method':'opencode/sessionSnapshot','params':{'session':{'id':'ses_child','parentID':'ses_root'}}}}
+        snapshot=event([child]);snapshot['raw']['params']['sessionID']='ses_child'
+        value=project([event([root]),link,snapshot],root_thread='ses_root',model='test/model')
+        self.assertEqual(value['usage']['inputTokens'],17)
+        self.assertIn({'id':'ses_child','parent':'ses_root'},value['threads'])
+        self.assertEqual(value['usage_by_thread']['ses_child']['outputTokens'],1)
+        self.assertIsNone(value['cost']['amount'])
+
+    def test_native_catalog_prices_cache_writes_and_request_context_tiers(self):
+        rates={'input':1,'output':5,'cache':{'read':0.1,'write':1.25},
+               'tiers':[{'tier':{'type':'context','size':100},'input':2,'output':10,'cache':{'read':0.2,'write':2.5}}]}
+        usage={'inputTokens':50,'cachedInputTokens':10,'cacheWriteInputTokens':10,'outputTokens':5}
+        result=estimate_native('test/model',usage,rates)
+        self.assertAlmostEqual(result['amount'],(30+1+12.5+25)/1_000_000)
+        high=estimate_native('test/model',{**usage,'inputTokens':150},rates)
+        self.assertAlmostEqual(high['amount'],(260+2+25+50)/1_000_000)
+        self.assertIn('not a Go subscription charge',result['basis'])
+        self.assertIsNone(estimate_native('test/model',{**usage,'inputTokens':1},rates)['amount'])
+
     def test_native_messages_keep_roles_sources_and_latest_usage_once(self):
         user=message('user','user','Read README')
         answer=message('answer','assistant','Done',parentID='user',tokens={'input':4,'output':3,'reasoning':2,'cache':{'read':10,'write':1}},cost=0)

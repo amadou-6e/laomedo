@@ -318,6 +318,27 @@ class OpenCodeTests(unittest.TestCase):
             self.runner.resume(first["run_id"],"Replay",expected_post_run_hash=second["post_run_hash"],
                 expected_thread_id=first["thread_id"],model="test/model",effort="default",activity_attempt_id=selected)
 
+    def test_otel_attempt_boundaries_isolate_resume_feed(self):
+        from unittest.mock import patch
+        from uuid import uuid4
+        from laomedo.runner_activity import read_feed, receipt
+        def export(root, start, session, model):
+            with (root/'otel-events.jsonl').open('a') as stream:
+                stream.write(json.dumps(receipt({'method':'otel/record','params':{'attributes':{'conversation.id':session},'marker':start}}))+'\n')
+            return True
+        with patch('laomedo.opencode_telemetry.export_attempt', side_effect=export):
+            first=self.runner.start(self.payload)
+            root=self.runner._run_dir(first['run_id'])
+            initial=json.loads((root/'activity-attempts'/(first['activity_initial_attempt_id']+'.json')).read_text())
+            selected=str(uuid4())
+            self.runner.resume(first['run_id'],'Second turn',expected_post_run_hash=first['post_run_hash'],expected_thread_id=first['thread_id'],model='test/model',effort='default',activity_attempt_id=selected)
+            second=json.loads((root/'activity-attempts'/(selected+'.json')).read_text())
+        self.assertEqual((initial['otel_start'],initial['otel_end']),(0,1))
+        self.assertEqual((second['otel_start'],second['otel_end']),(1,2))
+        events=read_feed(root/'otel-events.jsonl',after=second['otel_start'],before=second['otel_end'])['events']
+        self.assertEqual(len(events),1)
+        self.assertEqual(events[0]['event']['params']['marker'],second['native_start'])
+
     def test_snapshot_capture_failure_does_not_change_execution_success(self):
         from unittest.mock import patch
         with patch('laomedo.opencode_activity.retain_messages',side_effect=OSError('capture unavailable')):

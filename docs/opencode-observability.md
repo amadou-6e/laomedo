@@ -1,0 +1,61 @@
+# OpenCode Activity capture
+
+OpenCode uses the existing graph-wide Activity page, timeline and conversation
+renderer. Inspecting Activity never submits a model request.
+
+Each accepted fresh/resume attempt has independent native and OTLP receipt
+boundaries. The adapter subscribes to native SSE before sending the prompt,
+filters other sessions and previous messages, then reconciles HTTP completion
+snapshots by native message/part identity. This avoids charging snapshots and
+live updates as separate requests. Capture failures do not change task success.
+A missing root terminal, missed child coverage or capture failure marks the
+stream incomplete. Repeated raw receipts remain inspectable.
+
+Messages, command/tool inputs, outputs and native metadata come from actual
+OpenCode records. Native parentID links identify children; text claiming to have
+spawned another agent is not a parent link. Children without complete usage
+make inclusive totals unknown rather than silently reporting zero.
+
+Token categories preserve fresh input, cache reads, cache writes, output and
+reasoning. Normalized input includes both cache categories; output includes
+reasoning. Per-request runtime catalog rates, cache-write prices and context
+tiers produce API-equivalent USD estimates. These are not subscription charges
+or invoices. Unsupported/missing usage or prices remain unknown. Cumulative
+usage/cost points are attributed to their native thread and effective model.
+
+Install the `observability` optional dependencies and set
+`LAOMEDO_RUNNER_OTEL=1` on the runner to emit OTLP spans into its local receiver.
+These spans are explicitly labelled **adapter-observed** and derive from native
+receipts; they are not claimed to be OpenCode's own SDK instrumentation. Span
+attributes carry identity, timing, tool name and session-level usage, without
+prompt or tool-argument text. Raw Activity receipts retain the conversation.
+
+## Live verification, 2026-10-23
+
+A real Docker-backed OpenCode Go/gpt-6-luna resume through Run component captured
+62 new receipts and five OTLP spans. Its isolated usage was 1,803 input and 45
+output tokens, estimated at $0.0002478.
+
+A separate fresh graph run loaded the pinned skill and executed the approved
+`head -n 6 README.md` command. Activity displayed both tools, exit status, output,
+final reply, three cumulative usage points and seven OTLP spans. Total usage was
+4,008 input (including 2,521 cached), 107 output; estimate $0.00026436.
+
+One separately authorized, host-created native child used only the approved
+README excerpt, with tools denied. Native parent linkage, separate usage and
+cost, and adapter OTLP export were verified against genuine parent/child records.
+The harness's README text contained a misdecoded arrow; this affected the test
+input, not the capture or attribution. The child's usage was 1,100 input and 150 output (including 114 reasoning),
+estimated at $0.000212425. This verifies native child observation, **not agent
+Task delegation**. The dedicated runner still disables native Task invocation.
+
+Three additional prompt submissions were used out of the five authorized.
+Both graph runs and the child controller confirmed cleanup. Internal fixture
+checks complement these observations; they are not live acceptance. The feature
+remains unmerged pending the user's working graph review.
+
+The screenshots and browser checks cover the real fresh-run Activity page and
+conversation, not a child-thread view. Live cancellation was not exercised in
+this bounded observability verification. Native receipts can include opaque
+provider-encrypted reasoning blobs; these are retained with the original record,
+not decrypted or treated as readable reasoning.

@@ -261,6 +261,7 @@ class OpenCodeRunner(LocalRunner):
             if not self.lock.acquire(blocking=False):
                 raise RunnerError("runner_busy")
         root, record, flag, backend, attempt = None, None, None, None, None
+        native_capture = None
         baseline_ids = set()
         launch_attempted = False
         try:
@@ -280,7 +281,7 @@ class OpenCodeRunner(LocalRunner):
                 if (attempts / (attempt_id + ".json")).exists():
                     raise RunnerError("activity_attempt_already_exists")
                 attempt = {"id":attempt_id,"native_start":line_count(root / "activity-events.jsonl"),
-                           "otel_start":0,"native_end":None,"otel_end":None,"usage_baseline":{},
+                           "otel_start":line_count(root / "otel-events.jsonl"),"native_end":None,"otel_end":None,"usage_baseline":{},
                            "status":"running","ended_at":None}
                 _json(attempts / (attempt_id + ".json"), attempt)
                 flag = threading.Event()
@@ -328,6 +329,22 @@ class OpenCodeRunner(LocalRunner):
             check_auth = getattr(backend, "check_auth_fresh", None)
             if check_auth is not None:
                 check_auth()
+            if callable(getattr(backend, 'open_events', None)):
+                from .opencode_events import NativeCapture
+                from .opencode_activity import retain_messages
+                try:
+                    children = backend.call('GET', '/session/' + record['thread_id'] + '/children')
+                    for child in children:
+                        if not isinstance(child, dict) or child.get('parentID') != record['thread_id']:
+                            continue
+                        for entry in backend.call('GET', '/session/' + child['id'] + '/message'):
+                            baseline_ids.add(entry.get('info', {}).get('id'))
+                    native_capture = NativeCapture(root, record['thread_id'], baseline_ids)
+                    native_capture.append({'method':'opencode/modelCatalog','params':{
+                        'model':record['requested_model'],'rates':available['models'][model].get('cost')}})
+                    native_capture.start(backend)
+                except Exception:
+                    attempt['capture_error'] = 'opencode_native_subscription_unavailable'
             record["attempt_number"] = self._reserve_turn()
             _json(root / "record.json", record)
             if flag.is_set():
@@ -346,10 +363,26 @@ class OpenCodeRunner(LocalRunner):
             captured = [entry for entry in steps if isinstance(entry, dict)
                         and entry.get("info", {}).get("id") not in baseline_ids]
             try:
-                if not retain_messages(root, record["thread_id"], captured):
+                if not retain_messages(root, record["thread_id"], captured, writer=native_capture):
                     attempt["capture_error"] = "opencode_native_snapshot_size_limit"
             except (OSError, TypeError, ValueError):
                 attempt["capture_error"] = "opencode_native_snapshot_unavailable"
+            if native_capture:
+                native_capture.terminal.wait(2)
+                try:
+                    children = backend.call('GET', '/session/' + record['thread_id'] + '/children')
+                    for child in children:
+                        if not isinstance(child, dict) or child.get('parentID') != record['thread_id']:
+                            continue
+                        child_messages = backend.call('GET', '/session/' + child['id'] + '/message')
+                        new_messages = [entry for entry in child_messages if entry.get('info',{}).get('id') not in baseline_ids]
+                        if new_messages:
+                            with native_capture.lock:
+                                native_capture.child_idle.setdefault(child['id'], False)
+                            native_capture.append({'method':'opencode/sessionSnapshot','params':{'session':child}})
+                            retain_messages(root,child['id'],new_messages,parent=record['thread_id'],writer=native_capture)
+                except Exception:
+                    attempt['capture_error'] = 'opencode_child_snapshot_incomplete'
             observed = dict(message)
             observed["parts"] = turn_parts(message, steps)
             normalized = normalize_message(observed, record["skills"])
@@ -379,8 +412,28 @@ class OpenCodeRunner(LocalRunner):
                           error_category=str(exc) if isinstance(exc, RunnerError) else type(exc).__name__)
         finally:
             try:
+                if native_capture:
+                    try:
+                        native_capture.close()
+                    except Exception:
+                        attempt['capture_error'] = 'opencode_native_reader_cleanup_unverified'
+                    attempt['native_stream_complete'] = native_capture.complete
+                    if native_capture.error or not native_capture.complete:
+                        attempt.setdefault('capture_error',native_capture.error or 'opencode_native_terminal_not_observed')
                 if backend:
                     backend.close()
+                if native_capture and native_capture.thread and native_capture.thread.is_alive():
+                    native_capture.thread.join(5)
+                    if native_capture.thread.is_alive():
+                        attempt['capture_error'] = 'opencode_native_reader_cleanup_unverified'
+                        attempt['native_stream_complete'] = False
+                if record is not None and attempt is not None:
+                    try:
+                        from .opencode_telemetry import export_attempt
+                        attempt['telemetry_complete'] = export_attempt(root,attempt['native_start'],record['thread_id'],record['requested_model'])
+                    except Exception:
+                        attempt['telemetry_complete'] = False
+                        attempt.setdefault('capture_error','opencode_adapter_telemetry_incomplete')
                 if record is not None:
                     record["controller_cleanup"] = "confirmed" if backend is not None and getattr(backend,"termination_verified",False) else "unverified"
                     if record.get("status") == "cancelled":
@@ -398,7 +451,7 @@ class OpenCodeRunner(LocalRunner):
                             if record.get("status") != "completed":
                                 record.update(snapshot_ready=False,post_run_hash=None,output_ref=None)
                             attempt.update(native_end=line_count(root / "activity-events.jsonl"),
-                                           otel_end=0,status=record["status"],ended_at=now())
+                                           otel_end=line_count(root / "otel-events.jsonl"),status=record["status"],ended_at=now())
                             _json(root / "activity-attempts" / (attempt["id"] + ".json"), attempt)
                             _json(root / "record.json", record)
                 finally:

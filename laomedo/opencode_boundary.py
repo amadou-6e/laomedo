@@ -5,6 +5,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import http.client
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -280,6 +282,32 @@ class IsolatedOpenCode:
             (root / "startup.log").write_bytes(logs.stdout + logs.stderr)
             self.close()
             raise
+
+    def open_events(self):
+        basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
+        connection = http.client.HTTPConnection('127.0.0.1', int(self.port), timeout=30)
+        connection.request('GET', '/event?directory=/draft', headers={
+            'Authorization': 'Basic ' + basic, 'Accept': 'text/event-stream'})
+        response = connection.getresponse()
+        if response.status != 200:
+            connection.close()
+            raise RuntimeError('opencode_native_subscription_unavailable')
+        # The owned connection is explicitly shut down by close(); a quiet model
+        # step must not terminate capture at the HTTP connect timeout.
+        if connection.sock is not None:
+            connection.sock.settimeout(None)
+        class EventStream:
+            def readline(self, limit):
+                return response.readline(limit)
+            def close(self):
+                if connection.sock is not None:
+                    try:
+                        connection.sock.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+                response.close()
+                connection.close()
+        return EventStream()
 
     def call(self, method, path, payload=None):
         basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
