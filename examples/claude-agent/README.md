@@ -108,11 +108,22 @@ input order and dropdown/refresh widgets, uses the same hidden internal fields
 and collapsed Advanced controls, and loads its choices from the Claude runner
 with the Claude runner token. It never queries the Codex RPC model catalog.
 
-The Claude selector lists the proposal adapter's supported CLI aliases
-(`sonnet`, `opus`, `haiku`) and effort values (`low`, `medium`, `high`). Its
-catalog labels these as supported inputs, not a live account model inventory.
-Refreshing does not submit a model turn. Existing imported model selections
-are retained; actual availability is checked by Claude when executing a task.
+The Claude selector now loads the native signed-in CLI model picker through an
+initialization control request, including Default, current aliases, versioned
+models, display names, resolved model IDs and each model's supported effort
+levels. Nothing is hardcoded as an available model. Refresh sends no user
+message, submits no model turn and disables session persistence. The native
+catalogue is labelled `cli_reported`; it does not guarantee a subsequent turn
+will succeed or bypass subscription limits.
+
+Models that support effort expose the levels reported by the CLI, including
+`xhigh` and `max` when available. Models without effort select `default`, and
+execution omits `--effort`. Imported selections are preserved in the editor;
+fresh/start validates the actual model/effort pair against current native
+metadata before creating a run. A failed refresh reports the existing model-list
+error and never falls back to an invented list. Discovery has an 18-second CLI
+timeout plus a 5-second authentication check, below the editor's 30-second
+request timeout; concurrent refreshes cannot spawn overlapping catalogue CLIs.
 
 Runner availability recovery is tracked separately in issue #182 / PR #183.
 The inspection preview defaults to Status on the existing completed run; starting

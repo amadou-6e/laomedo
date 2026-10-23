@@ -26,7 +26,7 @@ from .skill_store import inventory, tree_hash
 from . import workspace_skills
 from .runner_activity import line_count, receipt
 from .agent_activity import now
-from .claude_models import MODEL_ALIASES, EFFORTS
+from .claude_models import EFFORTS
 
 
 CLI_VERSION = "2.1.301"
@@ -73,7 +73,7 @@ def cli_environment():
 def command(executable, model, effort, thread, *, resume=False):
     UUID(thread)
     return [str(executable), "--print", "--output-format", "json", "--model", model,
-            "--effort", effort, "--max-turns", "1", "--tools", "",
+            *(["--effort", effort] if effort != "default" else []), "--max-turns", "1", "--tools", "",
             "--safe-mode", "--disable-slash-commands", "--setting-sources", "",
             "--settings", '{"hooks":{},"enabledPlugins":{},"autoMemoryEnabled":false}',
             "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
@@ -100,18 +100,91 @@ def terminal_result(text, thread):
     return value
 
 
+def normalize_models(items):
+    """Keep native picker IDs/labels and each model's advertised effort levels."""
+    if not isinstance(items, list) or not items or len(items) > 256:
+        raise ValueError('invalid_native_models')
+    models, seen = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError('invalid_native_model')
+        model, name, resolved = item.get('value'), item.get('displayName'), item.get('resolvedModel')
+        if (not isinstance(model, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.\[\]-]{0,159}', model)
+                or model in seen or not isinstance(name, str) or not name.strip() or len(name) > 200
+                or not isinstance(resolved, str) or not re.fullmatch(r'claude-[A-Za-z0-9_.-]{1,160}', resolved)):
+            raise ValueError('invalid_native_model')
+        seen.add(model)
+        levels = item.get('supportedEffortLevels', [])
+        if item.get('supportsEffort') is True:
+            if (not isinstance(levels, list) or not levels
+                    or any(not isinstance(level, str) or level not in EFFORTS or level == 'default' for level in levels)
+                    or len(set(levels)) != len(levels)):
+                raise ValueError('invalid_native_efforts')
+        elif item.get('supportsEffort') not in (None, False) or levels:
+            raise ValueError('invalid_native_efforts')
+        else:
+            levels = ['default']  # Explicitly omit --effort for models without this control.
+        models.append({'id': model, 'name': name, 'resolved_model': resolved, 'efforts': levels})
+    return models
+
+
 class ClaudeRunner(LocalRunner):
     provider = "claude"
 
     def model_catalog(self):
-        """Pinned adapter choices only; never query Codex or submit a Claude turn."""
-        return {'models': [{'id': alias, 'efforts': list(EFFORTS)} for alias in MODEL_ALIASES],
-                'provider': 'claude', 'source': 'supported_cli_aliases',
-                'account_availability': 'not_checked', 'submitted_turns': 0}
+        """The native account picker, using only an initialize control request.
+
+        No user message, session resume, model turn, or transcript is created.
+        Bound the entire CLI lifetime below the component's HTTP deadline.
+        """
+        failure = 'runner_model_catalog_unavailable_check_runner_connection'
+        if not self._catalog_lock.acquire(timeout=1):
+            raise RunnerError(failure)
+        try:
+            self._check_auth(timeout=5)
+            args = [str(self.executable), '--print', '--input-format', 'stream-json',
+                    '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
+                    '--tools', '', '--safe-mode', '--disable-slash-commands', '--setting-sources', '',
+                    '--settings', '{"hooks":{},"enabledPlugins":{},"autoMemoryEnabled":false}',
+                    '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+                    '--permission-mode', 'dontAsk', '--permission-prompts', 'none']
+            request_id = str(uuid4())
+            payload = {'type': 'control_request', 'request_id': request_id,
+                       'request': {'subtype': 'initialize', 'hooks': {}}}
+            with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+                result = subprocess.run(args, input=(json.dumps(payload)+'\n').encode(),
+                    stdout=output, stderr=errors, timeout=18, cwd=self.state,
+                    env=cli_environment(), creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                output.seek(0)
+                raw = output.read(1024 * 1024 + 1)
+            if result.returncode or len(raw) > 1024 * 1024:
+                raise ValueError('invalid_catalog_transport')
+            responses = []
+            for line in raw.decode('utf-8').splitlines():
+                event = json.loads(line)
+                if not isinstance(event, dict) or event.get('type') != 'control_response':
+                    raise ValueError('unexpected_catalog_event')
+                response = event['response']
+                if (not isinstance(response, dict) or response.get('request_id') != request_id
+                        or response.get('subtype') != 'success'):
+                    raise ValueError('catalog_identity_mismatch')
+                responses.append(response['response'])
+            if len(responses) != 1:
+                raise ValueError('catalog_response_missing')
+            if not isinstance(responses[0], dict):
+                raise ValueError('invalid_catalog_response')
+            models = normalize_models(responses[0]['models'])
+            return {'models': models, 'provider': 'claude', 'source': 'claude_cli_initialize',
+                    'account_availability': 'cli_reported', 'submitted_turns': 0}
+        except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+            raise RunnerError(failure) from None
+        finally:
+            self._catalog_lock.release()
 
     def __init__(self, state, skill_store, source_workspace, *, executable,
                  max_model_turns=0):
         self.executable = Path(executable).resolve(strict=True)
+        self._catalog_lock = threading.Lock()
         version = subprocess.run([str(self.executable), "--version"], capture_output=True,
                                  text=True, timeout=20, check=True, env=cli_environment()).stdout.strip()
         if version != CLI_VERSION + " (Claude Code)":
@@ -127,9 +200,9 @@ class ClaudeRunner(LocalRunner):
         super().__init__(state, skill_store, source_workspace, check_docker=False,
                          supervise_containers=False, max_model_turns=max_model_turns)
 
-    def _check_auth(self):
+    def _check_auth(self, *, timeout=20):
         checked = subprocess.run([str(self.executable), "auth", "status"],
-                                 capture_output=True, text=True, timeout=20, env=cli_environment())
+                                 capture_output=True, text=True, timeout=timeout, env=cli_environment())
         try:
             auth = json.loads(checked.stdout)
         except ValueError:
@@ -146,13 +219,21 @@ class ClaudeRunner(LocalRunner):
 
     def _prepare(self, request, **kwargs):
         if (not isinstance(request, dict) or not isinstance(request.get("model"), str) or
-                not re.fullmatch(r"(?:sonnet|opus|haiku|claude-[A-Za-z0-9_.-]+)", request["model"])):
+                not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.\[\]-]{0,159}", request["model"])):
             raise RunnerError("claude_model_required")
-        if request.get("effort") not in {"low", "medium", "high"}:
+        if request.get("effort") not in EFFORTS:
             raise RunnerError("unsupported_claude_effort")
         # This runner only proposes content; it does not expose a GitHub or shell scope.
         if request.get("github_authorization_ref") or request.get("handoff"):
             raise RunnerError("claude_proposal_scope_only")
+        choices = self.model_catalog()['models']
+        choice = next((item for item in choices if item['id'] == request['model']), None)
+        if choice is None:
+            choice = next((item for item in choices if item['resolved_model'] == request['model']), None)
+        if choice is None:
+            raise RunnerError('claude_model_required')
+        if request['effort'] not in choice['efforts']:
+            raise RunnerError('unsupported_claude_effort')
         record = super()._prepare(request, **kwargs)
         record.update(provider=self.provider, runtime_version=CLI_VERSION,
                       execution_mode="host_proposal_only", profile=None, image=None,

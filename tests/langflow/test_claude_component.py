@@ -33,8 +33,8 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(actual.show,reference.show)
             self.assertEqual(actual.advanced,reference.advanced)
         fields={item.name:item for item in LaomedoClaudeAgent.inputs}
-        self.assertEqual(fields['model'].options,['sonnet','opus','haiku'])
-        self.assertEqual(fields['effort'].options,['low','medium','high'])
+        self.assertEqual(fields['model'].options,[])
+        self.assertEqual(fields['effort'].options,[])
         self.assertTrue(fields['model'].refresh_button)
         self.assertEqual(fields['runner_url'].value,'http://host.docker.internal:8769')
 
@@ -48,6 +48,25 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
                 result=self.node()._model_catalog({'runner_url':{'value':'http://localhost:8769'}})
             self.assertEqual(result,{'sonnet':['low']})
             self.assertEqual(http.call_args.args[0].get_header('Authorization'),'Bearer claude-control')
+
+    async def test_native_labels_and_all_efforts_reach_dropdown_and_dispatch_payload(self):
+        import laomedo.codex_agent as codex
+        node=self.node(model='fable',effort='max')
+        catalog=codex._ModelCatalog()
+        catalog['fable']=['low','medium','high','xhigh','max']
+        catalog.metadata['fable']={'name':'Fable test','resolved_model':'claude-fable-test'}
+        with patch.object(node,'_model_catalog',return_value=catalog):
+            config=await node.update_build_config({'model':{'value':'fable'},'effort':{'value':'max'}},'fable','model')
+        self.assertEqual(config['model']['options_metadata'],[catalog.metadata['fable']])
+        self.assertEqual(config['effort']['options'],catalog['fable'])
+        self.assertEqual(node._prepare()[1]['effort'],'max')
+
+    async def test_model_switch_replaces_unsupported_effort_with_explicit_default_choice(self):
+        node=self.node()
+        with patch.object(node,'_model_catalog',return_value={'old':['default']}):
+            config=await node.update_build_config({'model':{'value':'sonnet'},'effort':{'value':'high'}},'old','model')
+        self.assertEqual(config['effort']['options'],['default'])
+        self.assertEqual(config['effort']['value'],'default')
 
     def node(self, **changes):
         node = LaomedoClaudeAgent()

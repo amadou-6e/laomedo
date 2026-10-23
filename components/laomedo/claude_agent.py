@@ -5,7 +5,7 @@ import json
 import os
 
 from laomedo.codex_agent import LaomedoCodexAgent as Component
-from laomedo.claude_models import MODEL_ALIASES, EFFORTS
+from laomedo.claude_models import EFFORTS
 
 
 class LaomedoClaudeAgent(Component):
@@ -18,18 +18,20 @@ class LaomedoClaudeAgent(Component):
     for _field in inputs:
         if _field.name == 'model':
             _field.value = 'sonnet'
-            _field.options = list(MODEL_ALIASES)
-            _field.info = ('Refresh the configured Claude runner for supported CLI aliases. '
-                           'These are adapter choices, not confirmed account availability.')
+            _field.options = []
+            _field.info = ('Refresh the configured Claude runner for the model picker from '
+                           'your signed-in Claude Code account. No prompt or model turn is sent.')
         elif _field.name == 'effort':
             _field.value = 'low'
-            _field.options = list(EFFORTS)
+            _field.options = []
+            _field.info = ('Supported effort levels for the selected Claude model. '
+                           'Default omits the effort override for models without this control.')
         elif _field.name == 'runner_url':
             _field.value = 'http://host.docker.internal:8769'
     del _field
 
     def _prepare(self):
-        if str(self.effort) not in {"low", "medium", "high"}:
+        if str(self.effort) not in EFFORTS:
             raise ValueError("unsupported_claude_effort")
         prior = getattr(self, "run_reference", None)
         prior = getattr(prior, "data", prior)

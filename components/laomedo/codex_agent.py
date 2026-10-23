@@ -55,6 +55,14 @@ class _NoRedirect(request.HTTPRedirectHandler):
 _HTTP = request.build_opener(_NoRedirect())
 
 
+class _ModelCatalog(dict):
+    """Model/effort mapping with optional provider presentation metadata."""
+
+    def __init__(self):
+        super().__init__()
+        self.metadata = {}
+
+
 class LaomedoCodexAgent(Component):
     display_name = "Laomedo Codex Agent"
     description = "Start, run, resume or cancel a pinned-skill Codex session through the local Docker runner."
@@ -123,11 +131,15 @@ class LaomedoCodexAgent(Component):
         if model and model not in choices:
             choices.append(model)  # Preserve imported selections, never substitute.
         model_field.update(options=choices, combobox=False, real_time_refresh=True)
+        if self.name == "LaomedoClaudeAgent":
+            model_field["options_metadata"] = [getattr(catalog, "metadata", {}).get(choice, {}) for choice in choices]
         selected = effort_field.get("value", "")
         if not isinstance(selected, str):
             raise ValueError("invalid_effort_selection")
         efforts = list(catalog.get(model, []))
-        if field_name == "model" and selected not in efforts:
+        if self.name == "LaomedoClaudeAgent" and efforts == ["default"]:
+            effort_field["value"] = "default"
+        elif field_name == "model" and selected not in efforts:
             effort_field["value"] = ""
         elif selected and selected not in efforts:
             # Preserve saved values on load; the runner remains authoritative.
@@ -155,12 +167,15 @@ class LaomedoCodexAgent(Component):
                 payload = json.loads(raw)
             if self.name == 'LaomedoClaudeAgent' and payload.get('provider') != 'claude':
                 raise ValueError('catalog_provider_mismatch')
-            catalog = {}
+            catalog = _ModelCatalog()
             for item in payload["models"]:
                 model, efforts = item["id"], item["efforts"]
                 if not isinstance(model, str) or not model or model in catalog or not isinstance(efforts, list) or not all(isinstance(x, str) and x for x in efforts):
                     raise ValueError("invalid_catalog")
                 catalog[model] = efforts
+                if self.name == "LaomedoClaudeAgent":
+                    catalog.metadata[model] = {key: item[key] for key in
+                        ("name", "resolved_model") if isinstance(item.get(key), str)}
             if not catalog:
                 raise ValueError("empty_catalog")
             return catalog
@@ -181,6 +196,8 @@ class LaomedoCodexAgent(Component):
                     field = updated["template"].get(name, {})
                     value = field.get("value")
                     field["options"] = [value] if isinstance(value, str) and value else []
+                    if self.name == "LaomedoClaudeAgent" and name == "model":
+                        field["options_metadata"] = [{} for _ in field["options"]]
         return updated
 
     def _pre_run_setup(self):

@@ -1,4 +1,3 @@
-"""Supported inputs for the pinned Claude proposal adapter, not account inventory."""
+"""Claude CLI input validation; available choices come from native initialization."""
 
-MODEL_ALIASES = ('sonnet', 'opus', 'haiku')
-EFFORTS = ('low', 'medium', 'high')
+EFFORTS = ('default', 'low', 'medium', 'high', 'xhigh', 'max')

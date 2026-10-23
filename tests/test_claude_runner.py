@@ -14,13 +14,13 @@ from laomedo.output_contract import requirements
 
 
 class ClaudeRunnerTests(unittest.TestCase):
-    def test_alias_catalog_does_not_dispatch_or_claim_account_inventory(self):
+    def test_catalog_does_not_dispatch_or_claim_model_execution(self):
         before=(self.runner.state/'turn-ledger.json').exists()
         with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \
              patch.object(self.runner,'_open_server',side_effect=AssertionError('no Codex RPC')):
             catalog=self.runner.model_catalog()
         self.assertEqual([item['id'] for item in catalog['models']],['sonnet','opus','haiku'])
-        self.assertEqual(catalog['account_availability'],'not_checked')
+        self.assertEqual(catalog['account_availability'],'cli_reported')
         self.assertEqual(catalog['submitted_turns'],0)
         self.assertEqual((self.runner.state/'turn-ledger.json').exists(),before)
 
@@ -117,6 +117,11 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.auth = patch.object(self.runner, '_check_auth', return_value='sha256:' + 'a' * 64)
         self.auth.start()
         self.addCleanup(self.auth.stop)
+        self.catalog = patch.object(self.runner, 'model_catalog', return_value={
+            'models':[{'id': key, 'resolved_model':'claude-'+key, 'efforts':['low','medium','high','xhigh','max']}
+                      for key in ('sonnet','opus','haiku')], 'account_availability':'cli_reported', 'submitted_turns':0})
+        self.catalog.start()
+        self.addCleanup(self.catalog.stop)
         self.payload = {"task": "Read skill", "model": "sonnet", "effort": "low",
             "skill_ref": {"skill_id": "sample", "revision_id": self.revision['revision_id'],
                           "tree_hash": self.revision['tree_hash']}}
@@ -215,6 +220,16 @@ class ClaudeRunnerTests(unittest.TestCase):
                         {'github_authorization_ref': 'not allowed'}]:
             with self.assertRaises(RunnerError):
                 self.runner._prepare({**self.payload, **changes})
+
+    def test_native_model_effort_pair_is_checked_before_run_is_created(self):
+        with self.assertRaisesRegex(RunnerError,'claude_model_required'):
+            self.runner._prepare({**self.payload,'model':'claude-not-in-account'})
+        with patch.object(self.runner,'model_catalog',return_value={'models':[
+                {'id':'fable','resolved_model':'claude-fable-test','efforts':['max','xhigh']}]}):
+            record=self.runner._prepare({**self.payload,'model':'fable','effort':'max'})
+            self.assertEqual(record['requested_effort'],'max')
+            with self.assertRaisesRegex(RunnerError,'unsupported_claude_effort'):
+                self.runner._prepare({**self.payload,'model':'fable','effort':'low'})
 
 
 if __name__ == '__main__':
