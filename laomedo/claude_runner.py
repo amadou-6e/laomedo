@@ -29,6 +29,30 @@ from .agent_activity import now
 
 
 CLI_VERSION = "2.1.301"
+
+
+def activity_usage(result):
+    """Normalize cumulative session modelUsage; never add resumed totals together.
+
+    Claude inputTokens excludes cache reads/writes; the shared activity schema
+    includes them in inputTokens. Missing categories remain unknown.
+    """
+    models = result.get("modelUsage")
+    if not isinstance(models, dict) or not models:
+        return None
+    keys = ("inputTokens", "cacheReadInputTokens", "cacheCreationInputTokens", "outputTokens")
+    if any(not isinstance(value, dict) or any(type(value.get(key)) is not int or
+           value[key] < 0 for key in keys) for value in models.values()):
+        return None
+    totals = {key: sum(value[key] for value in models.values()) for key in keys}
+    inputs = totals["inputTokens"] + totals["cacheReadInputTokens"] + totals["cacheCreationInputTokens"]
+    normalized = {"inputTokens": inputs, "cachedInputTokens": totals["cacheReadInputTokens"],
+            "cacheWriteInputTokens": totals["cacheCreationInputTokens"],
+            "outputTokens": totals["outputTokens"], "totalTokens": inputs + totals["outputTokens"]}
+    if all(type(value.get("thinkingTokens")) is int and 0 <= value["thinkingTokens"] <= value["outputTokens"]
+           for value in models.values()):
+        normalized["reasoningOutputTokens"] = sum(value["thinkingTokens"] for value in models.values())
+    return normalized
 SYSTEM = ("Use the pinned skill instructions and the user's task. Native tools, "
           "commands, MCP and external writes are unavailable. Propose requested "
           "changes in your answer; the host validates and applies them. Do not "
@@ -263,8 +287,9 @@ class ClaudeRunner(LocalRunner):
             folder.mkdir(exist_ok=True)
             if (folder / (attempt_id + ".json")).exists():
                 raise RunnerError("activity_attempt_already_exists")
+            baseline = activity_usage({"modelUsage": record.get("native_model_usage")}) if resume else {}
             attempt = {"id": attempt_id, "native_start": line_count(root / "activity-events.jsonl"),
-                       "otel_start": 0, "usage_baseline": {}, "native_end": None,
+                       "otel_start": 0, "usage_baseline": {record["thread_id"]: {"total": baseline}}, "native_end": None,
                        "otel_end": None, "status": "running", "ended_at": None}
             _json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
@@ -279,7 +304,34 @@ class ClaudeRunner(LocalRunner):
                 host_turn = str(uuid4())
                 self._event(root, "turn/started", {"threadId": record["thread_id"],
                                                    "turn": {"id": host_turn}, "identity_source": "host_attempt"})
-                result = self._invoke(root, record, prompt, flag, resume=resume or corrections > 0)
+                self._event(root, "item/completed", {"threadId": record["thread_id"], "turnId": host_turn,
+                    "item": {"id": host_turn + ":prompt", "type": "userMessage",
+                             "content": [{"type": "inputText", "text": prompt}],
+                             "provenance": "host_submitted_prompt"}})
+                try:
+                    result = self._invoke(root, record, prompt, flag, resume=resume or corrections > 0)
+                except Exception:
+                    self._event(root, "thread/tokenUsage/updated", {"threadId": record["thread_id"],
+                        "tokenUsage": {"total": None}, "usage_scope": "terminal_receipt_unavailable"})
+                    self._event(root, "turn/completed", {"threadId": record["thread_id"],
+                        "turn": {"id": host_turn, "status": "cancelled" if flag.is_set() else "failed"},
+                        "identity_source": "host_attempt"})
+                    raise
+                totals = activity_usage(result)
+                # Explicitly invalidate unknown resume baselines instead of charging
+                # the entire session to the latest invocation.
+                if resume and baseline is None:
+                    totals = None
+                self._event(root, "thread/tokenUsage/updated", {"threadId": record["thread_id"],
+                    "tokenUsage": {"total": totals}, "usage_scope": "native_session_cumulative"})
+                self._event(root, "claude/result", {"threadId": record["thread_id"], "turnId": host_turn,
+                    "subtype": result.get("subtype"), "duration_ms": result.get("duration_ms"),
+                    "duration_api_ms": result.get("duration_api_ms"),
+                    "native_session_id": result["session_id"], "tools_enabled": False,
+                    "reported_models": list(result.get("modelUsage", {})) if isinstance(result.get("modelUsage"), dict) else [],
+                    "evidence": "terminal_receipt_only", "usage_scope": "native_session_cumulative",
+                    "reported_session_cost_usd": result.get("total_cost_usd"),
+                    "cost_basis": "CLI estimate; cumulative session, not a subscription charge"})
                 answer = result["result"]
                 turn = {"turn_id": host_turn, "identity_source": "host_attempt", "status": "completed",
                         "input_hash": "sha256:" + hashlib.sha256(prompt.encode()).hexdigest(),
@@ -293,6 +345,9 @@ class ClaudeRunner(LocalRunner):
                               native_model_usage=result.get("modelUsage"),
                               output_correction_count=corrections,
                               precheck={"installed": False, "call_count": 0})
+                models = result.get("modelUsage")
+                record["effective_model"] = (next(iter(models)) if isinstance(models, dict) and len(models) == 1
+                                             and all(isinstance(key, str) for key in models) else None)
                 requirements = record.get("output_requirements")
                 if not requirements:
                     break
@@ -330,7 +385,7 @@ class ClaudeRunner(LocalRunner):
             snapshot.rename(root / "post-run")
             record.update(status="completed", post_run_hash=digest, snapshot_ready=True,
                           output_ref=f"laomedo:run:{run_id}:workspace",
-                          effective_model=None, effective_effort=None,
+                          effective_effort=None,
                           evidence_complete="unknown", completion_basis="claude_terminal_receipt_only")
         except Exception as exc:
             if record is None:

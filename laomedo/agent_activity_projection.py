@@ -5,6 +5,7 @@ def project(events, *, root_thread=None, model=None):
     turns, items, threads, latest, baselines = {}, {}, {}, {}, {}
     points = []
     telemetry = []
+    diagnostics = []
     previous = {}
     invalid_usage = set()
     for receipt in events:
@@ -15,6 +16,8 @@ def project(events, *, root_thread=None, model=None):
         event=raw.get('event',raw)
         params=event.get('params',{})
         method=event.get('method',event.get('type','unknown'))
+        if method == 'claude/result':
+            diagnostics.append(params)
         if method == 'otel/record':
             telemetry.append(params)
             continue
@@ -47,6 +50,9 @@ def project(events, *, root_thread=None, model=None):
                     threads.setdefault(child,{'id':child,'parent':thread})
         if method == 'thread/tokenUsage/updated' and thread:
             total=params.get('tokenUsage',{}).get('total')
+            if not isinstance(total,dict):
+                invalid_usage.add(thread)
+                latest[thread]=None
             if isinstance(total,dict):
                 base=baselines.get(thread,{})
                 keys=('inputTokens','cachedInputTokens','cacheWriteInputTokens','outputTokens','reasoningOutputTokens','totalTokens')
@@ -113,6 +119,7 @@ def project(events, *, root_thread=None, model=None):
         cost['basis']+='; child model attribution is runtime-reported, not independently attested'
     cost_reason=cost.get('reason') or cost['basis']
     return {'turns':list(turns.values()),'items':list(items.values()),'threads':list(threads.values()),
+            'diagnostics':[value for value in diagnostics if value.get('threadId') in related],
             'telemetry':telemetry,'telemetry_coverage':'observed; exporter flush completeness unverified' if telemetry else 'not observed',
             'uncorrelated_thread_count':len(uncorrelated),
             'usage':usage,'usage_by_thread':latest,'usage_points':points,

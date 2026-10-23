@@ -7,12 +7,84 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.claude_runner import ClaudeRunner, CLI_VERSION, command, terminal_result, cli_environment
+from laomedo.claude_runner import ClaudeRunner, CLI_VERSION, command, terminal_result, cli_environment, activity_usage
+from laomedo.agent_activity_projection import project
 from laomedo.local_runner import RunnerError
 from laomedo.output_contract import requirements
 
 
 class ClaudeRunnerTests(unittest.TestCase):
+    def test_activity_usage_and_resume_do_not_double_count_session_totals(self):
+        def native(inputs, outputs):
+            return {'modelUsage': {'claude-test': {'inputTokens': inputs,
+                'outputTokens': outputs, 'cacheReadInputTokens': 30, 'cacheCreationInputTokens': 5}}}
+        first, second = activity_usage(native(10, 4)), activity_usage(native(20, 9))
+        self.assertEqual(first['inputTokens'], 45)
+        self.assertNotIn('reasoningOutputTokens', first)
+        def event(value):
+            return {'raw': value, 'received_at': '2026-10-23T10:00:00Z'}
+        projected = project([event({'method': 'capture/usageBaseline', 'threads': {'session': {'total': first}}}),
+            event({'method': 'thread/tokenUsage/updated', 'params': {'threadId': 'session',
+                'tokenUsage': {'total': second}}})], root_thread='session')
+        self.assertEqual(projected['usage']['inputTokens'], 10)
+        self.assertEqual(projected['usage']['outputTokens'], 5)
+        self.assertEqual(projected['usage']['cachedInputTokens'], 0)
+        self.assertIsNone(projected['cost']['amount'])
+        for invalid in [{}, {'modelUsage': {}}, native(True, 1), native(-1, 1)]:
+            self.assertIsNone(activity_usage(invalid))
+
+    def test_activity_contains_prompt_answer_and_unknown_usage_without_guessing(self):
+        with self.invoke():
+            result = self.runner.start(self.payload)
+        root = self.runner._run_dir(result['run_id'])
+        receipts = [json.loads(line) for line in (root / 'activity-events.jsonl').read_text().splitlines()]
+        # The on-disk envelope is a runner receipt, just as in the HTTP event feed.
+        events = [{'raw': value.get('event', value), 'received_at': value['received_at']} for value in receipts]
+        projected = project(events, root_thread=result['thread_id'])
+        self.assertEqual([lane['item']['type'] for lane in projected['items']], ['userMessage', 'agentMessage'])
+        self.assertIn('Read skill', projected['items'][0]['item']['content'][0]['text'])
+        self.assertIsNone(projected['usage'])
+        self.assertEqual(projected['diagnostics'][0]['evidence'], 'terminal_receipt_only')
+
+    def test_failed_turn_closes_timeline_and_invalidates_usage(self):
+        with patch.object(self.runner, '_invoke', side_effect=RunnerError('claude_process_failed')):
+            result = self.runner.start(self.payload)
+        root = self.runner._run_dir(result['run_id'])
+        receipts = [json.loads(line) for line in (root / 'activity-events.jsonl').read_text().splitlines()]
+        projected = project([{'raw': value['event'], 'received_at': value['received_at']}
+                             for value in receipts], root_thread=result['thread_id'])
+        self.assertEqual(projected['turns'][0]['status'], 'failed')
+        self.assertIsNotNone(projected['turns'][0]['ended'])
+        self.assertIsNone(projected['usage'])
+
+    def test_real_capture_boundary_uses_previous_receipt_as_resume_baseline(self):
+        calls = []
+        def invoke(root, record, prompt, flag, *, resume):
+            calls.append(resume)
+            count = len(calls)
+            return {'session_id': record['thread_id'], 'result': 'ok',
+                    'modelUsage': {'claude-test': {'inputTokens': count * 10,
+                        'cacheReadInputTokens': count * 3, 'cacheCreationInputTokens': 0,
+                        'outputTokens': count * 5, 'thinkingTokens': 0}}}
+        with patch.object(self.runner, '_invoke', side_effect=invoke):
+            first = self.runner.start(self.payload)
+            result = self.runner.resume(first['run_id'], 'Continue',
+                expected_post_run_hash=first['post_run_hash'], expected_thread_id=first['thread_id'],
+                model='sonnet', effort='low')
+        root = self.runner._run_dir(result['run_id'])
+        attempt = json.loads((root / 'activity-attempts' / (result['activity_attempt_id'] + '.json')).read_text())
+        rows = [json.loads(line) for line in (root / 'activity-events.jsonl').read_text().splitlines()]
+        events = [{'raw': {'method': 'capture/usageBaseline', 'threads': attempt['usage_baseline']},
+                   'received_at': rows[0]['received_at']}]
+        events += [{'raw': row['event'], 'received_at': row['received_at']}
+                   for row in rows[attempt['native_start']:attempt['native_end']]]
+        projected = project(events, root_thread=result['thread_id'])
+        self.assertEqual(projected['usage']['inputTokens'], 13)
+        self.assertEqual(projected['usage']['outputTokens'], 5)
+        self.assertEqual(projected['usage']['reasoningOutputTokens'], 0)
+        self.assertEqual(result['effective_model'], 'claude-test')
+        self.assertEqual(len(projected['turns']), 1)
+
     def setUp(self):
         controls.LocalRunnerTests.setUp(self)
         with patch('laomedo.claude_runner.subprocess.run', return_value=subprocess.CompletedProcess(
