@@ -3,9 +3,9 @@
   "status": "passed",
   "issue": 182,
   "pr": 183,
-  "recovery_source": "c5a354205701adc993469bb57393413ac853b94f",
-  "claude_source": "5861fbe6594cdac23cc779d1d7553d56100c5c23",
-  "integration_source": "47be670f5059b2b5e0f4461cd18e6fe966b5a1ba",
+  "recovery_source": "b22add4e70b06e965bac4c4c5e8e7fa2b5f2fe8a",
+  "claude_source": "cb1873de8c095798ca22639f7989af0c4046c047",
+  "integration_source": "44643f2ccaf3feeb9db7e2f0d289bba440d08e0d",
   "provider": "claude",
   "requires_claude_adapter_pr": 180,
   "scope": "Real API service restart and completed-run inspection; no new model turn or live Codex process launch.",
@@ -65,10 +65,45 @@
     "graph_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1"
   },
   "code_controls": {
-    "service_tests": 6,
-    "ui_tests": 12,
-    "production_build": "passed"
+    "service_tests": 7,
+    "ui_tests": 13,
+    "production_build": "passed3m30s"
   },
   "earlier_failure": "The verification host shut down its API but left the graph configured for fresh execution.",
-  "preview_default": "Status-only inspection of the completed real run. Fresh model work still requires a new approved allowance."
+  "preview_default": "Status-only inspection of the completed real run. Fresh model work still requires a new approved allowance.",
+  "review_fixes": {
+    "startup_environment_allowlisted": true,
+    "unrelated_provider_overrides_excluded": true,
+    "recovered_availability_error_cleared": true,
+    "codex_source_option_explicit": true
+  },
+  "final_read_only_captures": {
+    "graph_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1",
+    "explicit_start_requests": 0,
+    "model_or_graph_dispatches": 0,
+    "page_errors": [],
+    "views": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "online": true,
+        "completed_native_activity": true
+      }
+    ]
+  }
 }
