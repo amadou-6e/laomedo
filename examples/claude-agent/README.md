@@ -96,3 +96,17 @@ runner retains its default. The completed receipt and failure were preserved;
 remaining checks used read-only reconciliation, with no second dispatch. The
 hard ledger remained one of one turns. This verifies fresh successful capture,
 not new live correction, resume, cancellation, subagents or writable tool use.
+
+## Current develop compatibility
+
+The current builder uses an independent read-only Skill node connected to the
+Agent's Skill References input, matching current develop. The edit target still
+connects Task and receives Operation feedback. Earlier executed two-node exports
+retain their original tested source revisions; they are historical evidence,
+not newly executed proofs of this updated builder. Claude retains its own text
+model/effort selections and does not query the Codex model catalog.
+
+Runner availability recovery is tracked separately in issue #182 / PR #183.
+The inspection preview defaults to Status on the existing completed run; starting
+its API does not grant or consume another model turn. Fresh work needs its own
+approved allowance. The API should remain available after the limit is reached.
