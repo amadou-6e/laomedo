@@ -57,6 +57,32 @@ def apply(checkout):
     shutil.copy2(overlay / "AgentActivityNavigation.ts", checkout / "src/frontend/src/stores/agentActivityStore.ts")
     shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
     shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
+    error_target = checkout / "src/frontend/src/components/laomedoErrors"
+    error_target.mkdir()
+    for name in ("nodeErrors.ts", "node-error-catalog.json", "NodeErrorNotice.tsx", "nodeErrors.test.ts", "NodeErrorNotice.test.tsx"):
+        shutil.copy2(overlay / name, error_target / name)
+    status_path = checkout / "src/frontend/src/CustomNodes/GenericNode/components/NodeStatus/index.tsx"
+    status_source = status_path.read_text(encoding="utf-8")
+    status_source = 'import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { hasLaomedoFailure } from "@/components/laomedoErrors/nodeErrors";\n' + status_source
+    marker = '{showNodeStatus && (\n            <ShadTooltip'
+    if status_source.count(marker) != 1:
+        raise SystemExit("pinned_node_status_error_anchor_missing")
+    status_source = status_source.replace(marker, '''{showNodeStatus && (
+            data.type?.startsWith("Laomedo") && (conditionError || hasLaomedoFailure(validationStatus)) ?
+            <NodeErrorNotice message={validationString} status={validationStatus} context={{
+              nodeId, nodeType: data.type, nodeLabel: display_name,
+              operation: data.node?.template?.operation?.value,
+              savedReferences: [data.node?.template?.run_reference?.value, data.node?.template?.run_reference_json?.value],
+            }} /> : <ShadTooltip''')
+    status_path.write_text(status_source, encoding="utf-8")
+    alerts_path = checkout / "src/frontend/src/stores/alertStore.ts"
+    alerts = alerts_path.read_text(encoding="utf-8")
+    alerts = 'import { describeLaomedoAlert } from "@/components/laomedoErrors/nodeErrors";\n' + alerts
+    marker = 'setErrorData: (newState: { title: string; list?: Array<string> }) => {'
+    if alerts.count(marker) != 1:
+        raise SystemExit("pinned_error_alert_anchor_missing")
+    alerts = alerts.replace(marker, marker + '\n    newState = describeLaomedoAlert(newState);')
+    alerts_path.write_text(alerts, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

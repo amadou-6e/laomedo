@@ -1,0 +1,512 @@
+{
+  "prior_run_required": {
+    "title": "No previous run is available",
+    "description": "This operation needs a reference to an earlier run.",
+    "recovery": "Use a saved flow or API request with a valid run reference, or choose Fresh to start a new session. A run selector is not currently available on this node."
+  },
+  "invalid_prior_run_json": {
+    "title": "The previous run reference could not be read",
+    "description": "The supplied reference is malformed or incomplete.",
+    "recovery": "Restore the original Run Reference through your saved flow or API request. Do not reconstruct run identifiers or paste credentials into the graph."
+  },
+  "invalid_run_id": {
+    "title": "The previous run reference could not be read",
+    "description": "The supplied reference is malformed or incomplete.",
+    "recovery": "Restore the original Run Reference through your saved flow or API request. Do not reconstruct run identifiers or paste credentials into the graph."
+  },
+  "invalid_record": {
+    "title": "The previous run reference could not be read",
+    "description": "The supplied reference is malformed or incomplete.",
+    "recovery": "Restore the original Run Reference through your saved flow or API request. Do not reconstruct run identifiers or paste credentials into the graph."
+  },
+  "completed_snapshot_and_thread_required": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "workspace_changed_since_snapshot": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "post_run_snapshot_mismatch": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "resume_binding_mismatch": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "resume_model_effort_mismatch": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "resume_provider_binding_mismatch": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "resume_auth_identity_mismatch": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "run_provider_mismatch": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "runner_provider_mismatch": {
+    "title": "The previous run does not match this operation",
+    "description": "The provider, model, session, or workspace no longer matches the saved run.",
+    "recovery": "Use the original provider, model, reasoning setting and intact run snapshot. Ask the operator to investigate the mismatch; do not bypass the binding checks."
+  },
+  "runner_api_token_file_empty": {
+    "title": "The runner connection is not authorized",
+    "description": "Backend authentication for the configured runner is missing or was rejected.",
+    "recovery": "Ask the deployment owner to check runner authentication and the configured runner address. Credentials belong in backend configuration, never in the graph."
+  },
+  "runner_api_token_file_unavailable": {
+    "title": "The runner connection is not authorized",
+    "description": "Backend authentication for the configured runner is missing or was rejected.",
+    "recovery": "Ask the deployment owner to check runner authentication and the configured runner address. Credentials belong in backend configuration, never in the graph."
+  },
+  "unauthorized": {
+    "title": "The runner connection is not authorized",
+    "description": "Backend authentication for the configured runner is missing or was rejected.",
+    "recovery": "Ask the deployment owner to check runner authentication and the configured runner address. Credentials belong in backend configuration, never in the graph."
+  },
+  "invalid_runner_api_token": {
+    "title": "The runner connection is not authorized",
+    "description": "Backend authentication for the configured runner is missing or was rejected.",
+    "recovery": "Ask the deployment owner to check runner authentication and the configured runner address. Credentials belong in backend configuration, never in the graph."
+  },
+  "auth_account_missing": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_account_unavailable": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_account_mismatch": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_identity_invalid": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_refresh_unknown": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_exchange_failed": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_transport_failed": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_callback_timeout": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_token_response_invalid": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "auth_response_invalid": {
+    "title": "The provider login needs attention",
+    "description": "The configured provider account could not be authenticated or refreshed.",
+    "recovery": "Use the supported provider login flow outside the graph. Ask the deployment owner to check the connection; never paste tokens into node inputs."
+  },
+  "model_and_effort_required": {
+    "title": "Choose a model and reasoning setting",
+    "description": "The Agent does not have a complete model selection.",
+    "recovery": "Refresh the Model list from the configured runner, then choose a model and one of its supported reasoning settings."
+  },
+  "invalid_model_selection": {
+    "title": "Choose a model and reasoning setting",
+    "description": "The Agent does not have a complete model selection.",
+    "recovery": "Refresh the Model list from the configured runner, then choose a model and one of its supported reasoning settings."
+  },
+  "invalid_effort_selection": {
+    "title": "Choose a model and reasoning setting",
+    "description": "The Agent does not have a complete model selection.",
+    "recovery": "Refresh the Model list from the configured runner, then choose a model and one of its supported reasoning settings."
+  },
+  "unsupported_model_effort": {
+    "title": "The runner does not support this model and reasoning pair",
+    "description": "The selected capability is not advertised by the configured runtime.",
+    "recovery": "Refresh Model and select a supported model and reasoning setting. Saved selections are not a guarantee of current availability."
+  },
+  "unsupported_opencode_effort": {
+    "title": "This OpenCode variant is not supported",
+    "description": "This adapter currently supports only the default variant.",
+    "recovery": "Set Variant to default. Changing the variant requires adapter support, not just a different text value."
+  },
+  "opencode_provider_model_required": {
+    "title": "The OpenCode model is not connected",
+    "description": "The configured OpenCode server cannot use the selected provider/model.",
+    "recovery": "Check the provider/model name and its connection on the OpenCode server. This node does not discover OpenCode model choices automatically."
+  },
+  "opencode_model_not_connected": {
+    "title": "The OpenCode model is not connected",
+    "description": "The configured OpenCode server cannot use the selected provider/model.",
+    "recovery": "Check the provider/model name and its connection on the OpenCode server. This node does not discover OpenCode model choices automatically."
+  },
+  "model_turn_cap_reached": {
+    "title": "The model-run allowance is exhausted",
+    "description": "The runner cannot authorize another model turn under its current allowance.",
+    "recovery": "Ask the operator to review completed and uncertain runs before authorizing another turn. Repeatedly pressing Run will not extend the allowance."
+  },
+  "invalid_turn_cap": {
+    "title": "The model-run allowance is invalid",
+    "description": "The runner allowance configuration could not be validated. This does not establish that the allowance is exhausted.",
+    "recovery": "Ask the operator to correct the allowance configuration and inspect any existing run before submitting another request."
+  },
+  "runner_model_catalog_unavailable_check_runner_connection": {
+    "title": "The model list could not be loaded",
+    "description": "The configured runner did not return a usable capability catalogue.",
+    "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
+  },
+  "model_list_rejected": {
+    "title": "The model list could not be loaded",
+    "description": "The configured runner did not return a usable capability catalogue.",
+    "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
+  },
+  "model_list_invalid_entry": {
+    "title": "The model list could not be loaded",
+    "description": "The configured runner did not return a usable capability catalogue.",
+    "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
+  },
+  "model_list_invalid_cursor": {
+    "title": "The model list could not be loaded",
+    "description": "The configured runner did not return a usable capability catalogue.",
+    "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
+  },
+  "model_list_page_limit": {
+    "title": "The model list could not be loaded",
+    "description": "The configured runner did not return a usable capability catalogue.",
+    "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
+  },
+  "runner_transport_failed": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_wait_deadline": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_status_unknown": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_runtime_unknown": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_invalid_response": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_invalid_error_response": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "stop_runner_transport_unknown": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "stop_runner_status_unknown": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "stop_runner_result_pending": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "stop_runner_identity_unknown": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "opencode_response_not_terminal": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "opencode_outstanding_tool": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "opencode_abort_not_acknowledged": {
+    "title": "The remote outcome is not confirmed",
+    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_request_identity_mismatch": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "runner_response_identity_mismatch": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "runner_response_thread_mismatch": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "runner_status_identity_mismatch": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "request_identity_conflict": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "thread_identity_mismatch": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "opencode_response_identity_mismatch": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "stop_request_binding_conflict": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "stop_runner_identity_conflict": {
+    "title": "The runner response could not be verified",
+    "description": "The returned identity does not match the expected request or session. The application refused to trust it.",
+    "recovery": "Preserve the technical identifiers and ask the operator to inspect the existing run. Do not retry or substitute a different run reference."
+  },
+  "runner_busy": {
+    "title": "The runner is already busy",
+    "description": "The configured runner is handling another invocation.",
+    "recovery": "Inspect the active run and wait for a confirmed terminal status before starting new work. Do not cancel another run without checking its owner."
+  },
+  "skill_reference_required_use_skill_node": {
+    "title": "The Agent needs valid Skill References",
+    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
+    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+  },
+  "pinned_skill_ref_required": {
+    "title": "The Agent needs valid Skill References",
+    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
+    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+  },
+  "pinned_skill_required": {
+    "title": "The Agent needs valid Skill References",
+    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
+    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+  },
+  "invalid_skill_reference": {
+    "title": "The Agent needs valid Skill References",
+    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
+    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+  },
+  "one_to_sixteen_skills_required": {
+    "title": "The Agent needs valid Skill References",
+    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
+    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+  },
+  "duplicate_skill_id": {
+    "title": "The Agent needs valid Skill References",
+    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
+    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+  },
+  "task_required": {
+    "title": "The Agent needs a task",
+    "description": "No usable task was supplied to this invocation.",
+    "recovery": "Provide Task text or connect the task-producing node before running the Agent."
+  },
+  "invalid_task": {
+    "title": "The Agent needs a task",
+    "description": "No usable task was supplied to this invocation.",
+    "recovery": "Provide Task text or connect the task-producing node before running the Agent."
+  },
+  "runner_dispatch_refused": {
+    "title": "The runner refused this request",
+    "description": "The request was not accepted under the configured execution policy.",
+    "recovery": "Ask the operator to check the request policy and authorization. Do not remove policy checks or repeatedly resubmit the request."
+  },
+  "standing_policy_inactive": {
+    "title": "The runner refused this request",
+    "description": "The request was not accepted under the configured execution policy.",
+    "recovery": "Ask the operator to check the request policy and authorization. Do not remove policy checks or repeatedly resubmit the request."
+  },
+  "standing_policy_invalid": {
+    "title": "The runner refused this request",
+    "description": "The request was not accepted under the configured execution policy.",
+    "recovery": "Ask the operator to check the request policy and authorization. Do not remove policy checks or repeatedly resubmit the request."
+  },
+  "standing_request_denied": {
+    "title": "The runner refused this request",
+    "description": "The request was not accepted under the configured execution policy.",
+    "recovery": "Ask the operator to check the request policy and authorization. Do not remove policy checks or repeatedly resubmit the request."
+  },
+  "experiment_request_binding_denied": {
+    "title": "The runner refused this request",
+    "description": "The request was not accepted under the configured execution policy.",
+    "recovery": "Ask the operator to check the request policy and authorization. Do not remove policy checks or repeatedly resubmit the request."
+  },
+  "docker_control_unavailable": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "docker_control_failed": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "app_server_exited": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "initialize_rejected": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "executor_not_ready": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "executor_not_running": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "lease_service_unavailable": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "lease_service_lost": {
+    "title": "The runner runtime is unavailable",
+    "description": "The runtime or its supervision service could not complete the requested execution.",
+    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+  },
+  "unsupported_codex_cli_version": {
+    "title": "The runtime does not match its approved configuration",
+    "description": "The installed version, image or execution policy differs from the validated runtime profile.",
+    "recovery": "Ask the deployment owner to install and validate the approved runtime. Do not bypass version, image or permission checks."
+  },
+  "opencode_runtime_pin_mismatch": {
+    "title": "The runtime does not match its approved configuration",
+    "description": "The installed version, image or execution policy differs from the validated runtime profile.",
+    "recovery": "Ask the deployment owner to install and validate the approved runtime. Do not bypass version, image or permission checks."
+  },
+  "docker_image_digest_changed": {
+    "title": "The runtime does not match its approved configuration",
+    "description": "The installed version, image or execution policy differs from the validated runtime profile.",
+    "recovery": "Ask the deployment owner to install and validate the approved runtime. Do not bypass version, image or permission checks."
+  },
+  "running_image_digest_changed": {
+    "title": "The runtime does not match its approved configuration",
+    "description": "The installed version, image or execution policy differs from the validated runtime profile.",
+    "recovery": "Ask the deployment owner to install and validate the approved runtime. Do not bypass version, image or permission checks."
+  },
+  "permission_config_changed": {
+    "title": "The runtime does not match its approved configuration",
+    "description": "The installed version, image or execution policy differs from the validated runtime profile.",
+    "recovery": "Ask the deployment owner to install and validate the approved runtime. Do not bypass version, image or permission checks."
+  },
+  "seccomp_profile_changed": {
+    "title": "The runtime does not match its approved configuration",
+    "description": "The installed version, image or execution policy differs from the validated runtime profile.",
+    "recovery": "Ask the deployment owner to install and validate the approved runtime. Do not bypass version, image or permission checks."
+  },
+  "protected_mount_changed": {
+    "title": "Execution cleanup or isolation could not be verified",
+    "description": "The application could not establish a clean, safe execution boundary.",
+    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+  },
+  "container_termination_unverified": {
+    "title": "Execution cleanup or isolation could not be verified",
+    "description": "The application could not establish a clean, safe execution boundary.",
+    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+  },
+  "executor_termination_unverified": {
+    "title": "Execution cleanup or isolation could not be verified",
+    "description": "The application could not establish a clean, safe execution boundary.",
+    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+  },
+  "run_preparation_cleanup_unverified": {
+    "title": "Execution cleanup or isolation could not be verified",
+    "description": "The application could not establish a clean, safe execution boundary.",
+    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+  },
+  "opencode_transport_cleanup_failed": {
+    "title": "Execution cleanup or isolation could not be verified",
+    "description": "The application could not establish a clean, safe execution boundary.",
+    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+  },
+  "opencode_provider_error": {
+    "title": "The provider did not produce a completed answer",
+    "description": "The runner did not receive a usable completed response from the provider.",
+    "recovery": "Inspect the existing run and provider connection before starting another request. A failed response does not establish that no remote work occurred."
+  },
+  "turn_dispatch_rejected": {
+    "title": "The provider did not produce a completed answer",
+    "description": "The runner did not receive a usable completed response from the provider.",
+    "recovery": "Inspect the existing run and provider connection before starting another request. A failed response does not establish that no remote work occurred."
+  },
+  "completed_without_agent_message": {
+    "title": "The provider did not produce a completed answer",
+    "description": "The runner did not receive a usable completed response from the provider.",
+    "recovery": "Inspect the existing run and provider connection before starting another request. A failed response does not establish that no remote work occurred."
+  },
+  "local_runner_url_required": {
+    "title": "The service address is not supported",
+    "description": "This deployment requires an approved local service address.",
+    "recovery": "Ask the deployment owner to check the local runner or backend bridge configuration. Do not include credentials in the address."
+  },
+  "local_bridge_url_required": {
+    "title": "The service address is not supported",
+    "description": "This deployment requires an approved local service address.",
+    "recovery": "Ask the deployment owner to check the local runner or backend bridge configuration. Do not include credentials in the address."
+  },
+  "skill_edit_no_change": {
+    "title": "No changes were needed",
+    "description": "The proposed files are identical to the selected Skill revision.",
+    "recovery": "Review the current files and update the Edit Request if a different change is intended. An unchanged proposal does not create a new revision."
+  }
+}
