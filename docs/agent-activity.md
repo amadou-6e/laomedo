@@ -1,7 +1,8 @@
 # Graph agent activity
 
 The **Agents** section in the graph sidebar shows retained activity from the
-original `LaomedoCodexAgent`. The singular Agent section retains its A2A setup.
+original `LaomedoCodexAgent` and subscription `LaomedoClaudeAgent`.
+The singular Agent section retains its A2A setup.
 There is no PR-specific agent.
 
 Choose a graph execution to compare invocation and turn intervals, including
