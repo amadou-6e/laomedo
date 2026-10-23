@@ -10,7 +10,10 @@ The node follows the current Codex controls: Task and Operation, runner-backed
 Provider/Model and Variant dropdowns, then Skill References. Technical settings
 are under the collapsed Advanced controls section; legacy reference fields stay
 hidden. Refresh discovers connected provider models without creating a session
-or consuming a model turn. Only the default variant is supported.
+or consuming a model turn. Opening or upgrading a graph preserves saved choices
+and does not launch discovery. A run overlapping an explicit refresh waits up to
+30 seconds for metadata cleanup; a real active agent still excludes another run.
+Only the default variant is supported.
 
 Select an OpenCode node and choose Activity to open graph agent activity with that
 node's newest captured invocation selected. The provider is identified as OpenCode
@@ -90,3 +93,14 @@ per-attempt token usage. This verifies the bounded fresh/resume path, not live
 active cancellation, SSE/OTLP or subagents. The older prototype ledger and its
 historical evidence are preserved. Active cancellation must not be inferred
 from an abort acknowledgement alone.
+
+
+A further user-authorized same-session Resume was verified on 2026-10-23 by
+clicking Run component in the actual graph UI after correcting hidden-reference
+and model-discovery contention issues. The runner completed, the Activity view
+showed the new invocation and answer, and controller cleanup was confirmed with
+no leftover controller. Exactly one additional turn was used (total 3/3).
+Two graph reloads triggered no discovery or execution requests. The Playwright
+response-wait harness timed out, so the existing run was reconciled through the
+real terminal record and Activity rather than resubmitted. This does not extend
+acceptance to live cancellation, SSE/OTLP, subagents or monetary costs.

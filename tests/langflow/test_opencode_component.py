@@ -82,6 +82,16 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(method,'GET')
         self.assertTrue(endpoint.endswith('/'+run_id))
 
+    async def test_graph_upgrade_does_not_launch_model_discovery(self):
+        new={'display_name':'OpenCode','template':{'code':{'type':'code','value':'new'},
+            'model':{'type':'str','value':''},'effort':{'type':'str','value':'default'}}}
+        from copy import deepcopy
+        old=deepcopy(new);old['template']['model'].update(value='test/model',options=['test/model','test/other'])
+        with patch.object(LaomedoOpenCodeAgent,'_model_catalog',side_effect=AssertionError('Implicit discovery')):
+            updated=await self.node().update_frontend_node(new,old)
+        self.assertEqual(updated['template']['model']['value'],'test/model')
+        self.assertEqual(updated['template']['model']['options'],['test/model','test/other'])
+
     async def test_both_outputs_share_one_dispatch(self):
         node = self.node()
         value = {"provider": "opencode", "run_id": "fixture", "status": "completed", "answer": "answer"}

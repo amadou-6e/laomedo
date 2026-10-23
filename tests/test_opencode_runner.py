@@ -49,6 +49,55 @@ class Backend:
 
 
 class OpenCodeTests(unittest.TestCase):
+    def test_run_waits_for_catalog_cleanup_without_overlapping_profiles(self):
+        entered,released,attempted=threading.Event(),threading.Event(),threading.Event()
+        waiting=threading.Event()
+        class ObservedLock:
+            def __init__(self):self.lock=threading.Lock()
+            def acquire(self,*args,**kwargs):
+                if kwargs.get('timeout')==30:waiting.set()
+                return self.lock.acquire(*args,**kwargs)
+            def release(self):self.lock.release()
+            def __enter__(self):self.acquire();return self
+            def __exit__(self,*args):self.release()
+        self.runner._opencode_catalog_lock=ObservedLock()
+        class PausedCatalog(Backend):
+            def call(self,method,path,payload=None):
+                if path=='/provider' and 'catalog' in str(self.workspace):
+                    entered.set()
+                    if not released.wait(5):raise TimeoutError()
+                return super().call(method,path,payload)
+        self.runner.transport_factory=PausedCatalog
+        catalog_result={};run_result={};errors=[]
+        def catalog():
+            try:catalog_result.update(self.runner.model_catalog())
+            except Exception as exc:errors.append(exc)
+        def run():
+            attempted.set()
+            try:run_result.update(self.runner.start(self.payload))
+            except Exception as exc:errors.append(exc)
+        a=threading.Thread(target=catalog);b=threading.Thread(target=run)
+        a.start()
+        try:
+            self.assertTrue(entered.wait(3));b.start();self.assertTrue(attempted.wait(3));self.assertTrue(waiting.wait(3))
+            self.assertFalse(run_result)
+        finally:
+            released.set();a.join(8)
+            if b.ident is not None:b.join(8)
+        self.assertFalse(a.is_alive());self.assertFalse(b.is_alive());self.assertEqual(errors,[])
+        self.assertEqual(run_result['status'],'completed')
+        self.assertEqual(catalog_result['submitted_turns'],0)
+
+    def test_exhausted_resume_preserves_completed_record_and_snapshot(self):
+        run=self.runner.start(self.payload)
+        self.runner.max_model_turns=1
+        before=(self.runner._run_dir(run['run_id'])/'record.json').read_bytes()
+        with self.assertRaisesRegex(RunnerError,'model_turn_cap_reached'):
+            self.runner.resume(run['run_id'],'Continue',expected_post_run_hash=run['post_run_hash'],
+                expected_thread_id=run['thread_id'],model='test/model',effort='default')
+        self.assertEqual((self.runner._run_dir(run['run_id'])/'record.json').read_bytes(),before)
+        self.assertFalse(self.runner.lock.locked())
+
     def test_catalog_refuses_shared_profile_access_while_runner_is_busy(self):
         self.runner.lock.acquire()
         try:

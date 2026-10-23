@@ -33,6 +33,21 @@ class LaomedoOpenCodeAgent(Component):
     async def update_build_config(self, build_config, field_value, field_name=None):
         return await self._update_model_config(build_config, field_value, field_name)
 
+    async def update_frontend_node(self, new_frontend_node, current_frontend_node):
+        # Loading/upgrading a graph must not start a credentialed controller.
+        # Discovery is explicit through the model dropdown's Refresh action.
+        updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
+        previous = current_frontend_node.get("template", {})
+        for name in ("model", "effort"):
+            field = updated["template"].get(name, {})
+            choices = previous.get(name, {}).get("options", [])
+            choices = [value for value in choices if isinstance(value, str) and value]
+            value = field.get("value")
+            if isinstance(value, str) and value and value not in choices:
+                choices.append(value)
+            field["options"] = choices
+        return updated
+
     def _prepare(self):
         if self.operation in {"fresh", "start", "resume"} and str(self.effort) != "default":
             raise ValueError("unsupported_opencode_effort")

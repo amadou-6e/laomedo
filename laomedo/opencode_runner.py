@@ -253,7 +253,13 @@ class OpenCodeRunner(LocalRunner):
         if activity_attempt_id is not None:
             _id(activity_attempt_id)
         if not self.lock.acquire(blocking=False):
-            raise RunnerError("runner_busy")
+            # A model refresh is not an agent run. Wait for its bounded cleanup
+            # instead of rejecting Run while metadata owns the profile lock.
+            if not self._opencode_catalog_lock.acquire(timeout=30):
+                raise RunnerError("opencode_model_discovery_in_progress")
+            self._opencode_catalog_lock.release()
+            if not self.lock.acquire(blocking=False):
+                raise RunnerError("runner_busy")
         root, record, flag, backend, attempt = None, None, None, None, None
         baseline_ids = set()
         launch_attempted = False
@@ -265,6 +271,8 @@ class OpenCodeRunner(LocalRunner):
                     return record
                 if record["status"] != ("completed" if resume else "prepared"):
                     raise RunnerError("run_not_dispatchable")
+                # Refusal must preserve a completed run and its resume snapshot.
+                self._turn_available()
                 attempt_id = (activity_attempt_id if resume else record.get("activity_initial_attempt_id")) or str(uuid4())
                 _id(attempt_id)
                 attempts = root / "activity-attempts"

@@ -174,7 +174,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
         updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
-        if self.name in {"LaomedoCodexAgent", "LaomedoOpenCodeAgent"}:
+        if self.name == "LaomedoCodexAgent":
             try:
                 await self.update_build_config(updated["template"], None)
             except ValueError as exc:
