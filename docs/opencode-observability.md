@@ -72,3 +72,29 @@ conversation, not a child-thread view. Live cancellation was not exercised in
 this bounded observability verification. Native receipts can include opaque
 provider-encrypted reasoning blobs; these are retained with the original record,
 not decrypted or treated as readable reasoning.
+
+
+### Conversation navigation
+
+The Gantt is the scope selector. An invocation row shows all captured conversations;
+conversation rows show only their own turns (excluding descendants), and turn rows
+show only the selected turn. Native session titles label child conversations when
+observed; otherwise the UI uses a neutral numbered label. Titles do not attest who
+started a child. The saved host-child demonstration retains its observed
+`Host-started read-only PR workflow summary` title.
+
+Breadcrumbs restore ancestor conversations or All activity. Messages, telemetry,
+usage cards and charts follow the same scope. Telemetry is included only when its
+conversation and turn/call IDs explicitly match; unlinked records remain visible
+in All activity. Conversation totals use provider-attributed per-thread usage;
+turn totals require explicit per-turn counters. OpenCode counters sum native
+assistant responses within that turn; Codex subtracts cumulative counters recorded at an explicitly identified
+turn start from subsequent cumulative updates for that native turn ID. Without a
+recorded starting baseline, per-turn usage stays Unknown. `tokenUsage.last` is
+not used as a whole-turn total. Missing attribution stays Unknown. Truncated or boundary-unverified
+captures cannot recover withheld totals through a narrower selection.
+
+Earlier-run navigation appears only for an earlier non-overlapping invocation of
+the same node/provider/native session within the current graph. It navigates to
+recorded evidence; it does not dispatch Resume or claim that missing history was
+captured. Native IDs and parent links remain collapsed under Technical details.

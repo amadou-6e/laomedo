@@ -115,6 +115,8 @@ class ActivityTests(unittest.TestCase):
         self.assertIsNone(value['projection']['usage'])
         self.assertIsNone(value['projection']['cost']['amount'])
         self.assertEqual(value['projection']['usage_points'],[])
+        self.assertEqual(value['projection']['usage_by_thread'],{})
+        self.assertTrue(all(turn['usage'] is None and turn['cost']['amount'] is None for turn in value['projection']['turns']))
 
     def test_read_only_store_uses_existing_database_without_schema_writes(self):
         original=self.store.path.read_bytes()

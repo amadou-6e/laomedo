@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts } from "./index";
+import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
@@ -172,20 +172,64 @@ test("all runtime records are listed and fuzzy search can find records beyond fi
 });
 
 
-test("thread inspection preserves run totals with keyboard charts and no slider",()=>{
-  const usage=(input:number)=>({inputTokens:input,cachedInputTokens:0,outputTokens:1,reasoningOutputTokens:0});
-  const points=[{at:"2026-10-23T14:00:01Z",thread:"parent",usage:usage(10),cost:{amount:.001}},
-    {at:"2026-10-23T14:00:02Z",thread:"child",usage:usage(5),cost:{amount:.002}},
-    {at:"2026-10-23T14:00:03Z",thread:"parent",usage:usage(25),cost:{amount:.003}}];
-  render(<UsageCharts projection={{...projection,usage:usage(30),cost:{amount:.005},usage_points:points} as any}/>);
-  fireEvent.change(screen.getByRole("combobox",{name:"Chart scope"}),{target:{value:"child"}});
-  expect(screen.getByRole("group",{name:"Run totals"})).toHaveTextContent("30");
-  expect(screen.getByText("5",{selector:"strong"})).toBeInTheDocument();
+test("scoped charts retain keyboard access without a second thread selector or repeated readout",()=>{
+  const usage={inputTokens:10,cachedInputTokens:0,outputTokens:1,reasoningOutputTokens:0};
+  render(<UsageCharts scopeLabel="Conversation" projection={{...projection,usage,cost:{amount:.001},usage_points:[{at:"2026-10-23T14:00:01Z",thread:"parent",usage,cost:{amount:.001}}]} as any}/>);
+  expect(screen.getByRole("group",{name:"Conversation totals"})).toHaveTextContent("10");
+  expect(screen.queryByRole("combobox",{name:"Chart scope"})).toBeNull();
   expect(screen.queryByRole("slider")).toBeNull();
-  fireEvent.change(screen.getByRole("combobox",{name:"Chart scope"}),{target:{value:"parent"}});
+  expect(screen.queryByText(/Observed at/)).toBeNull();
   const chart=screen.getByRole("figure",{name:"Cumulative token usage chart"});
-  fireEvent.keyDown(chart,{key:"Home"});
-  expect(screen.getByText("10",{selector:"strong"})).toBeInTheDocument();
-  fireEvent.keyDown(chart,{key:"ArrowRight"});
-  expect(screen.getByText("25",{selector:"strong"})).toBeInTheDocument();
+  fireEvent.focus(chart);fireEvent.keyDown(chart,{key:"Home"});
+  expect(screen.getByRole("status")).toHaveTextContent("Input: 10");
+});
+
+test("scope uses explicit thread and turn attribution and excludes descendants and unrelated telemetry",()=>{
+  const usage={inputTokens:10};const cost={amount:.001};
+  const p={...projection,threads:[{id:"parent",parent:null},{id:"child",parent:"parent",title:"Review changes"}],
+    usage_by_thread:{parent:usage,child:{inputTokens:4}},cost:{amount:.002,per_thread:{parent:cost,child:{amount:.001}}},
+    turns:[{id:"first",thread:"parent",usage:{inputTokens:3},cost:{amount:.0003}}],
+    items:[{id:"p1",thread:"parent",turn:"first"},{id:"p2",thread:"parent",turn:"second"},{id:"c1",thread:"child",turn:"childturn"}],
+    usage_points:[{thread:"parent",turn:"first",at:"2026-10-23T14:00:01Z",usage,turn_usage:{inputTokens:3},cost,turn_cost:{amount:.0003}}],
+    telemetry:[{attributes:{"conversation.id":"parent","call.id":"p1"}},{attributes:{"conversation.id":"parent","turn.id":"second"}},{attributes:{"conversation.id":"child","call.id":"c1"}},{attributes:{}}]} as any;
+  const parent=scopedProjection(p,{thread:"parent"});expect(parent.items.map(i=>i.id)).toEqual(["p1","p2"]);expect(parent.usage).toEqual(usage);
+  const turn=scopedProjection(p,{thread:"parent",turn:"first"});expect(turn.items.map(i=>i.id)).toEqual(["p1"]);expect(turn.usage).toEqual({inputTokens:3});expect(turn.cost.amount).toBe(.0003);expect(turn.usage_points[0].usage).toEqual({inputTokens:3});expect(turn.telemetry).toHaveLength(1);
+  const unknown=scopedProjection({...p,turns:[{id:"first",thread:"parent",usage:null,cost:{amount:null}}]},{thread:"parent",turn:"first"});expect(unknown.usage).toBeNull();expect(unknown.cost.amount).toBeNull();
+  expect(scopedProjection(p,{})).toBe(p);
+});
+
+test("conversation hierarchy preserves titles, orphans and cycles without inventing links",()=>{
+  const rows=conversationRows({...projection,threads:[{id:"parent",parent:null},{id:"child",parent:"parent",title:"Review changes"},{id:"orphan",parent:"missing"},{id:"a",parent:"b"},{id:"b",parent:"a"}]} as any,"parent");
+  expect(rows.map(r=>r.id)).toEqual(["parent","child","orphan","a","b"]);
+  expect(rows.find(r=>r.id==="child")).toMatchObject({depth:1,title:"Review changes"});
+  expect(rows.find(r=>r.id==="orphan")?.depth).toBe(0);
+});
+
+test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and earlier run navigation resets scope",async()=>{
+  const first={...run("one","current"),node:"node",native_session:"parent",started:"2026-10-15T10:00:10Z",ended:"2026-10-15T10:00:20Z"};
+  const old={...run("old","previous"),node:"node",native_session:"parent"};
+  const lane=(id:string,thread:string,turn:string,text:string)=>({id,thread,turn,started:first.started,ended:first.ended,item:{type:"agentMessage",text}});
+  const p={...projection,threads:[{id:"parent",parent:null},{id:"child",parent:"parent",title:"Review changes"}],usage_by_thread:{child:{inputTokens:4}},
+    turns:[{id:"t1",thread:"parent",started:first.started,ended:first.ended,status:"completed"},{id:"c1",thread:"child",started:first.started,ended:first.ended,status:"completed"},{id:"c2",thread:"child",started:first.started,ended:first.ended,status:"completed"}],
+    items:[lane("a","parent","t1","Parent answer"),lane("b","child","c1","First child answer"),lane("c","child","c2","Second child answer")]};
+  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,old]}:{run:url.endsWith("/old")?old:first,projection:p,truncated:false}}));
+  render(<GraphAgents flowId="flow"/>);
+  fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/,exact:false}));
+  expect(await screen.findByText("First child answer")).toBeInTheDocument();expect(screen.queryByText("Parent answer")).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed$/}));
+  expect(screen.queryByText("Second child answer")).toBeNull();
+  expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
+  expect(screen.getAllByRole("region",{name:"OpenTelemetry records"})).toHaveLength(1);
+  fireEvent.click(screen.getByRole("navigation",{name:"Activity selection"}).querySelector('button')!);
+  expect(screen.getByText("Parent answer")).toBeInTheDocument();expect(screen.getByText("Second child answer")).toBeInTheDocument();
+  expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button",{name:/Earlier run in this conversation/}));
+  await waitFor(()=>expect(screen.getByRole("combobox")).toHaveValue("previous"));
+  expect(screen.queryByText("This conversation only; excludes subagents")).toBeNull();
+});
+
+test("unpriced observations show Unknown instead of an artificial cost axis",()=>{
+  render(<UsageCharts projection={{...projection,usage_points:[{at:"2026-10-23T14:00:01Z",thread:"parent",usage:{inputTokens:10},cost:{amount:null}}]} as any}/>);
+  expect(screen.getByRole("img",{name:"Estimated cost unavailable"})).toHaveTextContent("Unknown");
+  expect(screen.queryByRole("figure",{name:"Cumulative estimated cost chart"})).toBeNull();
 });

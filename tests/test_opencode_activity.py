@@ -13,6 +13,17 @@ def event(messages):
 
 
 class OpenCodeActivityTests(unittest.TestCase):
+    def test_thread_titles_and_turn_totals_are_observed_not_cumulative(self):
+        first=message('a','assistant','First',parentID='u1',tokens={'input':4,'output':2,'reasoning':0,'cache':{'read':0,'write':0}})
+        second=message('b','assistant','Second',parentID='u2',tokens={'input':6,'output':3,'reasoning':0,'cache':{'read':0,'write':0}})
+        metadata={'received_at':'2026-10-23T10:00:00+00:00','raw':{'method':'opencode/sessionSnapshot','params':{'session':{'id':'ses_root','title':'Observed title'}}}}
+        value=project([metadata,event([first,second])],root_thread='ses_root')
+        self.assertEqual(value['threads'][0]['title'],'Observed title')
+        self.assertEqual([turn['usage']['inputTokens'] for turn in value['turns']],[4,6])
+        self.assertEqual([point['turn'] for point in value['usage_points']],['u1','u2'])
+        self.assertEqual([point['turn_usage']['inputTokens'] for point in value['usage_points']],[4,6])
+        self.assertEqual([point['usage']['inputTokens'] for point in value['usage_points']],[4,10])
+
     def test_live_parts_deltas_and_checkpoint_reconcile_without_double_charging(self):
         user=message('user','user','Read README')
         answer=message('answer','assistant','Hello',parentID='user',providerID='test',modelID='model',

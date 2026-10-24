@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Fuse from "fuse.js";
 import Markdown from "react-markdown";
 import IconComponent from "@/components/common/genericIconComponent";
@@ -12,9 +12,9 @@ import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 
 type Run = {provider?:string;id:string;node:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
-type Lane = {id:string;thread?:string;turn?:string;started:string;ended:string|null;status?:string;item?:Record<string,unknown>;conflicting_receipts?:boolean};
-type Cost = {amount:number|null;currency:string;basis:string;catalog_date:string;source:string|null};
-type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null}[];usage:Record<string,number>|null;usage_points:{at:string;thread:string;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string};
+type Lane = {id:string;thread?:string;turn?:string;started:string;ended:string|null;status?:string;usage?:Record<string,number>|null;cost?:Cost;item?:Record<string,unknown>;conflicting_receipts?:boolean};
+type Cost = {amount:number|null;currency:string;basis:string;catalog_date:string;source:string|null;model?:string|null;per_thread?:Record<string,Cost>;reason?:string|null};
+type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null;title?:string}[];usage_by_thread?:Record<string,Record<string,number>|null>;usage:Record<string,number>|null;usage_points:{at:string;thread:string;turn?:string;turn_usage?:Record<string,number>|null;turn_cost?:Cost;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string};
 type Detail = {run:Run;projection:Projection;truncated:boolean};
 const time = (value:string) => new Date(value).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const duration = (start:string,end:string|null) => `${Math.max(0,(Date.parse(end??new Date().toISOString())-Date.parse(start))/1000).toFixed(1)}s`;
@@ -129,28 +129,71 @@ export function aggregateUsagePoints(points:UsagePoint[]):ChartPoint[] {
   return result;
 }
 
-export function UsageCharts({projection}:{projection:Projection}) {
-  const [thread,setThread]=useState("");
-  const threads=useMemo(()=>[...new Set(projection.usage_points.map(point=>point.thread))],[projection.usage_points]);
-  const points=useMemo(()=>aggregateUsagePoints(projection.usage_points.filter(point=>!thread||point.thread===thread)),[projection.usage_points,thread]);
+export type ActivityScope = {thread?:string;turn?:string};
+
+export function conversationRows(projection:Projection,rootThread:string|null) {
+  const entries=new Map(projection.threads.map(thread=>[thread.id,thread]));
+  if(rootThread&&!entries.has(rootThread))entries.set(rootThread,{id:rootThread,parent:null});
+  for(const lane of [...projection.turns,...projection.items])if(lane.thread&&!entries.has(lane.thread))entries.set(lane.thread,{id:lane.thread,parent:null});
+  const rows:{id:string;parent:string|null;title:string;depth:number;turns:Lane[];lane:Lane|null}[]=[];
+  const seen=new Set<string>();
+  const visit=(id:string,depth:number)=>{
+    if(seen.has(id))return;seen.add(id);
+    const entry=entries.get(id)!;
+    const turns=projection.turns.filter(turn=>turn.thread===id).slice().sort((a,b)=>Date.parse(a.started)-Date.parse(b.started));
+    const title=id===rootThread?"Main conversation":entry.title?.trim()||`${entry.parent?"Subagent":"Conversation"} ${rows.length+1}`;
+    const running=turns.some(turn=>!turn.ended);
+    const status=running?"running":turns.some(turn=>turn.status!=="completed")?"incomplete":turns.length?"completed":"unknown";
+    const lane=turns.length?{id,thread:id,started:turns[0].started,ended:running?null:turns.reduce((last,turn)=>Date.parse(turn.ended!)>Date.parse(last)?turn.ended!:last,turns[0].ended!),status}:null;
+    rows.push({id,parent:entry.parent,title,depth,turns,lane});
+    for(const child of entries.values())if(child.parent===id)visit(child.id,Math.min(depth+1,8));
+  };
+  for(const entry of entries.values())if(!entry.parent||!entries.has(entry.parent))visit(entry.id,0);
+  for(const entry of entries.values())visit(entry.id,0); // Defensive: retain cyclic/orphan provider metadata without recursing forever.
+  return rows;
+}
+
+export function scopedProjection(projection:Projection,scope:ActivityScope):Projection {
+  if(!scope.thread)return projection;
+  const items=projection.items.filter(item=>item.thread===scope.thread&&(!scope.turn||item.turn===scope.turn));
+  const turns=projection.turns.filter(turn=>turn.thread===scope.thread&&(!scope.turn||turn.id===scope.turn));
+  const points=projection.usage_points.filter(point=>point.thread===scope.thread&&(!scope.turn||point.turn===scope.turn));
+  const usagePoints=scope.turn?points.filter(point=>point.turn_usage!=null).map(point=>({...point,usage:point.turn_usage!,cost:point.turn_cost??{...projection.cost,amount:null}})):points;
+  const usage=scope.turn?turns[0]?.usage??null:projection.usage_by_thread?.[scope.thread]??null;
+  const cost=scope.turn?turns[0]?.cost??{...projection.cost,amount:null}:projection.cost.per_thread?.[scope.thread]??{...projection.cost,amount:null};
+  const ids=new Set(items.map(item=>item.id));
+  const telemetry=projection.telemetry.filter(record=>{
+    const attrs=(record.attributes??{}) as Record<string,unknown>;
+    return attrs["conversation.id"]===scope.thread&&(!scope.turn||attrs["turn.id"]===scope.turn||typeof attrs["call.id"]==="string"&&ids.has(attrs["call.id"]));
+  });
+  return {...projection,items,turns,usage,cost,usage_points:usagePoints,telemetry,cost_reason:cost.reason||cost.basis||"Scoped cost is unavailable",telemetry_coverage:`${projection.telemetry_coverage}. Only explicitly linked records are included; All activity retains unscoped records.`};
+}
+
+export function UsageCharts({projection,scopeLabel="Run"}:{projection:Projection;scopeLabel?:string}) {
+  const points=useMemo(()=>aggregateUsagePoints(projection.usage_points),[projection.usage_points]);
   const [selected,setSelected]=useState<number|null>(null);
-  useEffect(()=>setSelected(null),[thread]);
+  const [inspected,setInspected]=useState<string|null>(null);
+  const instructionId=useId();
+  useEffect(()=>{setSelected(null);setInspected(null)},[projection]);
   const current=points[Math.min(selected??points.length-1,points.length-1)];
   const metrics=[...tokenSeries,{key:"cost",label:"API-equivalent estimate",color:"#0d9488"}];
   const amount=(value:number|null|undefined,cost=false)=>value==null?"Unknown":cost?`$${value.toFixed(6)}`:value.toLocaleString("en-US");
   const chart=(cost:boolean)=>{
     const series=cost?[metrics[4]]:[tokenSeries[0],tokenSeries[1],tokenSeries[3],tokenSeries[2]];
     const value=(point:ChartPoint,key:string)=>key==="cost"?point.cost:point.usage?.[key];
+    const chartId=cost?"cost":"tokens";
+    if(cost&&points.every(point=>point.cost===null))return <div role="img" aria-label="Estimated cost unavailable" className="min-w-0 rounded-md border p-3"><p className="text-xs font-medium">API-equivalent cost (USD)</p><p className="py-12 text-sm text-muted-foreground">Unknown — no priced observations captured for this selection.</p></div>;
     const max=Math.max(cost?0.000001:1,...points.flatMap(point=>series.map(line=>value(point,line.key)??0)));
     const first=Date.parse(points[0].at),last=Date.parse(points[points.length-1].at);
     const x=(point:ChartPoint)=>last===first?330:58+(Date.parse(point.at)-first)/(last-first)*544;
     const y=(number:number)=>164-number/max*136;
-    return <figure tabIndex={0} onKeyDown={event=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();setSelected(index=>event.key==="Home"?0:event.key==="End"?points.length-1:Math.max(0,Math.min(points.length-1,(index??points.length-1)+(event.key==="ArrowLeft"?-1:1))))}} className="min-w-0 rounded-md border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={cost?"Cumulative estimated cost chart":"Cumulative token usage chart"}>
-      <p className="sr-only">Use Left and Right arrow keys to inspect observations, or Home and End for the first and last.</p>
+    return <figure tabIndex={0} aria-describedby={`${instructionId}-${chartId}`} onFocus={()=>{setInspected(chartId);setSelected(index=>index??points.length-1)}} onBlur={()=>setInspected(null)} onMouseEnter={()=>setInspected(chartId)} onMouseLeave={event=>{if(document.activeElement!==event.currentTarget)setInspected(null)}} onKeyDown={event=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();setSelected(index=>event.key==="Home"?0:event.key==="End"?points.length-1:Math.max(0,Math.min(points.length-1,(index??points.length-1)+(event.key==="ArrowLeft"?-1:1))))}} className="relative min-w-0 rounded-md border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={cost?"Cumulative estimated cost chart":"Cumulative token usage chart"}>
+      <p id={`${instructionId}-${chartId}`} className="sr-only">Use Left and Right arrow keys to inspect observations, or Home and End for the first and last.</p>
       <figcaption className="mb-2 text-xs font-medium">{cost?"API-equivalent cost (USD)":"Tokens"}</figcaption>
+      {inspected===chartId&&current&&<div role="status" aria-live="polite" className="pointer-events-none absolute right-3 top-8 z-10 max-w-[90%] rounded-md border bg-popover p-2 text-xs text-popover-foreground shadow-md"><p className="mb-1 tabular-nums">{time(current.at)}</p>{series.map(line=><p key={line.key} className="tabular-nums">{line.label}: {amount(value(current,line.key),line.key==="cost")}</p>)}</div>}
       <svg viewBox="0 0 640 205" className="w-full" aria-hidden="true" onMouseMove={event=>{
         const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*640;
-        setSelected(points.reduce((best,point,index)=>Math.abs(x(point)-position)<Math.abs(x(points[best])-position)?index:best,0));
+        setInspected(chartId);setSelected(points.reduce((best,point,index)=>Math.abs(x(point)-position)<Math.abs(x(points[best])-position)?index:best,0));
       }}>
         {[0,.5,1].map(ratio=><g key={ratio}><line x1="58" x2="602" y1={y(max*ratio)} y2={y(max*ratio)} stroke="currentColor" opacity=".12"/><text x="50" y={y(max*ratio)+4} textAnchor="end" fontSize="10" fill="currentColor">{cost?(max*ratio).toFixed(6):Math.round(max*ratio).toLocaleString("en-US")}</text></g>)}
         {series.map(line=>{
@@ -165,13 +208,11 @@ export function UsageCharts({projection}:{projection:Projection}) {
     </figure>;
   };
   return <section aria-label="Usage overview" className="space-y-4">
-    <p className="text-xs font-medium">Run totals</p>
-    <div role="group" aria-label="Run totals" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(metric=><div key={metric.key} className="min-w-0 rounded-md border bg-muted/20 px-3 py-3"><p className="text-xs text-muted-foreground">{metric.label}</p><p className="mt-1 break-words text-xl font-semibold tabular-nums">{amount(metric.key==="cost"?projection.cost.amount:projection.usage?.[metric.key],metric.key==="cost")}</p></div>)}</div>
+    <p className="text-xs font-medium">{scopeLabel} totals</p>
+    <div role="group" aria-label={`${scopeLabel} totals`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(metric=><div key={metric.key} className="min-w-0 rounded-md border bg-muted/20 px-3 py-3"><p className="text-xs text-muted-foreground">{metric.label}</p><p className="mt-1 break-words text-xl font-semibold tabular-nums">{amount(metric.key==="cost"?projection.cost.amount:projection.usage?.[metric.key],metric.key==="cost")}</p></div>)}</div>
     {!points.length?<p className="text-sm text-muted-foreground">No timestamped usage captured. Aggregate values are shown above when available.</p>:<>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><h4 className="font-medium text-foreground">Cumulative usage over time</h4><label className="flex flex-wrap items-center gap-2">{points.length} observations / Chart scope <select aria-label="Chart scope" className="max-w-full rounded-md border bg-background px-2 py-1 text-xs" value={thread} onChange={event=>setThread(event.target.value)}><option value="">All observed threads</option>{threads.map(id=><option key={id} value={id}>{id}</option>)}</select></label></div>
-      <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-3">{chart(false)}{chart(true)}</div>
-      <p className="text-xs text-muted-foreground">Observed at {time(current.at)}</p>
-      <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums" aria-live="polite">{metrics.map(metric=><span key={metric.key}>{metric.label}: <strong className="font-medium">{amount(metric.key==="cost"?current.cost:current.usage?.[metric.key],metric.key==="cost")}</strong></span>)}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><h4 className="font-medium text-foreground">Cumulative usage over time</h4><span>{points.length} {points.length===1?"observation":"observations"} · {scopeLabel.toLowerCase()} scope</span></div>
+      <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-3">{chart(false)}{chart(true)}</div>
     </>}
     <p className="text-xs text-muted-foreground">{projection.usage===null&&"Aggregate usage is incomplete; charts show only captured observations. "}{projection.cost_reason.replace(/[.\s]+$/,"")}. Cached input is part of input; reasoning is part of output. Chart values update only at captured observations; unknown values remain gaps.</p>
   </section>;
@@ -200,10 +241,12 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   const statusBadge=(status:string)=><Badge size="tag" variant={status==="completed"?"successStatic":status==="running"?"secondaryStatic":"errorStatic"}>{status}</Badge>;
   const [runs,setRuns]=useState<Run[]>([]),[execution,setExecution]=useState("");
   const [details,setDetails]=useState<Record<string,Detail>>({}),[selected,setSelected]=useState("");
+  const [scope,setScope]=useState<ActivityScope>({});
   const [error,setError]=useState(""),[refresh,setRefresh]=useState(0);
   const base=`${getBaseUrl()}laomedo/agent-executions/${encodeURIComponent(flowId??"")}`;
   useEffect(()=>{setRuns([]);setExecution("");setDetails({});setSelected("")},[flowId]);
-  useEffect(()=>{setDetails({})},[execution]);
+  useEffect(()=>{setDetails({});setScope({})},[execution]);
+  useEffect(()=>setScope({}),[flowId,targetNode]);
   useEffect(()=>{
     if(!flowId)return;
     const controller=new AbortController();
@@ -255,14 +298,27 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   const end=Math.max(...visible.map(run=>Date.parse(run.ended??new Date().toISOString())));
   const span=Math.max(1000,end-start);
   const detail=details[selected];
+  const rowsByRun=useMemo(()=>Object.fromEntries(Object.entries(details).map(([id,value])=>[id,conversationRows(value.projection,value.run.native_session)])),[details]);
+  const conversations=rowsByRun[selected]??[];
+  const currentConversation=conversations.find(thread=>thread.id===scope.thread);
+  const currentTurn=currentConversation?.turns.find(turn=>turn.id===scope.turn);
+  const projection=useMemo(()=>detail?scopedProjection(detail.projection,scope):undefined,[detail,scope]);
+  const breadcrumbs:typeof conversations=[];
+  let ancestor=currentConversation;
+  while(ancestor&&!breadcrumbs.some(value=>value.id===ancestor!.id)) {breadcrumbs.unshift(ancestor);ancestor=conversations.find(value=>value.id===ancestor!.parent)}
+  const resumedThread=scope.thread??detail?.run.native_session;
+  const earlier=detail&&resumedThread?runs.filter(run=>run.id!==detail.run.id&&run.node===detail.run.node&&run.provider===detail.run.provider&&run.native_session===resumedThread&&run.execution&&run.ended&&Date.parse(run.ended)<=Date.parse(detail.run.started)).sort((a,b)=>Date.parse(b.started)-Date.parse(a.started))[0]:undefined;
+  const selectScope=(invocation:string,next:ActivityScope={})=>{setSelected(invocation);setScope(next)};
+  const scopeLabel=scope.turn?"Turn":scope.thread?"Conversation":"Run";
+  const selectedLane=currentTurn??currentConversation?.lane??detail?.run;
   const executions=[...new Set(runs.map(run=>run.execution).filter((value):value is string=>Boolean(value)))];
-  const bar=(lane:Lane,label:string,onClick:()=>void,invocation:string,child=false)=><div key={lane.id} className={`grid min-w-[700px] grid-cols-[280px_1fr] items-center border-b border-border last:border-b-0 ${selected===invocation?"bg-muted/50":""}`}>
-    <button className={`flex min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${child?"pl-8":"font-medium"}`} onClick={onClick} title={label} aria-label={label} aria-pressed={selected===invocation}>
-      <IconComponent name={child?"CornerDownRight":"Bot"} className="h-4 w-4 shrink-0 text-muted-foreground"/>
-      <span className="min-w-0 flex-1 truncate">{label.replace(/ · [^·]+$/,"")}</span>
+  const bar=(lane:Lane,label:string,onClick:()=>void,invocation:string,depth=0,active=selected===invocation&&!scope.thread,kind:"invocation"|"conversation"|"turn"="invocation")=><div key={lane.id} className={`grid min-w-[900px] grid-cols-[360px_1fr] items-center border-b border-border last:border-b-0 ${active?"bg-muted/50":""}`}>
+    <button className={`flex min-w-0 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${kind==="turn"?"text-muted-foreground":"font-medium"}`} style={{paddingLeft:12+Math.min(depth,8)*16}} onClick={onClick} title={label} aria-label={label} aria-pressed={active}>
+      <IconComponent name={kind==="conversation"?"MessageSquare":depth?"CornerDownRight":"Bot"} className="h-4 w-4 shrink-0 text-muted-foreground"/>
+      <span className="line-clamp-2 min-w-0 flex-1 break-words">{label.replace(/ · [^·]+$/,"")}</span>
       {statusBadge(lane.status??"unknown")}
     </button>
-    <div className="relative mx-3 h-8"><button aria-label={`${label}, ${duration(lane.started,lane.ended)}`} title={`${lane.started} → ${lane.ended??"running"}`} onClick={onClick}
+    <div className="relative mx-3 h-8"><button aria-label={`${label}, ${duration(lane.started,lane.ended)}`} title={`${lane.started} → ${lane.ended??"running"}`} onClick={onClick} aria-pressed={active}
       className={`absolute top-1.5 h-5 min-w-2 rounded-sm border text-[10px] tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${lane.status==="completed"?"border-accent-emerald-foreground/30 bg-accent-emerald text-accent-emerald-foreground":lane.status==="running"?"border-ring bg-secondary text-secondary-foreground":"border-error-foreground/30 bg-error-background text-error-foreground"}`}
       style={{left:`${Math.max(0,(Date.parse(lane.started)-start)/span*100)}%`,width:`${Math.max(.5,Math.min(100,(Date.parse(lane.ended??new Date().toISOString())-Date.parse(lane.started))/span*100))}%`}}>
       {duration(lane.started,lane.ended)}</button></div></div>;
@@ -271,38 +327,49 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       <Button variant="ghost" size="icon" aria-label="Refresh" onClick={()=>setRefresh(value=>value+1)}><IconComponent name="RefreshCcw" className="h-4 w-4"/></Button></header>
     <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
     <div className="space-y-3 border-b px-4 py-3"><p className="text-sm text-muted-foreground">Recorded executions of the current graph.</p>
-    <label className="flex flex-wrap items-center gap-3 text-sm">Graph execution <select className="max-w-full rounded-md border bg-background px-3 py-1.5 text-sm" value={execution} onChange={event=>{setExecution(event.target.value);setSelected("")}}>
+    <label className="flex flex-wrap items-center gap-3 text-sm">Graph execution <select className="max-w-full rounded-md border bg-background px-3 py-1.5 text-sm" value={execution} onChange={event=>{setExecution(event.target.value);setSelected("");setScope({})}}>
       {executions.map(id=><option key={id} value={id}>{time(runs.find(run=>run.execution===id)!.started)} · {id}</option>)}</select></label></div>
     <div className="min-w-0 p-4">
     {error&&<p role="alert" className="mb-4">{error}</p>}
     {!error&&!runs.length&&<p>No captured agent runs yet.</p>}
     {targetNode&&runs.length>0&&!visible.some(run=>run.node===targetNode)&&<p className="mb-4 text-sm text-muted-foreground">No captured activity for the selected node in this graph execution.</p>}
-    {visible.length>0&&<><div className="mb-4"><SectionHeading>Graph run timeline</SectionHeading></div><div className="overflow-x-auto rounded-md border border-border"><div className="flex min-w-[700px] justify-between border-b bg-muted/40 py-2 pl-[292px] pr-3 text-xs tabular-nums text-muted-foreground"><span>{time(new Date(start).toISOString())}</span><span>{((end-start)/1000).toFixed(1)} seconds</span><span>{time(new Date(end).toISOString())}</span></div>
-      {visible.map(run=><div key={run.id}>{bar({...run,id:run.id},`${label(run)} · ${run.status}`,()=>setSelected(run.id),run.id)}
-        {details[run.id]?.projection.turns.map(turn=>bar(turn,`${turn.thread===run.native_session?"Turn":"Subagent turn"} ${turn.id.slice(-8)} · ${turn.status}`,()=>setSelected(run.id),run.id,true))}</div>)}</div>
-      <p className="my-2 text-xs text-muted-foreground">Agent bars use runner receipt times; turn bars use captured provider timestamps. Viewing activity never starts an agent. Select an invocation to inspect it.</p></>}
+    {visible.length>0&&<><div className="mb-4"><SectionHeading>Graph run timeline</SectionHeading></div><div className="overflow-x-auto rounded-md border border-border"><div className="flex min-w-[900px] justify-between border-b bg-muted/40 py-2 pl-[372px] pr-3 text-xs tabular-nums text-muted-foreground"><span>{time(new Date(start).toISOString())}</span><span>{((end-start)/1000).toFixed(1)} seconds</span><span>{time(new Date(end).toISOString())}</span></div>
+      {visible.map(run=><div key={run.id}>{bar({...run,id:run.id},`${label(run)} · ${run.status}`,()=>selectScope(run.id),run.id)}
+        {details[run.id]&&rowsByRun[run.id]?.map(thread=><div key={thread.id}>
+          {thread.lane?bar({...thread.lane,id:`thread:${thread.id}`},`${thread.title} · ${thread.turns.length} ${thread.turns.length===1?"turn":"turns"} · ${thread.lane.status}`,()=>selectScope(run.id,{thread:thread.id}),run.id,thread.depth*2+1,selected===run.id&&scope.thread===thread.id&&!scope.turn,"conversation"):<button className="w-full px-4 py-2 text-left text-xs" onClick={()=>selectScope(run.id,{thread:thread.id})} aria-pressed={selected===run.id&&scope.thread===thread.id&&!scope.turn}>{thread.title} · No captured turns</button>}
+          {thread.turns.map((turn,index)=>bar({...turn,id:`turn:${thread.id}:${turn.id}`},`Turn ${index+1} · ${thread.title} · ${turn.status}`,()=>selectScope(run.id,{thread:thread.id,turn:turn.id}),run.id,thread.depth*2+2,selected===run.id&&scope.thread===thread.id&&scope.turn===turn.id,"turn"))}
+        </div>)}
+      </div>)}</div>
+      <p className="my-2 text-xs text-muted-foreground">Agent bars use runner receipt times; turn bars use captured provider timestamps. Viewing activity never starts an agent. Select All activity, a conversation, or a turn to scope the details below.</p></>}
     {detail&&<article key={detail.run.id} className="mt-8 space-y-6" aria-label="Selected agent run">
       <SectionHeading>Selected agent run</SectionHeading>
+      <nav aria-label="Activity selection" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <button className="underline underline-offset-4" aria-current={!scope.thread?"page":undefined} onClick={()=>setScope({})}>All activity</button>
+        {breadcrumbs.map(thread=><span key={thread.id} className="contents"><span aria-hidden="true">/</span><button className="max-w-full break-words underline underline-offset-4" aria-current={scope.thread===thread.id&&!scope.turn?"page":undefined} onClick={()=>setScope({thread:thread.id})}>{thread.title}</button></span>)}
+        {currentTurn&&<span aria-current="page">/ Turn {currentConversation!.turns.indexOf(currentTurn)+1}</span>}
+      </nav>
+      {earlier&&<button className="text-xs underline underline-offset-4" onClick={()=>{setExecution(earlier.execution??"");selectScope(earlier.id)}}>Earlier run in this conversation · {time(earlier.started)}</button>}
       <section className="space-y-3 border bg-muted/30 px-4 py-3" aria-label="Invocation metadata">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 break-words text-lg font-semibold">{label(detail.run)}</h3><div className="flex items-center gap-2 text-xs text-muted-foreground">{statusBadge(detail.run.status)}<span>{duration(detail.run.started,detail.run.ended)}</span></div></div>
-        <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={detail.run.started}>Started {time(detail.run.started)} · Provider {detail.run.provider??"codex-cli"} · Model {detail.run.model??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 break-words text-lg font-semibold">{currentTurn?`Turn ${currentConversation!.turns.indexOf(currentTurn)+1} · ${currentConversation!.title}`:currentConversation?.title??label(detail.run)}</h3><div className="flex items-center gap-2 text-xs text-muted-foreground">{statusBadge(selectedLane?.status??"unknown")}<span>{selectedLane&&duration(selectedLane.started,selectedLane.ended)}</span></div></div>
+        <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={selectedLane?.started}>Started {selectedLane&&time(selectedLane.started)} · Provider {detail.run.provider??"codex-cli"} · Model {(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
           <details><summary className="cursor-pointer">Node identity</summary><dl className="mt-2 grid gap-1 break-all"><dt>Node ID</dt><dd>{detail.run.node}</dd><dt>Name source</dt><dd>{detail.run.node_label?"Recorded when this invocation started":"Current canvas name; no name was recorded for this older invocation"}</dd></dl></details>
         </div>
 
       </section>
+      {scope.thread&&<p className="text-xs text-muted-foreground">{scope.turn?"Selected turn only":"This conversation only; excludes subagents"}. {projection?.turns.length??0} captured {projection?.turns.length===1?"turn":"turns"}.</p>}
+      <JsonDisclosure label="Technical details" value={{node:detail.run.node,invocation:detail.run.id,thread:scope.thread??detail.run.native_session,turn:scope.turn??null,threads:detail.projection.threads}}/>
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {detail.run.reason.replaceAll("_"," ")}</p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4 rounded-md border p-4" aria-label="Usage and diagnostics">
         <h3 className="text-sm font-semibold">Usage and diagnostics</h3>
-        <UsageCharts projection={detail.projection}/>
-        <JsonDisclosure label="Thread and subagent links" value={detail.projection.threads}/>
-        <RuntimeRecords records={detail.projection.telemetry} coverage={detail.projection.telemetry_coverage}/>
+        <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel}/>
+        <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage}/>
       </section>
       <section aria-labelledby="agent-conversation-heading" className="min-w-0 space-y-4">
         <SectionHeading id="agent-conversation-heading">Conversation</SectionHeading>
         <div role="region" aria-label="Conversation messages and tools" tabIndex={0} className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {detail.projection.items.length===0&&<p className="text-sm text-muted-foreground">No messages or tool calls captured.</p>}
-          {detail.projection.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session} provider={detail.run.provider}/>)}
+          {projection!.items.length===0&&<p className="text-sm text-muted-foreground">No messages or tool calls captured.</p>}
+          {projection!.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session} provider={detail.run.provider}/>)}
         </div>
       </section>
     </article>}

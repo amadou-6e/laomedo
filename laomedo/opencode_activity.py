@@ -39,7 +39,7 @@ def _object(value):
 
 def project(events, *, root_thread=None, model=None):
     parents={root_thread:None} if root_thread else {}
-    native_events=[];catalogs={};telemetry=[]
+    native_events=[];catalogs={};telemetry=[];titles={}
     for event in events:
         raw=_object(event.get('raw'));native=_object(raw.get('event',raw));params=_object(native.get('params'))
         native_events.append((native,raw.get('received_at',event['received_at'])))
@@ -50,6 +50,7 @@ def project(events, *, root_thread=None, model=None):
             params=_object(native.get('params'));value=_object(params.get('event'))
             info=_object(_object(value.get('properties')).get('info')) if value.get('type') in {'session.created','session.updated'} else {}
             if native.get('method')=='opencode/sessionSnapshot':info=_object(params.get('session'))
+            if isinstance(info.get('id'),str) and isinstance(info.get('title'),str):titles[info['id']]=info['title']
             if info.get('parentID') in parents and info.get('id') not in parents:
                 parents[info['id']]=info['parentID'];changed=True
         if not changed:break
@@ -92,7 +93,7 @@ def project(events, *, root_thread=None, model=None):
             info=_object(message.get('info'))
             if info.get('sessionID')==params['sessionID'] and isinstance(info.get('id'),str):
                 messages[info['id']]=(deepcopy(message),received)
-    turns={};items=[];totals=[];points=[];thread_totals={};thread_costs={};models={};costs=[]
+    turns={};items=[];totals=[];points=[];thread_totals={};thread_costs={};models={};costs=[];turn_totals={};turn_costs={}
     for identity,(message,received) in messages.items():
         info=message['info']; role=info.get('role');times=_object(info.get('time'));thread=info.get('sessionID')
         if role not in {'user','assistant'}:
@@ -146,6 +147,7 @@ def project(events, *, root_thread=None, model=None):
             if len(values)!=5 or any(type(value) is not int or value<0 for value in values):
                 totals.append(None)
                 thread_totals.setdefault(thread,[]).append(None)
+                turn_totals.setdefault((thread,turn_id),[]).append(None)
                 continue
             fresh,output,reasoning,read,write=values
             # OpenCode stores non-cached input and non-reasoning output separately.
@@ -154,21 +156,32 @@ def project(events, *, root_thread=None, model=None):
                    'totalTokens':fresh+read+write+output+reasoning}
             totals.append(usage)
             thread_totals.setdefault(thread,[]).append(usage)
+            turn_totals.setdefault((thread,turn_id),[]).append(usage)
             effective='/'.join(value if isinstance(value,str) else '' for value in (info.get('providerID'),info.get('modelID')))
             models[thread]=effective if info.get('modelID') else (model if thread==root_thread else None)
             item_cost=estimate_native(models[thread],usage,catalogs.get(models[thread]))
             costs.append(item_cost);thread_costs.setdefault(thread,[]).append(item_cost)
+            turn_costs.setdefault((thread,turn_id),[]).append(item_cost)
             cumulative={key:sum(total[key] for total in thread_totals[thread]) for key in usage} if all(total is not None for total in thread_totals[thread]) else None
             if cumulative is not None:
-                points.append({'at':ended or received,'thread':thread,'usage':cumulative,'cost':sum_costs(thread_costs[thread],models[thread])})
+                values=turn_totals[(thread,turn_id)]
+                turn_usage={key:sum(value[key] for value in values) for key in usage} if all(value is not None for value in values) else None
+                points.append({'at':ended or received,'thread':thread,'turn':turn_id,'usage':cumulative,'cost':sum_costs(thread_costs[thread],models[thread]),
+                               'turn_usage':turn_usage,'turn_cost':sum_costs(turn_costs[(thread,turn_id)],models[thread]) if turn_usage is not None else {'amount':None}})
     usage={key:sum(total[key] for total in totals) for key in totals[0]} if totals and all(total is not None for total in totals) else None
     per_thread={thread:({key:sum(total[key] for total in values) for key in values[0]} if values and all(v is not None for v in values) else None) for thread,values in thread_totals.items()}
     if set(parents)-set(per_thread):usage=None
     cost=sum_costs(costs,model)
     if usage is None:cost.update(amount=None,reason='Inclusive token usage is incomplete.')
     cost.update(per_thread={thread:sum_costs(thread_costs.get(thread,[]),models.get(thread)) for thread in parents},model_provenance={thread:'native OpenCode assistant response metadata' for thread in models})
-    return {'turns':list(turns.values()),'items':sorted(items,key=lambda item:item['started']),
-            'threads':[{'id':thread,'parent':parent} for thread,parent in parents.items()],
+    projected_turns=[]
+    for (thread,turn_id),lane in turns.items():
+        values=turn_totals.get((thread,turn_id),[])
+        turn_usage={key:sum(value[key] for value in values) for key in values[0]} if values and all(value is not None for value in values) else None
+        turn_cost=sum_costs(turn_costs.get((thread,turn_id),[]),models.get(thread)) if turn_usage is not None else {'amount':None}
+        projected_turns.append({**lane,'usage':turn_usage,'cost':turn_cost})
+    return {'turns':projected_turns,'items':sorted(items,key=lambda item:item['started']),
+            'threads':[{'id':thread,'parent':parent,**({'title':titles[thread]} if thread in titles else {})} for thread,parent in parents.items()],
             'usage':usage,'usage_by_thread':per_thread,'usage_points':points,
             'telemetry':telemetry,'telemetry_coverage':'observed adapter OTLP spans from native OpenCode records; completeness reported on invocation' if telemetry else 'not observed; historical/native OpenCode HTTP message snapshots may have no telemetry',
             'uncorrelated_thread_count':0,'clock':'native message timestamps; runner receipt fallback',
