@@ -15,3 +15,4 @@ examples/skill-files-viewer/skill/** text eol=lf
 frontend/langflow-skill-viewer/agents.patch text eol=lf whitespace=-blank-at-eol
 frontend/langflow-skill-viewer/claude-models.patch text eol=lf whitespace=-blank-at-eol
 examples/skill-operations/** text eol=lf
+frontend/langflow-skill-viewer/claude-selection.patch text eol=lf whitespace=-blank-at-eol
