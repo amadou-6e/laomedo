@@ -142,7 +142,7 @@ class ClaudeRunner(LocalRunner):
                 pending = self._catalog_pending = Future()
         if not owner:
             try:
-                return deepcopy(pending.result(timeout=25))
+                return deepcopy(pending.result(timeout=65))
             except FutureTimeout:
                 raise RunnerError('runner_model_catalog_unavailable_check_runner_connection') from None
         try:
@@ -164,7 +164,7 @@ class ClaudeRunner(LocalRunner):
         """
         failure = 'runner_model_catalog_unavailable_check_runner_connection'
         try:
-            self._check_auth(timeout=5)
+            self._check_auth(timeout=15)
             args = [str(self.executable), '--print', '--input-format', 'stream-json',
                     '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
                     '--tools', '', '--safe-mode', '--disable-slash-commands', '--setting-sources', '',
@@ -176,7 +176,7 @@ class ClaudeRunner(LocalRunner):
                        'request': {'subtype': 'initialize', 'hooks': {}}}
             with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
                 result = subprocess.run(args, input=(json.dumps(payload)+'\n').encode(),
-                    stdout=output, stderr=errors, timeout=18, cwd=self.state,
+                    stdout=output, stderr=errors, timeout=45, cwd=self.state,
                     env=cli_environment(), creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
                 output.seek(0)
                 raw = output.read(1024 * 1024 + 1)

@@ -130,8 +130,8 @@ Models that support effort expose the levels reported by the CLI, including
 execution omits `--effort`. Imported selections are preserved in the editor;
 fresh/start validates the actual model/effort pair against current native
 metadata before creating a run. A failed refresh reports the existing model-list
-error and never falls back to an invented list. Discovery has an 18-second CLI
-timeout plus a 5-second authentication check, below the editor's 30-second
+error and never falls back to an invented list. Discovery has an 45-second CLI
+timeout plus a 15-second authentication check, below the Claude editor's 75-second
 request timeout; concurrent refreshes cannot spawn overlapping catalogue CLIs.
 
 The shared descriptive error presenter from PR #181 is included in this branch.

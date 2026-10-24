@@ -48,6 +48,20 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
                 result=self.node()._model_catalog({'runner_url':{'value':'http://localhost:8769'}})
             self.assertEqual(result,{'sonnet':['low']})
             self.assertEqual(http.call_args.args[0].get_header('Authorization'),'Bearer claude-control')
+            self.assertEqual(http.call_args.kwargs['timeout'],75)
+
+    def test_resolved_model_efforts_follow_first_native_match_like_runner(self):
+        import laomedo.codex_agent as codex
+        body={'provider':'claude','models':[
+            {'id':'default','resolved_model':'claude-opus-test','efforts':['low']},
+            {'id':'opus','resolved_model':'claude-opus-test','efforts':['low','max']}]}
+        with tempfile.TemporaryDirectory() as directory:
+            token=Path(directory)/'token';token.write_text('internal-control')
+            with patch.dict(os.environ,{'LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE':str(token)}), \
+                 patch.object(codex._HTTP,'open',return_value=io.BytesIO(json.dumps(body).encode())):
+                catalog=self.node()._model_catalog({'runner_url':{'value':'http://localhost:8769'}})
+        self.assertEqual(catalog.effort_aliases['claude-opus-test'],['low'])
+        self.assertEqual(catalog['opus'],['low','max'])
 
     async def test_native_labels_and_all_efforts_reach_dropdown_and_dispatch_payload(self):
         import laomedo.codex_agent as codex

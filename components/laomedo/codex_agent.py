@@ -161,7 +161,7 @@ class LaomedoCodexAgent(Component):
             if not token:
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
-            with _HTTP.open(req, timeout=30) as response:
+            with _HTTP.open(req, timeout=75 if self.name == "LaomedoClaudeAgent" else 30) as response:
                 raw = response.read(1024 * 1024 + 1)
                 if len(raw) > 1024 * 1024:
                     raise ValueError("catalog_too_large")
@@ -180,7 +180,7 @@ class LaomedoCodexAgent(Component):
                         **({"resolved_model": item["resolved_model"]} if isinstance(item.get("resolved_model"), str) else {})}
                     resolved = item.get("resolved_model")
                     if isinstance(resolved, str) and resolved:
-                        catalog.effort_aliases[resolved] = efforts
+                        catalog.effort_aliases.setdefault(resolved, efforts)
                         if model != "default":
                             catalog.metadata[resolved] = {**catalog.metadata[model], "id": resolved}
             if not catalog:

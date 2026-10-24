@@ -30,7 +30,7 @@ class ClaudeModelTests(unittest.TestCase):
             self.assertNotIn('--model',args)
             self.assertIn('--no-session-persistence',args)
             self.assertIn('--safe-mode',args)
-            self.assertEqual(kwargs['timeout'],18)
+            self.assertEqual(kwargs['timeout'],45)
             sent=[json.loads(line) for line in kwargs['input'].splitlines()]
             self.assertEqual(len(sent),1)
             self.assertEqual(sent[0]['type'],'control_request')
@@ -49,6 +49,7 @@ class ClaudeModelTests(unittest.TestCase):
         self.assertEqual(result['source'],'claude_cli_initialize')
         self.assertEqual(result['account_availability'],'cli_reported')
         self.assertEqual(result['submitted_turns'],0)
+        self.runner._check_auth.assert_called_once_with(timeout=15)
         self.assertEqual(list(self.runner.state.iterdir()),[])
 
     def test_timeout_and_native_errors_are_safe_and_release_lock(self):
