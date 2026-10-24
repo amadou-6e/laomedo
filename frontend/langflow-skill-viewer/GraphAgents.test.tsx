@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle } from "./index";
+import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
@@ -143,4 +143,44 @@ test("opening Agents directly ignores canvas selection without an Activity targe
   expect(screen.queryByRole("article",{name:"Selected agent run"})).toBeNull();
   view.unmount();
   expect(clearTarget).toHaveBeenCalled();
+});
+
+
+test("cumulative charts carry forward threads without double-counting observations",()=>{
+  const point=(at:string,thread:string,input:number,cost:number|null)=>({at,thread,usage:{inputTokens:input,cachedInputTokens:0,outputTokens:1,reasoningOutputTokens:0},cost:{amount:cost} as any});
+  const points=aggregateUsagePoints([
+    point("2026-10-23T14:00:03Z","parent",25,.003),
+    point("2026-10-23T14:00:01Z","parent",10,.001),
+    point("2026-10-23T14:00:02Z","child",5,.002),
+  ]);
+  expect(points.map(p=>p.usage?.inputTokens)).toEqual([10,15,30]);
+  expect(points.map(p=>p.cost)).toEqual([.001,.003,.005]);
+  expect(aggregateUsagePoints([point("2026-10-23T14:00:01Z","parent",10,null)])[0].cost).toBeNull();
+  expect(aggregateUsagePoints([point("invalid","parent",10,.001)])).toEqual([]);
+});
+
+test("all runtime records are listed and fuzzy search can find records beyond fifty",()=>{
+  const records=Array.from({length:65},(_,index)=>({name:index===64?"opencode.commandExecution":`session.record.${index}`,signal:"span",attributes:{"conversation.id":"ses_test"},id:index}));
+  render(<RuntimeRecords records={records} coverage="Observed adapter records"/>);
+  expect(screen.getByText("65 of 65 records")).toBeInTheDocument();
+  expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("textbox",{name:"Search OpenTelemetry records"}),{target:{value:"commndExecution"}});
+  expect(screen.getByText("65. opencode.commandExecution / span")).toBeInTheDocument();
+  expect(screen.queryByText("1. session.record.0 / span")).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Clear"}));
+  expect(screen.getByText("65 of 65 records")).toBeInTheDocument();
+});
+
+
+test("thread inspection preserves run-total cards and gives a safe single-observation slider",()=>{
+  const usage=(input:number)=>({inputTokens:input,cachedInputTokens:0,outputTokens:1,reasoningOutputTokens:0});
+  const points=[{at:"2026-10-23T14:00:01Z",thread:"parent",usage:usage(10),cost:{amount:.001}},
+    {at:"2026-10-23T14:00:02Z",thread:"child",usage:usage(5),cost:{amount:.002}},
+    {at:"2026-10-23T14:00:03Z",thread:"parent",usage:usage(25),cost:{amount:.003}}];
+  render(<UsageCharts projection={{...projection,usage:usage(30),cost:{amount:.005},usage_points:points} as any}/>);
+  fireEvent.change(screen.getByRole("combobox",{name:"Chart scope"}),{target:{value:"child"}});
+  expect(screen.getByRole("group",{name:"Run totals"})).toHaveTextContent("30");
+  expect(screen.getByText("5",{selector:"strong"})).toBeInTheDocument();
+  expect(screen.getByRole("slider",{name:"Inspect usage timestamp"})).toHaveAttribute("data-disabled");
+  expect(screen.getByRole("slider",{name:"Inspect usage timestamp"})).toHaveAttribute("aria-valuemax","1");
 });

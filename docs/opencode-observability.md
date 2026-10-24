@@ -30,6 +30,19 @@ receipts; they are not claimed to be OpenCode's own SDK instrumentation. Span
 attributes carry identity, timing, tool name and session-level usage, without
 prompt or tool-argument text. Raw Activity receipts retain the conversation.
 
+## Usage and record inspection
+
+The selected invocation shows run-total cards and separate cumulative token and
+USD estimate charts. Chart scope selects all observed threads or one native
+thread without changing the run-total cards. Hover or use the keyboard slider
+to inspect captured observations. Latest cumulative values are carried forward
+per thread before aggregation; missing categories remain gaps.
+
+OpenTelemetry records are listed without a frontend record-count cutoff.
+Fuzzy search covers names and JSON metadata; Clear restores every loaded record.
+Individual JSON payloads stay collapsed until opened. If the host detail limit
+is reached, the existing partial-view warning remains visible.
+
 ## Live verification, 2026-10-23
 
 A real Docker-backed OpenCode Go/gpt-6-luna resume through Run component captured

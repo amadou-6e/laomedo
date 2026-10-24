@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Fuse from "fuse.js";
+import * as SliderPrimitive from "@radix-ui/react-slider";
 import Markdown from "react-markdown";
 import IconComponent from "@/components/common/genericIconComponent";
 import SimplifiedCodeTabComponent from "@/components/core/codeTabsComponent";
@@ -99,6 +101,95 @@ function ActivityItem({lane,rootThread,provider}:{lane:Lane;rootThread:string|nu
   </div>;
 }
 
+type UsagePoint = Projection["usage_points"][number];
+type ChartPoint = {at:string;usage:Record<string,number>|null;cost:number|null};
+const tokenSeries = [
+  {key:"inputTokens",label:"Input",color:"#2563eb"},
+  {key:"cachedInputTokens",label:"Cached input",color:"#0d9488"},
+  {key:"outputTokens",label:"Output",color:"#d97706"},
+  {key:"reasoningOutputTokens",label:"Reasoning",color:"#9333ea"},
+];
+
+// Each point is cumulative within its thread. Carry forward its latest value,
+// then sum threads, rather than adding repeated cumulative observations.
+export function aggregateUsagePoints(points:UsagePoint[]):ChartPoint[] {
+  const latest=new Map<string,UsagePoint>();
+  const ordered=points.filter(point=>Number.isFinite(Date.parse(point.at))).slice().sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+  const result:ChartPoint[]=[];
+  for(let index=0;index<ordered.length;) {
+    const at=ordered[index].at,stamp=Date.parse(at);
+    do {latest.set(ordered[index].thread,ordered[index]);index++} while(index<ordered.length&&Date.parse(ordered[index].at)===stamp);
+    const values=[...latest.values()];
+    const usage:Record<string,number>={};
+    for(const series of tokenSeries) {
+      if(values.every(point=>Number.isFinite(point.usage?.[series.key])))usage[series.key]=values.reduce((total,point)=>total+point.usage[series.key],0);
+    }
+    const cost=values.every(point=>point.cost?.amount!=null&&Number.isFinite(point.cost.amount))?values.reduce((total,point)=>total+point.cost.amount!,0):null;
+    result.push({at,usage:Object.keys(usage).length?usage:null,cost});
+  }
+  return result;
+}
+
+export function UsageCharts({projection}:{projection:Projection}) {
+  const [thread,setThread]=useState("");
+  const threads=useMemo(()=>[...new Set(projection.usage_points.map(point=>point.thread))],[projection.usage_points]);
+  const points=useMemo(()=>aggregateUsagePoints(projection.usage_points.filter(point=>!thread||point.thread===thread)),[projection.usage_points,thread]);
+  const [selected,setSelected]=useState<number|null>(null);
+  useEffect(()=>setSelected(null),[thread]);
+  const current=points[Math.min(selected??points.length-1,points.length-1)];
+  const metrics=[...tokenSeries,{key:"cost",label:"API-equivalent estimate",color:"#0d9488"}];
+  const amount=(value:number|null|undefined,cost=false)=>value==null?"Unknown":cost?`$${value.toFixed(6)}`:value.toLocaleString("en-US");
+  const chart=(cost:boolean)=>{
+    const series=cost?[metrics[4]]:[tokenSeries[0],tokenSeries[1],tokenSeries[3],tokenSeries[2]];
+    const value=(point:ChartPoint,key:string)=>key==="cost"?point.cost:point.usage?.[key];
+    const max=Math.max(cost?0.000001:1,...points.flatMap(point=>series.map(line=>value(point,line.key)??0)));
+    const first=Date.parse(points[0].at),last=Date.parse(points[points.length-1].at);
+    const x=(point:ChartPoint)=>last===first?330:58+(Date.parse(point.at)-first)/(last-first)*544;
+    const y=(number:number)=>164-number/max*136;
+    return <figure className="min-w-0 rounded-md border p-3" aria-label={cost?"Cumulative estimated cost chart":"Cumulative token usage chart"}>
+      <figcaption className="mb-2 text-xs font-medium">{cost?"API-equivalent cost (USD)":"Tokens"}</figcaption>
+      <svg viewBox="0 0 640 205" className="w-full" aria-hidden="true" onMouseMove={event=>{
+        const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*640;
+        setSelected(points.reduce((best,point,index)=>Math.abs(x(point)-position)<Math.abs(x(points[best])-position)?index:best,0));
+      }}>
+        {[0,.5,1].map(ratio=><g key={ratio}><line x1="58" x2="602" y1={y(max*ratio)} y2={y(max*ratio)} stroke="currentColor" opacity=".12"/><text x="50" y={y(max*ratio)+4} textAnchor="end" fontSize="10" fill="currentColor">{cost?(max*ratio).toFixed(6):Math.round(max*ratio).toLocaleString("en-US")}</text></g>)}
+        {series.map(line=>{
+          let path="",previous=false;
+          for(const point of points){const number=value(point,line.key);if(number==null){previous=false;continue}path+=previous?` H ${x(point)} V ${y(number)}`:` M ${x(point)} ${y(number)}`;previous=true}
+          return <g key={line.key}><path d={path} fill="none" stroke={line.color} strokeWidth="2"/>{points.map((point,index)=>{const number=value(point,line.key);return number==null?null:<circle key={index} cx={x(point)} cy={y(number)} r={point===current?4:2.5} fill={line.color}/>})}</g>;
+        })}
+        <text x="58" y="191" fontSize="10" fill="currentColor">{time(points[0].at)}</text>
+        {points.length>1&&<text x="602" y="191" textAnchor="end" fontSize="10" fill="currentColor">{time(points[points.length-1].at)}</text>}
+      </svg>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">{series.map(line=><span key={line.key} className="flex items-center gap-1.5"><span className="h-0.5 w-3" style={{backgroundColor:line.color}}/>{line.label}</span>)}</div>
+    </figure>;
+  };
+  return <section aria-label="Usage overview" className="space-y-4">
+    <p className="text-xs font-medium">Run totals</p>
+    <div role="group" aria-label="Run totals" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(metric=><div key={metric.key} className="min-w-0 rounded-md border bg-muted/20 px-3 py-3"><p className="text-xs text-muted-foreground">{metric.label}</p><p className="mt-1 break-words text-xl font-semibold tabular-nums">{amount(metric.key==="cost"?projection.cost.amount:projection.usage?.[metric.key],metric.key==="cost")}</p></div>)}</div>
+    {!points.length?<p className="text-sm text-muted-foreground">No timestamped usage captured. Aggregate values are shown above when available.</p>:<>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><h4 className="font-medium text-foreground">Cumulative usage over time</h4><label className="flex flex-wrap items-center gap-2">{points.length} observations / Chart scope <select aria-label="Chart scope" className="max-w-full rounded-md border bg-background px-2 py-1 text-xs" value={thread} onChange={event=>setThread(event.target.value)}><option value="">All observed threads</option>{threads.map(id=><option key={id} value={id}>{id}</option>)}</select></label></div>
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">{chart(false)}{chart(true)}</div>
+      <div className="space-y-2 text-xs"><p>Inspect observation: {time(current.at)}</p><SliderPrimitive.Root className="relative flex h-5 w-full touch-none select-none items-center" min={0} max={Math.max(1,points.length-1)} step={1} value={[Math.min(selected??points.length-1,points.length-1)]} disabled={points.length===1} onValueChange={value=>setSelected(value[0])}><SliderPrimitive.Track className="relative h-1 w-full grow rounded-full bg-muted"><SliderPrimitive.Range className="absolute h-full rounded-full bg-muted-foreground/40"/></SliderPrimitive.Track><SliderPrimitive.Thumb aria-label="Inspect usage timestamp" aria-valuetext={time(current.at)} className="block h-3 w-3 rounded-full border border-muted-foreground bg-background shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"/></SliderPrimitive.Root></div>
+      <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums" aria-live="polite">{metrics.map(metric=><span key={metric.key}>{metric.label}: <strong className="font-medium">{amount(metric.key==="cost"?current.cost:current.usage?.[metric.key],metric.key==="cost")}</strong></span>)}</p>
+    </>}
+    <p className="text-xs text-muted-foreground">{projection.usage===null&&"Aggregate usage is incomplete; charts show only captured observations. "}{projection.cost_reason.replace(/[.\s]+$/,"")}. Cached input is part of input; reasoning is part of output. Chart values update only at captured observations; unknown values remain gaps.</p>
+  </section>;
+}
+
+export function RuntimeRecords({records,coverage}:{records:Record<string,unknown>[];coverage:string}) {
+  const [query,setQuery]=useState("");
+  const entries=useMemo(()=>records.map((record,index)=>({record,index,text:JSON.stringify(record)})),[records]);
+  const search=useMemo(()=>new Fuse(entries,{keys:["text"],threshold:.35,ignoreLocation:true,minMatchCharLength:2}),[entries]);
+  const visible=query.trim()?search.search(query.trim()).map(result=>result.item):entries;
+  return <section className="space-y-3" aria-label="OpenTelemetry records">
+    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">OpenTelemetry records</h3><span role="status" className="text-xs text-muted-foreground">{visible.length} of {records.length} records</span></div>
+    <p className="text-xs text-muted-foreground">{coverage.replace(/[.\s]+$/,"")}. Runtime spans are not counted as agent invocations or token charges.</p>
+    <div className="relative"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div>
+    <div className="divide-y rounded-md border">{visible.map(({record,index})=><div key={index} className="min-w-0 px-3 py-2"><JsonDisclosure label={`${index+1}. ${typeof record.name==="string"?record.name:`Runtime record ${index+1}`}${typeof record.signal==="string"?` / ${record.signal}`:""}`} value={record}/></div>)}{!visible.length&&<p className="p-3 text-sm text-muted-foreground">{records.length?"No matching records. Clear the search to show every record.":"No OpenTelemetry records captured."}</p>}</div>
+  </section>;
+}
+
 export default function GraphAgents({flowId}:{flowId?:string}) {
   const nodes=useFlowStore(state=>state.nodes);
   const target=useAgentActivityStore(state=>state.target);
@@ -197,16 +288,15 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={detail.run.started}>Started {time(detail.run.started)} · Provider {detail.run.provider??"codex-cli"} · Model {detail.run.model??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
           <details><summary className="cursor-pointer">Node identity</summary><dl className="mt-2 grid gap-1 break-all"><dt>Node ID</dt><dd>{detail.run.node}</dd><dt>Name source</dt><dd>{detail.run.node_label?"Recorded when this invocation started":"Current canvas name; no name was recorded for this older invocation"}</dd></dl></details>
         </div>
-        <dl className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">{[["inputTokens","Input"],["cachedInputTokens","Cached input"],["outputTokens","Output"],["reasoningOutputTokens","Reasoning"]].map(([key,name])=><div key={key} className="flex gap-1.5"><dt>{name}</dt><dd className="tabular-nums text-foreground">{detail.projection.usage?.[key]?.toLocaleString()??"Unknown"}</dd></div>)}<div className="flex gap-1.5"><dt>API-equivalent estimate</dt><dd className="tabular-nums text-foreground">{detail.projection.cost.amount===null?"Unknown":`$${detail.projection.cost.amount.toFixed(6)}`}</dd></div></dl>
+
       </section>
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {detail.run.reason.replaceAll("_"," ")}</p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4 rounded-md border p-4" aria-label="Usage and diagnostics">
         <h3 className="text-sm font-semibold">Usage and diagnostics</h3>
-        <details open><summary className="cursor-pointer text-xs text-muted-foreground">Tokens and API-equivalent cost over time</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[600px] text-left text-xs tabular-nums"><thead className="text-muted-foreground"><tr><th className="py-2 font-normal">Observed</th><th className="font-normal">Thread</th>{["Input","Cached input","Output","Estimate (USD)"].map(name=><th key={name} className="text-right font-normal">{name}</th>)}</tr></thead><tbody>{detail.projection.usage_points.map((point,index)=><tr key={index}><td className="py-1" title={point.at}>{time(point.at)}</td><td>{point.thread.slice(0,8)}</td>{["inputTokens","cachedInputTokens","outputTokens"].map(key=><td className="text-right" key={key}>{point.usage[key]?.toLocaleString()??"Unknown"}</td>)}<td className="text-right">{point.cost?.amount==null?"Unknown":`$${point.cost.amount.toFixed(6)}`}</td></tr>)}</tbody></table></div></details>
-        <p className="text-xs text-muted-foreground">{detail.projection.cost_reason} Cached input is part of input; reasoning is part of output.</p>
+        <UsageCharts projection={detail.projection}/>
         <JsonDisclosure label="Thread and subagent links" value={detail.projection.threads}/>
-        <details><summary className="cursor-pointer text-xs text-muted-foreground">OpenTelemetry · {detail.projection.telemetry.length} records</summary><p className="my-2 text-sm">{detail.projection.telemetry_coverage}. Runtime spans are not counted as agent invocations or token charges.</p>{detail.projection.telemetry.slice(0,50).map((record,index)=><JsonDisclosure key={index} label={`Runtime record ${index+1}`} value={record}/>)}{detail.projection.telemetry.length>50&&<p>Showing the first 50 runtime records.</p>}</details>
+        <RuntimeRecords records={detail.projection.telemetry} coverage={detail.projection.telemetry_coverage}/>
       </section>
       <section aria-labelledby="agent-conversation-heading" className="min-w-0 space-y-4">
         <SectionHeading id="agent-conversation-heading">Conversation</SectionHeading>
