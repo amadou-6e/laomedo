@@ -593,5 +593,20 @@
     "title": "The runner credential is empty",
     "description": "The local runner credential file contains no usable token.",
     "recovery": "Ask the operator to restore the configured runner credential file. Do not paste credentials into the graph."
+  },
+  "runner_service_configuration_unavailable": {
+    "title": "Local backend recovery is unavailable",
+    "description": "The host could not load or use its trusted local runner configuration.",
+    "recovery": "Ask the operator to check the host runner configuration and startup log. No graph retry or new model request is needed to repair this service."
+  },
+  "runner_identity_unverified": {
+    "title": "The local backend identity could not be verified",
+    "description": "A listener may still be present, but the app could not confirm it is the configured runner.",
+    "recovery": "Ask the operator to inspect the existing listener and host configuration before restarting. Do not launch a replacement while its identity is uncertain."
+  },
+  "runner_start_failed": {
+    "title": "The local backend did not start",
+    "description": "The configured API process exited before becoming ready.",
+    "recovery": "Ask the operator to check the host startup log, then use Restart local backend in the connection-error panel. This does not rerun the graph."
   }
 }

@@ -1,3 +1,4 @@
+import RunnerRecovery from "@/components/laomedoRecovery/RunnerRecovery";
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { describeNodeFailure, type ErrorContext } from "./nodeErrors";
@@ -18,6 +19,7 @@ export default function NodeErrorNotice({ message, status, context, inline = fal
       <p className="text-xs text-muted-foreground">{name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</p>
       <p className="text-sm">{failure.description}</p>
       <div className="space-y-1"><h4 className="text-sm font-medium">What to do</h4><p className="text-sm">{failure.recovery}</p></div>
+      {inline && <RunnerRecovery message={message} />}
       <details><summary className="cursor-pointer text-sm font-medium">Technical details</summary>
         <p className="mt-2 text-xs text-muted-foreground">Only the error code and safe identifiers are included. Payloads, credentials and stack traces are omitted.</p>
         <pre className="my-2 select-text whitespace-pre-wrap break-all rounded bg-muted p-3 text-xs">{details}</pre>

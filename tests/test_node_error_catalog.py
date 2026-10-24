@@ -24,6 +24,20 @@ class NodeErrorCatalogueTests(unittest.TestCase):
                         missing.append(f"{source.name}:{node.lineno}: {code}")
         self.assertEqual(missing, [], "Add a user explanation for each new literal Agent failure code")
 
+    def test_runner_service_public_codes_have_catalogue_coverage(self):
+        catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
+        source = ast.parse((ROOT / "laomedo/runner_service.py").read_text())
+        codes = set()
+        for node in ast.walk(source):
+            if isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value in {"reason", "code"}:
+                        for literal in ast.walk(value):
+                            if isinstance(literal, ast.Constant) and isinstance(literal.value, str):
+                                codes.add(literal.value)
+        self.assertTrue(codes)
+        self.assertEqual(codes - catalogue.keys(), set())
+
 
 if __name__ == "__main__":
     unittest.main()

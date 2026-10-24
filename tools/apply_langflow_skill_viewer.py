@@ -63,6 +63,10 @@ def apply(checkout):
     shutil.copy2(overlay / "AgentActivityNavigation.ts", checkout / "src/frontend/src/stores/agentActivityStore.ts")
     shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
     shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
+    recovery_target = checkout / "src/frontend/src/components/laomedoRecovery"
+    recovery_target.mkdir()
+    for name in ("RunnerRecovery.tsx", "RunnerRecovery.test.tsx"):
+        shutil.copy2(overlay / name, recovery_target / name)
     error_target = checkout / "src/frontend/src/components/laomedoErrors"
     error_target.mkdir()
     for name in ("nodeErrors.ts", "node-error-catalog.json", "NodeErrorNotice.tsx", "nodeErrors.test.ts", "NodeErrorNotice.test.tsx"):

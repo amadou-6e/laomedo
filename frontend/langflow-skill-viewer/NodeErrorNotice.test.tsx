@@ -28,3 +28,20 @@ test("clipboard failure gives an honest manual-copy fallback", async () => {
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Copy unavailable"));
   expect(screen.getByRole("status")).not.toHaveTextContent(/^Copied$/);
 });
+
+const safeRun = "ef54c538-d747-4ea7-938e-8fccd5e29bb6";
+jest.mock("@/controllers/API/api", () => ({ api: { get: jest.fn().mockResolvedValue({ data: { state: "unmanaged", can_start: false } }), post: jest.fn() } }));
+jest.mock("@/customization/utils/urls", () => ({ getBaseUrl: () => "/api/v1/" }));
+test("app recovery retains safe identifiers in the shared diagnostics", async () => {
+  render(<NodeErrorNotice inline message={`runner_transport_failed; Laomedo run ${safeRun}; remote execution may still be active; bearer private-payload`} context={{}} />);
+  await screen.findByRole("region", { name: "Local backend recovery" });
+  expect(screen.getAllByText("Technical details")).toHaveLength(1);
+  expect(screen.getByText(new RegExp(safeRun))).toHaveTextContent("runner_transport_failed");
+  expect(screen.queryByText(/private-payload/)).toBeNull();
+});
+test("node popovers never mount app recovery controls", () => {
+  render(<NodeErrorNotice message="runner_transport_failed" context={{}} />);
+  expect(screen.queryByRole("region", { name: "Local backend recovery" })).toBeNull();
+});
+
+jest.mock("@/components/ui/button", () => ({ Button: ({ size, ...props }: any) => <button {...props} /> }));
