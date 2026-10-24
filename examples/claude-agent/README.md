@@ -154,3 +154,11 @@ Skill References are optional. An Agent can execute its task with no connected
 Skill node; the request and run history record an empty skill list. Connected
 skills still require immutable revisions and retain hash, duplicate and count
 validation. Resume keeps the original run's selected skill set, including none.
+
+The [no-skill example](no-skill-flow.json) is a real single-Agent Fresh graph with
+no Skill node or Skill Reference. Its [native proof](no-skill-proof.json) records
+one approved Claude subscription turn, the empty pinned-skill list in the prompt, the native
+answer and usage, unchanged workspace, and the preserved ledger increment1to2.
+The graph remains in Fresh mode; the local verification ceiling is exhausted
+after that one approved turn. View its recorded result through Activity without
+starting another inference.

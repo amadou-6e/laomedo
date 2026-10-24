@@ -1,5 +1,20 @@
 # Real Claude proposal verification
 
+## Additional no-skill verification approval, 2026-10-24
+
+The user explicitly answered **Allow one verification turn** to verify a Fresh
+Claude Agent task with no Skill References. Preserve all existing runs and the
+durable ledger: the dedicated activity preview advances from one consumed turn
+under a ceiling of one to a total ceiling of two. Do not reset its ledger.
+
+Use one real saved single-Agent graph, `sonnet` / `low`, an empty skill list,
+no output contract, zero output corrections, no tools, edits or retries. The task
+is to reply exactly `Agent without skills works.`. Record the actual native
+answer, empty request/record/prompt skill lists, native session and usage,
+completed graph activity, unchanged protected snapshots, and the one-turn ledger
+increment. An uncertain dispatch must be reconciled through read-only state;
+do not submit it again. No further inference is authorized after this turn.
+
 ## Additional activity verification approval, 2026-10-23
 
 After the original campaign's three-turn ceiling was exhausted, the user

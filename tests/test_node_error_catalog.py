@@ -1,4 +1,4 @@
-"""Prevent newly emitted Agent codes from silently losing their user explanation."""
+"""Cover Agent errors and the affected runner skill-validation producers."""
 import ast
 import json
 from pathlib import Path
