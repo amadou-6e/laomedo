@@ -106,6 +106,20 @@ class RunnerServiceTests(unittest.TestCase):
                                  'reason': 'runner_identity_unverified'})
         spawn.assert_not_called()
 
+    def test_previously_ready_api_exit_is_not_reported_as_startup_failure(self):
+        from io import BytesIO
+        process = Mock()
+        process.poll.return_value = None
+        self.service.process = process
+        with patch.object(self.service.opener, 'open', return_value=BytesIO(b'{"status":"ready","provider":"claude","remaining_turns":0}')):
+            self.assertEqual(self.service.status()['state'], 'ready')
+        process.poll.return_value = 1
+        with patch.object(self.service.opener, 'open', side_effect=URLError('offline')):
+            self.assertEqual(self.service.status(), {'state':'offline', 'can_start':True, 'reason':None})
+        self.service.process = Mock(poll=lambda: 1)
+        with patch.object(self.service.opener, 'open', side_effect=URLError('offline')):
+            self.assertEqual(self.service.status()['reason'], 'runner_start_failed')
+
     def test_startup_failure_is_retryable_and_does_not_return_logs_or_paths(self):
         self.service.process=Mock(poll=lambda:1)
         with patch.object(self.service.opener,'open',side_effect=URLError('offline')):

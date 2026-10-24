@@ -26,6 +26,7 @@ class RunnerService:
         self.config_path = Path(config_path) if config_path else None
         self.lock = threading.Lock()
         self.process = None
+        self.ready_process = None
         self.opener = build_opener(ProxyHandler({}))
 
     def config(self, url=None):
@@ -67,6 +68,8 @@ class RunnerService:
                 health = json.load(response)
             if health.get('provider') != config['provider'] or health.get('status') != 'ready':
                 return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
+            if self.process is not None and self.process.poll() is None:
+                self.ready_process = self.process
             return {'state': 'ready', 'can_start': False,
                     'remaining_turns': health.get('remaining_turns')}
         except HTTPError:
@@ -89,7 +92,7 @@ class RunnerService:
         if self.process is not None and self.process.poll() is None:
             return {'state': 'starting', 'can_start': False}
         return {'state': 'offline', 'can_start': True,
-                'reason': 'runner_start_failed' if self.process is not None else None}
+                'reason': 'runner_start_failed' if self.process is not None and self.ready_process is not self.process else None}
 
     def start(self, url=None):
         with self.lock:
