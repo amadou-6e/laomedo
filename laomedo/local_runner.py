@@ -1358,8 +1358,16 @@ class LocalRunner:
                 configure_remote(workspace, github_scope["repository"])
             skills = [self._materialize(workspace, ref) for ref in refs]
             if not skills:
-                (workspace / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
+                try:
+                    (workspace / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
+                except OSError:
+                    raise RunnerError("unsafe_materialized_skill_path") from None
             git_exclusion = workspace_skills.install(workspace, skills)
+            if not skills:
+                try:
+                    workspace_skills.verify(workspace, skills, git_exclusion)
+                except workspace_skills.WorkspaceSkillError as error:
+                    raise RunnerError(str(error)) from None
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
             effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)

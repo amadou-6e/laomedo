@@ -878,6 +878,17 @@ class LocalRunnerTests(unittest.TestCase):
             request=self.request();request.pop('skill_ref');request.update(supplied)
             with self.subTest(supplied=supplied), self.assertRaises(RunnerError):self.runner._prepare(request)
 
+    def test_zero_skills_refuses_unselected_source_skills_and_invalid_paths_before_dispatch(self):
+        request=self.request();request.pop('skill_ref')
+        target=self.source/'.agents';target.mkdir();(target/'skills').write_text('not a directory')
+        with self.assertRaisesRegex(RunnerError,'unsafe_materialized_skill_path'):
+            self.runner._prepare(request)
+        (target/'skills').unlink();(target/'skills'/'unselected').mkdir(parents=True)
+        with self.assertRaisesRegex(RunnerError,'unexpected_materialized_skill'):
+            self.runner._prepare(request)
+        self.assertEqual(list((self.runner.state/'runs').iterdir()),[])
+        self.assertFalse((self.runner.state/'turn-ledger.json').exists())
+
     def test_zero_skills_can_complete_and_resume_with_empty_bound_skill_set(self):
         request=self.request();request.pop('skill_ref')
         result=self.runner.start(request)
