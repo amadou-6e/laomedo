@@ -98,7 +98,14 @@ class RunnerService:
                 return current
             config = self.config(url)
             module = 'laomedo.claude_runner' if config['provider'] == 'claude' else 'laomedo.local_runner'
-            command = [sys.executable, '-m', module,
+            # Load this installation even when Python is embedded/isolated and
+            # ignores PYTHONPATH. Both bootstrap and module choice are fixed;
+            # neither comes from a browser request or model output.
+            bootstrap = ('import runpy,sys; sys.path.insert(0,sys.argv.pop(1)); '
+                         'module=sys.argv.pop(1); sys.argv[0]=module; '
+                         'runpy.run_module(module,run_name="__main__")')
+            command = [sys.executable, '-c', bootstrap,
+                str(Path(__file__).resolve().parents[1]), module,
                 '--state', config['state'], '--skill-store', config['skill_store'],
                 '--source' if config['provider'] == 'claude' else '--source-workspace', config['source'],
                 '--port', str(config['port']), '--max-model-turns', str(config['max_model_turns'])]

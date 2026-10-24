@@ -63,6 +63,9 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertEqual(first['state'],'starting');self.assertEqual(second['state'],'starting')
         spawn.assert_called_once();args=spawn.call_args.args[0]
         self.assertEqual(args[args.index('--max-model-turns')+1],'1')
+        self.assertEqual(args[1], '-c')
+        self.assertEqual(args[3], str(Path(__file__).resolve().parents[1]))
+        self.assertEqual(args[4], 'laomedo.claude_runner')
         self.assertEqual(json.loads((self.root/'runner/turn-ledger.json').read_text())['attempted_turns'],1)
         self.assertNotIn('shell',spawn.call_args.kwargs)
 
