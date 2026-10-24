@@ -57,11 +57,7 @@ class RunnerService:
         url = f"http://127.0.0.1:{config['port']}"
         token_path = Path(config['state']) / 'api-token'
         if not token_path.exists():
-            try:
-                with socket.create_connection(('127.0.0.1', config['port']), timeout=.25):
-                    return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
-            except OSError:
-                return self._offline_state()
+            return self._probe_listener(config)
         token = token_path.read_text(encoding='utf-8').strip()
         if not token:
             raise ValueError('runner_service_auth_unavailable')
@@ -76,7 +72,18 @@ class RunnerService:
         except HTTPError:
             return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
         except (URLError, TimeoutError, OSError):
+            return self._probe_listener(config)
+
+    def _probe_listener(self, config):
+        # A health timeout does not prove the process is offline. Never replace
+        # a listener whose identity/response cannot be established.
+        try:
+            with socket.create_connection(('127.0.0.1', config['port']), timeout=.25):
+                return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
+        except ConnectionRefusedError:
             return self._offline_state()
+        except OSError:
+            return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
 
     def _offline_state(self):
         if self.process is not None and self.process.poll() is None:

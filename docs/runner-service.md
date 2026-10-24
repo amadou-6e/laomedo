@@ -45,3 +45,19 @@ separate concerns. The operator remains responsible for the service lifetime.
 Scope: one configured service per app host, loopback IPv4 URL with exact port,
 and the existing host Python environment. This is not a remote process manager.
 Internal test providers are control tests, not live acceptance.
+
+## Dependencies and limits
+
+This change is stacked on the shared node-error presenter in PR #184. The app
+error panel composes that presenter with recovery, preserving its single set of
+safe diagnostics, including run/request IDs. Node popovers do not mount recovery.
+Apply the combined overlay once to the pinned upstream checkout; do not apply two
+independent error-panel transforms. Specifications depend on specs PR #392.
+Claude startup additionally requires the separately installed adapter from PR #180;
+Codex startup does not require that adapter. The host must have the provider CLI's
+ordinary login available. Custom CLAUDE_CONFIG_DIR profiles are not forwarded.
+
+All authenticated app users can request startup of this one configured API. Enable
+this host control only where those users are authorized to manage that local service.
+Routed failures returned as node output, rather than app build errors, currently do
+not open this recovery panel. No live Codex startup acceptance is claimed.

@@ -30,7 +30,6 @@ test("the error UI restarts the host-configured API without a graph URL or dispa
   expect(screen.getByRole("button", { name: "Restarting local backend..." })).toBeDisabled();
   await act(async () => finish({ data: { state: "starting", can_start: false } }));
   expect(screen.getByText(/does not rerun the graph/)).toBeVisible();
-  expect(screen.queryByText("runner_transport_failed")).not.toBeVisible();
 });
 
 test("unconfigured or unidentified services cannot be started", async () => {

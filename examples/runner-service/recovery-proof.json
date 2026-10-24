@@ -1,6 +1,6 @@
 {
   "date": "2026-10-23",
-  "status": "passed",
+  "status": "historical",
   "issue": 182,
   "pr": 183,
   "recovery_source": "b22add4e70b06e965bac4c4c5e8e7fa2b5f2fe8a",
@@ -105,5 +105,6 @@
         "completed_native_activity": true
       }
     ]
-  }
+  },
+  "superseded_by": "Revised app connection-error UI requires fresh acceptance; this preserves only the earlier canvas/activity proof."
 }

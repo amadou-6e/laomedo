@@ -1,3 +1,4 @@
+import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/controllers/API/api";
@@ -36,7 +37,7 @@ function LocalBackendRecovery() {
       } catch {
         if (!controller.signal.aborted && version === generation.current) {
           setService(null);
-          setError("The local backend availability could not be checked. Check its host configuration.");
+          setError(describeNodeFailure("runner_service_configuration_unavailable", undefined).recovery);
         }
       } finally { loading = false; }
     };
@@ -55,7 +56,7 @@ function LocalBackendRecovery() {
       if (data.state !== "starting") setStarting(false);
     } catch {
       setStarting(false);
-      setError("The local backend could not be restarted. Check the host startup log before trying again.");
+      setError(describeNodeFailure("runner_start_failed", undefined).recovery);
     } finally { pending.current = false; }
   };
 
@@ -66,21 +67,19 @@ function LocalBackendRecovery() {
       : "The configured local runner backend is online. Inspect the existing run before retrying; the original connection failure may have another cause."
     : waiting ? "Restarting the local runner backend..."
     : service?.state === "offline" ? service.reason === "runner_start_failed"
-      ? "The local runner backend did not start. Check the host startup log before restarting again."
+      ? describeNodeFailure("runner_start_failed", undefined).description + " " + describeNodeFailure("runner_start_failed", undefined).recovery
       : "The local runner backend is offline. Restart it to restore the connection."
     : service?.state === "unmanaged" ? "Local backend recovery is not configured on this host. Ask the operator to configure it."
-    : service ? "The local runner backend identity could not be verified. Check the host configuration."
+    : service ? describeNodeFailure("runner_identity_unverified", undefined).description + " " + describeNodeFailure("runner_identity_unverified", undefined).recovery
     : "Checking the local runner backend connection...";
 
   return <section aria-label="Local backend recovery" className="space-y-3 text-foreground">
-    <h3 className="font-semibold">The local runner connection failed</h3>
     <p role="status">{message}</p>
     {(service?.can_start || waiting) && <Button size="sm" onClick={restart} disabled={waiting}>
       {waiting ? "Restarting local backend..." : "Restart local backend"}
     </Button>}
     {error && <p role="alert">{error}</p>}
     <p className="text-xs text-muted-foreground">This restarts only the host-configured API. It does not rerun the graph or change its approved turn limit. Inspect any existing run before starting new work.</p>
-    <details><summary className="cursor-pointer text-xs">Technical details</summary><code>runner_transport_failed</code></details>
   </section>;
 }
 

@@ -1,5 +1,6 @@
 """Internal controls only; live startup verification is recorded separately."""
 import json
+import socket
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
@@ -26,6 +27,9 @@ class RunnerServiceTests(unittest.TestCase):
         (self.root/'runner').mkdir();(self.root/'runner/api-token').write_text('internal-control')
         self.path=self.root/'config.json';self.path.write_text(json.dumps(self.config))
         self.service=RunnerService(self.path);self.url='http://127.0.0.1:18769'
+        self.real_connect=socket.create_connection
+        probe=patch('laomedo.runner_service.socket.create_connection', side_effect=ConnectionRefusedError())
+        self.probe=probe.start(); self.addCleanup(probe.stop)
 
     def test_unconfigured_and_arbitrary_urls_cannot_start_any_process(self):
         with patch('laomedo.runner_service.subprocess.Popen') as spawn:
@@ -63,6 +67,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertNotIn('shell',spawn.call_args.kwargs)
 
     def test_authenticated_health_reports_exhaustion_without_dispatch(self):
+        self.probe.side_effect=self.real_connect
         ledger=self.root/'runner/turn-ledger.json';ledger.write_text('{"attempted_turns":1}')
         runner=SimpleNamespace(state=self.root/'runner',max_model_turns=1,provider='claude',api_token='internal-control')
         server=serve(runner,port=0);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
@@ -77,6 +82,16 @@ class RunnerServiceTests(unittest.TestCase):
         with patch.object(self.service.opener,'open',return_value=BytesIO(b'{"status":"ready","provider":"codex"}')), \
              patch('laomedo.runner_service.subprocess.Popen') as spawn:
             self.assertEqual(self.service.start(self.url)['state'],'unavailable');spawn.assert_not_called()
+
+    def test_health_timeout_with_existing_listener_never_starts_replacement(self):
+        self.probe.side_effect = None
+        self.probe.return_value = Mock(__enter__=Mock(), __exit__=Mock(return_value=False))
+        with patch.object(self.service.opener, 'open', side_effect=TimeoutError()), \
+             patch('laomedo.runner_service.subprocess.Popen') as spawn:
+            result = self.service.start()
+        self.assertEqual(result, {'state': 'unavailable', 'can_start': False,
+                                 'reason': 'runner_identity_unverified'})
+        spawn.assert_not_called()
 
     def test_startup_failure_is_retryable_and_does_not_return_logs_or_paths(self):
         self.service.process=Mock(poll=lambda:1)
