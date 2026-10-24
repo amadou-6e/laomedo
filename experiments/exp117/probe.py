@@ -19,6 +19,7 @@ from experiments.exp117.support import (
 )
 from laomedo.langflow_join_service import build_service
 from laomedo.local_runner import LocalRunner, serve
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skill_store import SkillStore
 from laomedo.work_graph.local_launch import LangflowLocalClient
 from laomedo.workflow_run_store import WorkflowRunStore

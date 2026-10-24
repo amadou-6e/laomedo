@@ -49,7 +49,7 @@ model/effort options without submitting a turn. The runner defaults to a
 **zero-turn cap**. Start it only with an explicitly authorized turn cap:
 
 ```powershell
-python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source --max-model-turns 4
+python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source
 ```
 
 The cap lives in `turn-ledger.json` outside Git. Reservations occur before
@@ -175,3 +175,7 @@ integrity, restart/resume binding, HTTP result and failure behavior, and the
 persistent turn cap with a fake app-server. They do not establish a successful
 model-backed Langflow run by themselves or a broader security boundary. Private raw events
 remain under the runner state directory and are never committed.
+
+Normal service startup does not install an experiment-wide turn ceiling. Bound
+new verification campaigns separately using `experiments/turn_harness.py`; old
+acceptance ledgers are historical evidence, not future-run authorization.
