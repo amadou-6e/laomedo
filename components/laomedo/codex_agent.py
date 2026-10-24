@@ -61,6 +61,7 @@ class _ModelCatalog(dict):
     def __init__(self):
         super().__init__()
         self.metadata = {}
+        self.effort_aliases = {}
 
 
 class LaomedoCodexAgent(Component):
@@ -136,7 +137,7 @@ class LaomedoCodexAgent(Component):
         selected = effort_field.get("value", "")
         if not isinstance(selected, str):
             raise ValueError("invalid_effort_selection")
-        efforts = list(catalog.get(model, []))
+        efforts = list(catalog.get(model, getattr(catalog, "effort_aliases", {}).get(model, [])))
         if self.name == "LaomedoClaudeAgent" and efforts == ["default"]:
             effort_field["value"] = "default"
         elif field_name == "model" and selected not in efforts:
@@ -177,6 +178,11 @@ class LaomedoCodexAgent(Component):
                     catalog.metadata[model] = {"id": model, "laomedo_native_model": True,
                         **({"display_name": item["name"]} if isinstance(item.get("name"), str) else {}),
                         **({"resolved_model": item["resolved_model"]} if isinstance(item.get("resolved_model"), str) else {})}
+                    resolved = item.get("resolved_model")
+                    if isinstance(resolved, str) and resolved:
+                        catalog.effort_aliases[resolved] = efforts
+                        if model != "default":
+                            catalog.metadata[resolved] = {**catalog.metadata[model], "id": resolved}
             if not catalog:
                 raise ValueError("empty_catalog")
             return catalog

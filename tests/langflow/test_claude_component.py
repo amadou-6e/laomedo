@@ -68,6 +68,20 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(config['effort']['options'],['default'])
         self.assertEqual(config['effort']['value'],'default')
 
+    async def test_imported_resolved_model_keeps_native_efforts_and_pin_without_duplicate_picker_rows(self):
+        import laomedo.codex_agent as codex
+        node=self.node(model='claude-sonnet-test',effort='max')
+        catalog=codex._ModelCatalog();catalog['sonnet']=['low','max']
+        catalog.effort_aliases['claude-sonnet-test']=['low','max']
+        catalog.metadata['claude-sonnet-test']={'id':'claude-sonnet-test','laomedo_native_model':True,
+                                               'display_name':'Sonnet test','resolved_model':'claude-sonnet-test'}
+        with patch.object(node,'_model_catalog',return_value=catalog):
+            config=await node.update_build_config({'model':{'value':'claude-sonnet-test'},'effort':{'value':'max'}},'claude-sonnet-test','model')
+        self.assertEqual(config['model']['value'],'claude-sonnet-test')
+        self.assertEqual(config['model']['options'],['sonnet','claude-sonnet-test'])
+        self.assertEqual(config['effort']['options'],['low','max'])
+        self.assertEqual(config['effort']['value'],'max')
+
     def node(self, **changes):
         node = LaomedoClaudeAgent()
         for key, value in {'operation': 'fresh', 'task': 'Internal control', 'model': 'sonnet',
