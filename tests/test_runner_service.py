@@ -66,6 +66,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertEqual(args[1], '-c')
         self.assertEqual(args[3], str(Path(__file__).resolve().parents[1]))
         self.assertEqual(args[4], 'laomedo.claude_runner')
+        self.assertEqual(spawn.call_args.kwargs['cwd'], Path(__file__).resolve().parents[1])
         self.assertEqual(json.loads((self.root/'runner/turn-ledger.json').read_text())['attempted_turns'],1)
         self.assertNotIn('shell',spawn.call_args.kwargs)
 

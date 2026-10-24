@@ -117,7 +117,7 @@ class RunnerService:
             log_path = Path(config['state']) / 'service-startup.log'
             log_path.parent.mkdir(parents=True, exist_ok=True)
             with log_path.open('ab') as log:
-                self.process = subprocess.Popen(command, cwd=Path(config['state']).parent,
+                self.process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[1],
                     env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             return {'state': 'starting', 'can_start': False}

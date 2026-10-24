@@ -61,3 +61,8 @@ All authenticated app users can request startup of this one configured API. Enab
 this host control only where those users are authorized to manage that local service.
 Routed failures returned as node output, rather than app build errors, currently do
 not open this recovery panel. No live Codex startup acceptance is claimed.
+
+Startup requires a Python interpreter (including the supported embedded runtime),
+with dependencies installed for that interpreter. A frozen non-Python launcher
+is outside this control. The child working directory is the trusted app installation,
+not the runner state directory; bootstrap and module selection are fixed.
