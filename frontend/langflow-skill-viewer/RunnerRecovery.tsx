@@ -1,10 +1,10 @@
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 
-type Service = { state: string; can_start: boolean; remaining_turns?: number; reason?: string };
+type Service = { state: string; can_start: boolean; reason?: string };
 
 export function isRunnerConnectionError(message: unknown): boolean {
   if (typeof message !== "string" || message.length > 65536) return false;
@@ -13,7 +13,9 @@ export function isRunnerConnectionError(message: unknown): boolean {
     /^Laomedo run [0-9a-f-]{36} failed: runner_transport_failed$/i.test(error);
 }
 
-function LocalBackendRecovery() {
+export type RecoveryState = { message: string; error: string; waiting: boolean; canStart: boolean; state?: string; reason?: string; restart: () => Promise<void> };
+
+function LocalBackendRecovery({ children }: { children?: (state: RecoveryState) => ReactNode }) {
   const [service, setService] = useState<Service | null>(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
@@ -62,9 +64,7 @@ function LocalBackendRecovery() {
 
   const waiting = starting || service?.state === "starting";
   const message = service?.state === "ready"
-    ? service.remaining_turns === 0
-      ? "The local runner backend is online. Its approved turn limit is reached; status and recorded results remain available."
-      : "The configured local runner backend is online. Inspect the existing run before retrying; the original connection failure may have another cause."
+    ? "The local runner backend is online. Inspect the existing run before starting new work."
     : waiting ? "Restarting the local runner backend..."
     : service?.state === "offline" ? service.reason === "runner_start_failed"
       ? describeNodeFailure("runner_start_failed", undefined).description + " " + describeNodeFailure("runner_start_failed", undefined).recovery
@@ -73,16 +73,17 @@ function LocalBackendRecovery() {
     : service ? describeNodeFailure("runner_identity_unverified", undefined).description + " " + describeNodeFailure("runner_identity_unverified", undefined).recovery
     : "Checking the local runner backend connection...";
 
+  if (children) return children({ message, error, waiting, canStart: Boolean(service?.can_start), state: service?.state, reason: service?.reason, restart });
   return <section aria-label="Local backend recovery" className="space-y-3 text-foreground">
     <p role="status">{message}</p>
     {(service?.can_start || waiting) && <Button size="sm" onClick={restart} disabled={waiting}>
       {waiting ? "Restarting local backend..." : "Restart local backend"}
     </Button>}
     {error && <p role="alert">{error}</p>}
-    <p className="text-xs text-muted-foreground">This restarts only the host-configured API. It does not rerun the graph or change its approved turn limit. Inspect any existing run before starting new work.</p>
+    <p className="text-xs text-muted-foreground">This restarts only the host-configured API. It does not rerun the graph. Inspect any existing run before starting new work.</p>
   </section>;
 }
 
-export default function RunnerRecovery({ message }: { message: unknown }) {
-  return isRunnerConnectionError(message) ? <LocalBackendRecovery /> : null;
+export default function RunnerRecovery({ message, children }: { message: unknown; children?: (state: RecoveryState) => ReactNode }) {
+  return isRunnerConnectionError(message) ? <LocalBackendRecovery>{children}</LocalBackendRecovery> : null;
 }

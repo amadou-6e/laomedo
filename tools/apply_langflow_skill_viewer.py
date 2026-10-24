@@ -65,7 +65,7 @@ def apply(checkout):
     shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
     recovery_target = checkout / "src/frontend/src/components/laomedoRecovery"
     recovery_target.mkdir()
-    for name in ("RunnerRecovery.tsx", "RunnerRecovery.test.tsx"):
+    for name in ("RunnerRecovery.tsx", "RunnerRecovery.test.tsx", "RecoveryPopup.tsx", "RecoveryPopup.test.tsx"):
         shutil.copy2(overlay / name, recovery_target / name)
     error_target = checkout / "src/frontend/src/components/laomedoErrors"
     error_target.mkdir()
@@ -107,7 +107,7 @@ def apply(checkout):
     alerts_path.write_text(alerts, encoding="utf-8")
     flow_error_path = checkout / "src/frontend/src/pages/FlowPage/components/flowBuildingComponent/index.tsx"
     flow_error = flow_error_path.read_text(encoding="utf-8")
-    flow_error = 'import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";\n' + flow_error
+    flow_error = 'import RecoveryPopup from "@/components/laomedoRecovery/RecoveryPopup";\nimport { isRunnerConnectionError } from "@/components/laomedoRecovery/RunnerRecovery";\nimport NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";\n' + flow_error
     marker = '  const errorButtonsRef = useRef<HTMLDivElement>(null);'
     replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(message => isKnownNodeError(message, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))) ?? (affectedNode ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
     if flow_error.count(marker) != 1:
@@ -119,6 +119,7 @@ def apply(checkout):
     flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
     flow_error = replace_once(flow_error, '                        </Markdown>', '                        </Markdown>}')
     flow_error = replace_once(flow_error, 'className="absolute right-0 font-mono text-xs"', 'className={cn("absolute right-0 font-mono text-xs", descriptiveError && "hidden")}')
+    flow_error = replace_once(flow_error, '  return (\n    <AnimatePresence mode="wait">', '  if (!isBuilding && descriptiveError && isRunnerConnectionError(descriptiveError) && !dismissed) {\n    return <RecoveryPopup message={descriptiveError} onDismiss={() => { setBuildInfo(null); setDismissed(false); }} context={{\n      nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n      operation: affectedNode?.data.node?.template?.operation?.value,\n      savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n    }} />;\n  }\n  return (\n    <AnimatePresence mode="wait">')
     flow_error_path.write_text(flow_error, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 

@@ -58,17 +58,17 @@ test("availability failures do not guess that a backend can safely be restarted"
   expect(screen.queryByRole("button")).toBeNull();
 });
 
-test("polling after startup distinguishes exhaustion and never retries the graph", async () => {
+test("polling reports readiness without promoting historical verification limits into runtime state", async () => {
   jest.useFakeTimers();
   try {
     (api.get as jest.Mock).mockResolvedValueOnce({ data: { state: "offline", can_start: true } })
-      .mockResolvedValue({ data: { state: "ready", can_start: false, remaining_turns: 0 } });
+      .mockResolvedValue({ data: { state: "ready", can_start: false } });
     (api.post as jest.Mock).mockResolvedValue({ data: { state: "starting", can_start: false } });
     render(<RunnerRecovery message={failure} />);
     fireEvent.click(await screen.findByRole("button", { name: "Restart local backend" }));
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     await act(async () => { await jest.advanceTimersByTimeAsync(2000); });
-    await screen.findByText(/approved turn limit is reached/);
+    await screen.findByText(/local runner backend is online/);
     expect(screen.queryByRole("button")).toBeNull();
     expect(api.post).toHaveBeenCalledTimes(1);
   } finally { jest.useRealTimers(); }
@@ -80,7 +80,7 @@ test("a stale pre-click availability response cannot undo the starting state", a
   let oldPoll: (value: unknown) => void = () => {};
   (api.get as jest.Mock).mockResolvedValueOnce({data:{state:"offline",can_start:true}})
    .mockImplementationOnce(() => new Promise(resolve => { oldPoll = resolve; }))
-   .mockResolvedValue({data:{state:"ready",can_start:false,remaining_turns:0}});
+   .mockResolvedValue({data:{state:"ready",can_start:false}});
   (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false}});
   render(<RunnerRecovery message={failure}/>);
   const button=await screen.findByRole("button",{name:"Restart local backend"});
@@ -90,7 +90,7 @@ test("a stale pre-click availability response cannot undo the starting state", a
   await act(async()=>oldPoll({data:{state:"offline",can_start:true}}));
   expect(screen.getByRole("button",{name:"Restarting local backend..."})).toBeDisabled();
   await act(async()=>{await jest.advanceTimersByTimeAsync(2000)});
-  await screen.findByText(/approved turn limit is reached/);
+  await screen.findByText(/local runner backend is online/);
   expect(api.post).toHaveBeenCalledTimes(1);
  } finally {jest.useRealTimers()}
 });
@@ -98,7 +98,7 @@ test("a stale pre-click availability response cannot undo the starting state", a
 test("a process that exits during startup explains the failure rather than just saying offline", async () => {
  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
  render(<RunnerRecovery message={failure}/>);
- await screen.findByText(/exited before becoming ready.*host startup log/);
+ await screen.findByText(/exited; readiness could not be confirmed.*host startup log/);
  expect(screen.getByRole("button",{name:"Restart local backend"})).toBeEnabled();
 });
 
