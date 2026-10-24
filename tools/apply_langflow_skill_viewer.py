@@ -28,6 +28,11 @@ def apply(checkout):
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(models_patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", str(models_patch)], check=True)
+    selection_patch = overlay / "claude-selection.patch"
+    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(selection_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", str(selection_patch)], check=True)
+    shutil.copy2(overlay / "AgentModelSelection.test.ts",
+                 checkout / "src/frontend/src/CustomNodes/helpers/AgentModelSelection.test.ts")
     shutil.copy2(overlay / "ClaudeModelDropdown.test.tsx",
                  checkout / "src/frontend/src/components/core/dropdownComponent/ClaudeModelDropdown.test.tsx")
     agent_target = checkout / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"

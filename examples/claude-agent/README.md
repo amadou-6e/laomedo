@@ -144,3 +144,8 @@ Runner availability recovery is tracked separately in issue #182 / PR #183.
 The inspection preview defaults to Status on the existing completed run; starting
 its API does not grant or consume another model turn. Fresh work needs its own
 approved allowance. The API should remain available after the limit is reached.
+
+The shared Agent editor rejects discovery responses for an older model or runner
+selection. It preserves a reasoning-effort edit only while that value remains in
+the newly selected model's native options; a no-effort model switches to
+`default`. Searching the model list keeps the selected friendly label visible.

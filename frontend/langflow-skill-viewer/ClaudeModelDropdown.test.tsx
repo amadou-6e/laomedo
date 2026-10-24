@@ -56,3 +56,8 @@ test('metadata-only refresh updates a closed selector without changing option ID
  const updated=[{...metadata[0],display_name:'Sonnet newer'}];rerender({items:updated});
  expect(result.current.filteredMetadata).toEqual(updated);
 });
+
+test('search filtering keeps the selected native model label',()=>{
+ render(<DropdownTrigger {...({validOptions:['sonnet','fable'],open:true,id:'model',value:'sonnet',options:['sonnet','fable'],filteredOptions:['fable'],filteredMetadata:[],selectedOptionMetadata:metadata[0],refButton:{current:null}} as any)}/>);
+ expect(screen.getByRole('combobox')).toHaveTextContent('Sonnet test');
+});
