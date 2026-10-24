@@ -13,6 +13,8 @@ from laomedo.workspace_skills import remove_owned_tree
 from test_local_runner import FakeServer
 
 
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
+
 class WorkspaceSkillGitTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

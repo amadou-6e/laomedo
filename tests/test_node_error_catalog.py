@@ -8,6 +8,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_normal_attempt_accounting_codes_have_catalogue_coverage(self):
+        catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
+        source = ast.parse((ROOT / "laomedo/local_runner.py").read_text(encoding="utf-8"))
+        method = next(node for node in ast.walk(source)
+                      if isinstance(node, ast.FunctionDef) and node.name == "_reserve_turn")
+        codes = {node.exc.args[0].value for node in ast.walk(method)
+                 if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)
+                 and node.exc.args and isinstance(node.exc.args[0], ast.Constant)}
+        self.assertTrue(codes)
+        self.assertEqual(codes - catalogue.keys(), set())
+
     def test_literal_agent_failures_have_descriptive_catalogue_entries(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         missing = []

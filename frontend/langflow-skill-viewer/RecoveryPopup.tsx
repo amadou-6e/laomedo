@@ -49,13 +49,13 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
     try { await navigator.clipboard.writeText(diagnostics); setCopied("Copied"); }
     catch { setCopied("Copy unavailable. Select the details to copy them manually."); }
   };
-  const buttonStyle: CSSProperties = { border: "1px solid currentColor", borderRadius: 3, background: "transparent", minHeight: 36, padding: "6px 16px", fontSize: 14, fontWeight: 600 };
+  const buttonStyle: CSSProperties = { border: "1px solid currentColor", borderRadius: 3, background: "transparent", minHeight: 36, padding: "6px 16px", fontSize: 14, fontWeight: 700 };
   return createPortal(<RunnerRecovery message={message}>{recovery =>
     <section ref={root} tabIndex={-1} role="region" aria-label="Local backend recovery" style={style}
       onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); dismissRef.current(); } }}
       className="flex min-h-0 flex-col overflow-hidden border border-slate-300 border-l-4 border-l-[#F87171] bg-background text-foreground shadow-sm focus:outline-none">
       <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 px-5 pb-2 pt-5">
-        <h3 className="text-sm font-semibold">{failure.title}</h3>
+        <h3 className="text-sm font-bold">{failure.title}</h3>
         <span className="min-w-0 break-words text-sm text-muted-foreground">· {name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</span>
       </header>
       <div className="min-h-0 overflow-y-auto overscroll-contain px-5" data-testid="recovery-popup-body">
@@ -70,11 +70,11 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
         </details>
       </div>
       <footer className="flex shrink-0 flex-wrap gap-3 px-5 pb-5 pt-3">
-        {(recovery.canStart || recovery.waiting) && <button type="button" onClick={recovery.restart} disabled={recovery.waiting} style={buttonStyle}
+        {(recovery.canStart || recovery.waiting) && <button type="button" onClick={recovery.restart} disabled={recovery.waiting} style={{ ...buttonStyle, width: 196, maxWidth: "100%" }}
           className="disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
           {recovery.waiting ? "Restarting local backend..." : "Restart local backend"}
         </button>}
-        <button type="button" onClick={onDismiss} style={buttonStyle} className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">Dismiss</button>
+        <button type="button" onClick={onDismiss} style={{ ...buttonStyle, width: 112, maxWidth: "100%" }} className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">Dismiss</button>
       </footer>
     </section>
   }</RunnerRecovery>, document.body);

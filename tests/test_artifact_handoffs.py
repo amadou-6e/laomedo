@@ -8,6 +8,8 @@ from laomedo.local_runner import LocalRunner
 import test_local_runner as fixtures
 
 
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
+
 class ArtifactTests(unittest.TestCase):
     def setUp(self):
         self.fixture = fixtures.LocalRunnerTests("test_start_resume_and_fresh_workspace")

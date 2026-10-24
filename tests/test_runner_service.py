@@ -10,7 +10,7 @@ from unittest.mock import patch, Mock
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 from laomedo.runner_service import RunnerService, install_runner_service_routes, service_environment
-from laomedo.local_runner import serve
+from laomedo.local_runner import LocalRunner, serve
 try:
     from fastapi.testclient import TestClient
 except ImportError:
@@ -18,6 +18,31 @@ except ImportError:
 
 
 class RunnerServiceTests(unittest.TestCase):
+    def test_normal_defaults_ignore_historical_exhaustion_without_dispatch(self):
+        """The managed command's ordinary defaults must not install a zero-turn gate."""
+        state = self.root / 'normal-state'
+        source = self.root / 'normal-repo' / 'source'
+        source.mkdir(parents=True)
+        (source.parent / '.git').mkdir()
+        runner = LocalRunner(state, self.root / 'normal-store', source,
+                             check_docker=False, supervise_containers=False)
+        history = state / 'turn-ledger.json'
+        historical_bytes = b'{"attempted_turns":99,"max_authorized_turns":1}'
+        history.write_bytes(historical_bytes)
+        runner._turn_available()
+        self.assertEqual(runner._reserve_turn(), 1)
+        self.assertEqual(history.read_bytes(), historical_bytes)
+        restarted = LocalRunner(state, self.root / 'normal-store', source,
+                                check_docker=False, supervise_containers=False)
+        restarted._turn_available()
+        self.assertEqual(restarted._reserve_turn(), 2)
+        # Even malformed historical evidence is not a future-run authorization gate.
+        history.write_bytes(b'historical evidence, not runtime configuration')
+        restarted._turn_available()
+        self.assertEqual(restarted._reserve_turn(), 3)
+        self.assertEqual(history.read_bytes(), b'historical evidence, not runtime configuration')
+        self.assertNotIn('max_authorized_turns', (state / 'attempt-count.json').read_text())
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name)

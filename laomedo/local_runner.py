@@ -887,7 +887,7 @@ def _execution_evidence(path, offset, record, turns, *, streams_closed, resumed=
 
 class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
-                 check_docker: bool = True, max_model_turns: int = 0,
+                 check_docker: bool = True,
                  supervise_containers: bool | None = None,
                  lease_service: Path | None = None,
                  github_authority: RunGrantAuthority | None = None,
@@ -987,9 +987,6 @@ class LocalRunner:
             raise RunnerError("split_executor_requires_native_transport")
         if (self.split_provider_config or split_access_token is not None) and not split_executor:
             raise RunnerError("split_provider_requires_split_executor")
-        if not isinstance(max_model_turns, int) or max_model_turns < 0:
-            raise RunnerError("invalid_turn_cap")
-        self.max_model_turns = max_model_turns
         self.lock = threading.Lock()
         self.control_lock = threading.Lock()
         self.request_lock = threading.Lock()
@@ -1167,25 +1164,17 @@ class LocalRunner:
         return self.state / "runs" / _id(run_id)
 
     def _reserve_turn(self) -> int:
-        ledger = self.state / "turn-ledger.json"
+        # Diagnostic sequence only, separate from immutable historical experiment ledgers.
+        ledger = self.state / "attempt-count.json"
         value = _read(ledger) if ledger.exists() else {"attempted_turns": 0}
         count = value.get("attempted_turns")
-        if not isinstance(count, int) or count < 0:
+        if type(count) is not int or count < 0:
             raise RunnerError("invalid_turn_ledger")
-        if count >= self.max_model_turns:
-            raise RunnerError("model_turn_cap_reached")
-        _json(ledger, {"attempted_turns": count + 1,
-                       "max_authorized_turns": self.max_model_turns})
+        _json(ledger, {"attempted_turns": count + 1})
         return count + 1
 
     def _turn_available(self) -> None:
-        ledger = self.state / "turn-ledger.json"
-        value = _read(ledger) if ledger.exists() else {"attempted_turns": 0}
-        count = value.get("attempted_turns")
-        if not isinstance(count, int) or count < 0:
-            raise RunnerError("invalid_turn_ledger")
-        if count >= self.max_model_turns:
-            raise RunnerError("model_turn_cap_reached")
+        """Extension point for isolated verification harnesses; no normal-service quota."""
 
     def status(self, run_id: str) -> dict:
         return _read(self._run_dir(run_id) / "record.json")
@@ -1850,8 +1839,8 @@ class LocalRunner:
                     break
                 try:
                     attempt = self._reserve_turn()
-                except RunnerError:
-                    record["output_correction_blocked"] = "model_turn_cap_reached"
+                except RunnerError as exc:
+                    record["output_correction_blocked"] = str(exc)
                     break
                 record["turns"].append({"turn_id": turn_id, "status": status,
                                         "correction_pending": True,
@@ -2216,7 +2205,6 @@ def main():
                         help="Opt-in isolated Git checkout; mediated push remains disabled")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--preflight", action="store_true")
-    parser.add_argument("--max-model-turns", type=int, default=0)
     parser.add_argument("--image-id", help="Operator-approved SHA256 ID of a locally rebuilt non-Git image; the fixed version tag must match it")
     parser.add_argument("--lease-service", type=Path,
                         help="State directory of an independently started lease service")
@@ -2235,7 +2223,6 @@ def main():
                  if args.github_authority_store else None)
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
                          git_workspace=args.git_workspace,
-                         max_model_turns=args.max_model_turns,
                          lease_service=args.lease_service,
                          github_authority=authority,
                          mediator_state=args.mediator_state,

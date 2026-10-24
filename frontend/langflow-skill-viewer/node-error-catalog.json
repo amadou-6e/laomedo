@@ -608,5 +608,10 @@
     "title": "Local backend readiness is unconfirmed",
     "description": "The configured API process exited; readiness could not be confirmed.",
     "recovery": "Ask the operator to check the host startup log, then use Restart local backend in the connection-error panel. This does not rerun the graph."
+  },
+  "invalid_turn_ledger": {
+    "title": "The local attempt record cannot be read",
+    "description": "The runner could not safely update its local attempt sequence.",
+    "recovery": "Ask the operator to inspect the local attempt record and saved run metadata. Confirm existing work before starting another run."
   }
 }
