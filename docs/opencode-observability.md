@@ -34,7 +34,7 @@ prompt or tool-argument text. Raw Activity receipts retain the conversation.
 
 The selected invocation shows run-total cards and separate cumulative token and
 USD estimate charts. Chart scope selects all observed threads or one native
-thread without changing the run-total cards. Hover or use the keyboard slider
+thread without changing the run-total cards. Hover or focus a chart and use Left/Right, Home or End
 to inspect captured observations. Latest cumulative values are carried forward
 per thread before aggregation; missing categories remain gaps.
 

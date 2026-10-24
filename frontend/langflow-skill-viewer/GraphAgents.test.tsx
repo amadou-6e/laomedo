@@ -172,7 +172,7 @@ test("all runtime records are listed and fuzzy search can find records beyond fi
 });
 
 
-test("thread inspection preserves run-total cards and gives a safe single-observation slider",()=>{
+test("thread inspection preserves run totals with keyboard charts and no slider",()=>{
   const usage=(input:number)=>({inputTokens:input,cachedInputTokens:0,outputTokens:1,reasoningOutputTokens:0});
   const points=[{at:"2026-10-23T14:00:01Z",thread:"parent",usage:usage(10),cost:{amount:.001}},
     {at:"2026-10-23T14:00:02Z",thread:"child",usage:usage(5),cost:{amount:.002}},
@@ -181,6 +181,11 @@ test("thread inspection preserves run-total cards and gives a safe single-observ
   fireEvent.change(screen.getByRole("combobox",{name:"Chart scope"}),{target:{value:"child"}});
   expect(screen.getByRole("group",{name:"Run totals"})).toHaveTextContent("30");
   expect(screen.getByText("5",{selector:"strong"})).toBeInTheDocument();
-  expect(screen.getByRole("slider",{name:"Inspect usage timestamp"})).toHaveAttribute("data-disabled");
-  expect(screen.getByRole("slider",{name:"Inspect usage timestamp"})).toHaveAttribute("aria-valuemax","1");
+  expect(screen.queryByRole("slider")).toBeNull();
+  fireEvent.change(screen.getByRole("combobox",{name:"Chart scope"}),{target:{value:"parent"}});
+  const chart=screen.getByRole("figure",{name:"Cumulative token usage chart"});
+  fireEvent.keyDown(chart,{key:"Home"});
+  expect(screen.getByText("10",{selector:"strong"})).toBeInTheDocument();
+  fireEvent.keyDown(chart,{key:"ArrowRight"});
+  expect(screen.getByText("25",{selector:"strong"})).toBeInTheDocument();
 });

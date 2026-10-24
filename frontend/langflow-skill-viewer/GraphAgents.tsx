@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import Fuse from "fuse.js";
-import * as SliderPrimitive from "@radix-ui/react-slider";
 import Markdown from "react-markdown";
 import IconComponent from "@/components/common/genericIconComponent";
 import SimplifiedCodeTabComponent from "@/components/core/codeTabsComponent";
@@ -146,7 +145,8 @@ export function UsageCharts({projection}:{projection:Projection}) {
     const first=Date.parse(points[0].at),last=Date.parse(points[points.length-1].at);
     const x=(point:ChartPoint)=>last===first?330:58+(Date.parse(point.at)-first)/(last-first)*544;
     const y=(number:number)=>164-number/max*136;
-    return <figure className="min-w-0 rounded-md border p-3" aria-label={cost?"Cumulative estimated cost chart":"Cumulative token usage chart"}>
+    return <figure tabIndex={0} onKeyDown={event=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();setSelected(index=>event.key==="Home"?0:event.key==="End"?points.length-1:Math.max(0,Math.min(points.length-1,(index??points.length-1)+(event.key==="ArrowLeft"?-1:1))))}} className="min-w-0 rounded-md border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={cost?"Cumulative estimated cost chart":"Cumulative token usage chart"}>
+      <p className="sr-only">Use Left and Right arrow keys to inspect observations, or Home and End for the first and last.</p>
       <figcaption className="mb-2 text-xs font-medium">{cost?"API-equivalent cost (USD)":"Tokens"}</figcaption>
       <svg viewBox="0 0 640 205" className="w-full" aria-hidden="true" onMouseMove={event=>{
         const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*640;
@@ -170,7 +170,7 @@ export function UsageCharts({projection}:{projection:Projection}) {
     {!points.length?<p className="text-sm text-muted-foreground">No timestamped usage captured. Aggregate values are shown above when available.</p>:<>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><h4 className="font-medium text-foreground">Cumulative usage over time</h4><label className="flex flex-wrap items-center gap-2">{points.length} observations / Chart scope <select aria-label="Chart scope" className="max-w-full rounded-md border bg-background px-2 py-1 text-xs" value={thread} onChange={event=>setThread(event.target.value)}><option value="">All observed threads</option>{threads.map(id=><option key={id} value={id}>{id}</option>)}</select></label></div>
       <div className="grid min-w-0 gap-3 lg:grid-cols-2">{chart(false)}{chart(true)}</div>
-      <div className="space-y-2 text-xs"><p>Inspect observation: {time(current.at)}</p><SliderPrimitive.Root className="relative flex h-5 w-full touch-none select-none items-center" min={0} max={Math.max(1,points.length-1)} step={1} value={[Math.min(selected??points.length-1,points.length-1)]} disabled={points.length===1} onValueChange={value=>setSelected(value[0])}><SliderPrimitive.Track className="relative h-1 w-full grow rounded-full bg-muted"><SliderPrimitive.Range className="absolute h-full rounded-full bg-muted-foreground/40"/></SliderPrimitive.Track><SliderPrimitive.Thumb aria-label="Inspect usage timestamp" aria-valuetext={time(current.at)} className="block h-3 w-3 rounded-full border border-muted-foreground bg-background shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"/></SliderPrimitive.Root></div>
+      <p className="text-xs text-muted-foreground">Observed at {time(current.at)}</p>
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums" aria-live="polite">{metrics.map(metric=><span key={metric.key}>{metric.label}: <strong className="font-medium">{amount(metric.key==="cost"?current.cost:current.usage?.[metric.key],metric.key==="cost")}</strong></span>)}</p>
     </>}
     <p className="text-xs text-muted-foreground">{projection.usage===null&&"Aggregate usage is incomplete; charts show only captured observations. "}{projection.cost_reason.replace(/[.\s]+$/,"")}. Cached input is part of input; reasoning is part of output. Chart values update only at captured observations; unknown values remain gaps.</p>
