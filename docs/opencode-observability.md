@@ -97,4 +97,5 @@ captures cannot recover withheld totals through a narrower selection.
 Earlier-run navigation appears only for an earlier non-overlapping invocation of
 the same node/provider/native session within the current graph. It navigates to
 recorded evidence; it does not dispatch Resume or claim that missing history was
-captured. Native IDs and parent links remain collapsed under Technical details.
+captured. The Gantt and breadcrumbs replace the raw thread-links disclosure; no additional
+technical-details disclosure is added. The existing Node identity control is retained.
