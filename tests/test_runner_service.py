@@ -23,7 +23,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.root=Path(self.temp.name)
         self.config={'provider':'claude','state':str(self.root/'runner'),'skill_store':str(self.root/'registry'),
             'source':str(self.root/'source'),'executable':str(self.root/'claude.exe'),
-            'port':18769,'max_model_turns':1}
+            'port':18769}
         (self.root/'runner').mkdir();(self.root/'runner/api-token').write_text('internal-control')
         self.path=self.root/'config.json';self.path.write_text(json.dumps(self.config))
         self.service=RunnerService(self.path);self.url='http://127.0.0.1:18769'
@@ -55,14 +55,17 @@ class RunnerServiceTests(unittest.TestCase):
             for key in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','LANGFLOW_SECRET_KEY','DATABASE_URL','CLAUDE_CONFIG_DIR'):
                 self.assertNotIn(key,env)
 
-    def test_concurrent_clicks_do_not_spawn_twice_or_change_turn_limit(self):
+    def test_concurrent_clicks_do_not_spawn_twice_or_restore_legacy_turn_limit(self):
+        self.config['max_model_turns']=1
+        self.path.write_text(json.dumps(self.config))
         (self.root/'runner/turn-ledger.json').write_text('{"attempted_turns":1}')
         with patch.object(self.service.opener,'open',side_effect=URLError('offline')), \
              patch('laomedo.runner_service.subprocess.Popen',return_value=Mock(poll=lambda:None)) as spawn:
             first=self.service.start(self.url);second=self.service.start(self.url)
         self.assertEqual(first['state'],'starting');self.assertEqual(second['state'],'starting')
         spawn.assert_called_once();args=spawn.call_args.args[0]
-        self.assertEqual(args[args.index('--max-model-turns')+1],'1')
+        self.assertNotIn('--max-model-turns',args)
+        self.assertNotIn('max_model_turns',self.service.config(self.url))
         self.assertEqual(args[1], '-c')
         self.assertEqual(args[3], str(Path(__file__).resolve().parents[1]))
         self.assertEqual(args[4], 'laomedo.claude_runner')
@@ -70,7 +73,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertEqual(json.loads((self.root/'runner/turn-ledger.json').read_text())['attempted_turns'],1)
         self.assertNotIn('shell',spawn.call_args.kwargs)
 
-    def test_authenticated_health_reports_exhaustion_without_dispatch(self):
+    def test_authenticated_health_ignores_legacy_exhaustion_without_dispatch(self):
         self.probe.side_effect=self.real_connect
         ledger=self.root/'runner/turn-ledger.json';ledger.write_text('{"attempted_turns":1}')
         runner=SimpleNamespace(state=self.root/'runner',max_model_turns=1,provider='claude',api_token='internal-control')
@@ -78,8 +81,10 @@ class RunnerServiceTests(unittest.TestCase):
         self.addCleanup(server.server_close);self.addCleanup(server.shutdown)
         self.config['port']=server.server_port;self.path.write_text(json.dumps(self.config))
         status=self.service.status('http://127.0.0.1:'+str(server.server_port))
-        self.assertEqual(status,{'state':'ready','can_start':False,'remaining_turns':0})
-        self.assertEqual(json.loads(ledger.read_text())['attempted_turns'],1)
+        self.assertEqual(status,{'state':'ready','can_start':False})
+        ledger.write_text('malformed historical verification ledger')
+        self.assertEqual(self.service.status('http://127.0.0.1:'+str(server.server_port)),status)
+        self.assertEqual(ledger.read_text(),'malformed historical verification ledger')
 
     def test_wrong_provider_listener_never_launches_replacement(self):
         from io import BytesIO
@@ -150,7 +155,7 @@ class RunnerServiceTests(unittest.TestCase):
             self.assertEqual(self.service.start()['state'], 'starting')
             command = spawn.call_args.args[0]
             self.assertEqual(command[command.index('--port') + 1], str(self.config['port']))
-            self.assertEqual(command[command.index('--max-model-turns') + 1], '1')
+            self.assertNotIn('--max-model-turns', command)
             self.assertFalse(self.service.start('http://127.0.0.1:12345')['can_start'])
             self.assertEqual(spawn.call_count, 1)
 

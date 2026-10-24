@@ -2110,12 +2110,7 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                     self._reply(200, runner.model_catalog())
                     return
                 if parts == ['v1', 'health']:
-                    ledger = runner.state / 'turn-ledger.json'
-                    consumed = _read(ledger).get('attempted_turns', 0) if ledger.exists() else 0
-                    if type(consumed) is not int or consumed < 0:
-                        raise RunnerError('invalid_turn_ledger')
-                    self._reply(200, {'status': 'ready', 'provider': getattr(runner, 'provider', 'codex'),
-                                     'remaining_turns': max(0, runner.max_model_turns - consumed)})
+                    self._reply(200, {'status': 'ready', 'provider': getattr(runner, 'provider', 'codex')})
                     return
                 if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
                     from .runner_activity import read_feed

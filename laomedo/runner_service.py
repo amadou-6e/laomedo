@@ -33,17 +33,18 @@ class RunnerService:
         if self.config_path is None:
             return None
         value = json.loads(self.config_path.read_text(encoding='utf-8'))
-        required = {'provider', 'state', 'skill_store', 'source', 'port', 'max_model_turns'}
+        required = {'provider', 'state', 'skill_store', 'source', 'port'}
         if not isinstance(value, dict) or value.get('provider') not in {'codex', 'claude'}:
             raise ValueError('invalid_runner_service_config')
+        # Retire persisted preview-only ceilings when reading older host configs.
+        value = dict(value)
+        value.pop('max_model_turns', None)
         if value['provider'] == 'claude':
             required.add('executable')
         if set(value) != required:
             raise ValueError('invalid_runner_service_config')
         if type(value['port']) is not int or not 1 <= value['port'] <= 65535:
             raise ValueError('invalid_runner_service_port')
-        if type(value['max_model_turns']) is not int or value['max_model_turns'] < 0:
-            raise ValueError('invalid_runner_service_budget')
         for key in ('state', 'skill_store', 'source') + (('executable',) if value['provider'] == 'claude' else ()):
             if not isinstance(value[key], str) or not Path(value[key]).is_absolute():
                 raise ValueError('absolute_runner_service_paths_required')
@@ -70,8 +71,7 @@ class RunnerService:
                 return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
             if self.process is not None and self.process.poll() is None:
                 self.ready_process = self.process
-            return {'state': 'ready', 'can_start': False,
-                    'remaining_turns': health.get('remaining_turns')}
+            return {'state': 'ready', 'can_start': False}
         except HTTPError:
             return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
         except (URLError, TimeoutError, OSError):
@@ -111,10 +111,10 @@ class RunnerService:
                 str(Path(__file__).resolve().parents[1]), module,
                 '--state', config['state'], '--skill-store', config['skill_store'],
                 '--source' if config['provider'] == 'claude' else '--source-workspace', config['source'],
-                '--port', str(config['port']), '--max-model-turns', str(config['max_model_turns'])]
+                '--port', str(config['port'])]
             if config['provider'] == 'claude':
                 command.extend(['--executable', config['executable']])
-            # The trusted host supplies all paths and the fixed turn ceiling.
+            # The trusted host supplies all paths.
             # Neither browser inputs nor model outputs become process arguments.
             env = service_environment(config['provider'])
             log_path = Path(config['state']) / 'service-startup.log'
