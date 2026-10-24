@@ -98,7 +98,7 @@ test("a stale pre-click availability response cannot undo the starting state", a
 test("a process that exits during startup explains the failure rather than just saying offline", async () => {
  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
  render(<RunnerRecovery message={failure}/>);
- await screen.findByText(/did not start.*host startup log/);
+ await screen.findByText(/exited before becoming ready.*host startup log/);
  expect(screen.getByRole("button",{name:"Restart local backend"})).toBeEnabled();
 });
 

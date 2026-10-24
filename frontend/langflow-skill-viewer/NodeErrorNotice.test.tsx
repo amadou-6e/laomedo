@@ -43,3 +43,5 @@ test("node popovers never mount app recovery controls", () => {
   render(<NodeErrorNotice message="runner_transport_failed" context={{}} />);
   expect(screen.queryByRole("region", { name: "Local backend recovery" })).toBeNull();
 });
+
+jest.mock("@/components/ui/button", () => ({ Button: ({ size, ...props }: any) => <button {...props} /> }));
