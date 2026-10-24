@@ -125,5 +125,5 @@ export function describeLaomedoAlert(alert: { title: string; list?: string[] }, 
     isKnownNodeError(value, laomedoContext));
   if (!raw) return alert;
   const failure = describeNodeFailure(raw, undefined);
-  return { title: failure.title, diagnosticCode: failure.diagnostics.code, list: [failure.description, "Open Error details or expand Technical details for recovery steps and diagnostics."] };
+  return { title: failure.title, diagnosticCode: failure.diagnostics.code, list: [failure.description, failure.recovery] };
 }

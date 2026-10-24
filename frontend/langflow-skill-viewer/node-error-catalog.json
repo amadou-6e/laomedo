@@ -589,6 +589,111 @@
     "description": "The returned model catalogue is empty, invalid or exceeds the supported size.",
     "recovery": "Check the local runner connection and ask the operator to restore its model catalogue. Do not guess provider model identifiers."
   },
+  "catalog_provider_mismatch": {
+    "title": "The model list belongs to another runner",
+    "description": "The configured endpoint did not identify itself as the Claude runner.",
+    "recovery": "Check Runner URL in Advanced controls and select the Claude runner service, then refresh Model. Refresh does not submit a model turn."
+  },
+  "unsupported_claude_effort": {
+    "title": "This Claude model does not support that effort",
+    "description": "The selected reasoning effort is not supported by the current Claude model or adapter.",
+    "recovery": "Refresh Model, select the intended model, and choose one of its listed Reasoning Effort values. Models without effort support use Default automatically."
+  },
+  "claude_model_required": {
+    "title": "Choose an available Claude model",
+    "description": "The requested model is missing, invalid or absent from the current Claude Code model picker.",
+    "recovery": "Refresh Model and select a listed Claude model. If the list cannot be loaded, check Runner URL and the runner service before submitting work."
+  },
+  "unsupported_claude_cli_version": {
+    "title": "The Claude Code version is unsupported",
+    "description": "The installed Claude Code executable does not match the adapter's pinned version.",
+    "recovery": "Ask the operator to configure the supported Claude Code version shown in the adapter documentation, then start the runner service."
+  },
+  "claude_subscription_override_refused": {
+    "title": "Claude subscription mode is not configured safely",
+    "description": "A provider or credential override could route this subscription-backed runner through a different account or billing method.",
+    "recovery": "Ask the operator to remove conflicting provider overrides from the dedicated runner environment and use the existing Claude Code subscription login. Never paste credentials into the graph."
+  },
+  "claude_subscription_unavailable": {
+    "title": "The Claude subscription login is unavailable",
+    "description": "The runner could not confirm an active Claude Code subscription login.",
+    "recovery": "Ask the operator to check Claude Code authentication on the runner host. Restore the subscription login there, then refresh Model; never paste login material into the graph."
+  },
+  "claude_proposal_scope_only": {
+    "title": "This Claude node can only propose changes",
+    "description": "The request included a direct GitHub authorization or execution handoff that this proposal adapter does not support.",
+    "recovery": "Send the proposed answer to the authorized Skill or GitHub Operation input. Remove direct execution or GitHub authorization from the Claude request."
+  },
+  "claude_prompt_too_large": {
+    "title": "The Claude input is too large",
+    "description": "The task and pinned skill context exceed this adapter's supported prompt size.",
+    "recovery": "Reduce the task or pinned skill context before submitting work. Keep the intended skill revision and operation authorization explicit."
+  },
+  "claude_receipt_too_large": {
+    "title": "The Claude response exceeded the capture limit",
+    "description": "The runner could not safely capture the complete native response, so it cannot confirm a usable result.",
+    "recovery": "Check the existing run and ask the operator to inspect its retained evidence before starting another request. Do not assume a replacement turn is necessary or authorized."
+  },
+  "claude_terminal_receipt_invalid": {
+    "title": "The Claude completion receipt could not be read",
+    "description": "The native response did not contain a valid completion receipt for this adapter.",
+    "recovery": "Check the existing run and ask the operator to inspect its retained evidence before starting another request. Do not treat an unreadable receipt as a confirmed failed execution."
+  },
+  "claude_session_identity_mismatch": {
+    "title": "The Claude response belongs to a different session",
+    "description": "The native completion receipt did not match the session bound to this run.",
+    "recovery": "Keep the original run reference and ask the operator to reconcile the retained session evidence before starting another request. Do not substitute session identifiers."
+  },
+  "claude_native_turn_failed": {
+    "title": "Claude did not return a successful turn",
+    "description": "The native Claude receipt reported an unsuccessful result. The underlying cause is not established by this code.",
+    "recovery": "Check the existing run and its recorded diagnostics with the operator before starting another request. Confirm subscription availability and the remaining allowance without assuming either caused the failure."
+  },
+  "claude_native_turn_limit_mismatch": {
+    "title": "Claude exceeded the expected turn boundary",
+    "description": "The native receipt did not match the adapter's single-turn and no-subagent boundary.",
+    "recovery": "Ask the operator to reconcile the existing run, session and allowance evidence before starting another request. Do not increase the allowance to bypass this check."
+  },
+  "claude_process_failed": {
+    "title": "The Claude process did not finish successfully",
+    "description": "The native process ended without a confirmed successful receipt. This code does not establish the underlying cause.",
+    "recovery": "Check the existing run and ask the operator to inspect its retained diagnostics before starting another request. Do not repeat work whose outcome is uncertain."
+  },
+  "claude_parent_stop_unverified": {
+    "title": "Claude process shutdown could not be confirmed",
+    "description": "The runner could not confirm that the native parent process stopped.",
+    "recovery": "Ask the operator to inspect the existing process and run state before starting another request. Do not assume cancellation or timeout stopped all activity."
+  },
+  "claude_turn_timeout": {
+    "title": "Claude did not finish within the allowed time",
+    "description": "No successful native completion was confirmed before the turn timeout.",
+    "recovery": "Check the existing run and ask the operator to confirm process state before starting another request. A timeout does not authorize another model turn."
+  },
+  "claude_cancelled": {
+    "title": "The Claude operation was cancelled",
+    "description": "Cancellation was requested and no successful answer is available from this attempt.",
+    "recovery": "Check the existing run to confirm its final state before starting another request. Keep any retained answer or operation evidence until the outcome is reconciled."
+  },
+  "pinned_skill_workspace_changed": {
+    "title": "The pinned Claude skill context changed",
+    "description": "The staged skill files no longer match the revision pinned to this run.",
+    "recovery": "Ask the operator to inspect the retained workspace and restore a verified skill revision. Check the existing run before starting replacement work."
+  },
+  "activity_attempt_already_exists": {
+    "title": "Activity capture already exists for this attempt",
+    "description": "The runner refused to replace an existing activity boundary for this attempt.",
+    "recovery": "Inspect the existing run in Agents and ask the operator to reconcile its activity evidence before starting another request. Do not reset the allowance or overwrite the existing attempt."
+  },
+  "run_not_active_in_this_process": {
+    "title": "This runner cannot stop the existing process",
+    "description": "The run is not owned as an active process by this runner instance.",
+    "recovery": "Check the existing run and ask the operator to inspect the original runner process before starting another request. Do not interpret this refusal as confirmed cancellation."
+  },
+  "run_not_dispatchable": {
+    "title": "This run cannot be started in its current state",
+    "description": "The existing run is no longer in a state that accepts dispatch.",
+    "recovery": "Inspect the existing run and recorded activity before starting another request. Use its current lifecycle state rather than repeating the original dispatch."
+  },
   "empty_token": {
     "title": "The runner credential is empty",
     "description": "The local runner credential file contains no usable token.",

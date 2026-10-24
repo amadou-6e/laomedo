@@ -3,6 +3,25 @@ import catalog from "./node-error-catalog.json";
 
 const run = "11111111-1111-4111-8111-111111111111";
 const request = "22222222-2222-4222-8222-222222222222";
+test("Claude model failures retain their code and redact native payload details",()=>{
+ const failure=describeNodeFailure('Error building Component LaomedoClaudeAgent: \n\nunsupported_claude_effort; private-native-payload',undefined,
+  {nodeId:'agent',nodeType:'LaomedoClaudeAgent',operation:'fresh'});
+ expect(failure.title).toBe('This Claude model does not support that effort');
+ expect(failure.recovery).toContain('Reasoning Effort');
+ expect(failure.diagnostics.code).toBe('unsupported_claude_effort');
+ expect(JSON.stringify(failure)).not.toContain('private-native-payload');
+ const unknown=describeNodeFailure('claude_future_failure_2',undefined,{nodeType:'LaomedoClaudeAgent'});
+ expect(unknown.diagnostics.code).toBe('claude_future_failure_2');
+ expect(unknown.description).toContain('cause has not been established');
+ expect(unknown.recovery).toContain('before starting another request');
+});
+test("a model-refresh alert gives usable recovery without inventing an error-details control",()=>{
+ const value=describeLaomedoAlert({title:'Refresh failed',list:['runner_model_catalog_unavailable_check_runner_connection']},true);
+ expect(value.title).toBe('The model list could not be loaded');
+ expect(value.list?.join(' ')).toContain('refresh Model');
+ expect(value.list?.join(' ')).not.toContain('Open Error details');
+ expect(value.diagnosticCode).toBe('runner_model_catalog_unavailable_check_runner_connection');
+});
 test.each(Object.keys(catalog))("maps %s without mutating its stable code", code => {
   const failure = describeNodeFailure(code, undefined, { nodeId: "agent", operation: "resume" });
   expect(failure.diagnostics.code).toBe(code);
