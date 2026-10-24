@@ -99,3 +99,13 @@ the same node/provider/native session within the current graph. It navigates to
 recorded evidence; it does not dispatch Resume or claim that missing history was
 captured. The Gantt and breadcrumbs replace the raw thread-links disclosure; no additional
 technical-details disclosure is added. The existing Node identity control is retained.
+
+
+The graph timeline uses one row per captured agent conversation within an invocation.
+The main row uses the recorded graph node name; child rows use observed titles.
+Turns are clickable intervals on those rows, never separate rows. Only positive,
+valid captured turn intervals are drawn, clipped to the existing graph-execution
+axis. There is no green invocation-duration or conversation-envelope bar bridging
+startup, cleanup or idle gaps. The axis still uses invocation receipt start/end
+boundaries. Row labels select the conversation, segments select their native turn,
+and All activity restores invocation-wide evidence.

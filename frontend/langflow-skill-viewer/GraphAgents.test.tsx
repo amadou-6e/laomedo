@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection } from "./index";
+import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
@@ -23,7 +23,7 @@ beforeEach(()=>{jest.clearAllMocks();canvasNodes=[];activityTarget=null});
 test("recorded names survive canvas rename and older runs use the visible canvas name",async()=>{
   canvasNodes=[{id:"node-one",data:{node:{display_name:"Renamed on canvas"}}},{id:"node-two",data:{node:{display_name:"Follow up"}}}];
   const first={...run("one","execution"),node_label:"Review PR"},second=run("two","execution");
-  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,second]}:{run:first,projection,truncated:false}}));
+  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,second]}:{run:url.endsWith("/two")?second:first,projection,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:"Review PR · completed"}));
   await screen.findByRole("heading",{name:"Review PR"});
@@ -82,6 +82,8 @@ test("conversation follows diagnostics, roles differ and command evidence starts
  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,items},truncated:true}}));
  const {container}=render(<GraphAgents flowId="flow"/>);
  fireEvent.click(await screen.findByRole("button",{name:"node-one · completed"}));
+ await screen.findByRole("navigation",{name:"Activity selection"});
+ fireEvent.click(screen.getByRole("button",{name:"All activity",exact:true}));
  const conversation=await screen.findByRole("region",{name:"Conversation messages and tools"});
  expect(screen.getByRole("region",{name:"Usage and diagnostics"}).compareDocumentPosition(conversation)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  expect(conversation).toHaveAttribute("tabindex","0");
@@ -216,7 +218,7 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/,exact:false}));
   expect(await screen.findByText("First child answer")).toBeInTheDocument();expect(screen.queryByText("Parent answer")).toBeNull();
-  fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed$/}));
+  fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed, /}));
   expect(screen.queryByText("Second child answer")).toBeNull();
   expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
   expect(screen.getAllByRole("region",{name:"OpenTelemetry records"})).toHaveLength(1);
@@ -233,4 +235,30 @@ test("unpriced observations show Unknown instead of an artificial cost axis",()=
   render(<UsageCharts projection={{...projection,usage_points:[{at:"2026-10-23T14:00:01Z",thread:"parent",usage:{inputTokens:10},cost:{amount:null}}]} as any}/>);
   expect(screen.getByRole("img",{name:"Estimated cost unavailable"})).toHaveTextContent("Unknown");
   expect(screen.queryByRole("figure",{name:"Cumulative estimated cost chart"})).toBeNull();
+});
+
+test("agent rows contain separate turn segments, preserve idle gaps and do not draw an invocation bar",async()=>{
+ const first=run("one","execution"),start="2026-10-15T10:00:00Z",end="2026-10-15T10:00:40Z";
+ const turn=(id:string,thread:string,a:number,b:number)=>({id,thread,started:`2026-10-15T10:00:${String(a).padStart(2,"0")}Z`,ended:`2026-10-15T10:00:${String(b).padStart(2,"0")}Z`,status:"completed"});
+ const p={...projection,threads:[{id:"one",parent:null},{id:"child",parent:"one",title:"Review changes"}],turns:[turn("a","one",10,12),turn("b","one",20,24),turn("c","child",14,16)]};
+ (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[{...first,started:start,ended:end}]}:{run:{...first,started:start,ended:end},projection:p,truncated:false}}));
+ render(<GraphAgents flowId="flow"/>);
+ await waitFor(()=>expect(screen.getAllByTestId("agent-turn-bar")).toHaveLength(3));
+ const rows=screen.getAllByTestId("agent-timeline-row");expect(rows).toHaveLength(2);
+ expect(rows[0].querySelectorAll('[data-testid="agent-turn-bar"]')).toHaveLength(2);
+ expect(screen.getAllByTestId("agent-turn-bar").map(bar=>bar.style.left)).toEqual(["25%","50%","35%"]);
+ expect(screen.getAllByTestId("agent-turn-bar").map(bar=>bar.style.width)).toEqual(["5%","10%","5%"]);
+ expect(screen.queryByRole("button",{name:/40.0s/})).toBeNull();
+ expect(screen.getByText("40.0 seconds")).toBeInTheDocument();
+ expect(screen.getByTestId("agent-timeline-axis")).toHaveAttribute("data-start",String(Date.parse(start)));
+ expect(screen.getByTestId("agent-timeline-axis")).toHaveAttribute("data-end",String(Date.parse(end)));
+ fireEvent.click(screen.getByRole("button",{name:/^Turn 2.*Main conversation/}));
+ expect(screen.getByRole("navigation",{name:"Activity selection"})).toHaveTextContent("Turn 2");
+});
+
+test("turn segments are clipped to the unchanged axis and empty intervals stay blank",()=>{
+ const lane=(a:string,b:string|null)=>({id:"t",started:a,ended:b});const start=Date.parse("2026-10-15T10:00:00Z"),end=start+40000;
+ expect(turnPosition(lane("2026-10-15T10:00:10Z","2026-10-15T10:00:10Z"),start,end)).toBeNull();
+ expect(turnPosition(lane("bad",null),start,end)).toBeNull();
+ expect(turnPosition(lane("2026-10-15T09:59:59Z","2026-10-15T10:00:02Z"),start,end)).toEqual({left:0,width:5});
 });
