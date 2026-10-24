@@ -143,7 +143,7 @@ class OpenCodeRunner(LocalRunner):
 
     def _verify_pinned_skills(self, workspace, record):
         skills = record.get("skills")
-        if not isinstance(skills, list) or not skills:
+        if not isinstance(skills, list):
             raise RunnerError("pinned_skill_record_invalid")
         expected = {skill.get("skill_id"): skill.get("tree_hash") for skill in skills
                     if isinstance(skill, dict)}

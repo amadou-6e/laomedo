@@ -26,6 +26,23 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             missing.extend(code for code in codes if code not in catalogue)
         self.assertEqual(missing,[],'Every Claude runner public error needs a shared explanation and recovery')
 
+    def test_affected_runner_skill_preparation_and_workspace_errors_are_catalogued(self):
+        catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        producers={'local_runner.py':{'_prepare','_materialize'},
+                   'opencode_runner.py':{'_verify_pinned_skills'},
+                   'workspace_skills.py':{'verify','install','_exclude'}}
+        missing=[]
+        for filename,names in producers.items():
+            tree=ast.parse((ROOT/'laomedo'/filename).read_text())
+            for function in ast.walk(tree):
+                if not isinstance(function,ast.FunctionDef) or function.name not in names:continue
+                for node in ast.walk(function):
+                    if not (isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call) and node.exc.args):continue
+                    value=node.exc.args[0]
+                    if isinstance(value,ast.Constant) and isinstance(value.value,str) and value.value not in catalogue:
+                        missing.append(f'{filename}:{node.lineno}:{value.value}')
+        self.assertEqual(missing,[],'Affected runner skill validation needs shared explanations and recovery')
+
     def test_literal_agent_failures_have_descriptive_catalogue_entries(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         missing = []

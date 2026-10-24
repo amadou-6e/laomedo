@@ -149,3 +149,8 @@ The shared Agent editor rejects discovery responses for an older model or runner
 selection. It preserves a reasoning-effort edit only while that value remains in
 the newly selected model's native options; a no-effort model switches to
 `default`. Searching the model list keeps the selected friendly label visible.
+
+Skill References are optional. An Agent can execute its task with no connected
+Skill node; the request and run history record an empty skill list. Connected
+skills still require immutable revisions and retain hash, duplicate and count
+validation. Resume keeps the original run's selected skill set, including none.

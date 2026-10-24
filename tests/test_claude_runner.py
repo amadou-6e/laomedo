@@ -14,6 +14,23 @@ from laomedo.output_contract import requirements
 
 
 class ClaudeRunnerTests(unittest.TestCase):
+    def test_no_skills_produces_empty_prompt_bundle_and_preserves_resume_binding(self):
+        payload={key:value for key,value in self.payload.items() if key!='skill_ref'}
+        payload['task']='Answer the task without skills'
+        with patch.object(self.runner.store,'revision',side_effect=AssertionError('no skill lookup')), self.invoke():
+            result=self.runner.start(payload)
+            self.assertEqual(result['status'],'completed')
+            self.assertEqual(result['skills'],[])
+            self.assertIsNone(result['skill'])
+            root=self.runner._run_dir(result['run_id'])
+            prompt=json.loads(self.runner._prompt(root,result,payload['task']))
+            self.assertEqual(prompt['pinned_skills'],[])
+            self.assertEqual(prompt['task'],payload['task'])
+            resumed=self.runner.resume(result['run_id'],'continue',expected_post_run_hash=result['post_run_hash'],
+                expected_thread_id=result['thread_id'],model='sonnet',effort='low')
+            self.assertEqual(resumed['status'],'completed')
+            self.assertEqual(resumed['skills'],[])
+
     def test_catalog_does_not_dispatch_or_claim_model_execution(self):
         before=(self.runner.state/'turn-ledger.json').exists()
         with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \

@@ -10,7 +10,7 @@ from laomedo.claude_models import EFFORTS
 
 class LaomedoClaudeAgent(Component):
     display_name = "Laomedo Claude Agent"
-    description = "Run pinned skills and validated operation proposals through Claude Code."
+    description = "Run tasks and validated operation proposals through Claude Code, with optional pinned skills."
     name = "LaomedoClaudeAgent"
     activity_provider = "claude-code"
     inputs = [deepcopy(item) for item in Component.inputs if item.name not in

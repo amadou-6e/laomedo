@@ -844,8 +844,9 @@ class ObsoleteAgentControlTests(unittest.TestCase):
         payload = node._prepare_request()[1]
         self.assertNotEqual(payload["request_id"], "legacy-id")
         self.assertEqual(payload["skill_ref"]["skill_id"], "authoritative")
-        with self.assertRaisesRegex(ValueError, "skill_reference_required_use_skill_node"):
-            component(skill_reference=None)._prepare_request()
+        payload = component(skill_reference=None)._prepare_request()[1]
+        self.assertEqual(payload["skill_refs"], [])
+        self.assertNotIn("skill_ref", payload)
 
 
 class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):

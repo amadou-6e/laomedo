@@ -96,6 +96,21 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(config['effort']['options'],['low','max'])
         self.assertEqual(config['effort']['value'],'max')
 
+    def test_skills_are_optional_but_connected_references_are_validated(self):
+        for value in (None, "", []):
+            with self.subTest(value=value):
+                payload=self.node(skill_reference=value)._prepare()[1]
+                self.assertEqual(payload['skill_refs'],[])
+                self.assertNotIn('skill_ref',payload)
+        for value in ({}, [None], {'skill_id':'broken'}):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError,'invalid_skill_reference'):
+                self.node(skill_reference=value)._prepare()
+        ref={'skill_id':'sample','revision_id':'sha256:'+'a'*64,'tree_hash':'sha256:'+'a'*64}
+        with self.assertRaisesRegex(ValueError,'duplicate_skill_id'):
+            self.node(skill_reference=[ref,ref])._prepare()
+        with self.assertRaisesRegex(ValueError,'one_to_sixteen_skills_required'):
+            self.node(skill_reference=[ref]*17)._prepare()
+
     def node(self, **changes):
         node = LaomedoClaudeAgent()
         for key, value in {'operation': 'fresh', 'task': 'Internal control', 'model': 'sonnet',

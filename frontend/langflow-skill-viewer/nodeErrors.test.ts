@@ -117,3 +117,12 @@ test("a mixed graph leaves another component's snake case alert intact", () => {
  expect(describeLaomedoAlert(other, true)).toBe(other);
  expect(describeLaomedoAlert({ title: "Failure", list: ["Error building Component LaomedoClaudeAgent: \n\nfuture_condition_240"] }, true).diagnosticCode).toBe("future_condition_240");
 });
+
+test('invalid connected skills describe the optional zero-skill path without losing diagnostics',()=>{
+ const failure=describeNodeFailure('invalid_skill_reference',undefined);
+ expect(failure.description).toContain('Skills are optional');
+ expect(failure.recovery).toContain('disconnect Skill References');
+ expect(failure.diagnostics.code).toBe('invalid_skill_reference');
+ expect(JSON.stringify(describeNodeFailure('Bearer sk-private-value',undefined))).not.toContain('private-value');
+ expect(describeNodeFailure('one_to_sixteen_skills_required',undefined).description).toContain('more than sixteen');
+});
