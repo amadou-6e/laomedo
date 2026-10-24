@@ -99,6 +99,15 @@ not new live correction, resume, cancellation, subagents or writable tool use.
 
 ## Current develop compatibility
 
+The [current template export](current-template-flow.json) contains the node
+inspected in the live preview, with the native model catalogue and shared
+Advanced controls. It defaults to Status for the previously completed real run;
+it requires that runner's retained state and does not grant a new model turn.
+The [model discovery proof](model-discovery-proof.json) records the actual CLI
+picker comparison, refresh, model/effort selection, reload, light/dark/narrow
+views, and real pre-dispatch invalid-effort validation. Historical executed
+exports above retain their original tested component source.
+
 The current builder uses an independent read-only Skill node connected to the
 Agent's Skill References input, matching current develop. The edit target still
 connects Task and receives Operation feedback. Earlier executed two-node exports
@@ -124,6 +133,12 @@ metadata before creating a run. A failed refresh reports the existing model-list
 error and never falls back to an invented list. Discovery has an 18-second CLI
 timeout plus a 5-second authentication check, below the editor's 30-second
 request timeout; concurrent refreshes cannot spawn overlapping catalogue CLIs.
+
+The shared descriptive error presenter from PR #181 is included in this branch.
+Claude runner failures have explicit catalogue entries and an additional
+producer-specific coverage check, including named error codes. Model refresh
+alerts show actionable recovery directly; graph failures retain the original
+code under Technical details. Unknown failures use the shared safe fallback.
 
 Runner availability recovery is tracked separately in issue #182 / PR #183.
 The inspection preview defaults to Status on the existing completed run; starting

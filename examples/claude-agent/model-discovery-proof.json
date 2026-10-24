@@ -1,0 +1,268 @@
+{
+  "recorded_at": "2026-10-24T09:09:54.951210+00:00",
+  "implementation_revision": "6455dd64d3ad7c10cc9b025551e9881a66818e6d",
+  "develop_revision": "36942faea5d0e318d33fff9fa728c5b25171ed24",
+  "catalog": {
+    "models": [
+      {
+        "id": "default",
+        "name": "Default (recommended)",
+        "resolved_model": "claude-opus-5-5",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "opus",
+        "name": "Opus 5.5",
+        "resolved_model": "claude-opus-5-5",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "sonnet",
+        "name": "Sonnet 5.5",
+        "resolved_model": "claude-sonnet-5-5",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "fable",
+        "name": "Fable 5.1",
+        "resolved_model": "claude-fable-5-1",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "haiku",
+        "name": "Haiku 5.5",
+        "resolved_model": "claude-haiku-5-5",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "claude-haiku-4-5-20251001",
+        "name": "Haiku 4.5",
+        "resolved_model": "claude-haiku-4-5-20251001",
+        "efforts": [
+          "default"
+        ]
+      },
+      {
+        "id": "claude-sonnet-5",
+        "name": "Sonnet 5",
+        "resolved_model": "claude-sonnet-5",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "claude-opus-5",
+        "name": "Opus 5",
+        "resolved_model": "claude-opus-5",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "claude-fable-5",
+        "name": "Fable 5",
+        "resolved_model": "claude-fable-5",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "claude-opus-4-8",
+        "name": "Opus 4.8",
+        "resolved_model": "claude-opus-4-8",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "claude-opus-4-7",
+        "name": "Opus 4.7",
+        "resolved_model": "claude-opus-4-7",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      {
+        "id": "claude-opus-4-6",
+        "name": "Opus 4.6",
+        "resolved_model": "claude-opus-4-6",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ]
+      },
+      {
+        "id": "claude-sonnet-4-6",
+        "name": "Sonnet 4.6",
+        "resolved_model": "claude-sonnet-4-6",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ]
+      }
+    ],
+    "native_picker_match": true,
+    "model_count": 13,
+    "submitted_turns": 0,
+    "ledger_unchanged": true,
+    "source": "claude_cli_initialize",
+    "concurrent_real_refreshes": 2,
+    "concurrent_seconds": 5.344
+  },
+  "dropdown": {
+    "native_model_count": 13,
+    "all_native_ids_and_names_matched": true,
+    "refresh_http_200": true,
+    "selection_preserved": true,
+    "selected_fable_max": true,
+    "no_effort_model_default": true,
+    "reload_preserved": true,
+    "updates": [
+      {
+        "path": "/api/v1/custom_component/update",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/custom_component/update",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/custom_component/update",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/custom_component/update",
+        "status": 200
+      },
+      {
+        "path": "/api/v1/custom_component/update",
+        "status": 200
+      }
+    ],
+    "page_errors": [],
+    "model_graph_dispatches": 0
+  },
+  "views": [
+    {
+      "theme": "light",
+      "width": 1600,
+      "height": 1050,
+      "load_and_capture_ms": 21535,
+      "native_labels": true,
+      "resolved_ids": true,
+      "search": true,
+      "page_errors": [],
+      "model_graph_dispatches": 0
+    },
+    {
+      "theme": "dark",
+      "width": 1600,
+      "height": 1050,
+      "load_and_capture_ms": 18776,
+      "native_labels": true,
+      "resolved_ids": true,
+      "search": true,
+      "page_errors": [],
+      "model_graph_dispatches": 0
+    },
+    {
+      "theme": "dark",
+      "width": 1080,
+      "height": 800,
+      "load_and_capture_ms": 19211,
+      "native_labels": true,
+      "resolved_ids": true,
+      "search": true,
+      "page_errors": [],
+      "model_graph_dispatches": 0
+    }
+  ],
+  "real_pre_dispatch_validation": {
+    "graph": "http://127.0.0.1:7894/flow/fa9ecdcd-65b3-4051-b14b-04534a22b2ab",
+    "real_component_guard": true,
+    "new_native_turns": 0,
+    "results": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "explanation": true,
+        "original_code_preserved": true,
+        "technical_details": true,
+        "no_generic_retry": true,
+        "elapsed_ms": 1896,
+        "page_errors": []
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "explanation": true,
+        "original_code_preserved": true,
+        "technical_details": true,
+        "no_generic_retry": true,
+        "elapsed_ms": 1766,
+        "page_errors": []
+      }
+    ]
+  },
+  "native_model_turns_added": 0,
+  "attempted_native_turns": 1,
+  "approved_native_turns": 1,
+  "execution_boundary": "Configuration and metadata discovery were exercised. Status retrieves the earlier real answer. No new model task, Fable/max inference, or unsupported-model inference is claimed.",
+  "runner_lifecycle_note": "The API process stopped without a terminal error in its service log during capture. Its cause is unestablished. The explicit UI start restored it; final health and Status checks passed."
+}
