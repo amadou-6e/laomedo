@@ -1,6 +1,6 @@
 {
-  "recorded_at": "2026-10-24T09:09:54.951210+00:00",
-  "implementation_revision": "6455dd64d3ad7c10cc9b025551e9881a66818e6d",
+  "recorded_at": "2026-10-24T18:11:02.807974+00:00",
+  "implementation_revision": "57b1cf2de120a16555978ee505b06ebb4177c85b",
   "develop_revision": "36942faea5d0e318d33fff9fa728c5b25171ed24",
   "catalog": {
     "models": [
@@ -161,7 +161,7 @@
     "ledger_unchanged": true,
     "source": "claude_cli_initialize",
     "concurrent_real_refreshes": 2,
-    "concurrent_seconds": 5.344
+    "concurrent_seconds": 2.437
   },
   "dropdown": {
     "native_model_count": 13,
@@ -173,24 +173,70 @@
     "reload_preserved": true,
     "updates": [
       {
-        "path": "/api/v1/custom_component/update",
-        "status": 200
+        "field": "model",
+        "value": "sonnet",
+        "status": 200,
+        "model": "sonnet",
+        "effort": "low",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
       },
       {
-        "path": "/api/v1/custom_component/update",
-        "status": 200
+        "field": "runner_url",
+        "value": "http://127.0.0.1:53920",
+        "status": 200,
+        "model": "sonnet",
+        "effort": "low",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
       },
       {
-        "path": "/api/v1/custom_component/update",
-        "status": 200
+        "field": "model",
+        "value": "claude-haiku-4-5-20251001",
+        "status": 200,
+        "model": "claude-haiku-4-5-20251001",
+        "effort": "default",
+        "efforts": [
+          "default"
+        ]
       },
       {
-        "path": "/api/v1/custom_component/update",
-        "status": 200
+        "field": "model",
+        "value": "fable",
+        "status": 200,
+        "model": "fable",
+        "effort": "low",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
       },
       {
-        "path": "/api/v1/custom_component/update",
-        "status": 200
+        "field": "model",
+        "value": "sonnet",
+        "status": 200,
+        "model": "sonnet",
+        "effort": "",
+        "efforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
       }
     ],
     "page_errors": [],
@@ -201,7 +247,7 @@
       "theme": "light",
       "width": 1600,
       "height": 1050,
-      "load_and_capture_ms": 21535,
+      "load_and_capture_ms": 25631,
       "native_labels": true,
       "resolved_ids": true,
       "search": true,
@@ -212,7 +258,7 @@
       "theme": "dark",
       "width": 1600,
       "height": 1050,
-      "load_and_capture_ms": 18776,
+      "load_and_capture_ms": 24952,
       "native_labels": true,
       "resolved_ids": true,
       "search": true,
@@ -223,7 +269,7 @@
       "theme": "dark",
       "width": 1080,
       "height": 800,
-      "load_and_capture_ms": 19211,
+      "load_and_capture_ms": 26159,
       "native_labels": true,
       "resolved_ids": true,
       "search": true,
@@ -232,7 +278,7 @@
     }
   ],
   "real_pre_dispatch_validation": {
-    "graph": "http://127.0.0.1:7894/flow/fa9ecdcd-65b3-4051-b14b-04534a22b2ab",
+    "graph": "http://127.0.0.1:7898/flow/fa9ecdcd-65b3-4051-b14b-04534a22b2ab",
     "real_component_guard": true,
     "new_native_turns": 0,
     "results": [
@@ -244,7 +290,7 @@
         "original_code_preserved": true,
         "technical_details": true,
         "no_generic_retry": true,
-        "elapsed_ms": 1896,
+        "elapsed_ms": 1745,
         "page_errors": []
       },
       {
@@ -255,7 +301,7 @@
         "original_code_preserved": true,
         "technical_details": true,
         "no_generic_retry": true,
-        "elapsed_ms": 1766,
+        "elapsed_ms": 1221,
         "page_errors": []
       }
     ]
@@ -264,5 +310,51 @@
   "attempted_native_turns": 1,
   "approved_native_turns": 1,
   "execution_boundary": "Configuration and metadata discovery were exercised. Status retrieves the earlier real answer. No new model task, Fable/max inference, or unsupported-model inference is claimed.",
-  "runner_lifecycle_note": "The API process stopped without a terminal error in its service log during capture. Its cause is unestablished. The explicit UI start restored it; final health and Status checks passed."
+  "runner_lifecycle_note": "This dedicated preview retains earlier real execution records and the exhausted1/1 ledger. No native Claude login profile was copied. Discovery uses initialization only, with bounded auth15s + initialize45s under editor75s.",
+  "resolved_selection": {
+    "resolved_model": "claude-sonnet-5-5",
+    "selection_preserved": true,
+    "actual_editor_update_http": 200,
+    "native_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "new_model_turns": 0
+  },
+  "real_status": {
+    "status": "passed",
+    "real_api_restart_via_ui": true,
+    "status_graph_executions": [
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      },
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      },
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      }
+    ],
+    "attempted_model_turns_before": 1,
+    "attempted_model_turns_after": 1,
+    "new_model_turns": 0,
+    "ceiling": 1,
+    "token_and_ledger_reused": true,
+    "api_ready_after_exhaustion": true,
+    "graph_default_operation": "status",
+    "graph_url": "http://127.0.0.1:7898/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1"
+  },
+  "model_selection_ordering": "Real native responses returned Haiku/default before the previous Fable/low response; the UI retained Haiku/default, then Sonnet/low across reload.",
+  "cold_discovery_probes_seconds": [
+    25.734,
+    13.704,
+    16.281
+  ],
+  "timing_boundary": "These are local observations, not latency guarantees. Native discovery remains bounded and reports a descriptive failure on timeout."
 }

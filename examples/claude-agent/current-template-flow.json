@@ -421,7 +421,7 @@
                 "placeholder": "",
                 "show": true,
                 "name": "runner_url",
-                "value": "http://127.0.0.1:59614",
+                "value": "http://127.0.0.1:53920",
                 "display_name": "Runner URL",
                 "advanced": true,
                 "api_editable": false,
@@ -531,6 +531,7 @@
                 ],
                 "selected": "Message",
                 "name": "answer",
+                "hidden": null,
                 "display_name": "Answer",
                 "method": "answer_output",
                 "value": "__UNDEFINED__",
@@ -548,6 +549,7 @@
                 ],
                 "selected": "JSON",
                 "name": "run",
+                "hidden": null,
                 "display_name": "Run Reference",
                 "method": "run_output",
                 "value": "__UNDEFINED__",
@@ -565,6 +567,7 @@
                 ],
                 "selected": "JSON",
                 "name": "submission",
+                "hidden": null,
                 "display_name": "Submission / Outcome",
                 "method": "submission_output",
                 "value": "__UNDEFINED__",
@@ -611,7 +614,7 @@
               }
             },
             "tool_mode": false,
-            "last_updated": "2026-10-24T08:17:13.494Z"
+            "last_updated": "2026-10-24T18:09:00.622Z"
           },
           "showNode": true
         },
