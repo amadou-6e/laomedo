@@ -83,6 +83,15 @@ class RunnerServiceTests(unittest.TestCase):
              patch('laomedo.runner_service.subprocess.Popen') as spawn:
             self.assertEqual(self.service.start(self.url)['state'],'unavailable');spawn.assert_not_called()
 
+    def test_real_loopback_refusal_is_detected_on_this_platform(self):
+        self.probe.side_effect = self.real_connect
+        with socket.socket() as reserved:
+            reserved.bind(('127.0.0.1', 0))
+            self.config['port'] = reserved.getsockname()[1]
+        self.path.write_text(json.dumps(self.config))
+        with patch.object(self.service.opener, 'open', side_effect=URLError('offline')):
+            self.assertEqual(self.service.status()['state'], 'offline')
+
     def test_health_timeout_with_existing_listener_never_starts_replacement(self):
         self.probe.side_effect = None
         self.probe.return_value = Mock(__enter__=Mock(), __exit__=Mock(return_value=False))

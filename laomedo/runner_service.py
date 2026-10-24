@@ -78,7 +78,7 @@ class RunnerService:
         # A health timeout does not prove the process is offline. Never replace
         # a listener whose identity/response cannot be established.
         try:
-            with socket.create_connection(('127.0.0.1', config['port']), timeout=.25):
+            with socket.create_connection(('127.0.0.1', config['port']), timeout=3):
                 return {'state': 'unavailable', 'can_start': False, 'reason': 'runner_identity_unverified'}
         except ConnectionRefusedError:
             return self._offline_state()
