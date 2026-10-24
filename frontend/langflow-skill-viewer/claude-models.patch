@@ -1,0 +1,84 @@
+diff --git a/src/frontend/src/components/core/dropdownComponent/components/DropdownOptionsList.tsx b/src/frontend/src/components/core/dropdownComponent/components/DropdownOptionsList.tsx
+index 63f7cb7..cf1301b 100644
+--- a/src/frontend/src/components/core/dropdownComponent/components/DropdownOptionsList.tsx
++++ b/src/frontend/src/components/core/dropdownComponent/components/DropdownOptionsList.tsx
+@@ -113,9 +113,16 @@ export function DropdownOptionsList({
+                         "pl-2": !filteredMetadata?.[index]?.icon,
+                       })}
+                     >
+-                      <div className="text-[13px] mr-2 whitespace-nowrap flex-shrink-0">
+-                        {option}
+-                      </div>
++                      {filteredMetadata?.[index]?.laomedo_native_model === true && typeof filteredMetadata[index]?.display_name === "string" ? (
++                        <div className="min-w-0 flex-1 py-1">
++                          <div className="truncate text-[13px]">{filteredMetadata[index].display_name}</div>
++                          <div className="truncate text-xs text-muted-foreground" title={filteredMetadata[index].resolved_model || option}>
++                            {filteredMetadata[index].resolved_model || option}
++                          </div>
++                        </div>
++                      ) : (
++                        <div className="text-[13px] mr-2 whitespace-nowrap flex-shrink-0">{option}</div>
++                      )}
+                       {filteredMetadata?.[index]?.status && (
+                         <span
+                           className={`flex items-center pl-2 text-xs ${getStatusColor(
+@@ -130,7 +137,7 @@ export function DropdownOptionsList({
+                         </span>
+                       )}
+ 
+-                      {filteredMetadata && filteredMetadata?.length > 0 && (
++                      {filteredMetadata && filteredMetadata?.length > 0 && filteredMetadata[index]?.laomedo_native_model !== true && (
+                         <div className="ml-auto flex items-center overflow-hidden pl-2 text-muted-foreground">
+                           {Object.entries(
+                             filterMetadataKeys(filteredMetadata?.[index] || {}),
+diff --git a/src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx b/src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx
+index 29e7e4d..25e1aeb 100644
+--- a/src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx
++++ b/src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx
+@@ -46,6 +46,7 @@ export function DropdownTrigger({
+   ariaLabelledBy?: string;
+ }) {
+   const { t } = useTranslation();
++  const selectedMetadata = filteredMetadata?.find((item) => item?.id === value);
+ 
+   const renderSelectedIcon = () => {
+     const selectedIndex = filteredOptions.findIndex(
+@@ -100,7 +101,7 @@ export function DropdownTrigger({
+                 <>
+                   {
+                     options?.includes(value) ? (
+-                      value
++                      selectedMetadata?.laomedo_native_model === true && typeof selectedMetadata.display_name === "string" ? selectedMetadata.display_name : value
+                     ) : // this logic is used for the agents component, if you update make sure to test the agent component
+                     sourceOptions?.fields?.data?.node?.name ===
+                       "connect_other_models" ? (
+diff --git a/src/frontend/src/components/core/dropdownComponent/hooks/useDropdownOptions.ts b/src/frontend/src/components/core/dropdownComponent/hooks/useDropdownOptions.ts
+index 27b9e29..732cc42 100644
+--- a/src/frontend/src/components/core/dropdownComponent/hooks/useDropdownOptions.ts
++++ b/src/frontend/src/components/core/dropdownComponent/hooks/useDropdownOptions.ts
+@@ -51,6 +51,11 @@ export function useDropdownOptions({
+   const [filteredMetadata, setFilteredMetadata] = useState(optionsMetaData);
+   const [refreshOptions, setRefreshOptions] = useState(false);
+   const [pendingSelect, setPendingSelect] = useState<string | null>(null);
++  // A metadata-only refresh can retain identical option IDs. Keep the closed
++  // selector label current even when validOptions does not change.
++  useEffect(() => {
++    if (!open) setFilteredMetadata(optionsMetaData);
++  }, [open, optionsMetaData]);
+ 
+   // Reset the value when options are loaded and the current value is not among them.
+   // This is in a useEffect (not useMemo) to avoid calling setState during render.
+@@ -85,6 +90,13 @@ export function useDropdownOptions({
+     // Search existing options
+     const searchValues = fuse.search(value);
+     let filtered = searchValues.map((search) => search.item);
++    if (optionsMetaData?.some((item) => item?.laomedo_native_model === true)) {
++      const term = value.toLowerCase();
++      filtered = validOptions.filter((option) => {
++        const metadata = optionsMetaData.find((item) => item?.id === option && item?.laomedo_native_model === true);
++        return `${option} ${metadata?.display_name || ""} ${metadata?.resolved_model || ""}`.toLowerCase().includes(term);
++      });
++    }
+ 
+     // If the search value exactly matches one of the custom options, include it
+     const customOptions = filteredOptions.filter(

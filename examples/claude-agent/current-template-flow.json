@@ -1,0 +1,636 @@
+{
+  "name": "Claude activity \u2014 inspect verified run",
+  "description": "Run retrieves the completed real Claude turn using Status, without a model call. If its API is offline, use Start runner. Fresh turns require a separately approved allowance.",
+  "data": {
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "genericNode",
+        "position": {
+          "x": 34.7097759945604,
+          "y": 4.903369383381435
+        },
+        "data": {
+          "id": "agent",
+          "type": "LaomedoClaudeAgent",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "output_requirements": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": false,
+                "name": "output_requirements",
+                "value": "",
+                "display_name": "Output Requirements",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "Internal expected-answer contract; dedicated Output Contract connections support automatic discovery.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "run_reference": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": false,
+                "name": "run_reference",
+                "value": "",
+                "display_name": "Prior Run",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "skill_reference": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": true,
+                "list_add_label": "Add More",
+                "trace_as_input": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "skill_reference",
+                "value": "",
+                "display_name": "Skill References",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Data",
+                  "JSON"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "other",
+                "_input_type": "JSONInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "\"\"\"Claude Code client with the shared Agent lifecycle and operation ports.\"\"\"\n\nfrom copy import deepcopy\nimport json\nimport os\n\nfrom laomedo.codex_agent import LaomedoCodexAgent as Component\nfrom laomedo.claude_models import EFFORTS\n\n\nclass LaomedoClaudeAgent(Component):\n    display_name = \"Laomedo Claude Agent\"\n    description = \"Run pinned skills and validated operation proposals through Claude Code.\"\n    name = \"LaomedoClaudeAgent\"\n    activity_provider = \"claude-code\"\n    inputs = [deepcopy(item) for item in Component.inputs if item.name not in\n              {\"bridge_url\", \"handoff_reference\"}]\n    for _field in inputs:\n        if _field.name == 'model':\n            _field.value = 'sonnet'\n            _field.options = []\n            _field.info = ('Refresh the configured Claude runner for the model picker from '\n                           'your signed-in Claude Code account. No prompt or model turn is sent.')\n        elif _field.name == 'effort':\n            _field.value = 'low'\n            _field.options = []\n            _field.info = ('Supported effort levels for the selected Claude model. '\n                           'Default omits the effort override for models without this control.')\n        elif _field.name == 'runner_url':\n            _field.value = 'http://host.docker.internal:8769'\n    del _field\n\n    def _prepare(self):\n        if str(self.effort) not in EFFORTS:\n            raise ValueError(\"unsupported_claude_effort\")\n        prior = getattr(self, \"run_reference\", None)\n        prior = getattr(prior, \"data\", prior)\n        if prior is None and getattr(self, \"run_reference_json\", \"\"):\n            prior = json.loads(self.run_reference_json)\n        if self.operation not in {\"fresh\", \"start\"} and isinstance(prior, dict) and prior.get(\"provider\") != \"claude\":\n            raise ValueError(\"run_provider_mismatch\")\n        return super()._prepare()\n\n    def _token_file_path(self):\n        return self._runner_token_file_path()\n\n    def _runner_token_file_path(self):\n        return os.environ.get(\"LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE\",\n                              \"/run/secrets/laomedo-claude-runner-token\")\n\n    def _http(self, endpoint, payload, method):\n        value = super()._http(endpoint, payload, method)\n        if value.get(\"provider\") != \"claude\":\n            raise RuntimeError(\"runner_provider_mismatch\")\n        return value\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "effort": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "effort",
+                "value": "low",
+                "display_name": "Reasoning Effort",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Supported effort levels for the selected Claude model. Default omits the effort override for models without this control.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              },
+              "model": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [
+                  "default",
+                  "opus",
+                  "sonnet",
+                  "fable",
+                  "haiku",
+                  "claude-haiku-4-5-20251001",
+                  "claude-sonnet-5",
+                  "claude-opus-5",
+                  "claude-fable-5",
+                  "claude-opus-4-8",
+                  "claude-opus-4-7",
+                  "claude-opus-4-6",
+                  "claude-sonnet-4-6"
+                ],
+                "options_metadata": [
+                  {
+                    "id": "default",
+                    "laomedo_native_model": true,
+                    "display_name": "Default (recommended)",
+                    "resolved_model": "claude-opus-5-5"
+                  },
+                  {
+                    "id": "opus",
+                    "laomedo_native_model": true,
+                    "display_name": "Opus 5.5",
+                    "resolved_model": "claude-opus-5-5"
+                  },
+                  {
+                    "id": "sonnet",
+                    "laomedo_native_model": true,
+                    "display_name": "Sonnet 5.5",
+                    "resolved_model": "claude-sonnet-5-5"
+                  },
+                  {
+                    "id": "fable",
+                    "laomedo_native_model": true,
+                    "display_name": "Fable 5.1",
+                    "resolved_model": "claude-fable-5-1"
+                  },
+                  {
+                    "id": "haiku",
+                    "laomedo_native_model": true,
+                    "display_name": "Haiku 5.5",
+                    "resolved_model": "claude-haiku-5-5"
+                  },
+                  {
+                    "id": "claude-haiku-4-5-20251001",
+                    "laomedo_native_model": true,
+                    "display_name": "Haiku 4.5",
+                    "resolved_model": "claude-haiku-4-5-20251001"
+                  },
+                  {
+                    "id": "claude-sonnet-5",
+                    "laomedo_native_model": true,
+                    "display_name": "Sonnet 5",
+                    "resolved_model": "claude-sonnet-5"
+                  },
+                  {
+                    "id": "claude-opus-5",
+                    "laomedo_native_model": true,
+                    "display_name": "Opus 5",
+                    "resolved_model": "claude-opus-5"
+                  },
+                  {
+                    "id": "claude-fable-5",
+                    "laomedo_native_model": true,
+                    "display_name": "Fable 5",
+                    "resolved_model": "claude-fable-5"
+                  },
+                  {
+                    "id": "claude-opus-4-8",
+                    "laomedo_native_model": true,
+                    "display_name": "Opus 4.8",
+                    "resolved_model": "claude-opus-4-8"
+                  },
+                  {
+                    "id": "claude-opus-4-7",
+                    "laomedo_native_model": true,
+                    "display_name": "Opus 4.7",
+                    "resolved_model": "claude-opus-4-7"
+                  },
+                  {
+                    "id": "claude-opus-4-6",
+                    "laomedo_native_model": true,
+                    "display_name": "Opus 4.6",
+                    "resolved_model": "claude-opus-4-6"
+                  },
+                  {
+                    "id": "claude-sonnet-4-6",
+                    "laomedo_native_model": true,
+                    "display_name": "Sonnet 4.6",
+                    "resolved_model": "claude-sonnet-4-6"
+                  }
+                ],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "model",
+                "value": "sonnet",
+                "display_name": "Model",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Refresh the configured Claude runner for the model picker from your signed-in Claude Code account. No prompt or model turn is sent.",
+                "real_time_refresh": true,
+                "refresh_button": true,
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput",
+                "selected_metadata": {
+                  "id": "sonnet",
+                  "laomedo_native_model": true,
+                  "display_name": "Sonnet 5.5",
+                  "resolved_model": "claude-sonnet-5-5"
+                }
+              },
+              "operation": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [
+                  "fresh",
+                  "start",
+                  "resume",
+                  "status",
+                  "cancel"
+                ],
+                "options_metadata": [],
+                "combobox": false,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "operation",
+                "value": "status",
+                "display_name": "Operation",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Resume/status/cancel require a reference in an existing serialized flow or API request; node-local run selection is not yet available.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              },
+              "output_requirements_json": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": false,
+                "name": "output_requirements_json",
+                "value": "",
+                "display_name": "Output Requirements JSON",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Internal static pinned requirements when no contract connection is supplied.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "output_retries": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "output_retries",
+                "value": 1,
+                "display_name": "Output Continuation Retries",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "request_id": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": false,
+                "name": "request_id",
+                "value": "",
+                "display_name": "Request ID",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Optional stable UUID for nonblocking Start retries.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "revision_id": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": false,
+                "name": "revision_id",
+                "value": "",
+                "display_name": "Skill Revision",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "run_reference_json": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "run_reference_json",
+                "value": "{\"provider\": \"claude\", \"run_id\": \"ef54c538-d747-4ea7-938e-8fccd5e29bb6\"}",
+                "display_name": "Prior Run JSON",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "For API/manual resume when no Data port is connected.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "runner_url": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "runner_url",
+                "value": "http://127.0.0.1:59614",
+                "display_name": "Runner URL",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "real_time_refresh": true,
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "skill_id": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": false,
+                "name": "skill_id",
+                "value": "",
+                "display_name": "Skill ID",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "StrInput"
+              },
+              "task": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "task",
+                "value": "Read the pinned claude-workspace-guide skill and summarize its purpose in exactly one sentence. Do not propose edits, operations or external actions.",
+                "display_name": "Task",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              },
+              "timeout_seconds": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "timeout_seconds",
+                "value": 210,
+                "display_name": "HTTP Timeout",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "_frontend_node_flow_id": {
+                "value": "79b4a944-594d-4f09-85ad-8e1d197d5ef1"
+              },
+              "_frontend_node_folder_id": {
+                "value": "021068fe-d594-410a-9728-23d159a98dd2"
+              },
+              "is_refresh": false
+            },
+            "description": "Run pinned skills and validated operation proposals through Claude Code.",
+            "icon": "Bot",
+            "base_classes": [
+              "JSON",
+              "Message"
+            ],
+            "display_name": "Laomedo Claude Agent",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "answer",
+                "display_name": "Answer",
+                "method": "answer_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "required_inputs": null,
+                "allows_loop": false,
+                "loop_types": null,
+                "group_outputs": true,
+                "options": null,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "run",
+                "display_name": "Run Reference",
+                "method": "run_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "required_inputs": null,
+                "allows_loop": false,
+                "loop_types": null,
+                "group_outputs": true,
+                "options": null,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "JSON"
+                ],
+                "selected": "JSON",
+                "name": "submission",
+                "display_name": "Submission / Outcome",
+                "method": "submission_output",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "required_inputs": null,
+                "allows_loop": false,
+                "loop_types": null,
+                "group_outputs": true,
+                "options": null,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "task",
+              "operation",
+              "request_id",
+              "output_requirements",
+              "output_requirements_json",
+              "output_retries",
+              "skill_id",
+              "revision_id",
+              "model",
+              "effort",
+              "skill_reference",
+              "run_reference",
+              "run_reference_json",
+              "runner_url",
+              "timeout_seconds"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.laomedo_claude_agent",
+              "code_hash": "fa9fe401c0fc",
+              "dependencies": {
+                "total_dependencies": 1,
+                "dependencies": [
+                  {
+                    "name": "laomedo",
+                    "version": null
+                  }
+                ]
+              }
+            },
+            "tool_mode": false,
+            "last_updated": "2026-10-24T08:17:13.494Z"
+          },
+          "showNode": true
+        },
+        "selected": true,
+        "dragging": false,
+        "measured": {
+          "width": 320,
+          "height": 642
+        }
+      }
+    ],
+    "edges": [],
+    "viewport": {
+      "x": 581.9155787636053,
+      "y": 118.54064334119752,
+      "zoom": 1.0352674679358405
+    }
+  },
+  "last_tested_version": "1.12.3",
+  "flow_type": "workflow",
+  "access_type": "PRIVATE"
+}

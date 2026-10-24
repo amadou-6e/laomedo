@@ -10,10 +10,10 @@ import useFlowStore from "@/stores/flowStore";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 
-type Run = {id:string;node:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
+type Run = {id:string;node:string;provider?:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
 type Lane = {id:string;thread?:string;turn?:string;started:string;ended:string|null;status?:string;item?:Record<string,unknown>;conflicting_receipts?:boolean};
 type Cost = {amount:number|null;currency:string;basis:string;catalog_date:string;source:string|null};
-type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null}[];usage:Record<string,number>|null;usage_points:{at:string;thread:string;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string};
+type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null}[];usage:Record<string,number>|null;usage_points:{at:string;thread:string;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string;diagnostics?:Record<string,unknown>[]};
 type Detail = {run:Run;projection:Projection;truncated:boolean};
 const time = (value:string) => new Date(value).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const duration = (start:string,end:string|null) => `${Math.max(0,(Date.parse(end??new Date().toISOString())-Date.parse(start))/1000).toFixed(1)}s`;
@@ -71,10 +71,11 @@ export function activityTitle(value:Record<string,unknown>) {
   return String(value.type??"Tool activity");
 }
 
-function ActivityItem({lane,rootThread}:{lane:Lane;rootThread:string|null}) {
+function ActivityItem({lane,rootThread,provider}:{lane:Lane;rootThread:string|null;provider?:string}) {
   const value=lane.item??{},message=messageText(value),user=value.type==="userMessage";
   const child=Boolean(rootThread&&lane.thread&&lane.thread!==rootThread);
-  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:"Codex";
+  const providerName=provider==="claude"||provider==="claude-code"?"Claude":provider==="opencode"||provider==="opencode-cli"?"OpenCode":!provider||provider==="codex"||provider==="codex-cli"?"Codex":"Agent";
+  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:providerName;
   const timing=<span title={`${lane.started} → ${lane.ended??"running"}`} className="tabular-nums">{time(lane.started)}{!user&&` · ${duration(lane.started,lane.ended)}`}</span>;
   if(message!==null)return <div className={`flex min-w-0 flex-col gap-2 ${user?"items-end":"items-start"}`} data-message-role={user?"user":"agent"}>
     <div className="flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground"><div className={`flex flex-wrap items-center gap-2 ${user?"ml-auto":"flex-1"}`}><span title={lane.thread}>{user?"You":speaker}</span>{timing}</div><MessageSource value={value}/></div>
@@ -202,6 +203,8 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4 rounded-md border p-4" aria-label="Usage and diagnostics">
         <h3 className="text-sm font-semibold">Usage and diagnostics</h3>
+        {(detail.run.provider==="claude-code"||detail.run.provider==="claude")&&<p className="text-xs text-muted-foreground">Claude Code proposal mode: native tools and subagents are disabled. Prompts are host-submitted; answers and usage come from terminal receipts. Feed completion does not establish complete execution evidence.</p>}
+        {detail.projection.diagnostics?.map((value,index)=><JsonDisclosure key={index} label={`Claude terminal receipt ${index+1}`} value={value}/>)}
         <details open><summary className="cursor-pointer text-xs text-muted-foreground">Tokens and API-equivalent cost over time</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[600px] text-left text-xs tabular-nums"><thead className="text-muted-foreground"><tr><th className="py-2 font-normal">Observed</th><th className="font-normal">Thread</th>{["Input","Cached input","Output","Estimate (USD)"].map(name=><th key={name} className="text-right font-normal">{name}</th>)}</tr></thead><tbody>{detail.projection.usage_points.map((point,index)=><tr key={index}><td className="py-1" title={point.at}>{time(point.at)}</td><td>{point.thread.slice(0,8)}</td>{["inputTokens","cachedInputTokens","outputTokens"].map(key=><td className="text-right" key={key}>{point.usage[key]?.toLocaleString()??"Unknown"}</td>)}<td className="text-right">{point.cost?.amount==null?"Unknown":`$${point.cost.amount.toFixed(6)}`}</td></tr>)}</tbody></table></div></details>
         <p className="text-xs text-muted-foreground">{detail.projection.cost_reason} Cached input is part of input; reasoning is part of output.</p>
         <JsonDisclosure label="Thread and subagent links" value={detail.projection.threads}/>
@@ -211,7 +214,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         <SectionHeading id="agent-conversation-heading">Conversation</SectionHeading>
         <div role="region" aria-label="Conversation messages and tools" tabIndex={0} className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {detail.projection.items.length===0&&<p className="text-sm text-muted-foreground">No messages or tool calls captured.</p>}
-          {detail.projection.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session}/>)}
+          {detail.projection.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session} provider={detail.run.provider}/>)}
         </div>
       </section>
     </article>}

@@ -1,7 +1,8 @@
 # Graph agent activity
 
 The **Agents** section in the graph sidebar shows retained activity from the
-original `LaomedoCodexAgent`. The singular Agent section retains its A2A setup.
+original `LaomedoCodexAgent` and subscription `LaomedoClaudeAgent`.
+The singular Agent section retains its A2A setup.
 There is no PR-specific agent.
 
 Choose a graph execution to compare invocation and turn intervals, including
@@ -99,6 +100,31 @@ Protect the database like private Langflow state: native messages and tool
 outputs contain task content.
 
 ## Validation scope
+
+### Claude Code activity
+
+Claude uses the same Agents tab, execution selector, timeline, conversation,
+usage projection and authenticated inspection routes as Codex. Each dispatch
+captures the exact host-submitted prompt and terminal answer; correction prompts
+are distinct turns. Failed or cancelled dispatches close their timeline lanes.
+These are adapter-normalized receipts, not native Codex RPC messages or a full
+Claude tool trace. Proposal mode disables tools and subagents.
+
+Token points use cumulative `modelUsage` from the native terminal receipt.
+Resumes subtract the previous receipt baseline; corrections replace cumulative
+totals rather than adding them. Missing or regressing counters stay unknown.
+Input includes uncached input, cache reads and cache writes; thinking is shown
+only when explicitly reported. A sole reported model is recorded, never inferred
+from the requested alias. The terminal diagnostic retains the CLI's cumulative
+session cost estimate, clearly separate from an invocation cost or subscription
+charge. No Claude prices are invented for the shared verified price catalog.
+
+Usage semantics: https://code.claude.com/docs/en/agent-sdk/cost-tracking
+The original proposal verification precedes this capture extension. Its receipts
+verify normalization. The separately approved one-turn
+[activity proof](../examples/claude-agent/activity-proof.json) verifies fresh
+successful capture through the real Langflow graph; live correction, failed-turn
+and resumed-capture scenarios remain outside that additional verification.
 
 Internal tests cover owner/execution isolation, read-only inspection, source
 pagination, retry deduplication, conflicting receipts, resume baselines, counter

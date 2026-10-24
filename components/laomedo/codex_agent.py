@@ -55,6 +55,15 @@ class _NoRedirect(request.HTTPRedirectHandler):
 _HTTP = request.build_opener(_NoRedirect())
 
 
+class _ModelCatalog(dict):
+    """Model/effort mapping with optional provider presentation metadata."""
+
+    def __init__(self):
+        super().__init__()
+        self.metadata = {}
+        self.effort_aliases = {}
+
+
 class LaomedoCodexAgent(Component):
     display_name = "Laomedo Codex Agent"
     description = "Start, run, resume or cancel a pinned-skill Codex session through the local Docker runner."
@@ -103,7 +112,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_build_config(self, build_config, field_value, field_name=None):
         # OpenCode has a separate provider/model and variant contract.
-        if self.name != "LaomedoCodexAgent":
+        if self.name not in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             return build_config
         if field_name == "runner_url":
             if not isinstance(field_value, str):
@@ -123,11 +132,15 @@ class LaomedoCodexAgent(Component):
         if model and model not in choices:
             choices.append(model)  # Preserve imported selections, never substitute.
         model_field.update(options=choices, combobox=False, real_time_refresh=True)
+        if self.name == "LaomedoClaudeAgent":
+            model_field["options_metadata"] = [getattr(catalog, "metadata", {}).get(choice, {}) for choice in choices]
         selected = effort_field.get("value", "")
         if not isinstance(selected, str):
             raise ValueError("invalid_effort_selection")
-        efforts = list(catalog.get(model, []))
-        if field_name == "model" and selected not in efforts:
+        efforts = list(catalog.get(model, getattr(catalog, "effort_aliases", {}).get(model, [])))
+        if self.name == "LaomedoClaudeAgent" and efforts == ["default"]:
+            effort_field["value"] = "default"
+        elif field_name == "model" and selected not in efforts:
             effort_field["value"] = ""
         elif selected and selected not in efforts:
             # Preserve saved values on load; the runner remains authoritative.
@@ -144,22 +157,32 @@ class LaomedoCodexAgent(Component):
             raise ValueError("local_runner_url_required")
         # Discovery talks directly to the runner, never with the bridge token.
         try:
-            token = Path(os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
-                         "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
+            token = Path(self._runner_token_file_path()).read_text(encoding="utf-8").strip()
             if not token:
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
-            with _HTTP.open(req, timeout=30) as response:
+            with _HTTP.open(req, timeout=75 if self.name == "LaomedoClaudeAgent" else 30) as response:
                 raw = response.read(1024 * 1024 + 1)
                 if len(raw) > 1024 * 1024:
                     raise ValueError("catalog_too_large")
                 payload = json.loads(raw)
-            catalog = {}
+            if self.name == 'LaomedoClaudeAgent' and payload.get('provider') != 'claude':
+                raise ValueError('catalog_provider_mismatch')
+            catalog = _ModelCatalog()
             for item in payload["models"]:
                 model, efforts = item["id"], item["efforts"]
                 if not isinstance(model, str) or not model or model in catalog or not isinstance(efforts, list) or not all(isinstance(x, str) and x for x in efforts):
                     raise ValueError("invalid_catalog")
                 catalog[model] = efforts
+                if self.name == "LaomedoClaudeAgent":
+                    catalog.metadata[model] = {"id": model, "laomedo_native_model": True,
+                        **({"display_name": item["name"]} if isinstance(item.get("name"), str) else {}),
+                        **({"resolved_model": item["resolved_model"]} if isinstance(item.get("resolved_model"), str) else {})}
+                    resolved = item.get("resolved_model")
+                    if isinstance(resolved, str) and resolved:
+                        catalog.effort_aliases.setdefault(resolved, efforts)
+                        if model != "default":
+                            catalog.metadata[resolved] = {**catalog.metadata[model], "id": resolved}
             if not catalog:
                 raise ValueError("empty_catalog")
             return catalog
@@ -168,7 +191,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
         updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
-        if self.name == "LaomedoCodexAgent":
+        if self.name in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             try:
                 await self.update_build_config(updated["template"], None)
             except ValueError as exc:
@@ -180,6 +203,8 @@ class LaomedoCodexAgent(Component):
                     field = updated["template"].get(name, {})
                     value = field.get("value")
                     field["options"] = [value] if isinstance(value, str) and value else []
+                    if self.name == "LaomedoClaudeAgent" and name == "model":
+                        field["options_metadata"] = [{} for _ in field["options"]]
         return updated
 
     def _pre_run_setup(self):
@@ -211,7 +236,7 @@ class LaomedoCodexAgent(Component):
             if connected not in (None, "", []) and verify_requirements(getattr(connected, "data", connected)) != pinned:
                 raise ValueError("conflicting_output_requirements")
             connected = pinned
-        if self.name == "LaomedoCodexAgent":
+        if self.name in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             from laomedo.contract_graph import downstream_requirements
             from laomedo.output_contract import verify_requirements
             explicit = (verify_requirements(getattr(connected, "data", connected))
@@ -394,6 +419,10 @@ class LaomedoCodexAgent(Component):
         if self._bridge_base():
             return os.environ.get("LAOMEDO_BRIDGE_TOKEN_FILE",
                                   "/run/secrets/laomedo-bridge-token")
+        return self._runner_token_file_path()
+
+    def _runner_token_file_path(self):
+        """Activity always polls the runner, even when dispatch uses a bridge."""
         return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
                               "/run/secrets/laomedo-runner-token")
 
