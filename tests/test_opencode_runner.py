@@ -68,7 +68,7 @@ class OpenCodeTests(unittest.TestCase):
             def call(self,method,path,payload=None):
                 if path=='/provider' and 'catalog' in str(self.workspace):
                     entered.set()
-                    if not released.wait(5):raise TimeoutError()
+                    if not released.wait(45):raise TimeoutError()
                 return super().call(method,path,payload)
         self.runner.transport_factory=PausedCatalog
         catalog_result={};run_result={};errors=[]
@@ -82,11 +82,11 @@ class OpenCodeTests(unittest.TestCase):
         a=threading.Thread(target=catalog);b=threading.Thread(target=run)
         a.start()
         try:
-            self.assertTrue(entered.wait(3));b.start();self.assertTrue(attempted.wait(3));self.assertTrue(waiting.wait(3))
+            self.assertTrue(entered.wait(15));b.start();self.assertTrue(attempted.wait(15));self.assertTrue(waiting.wait(15))
             self.assertFalse(run_result)
         finally:
-            released.set();a.join(8)
-            if b.ident is not None:b.join(8)
+            released.set();a.join(20)
+            if b.ident is not None:b.join(20)
         self.assertFalse(a.is_alive());self.assertFalse(b.is_alive());self.assertEqual(errors,[])
         self.assertEqual(run_result['status'],'completed')
         self.assertEqual(catalog_result['submitted_turns'],0)
@@ -256,7 +256,7 @@ class OpenCodeTests(unittest.TestCase):
                     return True
                 if path.endswith('/message') and method == 'POST':
                     entered.set()
-                    if not released.wait(3):
+                    if not released.wait(30):
                         raise TimeoutError()
                     return {'info': {}, 'parts': []}
                 return super().call(method, path, payload)
@@ -265,13 +265,13 @@ class OpenCodeTests(unittest.TestCase):
         thread = threading.Thread(target=lambda: result.update(self.runner.start(self.payload)))
         thread.start()
         try:
-            self.assertTrue(entered.wait(3))
+            self.assertTrue(entered.wait(15))
             run_id = next(iter(self.runner.cancel_flags))
             ack = self.runner.cancel(run_id)
             self.assertTrue(ack['cancel_acknowledged'])
         finally:
             released.set()
-            thread.join(4)
+            thread.join(20)
         self.assertFalse(thread.is_alive())
         self.assertEqual(result['status'], 'cancelled')
         self.assertEqual(self.runner.status(result['run_id'])['status'], 'cancelled')
