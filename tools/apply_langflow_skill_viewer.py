@@ -63,10 +63,15 @@ def apply(checkout):
     shutil.copy2(overlay / "AgentActivityNavigation.ts", checkout / "src/frontend/src/stores/agentActivityStore.ts")
     shutil.copy2(overlay / "GraphAgents.tsx", agents_target / "index.tsx")
     shutil.copy2(overlay / "GraphAgents.test.tsx", agents_target / "index.test.tsx")
+    recovery_target = checkout / "src/frontend/src/components/laomedoRecovery"
+    recovery_target.mkdir()
+    for name in ("RunnerRecovery.tsx", "RunnerRecovery.test.tsx", "RecoveryPopup.tsx", "RecoveryPopup.test.tsx", "PopupFrame.tsx"):
+        shutil.copy2(overlay / name, recovery_target / name)
     error_target = checkout / "src/frontend/src/components/laomedoErrors"
     error_target.mkdir()
-    for name in ("nodeErrors.ts", "node-error-catalog.json", "NodeErrorNotice.tsx", "nodeErrors.test.ts", "NodeErrorNotice.test.tsx"):
+    for name in ("nodeErrors.ts", "node-error-catalog.json", "NodeErrorNotice.tsx", "nodeErrors.test.ts", "NodeErrorNotice.test.tsx", "ErrorPopup.tsx", "ErrorPopup.test.tsx", "ErrorAlertMigration.test.tsx", "ApplicationErrorPopup.tsx", "CopyIcon.tsx"):
         shutil.copy2(overlay / name, error_target / name)
+    shutil.copy2(overlay / "ErrorAlert.tsx", checkout / "src/frontend/src/alerts/error/index.tsx")
     status_path = checkout / "src/frontend/src/CustomNodes/GenericNode/components/NodeStatus/index.tsx"
     status_source = status_path.read_text(encoding="utf-8")
     status_source = 'import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { hasLaomedoFailure } from "@/components/laomedoErrors/nodeErrors";\n' + status_source
@@ -95,17 +100,29 @@ def apply(checkout):
     marker = 'setErrorData: (newState: { title: string; list?: Array<string> }) => {'
     if alerts.count(marker) != 1:
         raise SystemExit("pinned_error_alert_anchor_missing")
-    alerts = replace_once(alerts, marker, marker + '\n    const formatted = describeLaomedoAlert(newState, useFlowStore.getState().nodes?.some(node => node.data.type?.startsWith("Laomedo")));\n    const diagnosticCode = formatted.diagnosticCode;\n    newState = { title: formatted.title, list: formatted.list };')
+    alerts = replace_once(alerts, marker, marker + '\n    const flowErrors = useFlowStore.getState().buildInfo?.error ?? [];\n    const handledByFlow = (newState.list ?? []).some(message => flowErrors.includes(message));\n    const formatted = describeLaomedoAlert(newState, useFlowStore.getState().nodes?.some(node => node.data.type?.startsWith("Laomedo")));\n    const diagnosticCode = formatted.diagnosticCode;\n    const failure = formatted.failure;\n    newState = { title: formatted.title, list: formatted.list };')
     marker = '      get().addNotificationToHistory(notification);'
     if alerts.count(marker) != 3:
         raise SystemExit("pinned_notification_history_anchor_missing")
     alerts = alerts.replace(marker, '      get().addNotificationToHistory(diagnosticCode ? { ...notification, list: [...(notification.list ?? []), "Diagnostic code: " + diagnosticCode] } : notification);', 1)
+    alerts = replace_once(alerts, '        type: "error",', '        type: "error",\n        failure,')
+    alerts = alerts.replace('      get().addNotificationToTempList(notification);', '      if (!handledByFlow) get().addNotificationToTempList(notification);', 1)
+    alert_types = checkout / "src/frontend/src/types/alerts/index.ts"
+    types = alert_types.read_text(encoding="utf-8")
+    types = 'import type { NodeFailure } from "@/components/laomedoErrors/nodeErrors";\n' + types
+    types = types.replace('export type ErrorAlertType = {', 'export type ErrorAlertType = {\n  failure?: NodeFailure;')
+    types = types.replace('export type AlertItemType = {', 'export type AlertItemType = {\n  failure?: NodeFailure;')
+    alert_types.write_text(types, encoding="utf-8")
+    area_path = checkout / "src/frontend/src/alerts/displayArea/index.tsx"
+    area = area_path.read_text(encoding="utf-8")
+    area = replace_once(area, '            <ErrorAlert\n', '            <ErrorAlert\n              failure={alert.failure}\n')
+    area_path.write_text(area, encoding="utf-8")
     alerts_path.write_text(alerts, encoding="utf-8")
     flow_error_path = checkout / "src/frontend/src/pages/FlowPage/components/flowBuildingComponent/index.tsx"
     flow_error = flow_error_path.read_text(encoding="utf-8")
-    flow_error = 'import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";\n' + flow_error
+    flow_error = 'import { FlowErrorPopup } from "@/components/laomedoErrors/ErrorPopup";\nimport { isRunnerConnectionError } from "@/components/laomedoRecovery/RunnerRecovery";\nimport NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";\n' + flow_error
     marker = '  const errorButtonsRef = useRef<HTMLDivElement>(null);'
-    replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(message => isKnownNodeError(message, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))) ?? (affectedNode ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
+    replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(message => isKnownNodeError(message, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))) ?? buildInfo?.error?.[0];\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
     if flow_error.count(marker) != 1:
         raise SystemExit("pinned_flow_error_anchor_missing")
     flow_error = replace_once(flow_error, marker, replacement)
@@ -115,7 +132,11 @@ def apply(checkout):
     flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
     flow_error = replace_once(flow_error, '                        </Markdown>', '                        </Markdown>}')
     flow_error = replace_once(flow_error, 'className="absolute right-0 font-mono text-xs"', 'className={cn("absolute right-0 font-mono text-xs", descriptiveError && "hidden")}')
+    flow_error = replace_once(flow_error, '  return (\n    <AnimatePresence mode="wait">', '  if (!isBuilding && descriptiveError && !dismissed) {\n    return <FlowErrorPopup message={descriptiveError} laomedo={Boolean(affectedNode) || isKnownNodeError(descriptiveError, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))} onDismiss={() => { setBuildInfo(null); setDismissed(false); }} context={{\n      nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n      operation: affectedNode?.data.node?.template?.operation?.value,\n      savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n    }} />;\n  }\n  return (\n    <AnimatePresence mode="wait">')
     flow_error_path.write_text(flow_error, encoding="utf-8")
+    outcome_patch = overlay / "runner-outcomes.patch"
+    subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", "--check", str(outcome_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", str(outcome_patch)], check=True)
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

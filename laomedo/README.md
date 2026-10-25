@@ -108,8 +108,10 @@ the record fails with `container_termination_unverified` rather than claiming
 that remote work stopped. The no-model Docker teardown probe is
 `examples/skill-agent-pilot/probe_container_teardown.py`.
 
-An explicitly authorized `--max-model-turns` cap is stored in a private
-ledger before `turn/start`, counting failed and timed-out submissions. Start,
+Normal runners and managed services have no verification-only global turn cap.
+Historical `turn-ledger.json` files remain evidence; normal diagnostic accounting
+uses `attempt-count.json` without an authorization ceiling. Isolated verification
+uses `experiments/turn_harness.py`, never runtime configuration. Start,
 status, cancel, and resume endpoints use `/v1/runs`. Resume needs the native
 thread ID and exact last post-run hash; a missing or altered snapshot fails
 before dispatch. Raw app-server events, session state, and snapshots stay

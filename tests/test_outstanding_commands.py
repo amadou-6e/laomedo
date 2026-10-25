@@ -14,6 +14,8 @@ def command(method, identity="exec-1", **fields):
         "type": "commandExecution", "id": identity, **fields}}}
 
 
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
+
 class ProjectionTests(unittest.TestCase):
     def test_both_native_transports_complete_with_a_dangling_command(self):
         for transport in (AppServer, SplitAppServer):

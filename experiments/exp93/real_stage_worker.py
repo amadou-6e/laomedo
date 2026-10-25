@@ -8,6 +8,7 @@ import time
 from experiments.exp93.real_stage_support import identities, save, TASK
 from laomedo.container_lease import inspect_exact
 from laomedo.local_runner import AppServer, LocalRunner, RunnerError
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.mediation_authority import RunGrantAuthority
 
 

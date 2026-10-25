@@ -887,7 +887,7 @@ def _execution_evidence(path, offset, record, turns, *, streams_closed, resumed=
 
 class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
-                 check_docker: bool = True, max_model_turns: int = 0,
+                 check_docker: bool = True,
                  supervise_containers: bool | None = None,
                  lease_service: Path | None = None,
                  github_authority: RunGrantAuthority | None = None,
@@ -987,9 +987,6 @@ class LocalRunner:
             raise RunnerError("split_executor_requires_native_transport")
         if (self.split_provider_config or split_access_token is not None) and not split_executor:
             raise RunnerError("split_provider_requires_split_executor")
-        if not isinstance(max_model_turns, int) or max_model_turns < 0:
-            raise RunnerError("invalid_turn_cap")
-        self.max_model_turns = max_model_turns
         self.lock = threading.Lock()
         self.control_lock = threading.Lock()
         self.request_lock = threading.Lock()
@@ -1167,25 +1164,17 @@ class LocalRunner:
         return self.state / "runs" / _id(run_id)
 
     def _reserve_turn(self) -> int:
-        ledger = self.state / "turn-ledger.json"
+        # Diagnostic sequence only, separate from immutable historical experiment ledgers.
+        ledger = self.state / "attempt-count.json"
         value = _read(ledger) if ledger.exists() else {"attempted_turns": 0}
         count = value.get("attempted_turns")
-        if not isinstance(count, int) or count < 0:
+        if type(count) is not int or count < 0:
             raise RunnerError("invalid_turn_ledger")
-        if count >= self.max_model_turns:
-            raise RunnerError("model_turn_cap_reached")
-        _json(ledger, {"attempted_turns": count + 1,
-                       "max_authorized_turns": self.max_model_turns})
+        _json(ledger, {"attempted_turns": count + 1})
         return count + 1
 
     def _turn_available(self) -> None:
-        ledger = self.state / "turn-ledger.json"
-        value = _read(ledger) if ledger.exists() else {"attempted_turns": 0}
-        count = value.get("attempted_turns")
-        if not isinstance(count, int) or count < 0:
-            raise RunnerError("invalid_turn_ledger")
-        if count >= self.max_model_turns:
-            raise RunnerError("model_turn_cap_reached")
+        """Extension point for isolated verification harnesses; no normal-service quota."""
 
     def status(self, run_id: str) -> dict:
         return _read(self._run_dir(run_id) / "record.json")
@@ -1296,8 +1285,8 @@ class LocalRunner:
             raise RunnerError("invalid_output_retry_count")
         if "skill_refs" in request and "skill_ref" in request:
             raise RunnerError("conflicting_skill_inputs")
-        refs = request.get("skill_refs", [request.get("skill_ref")])
-        if not isinstance(refs, list) or not 1 <= len(refs) <= 16:
+        refs = request["skill_refs"] if "skill_refs" in request else [request["skill_ref"]] if "skill_ref" in request else []
+        if not isinstance(refs, list) or len(refs) > 16:
             raise RunnerError("one_to_sixteen_skills_required")
         seen = set()
         for ref in refs:
@@ -1357,7 +1346,17 @@ class LocalRunner:
                 from .agent_cli import configure_remote
                 configure_remote(workspace, github_scope["repository"])
             skills = [self._materialize(workspace, ref) for ref in refs]
+            if not skills:
+                try:
+                    (workspace / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
+                except OSError:
+                    raise RunnerError("unsafe_materialized_skill_path") from None
             git_exclusion = workspace_skills.install(workspace, skills)
+            if not skills:
+                try:
+                    workspace_skills.verify(workspace, skills, git_exclusion)
+                except workspace_skills.WorkspaceSkillError as error:
+                    raise RunnerError(str(error)) from None
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
             effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)
@@ -1407,8 +1406,23 @@ class LocalRunner:
             raise
         return record
 
+    def _mirror_host_login(self):
+        if (getattr(self, 'provider', None) == 'claude' and
+                os.environ.get('LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN') == '1'):
+            from .claude_login import mirror_login, LocalClaudeLoginError
+            try:
+                mirror_login(self.container.profile, self.container.image_id)
+            except LocalClaudeLoginError as error:
+                raise RunnerError(str(error)) from None
+
     def start(self, request: dict) -> dict:
         record = self._prepare(request)
+        try:
+            self._mirror_host_login()
+        except RunnerError as exc:
+            record.update(status="failed", error_category=str(exc))
+            _json(self._run_dir(record["run_id"]) / "record.json", record)
+            raise
         return self._execute(record["run_id"], request["task"], resume=False)
 
     def start_async(self, request: dict, *, response_gate=None) -> dict:
@@ -1445,6 +1459,7 @@ class LocalRunner:
     def _async_worker(self, run_id, task, gate):
         gate.wait()
         try:
+            self._mirror_host_login()
             self._execute(run_id, task, resume=False)
         except RunnerError as exc:
             with self.control_lock:
@@ -1850,8 +1865,8 @@ class LocalRunner:
                     break
                 try:
                     attempt = self._reserve_turn()
-                except RunnerError:
-                    record["output_correction_blocked"] = "model_turn_cap_reached"
+                except RunnerError as exc:
+                    record["output_correction_blocked"] = str(exc)
                     break
                 record["turns"].append({"turn_id": turn_id, "status": status,
                                         "correction_pending": True,
@@ -2109,6 +2124,9 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 if parts == ["v1", "models"] and not parsed.query:
                     self._reply(200, runner.model_catalog())
                     return
+                if parts == ['v1', 'health']:
+                    self._reply(200, {'status': 'ready', 'provider': getattr(runner, 'provider', 'codex')})
+                    return
                 if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
                     from .runner_activity import read_feed
                     query = parse_qs(parsed.query)
@@ -2173,6 +2191,7 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 if parts == ["v1", "runs"]:
                     result = runner.start(body)
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume":
+                    runner._mirror_host_login()
                     result = runner.resume(parts[2], body["task"],
                         expected_post_run_hash=body["expected_post_run_hash"],
                         expected_thread_id=body["expected_thread_id"],
@@ -2201,6 +2220,16 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 if response_gate is not None:
                     response_gate.set()
 
+    gate = os.environ.get("LAOMEDO_STARTUP_GATE")
+    if gate:
+        from .startup_control import startup_gate
+        with startup_gate(gate) as listening:
+            if listening.with_suffix(".cancel").exists():
+                listening.with_suffix(".cancelled").touch()
+                raise SystemExit(0)
+            server = ThreadingHTTPServer((host, port), Handler)
+            listening.touch()
+            return server
     return ThreadingHTTPServer((host, port), Handler)
 
 
@@ -2213,7 +2242,6 @@ def main():
                         help="Opt-in isolated Git checkout; mediated push remains disabled")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--preflight", action="store_true")
-    parser.add_argument("--max-model-turns", type=int, default=0)
     parser.add_argument("--image-id", help="Operator-approved SHA256 ID of a locally rebuilt non-Git image; the fixed version tag must match it")
     parser.add_argument("--lease-service", type=Path,
                         help="State directory of an independently started lease service")
@@ -2232,7 +2260,6 @@ def main():
                  if args.github_authority_store else None)
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
                          git_workspace=args.git_workspace,
-                         max_model_turns=args.max_model_turns,
                          lease_service=args.lease_service,
                          github_authority=authority,
                          mediator_state=args.mediator_state,

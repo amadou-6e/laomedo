@@ -22,6 +22,7 @@ from laomedo.github_mediation import MediationStore
 from laomedo.github_rest_transport import _NoRedirect
 from laomedo.host_token_connection import HostTokenConnection
 from laomedo.local_runner import GIT_IMAGE_ID, LocalRunner
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.skill_store import SkillStore
 

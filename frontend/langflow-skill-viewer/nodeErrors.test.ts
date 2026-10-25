@@ -8,7 +8,13 @@ test.each(Object.keys(catalog))("maps %s without mutating its stable code", code
   expect(failure.diagnostics.code).toBe(code);
   expect(failure.title).not.toContain(code);
   expect(failure.description.length).toBeGreaterThan(20);
-  expect(failure.recovery.length).toBeGreaterThan(30);
+  // Startup failure is informational: no unconfirmed fix or separate operator.
+  if (code === "runner_start_cancelled") {
+    expect(failure.recovery).toBe("");
+  } else if (code === "runner_start_failed") {
+    expect(failure.description).toBe("The local runner exited before it was ready.");
+    expect(failure.recovery).toBe("");
+  } else expect(failure.recovery.length).toBeGreaterThan(30);
 });
 
 test("missing reference advice only mentions controls actually available", () => {

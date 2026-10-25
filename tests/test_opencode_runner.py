@@ -9,6 +9,8 @@ from laomedo.opencode_runner import OpenCodeRunner, RunnerError, normalize_messa
 from laomedo.local_runner import _hash_tree, _json
 
 
+from experiments.turn_harness import VerificationOpenCodeRunner as OpenCodeRunner
+
 class Backend:
     sessions = 0
 
@@ -41,6 +43,16 @@ class Backend:
 
 
 class OpenCodeTests(unittest.TestCase):
+    def test_empty_skill_set_is_valid_and_unselected_files_are_still_rejected(self):
+        payload={key:value for key,value in self.payload.items() if key!='skill_ref'}
+        payload['skill_refs']=[]
+        record=self.runner._prepare(payload)
+        root=self.runner._run_dir(record['run_id'])/'workspace'
+        self.runner._verify_pinned_skills(root,record)
+        (root/'.agents/skills/unselected').mkdir()
+        with self.assertRaisesRegex(RunnerError,'pinned_skill_workspace_changed'):
+            self.runner._verify_pinned_skills(root,record)
+
     def test_cancel_before_session_does_not_submit_or_charge(self):
         entered, released = threading.Event(), threading.Event()
         class PausingBackend(Backend):

@@ -16,6 +16,7 @@ from experiments.exp117.support import (
     _owned_container_absent, _cleanup_runner_runs, _audit_requests,
 )
 from laomedo.local_runner import LocalRunner, serve
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skill_store import SkillStore
 from laomedo.workflow_run_store import WorkflowRunStore
 from laomedo.handoff_http import RunnerAdapter

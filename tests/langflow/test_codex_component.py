@@ -512,6 +512,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         node = next(n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent")
         fields = node["data"]["node"]["template"]
         fields["operation"]["value"] = "resume"
+        self.assertFalse(fields["run_reference_json"]["show"])
+        self.assertTrue(fields["run_reference_json"]["override_skip"])
         fields["run_reference_json"]["value"] = json.dumps({"run_id": RUN,
             "thread_id": "native-thread", "status": "completed", "post_run_hash": HASH,
             "model": "gpt-6-luna", "effort": "low"})
@@ -827,8 +829,9 @@ class ObsoleteAgentControlTests(unittest.TestCase):
         payload = node._prepare_request()[1]
         self.assertNotEqual(payload["request_id"], "legacy-id")
         self.assertEqual(payload["skill_ref"]["skill_id"], "authoritative")
-        with self.assertRaisesRegex(ValueError, "skill_reference_required_use_skill_node"):
-            component(skill_reference=None)._prepare_request()
+        payload = component(skill_reference=None)._prepare_request()[1]
+        self.assertEqual(payload["skill_refs"], [])
+        self.assertNotIn("skill_ref", payload)
 
 
 class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):

@@ -12,6 +12,8 @@ from .skill_inspection import InspectionError, inspect_skill
 def install_routes(app, root: Path, authenticate):
     from .agent_activity_routes import install_activity_routes
     install_activity_routes(app, authenticate)
+    from .runner_service import install_runner_service_routes
+    install_runner_service_routes(app, authenticate)
     from fastapi import Depends, HTTPException
     from fastapi.responses import JSONResponse
     from starlette.concurrency import run_in_threadpool

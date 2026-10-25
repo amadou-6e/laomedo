@@ -205,7 +205,7 @@
     "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
   },
   "runner_transport_failed": {
-    "title": "The remote outcome is not confirmed",
+    "title": "Run outcome unconfirmed",
     "description": "The application could not confirm whether the remote work finished. It may still be active.",
     "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
   },
@@ -320,34 +320,34 @@
     "recovery": "Inspect the active run and wait for a confirmed terminal status before starting new work. Do not cancel another run without checking its owner."
   },
   "skill_reference_required_use_skill_node": {
-    "title": "No Skill Reference is connected",
-    "description": "A new agent session requires an immutable Skill Reference.",
-    "recovery": "Connect a Skill node's Skill Reference output to this Agent's Skill References input, then run the corrected request."
+    "title": "This Agent still requires a skill",
+    "description": "An older Agent component or runner rejected a request without Skill References. Updated Agents can run without skills.",
+    "recovery": "Update the Agent component and runner to the current version, or connect a Skill Reference when using the older version."
   },
   "pinned_skill_ref_required": {
-    "title": "The Agent needs valid Skill References",
-    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
-    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+    "title": "A connected Skill Reference is invalid",
+    "description": "Skills are optional. A supplied reference must identify a pinned revision; duplicate skills and more than sixteen references are not supported.",
+    "recovery": "Select a valid immutable revision on each connected Skill node, or disconnect Skill References to run the task without skills."
   },
   "pinned_skill_required": {
-    "title": "The Agent needs valid Skill References",
-    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
-    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+    "title": "A connected Skill Reference is invalid",
+    "description": "Skills are optional. A supplied reference must identify a pinned revision; duplicate skills and more than sixteen references are not supported.",
+    "recovery": "Select a valid immutable revision on each connected Skill node, or disconnect Skill References to run the task without skills."
   },
   "invalid_skill_reference": {
-    "title": "The Agent needs valid Skill References",
-    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
-    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+    "title": "A connected Skill Reference is invalid",
+    "description": "Skills are optional. A supplied reference must identify a pinned revision; duplicate skills and more than sixteen references are not supported.",
+    "recovery": "Select a valid immutable revision on each connected Skill node, or disconnect Skill References to run the task without skills."
   },
   "one_to_sixteen_skills_required": {
-    "title": "The Agent needs valid Skill References",
-    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
-    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+    "title": "A connected Skill Reference is invalid",
+    "description": "Skills are optional. A supplied reference must identify a pinned revision; duplicate skills and more than sixteen references are not supported.",
+    "recovery": "Select a valid immutable revision on each connected Skill node, or disconnect Skill References to run the task without skills."
   },
   "duplicate_skill_id": {
-    "title": "The Agent needs valid Skill References",
-    "description": "The selected Skill references are missing, invalid, duplicated, or exceed the supported limit.",
-    "recovery": "Select immutable skills and revisions on Skill nodes and connect their Skill Reference outputs to this Agent. Do not enter Skill IDs on the Agent itself."
+    "title": "A connected Skill Reference is invalid",
+    "description": "Skills are optional. A supplied reference must identify a pinned revision; duplicate skills and more than sixteen references are not supported.",
+    "recovery": "Select a valid immutable revision on each connected Skill node, or disconnect Skill References to run the task without skills."
   },
   "task_required": {
     "title": "The Agent needs a task",
@@ -593,5 +593,135 @@
     "title": "The runner credential is empty",
     "description": "The local runner credential file contains no usable token.",
     "recovery": "Ask the operator to restore the configured runner credential file. Do not paste credentials into the graph."
+  },
+  "runner_service_configuration_unavailable": {
+    "title": "Local backend recovery is unavailable",
+    "description": "The host could not load or use its trusted local runner configuration.",
+    "recovery": "Check the local runner configuration and startup log. This recovery action does not rerun the graph."
+  },
+  "runner_identity_unverified": {
+    "title": "The local backend identity could not be verified",
+    "description": "A listener may still be present, but the app could not confirm it is the configured runner.",
+    "recovery": "Check the existing listener and local runner configuration before starting a replacement. Do not start a replacement while its identity is uncertain."
+  },
+  "runner_start_failed": {
+    "title": "Local backend readiness is unconfirmed",
+    "description": "The local runner exited before it was ready.",
+    "recovery": ""
+  },
+  "invalid_turn_ledger": {
+    "title": "The local attempt record cannot be read",
+    "description": "The runner could not safely update its local attempt sequence.",
+    "recovery": "Ask the operator to inspect the local attempt record and saved run metadata. Confirm existing work before starting another run."
+  },
+  "runner_start_cancelled": {
+    "title": "Backend startup cancelled",
+    "description": "The local backend startup was cancelled.",
+    "recovery": ""
+  },
+  "runner_start_cancel_unconfirmed": {
+    "title": "Startup cancellation unconfirmed",
+    "description": "The local backend has not confirmed that startup stopped.",
+    "recovery": "Check the existing backend state before starting another backend process."
+  },
+  "runner_docker_not_installed": {
+    "title": "Docker is not available",
+    "description": "The app could not find Docker on this machine.",
+    "recovery": "Install Docker, or make your existing installation available to this app."
+  },
+  "runner_docker_unavailable": {
+    "title": "Docker is not running",
+    "description": "The configured Docker engine could not be reached.",
+    "recovery": "Start Docker Desktop (or the Docker service for this context), then wait until it is ready."
+  },
+  "runner_docker_check_unconfirmed": {
+    "title": "Docker availability is unconfirmed",
+    "description": "The app could not confirm whether Docker is ready.",
+    "recovery": "Check Docker Desktop and this app's access to Docker."
+  },
+  "runner_local_offline": {
+    "title": "Local runner is offline",
+    "description": "Docker is ready, but the local runner is not running.",
+    "recovery": "Starting the runner does not rerun the graph. Check any existing run before starting new work."
+  },
+  "conflicting_skill_inputs": {
+    "title": "Conflicting Skill Reference fields",
+    "description": "The request supplied both a single reference and a list of references.",
+    "recovery": "Use only the Agent Skill References input, or leave it disconnected. Share Technical details with the maintainer if this persists."
+  },
+  "materialized_skill_mismatch": {
+    "title": "A pinned skill changed in the workspace",
+    "description": "The run-local skill files do not match their recorded revision.",
+    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the pinned skill snapshot and review the existing run."
+  },
+  "skill_file_hash_mismatch": {
+    "title": "A pinned skill file could not be verified",
+    "description": "A file in the selected skill revision does not match its recorded hash.",
+    "recovery": "Choose a valid registered revision on the connected Skill node or ask the registry operator to inspect it."
+  },
+  "skill_frontmatter_name_mismatch": {
+    "title": "The skill name does not match its reference",
+    "description": "The selected skill declares a different name from its registry identity.",
+    "recovery": "Correct the skill name in the registry and select the new immutable revision on the Skill node."
+  },
+  "skill_frontmatter_name_required": {
+    "title": "The selected skill needs a valid name",
+    "description": "The pinned skill lacks a readable SKILL.md with a valid frontmatter name.",
+    "recovery": "Correct SKILL.md in the registry and select the new revision, or disconnect the optional skill."
+  },
+  "skill_path_conflict": {
+    "title": "A skill path already exists in the workspace",
+    "description": "The source snapshot already contains the path reserved for a connected skill.",
+    "recovery": "Ask the runner operator to remove the conflicting skill directory from the source snapshot, then review the selected Skill References."
+  },
+  "skill_ref_hash_mismatch": {
+    "title": "The skill revision could not be verified",
+    "description": "The Skill Reference revision and its recorded tree hash disagree.",
+    "recovery": "Select the immutable revision again on the Skill node. Ask the registry operator to inspect it if the mismatch persists."
+  },
+  "pinned_skill_record_invalid": {
+    "title": "The saved skill selection is invalid",
+    "description": "The run contains an invalid or incomplete skill list. An empty list is valid for a run without skills.",
+    "recovery": "Keep the original run record and ask the runner operator to inspect it. Do not change the recorded skill selection to resume."
+  },
+  "invalid_skill_id": {
+    "title": "A connected skill has an invalid identifier",
+    "description": "A supplied skill identifier does not match the supported registry format.",
+    "recovery": "Select the skill through a Skill node, or disconnect the optional Skill Reference."
+  },
+  "skill_git_exclusion_changed": {
+    "title": "The protected skill Git exclusions changed",
+    "description": "The workspace no longer has the recorded Git exclusions for its pinned skills.",
+    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the existing run and protected Git metadata."
+  },
+  "unexpected_materialized_skill": {
+    "title": "The workspace contains an unselected skill",
+    "description": "The workspace skill directories differ from the explicitly selected skill list. A run without skills requires an empty skill directory.",
+    "recovery": "Ask the runner operator to remove unintended skills from the source snapshot. Connect a Skill Reference only for skills you intend to include."
+  },
+  "unsafe_materialized_skill_path": {
+    "title": "The workspace skill directory is unsafe",
+    "description": "The runner could not verify its isolated skill directory.",
+    "recovery": "Ask the runner operator to inspect the workspace paths. Do not resume the affected workspace."
+  },
+  "claude_subscription_unavailable": {
+    "title": "The local Claude runner is not signed in",
+    "description": "The dedicated runner profile could not confirm a usable Claude login. This does not mean your host Claude subscription is unavailable.",
+    "recovery": "Check the host Claude sign-in and the configured local login copy. The runner can reuse that login without a separate sign-in."
+  },
+  "claude_host_login_unavailable": {
+    "title": "The local Claude login could not be read",
+    "description": "The runner could not read the selected host Claude access credential.",
+    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
+  },
+  "claude_host_login_expired": {
+    "title": "The copied Claude access credential needs refreshing",
+    "description": "The host credential file contains an access credential that is expired or about to expire.",
+    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
+  },
+  "claude_local_login_copy_failed": {
+    "title": "The local Claude login could not be copied",
+    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
+    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
   }
 }
