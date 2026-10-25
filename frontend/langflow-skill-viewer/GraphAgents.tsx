@@ -33,8 +33,50 @@ export function MessageMarkdown({text}:{text:string}) {
   return <Markdown skipHtml disallowedElements={["img"]} className="prose prose-sm max-w-none break-words dark:prose-invert prose-code:before:content-none prose-code:after:content-none prose-code:!font-mono prose-code:font-normal [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_code]:break-words" components={{code:({node,...props})=><code {...props} style={{fontFamily:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",fontWeight:400}}/>,a:({node,...props})=><a {...props} target="_blank" rel="noopener noreferrer"/>}}>{text}</Markdown>;
 }
 
-function SectionHeading({children,id}:{children:React.ReactNode;id?:string}) {
-  return <div className="flex min-w-0 items-center gap-5"><h2 id={id} className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</h2><div className="h-px min-w-4 flex-1 bg-border"/></div>;
+function SectionHeading({children,id,actions}:{children:React.ReactNode;id?:string;actions?:React.ReactNode}) {
+  return <div className="flex min-w-0 items-center gap-5"><h2 id={id} className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</h2><div className="h-px min-w-4 flex-1 bg-border"/>{actions&&<div className="flex shrink-0 items-center gap-2">{actions}</div>}</div>;
+}
+
+function ActivityInfo({label,text}:{label:string;text:string}) {
+  return <Popover><PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" aria-label={label}><IconComponent name="Info" className="h-3.5 w-3.5"/></Button></PopoverTrigger><PopoverContent className="max-w-[calc(100vw-2rem)] text-xs" align="end">{text}</PopoverContent></Popover>;
+}
+
+type ExportContext = {graph_id?:string;run_id:string;execution_id:string|null;node_id:string;provider?:string;model:string|null;native_session:string|null;scope:ActivityScope;capture_state:string;truncated:boolean};
+
+export function conversationMatches(items:Lane[],query:string) {
+  if(!query.trim())return items;
+  const entries=items.map((lane,index)=>({index,text:JSON.stringify(lane)}));
+  const matches=new Set(new Fuse(entries,{keys:["text"],threshold:.35,ignoreLocation:true,minMatchCharLength:2}).search(query.trim()).map(result=>result.item.index));
+  return items.filter((_,index)=>matches.has(index));
+}
+
+export function conversationDocument(items:Lane[],context:ExportContext,query:string,format:"md"|"json") {
+  if(format==="json")return JSON.stringify({schema_version:1,kind:"conversation",context,search:query,items},null,2);
+  const fence=(text:string)=>{let length=3;for(const match of text.matchAll(/`+/g))length=Math.max(length,match[0].length+1);const marker="`".repeat(length);return `${marker}json\n${text}\n${marker}`};
+  return [`# Agent conversation`,`Graph: ${context.graph_id??"Unknown"}\nRun: ${context.run_id}\nExecution: ${context.execution_id??"Unknown"}\nProvider: ${context.provider??"Unknown"}\nModel: ${context.model??"Unknown"}\nScope: ${JSON.stringify(context.scope)}\nCapture: ${context.capture_state}${context.truncated?" (partial)":""}\nSearch: ${JSON.stringify(query)}`,
+    ...items.map(lane=>{const value=lane.item??{},text=messageText(value),speaker=value.type==="userMessage"?"User":lane.thread&&lane.thread!==context.native_session?"Subagent":"Agent";return `## ${text!==null?speaker:activityTitle(value)} · ${lane.started}\n\nThread: ${lane.thread??"Unknown"}${lane.turn?` · Turn: ${lane.turn}`:""}\n\n${text??fence(JSON.stringify(value,null,2))}`})].join("\n\n")+"\n";
+}
+
+function downloadActivity(content:string,name:string,type:string) {
+  const url=URL.createObjectURL(new Blob([content],{type}));
+  const link=document.createElement("a");link.href=url;link.download=name;
+  document.body.appendChild(link);
+  try{link.click()}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+}
+
+function Conversation({projection,context}:{projection:Projection;context:ExportContext}) {
+  const [query,setQuery]=useState("");
+  const [exportOpen,setExportOpen]=useState(false);
+  const items=useMemo(()=>conversationMatches(projection.items,query),[projection.items,query]);
+  const exportFile=(format:"md"|"json")=>{downloadActivity(conversationDocument(items,context,query,format),`conversation-${context.run_id}.${format}`,format==="md"?"text/markdown;charset=utf-8":"application/json");setExportOpen(false)};
+  return <section aria-labelledby="agent-conversation-heading" className="min-w-0 space-y-4">
+    <SectionHeading id="agent-conversation-heading" actions={<Popover open={exportOpen} onOpenChange={setExportOpen}><PopoverTrigger asChild><Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" aria-label="Export conversation" disabled={!items.length} title={`Export ${items.length} matching conversation records`}><IconComponent name="Download" className="h-3.5 w-3.5"/>Export</Button></PopoverTrigger><PopoverContent align="end" className="w-44 p-1"><Button variant="ghost" className="w-full justify-start" onClick={()=>exportFile("md")}>Markdown (.md)</Button><Button ignoreTitleCase variant="ghost" className="w-full justify-start" onClick={()=>exportFile("json")}>JSON (.json)</Button></PopoverContent></Popover>}>Conversation</SectionHeading>
+    <div className="flex min-w-0 items-center gap-3"><div className="relative min-w-0 flex-1"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search conversation" placeholder="Search messages and tools..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div><span role="status" className="shrink-0 text-xs text-muted-foreground">{items.length} of {projection.items.length}</span></div>
+    <div role="region" aria-label="Conversation messages and tools" tabIndex={0} className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {!items.length&&<p className="text-sm text-muted-foreground">{projection.items.length?"No matching messages or tools.":"No messages or tool calls captured."}</p>}
+      {items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={context.native_session} provider={context.provider}/>)}
+    </div>
+  </section>;
 }
 
 function JsonDisclosure({label,value,className}:{label:string;value:unknown;className?:string}) {
@@ -221,19 +263,18 @@ export function UsageCharts({projection,scopeLabel="Run"}:{projection:Projection
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><h4 className="font-medium text-foreground">Cumulative usage over time</h4><span>{points.length} {points.length===1?"observation":"observations"} · {scopeLabel.toLowerCase()} scope</span></div>
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-3">{chart(false)}{chart(true)}</div>
     </>}
-    <p className="text-xs text-muted-foreground">{projection.usage===null&&"Aggregate usage is incomplete; charts show only captured observations. "}{projection.cost_reason.replace(/[.\s]+$/,"")}. Cached input is part of input; reasoning is part of output. Chart values update only at captured observations; unknown values remain gaps.</p>
+    {projection.usage===null&&<p role="status" className="text-xs text-muted-foreground">Aggregate usage is incomplete.</p>}
   </section>;
 }
 
-export function RuntimeRecords({records,coverage}:{records:Record<string,unknown>[];coverage:string}) {
+export function RuntimeRecords({records,coverage,context}:{records:Record<string,unknown>[];coverage:string;context?:ExportContext}) {
   const [query,setQuery]=useState("");
   const entries=useMemo(()=>records.map((record,index)=>({record,index,text:JSON.stringify(record)})),[records]);
   const search=useMemo(()=>new Fuse(entries,{keys:["text"],threshold:.35,ignoreLocation:true,minMatchCharLength:2}),[entries]);
   const visible=query.trim()?search.search(query.trim()).map(result=>result.item):entries;
   return <section className="min-w-0 space-y-4" aria-label="OpenTelemetry">
-    <SectionHeading>OpenTelemetry</SectionHeading>
-    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground"><p className="min-w-0 flex-1">{coverage.replace(/[.\s]+$/,"")}. Runtime spans are not counted as agent invocations or token charges.</p><span role="status" className="shrink-0">{visible.length} of {records.length} records</span></div>
-    <div className="relative"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div>
+    <SectionHeading actions={<><ActivityInfo label="OpenTelemetry capture details" text={`${coverage}. Runtime spans are not counted as agent invocations or token charges.`}/><Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" aria-label="Export OpenTelemetry JSON" disabled={!visible.length} title={`Export ${visible.length} matching OpenTelemetry records`} onClick={()=>downloadActivity(JSON.stringify({schema_version:1,kind:"opentelemetry_records",context,search:query,coverage,records:visible.map(entry=>entry.record)},null,2),`opentelemetry-${context?.run_id??"records"}.json`,"application/json")}><IconComponent name="Download" className="h-3.5 w-3.5"/>Export</Button></>}>OpenTelemetry</SectionHeading>
+    <div className="flex min-w-0 items-center gap-3"><div className="relative min-w-0 flex-1"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div><span role="status" className="shrink-0 text-xs text-muted-foreground">{visible.length} of {records.length} records</span></div>
     <div className="divide-y rounded-md border">{visible.map(({record,index})=><div key={index} className="min-w-0 px-3 py-2"><JsonDisclosure label={`${index+1}. ${typeof record.name==="string"?record.name:`Runtime record ${index+1}`}${typeof record.signal==="string"?` / ${record.signal}`:""}`} value={record}/></div>)}{!visible.length&&<p className="p-3 text-sm text-muted-foreground">{records.length?"No matching records. Clear the search to show every record.":"No OpenTelemetry records captured."}</p>}</div>
   </section>;
 }
@@ -316,6 +357,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   const earlier=detail&&resumedThread?runs.filter(run=>run.id!==detail.run.id&&run.node===detail.run.node&&run.provider===detail.run.provider&&run.native_session===resumedThread&&run.execution&&run.ended&&Date.parse(run.ended)<=Date.parse(detail.run.started)).sort((a,b)=>Date.parse(b.started)-Date.parse(a.started))[0]:undefined;
   const selectScope=(invocation:string,next:ActivityScope={})=>{setSelected(invocation);setScope(next)};
   const scopeLabel=scope.turn?"Turn":scope.thread?"Conversation":"Run";
+  const exportContext:ExportContext|undefined=detail?{graph_id:flowId,run_id:detail.run.id,execution_id:detail.run.execution,node_id:detail.run.node,provider:detail.run.provider,model:(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??null,native_session:detail.run.native_session,scope,capture_state:detail.run.stream_state,truncated:detail.truncated}:undefined;
   const selectedLane=currentTurn??currentConversation?.lane??detail?.run;
   const executions=[...new Set(runs.map(run=>run.execution).filter((value):value is string=>Boolean(value)))];
   const agentRow=(run:Run,thread:ReturnType<typeof conversationRows>[number])=>{
@@ -345,7 +387,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
     <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-3"><h1 className="text-sm font-semibold">Agents</h1>
       <Button variant="ghost" size="icon" aria-label="Refresh" onClick={()=>setRefresh(value=>value+1)}><IconComponent name="RefreshCcw" className="h-4 w-4"/></Button></header>
     <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-    <div className="space-y-3 border-b px-4 py-3"><p className="text-sm text-muted-foreground">Recorded executions of the current graph.</p>
+    <div className="space-y-3 border-b px-4 py-3">
     <label className="flex flex-wrap items-center gap-3 text-sm">Graph execution <select className="max-w-full rounded-md border bg-background px-3 py-1.5 text-sm" value={execution} onChange={event=>{setExecution(event.target.value);setSelected("");setScope({})}}>
       {executions.map(id=><option key={id} value={id}>{time(runs.find(run=>run.execution===id)!.started)} · {id}</option>)}</select></label></div>
     <div className="min-w-0 p-4">
@@ -355,7 +397,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
     {visible.length>0&&<><div className="overflow-x-auto rounded-md border border-border"><div data-testid="agent-timeline-axis" data-start={start} data-end={end} title="Execution bounds use runner receipt times; turn segments use captured provider timestamps." className="flex min-w-[900px] justify-between border-b bg-muted/40 py-2 pl-[372px] pr-3 text-xs tabular-nums text-muted-foreground"><span>{time(new Date(start).toISOString())}</span><span>{((end-start)/1000).toFixed(1)} seconds</span><span>{time(new Date(end).toISOString())}</span></div>
       {visible.map(run=>rowsByRun[run.id]?.length?rowsByRun[run.id].map(thread=>agentRow(run,thread)):<div key={run.id} data-testid="agent-timeline-row" className="grid min-w-[900px] grid-cols-[360px_1fr] border-b border-border"><button className="px-3 py-2 text-left text-sm font-medium" aria-label={`${label(run)} · ${run.status}`} onClick={()=>selectScope(run.id)}>{label(run)}</button><span className="px-3 py-2 text-xs text-muted-foreground">{details[run.id]?"No captured turns":"Loading captured turns…"}</span></div>)}
       </div>
-      <p className="my-2 text-xs text-muted-foreground">Rows represent agents; green segments represent captured turns. Blank space is idle time. The axis retains the full execution range. Select an agent name or a turn to inspect it; viewing activity never starts an agent.</p></>}
+      </>}
     {detail&&<article key={detail.run.id} className="mt-8 space-y-6" aria-label="Selected agent run">
       <SectionHeading>Selected agent run</SectionHeading>
       <nav aria-label="Activity selection" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -371,21 +413,14 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         </div>
 
       </section>
-      {scope.thread&&<p className="text-xs text-muted-foreground">{scope.turn?"Selected turn only":"This conversation only; excludes subagents"}. {projection?.turns.length??0} captured {projection?.turns.length===1?"turn":"turns"}.</p>}
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {detail.run.reason.replaceAll("_"," ")}</p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
-        <SectionHeading id="agent-usage-heading">Usage and diagnostics</SectionHeading>
+        <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.`}/>}>Usage and diagnostics</SectionHeading>
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel}/>
       </section>
-      <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage}/>
-      <section aria-labelledby="agent-conversation-heading" className="min-w-0 space-y-4">
-        <SectionHeading id="agent-conversation-heading">Conversation</SectionHeading>
-        <div role="region" aria-label="Conversation messages and tools" tabIndex={0} className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {projection!.items.length===0&&<p className="text-sm text-muted-foreground">No messages or tool calls captured.</p>}
-          {projection!.items.map(item=><ActivityItem key={`${item.thread}:${item.id}`} lane={item} rootThread={detail.run.native_session} provider={detail.run.provider}/>)}
-        </div>
-      </section>
+      <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>
+      <Conversation key={`conversation:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} context={exportContext!}/>
     </article>}
     </div></div>
   </section>;

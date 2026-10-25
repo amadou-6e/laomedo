@@ -109,3 +109,17 @@ axis. There is no green invocation-duration or conversation-envelope bar bridgin
 startup, cleanup or idle gaps. The axis still uses invocation receipt start/end
 boundaries. Row labels select the conversation, segments select their native turn,
 and All activity restores invocation-wide evidence.
+
+Conversation search matches messages and tool records without reordering the
+transcript. Changing the selected run, conversation or turn clears its search.
+Conversation exports are available as Markdown or JSON; OpenTelemetry exports
+are JSON records, not an OTLP ingestion envelope. Both exports use the currently
+selected scope and active search filter, and include that context in the file.
+Conversation JSON retains captured message/tool metadata; Markdown includes
+message text and fenced tool metadata. Capture state and partial-capture flags
+remain in the export. Downloads are local and do not dispatch agents.
+
+Persistent explanatory paragraphs are removed from the activity page. Cost
+estimate provenance, token accounting notes and telemetry coverage remain
+available through the section info controls. Capture warnings and empty states
+remain visible.

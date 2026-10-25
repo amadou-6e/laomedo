@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition } from "./index";
+import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
@@ -12,13 +12,49 @@ jest.mock("@/stores/flowStore",()=>({__esModule:true,default:(select:(state:unkn
 const run=(id:string,execution:string)=>({id,node:`node-${id}`,execution,started:"2026-10-15T10:00:00Z",ended:"2026-10-15T10:00:02Z",status:"completed",stream_state:"complete",event_count:2,native_session:id,model:"gpt-6-luna"});
 const projection={turns:[],items:[],threads:[],usage:null,usage_points:[],cost:{amount:null},cost_reason:"Unknown model",telemetry:[],telemetry_coverage:"not observed"};
 jest.unmock("react-markdown");
-jest.mock("@/components/ui/button",()=>({Button:jest.requireActual("react").forwardRef(({variant,size,...props}:any,ref:any)=><button ref={ref} {...props}/>)}));
+jest.mock("@/components/ui/button",()=>({Button:jest.requireActual("react").forwardRef(({variant,size,ignoreTitleCase,...props}:any,ref:any)=><button ref={ref} {...props}/>)}));
 jest.mock("@/components/ui/popover",()=>{const primitive=jest.requireActual("@radix-ui/react-popover");return {Popover:primitive.Root,PopoverTrigger:primitive.Trigger,PopoverContent:primitive.Content};});
 jest.mock("@/components/ui/badge",()=>({Badge:({variant,size,...props}:any)=><span {...props}/>}));
 // Keep this suite focused on activity behavior; the real code viewer is checked in-browser.
 jest.mock("@/components/common/genericIconComponent",()=>({__esModule:true,default:()=> <svg/>}));
 jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({code}:{code:string})=> <pre><span>{code}</span></pre>}));
 beforeEach(()=>{jest.clearAllMocks();canvasNodes=[];activityTarget=null});
+
+test("conversation fuzzy search preserves transcript order and exports exact scope and tool metadata",()=>{
+  const items=[
+    {id:"a",thread:"child",turn:"t",started:"2026-10-25T07:00:00Z",ended:null,item:{type:"agentMessage",text:"Inspect commandExecution output"}},
+    {id:"b",thread:"child",turn:"t",started:"2026-10-25T07:00:01Z",ended:null,item:{type:"commandExecution",command:"echo ```",aggregatedOutput:"```\nprivate result"}},
+    {id:"c",thread:"child",turn:"t",started:"2026-10-25T07:00:02Z",ended:null,item:{type:"agentMessage",text:"Other answer"}},
+  ];
+  const context={graph_id:"graph",run_id:"run",execution_id:"execution",node_id:"node",provider:"opencode",model:"go/model",native_session:"parent",scope:{thread:"child",turn:"t"},capture_state:"complete",truncated:false};
+  const filtered=conversationMatches(items,"commndExecution");
+  expect(filtered.map(item=>item.id)).toEqual(["a","b"]);
+  const json=JSON.parse(conversationDocument(filtered,context,"commndExecution","json"));
+  expect(json.context.scope).toEqual({thread:"child",turn:"t"});expect(json.search).toBe("commndExecution");expect(json.items.map((item:any)=>item.id)).toEqual(["a","b"]);
+  expect(json.items[1].item.aggregatedOutput).toBe("```\nprivate result");
+  const markdown=conversationDocument(filtered,context,"commndExecution","md");
+  expect(markdown).toContain("Subagent \u00b7 2026");expect(markdown).not.toContain("\u00c2\u00b7");
+  expect(markdown).toContain("## Subagent");expect(markdown).toContain("Inspect commandExecution output");expect(markdown).toContain("````json");expect(markdown).not.toContain("Other answer");
+  expect(conversationMatches(items,"   ")).toBe(items);
+});
+
+test("conversation search has clear and empty states, and switching scope resets it",async()=>{
+  const first={...run("one","execution"),native_session:"parent"};
+  const lane=(id:string,thread:string,text:string)=>({id,thread,started:first.started,ended:first.ended,item:{type:"agentMessage",text}});
+  const p={...projection,threads:[{id:"parent",parent:null},{id:"child",parent:"parent",title:"Child reviewer"}],items:[lane("a","parent","Garnet main answer"),lane("b","child","Beryl child answer")]};
+  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:p,truncated:false}}));
+  render(<GraphAgents flowId="flow"/>);
+  fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/}));
+  const search=await screen.findByRole("textbox",{name:"Search conversation"});
+  fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
+  fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"Clear",exact:true}));
+  expect(search).toHaveValue("");expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
+  fireEvent.change(search,{target:{value:"Garnet"}});
+  fireEvent.click(screen.getByRole("button",{name:/^Child reviewer.*0 turns/}));
+  expect(screen.getByRole("textbox",{name:"Search conversation"})).toHaveValue("");expect(screen.getByText("Beryl child answer")).toBeInTheDocument();expect(screen.queryByText("Garnet main answer")).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Export conversation"}));expect(screen.getByRole("button",{name:"Markdown (.md)"})).toBeInTheDocument();expect(screen.getByRole("button",{name:"JSON (.json)"})).toBeInTheDocument();
+});
 
 test("recorded names survive canvas rename and older runs use the visible canvas name",async()=>{
   canvasNodes=[{id:"node-one",data:{node:{display_name:"Renamed on canvas"}}},{id:"node-two",data:{node:{display_name:"Follow up"}}}];
