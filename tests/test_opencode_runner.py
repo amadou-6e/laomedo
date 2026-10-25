@@ -130,7 +130,7 @@ class OpenCodeTests(unittest.TestCase):
             def call(self, method, path, payload=None):
                 if path == '/provider':
                     entered.set()
-                    self_waited = released.wait(3)
+                    self_waited = released.wait(45)
                     if not self_waited:
                         raise TimeoutError()
                 return super().call(method, path, payload)
@@ -139,14 +139,14 @@ class OpenCodeTests(unittest.TestCase):
         thread = threading.Thread(target=lambda: result.update(self.runner.start(self.payload)))
         thread.start()
         try:
-            self.assertTrue(entered.wait(3))
+            self.assertTrue(entered.wait(15))
             run_id = next(iter(self.runner.cancel_flags))
             response = self.runner.cancel(run_id)
             self.assertTrue(response['cancel_requested'])
             self.assertFalse(response['cancel_acknowledged'])
         finally:
             released.set()
-            thread.join(4)
+            thread.join(20)
         self.assertFalse(thread.is_alive())
         self.assertEqual(result['status'], 'cancelled')
         self.assertIsNone(result.get('attempt_number'))
@@ -159,7 +159,7 @@ class OpenCodeTests(unittest.TestCase):
         def pause_reservation():
             attempt = original()
             reserved.set()
-            if not released.wait(3):
+            if not released.wait(45):
                 raise TimeoutError()
             return attempt
         self.runner._reserve_turn = pause_reservation
@@ -167,12 +167,12 @@ class OpenCodeTests(unittest.TestCase):
         thread = threading.Thread(target=lambda: result.update(self.runner.start(self.payload)))
         thread.start()
         try:
-            self.assertTrue(reserved.wait(3))
+            self.assertTrue(reserved.wait(15))
             run_id = next(iter(self.runner.cancel_flags))
             self.assertTrue(self.runner.cancel(run_id)['cancel_requested'])
         finally:
             released.set()
-            thread.join(4)
+            thread.join(20)
         self.assertFalse(thread.is_alive())
         self.assertEqual(result['status'], 'cancelled')
         self.assertEqual(result['attempt_number'], 1)

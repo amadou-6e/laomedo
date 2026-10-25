@@ -74,6 +74,15 @@ class OpenCodeErrorCatalogueTests(unittest.TestCase):
         missing={path:sorted(emitted_codes((ROOT/path).read_text(encoding="utf-8"))-catalog.keys()) for path in OPENCODE_ERROR_PRODUCERS}
         self.assertEqual({path:codes for path,codes in missing.items() if codes},{})
 
+    def test_changed_normal_accounting_methods_have_catalogue_coverage(self):
+        catalog=json.loads((ROOT/"frontend/langflow-skill-viewer/node-error-catalog.json").read_text(encoding="utf-8"))
+        tree=ast.parse((ROOT/"laomedo/local_runner.py").read_text(encoding="utf-8"))
+        runner=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=="LocalRunner")
+        methods={node.name:node for node in runner.body if isinstance(node,ast.FunctionDef) and node.name in {"_reserve_turn","_turn_available"}}
+        self.assertEqual(set(methods),{"_reserve_turn","_turn_available"})
+        for name,node in methods.items():
+            self.assertEqual(emitted_codes(ast.unparse(node))-catalog.keys(),set(),name)
+
     def test_guard_catches_new_literal_and_nested_capture_failures(self):
         self.assertEqual(emitted_codes('raise RuntimeError("new_public_failure")\nself.error="new_capture_failure"\nx.update(capture_error="new_snapshot_failure" if flag else "new_stream_failure")'),
                          {"new_public_failure","new_capture_failure","new_snapshot_failure","new_stream_failure"})

@@ -878,5 +878,10 @@
     "title": "The invocation boundary could not be verified",
     "description": "Retained activity could not be attributed completely to this invocation. Usage and cost totals are withheld rather than treated as zero.",
     "recovery": "Inspect the retained Conversation and OpenTelemetry evidence and the original run Status. Do not infer missing usage or repeat a request merely to reconstruct its activity."
+  },
+  "invalid_turn_ledger": {
+    "title": "The runner accounting record is invalid",
+    "description": "The local accounting record has an unsupported count or shape, so an attempt could not be reserved. Normal accounting is separate from historical experiment allowances.",
+    "recovery": "Ask the operator to inspect the affected accounting record against existing run history. Preserve historical experiment evidence and check any existing run before submitting another request."
   }
 }
