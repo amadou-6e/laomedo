@@ -20,6 +20,7 @@ from laomedo.github_rest_transport import GitHubRestTransport
 from laomedo.host_services import serve_services
 from laomedo.lease_service import LeaseService
 from laomedo.local_runner import GIT_IMAGE_ID, serve
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.mediation_authority import RunGrantAuthority
 from laomedo.mediation_service import MediationHTTPService, JournaledTransport
 from laomedo.output_contract import requirements

@@ -9,6 +9,9 @@ from laomedo.opencode_runner import OpenCodeRunner, RunnerError, normalize_messa
 from laomedo.local_runner import _hash_tree, _json
 
 
+from verification_runner import VerificationOpenCodeRunner as OpenCodeRunner
+
+
 class Backend:
     sessions = 0
     histories = {}

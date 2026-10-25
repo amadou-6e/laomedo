@@ -33,8 +33,8 @@ prompt or tool-argument text. Raw Activity receipts retain the conversation.
 ## Usage and record inspection
 
 The selected invocation shows run-total cards and separate cumulative token and
-USD estimate charts. Chart scope selects all observed threads or one native
-thread without changing the run-total cards. Hover or focus a chart and use Left/Right, Home or End
+USD estimate charts. The Gantt and breadcrumbs select the invocation, conversation or turn; the
+cards and both charts follow that same selection. Hover or focus a chart and use Left/Right, Home or End
 to inspect captured observations. Latest cumulative values are carried forward
 per thread before aggregation; missing categories remain gaps.
 
@@ -60,7 +60,7 @@ cost, and adapter OTLP export were verified against genuine parent/child records
 The harness's README text contained a misdecoded arrow; this affected the test
 input, not the capture or attribution. The child's usage was 1,100 input and 150 output (including 114 reasoning),
 estimated at $0.000212425. This verifies native child observation, **not agent
-Task delegation**. The dedicated runner still disables native Task invocation.
+Task delegation**. That historical harness disabled native Task invocation.
 
 Three additional prompt submissions were used out of the five authorized.
 Both graph runs and the child controller confirmed cleanup. Internal fixture
@@ -123,3 +123,37 @@ Persistent explanatory paragraphs are removed from the activity page. Cost
 estimate provenance, token accounting notes and telemetry coverage remain
 available through the section info controls. Capture warnings and empty states
 remain visible.
+
+
+## Merge preparation, 2026-10-25
+
+A subsequent real Run component invocation completed one native parent Task and
+one read-only child in the saved local graph (execution
+`383a237d-45c2-4da3-92e3-5a1ef1b86efb`). Parent and child turns were 58.4s and
+27.5s; the 138.3s invocation receipt range also includes idle/startup/cleanup.
+The complete stream and owned-controller cleanup were confirmed. This later run
+establishes agent Task delegation separately from the earlier host-created child.
+
+A trusted host-only configuration hook now permits an additive named-agent policy
+without replacing normal skill/worker tools or the primary prompt. The local
+profile's child has no tools or further delegation. The real run above preceded
+the final restoration of those normal defaults: startup/configuration tests are
+current evidence, while another paid run of restored tool paths is not claimed.
+
+Normal runners use `attempt-count.json` for a diagnostic sequence and do not read
+historical experiment turn allowances as runtime authorization. Bounded examples
+and internal controls explicitly use `experiments/turn_harness.py`; those bounds
+are not installed in normal startup or persistent services.
+
+Initial running total cards show zero only before any usage observations and
+without capture warnings or truncation. Subsequent missing/unpriced fields and
+completed captures with no usage remain Unknown. The initial zero is provisional,
+not a measured provider charge. Internal tests cover the transition; no additional
+paid run was submitted solely to verify these cards.
+
+The implementation is stacked on the shared descriptive-error presenter. Its
+producer-specific catalogue guard scans literal raises and capture/error fields
+in the OpenCode boundary, runner, native reader, telemetry exporter and activity
+observer. It does not claim exhaustive coverage of arbitrary external exceptions;
+those use the safe fallback. Capture explanations retain safe machine codes in
+the shared details control, without raw exception bodies.

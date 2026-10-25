@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 from laomedo.local_runner import LocalRunner, _private
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.github_issue_gateway import GitHubIssueGateway
 from laomedo.github_issue_contract import issue_digest
 from laomedo.github_mediation import MediationStore, KnownRejected

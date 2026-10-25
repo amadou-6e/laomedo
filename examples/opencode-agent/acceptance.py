@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 from laomedo.local_runner import _json, _private
 from laomedo.opencode_boundary import IsolatedOpenCode
 from laomedo.opencode_runner import OpenCodeRunner
+from experiments.turn_harness import VerificationOpenCodeRunner as OpenCodeRunner
 from laomedo.opencode_auth import console_provider
 from laomedo.skill_store import SkillStore, ConflictError, inventory, tree_hash
 

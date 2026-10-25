@@ -9,6 +9,7 @@ import sys
 from tempfile import TemporaryDirectory
 
 from laomedo.local_runner import LocalRunner, RunnerError
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 
 
