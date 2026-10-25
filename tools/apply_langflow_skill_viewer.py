@@ -121,6 +121,9 @@ def apply(checkout):
     flow_error = replace_once(flow_error, 'className="absolute right-0 font-mono text-xs"', 'className={cn("absolute right-0 font-mono text-xs", descriptiveError && "hidden")}')
     flow_error = replace_once(flow_error, '  return (\n    <AnimatePresence mode="wait">', '  if (!isBuilding && descriptiveError && isRunnerConnectionError(descriptiveError) && !dismissed) {\n    return <RecoveryPopup message={descriptiveError} onDismiss={() => { setBuildInfo(null); setDismissed(false); }} context={{\n      nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n      operation: affectedNode?.data.node?.template?.operation?.value,\n      savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n    }} />;\n  }\n  return (\n    <AnimatePresence mode="wait">')
     flow_error_path.write_text(flow_error, encoding="utf-8")
+    outcome_patch = overlay / "runner-outcomes.patch"
+    subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", "--check", str(outcome_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", "--ignore-space-change", str(outcome_patch)], check=True)
     print("pinned_skill_viewer_overlay_applied")
 
 if __name__ == "__main__":

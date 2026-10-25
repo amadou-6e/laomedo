@@ -41,7 +41,7 @@ class RunnerServiceTests(unittest.TestCase):
         restarted._turn_available()
         self.assertEqual(restarted._reserve_turn(), 3)
         self.assertEqual(history.read_bytes(), b'historical evidence, not runtime configuration')
-        self.assertNotIn('max_authorized_turns', (state / 'attempt-count.json').read_text())
+        self.assertEqual(json.loads((state / 'attempt-count.json').read_text())['attempted_turns'], 3)
 
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
@@ -52,6 +52,9 @@ class RunnerServiceTests(unittest.TestCase):
         (self.root/'runner').mkdir();(self.root/'runner/api-token').write_text('internal-control')
         self.path=self.root/'config.json';self.path.write_text(json.dumps(self.config))
         self.service=RunnerService(self.path);self.url='http://127.0.0.1:18769'
+        # Internal controls; these are not evidence of the host's Docker state.
+        docker = patch('laomedo.runner_service.check_docker', return_value=None)
+        self.docker = docker.start(); self.addCleanup(docker.stop)
         self.real_connect=socket.create_connection
         probe=patch('laomedo.runner_service.socket.create_connection', side_effect=ConnectionRefusedError())
         self.probe=probe.start(); self.addCleanup(probe.stop)
@@ -72,7 +75,7 @@ class RunnerServiceTests(unittest.TestCase):
                 for key in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','LANGFLOW_SECRET_KEY','DATABASE_URL','CLAUDE_CONFIG_DIR'):
                     self.assertNotIn(key,env)
                 self.assertEqual(env['PATH'],'runtime-path')
-                self.assertEqual('DOCKER_HOST' in env,provider=='codex')
+                self.assertEqual('DOCKER_HOST' in env,provider in {'codex','claude'})
             with patch.object(self.service.opener,'open',side_effect=URLError('offline')), \
                  patch('laomedo.runner_service.subprocess.Popen',return_value=Mock(poll=lambda:None)) as spawn:
                 self.service.start(self.url)
@@ -145,7 +148,7 @@ class RunnerServiceTests(unittest.TestCase):
             self.assertEqual(self.service.status()['state'], 'ready')
         process.poll.return_value = 1
         with patch.object(self.service.opener, 'open', side_effect=URLError('offline')):
-            self.assertEqual(self.service.status(), {'state':'offline', 'can_start':True, 'reason':None})
+            self.assertEqual(self.service.status(), {'state':'offline', 'can_start':True, 'reason':'runner_local_offline'})
         self.service.process = Mock(poll=lambda: 1)
         with patch.object(self.service.opener, 'open', side_effect=URLError('offline')):
             self.assertEqual(self.service.status()['reason'], 'runner_start_failed')
@@ -172,6 +175,68 @@ class RunnerServiceTests(unittest.TestCase):
             result=client.post('/api/v1/laomedo/runner-service/start',params={'url':self.url},headers={'Authorization':'internal-auth'})
             self.assertEqual(result.status_code,200);self.assertEqual(result.headers['cache-control'],'no-store')
 
+    def test_cancelled_startup_never_binds_a_listener(self):
+        from laomedo.startup_control import startup_gate
+        gate = self.root / 'serve.lock'
+        with startup_gate(gate) as marker: marker.with_suffix('.cancel').touch()
+        with patch.dict('os.environ', {'LAOMEDO_STARTUP_GATE':str(gate)}), patch('laomedo.local_runner.ThreadingHTTPServer') as bind:
+            with self.assertRaises(SystemExit): serve(SimpleNamespace(),port=0)
+        bind.assert_not_called()
+        self.assertTrue(gate.with_suffix(".cancelled").exists())
+
+    def test_listener_publication_blocks_later_cancellation(self):
+        gate = self.root / 'serve.lock'
+        with patch.dict('os.environ', {'LAOMEDO_STARTUP_GATE':str(gate)}):
+            server = serve(SimpleNamespace(),port=0)
+        server.server_close()
+        self.assertTrue(gate.with_suffix('.listening').exists())
+
+    def test_cancel_only_matching_owned_startup(self):
+        child = Mock(); child.poll.return_value = None
+        self.service.process = child; self.service.startup_id = 'attempt-one'
+        self.service.startup_gate_path = self.root / 'startup.lock'
+        with patch.object(self.service, 'status', return_value={'state':'starting','can_start':False}):
+            self.service.cancel_start('old-attempt')
+            self.assertFalse(self.service.startup_gate_path.with_suffix('.cancel').exists())
+            result = self.service.cancel_start('attempt-one')
+        child.terminate.assert_not_called()
+        self.assertEqual(result['state'], 'cancelling')
+        self.assertTrue(self.service.startup_gate_path.with_suffix('.cancel').exists())
+        child.poll.return_value = 0
+        self.assertNotEqual(self.service._offline_state()["reason"], "runner_start_cancelled")
+        self.service.startup_gate_path.with_suffix(".cancelled").touch()
+        self.assertEqual(self.service._offline_state()['reason'], 'runner_start_cancelled')
+
+    def test_cancel_never_stops_ready_or_uncertain_listener(self):
+        for state in ('ready', 'unavailable'):
+            child = Mock(); self.service.process = child; self.service.startup_id = 'attempt-one'; self.service.startup_gate_path = self.root / 'startup.lock'
+            with patch.object(self.service, 'status', return_value={'state':state,'can_start':False}):
+                self.assertEqual(self.service.cancel_start('attempt-one')['state'], state)
+            child.terminate.assert_not_called()
+
+    def test_cancel_refuses_startup_that_bound_listener_after_status_probe(self):
+        child = Mock(); self.service.process = child; self.service.startup_id = 'attempt-one'
+        self.service.startup_gate_path = self.root / 'startup.lock'
+        self.service.startup_gate_path.with_suffix('.listening').touch()
+        with patch.object(self.service, 'status', return_value={'state':'starting','can_start':False}):
+            self.service.cancel_start('attempt-one')
+        child.terminate.assert_not_called()
+
+    @unittest.skipIf(TestClient is None, 'optional FastAPI/httpx integration is not installed')
+    def test_cancel_route_requires_auth_and_exact_startup_identity(self):
+        from fastapi import FastAPI, Header, HTTPException
+        app = FastAPI()
+        def auth(authorization: str = Header(default='')):
+            if authorization != 'internal-auth': raise HTTPException(401)
+        install_runner_service_routes(app, auth, self.service)
+        client = TestClient(app)
+        with patch.object(self.service, 'cancel_start', return_value={'state':'offline','can_start':True}) as cancel:
+            self.assertEqual(client.post('/api/v1/laomedo/runner-service/cancel-start', params={'startup_id':'attempt-one'}).status_code,401)
+            cancel.assert_not_called()
+            result = client.post('/api/v1/laomedo/runner-service/cancel-start', params={'startup_id':'attempt-one'}, headers={'Authorization':'internal-auth'})
+            self.assertEqual(result.status_code,200); cancel.assert_called_once_with('attempt-one')
+            self.assertEqual(result.headers['cache-control'],'no-store')
+
     def test_default_host_service_needs_no_graph_url(self):
         with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
              patch('laomedo.runner_service.subprocess.Popen') as spawn:
@@ -183,5 +248,45 @@ class RunnerServiceTests(unittest.TestCase):
             self.assertNotIn('--max-model-turns', command)
             self.assertFalse(self.service.start('http://127.0.0.1:12345')['can_start'])
             self.assertEqual(spawn.call_count, 1)
+
+    def test_docker_prerequisites_block_start_without_disclosing_cli_output(self):
+        for reason in ('runner_docker_not_installed', 'runner_docker_unavailable', 'runner_docker_check_unconfirmed'):
+            self.docker.return_value = reason
+            with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
+                 patch('laomedo.runner_service.subprocess.Popen') as spawn:
+                value = self.service.start()
+                self.assertEqual(value, {'state':'prerequisite', 'can_start':False, 'reason':reason, 'runner_state':'offline'})
+                spawn.assert_not_called()
+
+    def test_start_rechecks_docker_even_after_cached_healthy_poll(self):
+        with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
+             patch('laomedo.runner_service.subprocess.Popen') as spawn:
+            self.assertTrue(self.service.status()['can_start'])
+            self.docker.return_value = 'runner_docker_unavailable'
+            self.assertFalse(self.service.start()['can_start'])
+            self.assertEqual(self.docker.call_count, 2)
+            spawn.assert_not_called()
+
+    def test_slow_overlapping_check_does_not_authorize_spawn(self):
+        self.service.docker_lock.acquire()
+        try:
+            with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
+                 patch('laomedo.runner_service.subprocess.Popen') as spawn:
+                self.assertEqual(self.service.start()['reason'], 'runner_docker_check_unconfirmed')
+                spawn.assert_not_called()
+        finally:
+            self.service.docker_lock.release()
+
+    def test_running_api_does_not_imply_docker_is_ready(self):
+        from io import BytesIO
+        self.docker.return_value = 'runner_docker_unavailable'
+        with patch.object(self.service.opener, 'open', return_value=BytesIO(b'{"provider":"claude","status":"ready"}')):
+            self.assertEqual(self.service.status()['state'], 'prerequisite')
+
+    def test_confirmed_cancellation_is_retained_when_docker_is_down(self):
+        self.docker.return_value = 'runner_docker_unavailable'
+        state = self.service._with_docker({'state':'offline','can_start':True,'reason':'runner_start_cancelled'})
+        self.assertTrue(state['startup_cancelled'])
+        self.assertFalse(state['can_start'])
 
 if __name__=='__main__':unittest.main()

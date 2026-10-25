@@ -2193,6 +2193,16 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 if response_gate is not None:
                     response_gate.set()
 
+    gate = os.environ.get("LAOMEDO_STARTUP_GATE")
+    if gate:
+        from .startup_control import startup_gate
+        with startup_gate(gate) as listening:
+            if listening.with_suffix(".cancel").exists():
+                listening.with_suffix(".cancelled").touch()
+                raise SystemExit(0)
+            server = ThreadingHTTPServer((host, port), Handler)
+            listening.touch()
+            return server
     return ThreadingHTTPServer((host, port), Handler)
 
 

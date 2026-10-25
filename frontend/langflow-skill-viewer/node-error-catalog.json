@@ -597,21 +597,51 @@
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",
     "description": "The host could not load or use its trusted local runner configuration.",
-    "recovery": "Ask the operator to check the host runner configuration and startup log. No graph retry or new model request is needed to repair this service."
+    "recovery": "Check the local runner configuration and startup log. This recovery action does not rerun the graph."
   },
   "runner_identity_unverified": {
     "title": "The local backend identity could not be verified",
     "description": "A listener may still be present, but the app could not confirm it is the configured runner.",
-    "recovery": "Ask the operator to inspect the existing listener and host configuration before restarting. Do not launch a replacement while its identity is uncertain."
+    "recovery": "Check the existing listener and local runner configuration before starting a replacement. Do not start a replacement while its identity is uncertain."
   },
   "runner_start_failed": {
     "title": "Local backend readiness is unconfirmed",
-    "description": "The configured API process exited; readiness could not be confirmed.",
-    "recovery": "Ask the operator to check the host startup log before using Restart local backend."
+    "description": "The local runner exited before it was ready.",
+    "recovery": ""
   },
   "invalid_turn_ledger": {
     "title": "The local attempt record cannot be read",
     "description": "The runner could not safely update its local attempt sequence.",
     "recovery": "Ask the operator to inspect the local attempt record and saved run metadata. Confirm existing work before starting another run."
+  },
+  "runner_start_cancelled": {
+    "title": "Backend startup cancelled",
+    "description": "The local backend startup was cancelled.",
+    "recovery": ""
+  },
+  "runner_start_cancel_unconfirmed": {
+    "title": "Startup cancellation unconfirmed",
+    "description": "The local backend has not confirmed that startup stopped.",
+    "recovery": "Check the existing backend state before starting another backend process."
+  },
+  "runner_docker_not_installed": {
+    "title": "Docker is not available",
+    "description": "The app could not find Docker on this machine.",
+    "recovery": "Install Docker, or make your existing installation available to this app."
+  },
+  "runner_docker_unavailable": {
+    "title": "Docker is not running",
+    "description": "The configured Docker engine could not be reached.",
+    "recovery": "Start Docker Desktop (or the Docker service for this context), then wait until it is ready."
+  },
+  "runner_docker_check_unconfirmed": {
+    "title": "Docker availability is unconfirmed",
+    "description": "The app could not confirm whether Docker is ready.",
+    "recovery": "Check Docker Desktop and this app's access to Docker."
+  },
+  "runner_local_offline": {
+    "title": "Local runner is offline",
+    "description": "Docker is ready, but the local runner is not running.",
+    "recovery": "Starting the runner does not rerun the graph. Check any existing run before starting new work."
   }
 }

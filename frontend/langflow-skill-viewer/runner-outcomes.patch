@@ -1,0 +1,43 @@
+--- a/src/frontend/src/controllers/API/agui/run-flow-bridge.ts
++++ b/src/frontend/src/controllers/API/agui/run-flow-bridge.ts
+@@ -421,6 +421,8 @@
+     handleLogEvent: appendLogEvent,
+     onWarning: showWorkflowWarning,
+     onFinished: () => {
++      // A closing event must never promote an earlier execution failure.
++      if (markRunningAsError) return;
+       terminalEventSeen = true;
+       if (!opts.silent) {
+         flowStore.setBuildInfo({ success: true });
+@@ -478,6 +480,7 @@
+ 
+     const subscription = agent.run(runInput).subscribe({
+       next: (event: BaseEvent) => {
++        if (settled) return;
+         if (handleAGUIEvent(event, ctx)) {
+           // Tear the subscription down on the terminal event instead of
+           // waiting for `complete:` from the SSE stream. A server-side
+--- a/src/frontend/src/controllers/API/agui/__tests__/run-flow-bridge-e2e.test.ts
++++ b/src/frontend/src/controllers/API/agui/__tests__/run-flow-bridge-e2e.test.ts
+@@ -229,6 +229,21 @@
+     } finally {
+       fetchSpy.mockRestore();
+     }
++  });
++
++  it("does not promote RUN_ERROR when RUN_FINISHED closes the same stream", async () => {
++    const events = [
++      { type: "RUN_STARTED", threadId: "thread-1", runId: "run-1", timestamp: 0 },
++      { type: "RUN_ERROR", message: "runner_transport_failed", timestamp: 0 },
++      { type: "RUN_FINISHED", threadId: "thread-1", runId: "run-1", timestamp: 0 },
++    ];
++    const fetchSpy = jest.spyOn(global as { fetch: typeof fetch }, "fetch")
++      .mockImplementation((async () => sseResponse(events)) as unknown as typeof fetch);
++    try {
++      await runFlowAGUI({ flowId: "flow-1", message: "check" });
++      expect(useFlowStore.getState().isBuilding).toBe(false);
++      expect(useFlowStore.getState().buildInfo).toEqual({ error: ["runner_transport_failed"], success: false });
++    } finally { fetchSpy.mockRestore(); }
+   });
+ 
+   it("surfaces RUN_ERROR to alertStore and clears isBuilding", async () => {

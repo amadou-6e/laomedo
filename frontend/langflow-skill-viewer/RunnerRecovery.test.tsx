@@ -22,14 +22,14 @@ test("the error UI restarts the host-configured API without a graph URL or dispa
   let finish: (value: unknown) => void = () => {};
   (api.post as jest.Mock).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   render(<RunnerRecovery message={failure} />);
-  const button = await screen.findByRole("button", { name: "Restart local backend" });
+  const button = await screen.findByRole("button", { name: "Start local runner" });
   fireEvent.click(button); fireEvent.click(button);
   expect(api.post).toHaveBeenCalledTimes(1);
-  expect(api.post).toHaveBeenCalledWith(`${endpoint}/start`, null);
-  expect(api.get).toHaveBeenCalledWith(endpoint, { signal: expect.any(AbortSignal) });
-  expect(screen.getByRole("button", { name: "Restarting local backend..." })).toBeDisabled();
+  expect(api.post).toHaveBeenCalledWith(`${endpoint}/start`, null, {timeout:10000});
+  expect(api.get).toHaveBeenCalledWith(endpoint, { signal: expect.any(AbortSignal), timeout:10000 });
+  expect(screen.getByRole("button", { name: "Starting local runner..." })).toBeDisabled();
   await act(async () => finish({ data: { state: "starting", can_start: false } }));
-  expect(screen.getByText(/does not rerun the graph/)).toBeVisible();
+  expect(screen.queryByText(/does not rerun the graph/)).toBeNull();
 });
 
 test("unconfigured or unidentified services cannot be started", async () => {
@@ -40,13 +40,14 @@ test("unconfigured or unidentified services cannot be started", async () => {
   expect(api.post).not.toHaveBeenCalled();
 });
 
-test("failed startup keeps an explicit API-only recovery action", async () => {
+test("failed startup waits for a fresh offline status before offering recovery", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: { state: "offline", can_start: true } });
   (api.post as jest.Mock).mockRejectedValue(new Error("private transport details"));
   render(<RunnerRecovery message={failure} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Restart local backend" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Start local runner" }));
   await screen.findByRole("alert");
-  expect(screen.getByRole("button", { name: "Restart local backend" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Start local runner" })).toBeNull();
+  expect(await screen.findByRole("button", { name: "Start local runner" }, {timeout:5000})).toBeEnabled();
   expect(screen.queryByText(/private transport details/)).toBeNull();
   expect(api.post).toHaveBeenCalledTimes(1);
 });
@@ -65,10 +66,10 @@ test("polling reports readiness without promoting historical verification limits
       .mockResolvedValue({ data: { state: "ready", can_start: false } });
     (api.post as jest.Mock).mockResolvedValue({ data: { state: "starting", can_start: false } });
     render(<RunnerRecovery message={failure} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Restart local backend" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start local runner" }));
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     await act(async () => { await jest.advanceTimersByTimeAsync(2000); });
-    await screen.findByText(/local runner backend is online/);
+    await screen.findByText(/local runner is online/);
     expect(screen.queryByRole("button")).toBeNull();
     expect(api.post).toHaveBeenCalledTimes(1);
   } finally { jest.useRealTimers(); }
@@ -83,14 +84,14 @@ test("a stale pre-click availability response cannot undo the starting state", a
    .mockResolvedValue({data:{state:"ready",can_start:false}});
   (api.post as jest.Mock).mockResolvedValue({data:{state:"starting",can_start:false}});
   render(<RunnerRecovery message={failure}/>);
-  const button=await screen.findByRole("button",{name:"Restart local backend"});
+  const button=await screen.findByRole("button",{name:"Start local runner"});
   await act(async()=>{await jest.advanceTimersByTimeAsync(2000)});
   fireEvent.click(button);
-  await screen.findByRole("button",{name:"Restarting local backend..."});
+  await screen.findByRole("button",{name:"Starting local runner..."});
   await act(async()=>oldPoll({data:{state:"offline",can_start:true}}));
-  expect(screen.getByRole("button",{name:"Restarting local backend..."})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"Starting local runner..."})).toBeDisabled();
   await act(async()=>{await jest.advanceTimersByTimeAsync(2000)});
-  await screen.findByText(/local runner backend is online/);
+  await screen.findByText(/local runner is online/);
   expect(api.post).toHaveBeenCalledTimes(1);
  } finally {jest.useRealTimers()}
 });
@@ -98,8 +99,9 @@ test("a stale pre-click availability response cannot undo the starting state", a
 test("a process that exits during startup explains the failure rather than just saying offline", async () => {
  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_start_failed"}});
  render(<RunnerRecovery message={failure}/>);
- await screen.findByText(/exited; readiness could not be confirmed.*host startup log/);
- expect(screen.getByRole("button",{name:"Restart local backend"})).toBeEnabled();
+ await screen.findByText("The local runner exited before it was ready.");
+ expect(screen.queryByText(/operator|startup log/i)).toBeNull();
+ expect(screen.getByRole("button",{name:"Start local runner"})).toBeEnabled();
 });
 
 test("a failed later poll removes stale permission to restart", async () => {
@@ -107,9 +109,35 @@ test("a failed later poll removes stale permission to restart", async () => {
  try {
   (api.get as jest.Mock).mockResolvedValueOnce({data:{state:"offline",can_start:true}}).mockRejectedValue(new Error("connection"));
   render(<RunnerRecovery message={failure}/>);
-  await screen.findByRole("button",{name:"Restart local backend"});
+  await screen.findByRole("button",{name:"Start local runner"});
   await act(async()=>{await jest.advanceTimersByTimeAsync(2000)});
   await screen.findByRole("alert");
   expect(screen.queryByRole("button")).toBeNull();
+ } finally {jest.useRealTimers()}
+});
+
+
+test("a timed-out restart clears the spinner and resumes status checking", async () => {
+ (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+ (api.post as jest.Mock).mockRejectedValue(new Error("timeout"));
+ render(<RunnerRecovery message={failure}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
+ await screen.findByText("The local runner startup could not be confirmed.");
+ expect(screen.queryByRole("button",{name:"Starting local runner..."})).toBeNull();
+ expect(api.post).toHaveBeenCalledWith(`${endpoint}/start`,null,{timeout:10000});
+});
+
+
+test("a client promise that never settles cannot keep restarting forever", async () => {
+ jest.useFakeTimers();
+ try {
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  (api.post as jest.Mock).mockImplementation(() => new Promise(() => {}));
+  render(<RunnerRecovery message={failure}/>);
+  fireEvent.click(await screen.findByRole("button",{name:"Start local runner"}));
+  expect(screen.getByRole("button",{name:"Starting local runner..."})).toBeDisabled();
+  await act(async()=>{await jest.advanceTimersByTimeAsync(10000)});
+  expect(screen.queryByRole("button",{name:"Starting local runner..."})).toBeNull();
+  expect(screen.getByRole("alert")).toHaveTextContent("startup could not be confirmed");
  } finally {jest.useRealTimers()}
 });
