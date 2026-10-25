@@ -45,16 +45,16 @@ python -m laomedo.local_runner --state $state --skill-store $store --source-work
 The import is a one-time operation. A second import of the same skill ID is
 rejected; use `SkillStore.revision('laomedo-pilot', pinned_revision)` to check
 an existing store. Preflight initializes the real Docker app-server and lists
-model/effort options without submitting a turn. The runner defaults to a
-**zero-turn cap**. Start it only with an explicitly authorized turn cap:
+model/effort options without submitting a turn. Normal runner startup has no
+experiment-wide turn ceiling. Bound any verification campaign with the separate
+experiment harness, not a persistent user service:
 
 ```powershell
 python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source
 ```
 
-The cap lives in `turn-ledger.json` outside Git. Reservations occur before
-`turn/start` and persist across runner restarts. Timeouts and rejected turn
-submissions count. The HTTP API binds to `127.0.0.1:8765` only and every request
+Historical `turn-ledger.json` files remain evidence and do not gate future
+user runs. Normal attempt sequencing uses `attempt-count.json`. The HTTP API binds to `127.0.0.1:8765` only and every request
 requires the private bearer token saved at `$state/api-token`. The Langflow
 container needs that file mounted read-only at
 `/run/secrets/laomedo-runner-token`; the token is read at call time and is not

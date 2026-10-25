@@ -22,7 +22,7 @@ test("shows safe diagnostics, separate actions and only explicitly restarts the 
   expect(screen.queryByText(/private-payload/)).toBeNull();
   fireEvent.click(restart);
   await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
-  expect(screen.getByRole("button", { name: "Restarting local backend..." })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Restarting..." })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   expect(dismissed).toHaveBeenCalledTimes(1);
 });

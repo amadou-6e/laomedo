@@ -9,7 +9,7 @@ function viewportStyle(): CSSProperties {
   const width = viewport?.width ?? window.innerWidth;
   const height = viewport?.height ?? window.innerHeight;
   return {
-    position: "fixed", zIndex: 100,
+    position: "fixed", zIndex: 1000,
     right: `calc(${Math.max(0, window.innerWidth - ((viewport?.offsetLeft ?? 0) + width)) + 16}px + env(safe-area-inset-right, 0px))`,
     bottom: `calc(${Math.max(0, window.innerHeight - ((viewport?.offsetTop ?? 0) + height)) + 16}px + env(safe-area-inset-bottom, 0px))`,
     width: `min(384px, calc(${width}px - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))`,
@@ -54,12 +54,12 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
     <section ref={root} tabIndex={-1} role="region" aria-label="Local backend recovery" style={style}
       onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); dismissRef.current(); } }}
       className="flex min-h-0 flex-col overflow-hidden border border-slate-300 border-l-4 border-l-[#F87171] bg-background text-foreground shadow-sm focus:outline-none">
-      <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 px-5 pb-2 pt-5">
+      <header className="flex shrink-0 flex-wrap items-baseline gap-x-1 gap-y-1 px-5 pb-2 pt-5">
         <h3 className="text-sm font-bold">{failure.title}</h3>
         <span className="min-w-0 break-words text-sm text-muted-foreground">· {name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</span>
       </header>
       <div className="min-h-0 overflow-y-auto overscroll-contain px-5" data-testid="recovery-popup-body">
-        <p role="status">{recovery.state === "offline" && !recovery.reason && !recovery.error
+        <p role="status">{recovery.state === "offline" && !recovery.waiting && !recovery.reason && !recovery.error
           ? "The local backend is offline. Your run may still be active." : recovery.message}</p>
         <p className="mt-2">Once reconnected, check the existing run.<br />Restarting does not rerun the graph.</p>
         {recovery.error && <p role="alert" className="mt-2">{recovery.error}</p>}
@@ -72,7 +72,7 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
       <footer className="flex shrink-0 flex-wrap gap-3 px-5 pb-5 pt-3">
         {(recovery.canStart || recovery.waiting) && <button type="button" onClick={recovery.restart} disabled={recovery.waiting} style={{ ...buttonStyle, width: 196, maxWidth: "100%" }}
           className="disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
-          {recovery.waiting ? "Restarting local backend..." : "Restart local backend"}
+          {recovery.waiting ? "Restarting..." : "Restart local backend"}
         </button>}
         <button type="button" onClick={onDismiss} style={{ ...buttonStyle, width: 112, maxWidth: "100%" }} className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">Dismiss</button>
       </footer>
