@@ -298,3 +298,37 @@ test("turn segments are clipped to the unchanged axis and empty intervals stay b
  expect(turnPosition(lane("bad",null),start,end)).toBeNull();
  expect(turnPosition(lane("2026-10-15T09:59:59Z","2026-10-15T10:00:02Z"),start,end)).toEqual({left:0,width:5});
 });
+
+
+test("running totals start at zero, then use observed values and preserve unknown cost",()=>{
+ const {rerender}=render(<UsageCharts projection={projection as any} running/>);
+ const totals=screen.getByRole("group",{name:"Run totals"});
+ expect(totals).not.toHaveTextContent("Unknown");
+ expect(totals.querySelectorAll(".tabular-nums")).toHaveLength(5);
+ expect([...totals.querySelectorAll(".tabular-nums")].map(el=>el.textContent)).toEqual(["0","0","0","0","$0.000000"]);
+ expect(screen.queryByText("Aggregate usage is incomplete.")).toBeNull();
+ rerender(<UsageCharts running projection={{...projection,usage:{inputTokens:12,outputTokens:3},usage_points:[{at:"2026-10-25T10:00:00Z",thread:"main",usage:{inputTokens:12,outputTokens:3},cost:{amount:null}}]} as any}/>);
+ expect(totals).toHaveTextContent("12");expect(totals).toHaveTextContent("3");
+ expect([...totals.querySelectorAll(".tabular-nums")].map(el=>el.textContent)).toEqual(["12","Unknown","3","Unknown","Unknown"]);
+ rerender(<UsageCharts projection={projection as any}/>);
+ expect(totals.querySelectorAll(".tabular-nums")).toHaveLength(5);
+ expect([...totals.querySelectorAll(".tabular-nums")].every(el=>el.textContent==="Unknown")).toBe(true);
+ expect(screen.getByText("Aggregate usage is incomplete.")).toBeInTheDocument();
+});
+
+test("an unpriced usage observation never becomes a zero estimate while running",()=>{
+ render(<UsageCharts running projection={{...projection,usage_points:[{at:"2026-10-25T10:00:00Z",thread:"main",usage:{},cost:{amount:null}}]} as any}/>);
+ expect(screen.getByRole("group",{name:"Run totals"})).not.toHaveTextContent("$0.000000");
+ expect(screen.getByRole("img",{name:"Estimated cost unavailable"})).toHaveTextContent("Unknown");
+});
+
+
+test.each([null,"invocation_boundary_unverified"])("initial graph totals respect capture reason %s",async(reason)=>{
+ const active={...run("one","execution"),status:"running",ended:null,reason,native_session:null};
+ (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[active]}:{run:active,projection,truncated:false}}));
+ render(<GraphAgents flowId="flow"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"node-one · running"}));
+ const totals=await screen.findByRole("group",{name:"Run totals"});
+ if(reason)expect(totals).toHaveTextContent("Unknown");
+ else {expect(totals).not.toHaveTextContent("Unknown");expect(totals).toHaveTextContent("$0.000000")}
+});

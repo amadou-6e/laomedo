@@ -218,7 +218,8 @@ export function scopedProjection(projection:Projection,scope:ActivityScope):Proj
   return {...projection,items,turns,usage,cost,usage_points:usagePoints,telemetry,cost_reason:cost.reason||cost.basis||"Scoped cost is unavailable",telemetry_coverage:`${projection.telemetry_coverage}. Only explicitly linked records are included; All activity retains unscoped records.`};
 }
 
-export function UsageCharts({projection,scopeLabel="Run"}:{projection:Projection;scopeLabel?:string}) {
+export function UsageCharts({projection,scopeLabel="Run",running=false}:{projection:Projection;scopeLabel?:string;running?:boolean}) {
+  const awaitingUsage=running&&projection.usage===null&&projection.cost.amount===null&&projection.usage_points.length===0;
   const points=useMemo(()=>aggregateUsagePoints(projection.usage_points),[projection.usage_points]);
   const [selected,setSelected]=useState<number|null>(null);
   const [inspected,setInspected]=useState<string|null>(null);
@@ -258,12 +259,12 @@ export function UsageCharts({projection,scopeLabel="Run"}:{projection:Projection
   };
   return <section aria-label="Usage overview" className="space-y-4">
     <p className="text-xs font-medium">{scopeLabel} totals</p>
-    <div role="group" aria-label={`${scopeLabel} totals`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(metric=><div key={metric.key} className="min-w-0 rounded-md border bg-muted/20 px-3 py-3"><p className="text-xs text-muted-foreground">{metric.label}</p><p className="mt-1 break-words text-xl font-semibold tabular-nums">{amount(metric.key==="cost"?projection.cost.amount:projection.usage?.[metric.key],metric.key==="cost")}</p></div>)}</div>
+    <div role="group" aria-label={`${scopeLabel} totals`} className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(metric=><div key={metric.key} className="min-w-0 rounded-md border bg-muted/20 px-3 py-3"><p className="text-xs text-muted-foreground">{metric.label}</p><p className="mt-1 break-words text-xl font-semibold tabular-nums">{amount(awaitingUsage?0:metric.key==="cost"?projection.cost.amount:projection.usage?.[metric.key],metric.key==="cost")}</p></div>)}</div>
     {!points.length?<p className="text-sm text-muted-foreground">No timestamped usage captured. Aggregate values are shown above when available.</p>:<>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><h4 className="font-medium text-foreground">Cumulative usage over time</h4><span>{points.length} {points.length===1?"observation":"observations"} · {scopeLabel.toLowerCase()} scope</span></div>
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-3">{chart(false)}{chart(true)}</div>
     </>}
-    {projection.usage===null&&<p role="status" className="text-xs text-muted-foreground">Aggregate usage is incomplete.</p>}
+    {projection.usage===null&&!awaitingUsage&&<p role="status" className="text-xs text-muted-foreground">Aggregate usage is incomplete.</p>}
   </section>;
 }
 
@@ -417,7 +418,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
         <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.`}/>}>Usage and diagnostics</SectionHeading>
-        <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel}/>
+        <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel} running={!detail.truncated&&!detail.run.reason&&selectedLane?.status==="running"}/>
       </section>
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>
       <Conversation key={`conversation:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} context={exportContext!}/>
