@@ -221,7 +221,7 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
   fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed, /}));
   expect(screen.queryByText("Second child answer")).toBeNull();
   expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
-  expect(screen.getAllByRole("region",{name:"OpenTelemetry records"})).toHaveLength(1);
+  expect(screen.getAllByRole("region",{name:"OpenTelemetry"})).toHaveLength(1);
   fireEvent.click(screen.getByRole("navigation",{name:"Activity selection"}).querySelector('button')!);
   expect(screen.getByText("Parent answer")).toBeInTheDocument();expect(screen.getByText("Second child answer")).toBeInTheDocument();
   expect(screen.queryByText("Technical details",{selector:"summary"})).toBeNull();

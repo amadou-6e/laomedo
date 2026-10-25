@@ -230,9 +230,9 @@ export function RuntimeRecords({records,coverage}:{records:Record<string,unknown
   const entries=useMemo(()=>records.map((record,index)=>({record,index,text:JSON.stringify(record)})),[records]);
   const search=useMemo(()=>new Fuse(entries,{keys:["text"],threshold:.35,ignoreLocation:true,minMatchCharLength:2}),[entries]);
   const visible=query.trim()?search.search(query.trim()).map(result=>result.item):entries;
-  return <section className="space-y-3" aria-label="OpenTelemetry records">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">OpenTelemetry records</h3><span role="status" className="text-xs text-muted-foreground">{visible.length} of {records.length} records</span></div>
-    <p className="text-xs text-muted-foreground">{coverage.replace(/[.\s]+$/,"")}. Runtime spans are not counted as agent invocations or token charges.</p>
+  return <section className="min-w-0 space-y-4" aria-label="OpenTelemetry">
+    <SectionHeading>OpenTelemetry</SectionHeading>
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground"><p className="min-w-0 flex-1">{coverage.replace(/[.\s]+$/,"")}. Runtime spans are not counted as agent invocations or token charges.</p><span role="status" className="shrink-0">{visible.length} of {records.length} records</span></div>
     <div className="relative"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div>
     <div className="divide-y rounded-md border">{visible.map(({record,index})=><div key={index} className="min-w-0 px-3 py-2"><JsonDisclosure label={`${index+1}. ${typeof record.name==="string"?record.name:`Runtime record ${index+1}`}${typeof record.signal==="string"?` / ${record.signal}`:""}`} value={record}/></div>)}{!visible.length&&<p className="p-3 text-sm text-muted-foreground">{records.length?"No matching records. Clear the search to show every record.":"No OpenTelemetry records captured."}</p>}</div>
   </section>;
@@ -377,8 +377,8 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       <section className="min-w-0 space-y-4 rounded-md border p-4" aria-label="Usage and diagnostics">
         <h3 className="text-sm font-semibold">Usage and diagnostics</h3>
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel}/>
-        <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage}/>
       </section>
+      <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage}/>
       <section aria-labelledby="agent-conversation-heading" className="min-w-0 space-y-4">
         <SectionHeading id="agent-conversation-heading">Conversation</SectionHeading>
         <div role="region" aria-label="Conversation messages and tools" tabIndex={0} className="max-h-[min(360px,60vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] min-w-0 space-y-5 overflow-y-auto px-3 pb-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
