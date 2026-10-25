@@ -865,6 +865,42 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
                          ["attempted_turns"], 1)
 
+    def test_zero_skills_prepare_without_registry_lookup_and_validate_explicit_inputs(self):
+        for explicit in (False,True):
+            request=self.request();request.pop('skill_ref')
+            if explicit:request['skill_refs']=[]
+            with patch.object(self.runner.store,'revision',side_effect=AssertionError('no skill lookup')):
+                record=self.runner._prepare(request)
+            self.assertEqual(record['skills'],[])
+            self.assertIsNone(record['skill'])
+            workspace=self.runner._run_dir(record['run_id'])/'workspace'
+            self.assertEqual(list((workspace/'.agents/skills').iterdir()),[])
+        for supplied in ({'skill_ref':None},{'skill_refs':None},{'skill_refs':[None]},
+                         {'skill_refs':[],'skill_ref':self.request()['skill_ref']}):
+            request=self.request();request.pop('skill_ref');request.update(supplied)
+            with self.subTest(supplied=supplied), self.assertRaises(RunnerError):self.runner._prepare(request)
+
+    def test_zero_skills_refuses_unselected_source_skills_and_invalid_paths_before_dispatch(self):
+        request=self.request();request.pop('skill_ref')
+        target=self.source/'.agents';target.mkdir();(target/'skills').write_text('not a directory')
+        with self.assertRaisesRegex(RunnerError,'unsafe_materialized_skill_path'):
+            self.runner._prepare(request)
+        (target/'skills').unlink();(target/'skills'/'unselected').mkdir(parents=True)
+        with self.assertRaisesRegex(RunnerError,'unexpected_materialized_skill'):
+            self.runner._prepare(request)
+        self.assertEqual(list((self.runner.state/'runs').iterdir()),[])
+        self.assertFalse((self.runner.state/'turn-ledger.json').exists())
+
+    def test_zero_skills_can_complete_and_resume_with_empty_bound_skill_set(self):
+        request=self.request();request.pop('skill_ref')
+        result=self.runner.start(request)
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(result['skills'],[])
+        resumed=self.runner.resume(result['run_id'],'continue',expected_post_run_hash=result['post_run_hash'],
+            expected_thread_id=result['thread_id'],model='test-model',effort='low')
+        self.assertEqual(resumed['status'],'completed')
+        self.assertEqual(resumed['skills'],[])
+
     def test_multiple_skills_materialize_and_resume_as_one_bound_snapshot(self):
         second_source = self.root / "second-skill-source"
         second_source.mkdir()

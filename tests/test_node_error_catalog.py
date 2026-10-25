@@ -35,6 +35,21 @@ class NodeErrorCatalogueTests(unittest.TestCase):
                         missing.append(f"{source.name}:{node.lineno}: {code}")
         self.assertEqual(missing, [], "Add a user explanation for each new literal Agent failure code")
 
+    def test_claude_literal_failures_are_covered_when_provider_is_installed(self):
+        catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
+        sources = [ROOT / "laomedo" / name for name in ("claude_runner.py", "claude_container.py")]
+        sources = [path for path in sources if path.exists()]
+        if not sources:
+            self.skipTest("Claude producer belongs to the pending provider PR, not this tree")
+        codes = set()
+        for path in sources:
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args:
+                    value = node.exc.args[0]
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str) and value.value.startswith("claude_"):
+                        codes.add(value.value)
+        self.assertEqual(codes - catalogue.keys(), set(), "Catalogue every installed literal Claude failure")
+
     def test_runner_service_public_codes_have_catalogue_coverage(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         source = ast.parse((ROOT / "laomedo/runner_service.py").read_text())

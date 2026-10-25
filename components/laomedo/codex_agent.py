@@ -57,7 +57,7 @@ _HTTP = request.build_opener(_NoRedirect())
 
 class LaomedoCodexAgent(Component):
     display_name = "Laomedo Codex Agent"
-    description = "Start, run, resume or cancel a pinned-skill Codex session through the local Docker runner."
+    description = "Start, run, resume or cancel a Codex task with optional pinned skills through the local Docker runner."
     icon = "Bot"
     name = "LaomedoCodexAgent"
 
@@ -82,10 +82,11 @@ class LaomedoCodexAgent(Component):
                       info="Refresh to load models from the configured runner. Runner availability is checked before execution."),
         DropdownInput(name="effort", display_name="Reasoning Effort", value="",
                       options=[], combobox=False),
-        DataInput(name="skill_reference", display_name="Skill References", is_list=True),
+        DataInput(name="skill_reference", display_name="Skill References", is_list=True,
+                  info="Optional pinned skills. Leave disconnected to run the task without skills."),
         DataInput(name="run_reference", display_name="Prior Run", show=False,
                   info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
-        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False,
+        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False, override_skip=True,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
                  value="http://host.docker.internal:8765", real_time_refresh=True),
@@ -275,54 +276,32 @@ class LaomedoCodexAgent(Component):
             # synchronous POST has no identity to reconcile if Stop races its reply.
             endpoint = base + "/v1/runs/async"
             connected = getattr(self, "skill_reference", None)
-            if connected in (None, "", []):
-                raise ValueError("skill_reference_required_use_skill_node")
-            if connected is not None:
-                refs = connected if isinstance(connected, list) else [connected]
-                refs = [getattr(ref, "data", ref) for ref in refs]
-                if not 1 <= len(refs) <= 16:
-                    raise ValueError("one_to_sixteen_skills_required")
-                seen = set()
-                for ref in refs:
-                    if (not isinstance(ref, dict) or
-                            not isinstance(ref.get("skill_id"), str) or
-                            not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", ref["skill_id"]) or
-                            not isinstance(ref.get("revision_id"), str) or
-                            not re.fullmatch(r"sha256:[0-9a-f]{64}", ref["revision_id"]) or
-                            ref.get("tree_hash") != ref["revision_id"]):
-                        raise ValueError("invalid_skill_reference")
-                    if ref["skill_id"] in seen:
-                        raise ValueError("duplicate_skill_id")
-                    seen.add(ref["skill_id"])
-                if len(refs) > 1:
-                    payload = {"task": task, "model": model,
-                               "effort": effort, "skill_refs": refs}
-                    payload["request_id"] = selected_request_id
-                    return self._fresh_route(endpoint, payload, selected_request_id)
-                connected = refs[0]
-            revision = ""
-            skill_id = ""
-            if connected is not None:
-                if not isinstance(connected, dict):
+            refs = [] if connected in (None, "", []) else connected if isinstance(connected, list) else [connected]
+            refs = [getattr(ref, "data", ref) for ref in refs]
+            if len(refs) > 16:
+                raise ValueError("one_to_sixteen_skills_required")
+            seen = set()
+            for ref in refs:
+                if (not isinstance(ref, dict) or
+                        not isinstance(ref.get("skill_id"), str) or
+                        not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", ref["skill_id"]) or
+                        not isinstance(ref.get("revision_id"), str) or
+                        not re.fullmatch(r"sha256:[0-9a-f]{64}", ref["revision_id"]) or
+                        ref.get("tree_hash") != ref["revision_id"]):
                     raise ValueError("invalid_skill_reference")
-                selected_id = connected.get("skill_id")
-                selected_revision = connected.get("revision_id")
-                if (not isinstance(selected_id, str) or
-                        not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", selected_id) or
-                        not isinstance(selected_revision, str) or
-                        not re.fullmatch(r"sha256:[0-9a-f]{64}", selected_revision) or
-                        connected.get("tree_hash") != selected_revision):
-                    raise ValueError("invalid_skill_reference")
-                skill_id, revision = selected_id, selected_revision
-            if not skill_id.strip() or not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
-                raise ValueError("pinned_skill_required")
+                if ref["skill_id"] in seen:
+                    raise ValueError("duplicate_skill_id")
+                seen.add(ref["skill_id"])
             payload = {"task": task, "model": model, "effort": effort,
-                       "skill_ref": {"skill_id": skill_id,
-                                     "revision_id": revision, "tree_hash": revision}}
-            payload["request_id"] = selected_request_id
+                       "request_id": selected_request_id}
+            if len(refs) == 1:
+                payload["skill_ref"] = {key: refs[0][key] for key in
+                                       ("skill_id", "revision_id", "tree_hash")}
+            else:
+                payload["skill_refs"] = refs
             return self._fresh_route(endpoint, payload, selected_request_id)
         prior = getattr(self.run_reference, "data", self.run_reference)
-        if prior is None and getattr(self, "run_reference_json", None):
+        if prior in (None, "", []) and getattr(self, "run_reference_json", None):
             try:
                 prior = json.loads(self.run_reference_json)
             except (ValueError, TypeError):

@@ -1285,8 +1285,8 @@ class LocalRunner:
             raise RunnerError("invalid_output_retry_count")
         if "skill_refs" in request and "skill_ref" in request:
             raise RunnerError("conflicting_skill_inputs")
-        refs = request.get("skill_refs", [request.get("skill_ref")])
-        if not isinstance(refs, list) or not 1 <= len(refs) <= 16:
+        refs = request["skill_refs"] if "skill_refs" in request else [request["skill_ref"]] if "skill_ref" in request else []
+        if not isinstance(refs, list) or len(refs) > 16:
             raise RunnerError("one_to_sixteen_skills_required")
         seen = set()
         for ref in refs:
@@ -1346,7 +1346,17 @@ class LocalRunner:
                 from .agent_cli import configure_remote
                 configure_remote(workspace, github_scope["repository"])
             skills = [self._materialize(workspace, ref) for ref in refs]
+            if not skills:
+                try:
+                    (workspace / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
+                except OSError:
+                    raise RunnerError("unsafe_materialized_skill_path") from None
             git_exclusion = workspace_skills.install(workspace, skills)
+            if not skills:
+                try:
+                    workspace_skills.verify(workspace, skills, git_exclusion)
+                except workspace_skills.WorkspaceSkillError as error:
+                    raise RunnerError(str(error)) from None
             artifacts = import_selected(request.get("artifact_refs", []), workspace,
                                         self._artifact_source, _hash_tree)
             effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)

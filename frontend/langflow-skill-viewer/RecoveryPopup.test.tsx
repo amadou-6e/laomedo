@@ -103,7 +103,7 @@ test("tracks visible viewport resize and scroll without canvas clipping", async 
   const removeListener = jest.spyOn(viewport, "removeEventListener");
   const { unmount } = render(<RecoveryPopup message="runner_transport_failed" context={{}} onDismiss={jest.fn()} />);
   const popup = await screen.findByRole("region", { name: "Local backend recovery" });
-  expect(popup.parentElement).toBe(document.body);
+  expect(popup.parentElement?.id).toBe("laomedo-error-popup-stack");
   expect(addListener).toHaveBeenCalledWith("resize", expect.any(Function));
   expect(addListener).toHaveBeenCalledWith("scroll", expect.any(Function));
   act(() => { viewport.height = 220; viewport.dispatchEvent(new Event("resize")); });
