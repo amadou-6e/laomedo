@@ -965,7 +965,7 @@
                 "load_from_db": false,
                 "list": false,
                 "list_add_label": "Add More",
-                "override_skip": false,
+                "override_skip": true,
                 "required": false,
                 "placeholder": "",
                 "show": false,

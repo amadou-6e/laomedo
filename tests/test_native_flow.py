@@ -35,6 +35,8 @@ class NativeFlowTests(unittest.TestCase):
         self.assertEqual(skill["data"]["node"]["template"]["revision_id"]["value"],
                          tree_hash({"SKILL.md": fixture}))
         self.assertEqual(fields["revision_id"]["value"], "")
+        self.assertTrue(fields["run_reference_json"].get("override_skip"))
+        self.assertFalse(fields["run_reference"].get("override_skip", False))
         self.assertEqual(fields["code"]["value"],
                          (root / "components/laomedo/codex_agent.py").read_text())
         names = {e["data"]["sourceHandle"]["name"] for e in flow["data"]["edges"]
