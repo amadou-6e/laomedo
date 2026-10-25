@@ -374,8 +374,8 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       {scope.thread&&<p className="text-xs text-muted-foreground">{scope.turn?"Selected turn only":"This conversation only; excludes subagents"}. {projection?.turns.length??0} captured {projection?.turns.length===1?"turn":"turns"}.</p>}
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {detail.run.reason.replaceAll("_"," ")}</p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
-      <section className="min-w-0 space-y-4 rounded-md border p-4" aria-label="Usage and diagnostics">
-        <h3 className="text-sm font-semibold">Usage and diagnostics</h3>
+      <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
+        <SectionHeading id="agent-usage-heading">Usage and diagnostics</SectionHeading>
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel}/>
       </section>
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage}/>
