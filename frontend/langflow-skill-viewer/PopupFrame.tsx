@@ -12,8 +12,8 @@ function viewportStyle(): CSSProperties {
     display: "flex", flexDirection: "column", gap: "12px", overflowY: "auto", fontFamily: "Inter, Arial, sans-serif", fontSize: "14px", lineHeight: "18px" };
 }
 // Shared viewport-bound stack, outside canvas transforms and clipping ancestors.
-export default function PopupFrame({ label, heading, children, footer, onClose, autoFocus = true, code, nodeId, operation }: {
-  label: string; heading: ReactNode; children: ReactNode; footer: ReactNode; onClose: () => void; autoFocus?: boolean; code?: string; nodeId?: string; operation?: string;
+export default function PopupFrame({ label, heading, children, footer, onClose, autoFocus = true, code, nodeId, operation, tools }: {
+  label: string; heading: ReactNode; tools?: ReactNode; children: ReactNode; footer: ReactNode; onClose: () => void; autoFocus?: boolean; code?: string; nodeId?: string; operation?: string;
 }) {
   const [host, setHost] = useState<HTMLElement | null>(null), root = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -39,7 +39,7 @@ export default function PopupFrame({ label, heading, children, footer, onClose, 
   return createPortal(<section ref={root} tabIndex={-1} role="region" aria-label={label} data-error-code={code} data-error-node={nodeId} data-error-operation={operation} style={{ maxHeight: "inherit" }}
     onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}
     className="flex min-h-0 shrink-0 flex-col overflow-hidden border border-slate-300 border-l-4 border-l-[#F87171] bg-background text-foreground shadow-sm focus:outline-none">
-    <header className="flex shrink-0 flex-wrap items-baseline gap-x-1 gap-y-1 px-5 pb-2 pt-5">{heading}</header>
+    <header className={`relative flex shrink-0 flex-wrap items-baseline gap-x-1 gap-y-1 px-5 pb-2 pt-5 ${tools ? "pr-12" : ""}`}>{heading}{tools && <div className="absolute right-3 top-3">{tools}</div>}</header>
     <div className="min-h-0 overflow-y-auto overscroll-contain px-5" data-testid="recovery-popup-body">{children}</div>
     <footer className="flex shrink-0 flex-wrap gap-3 px-5 pb-5 pt-3">{footer}</footer>
   </section>, host);

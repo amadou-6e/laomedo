@@ -6,7 +6,7 @@ import { getBaseUrl } from "@/customization/utils/urls";
 
 type Service = { state: string; can_start: boolean; reason?: string; startup_id?: string; startup_cancelled?: boolean };
 export const DOCKER_INSTALL_URL = "https://docs.docker.com/get-started/get-docker/";
-export const PREREQUISITE_CODES = ["runner_docker_not_installed", "runner_docker_unavailable", "runner_docker_check_unconfirmed", "runner_local_offline"];
+export const PREREQUISITE_CODES = ["runner_docker_not_installed", "runner_docker_unavailable", "runner_docker_check_unconfirmed", "runner_local_offline", "claude_host_login_unavailable", "claude_host_login_expired", "claude_local_login_copy_failed"];
 
 // Bound the full client chain, including authentication/error interceptors.
 async function recoveryRequest<T>(request: Promise<T>): Promise<T> {

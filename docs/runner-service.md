@@ -27,8 +27,14 @@ or arbitrary endpoint. Example host configuration (replace paths):
 The state, registry and source must satisfy their normal runner checks, including
 keeping registry data outside Git. Use an existing state directory to preserve
 the API token and recorded results. Claude requires the separately installed Claude
-adapter and its supported official CLI/subscription login. The service does not
-copy credentials. For Codex, use `provider: "codex"` and omit `executable`; its
+adapter and its supported official CLI/subscription login. Credential copying is disabled by default. For the authorised single-user local
+Claude prototype, set `mirror_host_claude_login: true` in this trusted JSON
+configuration. Startup enables mirroring; task execution copies only the current
+host access login into the labelled local Claude volume. The host retains the
+rotating refresh credential. No sessions, settings or full profile are copied.
+Async requests acknowledge before copying, and copy failures are retained against
+the run. Remote or TCP Docker endpoints are refused. Expired host access requires
+normal host Claude usage to refresh; it does not establish a missing subscription. For Codex, use `provider: "codex"` and omit `executable`; its
 normal Docker prerequisites and default runner options still apply.
 
 Authenticated status/start routes select the configured host service when no URL
@@ -41,7 +47,7 @@ startup failures retain a retry action. Normal startup has no experiment-wide tu
 keys are ignored, and historical turn-ledger.json is preserved as evidence;
 ordinary attempt accounting uses a separate attempt-count.json. Bounds for
 internal controls belong to experiments/turn_harness.py, which normal services
-never import. The operator remains responsible for the service lifetime.
+never import. The local user manages the service lifetime.
 
 Scope: one configured service per app host, loopback IPv4 URL with exact port,
 and the existing host Python environment. This is not a remote process manager.

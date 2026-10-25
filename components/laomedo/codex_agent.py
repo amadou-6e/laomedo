@@ -520,7 +520,8 @@ class LaomedoCodexAgent(Component):
                         {"experiment_request_binding_denied", "standing_policy_inactive",
                          "standing_policy_invalid", "standing_request_denied",
                          "standing_issue_context_required", "standing_issue_context_mismatch",
-                         "standing_pinned_inputs_required", "runner_busy"} else "runner_dispatch_refused")
+                         "standing_pinned_inputs_required", "runner_busy", "claude_host_login_unavailable",
+                         "claude_host_login_expired", "claude_local_login_copy_failed"} else "runner_dispatch_refused")
                 if 400 <= exc.code < 500:
                     raise RuntimeError(code) from None
                 raise RuntimeError("runner_runtime_unknown") from None

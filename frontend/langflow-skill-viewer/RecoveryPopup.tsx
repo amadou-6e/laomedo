@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import CopyIcon from "@/components/laomedoErrors/CopyIcon";
+import { useRef } from "react";
 import PopupFrame, { popupButtonStyle } from "./PopupFrame";
 import RunnerRecovery, { DOCKER_INSTALL_URL, PREREQUISITE_CODES } from "./RunnerRecovery";
 import { describeNodeFailure, type ErrorContext } from "@/components/laomedoErrors/nodeErrors";
@@ -6,15 +7,10 @@ import { describeNodeFailure, type ErrorContext } from "@/components/laomedoErro
 export default function RecoveryPopup({ message, context, onDismiss }: {
   message: unknown; context: ErrorContext; onDismiss: () => void;
 }) {
-  const [copied, setCopied] = useState("");
   const dismissRef = useRef(onDismiss);
   dismissRef.current = onDismiss;
   const failure = describeNodeFailure(message, undefined, context);
   const name = (context.nodeLabel || context.nodeType || "Agent").replace(/^Laomedo\s*/, "").slice(0, 120);
-  const copy = async (diagnostics: string) => {
-    try { await navigator.clipboard.writeText(diagnostics); setCopied("Copied"); }
-    catch { setCopied("Copy unavailable. Select the details to copy them manually."); }
-  };
   const buttonStyle = popupButtonStyle;
   return <RunnerRecovery message={message}>{recovery => {
     const checking = !recovery.state && !recovery.error;
@@ -23,6 +19,7 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
     const diagnostics = JSON.stringify({ ...failure.diagnostics,
       ...(PREREQUISITE_CODES.includes(recovery.reason ?? "") ? { recovery_code: recovery.reason } : {}) }, null, 2);
     return <PopupFrame label="Local backend recovery" code={failure.diagnostics.code} nodeId={failure.diagnostics.node_id} operation={failure.diagnostics.operation} onClose={() => void close()}
+      tools={!busy && <CopyIcon label="Copy diagnostics" text={diagnostics} />}
       heading={<><h3 className="text-sm font-bold">{recovery.title || failure.title}</h3><span className="min-w-0 break-words text-sm text-muted-foreground">{"\u00b7"} {name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</span></>}
       footer={<>
         {(recovery.canStart || recovery.waiting) && <button type="button" onClick={recovery.restart} disabled={recovery.waiting} style={{ ...buttonStyle, width: 196, maxWidth: "100%" }}
@@ -40,8 +37,6 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
         {!busy && recovery.error && <p role="alert" className="mt-2">{recovery.error}</p>}
         {!busy && <details className="mt-2 text-xs"><summary className="cursor-pointer">Technical details</summary>
           <pre style={{ fontFamily: "inherit" }} className="my-2 select-text whitespace-pre-wrap break-all text-xs">{diagnostics}</pre>
-          <button type="button" onClick={() => void copy(diagnostics)} style={{ ...buttonStyle, fontSize: 12 }}>Copy diagnostics</button>
-          {copied && <p role="status">{copied}</p>}
         </details>}
     </PopupFrame>
   }}</RunnerRecovery>;

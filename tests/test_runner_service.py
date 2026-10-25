@@ -83,6 +83,70 @@ class RunnerServiceTests(unittest.TestCase):
             for key in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','LANGFLOW_SECRET_KEY','DATABASE_URL','CLAUDE_CONFIG_DIR'):
                 self.assertNotIn(key,env)
 
+    def test_turn_login_mirror_is_opt_in_and_uses_only_trusted_destination(self):
+        self.probe.side_effect = self.real_connect
+        from urllib.request import Request, urlopen
+        import os
+        events = []
+        def dispatch(body, response_gate):
+            events.append('dispatch')
+            return {'status':'running', 'run_id':'aeb54b12-3ca7-43a7-97b3-762dadc94721'}
+        runner = SimpleNamespace(state=self.root/'runner', provider='claude', api_token='internal-control',
+            container=SimpleNamespace(profile='laomedo-claude-profile', image_id='sha256:'+'a'*64),
+            start_async=dispatch)
+        server=serve(runner,port=0)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        self.addCleanup(server.server_close);self.addCleanup(server.shutdown)
+        for enabled in ('','1'):
+            events.clear()
+            with patch.dict(os.environ, {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN':enabled}), \
+                 patch('laomedo.claude_login.mirror_login',side_effect=lambda *args:events.append('mirror')) as mirror:
+                req=Request('http://127.0.0.1:'+str(server.server_port)+'/v1/runs/async',
+                    data=json.dumps({'profile':'untrusted','image':'untrusted'}).encode(),
+                    headers={'Authorization':'Bearer internal-control','Content-Type':'application/json'})
+                with urlopen(req,timeout=5) as reply:self.assertEqual(reply.status,202)
+            self.assertEqual(events, ['dispatch'])
+            mirror.assert_not_called()
+
+    def test_explicit_login_mirror_is_deferred_to_task_not_startup(self):
+        self.config['mirror_host_claude_login'] = True
+        self.path.write_text(json.dumps(self.config))
+        with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
+             patch('laomedo.claude_login.mirror_login') as mirror, \
+             patch('laomedo.runner_service.subprocess.Popen', return_value=Mock(poll=lambda:None)) as spawn:
+            result = self.service.start(self.url)
+        mirror.assert_not_called()
+        self.assertEqual(result['state'], 'starting')
+        self.assertEqual(spawn.call_args.kwargs['env']['LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN'], '1')
+
+    def test_slow_mirror_waits_for_ack_and_precedes_execution(self):
+        gate=threading.Event();entered=threading.Event();release=threading.Event();executed=threading.Event()
+        def slow_copy():
+            entered.set();release.wait(5)
+        runner=SimpleNamespace(_mirror_host_login=slow_copy, _execute=lambda *a,**kw:executed.set())
+        worker=threading.Thread(target=LocalRunner._async_worker,args=(runner,'run','task',gate))
+        worker.start()
+        try:
+            self.assertFalse(entered.wait(.1))
+            gate.set();self.assertTrue(entered.wait(2))
+            self.assertFalse(executed.is_set())
+        finally:
+            release.set();gate.set();worker.join(5)
+        self.assertTrue(executed.is_set())
+
+    def test_async_copy_failure_is_recorded_without_model_dispatch(self):
+        from laomedo.local_runner import RunnerError
+        record={'status':'prepared'}
+        def fail(): raise RunnerError('claude_host_login_expired')
+        runner=SimpleNamespace(_mirror_host_login=fail, _execute=Mock(), control_lock=threading.Lock(),
+            status=lambda run_id:record, _run_dir=lambda run_id:self.root)
+        gate=threading.Event();gate.set()
+        LocalRunner._async_worker(runner,'run','task',gate)
+        runner._execute.assert_not_called()
+        result=json.loads((self.root/'record.json').read_text())
+        self.assertEqual(result['status'],'failed')
+        self.assertEqual(result['error_category'],'claude_host_login_expired')
+
     def test_concurrent_clicks_do_not_spawn_twice_or_restore_legacy_turn_limit(self):
         self.config['max_model_turns']=1
         self.path.write_text(json.dumps(self.config))

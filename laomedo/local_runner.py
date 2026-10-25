@@ -1406,8 +1406,23 @@ class LocalRunner:
             raise
         return record
 
+    def _mirror_host_login(self):
+        if (getattr(self, 'provider', None) == 'claude' and
+                os.environ.get('LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN') == '1'):
+            from .claude_login import mirror_login, LocalClaudeLoginError
+            try:
+                mirror_login(self.container.profile, self.container.image_id)
+            except LocalClaudeLoginError as error:
+                raise RunnerError(str(error)) from None
+
     def start(self, request: dict) -> dict:
         record = self._prepare(request)
+        try:
+            self._mirror_host_login()
+        except RunnerError as exc:
+            record.update(status="failed", error_category=str(exc))
+            _json(self._run_dir(record["run_id"]) / "record.json", record)
+            raise
         return self._execute(record["run_id"], request["task"], resume=False)
 
     def start_async(self, request: dict, *, response_gate=None) -> dict:
@@ -1444,6 +1459,7 @@ class LocalRunner:
     def _async_worker(self, run_id, task, gate):
         gate.wait()
         try:
+            self._mirror_host_login()
             self._execute(run_id, task, resume=False)
         except RunnerError as exc:
             with self.control_lock:
@@ -2175,6 +2191,7 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 if parts == ["v1", "runs"]:
                     result = runner.start(body)
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume":
+                    runner._mirror_host_login()
                     result = runner.resume(parts[2], body["task"],
                         expected_post_run_hash=body["expected_post_run_hash"],
                         expected_thread_id=body["expected_thread_id"],

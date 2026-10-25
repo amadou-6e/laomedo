@@ -69,7 +69,7 @@ def apply(checkout):
         shutil.copy2(overlay / name, recovery_target / name)
     error_target = checkout / "src/frontend/src/components/laomedoErrors"
     error_target.mkdir()
-    for name in ("nodeErrors.ts", "node-error-catalog.json", "NodeErrorNotice.tsx", "nodeErrors.test.ts", "NodeErrorNotice.test.tsx", "ErrorPopup.tsx", "ErrorPopup.test.tsx", "ErrorAlertMigration.test.tsx", "ApplicationErrorPopup.tsx"):
+    for name in ("nodeErrors.ts", "node-error-catalog.json", "NodeErrorNotice.tsx", "nodeErrors.test.ts", "NodeErrorNotice.test.tsx", "ErrorPopup.tsx", "ErrorPopup.test.tsx", "ErrorAlertMigration.test.tsx", "ApplicationErrorPopup.tsx", "CopyIcon.tsx"):
         shutil.copy2(overlay / name, error_target / name)
     shutil.copy2(overlay / "ErrorAlert.tsx", checkout / "src/frontend/src/alerts/error/index.tsx")
     status_path = checkout / "src/frontend/src/CustomNodes/GenericNode/components/NodeStatus/index.tsx"

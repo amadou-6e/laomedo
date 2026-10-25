@@ -15,7 +15,8 @@ test("copies the explanation and safe diagnostics in a separate footer without d
   expect(writeText.mock.calls[0][0]).toContain("No previous run is available");
   expect(writeText.mock.calls[0][0]).not.toContain("private-payload");
   expect(dismiss).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "Copy error" }).closest("footer")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Copied" }).closest("header")).toBeTruthy();
+  expect(screen.getByRole("status")).toHaveClass("sr-only");
   fireEvent.keyDown(card, { key: "Escape" }); expect(dismiss).toHaveBeenCalledTimes(1);
 });
 test("clipboard rejection offers selectable text and never claims success", async () => {

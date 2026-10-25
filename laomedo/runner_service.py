@@ -55,13 +55,15 @@ class RunnerService:
             value.setdefault('profile_volume', 'laomedo-claude-profile')
             value.setdefault('lease_service', str(Path(value['state']).parent / 'lease'))
             required.update({'image', 'profile_volume', 'lease_service'})
-        optional = {'artifact_sources', 'github_authority_store', 'mediator_state', 'git_workspace'}
+        optional = {'artifact_sources', 'github_authority_store', 'mediator_state', 'git_workspace', 'mirror_host_claude_login'}
         if not required <= set(value) or set(value) - required - optional:
             raise ValueError('invalid_runner_service_config')
         sources = value.get('artifact_sources', {})
         if (not isinstance(sources, dict) or any(provider not in {'codex', 'claude', 'opencode'} or
                 not isinstance(path, str) or not Path(path).is_absolute() for provider, path in sources.items()) or
-                type(value.get('git_workspace', False)) is not bool):
+                type(value.get('git_workspace', False)) is not bool or
+                type(value.get('mirror_host_claude_login', False)) is not bool or
+                value.get('mirror_host_claude_login', False) and value['provider'] != 'claude'):
             raise ValueError('invalid_runner_service_config')
         if ('github_authority_store' in value) != ('mediator_state' in value):
             raise ValueError('invalid_runner_service_config')
@@ -181,6 +183,8 @@ class RunnerService:
             # The trusted host supplies all paths.
             # Neither browser inputs nor model outputs become process arguments.
             env = service_environment(config['provider'])
+            if config.get('mirror_host_claude_login') is True and config['provider'] == 'claude':
+                env['LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN'] = '1'
             self.cancel_requested = False
             self.startup_id = str(uuid.uuid4())
             self.startup_gate_path = Path(config['state']) / 'startup-control' / (self.startup_id + '.lock')

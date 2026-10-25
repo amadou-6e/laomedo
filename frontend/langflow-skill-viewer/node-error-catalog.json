@@ -705,8 +705,23 @@
     "recovery": "Ask the runner operator to inspect the workspace paths. Do not resume the affected workspace."
   },
   "claude_subscription_unavailable": {
-    "title": "Claude sign-in is unavailable",
-    "description": "The local runner could not use its configured Claude subscription.",
-    "recovery": "Check the Claude Code sign-in and the local runner profile on this machine before starting another request."
+    "title": "The local Claude runner is not signed in",
+    "description": "The dedicated runner profile could not confirm a usable Claude login. This does not mean your host Claude subscription is unavailable.",
+    "recovery": "Check the host Claude sign-in and the configured local login copy. The runner can reuse that login without a separate sign-in."
+  },
+  "claude_host_login_unavailable": {
+    "title": "The local Claude login could not be read",
+    "description": "The runner could not read the selected host Claude access credential.",
+    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
+  },
+  "claude_host_login_expired": {
+    "title": "The copied Claude access credential needs refreshing",
+    "description": "The host credential file contains an access credential that is expired or about to expire.",
+    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
+  },
+  "claude_local_login_copy_failed": {
+    "title": "The local Claude login could not be copied",
+    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
+    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
   }
 }
