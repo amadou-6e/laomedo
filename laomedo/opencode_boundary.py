@@ -188,7 +188,8 @@ class CommandBroker:
 class IsolatedOpenCode:
     """One controller per turn, persistent session profile, independent workers."""
 
-    def __init__(self, workspace, evidence, *, profile, image, image_id, worker_image_id=None):
+    def __init__(self, workspace, evidence, *, profile, image, image_id, worker_image_id=None,
+                 configure_agents=None):
         self.termination_verified = False
         selected_worker_id = worker_image_id or WORKER_IMAGE_ID
         self.profile = _private(Path(profile))
@@ -243,6 +244,11 @@ class IsolatedOpenCode:
                 config["provider"] = {"opencode-go": {"api": routing["api"], "npm": routing["npm"],
                     "models": routing.get("models", {}),
                     "options": {"headers": {"x-opencode-org-id": organization}}}}
+            # Trusted host startup policy only, never graph/request input. Keep
+            # the default isolated tools unless the operator explicitly extends
+            # them (e.g. enabling a named read-only native subagent).
+            if configure_agents is not None:
+                configure_agents(config)
             _json(root / "config.json", config)
             self.profile.joinpath("sessions").mkdir(exist_ok=True)
         except Exception:

@@ -93,6 +93,33 @@ class BoundaryTests(unittest.TestCase):
             self.assertFalse((profile / 'sessions/auth.json').exists())
             broker.close.assert_called_once()
 
+    def test_trusted_agent_hook_extends_defaults_before_read_only_config_mount(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            profile, workspace, evidence = self.fixture(Path(tmp), mode='provider_key')
+            broker=Mock();broker.server.server_port=12345;broker.token='synthetic-capability'
+            configured=[]
+            def configure(config):
+                self.assertTrue(config['tools']['skill'])
+                self.assertTrue(config['tools']['laomedo_exec'])
+                self.assertEqual(config['permission']['skill'],{'*':'deny','sample':'allow'})
+                config['tools']['task']=True
+                configured.append(True)
+            def docker(args,**_kwargs):
+                if args[:3]==['docker','image','inspect']:
+                    return Mock(stdout='fixture-image' if args[3]=='fixture-controller' else WORKER_IMAGE_ID)
+                if args[:3]==['docker','run','-d']:
+                    config_file=next(evidence.glob('controller-*/config.json'))
+                    self.assertTrue(json.loads(config_file.read_text())['tools']['task'])
+                    mounts=[args[i+1] for i,value in enumerate(args) if value=='--mount']
+                    self.assertTrue(any('target=/controller-config.json,readonly' in mount for mount in mounts))
+                    raise subprocess.CalledProcessError(1,args)
+                return Mock(returncode=0,stdout=b'',stderr=b'')
+            with patch('laomedo.opencode_boundary.CommandBroker',return_value=broker),patch('laomedo.opencode_boundary.subprocess.run',side_effect=docker):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    IsolatedOpenCode(workspace,evidence,profile=profile,image='fixture-controller',image_id='fixture-image',configure_agents=configure)
+            self.assertEqual(configured,[True])
+            broker.close.assert_called_once()
+
     def test_second_worker_request_rejected_while_one_is_active(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
