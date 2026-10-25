@@ -11,7 +11,17 @@ from laomedo.opencode_telemetry import export_attempt
 from laomedo.runner_activity import read_feed
 
 
+try:
+    import opentelemetry.sdk.trace
+    import opentelemetry.exporter.otlp.proto.http.trace_exporter
+except ImportError:
+    OBSERVABILITY_SDK_AVAILABLE = False
+else:
+    OBSERVABILITY_SDK_AVAILABLE = True
+
+
 class OpenCodeTelemetryTests(unittest.TestCase):
+    @unittest.skipUnless(OBSERVABILITY_SDK_AVAILABLE, "observability optional dependencies are not installed")
     def test_real_sdk_otlp_roundtrip_has_adapter_provenance_without_prompt_content(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'LAOMEDO_RUNNER_OTEL':'1','OTEL_SDK_DISABLED':'false'}):
             root=Path(directory)
