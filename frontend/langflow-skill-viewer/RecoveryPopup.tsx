@@ -34,7 +34,7 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
       </>}>
         <p role="status" aria-busy={busy} className="flex items-center gap-2">{busy && <svg aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" /><path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}<span>{recovery.cancelling ? "Cancelling runner startup..." : recovery.message}</span></p>
         {!busy && recovery.guidance && <p className="mt-2">{recovery.guidance}</p>}
-        {!busy && PREREQUISITE_CODES.includes(recovery.reason ?? "") && <p className="mt-2">The previous run's outcome is unconfirmed.</p>}
+        {!busy && failure.diagnostics.code !== "runner_model_catalog_unavailable_check_runner_connection" && PREREQUISITE_CODES.includes(recovery.reason ?? "") && <p className="mt-2">The previous run's outcome is unconfirmed.</p>}
         {!busy && recovery.error && <p role="alert" className="mt-2">{recovery.error}</p>}
         {!busy && <details className="mt-2 text-xs"><summary className="cursor-pointer">Technical details</summary>
           <pre style={{ fontFamily: "inherit" }} className="my-2 select-text whitespace-pre-wrap break-all text-xs">{diagnostics}</pre>

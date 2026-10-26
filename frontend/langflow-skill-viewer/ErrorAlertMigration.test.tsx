@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import useAlertStore from "@/stores/alertStore";
 import ErrorAlert from "@/alerts/error";
+import { api } from "@/controllers/API/api";
 let mockFlow: any = {nodes:[{data:{type:"LaomedoCodexAgent"}}], buildInfo:null};
 jest.mock("@/stores/flowStore",()=>({__esModule:true,default:{getState:()=>mockFlow}}));
 jest.mock("@/utils/reactflowUtils",()=>({customStringify:JSON.stringify}));
@@ -14,6 +15,17 @@ test("the exact flow failure is retained safely in history without a duplicate t
  expect(useAlertStore.getState().tempNotificationList).toHaveLength(0);
  const item=useAlertStore.getState().notificationList[0];
  expect(item.failure?.diagnostics.code).toBe("prior_run_required");
+});
+
+test("model discovery errors retain their code and offer real managed recovery",async()=>{
+ (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true,reason:"runner_local_offline"}});
+ act(()=>useAlertStore.getState().setErrorData({title:"Failed",list:["runner_model_catalog_unavailable_check_runner_connection"]}));
+ const item=useAlertStore.getState().tempNotificationList[0];
+ render(<ErrorAlert {...item} removeAlert={()=>{}}/>);
+ await screen.findByRole("button",{name:"Start local runner"});
+ expect(item.failure?.diagnostics.code).toBe("runner_model_catalog_unavailable_check_runner_connection");
+ expect(document.body.textContent).not.toContain("previous run's outcome is unconfirmed");
+ expect(api.post).not.toHaveBeenCalled();
 });
 test("an independent error still produces a persistent copyable card",()=>{
  mockFlow.buildInfo={error:["prior_run_required"]};

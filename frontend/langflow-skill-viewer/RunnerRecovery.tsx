@@ -22,12 +22,13 @@ export function isRunnerConnectionError(message: unknown): boolean {
   if (typeof message !== "string" || message.length > 65536) return false;
   const error = message.replace(/^Error building Component[^\r\n]*:\s*\r?\n\s*/, "").trim();
   return /^runner_transport_failed(?:;|$)/.test(error) ||
+    error === "runner_model_catalog_unavailable_check_runner_connection" ||
     /^Laomedo run [0-9a-f-]{36} failed: runner_transport_failed$/i.test(error);
 }
 
 export type RecoveryState = { message: string; guidance: string; title?: string; installDocker: boolean; error: string; waiting: boolean; canStart: boolean; state?: string; reason?: string; cancel: () => Promise<boolean>; cancelling: boolean; restart: () => Promise<void> };
 
-function LocalBackendRecovery({ children }: { children?: (state: RecoveryState) => ReactNode }) {
+function LocalBackendRecovery({ children, catalogue = false }: { children?: (state: RecoveryState) => ReactNode; catalogue?: boolean }) {
   const [service, setService] = useState<Service | null>(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
@@ -111,7 +112,8 @@ function LocalBackendRecovery({ children }: { children?: (state: RecoveryState) 
   const prerequisite = PREREQUISITE_CODES.includes(service?.reason ?? "")
     ? describeNodeFailure(service!.reason!, undefined) : undefined;
   const message = service?.state === "ready"
-    ? "The local runner is online. Check the existing run before starting new work."
+    ? catalogue ? "The local runner is online. Open Model and use Refresh to load its available models. No agent task has been submitted by this refresh."
+      : "The local runner is online. Check the existing run before starting new work."
     : prerequisite ? prerequisite.description
     : service?.state === "cancelling" ? "Cancelling runner startup..."
     : waiting ? "Starting the local runner..."
@@ -125,6 +127,7 @@ function LocalBackendRecovery({ children }: { children?: (state: RecoveryState) 
     : "Checking the local runner backend connection...";
 
   const guidance = prerequisite ? prerequisite.recovery : service?.state === "ready" ? ""
+    : catalogue ? "Starting the runner does not submit an agent task. Once it is online, open Model and use Refresh."
     : "Starting the runner does not rerun the graph. Check any existing run before starting new work.";
   const installDocker = service?.reason === "runner_docker_not_installed";
   if (children) return children({ message, guidance, title: prerequisite?.title, installDocker, error, waiting, cancel, cancelling, canStart: Boolean(service?.can_start), state: service?.state, reason: service?.reason, restart });
@@ -140,5 +143,5 @@ function LocalBackendRecovery({ children }: { children?: (state: RecoveryState) 
 }
 
 export default function RunnerRecovery({ message, children }: { message: unknown; children?: (state: RecoveryState) => ReactNode }) {
-  return isRunnerConnectionError(message) ? <LocalBackendRecovery>{children}</LocalBackendRecovery> : null;
+  return isRunnerConnectionError(message) ? <LocalBackendRecovery catalogue={message === "runner_model_catalog_unavailable_check_runner_connection"}>{children}</LocalBackendRecovery> : null;
 }
