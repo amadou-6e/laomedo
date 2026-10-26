@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./index";
+import GraphAgents, { messageText, HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn(),post:jest.fn()}}));
@@ -378,13 +378,26 @@ test("Claude diagnostics remain separate from captured native activity",async()=
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,diagnostics},truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:"node-one \u00b7 completed"}));
-  await screen.findByText(/Claude activity shows the native events captured for this invocation/);
-  fireEvent.click(screen.getByText("Claude terminal receipt 1"));
-  expect(await screen.findByText(/terminal_receipt_only/)).toBeInTheDocument();
+  await screen.findByRole("button",{name:"Usage and cost details"});
+  expect(screen.queryByText(/Claude activity shows the native events captured for this invocation/)).toBeNull();
+  expect(screen.queryByText("Claude terminal receipt 1")).toBeNull();
+  expect(screen.queryByText(/terminal_receipt_only/)).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Usage and cost details"}));
+  expect(await screen.findByText(/Claude activity shows the native events captured for this invocation/)).toBeVisible();
   expect(screen.getByText(/Model unconfirmed/)).toBeInTheDocument();
 });
 
- test("empty Claude telemetry explains missing collection rather than implying a quiet collector",()=>{
+ test("empty Claude telemetry section is omitted",()=>{
   render(<RuntimeRecords records={[]} coverage="No records" context={{run_id:"run",execution_id:null,node_id:"agent",provider:"claude-code",model:null,native_session:null,scope:{},capture_state:"complete",truncated:false}}/>);
-  expect(screen.getByText(/The Claude runner does not configure OpenTelemetry collection/)).toBeVisible();
+  expect(screen.queryByRole("region",{name:"OpenTelemetry"})).toBeNull();
+  expect(screen.queryByText("OpenTelemetry")).toBeNull();
  });
+
+
+test("Claude prompt envelopes display the task while arbitrary JSON stays literal",()=>{
+ const text=JSON.stringify({task:"Read the workspace.",workspace:"/draft",skills:[],imported_artifacts:[],output_requirements:null});
+ expect(messageText({type:"userMessage",text},"claude-code")).toBe("Read the workspace.");
+ expect(messageText({type:"userMessage",text},"codex-cli")).toBe(text);
+ expect(messageText({type:"agentMessage",text},"claude-code")).toBe(text);
+ for(const plain of ['A plain task','{"task":"Keep this JSON"}','{"task":"x","workspace":"/draft","skills":[],"imported_artifacts":[],"extra":1}']) expect(messageText({type:"userMessage",text:plain},"claude-code")).toBe(plain);
+});

@@ -20,8 +20,19 @@ type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|nu
 type Detail = {run:Run;projection:Projection;truncated:boolean};
 const time = (value:string) => new Date(value).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const duration = (start:string,end:string|null) => `${Math.max(0,(Date.parse(end??new Date().toISOString())-Date.parse(start))/1000).toFixed(1)}s`;
-const messageText = (item:Record<string,unknown>|undefined) => {
-  if(typeof item?.text==="string")return item.text;
+export const messageText = (item:Record<string,unknown>|undefined,provider?:string) => {
+  if(typeof item?.text==="string") {
+    if(item.type==="userMessage" && (provider==="claude"||provider==="claude-code")) {
+      try {
+        const envelope=JSON.parse(item.text);
+        if(envelope && typeof envelope==="object" && !Array.isArray(envelope) &&
+          typeof envelope.task==="string" && typeof envelope.workspace==="string" &&
+          Array.isArray(envelope.skills) && Array.isArray(envelope.imported_artifacts) &&
+          Object.keys(envelope).every(key=>["task","workspace","skills","imported_artifacts","output_requirements"].includes(key))) return envelope.task;
+      } catch { /* Ordinary user prose and JSON remain unchanged. */ }
+    }
+    return item.text;
+  }
   if(item?.type==="userMessage"&&Array.isArray(item.content))return item.content.map(part=>typeof part?.text==="string"?part.text:"[Non-text content]").join("\n");
   return null;
 };
@@ -65,7 +76,7 @@ export function conversationDocument(items:Lane[],context:ExportContext,query:st
   if(format==="json")return JSON.stringify({schema_version:1,kind:"conversation",context,search:query,items},null,2);
   const fence=(text:string)=>{let length=3;for(const match of text.matchAll(/`+/g))length=Math.max(length,match[0].length+1);const marker="`".repeat(length);return `${marker}json\n${text}\n${marker}`};
   return [`# Agent conversation`,`Graph: ${context.graph_id??"Unknown"}\nRun: ${context.run_id}\nExecution: ${context.execution_id??"Unknown"}\nProvider: ${context.provider??"Unknown"}\nModel: ${context.model??"Unknown"}\nScope: ${JSON.stringify(context.scope)}\nCapture: ${context.capture_state}${context.truncated?" (partial)":""}\nCapture warning: ${context.capture_reason??"None"}\nSearch: ${JSON.stringify(query)}`,
-    ...items.map(lane=>{const value=lane.item??{},text=messageText(value),speaker=value.type==="userMessage"?"User":lane.thread&&lane.thread!==context.native_session?"Subagent":"Agent";return `## ${text!==null?speaker:activityTitle(value)} · ${lane.started}\n\nThread: ${lane.thread??"Unknown"}${lane.turn?` · Turn: ${lane.turn}`:""}\n\n${text??fence(JSON.stringify(value,null,2))}`})].join("\n\n")+"\n";
+    ...items.map(lane=>{const value=lane.item??{},text=messageText(value,context.provider),speaker=value.type==="userMessage"?"User":lane.thread&&lane.thread!==context.native_session?"Subagent":"Agent";return `## ${text!==null?speaker:activityTitle(value)} · ${lane.started}\n\nThread: ${lane.thread??"Unknown"}${lane.turn?` · Turn: ${lane.turn}`:""}\n\n${text??fence(JSON.stringify(value,null,2))}`})].join("\n\n")+"\n";
 }
 
 function downloadActivity(content:string,name:string,type:string) {
@@ -129,7 +140,7 @@ export function activityTitle(value:Record<string,unknown>) {
 }
 
 function ActivityItem({lane,rootThread,provider}:{lane:Lane;rootThread:string|null;provider?:string}) {
-  const value=lane.item??{},message=messageText(value),user=value.type==="userMessage";
+  const value=lane.item??{},message=messageText(value,provider),user=value.type==="userMessage";
   const child=Boolean(rootThread&&lane.thread&&lane.thread!==rootThread);
   const providerName=provider==="claude"||provider==="claude-code"?"Claude":provider==="opencode"||provider==="opencode-cli"?"OpenCode":!provider||provider==="codex"||provider==="codex-cli"?"Codex":"Agent";
   const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:providerName;
@@ -288,10 +299,10 @@ export function RuntimeRecords({records,coverage,context}:{records:Record<string
   const entries=useMemo(()=>records.map((record,index)=>({record,index,text:JSON.stringify(record)})),[records]);
   const search=useMemo(()=>new Fuse(entries,{keys:["text"],threshold:.35,ignoreLocation:true,minMatchCharLength:2}),[entries]);
   const visible=query.trim()?search.search(query.trim()).map(result=>result.item):entries;
+  if(!records.length && (context?.provider==="claude"||context?.provider==="claude-code")) return null;
   return <section className="min-w-0 space-y-4" aria-label="OpenTelemetry">
     <SectionHeading actions={<><ActivityInfo label="OpenTelemetry capture details" text={`${coverage}. Runtime spans are not counted as agent invocations or token charges.`}/><Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" aria-label="Export OpenTelemetry JSON" disabled={!visible.length} title={`Export ${visible.length} matching OpenTelemetry records`} onClick={()=>downloadActivity(telemetryDocument(visible.map(entry=>entry.record),coverage,context,query),`opentelemetry-${context?.run_id??"records"}.json`,"application/json")}><IconComponent name="Download" className="h-3.5 w-3.5"/>Export</Button></>}>OpenTelemetry</SectionHeading>
     <div className="flex min-w-0 items-center gap-3"><div className="relative min-w-0 flex-1"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div><span role="status" className="shrink-0 text-xs text-muted-foreground">{visible.length} of {records.length} records</span></div>
-    {!records.length&&(context?.provider==="claude"||context?.provider==="claude-code")&&<p role="status" className="text-sm text-muted-foreground">The Claude runner does not configure OpenTelemetry collection. Conversation, tool calls and usage above come from native Claude activity.</p>}
     <div role="region" aria-label="OpenTelemetry records" tabIndex={0} className="max-h-[min(360px,60vh)] overflow-y-auto [scrollbar-width:thin] [scrollbar-gutter:stable] divide-y rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{visible.map(({record,index})=><div key={index} className="min-w-0 px-3 py-2"><JsonDisclosure label={`${index+1}. ${typeof record.name==="string"?record.name:`Runtime record ${index+1}`}${typeof record.signal==="string"?` / ${record.signal}`:""}`} value={record}/></div>)}{!visible.length&&<p className="p-3 text-sm text-muted-foreground">{records.length?"No matching records. Clear the search to show every record.":"No OpenTelemetry records captured."}</p>}</div>
   </section>;
 }
@@ -430,9 +441,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {describeNodeFailure(detail.run.reason,undefined).title} <NodeErrorNotice message={detail.run.reason} context={{nodeId:detail.run.node,nodeLabel:label(detail.run)}}/></p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
-        <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.`}/>}>Usage and diagnostics</SectionHeading>
-        {(detail.run.provider==="claude-code"||detail.run.provider==="claude")&&<p className="text-xs text-muted-foreground">Claude activity shows the native events captured for this invocation. Usage is reported only when supplied by Claude. Check the recorded tool activity and cleanup status for this run.</p>}
-        {projection!.diagnostics?.map((value,index)=><JsonDisclosure key={index} label={`Claude terminal receipt ${index+1}`} value={value}/>)}
+        <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.${detail.run.provider==="claude"||detail.run.provider==="claude-code"?" Claude activity shows the native events captured for this invocation. Usage is reported only when supplied by Claude. Check the recorded tool activity and cleanup status for this run.":""}`}/>}>Usage and diagnostics</SectionHeading>
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel} running={!detail.truncated&&!detail.run.reason&&selectedLane?.status==="running"}/>
       </section>
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>
