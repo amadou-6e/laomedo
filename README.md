@@ -15,7 +15,8 @@ service and CLI; the graph UI is a subsequent slice.
 The [local Langflow skill-agent pilot](examples/skill-agent-pilot/README.md)
 builds a persistent single-user Codex runner on the existing Docker boundary,
 pins a whole-skill revision, and supplies a saved Langflow flow. Its default
-turn cap is zero until a bounded model-backed test is authorized.
+runner has no global verification turn cap. Bounded experiments must enforce
+their allowance in a separate harness, never in the normal service.
 
 The [issue 119 feasibility experiments](experiments/feasibility/119/README.md)
 cover no-model Codex skill discovery, a manifest pilot, and a bounded

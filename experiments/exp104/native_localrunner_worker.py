@@ -84,7 +84,7 @@ def run(root, side):
     # This constructor uses real image/volume checks and startup recovery.
     # Both instances finish construction BEFORE the controller opens the gate.
     runner = LocalRunner(root / "runner", root / "skill-store", root / ("source-" + side),
-        transport=HeldInitialize, max_model_turns=0, git_workspace=True,
+        transport=HeldInitialize, git_workspace=True,
         supervise_containers=True, lease_service=root / "host/lease",
         github_authority=authority, mediator_state=root / "host/mediator")
     save(root / (side + "-initialized.json"), {"pid": os.getpid(), "constructed": True})

@@ -66,8 +66,7 @@ class EarlyRunnerTests(unittest.TestCase):
         self.addCleanup(lambda: shutil.rmtree(self.state, ignore_errors=True))
         self.source, self.store = source, store
         self.runner = LocalRunner(self.state, store.root, source,
-                                  transport=BlockingServer, check_docker=False,
-                                  max_model_turns=2)
+                                  transport=BlockingServer, check_docker=False)
         BlockingServer.entered = threading.Event()
         BlockingServer.closed = threading.Event()
         BlockingServer.turn_starts = 0
@@ -148,8 +147,8 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertEqual((code, terminal_retry["run_id"], terminal_retry["status"]),
                          (202, run_id, "cancelled"))
         self.assertEqual(BlockingServer.turn_starts, 1)
-        self.assertEqual(json.loads((self.state / "turn-ledger.json").read_text())
-                         ["attempted_turns"], 1)
+        self.assertEqual(self.runner._observed_turns, 1)
+        self.assertFalse((self.state / "turn-ledger.json").exists())
         self.assertIn("item/started", (self.runner._run_dir(run_id) /
                                        "raw-events.jsonl").read_text())
         code, polled = self.call(base + "/" + run_id, method="GET")
@@ -159,8 +158,7 @@ class EarlyRunnerTests(unittest.TestCase):
         gate = threading.Event()
         first = self.runner.start_async(self.body, response_gate=gate)
         restarted = LocalRunner(self.state, self.store.root, self.source,
-                                transport=BlockingServer, check_docker=False,
-                                max_model_turns=2)
+                                transport=BlockingServer, check_docker=False)
         self.assertEqual(restarted.status(first["run_id"])["status"], "interrupted")
         self.assertEqual(restarted.start_async(self.body)["run_id"], first["run_id"])
         gate.set()
@@ -198,8 +196,7 @@ class EarlyRunnerTests(unittest.TestCase):
         record["status"] = "running"
         _json(self.runner._run_dir(record["run_id"]) / "record.json", record)
         restarted = LocalRunner(self.state, self.store.root, self.source,
-                                transport=BlockingServer, check_docker=False,
-                                max_model_turns=2)
+                                transport=BlockingServer, check_docker=False)
         self.assertEqual(restarted.status(record["run_id"])["status"], "interrupted")
         self.assertEqual(BlockingServer.turn_starts, 0)
         self.assertFalse((self.state / "turn-ledger.json").exists())

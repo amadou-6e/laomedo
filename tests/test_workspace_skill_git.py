@@ -43,7 +43,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
                  '-c', 'core.autocrlf=false', 'commit', '-m', 'fixture')
         (checkout/'.git/info/exclude').unlink(missing_ok=True)
         return LocalRunner(self.root/f'state-{index}', self.store.root, source,
-                           transport=transport, check_docker=False, max_model_turns=1)
+                           transport=transport, check_docker=False)
 
     def request(self):
         return {'task': 'fixture', 'model': 'test-model', 'effort': 'low',

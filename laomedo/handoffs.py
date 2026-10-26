@@ -18,7 +18,7 @@ class HandoffError(ValueError):
 def envelope(source, target, task, *, skills, execution_id=None, step=0,
              operation="fresh", artifacts=None):
     """Select answer/task explicitly; never copy the entire originating record."""
-    if not isinstance(target, dict) or target.get("provider") not in {"codex", "opencode"}:
+    if not isinstance(target, dict) or target.get("provider") not in {"codex", "opencode", "claude"}:
         raise HandoffError("invalid_target")
     if set(target) - {"provider", "agent", "model", "effort"}:
         raise HandoffError("unexpected_target_fields")
@@ -36,7 +36,7 @@ def envelope(source, target, task, *, skills, execution_id=None, step=0,
     selected = selections(artifacts or [])
     if operation == "resume" and selected:
         raise HandoffError("resume_artifact_import_forbidden")
-    if not isinstance(skills, list) or not 1 <= len(skills) <= 16:
+    if not isinstance(skills, list) or not 0 <= len(skills) <= 16:
         raise HandoffError("pinned_skills_required")
     clean_skills = []
     for skill in skills:

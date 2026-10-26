@@ -105,10 +105,14 @@ outputs contain task content.
 
 Claude uses the same Agents tab, execution selector, timeline, conversation,
 usage projection and authenticated inspection routes as Codex. Each dispatch
-captures the exact host-submitted prompt and terminal answer; correction prompts
-are distinct turns. Failed or cancelled dispatches close their timeline lanes.
-These are adapter-normalized receipts, not native Codex RPC messages or a full
-Claude tool trace. Proposal mode disables tools and subagents.
+captures streamed native text, thinking and tool start/result events alongside
+the exact host-submitted prompt and terminal answer. Correction prompts are
+distinct turns and run without tools. Failed or cancelled dispatches retain
+partial activity and close their timeline lanes. These are normalized official
+CLI events, not Codex RPC messages or a claim of complete SDK event coverage.
+Native controller file/shell tools are disabled; file and command operations
+use the credential-free worker. Only selected pinned native Skill invocations
+are permitted. Subagents are not enabled in this slice.
 
 Token points use cumulative `modelUsage` from the native terminal receipt.
 Resumes subtract the previous receipt baseline; corrections replace cumulative

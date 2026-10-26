@@ -29,6 +29,10 @@ _ROUTABLE_ERRORS = {
     "standing_policy_inactive", "standing_policy_invalid", "standing_request_denied",
     "standing_issue_context_required", "standing_issue_context_mismatch",
     "standing_pinned_inputs_required", "runner_busy",
+    "claude_model_required", "unsupported_claude_effort", "claude_turn_timeout_invalid",
+    "claude_native_skill_policy_unsupported", "claude_subscription_unavailable",
+    "runner_model_catalog_unavailable_check_runner_connection",
+    "pinned_skill_ref_required", "skill_frontmatter_name_required",
 }
 
 
@@ -228,6 +232,12 @@ class LaomedoCodexAgent(Component):
         endpoint, payload, method = self._prepare_request()
         connected = getattr(self, "output_requirements", None)
         static = str(getattr(self, "output_requirements_json", "") or "").strip()
+        if not static and getattr(self, '_vertex', None) is not None:
+            # Langflow omits hidden inputs from component parameters. This
+            # internal pin still belongs to the saved graph, including an
+            # isolated feedback subgraph; it must not silently lose validation.
+            field = self._vertex.full_data.get('data', {}).get('node', {}).get('template', {}).get('output_requirements_json', {})
+            static = str(field.get('value') or '').strip()
         if static:
             from laomedo.output_contract import verify_requirements
             try:
@@ -262,9 +272,10 @@ class LaomedoCodexAgent(Component):
             if not isinstance(selected, dict) or set(selected) != {
                     "execution_id", "step", "source", "workspace_policy", "artifact_refs"}:
                 raise ValueError("invalid_handoff_reference")
-            payload["handoff"] = {key: selected[key] for key in
+            target = payload.get("runner_body", payload)
+            target["handoff"] = {key: selected[key] for key in
                                   ("execution_id", "step", "source", "workspace_policy")}
-            payload["artifact_refs"] = selected["artifact_refs"]
+            target["artifact_refs"] = selected["artifact_refs"]
         return endpoint, payload, method
 
     def _prepare_request(self):
@@ -361,9 +372,9 @@ class LaomedoCodexAgent(Component):
         # A host-wide Codex join setting must not redirect OpenCode or lifecycle
         # operations. Stop handling during a fresh/start invocation still uses
         # the bridge so its in-flight request can be reconciled correctly.
-        if self.name != "LaomedoCodexAgent" or str(self.operation) not in {"fresh", "start"}:
+        if self.name not in {"LaomedoCodexAgent", "LaomedoClaudeAgent"} or str(self.operation) not in {"fresh", "start"}:
             return ""
-        base = str(os.environ.get("LAOMEDO_BRIDGE_URL", getattr(self, "bridge_url", "")) or "").rstrip("/")
+        base = str(os.environ.get("LAOMEDO_CLAUDE_BRIDGE_URL" if self.name == "LaomedoClaudeAgent" else "LAOMEDO_BRIDGE_URL", getattr(self, "bridge_url", "")) or "").rstrip("/")
         if not base:
             return ""
         parsed = urlsplit(base)
@@ -396,7 +407,7 @@ class LaomedoCodexAgent(Component):
 
     def _token_file_path(self):
         if self._bridge_base():
-            return os.environ.get("LAOMEDO_BRIDGE_TOKEN_FILE",
+            return os.environ.get("LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE" if self.name == "LaomedoClaudeAgent" else "LAOMEDO_BRIDGE_TOKEN_FILE",
                                   "/run/secrets/laomedo-bridge-token")
         return self._runner_token_file_path()
 
@@ -546,10 +557,7 @@ class LaomedoCodexAgent(Component):
                 # only a fixed public code, never arbitrary server error text.
                 category = result.get("error_category")
                 code = (category if isinstance(category, str) and category in
-                        {"experiment_request_binding_denied", "standing_policy_inactive",
-                         "standing_policy_invalid", "standing_request_denied",
-                         "standing_issue_context_required", "standing_issue_context_mismatch",
-                         "standing_pinned_inputs_required", "runner_busy"} else "runner_dispatch_refused")
+                        _ROUTABLE_ERRORS else "runner_dispatch_refused")
                 if 400 <= exc.code < 500:
                     raise RuntimeError(code) from None
                 raise RuntimeError("runner_runtime_unknown") from None
@@ -636,7 +644,7 @@ class LaomedoCodexAgent(Component):
                           else type(result["precheck"].get(key)) is int and
                           result["precheck"][key] >= 0) else "unknown")
                          for key in ("installed", "call_count")},
-            "provider": result.get("provider", "codex"),
+            "provider": result.get("provider") or ("claude" if self.name == "LaomedoClaudeAgent" else "codex"),
             "handoff": result.get("handoff"), "imported_artifacts": result.get("imported_artifacts", []),
             "thread_id": result.get("thread_id"), "status": result.get("status"),
             "post_run_hash": result.get("post_run_hash"),

@@ -43,7 +43,7 @@ class LaomedoBoundedController(Component):
             if not isinstance(targets, list) or not 1 <= len(targets) <= 16:
                 raise ValueError("one_to_sixteen_targets_required")
             for target in targets:
-                if (not isinstance(target, dict) or target.get("provider") not in {"codex", "opencode"} or
+                if (not isinstance(target, dict) or target.get("provider") not in {"codex", "opencode", "claude"} or
                         set(target) - {"provider", "agent", "model", "effort"} or
                         not all(isinstance(target.get(key), str) and target[key].strip()
                                 for key in ("model", "effort"))):

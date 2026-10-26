@@ -14,3 +14,9 @@
   decision and ask the user; a reviewer cannot approve a scope change for them.
 - Do not present fixture tests as real integration acceptance. Verify examples
   using real agents/integrations or state the exact blocker and unfinished work.
+
+- Never add or leave verification-only global turn caps, exhausted experiment
+  budgets, or test authorization gates in normal runners or service launchers.
+  Bound experiments in a separate harness. Retain historical evidence without
+  letting its counters restrict normal user runs. Do not spend model turns solely
+  to verify removal of a cap; use explicitly approved live checks when needed.

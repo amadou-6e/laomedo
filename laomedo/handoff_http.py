@@ -43,7 +43,7 @@ class RunnerAdapter:
     @staticmethod
     def fresh_request(handoff, request_id):
         """Produce the exact async POST body and runner-compatible digest."""
-        if handoff["operation"] != "fresh" or handoff["target"]["provider"] != "codex":
+        if handoff["operation"] != "fresh" or handoff["target"]["provider"] not in {"codex", "claude"}:
             raise HandoffError("fresh_codex_request_required")
         target = handoff["target"]
         body = {"task": handoff["task"], "model": target["model"],
@@ -95,7 +95,7 @@ class RunnerAdapter:
             task["artifact_refs"] = handoff["artifacts"]
             task["handoff"] = {key: handoff[key] for key in
                                ("execution_id", "step", "source", "workspace_policy")}
-            if early_start and provider == "codex":
+            if early_start and provider in {"codex", "claude"}:
                 request_id = (runner_request_id or
                               str(uuid5(UUID(handoff["execution_id"]),
                                         str(handoff["step"]))))
@@ -124,7 +124,7 @@ class RunnerAdapter:
         if not isinstance(raw, dict) or not raw.get("run_id"):
             raise HandoffError("invalid_runner_response")
         self.active[handoff["execution_id"]] = (base, raw["run_id"])
-        if early_start and provider == "codex" and handoff["operation"] == "fresh":
+        if early_start and provider in {"codex", "claude"} and handoff["operation"] == "fresh":
             if (raw.get("client_request_id") != task["request_id"] or
                     raw.get("raw_event_ref") !=
                     f"laomedo:run:{raw['run_id']}:events"):

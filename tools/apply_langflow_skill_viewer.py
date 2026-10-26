@@ -115,16 +115,20 @@ def apply(checkout):
     flow_error = flow_error_path.read_text(encoding="utf-8")
     flow_error = 'import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";\nimport { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";\n' + flow_error
     marker = '  const errorButtonsRef = useRef<HTMLDivElement>(null);'
-    replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(message => isKnownNodeError(message, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))) ?? (affectedNode ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
+    replacement = '  const graphNodes = useFlowStore((state) => state.nodes ?? []);\n  const affectedNode = graphNodes.length === 1 && graphNodes[0].data.type?.startsWith("Laomedo") ? graphNodes[0] : undefined;\n  const descriptiveError = buildInfo?.error?.find(message => isKnownNodeError(message, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))) ?? (graphNodes.some(node => node.data.type?.startsWith("Laomedo")) ? buildInfo?.error?.[0] : undefined);\n  const errorButtonsRef = useRef<HTMLDivElement>(null);'
     if flow_error.count(marker) != 1:
         raise SystemExit("pinned_flow_error_anchor_missing")
     flow_error = replace_once(flow_error, marker, replacement)
     flow_error = replace_once(flow_error, '                                  <Button size="sm" onClick={handleRetry}>', '                                  {!descriptiveError && <Button size="sm" onClick={handleRetry}>')
     flow_error = replace_once(flow_error, '{t("flowBuild.retry")}\n                                  </Button>', '{t("flowBuild.retry")}\n                                  </Button>}')
     flow_error = replace_once(flow_error, 'className="max-h-48 overflow-y-auto"', 'className="max-h-[60vh] overflow-y-auto"')
-    flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
+    flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name ?? "Flow",\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
     flow_error = replace_once(flow_error, '                        </Markdown>', '                        </Markdown>}')
     flow_error = replace_once(flow_error, 'className="absolute right-0 font-mono text-xs"', 'className={cn("absolute right-0 font-mono text-xs", descriptiveError && "hidden")}')
+    # Stop must disappear immediately on success, not survive as an exiting
+    # animation over the successful duration.
+    flow_error = replace_once(flow_error, '                      <AnimatePresence mode="sync">\n                        {!buildInfo?.success && (', '                      {!buildInfo?.success && <AnimatePresence mode="sync">\n                        {!buildInfo?.success && (')
+    flow_error = replace_once(flow_error, '                      </AnimatePresence>\n                    </div>', '                      </AnimatePresence>}\n                    </div>')
     flow_error_path.write_text(flow_error, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 

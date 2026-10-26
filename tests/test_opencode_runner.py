@@ -208,11 +208,18 @@ class OpenCodeTests(unittest.TestCase):
         fixtures.LocalRunnerTests.setUp(self)
         self.runner = OpenCodeRunner(self.root.parent / (self.root.name + "-runner"),
             self.root.parent / (self.root.name + "-skill-store"), self.source,
-            max_model_turns=3, transport_factory=Backend)
+                                transport_factory=Backend)
         self.addCleanup(lambda: __import__("shutil").rmtree(self.runner.state, ignore_errors=True))
         self.payload = {"task": "Read skill", "model": "test/model", "effort": "default",
                         "skill_ref": {"skill_id": "sample", "revision_id": self.revision["revision_id"],
                                       "tree_hash": self.revision["tree_hash"]}}
+
+    def test_old_verification_ceiling_cannot_block_normal_run(self):
+        ledger = self.runner.state / "turn-ledger.json"
+        ledger.write_text(json.dumps({"attempted_turns": 500, "max_authorized_turns": 1}))
+        run = self.runner.start(self.payload)
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual(json.loads(ledger.read_text()), {"attempted_turns": 500, "max_authorized_turns": 1})
 
     def test_fresh_restart_resume_and_evidence(self):
         run = self.runner.start(self.payload)
@@ -220,7 +227,7 @@ class OpenCodeTests(unittest.TestCase):
         self.assertEqual(run["skills"][0]["use_evidence"], "native_skill_tool_completed")
         self.assertIsNone(run["usage"])
         restarted = OpenCodeRunner(self.runner.state, self.runner.store.root, self.source,
-            max_model_turns=3, transport_factory=Backend)
+                                transport_factory=Backend)
         resumed = restarted.resume(run["run_id"], "Continue", expected_post_run_hash=run["post_run_hash"],
             expected_thread_id=run["thread_id"], model="test/model", effort="default")
         self.assertEqual(resumed["thread_id"], run["thread_id"])

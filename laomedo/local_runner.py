@@ -887,7 +887,7 @@ def _execution_evidence(path, offset, record, turns, *, streams_closed, resumed=
 
 class LocalRunner:
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *, transport=AppServer,
-                 check_docker: bool = True, max_model_turns: int = 0,
+                 check_docker: bool = True,
                  supervise_containers: bool | None = None,
                  lease_service: Path | None = None,
                  github_authority: RunGrantAuthority | None = None,
@@ -895,7 +895,7 @@ class LocalRunner:
                  git_workspace: bool = False,
                  split_executor: bool = False, split_provider_config=(),
                  split_access_token=None, auth_store: Path | None = None,
-                 publication_controller=None, image_id: str | None = None):
+                 publication_controller=None, image_id: str | None = None, artifact_sources=None):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -935,6 +935,11 @@ class LocalRunner:
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
+        self.artifact_sources = {}
+        for provider, source_state in (artifact_sources or {}).items():
+            if provider not in {'codex', 'opencode', 'claude'}:
+                raise RunnerError('invalid_artifact_provider')
+            self.artifact_sources[provider] = _private(Path(source_state))
         self.publication_controller = publication_controller
         self.github_authority = github_authority
         self.mediator_state = _private(mediator_state) if mediator_state else None
@@ -987,9 +992,6 @@ class LocalRunner:
             raise RunnerError("split_executor_requires_native_transport")
         if (self.split_provider_config or split_access_token is not None) and not split_executor:
             raise RunnerError("split_provider_requires_split_executor")
-        if not isinstance(max_model_turns, int) or max_model_turns < 0:
-            raise RunnerError("invalid_turn_cap")
-        self.max_model_turns = max_model_turns
         self.lock = threading.Lock()
         self.control_lock = threading.Lock()
         self.request_lock = threading.Lock()
@@ -1167,25 +1169,15 @@ class LocalRunner:
         return self.state / "runs" / _id(run_id)
 
     def _reserve_turn(self) -> int:
-        ledger = self.state / "turn-ledger.json"
-        value = _read(ledger) if ledger.exists() else {"attempted_turns": 0}
-        count = value.get("attempted_turns")
-        if not isinstance(count, int) or count < 0:
-            raise RunnerError("invalid_turn_ledger")
-        if count >= self.max_model_turns:
-            raise RunnerError("model_turn_cap_reached")
-        _json(ledger, {"attempted_turns": count + 1,
-                       "max_authorized_turns": self.max_model_turns})
-        return count + 1
+        # Accounting must never authorize or refuse a user operation. Old
+        # experiment ledgers (including corrupt ones) are retained untouched.
+        count = getattr(self, "_observed_turns", 0) + 1
+        self._observed_turns = count
+        return count
 
     def _turn_available(self) -> None:
-        ledger = self.state / "turn-ledger.json"
-        value = _read(ledger) if ledger.exists() else {"attempted_turns": 0}
-        count = value.get("attempted_turns")
-        if not isinstance(count, int) or count < 0:
-            raise RunnerError("invalid_turn_ledger")
-        if count >= self.max_model_turns:
-            raise RunnerError("model_turn_cap_reached")
+        """Extension point for isolated experiment harnesses; no production quota."""
+
 
     def status(self, run_id: str) -> dict:
         return _read(self._run_dir(run_id) / "record.json")
@@ -1464,9 +1456,18 @@ class LocalRunner:
                     _json(self._run_dir(run_id) / "record.json", record)
 
     def _artifact_source(self, provider, run_id):
-        if provider != getattr(self, "provider", "codex"):
-            raise ArtifactError("foreign_artifact_store_required")
-        return self._run_dir(run_id) / "post-run", self.status(run_id)
+        if provider == getattr(self, 'provider', 'codex'):
+            return self._run_dir(run_id) / 'post-run', self.status(run_id)
+        state = self.artifact_sources.get(provider)
+        if state is None:
+            raise ArtifactError('foreign_artifact_store_required')
+        run = state / 'runs' / _id(run_id)
+        if run.is_symlink() or not run.resolve().is_relative_to(state):
+            raise ArtifactError('foreign_artifact_store_required')
+        record = _read(run / 'record.json')
+        if record.get('provider') != provider or record.get('run_id') != run_id:
+            raise ArtifactError('artifact_snapshot_mismatch')
+        return run / 'post-run', record
 
     def select_artifacts(self, run_id, paths):
         if not isinstance(paths, list) or len(paths) > 32:
@@ -1499,7 +1500,7 @@ class LocalRunner:
             raise RunnerError("invalid_handoff_provenance")
         origin = value["source"]
         if origin is not None:
-            if not isinstance(origin, dict) or set(origin) != {"provider", "run_id"} or origin["provider"] not in {"codex", "opencode"}:
+            if not isinstance(origin, dict) or set(origin) != {"provider", "run_id"} or origin["provider"] not in {"codex", "opencode", "claude"}:
                 raise RunnerError("invalid_handoff_origin")
             _id(origin["run_id"])
         return json.loads(json.dumps(value))
@@ -1858,11 +1859,7 @@ class LocalRunner:
                 if cancelled.is_set():
                     status, error = "cancelled", "cancelled_by_user"
                     break
-                try:
-                    attempt = self._reserve_turn()
-                except RunnerError:
-                    record["output_correction_blocked"] = "model_turn_cap_reached"
-                    break
+                attempt = self._reserve_turn()
                 record["turns"].append({"turn_id": turn_id, "status": status,
                                         "correction_pending": True,
                                         "output_validation": validation})
@@ -2117,7 +2114,7 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 parsed = urlsplit(self.path)
                 parts = parsed.path.strip("/").split("/")
                 if parts == ["v1", "models"] and not parsed.query:
-                    self._reply(200, runner.model_catalog())
+                    self._reply(200, runner.model_catalog(refresh=True) if getattr(runner, 'provider', 'codex') == 'claude' else runner.model_catalog())
                     return
                 if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
                     from .runner_activity import read_feed
@@ -2223,7 +2220,6 @@ def main():
                         help="Opt-in isolated Git checkout; mediated push remains disabled")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--preflight", action="store_true")
-    parser.add_argument("--max-model-turns", type=int, default=0)
     parser.add_argument("--image-id", help="Operator-approved SHA256 ID of a locally rebuilt non-Git image; the fixed version tag must match it")
     parser.add_argument("--lease-service", type=Path,
                         help="State directory of an independently started lease service")
@@ -2235,6 +2231,7 @@ def main():
                         help="Credential-free experimental split controller/executor")
     parser.add_argument("--auth-store", type=Path,
                         help="Private app-owned ChatGPT OAuth store; requires --split-executor")
+    parser.add_argument('--artifact-source', action='append', default=[], metavar='PROVIDER=STATE')
     args = parser.parse_args()
     if (args.github_authority_store is None) != (args.mediator_state is None):
         parser.error("GitHub authority and mediator state must be configured together")
@@ -2242,12 +2239,12 @@ def main():
                  if args.github_authority_store else None)
     runner = LocalRunner(args.state, args.skill_store, args.source_workspace,
                          git_workspace=args.git_workspace,
-                         max_model_turns=args.max_model_turns,
                          lease_service=args.lease_service,
                          github_authority=authority,
                          mediator_state=args.mediator_state,
                          split_executor=args.split_executor,
-                         auth_store=args.auth_store, image_id=args.image_id)
+                         auth_store=args.auth_store, image_id=args.image_id,
+                         artifact_sources=dict(item.split("=",1) for item in args.artifact_source))
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return

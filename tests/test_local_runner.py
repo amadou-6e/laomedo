@@ -94,7 +94,7 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
-    def _output_run(self, answers, *, effects=False, cap=6, retry_count=1, native_item=None, native_precheck=False, failed_wait=False):
+    def _output_run(self, answers, *, effects=False, retry_count=1, native_item=None, native_precheck=False, failed_wait=False):
         from laomedo.output_contract import requirements
         pinned = requirements({"schema_version": 1, "fields": [
             {"name": "report", "type": "string", "required": True}]})
@@ -132,7 +132,6 @@ class LocalRunnerTests(unittest.TestCase):
                         "turnId": turn_id, "item": {"type": "agentMessage", "text": json.dumps(answer)}}})
                 return "completed", None
         self.runner.transport = OutputServer
-        self.runner.max_model_turns = cap
         request = self.request()
         request.update(output_requirements=pinned, output_retries=retry_count)
         return self.runner.start(request), OutputServer
@@ -158,25 +157,23 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(len(transport.inputs), 1)
         self.assertEqual(record["output_validation"]["contract_status"], "rejected")
 
-    def test_side_effect_and_exhausted_global_budget_prevent_continuation(self):
+    def test_side_effect_prevents_continuation(self):
         record, transport = self._output_run([{}], effects=True)
         self.assertEqual(len(transport.inputs), 1)
         self.assertEqual(record["output_correction_blocked"], "side_effect_safety_unverified")
-        record, transport = self._output_run([{}], cap=1)
-        self.assertEqual(len(transport.inputs), 0)  # prior run used the single authorized turn
-        self.assertEqual(record["error_category"], "model_turn_cap_reached")
 
     def test_empty_continuation_never_uses_previous_turn_answer(self):
         record, transport = self._output_run([{}, None])
         self.assertEqual(record["status"], "failed")
         self.assertEqual(record["error_category"], "completed_without_agent_message")
 
-    def test_global_budget_exhaustion_keeps_invalid_result_without_dispatch(self):
-        record, transport = self._output_run([{}], cap=1)
-        self.assertEqual(len(transport.inputs), 1)
-        self.assertEqual(record["output_correction_blocked"], "model_turn_cap_reached")
-        self.assertEqual(len(record["turns"]), 1)
-        self.assertEqual(record["output_validation"]["contract_status"], "rejected")
+    def test_old_exhausted_ledger_does_not_block_output_correction(self):
+        ledger = self.runner.state / "turn-ledger.json"
+        ledger.write_text(json.dumps({"attempted_turns": 500, "max_authorized_turns": 1}))
+        record, transport = self._output_run([{}, {"report": "fixed"}])
+        self.assertEqual(len(transport.inputs), 2)
+        self.assertEqual(record["output_validation"]["contract_status"], "accepted")
+        self.assertEqual(json.loads(ledger.read_text()), {"attempted_turns": 500, "max_authorized_turns": 1})
 
     def test_unrecognized_dynamic_tool_receipt_blocks_continuation(self):
         record, transport = self._output_run([{}], native_item={
@@ -242,7 +239,7 @@ class LocalRunnerTests(unittest.TestCase):
                 ("synthetic", 1, "example/disposable", "operator"))
             mediated = LocalRunner(
                 self.runner.state, self.runner.store.root, self.source,
-                transport=FakeServer, check_docker=False, max_model_turns=6,
+                transport=FakeServer, check_docker=False,
                 supervise_containers=True, lease_service=host_state / "lease",
                 github_authority=authority, mediator_state=host_state / "mediator")
 
@@ -402,7 +399,7 @@ class LocalRunnerTests(unittest.TestCase):
 
         mediated = LocalRunner(self.runner.state, self.runner.store.root, self.source,
                                transport=FakeServer, check_docker=False,
-                               max_model_turns=6, supervise_containers=True,
+                               supervise_containers=True,
                                lease_service=self.root / "lease-state",
                                github_authority=authority,
                                mediator_state=self.runner.state / "mediator-state")
@@ -475,8 +472,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["native_error_summary"]["categories"],
                          {"unauthorized": 1})
         self.assertNotIn("SECRET_LOGIN_TOKEN", json.dumps(result))
-        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
-                         ["attempted_turns"], 1)
+        self.assertEqual(self.runner._observed_turns, 1)
 
     def test_missing_app_owned_consent_refuses_before_model_turn(self):
         class MissingAccount:
@@ -551,8 +547,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["turns"][0]["status"], "unknown")
         self.assertTrue((self.runner._run_dir(result["run_id"]) /
                          "raw-events.jsonl").exists())
-        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json")
-                         .read_text())["attempted_turns"], 1)
+        self.assertEqual(self.runner._observed_turns, 1)
 
     def test_mid_turn_account_or_generation_change_is_not_reported_as_revocation(self):
         for change, expected_error, expected_outcome in (
@@ -595,8 +590,7 @@ class LocalRunnerTests(unittest.TestCase):
                                  expected_outcome)
                 self.assertEqual(result["turns"][0]["error_category"],
                                  expected_error)
-        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json")
-                         .read_text())["attempted_turns"], 2)
+        self.assertEqual(self.runner._observed_turns, 2)
 
     def test_generation_change_before_turn_refuses_without_model_submission(self):
         class ChangedBeforeTurn(FakeServer):
@@ -681,7 +675,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.revision = store.import_skill("sample", self.skill_source)
         self.runner = LocalRunner(self.root.parent / (self.root.name + "-state"),
                                   store.root, self.source, transport=FakeServer,
-                                  check_docker=False, max_model_turns=6)
+                                  check_docker=False)
         self.addCleanup(lambda: __import__("shutil").rmtree(self.runner.state,
                         ignore_errors=True))
 
@@ -710,7 +704,7 @@ class LocalRunnerTests(unittest.TestCase):
         baseline = git("rev-parse", "HEAD")
         runner = LocalRunner(self.runner.state, self.runner.store.root, repository,
                              transport=FakeServer, check_docker=False,
-                             max_model_turns=6, git_workspace=True)
+                             git_workspace=True)
         result = runner.start(self.request())
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["workspace_mode"], "git")
@@ -743,7 +737,7 @@ class LocalRunnerTests(unittest.TestCase):
             reviewed_by="test-operator")
         mediated = LocalRunner(
             self.runner.state, self.runner.store.root, repository,
-            transport=FakeServer, check_docker=False, max_model_turns=6,
+            transport=FakeServer, check_docker=False,
             git_workspace=True, supervise_containers=True,
             lease_service=self.runner.state / "lease-state",
             github_authority=authority,
@@ -823,16 +817,14 @@ class LocalRunnerTests(unittest.TestCase):
         second = self.runner.start(self.request())
         self.assertNotEqual(second["run_id"], first["run_id"])
         restarted = LocalRunner(self.runner.state, self.runner.store.root, self.source,
-                                 transport=FakeServer, check_docker=False,
-                                 max_model_turns=6)
+                                 transport=FakeServer, check_docker=False)
         resumed = restarted.resume(first["run_id"], "continue",
                                    expected_post_run_hash=first["post_run_hash"],
                                    expected_thread_id=first["thread_id"],
                                    model="test-model", effort="low")
         self.assertEqual(resumed["status"], "completed")
         self.assertEqual(len(resumed["turns"]), 2)
-        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
-                         ["attempted_turns"], 3)
+        self.assertEqual(self.runner._observed_turns, 2)
 
     def test_app_owned_resume_refuses_changed_account_and_runner_restart(self):
         completed = self.runner.start(self.request())
@@ -856,12 +848,11 @@ class LocalRunnerTests(unittest.TestCase):
             self.runner.resume(completed["run_id"], "continue", **args)
         restarted = LocalRunner(self.runner.state, self.runner.store.root,
                                 self.source, transport=FakeServer,
-                                check_docker=False, max_model_turns=6)
+                                check_docker=False)
         restarted.auth = OtherAccount()
         with self.assertRaisesRegex(RunnerError, "resume_after_runner_restart_forbidden"):
             restarted.resume(completed["run_id"], "continue", **args)
-        self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
-                         ["attempted_turns"], 1)
+        self.assertEqual(self.runner._observed_turns, 1)
 
     def test_zero_skills_prepare_without_registry_lookup_and_validate_explicit_inputs(self):
         for explicit in (False,True):
@@ -942,13 +933,35 @@ class LocalRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RunnerError, "duplicate_skill_id"):
             self.runner.start(request)
 
-    def test_default_turn_cap_denies_model_submission(self):
-        stopped = LocalRunner(self.runner.state, self.runner.store.root, self.source,
-                              transport=FakeServer, check_docker=False)
-        result = stopped.start(self.request())
-        self.assertEqual(result["status"], "failed")
-        self.assertEqual(result["error_category"], "model_turn_cap_reached")
-        self.assertIsNone(result["answer"])
+    def test_production_runners_cannot_restore_a_verification_turn_cap(self):
+        import inspect
+        from laomedo.claude_runner import ClaudeRunner
+        from laomedo.opencode_runner import OpenCodeRunner
+        for runner in (LocalRunner, ClaudeRunner, OpenCodeRunner):
+            self.assertNotIn("max_model_turns", inspect.signature(runner).parameters)
+        for name in ("local_runner.py", "claude_runner.py", "opencode_runner.py"):
+            source = (Path(__file__).resolve().parents[1] / "laomedo" / name).read_text()
+            self.assertNotIn("model_turn_cap_reached", source)
+            self.assertNotIn("--max-model-turns", source)
+
+    def test_corrupt_or_exhausted_experiment_ledger_cannot_block_normal_runs(self):
+        ledger = self.runner.state / 'turn-ledger.json'
+        for data in ('not-json', '{"attempted_turns":-1}', '{"attempted_turns":true}',
+                     '{"attempted_turns":999999,"max_authorized_turns":0}'):
+            ledger.write_text(data)
+            result = self.runner.start(self.request())
+            self.assertEqual(result['status'], 'completed')
+            self.assertEqual(ledger.read_text(), data)
+
+    def test_default_runner_ignores_exhausted_verification_ledger_across_restart(self):
+        ledger = self.runner.state / "turn-ledger.json"
+        ledger.write_text(json.dumps({"attempted_turns": 500, "max_authorized_turns": 1}))
+        for _ in range(2):
+            runner = LocalRunner(self.runner.state, self.runner.store.root, self.source,
+                                 transport=FakeServer, check_docker=False)
+            result = runner.start(self.request())
+            self.assertEqual(result["status"], "completed")
+        self.assertEqual(json.loads(ledger.read_text()), {"attempted_turns": 500, "max_authorized_turns": 1})
 
     def test_restart_marks_incomplete_run_interrupted_without_losing_trace(self):
         first = self.runner.start(self.request())
@@ -990,7 +1003,7 @@ class LocalRunnerTests(unittest.TestCase):
                     expected_thread_id=first["thread_id"], model="test-model", effort="low")
         record_path = self.runner._run_dir(first["run_id"]) / "record.json"
         original = record_path.read_bytes()
-        ledger_before = (self.runner.state / "turn-ledger.json").read_bytes()
+        ledger_before = self.runner._observed_turns
         calls_before = len(FakeServer.calls)
         for field, replacement in (("profile", "another-private-profile"),
                                    ("thread_id", "another-thread"),
@@ -1003,7 +1016,7 @@ class LocalRunnerTests(unittest.TestCase):
                     with self.assertRaisesRegex(RunnerError, "resume_binding_mismatch"):
                         self.runner.resume(first["run_id"], "continue", **args)
                     self.assertEqual(len(FakeServer.calls), calls_before)
-                    self.assertEqual((self.runner.state / "turn-ledger.json").read_bytes(), ledger_before)
+                    self.assertEqual(self.runner._observed_turns, ledger_before)
                 finally:
                     record_path.write_bytes(original)
 
@@ -1081,7 +1094,7 @@ class LocalRunnerTests(unittest.TestCase):
 
     def test_api_token_persists_across_runner_restart(self):
         again = LocalRunner(self.runner.state, self.runner.store.root, self.source,
-                            transport=FakeServer, check_docker=False, max_model_turns=6)
+                            transport=FakeServer, check_docker=False)
         self.assertEqual(again.api_token, self.runner.api_token)
         self.assertEqual(len(self.runner.api_token), 64)
 

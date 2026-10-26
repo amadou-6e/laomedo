@@ -55,7 +55,7 @@ class LocalRunnerProbeTests(unittest.TestCase):
             class InspectRunner:
                 def __init__(self, state, skill_store, source, **kwargs):
                     self.test = test
-                    self.test.assertEqual(kwargs["max_model_turns"], 0)
+                    self.test.assertNotIn("max_model_turns", kwargs)
                     self.test.assertTrue(kwargs["git_workspace"])
                     self.test.assertTrue(kwargs["supervise_containers"])
                     self.transport = kwargs["transport"]

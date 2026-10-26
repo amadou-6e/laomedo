@@ -197,8 +197,10 @@ class WorkflowRunStore:
                           {"stage_id": stage_id, "runner_request_id": invocation_id})
         return invocation_id
 
-    def freeze_runner_request(self, run_id, invocation_id, request_hash):
+    def freeze_runner_request(self, run_id, invocation_id, request_hash, *, provider="codex"):
         """Commit the exact native POST-body digest before dispatch."""
+        if provider not in {"codex", "claude"}:
+            raise LaunchError("invalid_runner_reference")
         if (not isinstance(request_hash, str) or len(request_hash) != 71 or
                 not request_hash.startswith("sha256:") or
                 any(c not in "0123456789abcdef" for c in request_hash[7:])):
@@ -211,7 +213,7 @@ class WorkflowRunStore:
             if changed != 1:
                 raise LaunchError("runner_request_not_reserved")
             self._receipt(db, run_id, invocation_id, "runner_request_frozen",
-                          {"request_hash": request_hash})
+                          {"request_hash": request_hash, "provider": provider})
 
     @staticmethod
     def _client_uuid(value):
@@ -299,7 +301,9 @@ class WorkflowRunStore:
                 WHERE c.client_request_id=?""", (client_request_id,)).fetchone()
         return dict(row) if row is not None else None
 
-    def langflow_runner_binding(self, runner_run_id):
+    def langflow_runner_binding(self, runner_run_id, *, provider="codex"):
+        if provider not in {"codex", "claude"}:
+            raise LaunchError("unsupported_join_provider")
         try:
             runner_run_id = str(UUID(str(runner_run_id)))
         except (TypeError, ValueError, AttributeError):
@@ -308,8 +312,8 @@ class WorkflowRunStore:
             row = db.execute("""SELECT c.*,w.runner_run_id,w.runner_request_hash
                 FROM langflow_client_requests c JOIN workflow_invocations w
                 ON w.invocation_id=c.invocation_id
-                WHERE w.runner_provider='codex' AND w.runner_run_id=?""",
-                (runner_run_id,)).fetchone()
+                WHERE w.runner_provider=? AND w.runner_run_id=?""",
+                (provider, runner_run_id)).fetchone()
         return dict(row) if row is not None else None
 
     def request_langflow_cancel(self, client_request_id):
@@ -379,7 +383,7 @@ class WorkflowRunStore:
             UUID(str(runner_run_id))
         except (TypeError, ValueError, AttributeError):
             raise LaunchError("invalid_runner_identity") from None
-        if (provider != "codex" or
+        if (provider not in {"codex", "claude"} or
                 raw_event_ref != f"laomedo:run:{runner_run_id}:events"):
             raise LaunchError("invalid_runner_reference")
         with self._database() as db:

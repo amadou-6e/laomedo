@@ -88,6 +88,10 @@ class PersistentRunner(LocalRunner):
         # standing controller can create a fresh scope for an explicit start.
         for name in ("binding_state", "seed_consumed", "nonpublishing_lease_service"):
             kwargs.pop(name, None)
+        # This historical harness owns its per-run four-turn policy; it must
+        # never forward a test allowance into a normal runner.
+        if kwargs.pop('max_model_turns', 4) != 4:
+            raise RunnerError('standing_policy_mismatch')
         self.authorization_factory = authorization_factory
         self.local_run = threading.local()
         super().__init__(*args, **kwargs)

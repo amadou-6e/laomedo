@@ -38,6 +38,8 @@ def project(events, *, root_thread=None, model=None):
         if isinstance(item,dict) and item.get('id'):
             key=(thread,item['id'])
             value=items.setdefault(key,{'id':item['id'],'thread':thread,'turn':turn_id,'started':timestamp,'ended':None,'item':item})
+            if method == 'item/updated' and value['ended'] is None:
+                value['item'] = item
             if method == 'item/completed':
                 if value['ended'] and value['item'] != item:
                     value['conflicting_receipts']=True

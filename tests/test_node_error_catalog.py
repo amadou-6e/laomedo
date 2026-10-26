@@ -26,6 +26,19 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             missing.extend(code for code in codes if code not in catalogue)
         self.assertEqual(missing,[],'Every Claude runner public error needs a shared explanation and recovery')
 
+    def test_claude_container_and_join_public_codes_have_explanations(self):
+        catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        for filename in ('claude_container.py', 'langflow_join.py', 'runner_trace_bridge.py', 'handoff_http.py', 'agent_activity_capture.py', 'agent_activity.py'):
+            tree=ast.parse((ROOT/'laomedo'/filename).read_text())
+            for node in ast.walk(tree):
+                if (isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call) and
+                    isinstance(node.exc.func,ast.Name) and node.exc.func.id in {'RunnerError','LaunchError','HandoffError','ValueError'} and
+                    node.exc.args and isinstance(node.exc.args[0],ast.Constant)):
+                    code=node.exc.args[0].value
+                    self.assertIn(code,catalogue,f'{filename}:{node.lineno}: missing {code}')
+                    for key in ('title','description','recovery'):
+                        self.assertTrue(catalogue[code][key].strip())
+
     def test_affected_runner_skill_preparation_and_workspace_errors_are_catalogued(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
         producers={'local_runner.py':{'_prepare','_materialize'},
@@ -46,7 +59,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_literal_agent_failures_have_descriptive_catalogue_entries(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         missing = []
-        for source in (ROOT / "components/laomedo").glob("*agent.py"):
+        for source in [*(ROOT / "components/laomedo").glob("*agent.py"), ROOT/"components/laomedo/handoff.py", ROOT/"components/laomedo/bounded_controller.py"]:
             for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
                 if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call) or not node.exc.args:
                     continue

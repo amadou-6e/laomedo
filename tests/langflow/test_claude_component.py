@@ -26,8 +26,8 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
 
     def test_template_order_types_and_visibility_match_current_codex(self):
         base=LaomedoClaudeAgent.__bases__[0]
-        expected=[item for item in base.inputs if item.name not in {'bridge_url','handoff_reference'}]
-        self.assertEqual([item.name for item in LaomedoClaudeAgent.inputs],[item.name for item in expected])
+        expected=base.inputs
+        self.assertEqual([item.name for item in LaomedoClaudeAgent.inputs],[item.name for item in expected]+['run_timeout_seconds'])
         for actual,reference in zip(LaomedoClaudeAgent.inputs,expected):
             self.assertIs(type(actual),type(reference))
             self.assertEqual(actual.show,reference.show)
@@ -37,6 +37,8 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fields['effort'].options,[])
         self.assertTrue(fields['model'].refresh_button)
         self.assertEqual(fields['runner_url'].value,'http://host.docker.internal:8769')
+        self.assertTrue(fields['run_timeout_seconds'].advanced)
+        self.assertEqual(fields['run_timeout_seconds'].value,180)
 
     def test_model_refresh_uses_claude_runner_token_not_codex_token(self):
         import laomedo.codex_agent as codex
@@ -146,6 +148,31 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(prepared['output_retries'], 1)
         with self.assertRaisesRegex(ValueError, 'run_provider_mismatch'):
             self.node(operation='resume', run_reference={'provider': 'codex'})._prepare()
+
+    def test_hidden_saved_feedback_pin_is_not_lost_from_runner_request(self):
+        from types import SimpleNamespace
+        pin = requirements({'schema_version': 1, 'fields': []})
+        node = self.node(output_requirements_json='', output_retries=2)
+        node._vertex = SimpleNamespace(id='agent', graph=SimpleNamespace(edges=[]),
+            full_data={'data': {'node': {'template': {'output_requirements_json': {
+                'show': False, 'value': json.dumps(pin)}}}}})
+        payload = node._prepare()[1]
+        self.assertEqual(payload['output_requirements'], pin)
+        self.assertEqual(payload['output_retries'], 2)
+
+    def test_predispatch_failure_preserves_public_code_and_redacts_unknown_payloads(self):
+        from urllib.error import HTTPError
+        import laomedo.codex_agent as common
+        for code in ('claude_model_required', 'claude_native_skill_policy_unsupported',
+                     'unsupported_claude_effort', 'SECRET payload and token'):
+            node = self.node(skill_reference=[])
+            error = HTTPError('http://localhost:8769/v1/runs/async', 400, 'refused', {},
+                              io.BytesIO(json.dumps({'error_category': code}).encode()))
+            with patch.object(node, '_token', return_value='internal'), \
+                 patch.object(common.request, 'urlopen', side_effect=error):
+                expected = code if code != 'SECRET payload and token' else 'runner_dispatch_refused'
+                with self.assertRaisesRegex(RuntimeError, '^'+expected+'$'):
+                    node._http('http://localhost:8769/v1/runs/async', {}, 'POST')
 
 
 if __name__ == '__main__':

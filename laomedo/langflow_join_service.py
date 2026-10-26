@@ -28,7 +28,7 @@ def _token_file(path):
 
 
 def build_service(*, store_path, bridge_token_file, runner_token_file,
-                  langflow_url, runner_url, port):
+                  langflow_url, runner_url, port, provider="codex"):
     store = _private_path(store_path)
     bridge_source = _private_path(bridge_token_file)
     runner_source = _private_path(runner_token_file)
@@ -38,7 +38,7 @@ def build_service(*, store_path, bridge_token_file, runner_token_file,
     runner_token = _token_file(runner_source)
     client = LangflowLocalClient(langflow_url)
     controller = LangflowJoinController(
-        WorkflowRunStore(store), RunnerHTTPTransport(runner_url, runner_token),
+        WorkflowRunStore(store), RunnerHTTPTransport(runner_url, runner_token, provider=provider),
         client.fetch)
     return serve_langflow_join(controller, bridge_token, port=port)
 
@@ -51,12 +51,13 @@ def main(argv=None):
     parser.add_argument("--langflow-url", required=True)
     parser.add_argument("--runner-url", required=True)
     parser.add_argument("--port", required=True, type=int)
+    parser.add_argument("--provider", choices=["codex", "claude"], default="codex")
     args = parser.parse_args(argv)
     server = build_service(
         store_path=args.store, bridge_token_file=args.bridge_token_file,
         runner_token_file=args.runner_token_file,
         langflow_url=args.langflow_url, runner_url=args.runner_url,
-        port=args.port)
+        port=args.port, provider=args.provider)
     try:
         server.serve_forever()
     finally:

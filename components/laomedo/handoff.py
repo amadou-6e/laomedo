@@ -20,6 +20,8 @@ class LaomedoHandoff(Component):
         source = getattr(self.origin, "data", self.origin)
         if not isinstance(source, dict) or source.get("status") != "completed":
             raise ValueError("completed_origin_required")
+        if source.get("provider") not in {"codex", "opencode", "claude"}:
+            raise ValueError("handoff_provider_required")
         task = getattr(self.task, "text", self.task) or source.get("answer")
         if not isinstance(task, str) or not task.strip():
             raise ValueError("handoff_task_required")
@@ -31,7 +33,7 @@ class LaomedoHandoff(Component):
         selected = [getattr(value, "data", value) for value in selected]
         return task, {"execution_id": self._execution_id, "step": 1,
                       "source": {"run_id": source.get("run_id"),
-                                 "provider": source.get("provider", "codex")},
+                                 "provider": source["provider"]},
                       "workspace_policy": "independent", "artifact_refs": selected}
 
     def _pre_run_setup(self):

@@ -68,6 +68,7 @@ export function activityTitle(value:Record<string,unknown>) {
     return target?`${action} · ${target}`:action;
   }
   if(value.type==="collabAgentToolCall"||value.type==="collabAgentSpawnToolCall")return `Subagent tool${typeof value.tool==="string"?`: ${value.tool}`:""}${typeof value.status==="string"?` · ${value.status}`:""}`;
+  if(value.type==="dynamicToolCall")return value.tool==="mcp__laomedo__exec_command"?"Shell command":value.tool==="mcp__laomedo__github_operation"?"GitHub operation":String(value.tool??"Tool activity");
   return String(value.type??"Tool activity");
 }
 
@@ -203,7 +204,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4 rounded-md border p-4" aria-label="Usage and diagnostics">
         <h3 className="text-sm font-semibold">Usage and diagnostics</h3>
-        {(detail.run.provider==="claude-code"||detail.run.provider==="claude")&&<p className="text-xs text-muted-foreground">Claude Code proposal mode: native tools and subagents are disabled. Prompts are host-submitted; answers and usage come from terminal receipts. Feed completion does not establish complete execution evidence.</p>}
+        {(detail.run.provider==="claude-code"||detail.run.provider==="claude")&&<p className="text-xs text-muted-foreground">Claude activity shows the native events captured for this invocation. Usage is reported only when supplied by Claude. Check the recorded tool activity and cleanup status for this run.</p>}
         {detail.projection.diagnostics?.map((value,index)=><JsonDisclosure key={index} label={`Claude terminal receipt ${index+1}`} value={value}/>)}
         <details open><summary className="cursor-pointer text-xs text-muted-foreground">Tokens and API-equivalent cost over time</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[600px] text-left text-xs tabular-nums"><thead className="text-muted-foreground"><tr><th className="py-2 font-normal">Observed</th><th className="font-normal">Thread</th>{["Input","Cached input","Output","Estimate (USD)"].map(name=><th key={name} className="text-right font-normal">{name}</th>)}</tr></thead><tbody>{detail.projection.usage_points.map((point,index)=><tr key={index}><td className="py-1" title={point.at}>{time(point.at)}</td><td>{point.thread.slice(0,8)}</td>{["inputTokens","cachedInputTokens","outputTokens"].map(key=><td className="text-right" key={key}>{point.usage[key]?.toLocaleString()??"Unknown"}</td>)}<td className="text-right">{point.cost?.amount==null?"Unknown":`$${point.cost.amount.toFixed(6)}`}</td></tr>)}</tbody></table></div></details>
         <p className="text-xs text-muted-foreground">{detail.projection.cost_reason} Cached input is part of input; reasoning is part of output.</p>

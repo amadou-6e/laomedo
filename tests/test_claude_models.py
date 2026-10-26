@@ -6,6 +6,7 @@ import tempfile
 import threading
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from laomedo.claude_runner import ClaudeRunner, command, normalize_models
 from laomedo.local_runner import RunnerError
@@ -21,7 +22,8 @@ class ClaudeModelTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.runner=object.__new__(ClaudeRunner)
         self.runner.state=Path(self.temp.name)
-        self.runner.executable=Path('claude-control')
+        self.runner.executable='claude'
+        self.runner.container=SimpleNamespace(control=lambda *a,**k:None)
         self.runner._catalog_lock=threading.Lock()
         self.auth=patch.object(self.runner,'_check_auth');self.auth.start();self.addCleanup(self.auth.stop)
 
@@ -29,7 +31,7 @@ class ClaudeModelTests(unittest.TestCase):
         def run(args, **kwargs):
             self.assertNotIn('--model',args)
             self.assertIn('--no-session-persistence',args)
-            self.assertIn('--safe-mode',args)
+            self.assertIn('--restricted',args)
             self.assertEqual(kwargs['timeout'],45)
             sent=[json.loads(line) for line in kwargs['input'].splitlines()]
             self.assertEqual(len(sent),1)
@@ -38,9 +40,8 @@ class ClaudeModelTests(unittest.TestCase):
             value={'type':'control_response','response':{'subtype':'success',
                 'request_id':sent[0]['request_id'],'response':{'models':items or [native()]}}}
             if mutate: mutate(value)
-            kwargs['stdout'].write((json.dumps(value)+'\n').encode())
-            return subprocess.CompletedProcess(args,0)
-        return patch('laomedo.claude_runner.subprocess.run',side_effect=run)
+            return subprocess.CompletedProcess(args,0,stdout=(json.dumps(value)+'\n').encode())
+        return patch.object(self.runner.container,'control',side_effect=run)
 
     def test_native_catalog_has_account_labels_exact_ids_efforts_and_no_user_message(self):
         with self.transport(): result=self.runner.model_catalog()
@@ -54,7 +55,7 @@ class ClaudeModelTests(unittest.TestCase):
 
     def test_timeout_and_native_errors_are_safe_and_release_lock(self):
         for error in (subprocess.TimeoutExpired(['private-control'],18,output=b'secret'),OSError('secret')):
-            with patch('laomedo.claude_runner.subprocess.run',side_effect=error):
+            with patch.object(self.runner.container,'control',side_effect=error):
                 with self.assertRaisesRegex(RunnerError,'^runner_model_catalog_unavailable_check_runner_connection$'):
                     self.runner.model_catalog()
             self.assertFalse(self.runner._catalog_lock.locked())
@@ -72,9 +73,9 @@ class ClaudeModelTests(unittest.TestCase):
     def test_refresh_does_not_serve_stale_catalog_or_hardcoded_fallback(self):
         with self.transport(): self.assertEqual(self.runner.model_catalog()['models'][0]['id'],'fable')
         with self.transport(items=[native('new-model')]):
-            self.assertEqual(self.runner.model_catalog()['models'][0]['id'],'new-model')
-        with patch('laomedo.claude_runner.subprocess.run',side_effect=OSError('offline')):
-            with self.assertRaises(RunnerError): self.runner.model_catalog()
+            self.assertEqual(self.runner.model_catalog(refresh=True)['models'][0]['id'],'new-model')
+        with patch.object(self.runner.container,'control',side_effect=OSError('offline')):
+            with self.assertRaises(RunnerError): self.runner.model_catalog(refresh=True)
 
     def test_no_effort_model_omits_flag_and_invalid_metadata_is_rejected(self):
         model={'value':'claude-haiku-old','resolvedModel':'claude-haiku-old','displayName':'Haiku old'}
@@ -101,4 +102,5 @@ class ClaudeModelTests(unittest.TestCase):
                     self.assertTrue(waiting.wait(timeout=5));release.set()
                     self.assertEqual(first.result(timeout=5),second.result(timeout=5))
             self.assertEqual(run.call_count,1)
-            self.runner.model_catalog();self.assertEqual(run.call_count,2)
+            self.runner.model_catalog();self.assertEqual(run.call_count,1)
+            self.runner.model_catalog(refresh=True);self.assertEqual(run.call_count,2)

@@ -6,15 +6,15 @@ import os
 
 from laomedo.codex_agent import LaomedoCodexAgent as Component
 from laomedo.claude_models import EFFORTS
+from langflow.io import IntInput
 
 
 class LaomedoClaudeAgent(Component):
     display_name = "Laomedo Claude Agent"
-    description = "Run tasks and validated operation proposals through Claude Code, with optional pinned skills."
+    description = "Run Claude Code in an isolated container with optional pinned skills and validated operations."
     name = "LaomedoClaudeAgent"
     activity_provider = "claude-code"
-    inputs = [deepcopy(item) for item in Component.inputs if item.name not in
-              {"bridge_url", "handoff_reference"}]
+    inputs = [deepcopy(item) for item in Component.inputs]
     for _field in inputs:
         if _field.name == 'model':
             _field.value = 'sonnet'
@@ -29,6 +29,9 @@ class LaomedoClaudeAgent(Component):
         elif _field.name == 'runner_url':
             _field.value = 'http://host.docker.internal:8769'
     del _field
+    inputs.append(IntInput(name='run_timeout_seconds', display_name='Execution Timeout',
+                           value=180, advanced=True,
+                           info='Total execution deadline in seconds, including output corrections. HTTP Timeout controls only how long the graph waits.'))
 
     def _prepare(self):
         if str(self.effort) not in EFFORTS:
@@ -39,10 +42,16 @@ class LaomedoClaudeAgent(Component):
             prior = json.loads(self.run_reference_json)
         if self.operation not in {"fresh", "start"} and isinstance(prior, dict) and prior.get("provider") != "claude":
             raise ValueError("run_provider_mismatch")
-        return super()._prepare()
+        endpoint, payload, method = super()._prepare()
+        if self.operation in {'fresh', 'start'}:
+            timeout = getattr(self, 'run_timeout_seconds', 180)
+            if type(timeout) is not int or not 1 <= timeout <= 86400:
+                raise ValueError('claude_turn_timeout_invalid')
+            payload.get('runner_body', payload)['run_timeout_seconds'] = timeout
+        return endpoint, payload, method
 
     def _token_file_path(self):
-        return self._runner_token_file_path()
+        return super()._token_file_path()
 
     def _runner_token_file_path(self):
         return os.environ.get("LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE",

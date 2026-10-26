@@ -4,6 +4,7 @@ import subprocess
 import sys
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 from uuid import uuid4
 
 import test_local_runner as controls
@@ -24,7 +25,7 @@ class ClaudeRunnerTests(unittest.TestCase):
             self.assertIsNone(result['skill'])
             root=self.runner._run_dir(result['run_id'])
             prompt=json.loads(self.runner._prompt(root,result,payload['task']))
-            self.assertEqual(prompt['pinned_skills'],[])
+            self.assertEqual(prompt['skills'],[])
             self.assertEqual(prompt['task'],payload['task'])
             resumed=self.runner.resume(result['run_id'],'continue',expected_post_run_hash=result['post_run_hash'],
                 expected_thread_id=result['thread_id'],model='sonnet',effort='low')
@@ -82,7 +83,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual([lane['item']['type'] for lane in projected['items']], ['userMessage', 'agentMessage'])
         self.assertIn('Read skill', projected['items'][0]['item']['content'][0]['text'])
         self.assertIsNone(projected['usage'])
-        self.assertEqual(projected['diagnostics'][0]['evidence'], 'terminal_receipt_only')
+        self.assertEqual(projected['diagnostics'][0]['evidence'], 'native_stream_and_receipt')
 
     def test_failed_turn_closes_timeline_and_invalidates_usage(self):
         with patch.object(self.runner, '_invoke', side_effect=RunnerError('claude_process_failed')):
@@ -125,11 +126,9 @@ class ClaudeRunnerTests(unittest.TestCase):
 
     def setUp(self):
         controls.LocalRunnerTests.setUp(self)
-        with patch('laomedo.claude_runner.subprocess.run', return_value=subprocess.CompletedProcess(
-                [], 0, stdout=CLI_VERSION + ' (Claude Code)\n')), \
-                patch.object(ClaudeRunner, '_check_auth'):
-            self.runner = ClaudeRunner(self.root.parent / (self.root.name + '-claude'),
-                self.runner.store.root, self.source, executable=sys.executable, max_model_turns=3)
+        runtime = SimpleNamespace(profile='laomedo-claude-unit', image_id='sha256:'+'b'*64)
+        self.runner = ClaudeRunner(self.root.parent / (self.root.name + '-claude'),
+            self.runner.store.root, self.source, container=runtime)
         self.addCleanup(lambda: __import__('shutil').rmtree(self.runner.state, ignore_errors=True))
         self.auth = patch.object(self.runner, '_check_auth', return_value='sha256:' + 'a' * 64)
         self.auth.start()
@@ -157,11 +156,13 @@ class ClaudeRunnerTests(unittest.TestCase):
             with self.assertRaises(RunnerError):
                 terminal_result(json.dumps(value), thread)
 
-    def test_cli_disables_tools_customizations_and_preserves_explicit_resume(self):
+    def test_cli_confines_native_tools_and_uses_credential_free_command_server(self):
         thread = str(uuid4())
         args = command(sys.executable, 'sonnet', 'low', thread, resume=True)
         self.assertEqual(args[args.index('--tools') + 1], '')
-        self.assertIn('--safe-mode', args)
+        self.assertIn('--restricted', args)
+        self.assertNotIn('Bash', args[args.index('--tools') + 1])
+        self.assertEqual(command(None,'sonnet','low',thread,output_only=True)[command(None,'sonnet','low',thread,output_only=True).index('--tools')+1], '')
         self.assertIn('--strict-mcp-config', args)
         self.assertEqual(args[-2:], ['--resume', thread])
         self.assertNotIn('--dangerously-skip-permissions', args)
@@ -171,7 +172,7 @@ class ClaudeRunnerTests(unittest.TestCase):
             first = self.runner.start(self.payload)
             self.assertEqual(first['status'], 'completed')
             self.assertEqual(first['provider'], 'claude')
-            self.assertEqual(first['skills'][0]['use_evidence'], 'included_in_prompt')
+            self.assertEqual(first['skills'][0]['use_evidence'], 'offered')
             second = self.runner.resume(first['run_id'], 'Continue',
                 expected_post_run_hash=first['post_run_hash'], expected_thread_id=first['thread_id'],
                 model='sonnet', effort='low')
@@ -198,21 +199,24 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual(result['output_correction_count'], 1)
         self.assertEqual(result['turns'][0]['output_validation']['errors'][0]['code'], 'invalid_json')
         self.assertEqual(calls, [(result['thread_id'], False), (result['thread_id'], True)])
-        self.assertEqual(json.loads((self.runner.state / 'turn-ledger.json').read_text())['attempted_turns'], 2)
+        self.assertEqual(result['attempt_number'], 2)
+        self.assertFalse((self.runner.state / 'turn-ledger.json').exists())
 
-    def test_zero_budget_cannot_dispatch_and_prepared_cancel_is_durable(self):
+    def test_prepared_cancel_is_durable_and_old_budget_cannot_block_dispatch(self):
         prepared = self.runner._prepare(self.payload)
         cancelled = self.runner.cancel(prepared['run_id'])
         self.assertEqual(cancelled['status'], 'cancelled')
         with self.invoke() as invoked:
-            with self.assertRaisesRegex(RunnerError, 'run_not_dispatchable'):
-                self.runner._execute(prepared['run_id'], self.payload['task'], resume=False)
+            cancelled_again = self.runner._execute(prepared['run_id'], self.payload['task'], resume=False)
+            self.assertEqual(cancelled_again['status'], 'cancelled')
         invoked.assert_not_called()
-        self.runner.max_model_turns = 0
+        ledger = self.runner.state / 'turn-ledger.json'
+        ledger.write_text(json.dumps({'attempted_turns': 500, 'max_authorized_turns': 1}))
         with self.invoke() as invoked:
             refused = self.runner.start(self.payload)
-        invoked.assert_not_called()
-        self.assertEqual(refused['error_category'], 'model_turn_cap_reached')
+        invoked.assert_called_once()
+        self.assertEqual(refused['status'], 'completed')
+        self.assertEqual(json.loads(ledger.read_text()), {'attempted_turns': 500, 'max_authorized_turns': 1})
 
     def test_environment_excludes_host_service_credentials(self):
         with patch.dict('os.environ', {'GITHUB_TOKEN': 'internal-secret',
@@ -221,7 +225,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertNotIn('GITHUB_TOKEN', env)
         self.assertNotIn('LAOMEDO_RUNNER_TOKEN_FILE', env)
         self.assertEqual(env['PATH'], '/tools')
-        self.assertEqual(env['CLAUDE_CODE_DISABLE_AUTO_MEMORY'], '1')
+        self.assertNotIn('ANTHROPIC_API_KEY', env)
 
     def test_trailing_data_has_specific_feedback_without_parser_repair(self):
         pin = requirements({'schema_version': 1, 'fields': []})

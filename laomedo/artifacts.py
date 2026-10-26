@@ -34,7 +34,7 @@ def selections(items):
         if not isinstance(item, dict) or set(item) != {
                 "provider", "run_id", "snapshot_hash", "path", "content_hash", "destination"}:
             raise ArtifactError("invalid_artifact_reference")
-        if item["provider"] not in {"codex", "opencode"}:
+        if item["provider"] not in {"codex", "opencode", "claude"}:
             raise ArtifactError("invalid_artifact_provider")
         try:
             if str(UUID(item["run_id"])) != item["run_id"]:
