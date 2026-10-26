@@ -35,11 +35,16 @@ class ClaudeContainerParityTests(unittest.TestCase):
     def test_resume_honors_explicit_execution_timeout(self):
         with self.invoke():
             first = self.runner.start(self.payload)
+            attempts = self.runner._run_dir(first['run_id']) / 'activity-attempts'
+            fresh = json.loads((attempts / (first['activity_attempt_id'] + '.json')).read_text())
+            self.assertIs(fresh['fresh_thread'], True)
             resumed = self.runner.resume(first['run_id'], 'continue',
                 expected_post_run_hash=first['post_run_hash'], expected_thread_id=first['thread_id'],
                 model='sonnet', effort='low', run_timeout_seconds=31)
         self.assertEqual(resumed['turn_timeout'],31)
         self.assertEqual(resumed['turns'][-1]['execution_timeout_seconds'],31)
+        continued = json.loads((attempts / (resumed['activity_attempt_id'] + '.json')).read_text())
+        self.assertIs(continued['fresh_thread'], False)
 
     def test_resume_http_validates_and_forwards_execution_timeout(self):
         from laomedo.local_runner import serve

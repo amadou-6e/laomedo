@@ -621,6 +621,7 @@ class ClaudeRunner(LocalRunner):
             baseline = activity_usage({"modelUsage": record.get("native_model_usage")}) if resume else {}
             attempt = {"id": attempt_id, "native_start": line_count(root / "activity-events.jsonl"),
                        "otel_start": 0, "usage_baseline": {record["thread_id"]: {"total": baseline}}, "native_end": None,
+                       "fresh_thread": not resume,
                        "otel_end": None, "status": "running", "ended_at": None}
             _json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
