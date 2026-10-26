@@ -800,9 +800,9 @@
     "recovery": "Inspect the tool result in Conversation and the configured runner tool policy. Ask the operator to correct the tool integration; do not grant broader access or repeat an uncertain request automatically."
   },
   "native_message_snapshot_only": {
-    "title": "Only a message snapshot was captured",
-    "description": "Stored messages are available, but a complete native event stream was not captured for this invocation.",
-    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+    "title": "The native activity stream was not captured",
+    "description": "A complete native event stream was not retained for this invocation. Any available message snapshots may omit turns and tool calls.",
+    "recovery": "Inspect any retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
   },
   "native_terminal_event_not_observed": {
     "title": "The final activity event was not observed",
