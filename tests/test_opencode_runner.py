@@ -52,6 +52,21 @@ class Backend:
 
 
 class OpenCodeTests(unittest.TestCase):
+    def test_inherited_handoff_validates_provenance_before_execution(self):
+        from uuid import uuid4
+        handoff = {"execution_id": str(uuid4()), "step": 0,
+                   "source": {"provider": "opencode", "run_id": str(uuid4())},
+                   "workspace_policy": "independent"}
+        record = self.runner._prepare({**self.payload, "handoff": handoff})
+        self.assertEqual(record["handoff"], handoff)
+        handoff["step"] = -1
+        self.assertEqual(record["handoff"]["step"], 0)
+        with self.assertRaisesRegex(RunnerError, "invalid_handoff_provenance"):
+            self.runner._prepare({**self.payload, "handoff": handoff})
+        with self.assertRaisesRegex(RunnerError, "invalid_handoff_origin"):
+            self.runner._prepare({**self.payload, "handoff": {
+                **handoff, "step": 0, "source": {"provider": "foreign", "run_id": str(uuid4())}}})
+
     def test_run_waits_for_catalog_cleanup_without_overlapping_profiles(self):
         entered,released,attempted=threading.Event(),threading.Event(),threading.Event()
         waiting=threading.Event()

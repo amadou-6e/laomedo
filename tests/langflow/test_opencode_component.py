@@ -44,6 +44,31 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fields['model']['options'],['test/model','test/other'])
         self.assertEqual(fields['effort']['options'],['default'])
 
+    async def test_model_refresh_uses_only_opencode_runner_credential(self):
+        import json
+        import os
+        import tempfile
+        import laomedo.codex_agent as codex
+        node = self.node()
+        fields = {item.name: item.model_dump() for item in node.inputs}
+        fields["runner_url"]["value"] = node.runner_url
+        with tempfile.TemporaryDirectory() as directory:
+            opencode_token = Path(directory) / "opencode"
+            codex_token = Path(directory) / "codex"
+            opencode_token.write_text("opencode-test-only", encoding="utf-8")
+            codex_token.write_text("codex-test-only", encoding="utf-8")
+            with patch.dict(os.environ, {"LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE": str(opencode_token),
+                                         "LAOMEDO_RUNNER_TOKEN_FILE": str(codex_token)}), \
+                    patch.object(codex._HTTP, "open") as opened:
+                opened.return_value.__enter__.return_value.read.return_value = json.dumps({
+                    "models": [{"id": "test/model", "efforts": ["default"]}]}).encode()
+                await node.update_build_config(fields, "test/model", "model")
+            self.assertEqual(opened.call_count, 1)
+            request = opened.call_args.args[0]
+            self.assertEqual(request.full_url, "http://localhost:8767/v1/models")
+            self.assertEqual(request.get_header("Authorization"), "Bearer opencode-test-only")
+            self.assertEqual(fields["model"]["options"], ["test/model"])
+
     async def test_blank_port_uses_saved_json_reference_and_checks_provider(self):
         import json
         from uuid import uuid4
