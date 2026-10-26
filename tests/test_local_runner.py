@@ -42,7 +42,6 @@ def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -
                        connection_id="synthetic", connection_generation=1)
 
 
-from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 
 class FakeServer:
     calls = []
@@ -96,6 +95,23 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
+    def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
+        from laomedo.local_runner import LocalRunner as NormalRunner, _json
+        runner = object.__new__(NormalRunner)
+        runner.state = self.root / 'diagnostic-counter'
+        runner.state.mkdir()
+        self.assertEqual(runner._reserve_turn(), 1)
+        restarted = object.__new__(NormalRunner)
+        restarted.state = runner.state
+        self.assertEqual(restarted._reserve_turn(), 2)
+        (runner.state / 'runs/prior').mkdir(parents=True)
+        _json(runner.state / 'runs/prior/record.json', {'attempt_number': 7})
+        (runner.state / 'attempt-count.json').write_text('broken accounting')
+        self.assertEqual(restarted._reserve_turn(), 8)
+        with patch('laomedo.local_runner._json', side_effect=PermissionError('unwritable diagnostic')):
+            self.assertEqual(restarted._reserve_turn(), 9)
+
+
     def _output_run(self, answers, *, effects=False, retry_count=1, native_item=None, native_precheck=False, failed_wait=False):
         from laomedo.output_contract import requirements
         pinned = requirements({"schema_version": 1, "fields": [

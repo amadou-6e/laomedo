@@ -279,7 +279,9 @@ class ClaudeRunner(LocalRunner):
         with self._catalog_lock:
             cached = getattr(self, '_catalog_cached', None)
             selected_catalog = deepcopy(cached[1]) if cached else None
-        choices = (selected_catalog or self.model_catalog())['models']
+        if not selected_catalog:
+            raise RunnerError('runner_model_catalog_unavailable_check_runner_connection')
+        choices = selected_catalog['models']
         choice = next((item for item in choices if item['id'] == request['model']), None)
         if choice is None:
             choice = next((item for item in choices if item['resolved_model'] == request['model']), None)
@@ -346,7 +348,8 @@ class ClaudeRunner(LocalRunner):
     def _prompt(self, root, record, task):
         # Skills are native CLI plugin bundles, never text-truncated snapshots.
         for skill in record['skills']:
-            skill.update(delivery_mode='native_plugin', use_evidence='offered')
+            skill.update(delivery_mode='native_plugin')
+            skill.setdefault('use_evidence', 'offered')
         record['skill'] = deepcopy(record['skills'][0]) if len(record['skills']) == 1 else None
         return json.dumps({'task': task, 'workspace': '/draft',
                            'skills': [{'skill_id': x['skill_id'], 'revision_id': x['revision_id']}
@@ -778,7 +781,14 @@ def main():
                           artifact_sources=dict(item.split("=",1) for item in args.artifact_source))
     # Authentication and discovery belong to editor refresh or dispatch.
     # Completed-run Status and Activity remain available when login expires.
-    serve(runner, port=args.port).serve_forever()
+    server = serve(runner, port=args.port)
+    def warm_catalog():
+        try:
+            runner.model_catalog()
+        except RunnerError:
+            pass  # Saved Status/Activity stay available; editor refresh reports recovery.
+    threading.Thread(target=warm_catalog, daemon=True).start()
+    server.serve_forever()
 
 
 if __name__ == '__main__':

@@ -1169,11 +1169,31 @@ class LocalRunner:
         return self.state / "runs" / _id(run_id)
 
     def _reserve_turn(self) -> int:
-        # Accounting must never authorize or refuse a user operation. Old
-        # experiment ledgers (including corrupt ones) are retained untouched.
-        count = getattr(self, "_observed_turns", 0) + 1
-        self._observed_turns = count
-        return count
+        # Diagnostic sequence only; neither corrupt accounting nor a write failure
+        # may become an authorization gate. Historical turn-ledger.json is untouched.
+        ledger = self.state / 'attempt-count.json'
+        count = getattr(self, '_observed_turns', 0)
+        try:
+            value = _read(ledger) if ledger.exists() else {}
+            saved = value.get('attempted_turns')
+        except (OSError, ValueError, TypeError, AttributeError):
+            saved = None
+        if type(saved) is int and saved >= 0:
+            count = max(count, saved)
+        else:
+            for path in (self.state / 'runs').glob('*/record.json'):
+                try:
+                    prior = _read(path).get('attempt_number', 0)
+                    if type(prior) is int and prior >= 0:
+                        count = max(count, prior)
+                except (OSError, ValueError, TypeError, AttributeError):
+                    continue
+        self._observed_turns = count + 1
+        try:
+            _json(ledger, {'attempted_turns': count + 1})
+        except OSError:
+            pass
+        return count + 1
 
     def _turn_available(self) -> None:
         """Extension point for isolated experiment harnesses; no production quota."""

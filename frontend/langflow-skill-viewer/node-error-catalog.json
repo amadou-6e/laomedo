@@ -182,7 +182,7 @@
   "runner_model_catalog_unavailable_check_runner_connection": {
     "title": "The model list could not be loaded",
     "description": "The configured runner did not return a usable capability catalogue.",
-    "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
+    "recovery": "Check that the local runner and Claude host login are available. Open Model and use its Refresh control, then select an available model and effort before running. This refresh does not submit an agent task."
   },
   "model_list_rejected": {
     "title": "The model list could not be loaded",
@@ -1082,12 +1082,12 @@
   "claude_host_login_expired": {
     "title": "The copied Claude access credential needs refreshing",
     "description": "The host credential file contains an access credential that is expired or about to expire.",
-    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
+    "recovery": "Refresh or sign in to Claude on the host. Set Execution Timeout shorter than the remaining host login validity, then inspect any existing run before starting another task."
   },
   "claude_local_login_copy_failed": {
     "title": "The local Claude login could not be copied",
     "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
+    "recovery": "Check the dedicated local Docker profile and host mirror configuration. Mirroring refuses to replace an independently signed-in profile: disable mirroring to use that login, or configure a separate dedicated mirror volume. Never copy refresh credentials or a full personal profile."
   },
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",

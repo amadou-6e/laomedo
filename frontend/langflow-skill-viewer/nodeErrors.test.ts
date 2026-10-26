@@ -15,11 +15,12 @@ test("Claude model failures retain their code and redact native payload details"
  expect(unknown.description).toContain('cause has not been established');
  expect(unknown.recovery).toContain('before starting another request');
 });
-test("a model-refresh alert gives usable recovery without inventing an error-details control",()=>{
+test("a model-refresh alert attaches actionable recovery for its real error-details control",()=>{
  const value=describeLaomedoAlert({title:'Refresh failed',list:['runner_model_catalog_unavailable_check_runner_connection']},true);
  expect(value.title).toBe('The model list could not be loaded');
- expect(value.list?.join(' ')).toContain('refresh Model');
- expect(value.list?.join(' ')).not.toContain('Open Error details');
+ expect(value.failure?.recovery).toContain('Refresh control');
+ expect(value.list?.join(' ')).toContain('Open Error details');
+ expect(value.list?.join(' ')).not.toContain(value.failure?.recovery);
  expect(value.diagnosticCode).toBe('runner_model_catalog_unavailable_check_runner_connection');
 });
 test.each(Object.keys(catalog))("maps %s without mutating its stable code", code => {

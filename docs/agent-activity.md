@@ -146,3 +146,8 @@ adds the adversarial case: two original nodes target one completed run, one resu
 is accepted and the refused node has zero events/turns and unassigned usage/cost.
 The source hashes identify the tested controller mechanism. This is separate from
 the positive concurrent/subagent example and from internal fixture tests.
+
+Each graph join service is bound to one runner provider. Deploy separate bridge
+instances and private tokens for Codex and Claude; pass `--provider claude` for
+the Claude bridge and point that node at its matching bridge URL. Provider IDs
+are preserved through the journal and cannot be relabelled by a node request.

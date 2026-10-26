@@ -155,13 +155,13 @@ test("Claude messages use their recorded provider instead of the Codex label",as
   expect(screen.queryByText("Codex",{exact:true})).toBeNull();
 });
 
-test("Claude terminal diagnostics remain separate from complete execution evidence",async()=>{
+test("Claude diagnostics remain separate from captured native activity",async()=>{
   const first={...run("one","execution"),provider:"claude-code",model:null};
   const diagnostics=[{evidence:"terminal_receipt_only",tools_enabled:false,reported_session_cost_usd:0.01,cost_basis:"CLI estimate; cumulative session, not a subscription charge"}];
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,diagnostics},truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
   fireEvent.click(await screen.findByRole("button",{name:"node-one \u00b7 completed"}));
-  await screen.findByText(/Feed completion does not establish complete execution evidence/);
+  await screen.findByText(/Claude activity shows the native events captured for this invocation/);
   fireEvent.click(screen.getByText("Claude terminal receipt 1"));
   expect(await screen.findByText(/terminal_receipt_only/)).toBeInTheDocument();
   expect(screen.getByText(/Model unconfirmed/)).toBeInTheDocument();

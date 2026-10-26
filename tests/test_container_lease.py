@@ -14,6 +14,28 @@ from laomedo.container_lease import (cleanup_after_loss, cleanup_exact,
 
 
 class ContainerLeaseTests(unittest.TestCase):
+    def test_transient_unknown_only_rechecks_read_only_and_never_guesses_cleanup(self):
+        with patch('laomedo.container_lease.inspect_exact', side_effect=[('unknown', None), ('absent', None)]), \
+             patch('laomedo.container_lease.subprocess.run') as remove:
+            self.assertEqual(cleanup_exact('exact-name', 'run-one', 'token-one'), (True, 'absent'))
+            remove.assert_not_called()
+        with patch('laomedo.container_lease.inspect_exact', return_value=('unknown', None)) as inspect, \
+             patch('laomedo.container_lease.subprocess.run') as remove:
+            self.assertEqual(cleanup_exact('exact-name', 'run-one', 'token-one'), (False, 'unknown'))
+            self.assertEqual(inspect.call_count, 2)
+            remove.assert_not_called()
+
+    def test_concurrent_cleanup_accepts_proven_absence_after_other_remover(self):
+        with patch('laomedo.container_lease.inspect_exact',
+                   side_effect=[('owned', 'exact-id'), ('absent', None)]), \
+             patch('laomedo.container_lease.subprocess.run',
+                   return_value=subprocess.CompletedProcess([], 1, '', 'already removed')):
+            self.assertEqual(cleanup_exact('exact-name', 'run-one', 'token-one'), (True, 'removed'))
+        with patch('laomedo.container_lease.inspect_exact', return_value=('absent', None)), \
+             patch('laomedo.container_lease.subprocess.run') as remove:
+            self.assertEqual(cleanup_exact('exact-name', 'run-one', 'token-one'), (True, 'absent'))
+            remove.assert_not_called()
+
     def test_absence_accepts_docker_casing_but_not_control_failures(self):
         for message, expected in (
                 ("Error: No such object: exact-name", "absent"),

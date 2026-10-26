@@ -53,7 +53,8 @@ experiment harness, not a persistent user service:
 python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source
 ```
 
-`turn-ledger.json` is observational accounting only; historical experiment
+Historical `turn-ledger.json` stays untouched evidence. Current ceiling-free
+`attempt-count.json` is diagnostic accounting only; historical experiment
 ceilings do not restrict normal runs. Bounded verification belongs in a
 separate harness, never in the service or its persisted startup configuration. The HTTP API binds to `127.0.0.1:8765` only and every request
 requires the private bearer token saved at `$state/api-token`. The Langflow

@@ -107,11 +107,11 @@ the record fails with `container_termination_unverified` rather than claiming
 that remote work stopped. The no-model Docker teardown probe is
 `examples/skill-agent-pilot/probe_container_teardown.py`.
 
-The normal runner has no cumulative model-turn limit. Historical private turn ledgers
-are retained untouched and never read as authorization gates. Current counters
-are observational only; old `max_authorized_turns` fields are ignored.
-The retired `--max-model-turns` option is rejected, so historical experiment
-launchers must be migrated to a separate bounded harness before reuse. Start,
+Normal runners and managed services have no verification-only global turn cap.
+Historical `turn-ledger.json` files remain untouched evidence. Normal diagnostic
+accounting uses a durable, ceiling-free `attempt-count.json`; damaged or unwritable
+accounting never refuses execution. Isolated verification uses
+`experiments/turn_harness.py`, never runtime configuration. Start,
 status, cancel, and resume endpoints use `/v1/runs`. Resume needs the native
 thread ID and exact last post-run hash; a missing or altered snapshot fails
 before dispatch. Raw app-server events, session state, and snapshots stay

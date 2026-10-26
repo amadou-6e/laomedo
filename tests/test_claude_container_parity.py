@@ -166,6 +166,12 @@ class ClaudeContainerParityTests(unittest.TestCase):
             record = self.runner._prepare(self.payload)
         self.assertEqual(record['resolved_model'], 'claude-sonnet')
 
+    def test_cold_dispatch_refuses_without_blocking_on_native_discovery(self):
+        self.runner._catalog_cached = None
+        with patch.object(self.runner, 'model_catalog', side_effect=AssertionError('no discovery in ACK')):
+            with self.assertRaisesRegex(RunnerError, 'runner_model_catalog_unavailable_check_runner_connection'):
+                self.runner._prepare(self.payload)
+
 
 if __name__ == '__main__':
     unittest.main()

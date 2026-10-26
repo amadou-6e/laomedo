@@ -11,6 +11,31 @@ from laomedo.claude_login import mirror_login, LocalClaudeLoginError, CODES
 IMAGE = 'sha256:' + 'a' * 64
 
 class LoginMirrorTests(TestCase):
+    def test_access_must_cover_the_execution_deadline(self):
+        with patch('laomedo.claude_login.subprocess.run', side_effect=self.docker) as run, \
+             self.assertRaisesRegex(LocalClaudeLoginError, 'claude_host_login_expired'):
+            mirror_login('laomedo-claude-profile', IMAGE, source=self.source,
+                         environment={}, minimum_validity_seconds=7200)
+        self.assertFalse(any('run' in call.args[0] for call in run.call_args_list))
+
+    def test_existing_refresh_capable_login_is_preserved(self):
+        import subprocess
+        import sys
+        with patch('laomedo.claude_login.subprocess.run', side_effect=self.docker) as run:
+            mirror_login('laomedo-claude-profile', IMAGE, source=self.source, environment={})
+        call = run.call_args
+        script = call.args[0][-1]
+        profile = Path(self.temp.name) / 'profile'
+        profile.mkdir()
+        credentials = profile / '.credentials.json'
+        original = b'{"claudeAiOauth":{"refreshToken":"internal-existing-login"}}'
+        credentials.write_bytes(original)
+        script = script.replace("p='/profile/config'", 'p='+repr(str(profile)))
+        result = subprocess.run([sys.executable, '-c', script], input=call.kwargs['input'],
+                                capture_output=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(credentials.read_bytes(), original)
+
     def test_runtime_opt_in_mirrors_before_auth_and_preserves_safe_error(self):
         from laomedo.claude_runner import ClaudeRunner
         from laomedo.local_runner import RunnerError

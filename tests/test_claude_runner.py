@@ -2,6 +2,7 @@
 import json
 import subprocess
 import sys
+import time
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -138,6 +139,7 @@ class ClaudeRunnerTests(unittest.TestCase):
                       for key in ('sonnet','opus','haiku')], 'account_availability':'cli_reported', 'submitted_turns':0})
         self.catalog.start()
         self.addCleanup(self.catalog.stop)
+        self.runner._catalog_cached = (time.monotonic(), self.runner.model_catalog())
         self.payload = {"task": "Read skill", "model": "sonnet", "effort": "low",
             "skill_ref": {"skill_id": "sample", "revision_id": self.revision['revision_id'],
                           "tree_hash": self.revision['tree_hash']}}
@@ -245,8 +247,8 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_native_model_effort_pair_is_checked_before_run_is_created(self):
         with self.assertRaisesRegex(RunnerError,'claude_model_required'):
             self.runner._prepare({**self.payload,'model':'claude-not-in-account'})
-        with patch.object(self.runner,'model_catalog',return_value={'models':[
-                {'id':'fable','resolved_model':'claude-fable-test','efforts':['max','xhigh']}]}):
+        with patch.object(self.runner, '_catalog_cached', (time.monotonic(), {'models':[
+                {'id':'fable','resolved_model':'claude-fable-test','efforts':['max','xhigh']}]})):
             record=self.runner._prepare({**self.payload,'model':'fable','effort':'max'})
             self.assertEqual(record['requested_effort'],'max')
             with self.assertRaisesRegex(RunnerError,'unsupported_claude_effort'):
