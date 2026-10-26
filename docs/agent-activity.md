@@ -55,6 +55,32 @@ baselines come from the runner's accepted-attempt record before the model turn,
 not a caller's earlier snapshot. Later resumes cannot enter previous invocations. Updates are differenced,
 never summed; regressing counters and missing usage remain unknown.
 
+### Codex parity with the shared Activity view
+
+Codex and OpenCode use the same agent rows, turn segments, usage charts,
+OpenTelemetry search/export and final scrollable Conversation section. Codex
+native agent-message and command-output deltas update provisional items while
+running; the completed item is authoritative, including after late deltas.
+Native MCP and dynamic tools keep their readable names and expandable metadata.
+
+A newly accepted Codex `thread/start` attempt records `fresh_thread: true`.
+The observer retains that runner attestation with its usage baseline, allowing
+the first turn to use a proven zero boundary. Resume uses the previous native
+cumulative snapshot. Neither an empty history nor `tokenUsage.last` proves a
+whole-turn total; the latter can describe only the last model request. Older
+captures without a proven boundary retain unknown first-turn totals.
+
+Native `subAgentActivity` creation supplies the child's thread relationship,
+path/name and first usage boundary when received before its first turn.
+Replayed or late creation receipts cannot reset an observed boundary. Child
+models still require their own runtime evidence. No prompt text or overlapping
+span is accepted as proof that a child exists.
+
+Explicit OTLP thread/turn/call aliases are normalized for scope selection.
+Conflicting native identifiers remain visible in All activity and its export,
+but are excluded from narrower scopes and model attribution. Raw receipts are
+unchanged. These transformations do not attest exporter flush completeness.
+
 A captured native terminal event closes native stream evidence, not task success.
 OTLP exporter flush completeness remains unverified and is labeled separately.
 Failures and cancellation retain partial evidence. A hard app crash can leave a

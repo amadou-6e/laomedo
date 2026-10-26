@@ -1648,6 +1648,7 @@ class LocalRunner:
                     raise RunnerError('activity_attempt_already_exists')
                 activity_attempt={'id':attempt_id,'native_start':activity_start[0],
                     'otel_start':activity_start[1],'native_end':None,'otel_end':None,
+                    'fresh_thread':not resume,
                     'usage_baseline':read_feed(run_dir/'activity-events.jsonl',tail=True)['usage_baseline'],
                     'status':'running','ended_at':None}
                 _json(attempts/(attempt_id+'.json'),activity_attempt)

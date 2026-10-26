@@ -122,7 +122,8 @@ export function activityTitle(value:Record<string,unknown>) {
     return target?`${action} · ${target}`:action;
   }
   if(value.type==="collabAgentToolCall"||value.type==="collabAgentSpawnToolCall")return `Subagent tool${typeof value.tool==="string"?`: ${value.tool}`:""}${typeof value.status==="string"?` · ${value.status}`:""}`;
-  if(value.type==="dynamicToolCall")return value.tool==="mcp__laomedo__exec_command"?"Shell command":value.tool==="mcp__laomedo__github_operation"?"GitHub operation":String(value.tool??"Tool activity");
+  if(value.type==="mcpToolCall")return [value.server,value.tool].filter(part=>typeof part==="string"&&part).join(" · ")||"MCP tool";
+  if(value.type==="dynamicToolCall")return value.tool==="mcp__laomedo__exec_command"?"Shell command":value.tool==="mcp__laomedo__github_operation"?"GitHub operation":typeof value.tool==="string"?value.tool:"Tool call";
   if(value.type==="toolCall"&&typeof value.toolName==="string")return value.toolName;
   return String(value.type??"Tool activity");
 }
@@ -225,6 +226,7 @@ export function scopedProjection(projection:Projection,scope:ActivityScope):Proj
   const cost=scope.turn?turns[0]?.cost??{...projection.cost,amount:null}:projection.cost.per_thread?.[scope.thread]??{...projection.cost,amount:null};
   const ids=new Set(items.map(item=>item.id));
   const telemetry=projection.telemetry.filter(record=>{
+    if(record.scope_conflict)return false;
     const attrs=(record.attributes??{}) as Record<string,unknown>;
     return attrs["conversation.id"]===scope.thread&&(!scope.turn||attrs["turn.id"]===scope.turn||typeof attrs["call.id"]==="string"&&ids.has(attrs["call.id"]));
   });
@@ -289,7 +291,7 @@ export function RuntimeRecords({records,coverage,context}:{records:Record<string
   return <section className="min-w-0 space-y-4" aria-label="OpenTelemetry">
     <SectionHeading actions={<><ActivityInfo label="OpenTelemetry capture details" text={`${coverage}. Runtime spans are not counted as agent invocations or token charges.`}/><Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" aria-label="Export OpenTelemetry JSON" disabled={!visible.length} title={`Export ${visible.length} matching OpenTelemetry records`} onClick={()=>downloadActivity(telemetryDocument(visible.map(entry=>entry.record),coverage,context,query),`opentelemetry-${context?.run_id??"records"}.json`,"application/json")}><IconComponent name="Download" className="h-3.5 w-3.5"/>Export</Button></>}>OpenTelemetry</SectionHeading>
     <div className="flex min-w-0 items-center gap-3"><div className="relative min-w-0 flex-1"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div><span role="status" className="shrink-0 text-xs text-muted-foreground">{visible.length} of {records.length} records</span></div>
-    <div className="divide-y rounded-md border">{visible.map(({record,index})=><div key={index} className="min-w-0 px-3 py-2"><JsonDisclosure label={`${index+1}. ${typeof record.name==="string"?record.name:`Runtime record ${index+1}`}${typeof record.signal==="string"?` / ${record.signal}`:""}`} value={record}/></div>)}{!visible.length&&<p className="p-3 text-sm text-muted-foreground">{records.length?"No matching records. Clear the search to show every record.":"No OpenTelemetry records captured."}</p>}</div>
+    <div role="region" aria-label="OpenTelemetry records" tabIndex={0} className="max-h-[min(360px,60vh)] overflow-y-auto [scrollbar-width:thin] [scrollbar-gutter:stable] divide-y rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{visible.map(({record,index})=><div key={index} className="min-w-0 px-3 py-2"><JsonDisclosure label={`${index+1}. ${typeof record.name==="string"?record.name:`Runtime record ${index+1}`}${typeof record.signal==="string"?` / ${record.signal}`:""}`} value={record}/></div>)}{!visible.length&&<p className="p-3 text-sm text-muted-foreground">{records.length?"No matching records. Clear the search to show every record.":"No OpenTelemetry records captured."}</p>}</div>
   </section>;
 }
 
@@ -367,8 +369,6 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   const breadcrumbs:typeof conversations=[];
   let ancestor=currentConversation;
   while(ancestor&&!breadcrumbs.some(value=>value.id===ancestor!.id)) {breadcrumbs.unshift(ancestor);ancestor=conversations.find(value=>value.id===ancestor!.parent)}
-  const resumedThread=scope.thread??detail?.run.native_session;
-  const earlier=detail&&resumedThread?runs.filter(run=>run.id!==detail.run.id&&run.node===detail.run.node&&run.provider===detail.run.provider&&run.native_session===resumedThread&&run.execution&&run.ended&&Date.parse(run.ended)<=Date.parse(detail.run.started)).sort((a,b)=>Date.parse(b.started)-Date.parse(a.started))[0]:undefined;
   const selectScope=(invocation:string,next:ActivityScope={})=>{setSelected(invocation);setScope(next)};
   const scopeLabel=scope.turn?"Turn":scope.thread?"Conversation":"Run";
   const exportContext:ExportContext|undefined=detail?{graph_id:flowId,run_id:detail.run.id,execution_id:detail.run.execution,node_id:detail.run.node,provider:detail.run.provider,model:(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??null,native_session:detail.run.native_session,scope,capture_state:detail.run.stream_state,capture_reason:detail.run.reason??null,truncated:detail.truncated}:undefined;
@@ -419,7 +419,6 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         {breadcrumbs.map(thread=><span key={thread.id} className="contents"><span aria-hidden="true">/</span><button className="max-w-full break-words underline underline-offset-4" aria-current={scope.thread===thread.id&&!scope.turn?"page":undefined} onClick={()=>setScope({thread:thread.id})}>{thread.title}</button></span>)}
         {currentTurn&&<span aria-current="page">/ Turn {currentConversation!.turns.indexOf(currentTurn)+1}</span>}
       </nav>
-      {earlier&&<button className="text-xs underline underline-offset-4" onClick={()=>{setExecution(earlier.execution??"");selectScope(earlier.id)}}>Earlier run in this conversation · {time(earlier.started)}</button>}
       <section className="space-y-3 border bg-muted/30 px-4 py-3" aria-label="Invocation metadata">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 break-words text-lg font-semibold">{currentTurn?`Turn ${currentConversation!.turns.indexOf(currentTurn)+1} · ${currentConversation!.title}`:currentConversation?.id===detail.run.native_session?label(detail.run):currentConversation?.title??label(detail.run)}</h3><div className="flex items-center gap-2 text-xs text-muted-foreground">{statusBadge(selectedLane?.status??"unknown")}<span>{selectedLane&&duration(selectedLane.started,selectedLane.ended)}</span></div></div>
         <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={selectedLane?.started}>Started {selectedLane&&time(selectedLane.started)} · Provider {detail.run.provider??"codex-cli"} · Model {(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>

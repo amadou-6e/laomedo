@@ -146,7 +146,7 @@ class GraphActivityTests(unittest.TestCase):
             capture.refused=threading.Event();capture.done=threading.Event();capture.outcome=None
             capture.feed=lambda *args: {'accepted':True,'attempt':{'id':capture.attempt_id,
                 'native_start':10,'native_end':11,'otel_start':3,'otel_end':3,
-                'usage_baseline':{},'status':'completed','ended_at':'2026-10-15T00:00:01Z'},
+                'usage_baseline':{},'fresh_thread':True,'status':'completed','ended_at':'2026-10-15T00:00:01Z'},
                 'events':[{'cursor':11,'received_at':'2026-10-15T00:00:00Z','event':{'method':'turn/completed'}}],
                 'next_after':11,'telemetry':{'events':[],'next_after':3},'thread_id':'thread','model':'gpt-6-luna'}
             capture.observe('runner')
@@ -154,5 +154,6 @@ class GraphActivityTests(unittest.TestCase):
             self.assertEqual(page['run']['status'],'completed')
             self.assertEqual(page['run']['ended'],'2026-10-15T00:00:01Z')
             self.assertEqual(len(page['events']),2)  # baseline plus this attempt's terminal
+            self.assertIs(page['events'][0]['raw']['fresh_thread'],True)
             other=store.start('alice','flow','duplicate',execution='other')
             self.assertFalse(store.claim_attempt(other,'runner',capture.attempt_id))
