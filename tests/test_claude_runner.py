@@ -108,6 +108,16 @@ class ClaudeRunnerTests(unittest.TestCase):
                         'outputTokens': count * 5, 'thinkingTokens': 0}}}
         with patch.object(self.runner, '_invoke', side_effect=invoke):
             first = self.runner.start(self.payload)
+            root = self.runner._run_dir(first['run_id'])
+            fresh = json.loads((root / 'activity-attempts' / (first['activity_attempt_id'] + '.json')).read_text())
+            rows = [json.loads(line) for line in (root / 'activity-events.jsonl').read_text().splitlines()]
+            events = [{'raw': {'method': 'capture/usageBaseline', 'threads': fresh['usage_baseline'],
+                              'fresh_thread': fresh['fresh_thread']}, 'received_at': rows[0]['received_at']}]
+            events += [{'raw': row['event'], 'received_at': row['received_at']}
+                       for row in rows[fresh['native_start']:fresh['native_end']]]
+            projected = project(events, root_thread=first['thread_id'])
+            self.assertEqual(projected['turns'][0]['usage']['inputTokens'], 13)
+            self.assertEqual(projected['turns'][0]['usage']['outputTokens'], 5)
             result = self.runner.resume(first['run_id'], 'Continue',
                 expected_post_run_hash=first['post_run_hash'], expected_thread_id=first['thread_id'],
                 model='sonnet', effort='low')
@@ -122,6 +132,8 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual(projected['usage']['inputTokens'], 13)
         self.assertEqual(projected['usage']['outputTokens'], 5)
         self.assertEqual(projected['usage']['reasoningOutputTokens'], 0)
+        self.assertEqual(projected['turns'][0]['usage']['inputTokens'], 13)
+        self.assertEqual(projected['turns'][0]['usage']['outputTokens'], 5)
         self.assertEqual(result['effective_model'], 'claude-test')
         self.assertEqual(len(projected['turns']), 1)
 

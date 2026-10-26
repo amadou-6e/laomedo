@@ -620,7 +620,7 @@ class ClaudeRunner(LocalRunner):
                 raise RunnerError("activity_attempt_already_exists")
             baseline = activity_usage({"modelUsage": record.get("native_model_usage")}) if resume else {}
             attempt = {"id": attempt_id, "native_start": line_count(root / "activity-events.jsonl"),
-                       "otel_start": 0, "usage_baseline": {record["thread_id"]: {"total": baseline}}, "native_end": None,
+                       "otel_start": 0, "usage_baseline": ({record["thread_id"]: {"total": baseline}} if resume else {}), "native_end": None,
                        "fresh_thread": not resume,
                        "otel_end": None, "status": "running", "ended_at": None}
             _json(folder / (attempt_id + ".json"), attempt)
@@ -647,7 +647,7 @@ class ClaudeRunner(LocalRunner):
                 try:
                     result = self._invoke(root, record, prompt, flag, resume=resume or corrections > 0)
                 except Exception:
-                    self._event(root, "thread/tokenUsage/updated", {"threadId": record["thread_id"],
+                    self._event(root, "thread/tokenUsage/updated", {"threadId": record["thread_id"], "turnId": host_turn,
                         "tokenUsage": {"total": None}, "usage_scope": "terminal_receipt_unavailable"})
                     self._event(root, "turn/completed", {"threadId": record["thread_id"],
                         "turn": {"id": host_turn, "status": "cancelled" if flag.is_set() else "failed"},
@@ -660,7 +660,7 @@ class ClaudeRunner(LocalRunner):
                     totals = None
                 elif resume and totals is not None and "reasoningOutputTokens" not in baseline:
                     totals.pop("reasoningOutputTokens", None)
-                self._event(root, "thread/tokenUsage/updated", {"threadId": record["thread_id"],
+                self._event(root, "thread/tokenUsage/updated", {"threadId": record["thread_id"], "turnId": host_turn,
                     "tokenUsage": {"total": totals}, "usage_scope": "native_session_cumulative"})
                 self._event(root, "claude/result", {"threadId": record["thread_id"], "turnId": host_turn,
                     "subtype": result.get("subtype"), "duration_ms": result.get("duration_ms"),
