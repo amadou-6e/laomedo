@@ -41,6 +41,36 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertEqual(resumed['turn_timeout'],31)
         self.assertEqual(resumed['turns'][-1]['execution_timeout_seconds'],31)
 
+    def test_resume_http_validates_and_forwards_execution_timeout(self):
+        from laomedo.local_runner import serve
+        from urllib import request, error
+        server = serve(self.runner, port=0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(2)))
+        run_id = str(uuid4())
+        body = {'task':'continue', 'expected_post_run_hash':'sha256:'+'a'*64,
+                'expected_thread_id':str(uuid4()), 'model':'sonnet', 'effort':'low',
+                'run_timeout_seconds':31}
+        def post():
+            return request.urlopen(request.Request(
+                f'http://127.0.0.1:{server.server_port}/v1/runs/{run_id}/resume',
+                data=json.dumps(body).encode(), headers={'Content-Type':'application/json',
+                    'Authorization':'Bearer '+self.runner.api_token}),timeout=10)
+        with patch.object(self.runner, '_mirror_host_login') as mirror, \
+             patch.object(self.runner, 'resume', return_value={'status':'completed'}) as resume:
+            with post() as response:
+                self.assertEqual(json.load(response)['status'],'completed')
+            mirror.assert_called_once_with(minimum_validity_seconds=31)
+            self.assertEqual(resume.call_args.kwargs['run_timeout_seconds'],31)
+            mirror.reset_mock();resume.reset_mock()
+            for invalid in (0,True,86401,'31'):
+                body['run_timeout_seconds']=invalid
+                with self.assertRaises(error.HTTPError) as caught:
+                    post()
+                self.assertEqual(json.load(caught.exception)['error_category'],'claude_turn_timeout_invalid')
+            mirror.assert_not_called();resume.assert_not_called()
+
     def test_stream_and_native_receipts_keep_thinking_and_text_distinct_without_duplicates(self):
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()), active_host_turn=str(uuid4()))
