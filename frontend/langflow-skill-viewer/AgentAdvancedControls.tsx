@@ -4,7 +4,7 @@ import { useUpdateNodeInternals } from "@xyflow/react";
 // Only scalar configuration controls belong here. Connected fields remain on
 // the normal canvas path so collapsing this section never hides a wired port.
 const CONTROLS = new Set([
-  "output_retries", "timeout_seconds", "runner_url",
+  "output_retries", "timeout_seconds", "run_timeout_seconds", "runner_url",
 ]);
 export function isAgentControlHidden(data: any, name: string): boolean {
   const kind = data.node?.name || data.type;

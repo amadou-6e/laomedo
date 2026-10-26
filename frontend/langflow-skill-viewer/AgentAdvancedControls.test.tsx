@@ -69,6 +69,7 @@ test("obsolete connection and bridge controls stay hidden in legacy Agent templa
 
 test("Claude uses the shared collapsed controls and hides legacy internal fields", () => {
  const normal={...data,type:"LaomedoClaudeAgent",node:{template:{...data.node.template,
+  run_timeout_seconds:{...field,type:'int',value:180},
   model:{...field,advanced:false},skill_reference:{...field,type:'other',advanced:false},
   run_reference:{...field,advanced:false},output_requirements:{...field,advanced:false}}}};
  render(<RenderInputParameters data={normal} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false}/>);
@@ -76,7 +77,13 @@ test("Claude uses the shared collapsed controls and hides legacy internal fields
  expect(screen.queryByRole('textbox',{name:'runner_url'})).toBeNull();
  expect(screen.queryByRole('textbox',{name:'run_reference'})).toBeNull();
  expect(screen.queryByRole('textbox',{name:'output_requirements'})).toBeNull();
+ expect(screen.queryByRole('textbox',{name:'run_timeout_seconds'})).toBeNull();
  fireEvent.click(screen.getByRole('button',{name:'Advanced controls'}));
  expect(screen.getByRole('textbox',{name:'runner_url'})).toBeVisible();
+ expect(screen.getByRole('textbox',{name:'run_timeout_seconds'})).toHaveValue('180');
+ fireEvent.change(screen.getByRole('textbox',{name:'run_timeout_seconds'}),{target:{value:'321'}});
+ fireEvent.click(screen.getByRole('button',{name:'Advanced controls'}));
+ fireEvent.click(screen.getByRole('button',{name:'Advanced controls'}));
+ expect(screen.getByRole('textbox',{name:'run_timeout_seconds'})).toHaveValue('321');
  expect(screen.getByRole('textbox',{name:'skill_reference'})).toHaveAttribute('data-handle','true');
 });
