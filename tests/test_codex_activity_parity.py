@@ -62,7 +62,7 @@ class CodexActivityParityTests(unittest.TestCase):
 
     def test_native_child_creation_provides_first_boundary_without_replay_reset(self):
         spawn=event('item/started',threadId='root',turnId='t',item={'id':'spawn','type':'subAgentActivity','kind':'started','agentThreadId':'child','agentPath':'/root/reader'})
-        data=[spawn,event('turn/started',threadId='child',turnId='child-turn'),
+        data=[spawn,event('thread/started',thread={'id':'child','parentThreadId':'root'}),event('turn/started',threadId='child',turnId='child-turn'),
               event('thread/tokenUsage/updated',threadId='child',turnId='child-turn',tokenUsage={'total':{'inputTokens':100,'cachedInputTokens':0,'outputTokens':5}}),spawn,
               event('thread/tokenUsage/updated',threadId='child',turnId='child-turn',tokenUsage={'total':{'inputTokens':150,'cachedInputTokens':0,'outputTokens':6}})]
         result=project(data,root_thread='root')
