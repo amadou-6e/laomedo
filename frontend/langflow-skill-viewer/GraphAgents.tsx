@@ -368,8 +368,6 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   const breadcrumbs:typeof conversations=[];
   let ancestor=currentConversation;
   while(ancestor&&!breadcrumbs.some(value=>value.id===ancestor!.id)) {breadcrumbs.unshift(ancestor);ancestor=conversations.find(value=>value.id===ancestor!.parent)}
-  const resumedThread=scope.thread??detail?.run.native_session;
-  const earlier=detail&&resumedThread?runs.filter(run=>run.id!==detail.run.id&&run.node===detail.run.node&&run.provider===detail.run.provider&&run.native_session===resumedThread&&run.execution&&run.ended&&Date.parse(run.ended)<=Date.parse(detail.run.started)).sort((a,b)=>Date.parse(b.started)-Date.parse(a.started))[0]:undefined;
   const selectScope=(invocation:string,next:ActivityScope={})=>{setSelected(invocation);setScope(next)};
   const scopeLabel=scope.turn?"Turn":scope.thread?"Conversation":"Run";
   const exportContext:ExportContext|undefined=detail?{graph_id:flowId,run_id:detail.run.id,execution_id:detail.run.execution,node_id:detail.run.node,provider:detail.run.provider,model:(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??null,native_session:detail.run.native_session,scope,capture_state:detail.run.stream_state,capture_reason:detail.run.reason??null,truncated:detail.truncated}:undefined;
@@ -420,7 +418,6 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
         {breadcrumbs.map(thread=><span key={thread.id} className="contents"><span aria-hidden="true">/</span><button className="max-w-full break-words underline underline-offset-4" aria-current={scope.thread===thread.id&&!scope.turn?"page":undefined} onClick={()=>setScope({thread:thread.id})}>{thread.title}</button></span>)}
         {currentTurn&&<span aria-current="page">/ Turn {currentConversation!.turns.indexOf(currentTurn)+1}</span>}
       </nav>
-      {earlier&&<button className="text-xs underline underline-offset-4" onClick={()=>{setExecution(earlier.execution??"");selectScope(earlier.id)}}>Earlier run in this conversation · {time(earlier.started)}</button>}
       <section className="space-y-3 border bg-muted/30 px-4 py-3" aria-label="Invocation metadata">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><h3 className="min-w-0 break-words text-lg font-semibold">{currentTurn?`Turn ${currentConversation!.turns.indexOf(currentTurn)+1} · ${currentConversation!.title}`:currentConversation?.id===detail.run.native_session?label(detail.run):currentConversation?.title??label(detail.run)}</h3><div className="flex items-center gap-2 text-xs text-muted-foreground">{statusBadge(selectedLane?.status??"unknown")}<span>{selectedLane&&duration(selectedLane.started,selectedLane.ended)}</span></div></div>
         <div className="flex flex-wrap items-start justify-between gap-3 text-xs text-muted-foreground"><p title={selectedLane?.started}>Started {selectedLane&&time(selectedLane.started)} · Provider {detail.run.provider??"codex-cli"} · Model {(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??"unconfirmed"} · Captured stream: {detail.run.stream_state}</p>
