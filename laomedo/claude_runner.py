@@ -533,7 +533,15 @@ class ClaudeRunner(LocalRunner):
                          if item['message_id'] == message_id and item['type'] == kind]
                 if any(item['text_hash'] == digest for item in prior):
                     continue  # Raw native receipts remain intact; don't duplicate the display.
-                identity = prior[0]['id'] if len(prior) == 1 else message_id + ':native:' + kind + ':' + str(index)
+                # Native assistant receipts can precede content_block_stop. Reuse
+                # the open block's identity too; its index need not match the
+                # receipt's single-block content index (e.g. thinking then text).
+                active = [item for item in record.get('_stream_blocks', {}).values()
+                          if record.get('_stream_message_id') == message_id and item['type'] == kind]
+                matching = [item for item in active
+                            if hashlib.sha256(item['text'].encode()).hexdigest() == digest]
+                candidates = matching or active or prior
+                identity = candidates[0]['id'] if len(candidates) == 1 else message_id + ':native:' + kind + ':' + str(index)
                 self._event(root, 'item/completed', {**common, 'item': {
                     'id': identity, 'type': kind, 'text': text}})
         partial = event.get('event') if event.get('type') == 'stream_event' else None

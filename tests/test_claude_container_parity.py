@@ -90,6 +90,29 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertFalse(any(item.get('conflicting_receipts') for item in result['items']))
         self.assertEqual(record['_last_streamed_text'],'final answer')
 
+    def test_native_receipt_before_block_stop_reuses_live_text_identity(self):
+        record = self.runner._prepare(self.payload)
+        record.update(thread_id=str(uuid4()), active_host_turn=str(uuid4()))
+        root = self.runner._run_dir(record['run_id'])
+        def stream(value):
+            self.runner._native_event(root, record, {'type': 'stream_event', 'event': value})
+        stream({'type': 'message_start', 'message': {'id': 'native-message'}})
+        for index, kind, field, text in [(0, 'thinking', 'thinking', 'considering'),
+                                         (1, 'text', 'text', 'final answer')]:
+            stream({'type': 'content_block_start', 'index': index,
+                    'content_block': {'type': kind, field: ''}})
+            stream({'type': 'content_block_delta', 'index': index,
+                    'delta': {field: text}})
+            self.runner._native_event(root, record, {'type': 'assistant', 'message': {
+                'id': 'native-message', 'content': [{'type': kind, field: text}]}})
+            stream({'type': 'content_block_stop', 'index': index})
+        rows = [json.loads(line) for line in (root/'activity-events.jsonl').read_text().splitlines()]
+        result = project([{'raw': row['event'], 'received_at': row['received_at']} for row in rows])
+        self.assertEqual([lane['item']['type'] for lane in result['items']], ['reasoning', 'agentMessage'])
+        self.assertEqual(result['items'][1]['item']['text'], 'final answer')
+        self.assertFalse(any(lane.get('conflicting_receipts') for lane in result['items']))
+        self.assertTrue(all(lane['ended'] for lane in result['items']))
+
     def test_restart_resumes_same_profile_session_and_snapshot(self):
         with self.invoke():
             first = self.runner.start(self.payload)
