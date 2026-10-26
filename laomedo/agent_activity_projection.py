@@ -1,5 +1,33 @@
 """Project native notifications without summing cumulative token snapshots."""
 
+KEYS = ('inputTokens','cachedInputTokens','cacheWriteInputTokens','outputTokens','reasoningOutputTokens','totalTokens')
+
+
+def _parent(thread):
+    parent = thread.get('parentThreadId')
+    if not parent:
+        source = thread.get('source')
+        sub = source.get('subAgent', {}) if isinstance(source, dict) else {}
+        spawn = sub.get('thread_spawn', {}) if isinstance(sub, dict) else {}
+        parent = spawn.get('parent_thread_id') if isinstance(spawn, dict) else None
+    return parent if isinstance(parent, str) and parent else None
+
+
+def _telemetry(record):
+    """Normalize explicit native aliases; never correlate by time or label."""
+    attrs = dict(record.get('attributes') or {})
+    conflict = False
+    for target, aliases in {'conversation.id':('thread.id','thread_id'),
+                            'turn.id':('turn_id',), 'call.id':('call_id',)}.items():
+        values = {attrs[key] for key in (target, *aliases) if isinstance(attrs.get(key), str) and attrs[key]}
+        if len(values) == 1:
+            attrs[target] = values.pop()
+        elif len(values) > 1:
+            conflict = True
+    # Retain conflicting native attributes for inspection/export. Only the
+    # scoped projection excludes them; All activity still contains the record.
+    return {**record, 'attributes':attrs, **({'scope_conflict':True} if conflict else {})}
+
 
 def project(events, *, root_thread=None, model=None):
     if any(receipt["raw"].get("event",receipt["raw"]).get("method", "").startswith("opencode/") for receipt in events):
@@ -16,12 +44,16 @@ def project(events, *, root_thread=None, model=None):
         raw=receipt['raw']
         if raw.get('method') == 'capture/usageBaseline':
             baselines.update({key:(value or {}).get('total',{}) for key,value in raw['threads'].items()})
+            # Only runner-attested thread/start proves a zero boundary. An empty
+            # resume history or a last-request counter is not such evidence.
+            if raw.get('fresh_thread') is True and root_thread:
+                baselines.setdefault(root_thread,dict.fromkeys(KEYS,0))
             continue
         event=raw.get('event',raw)
         params=event.get('params',{})
         method=event.get('method',event.get('type','unknown'))
         if method == 'otel/record':
-            telemetry.append(params)
+            telemetry.append(_telemetry(params))
             continue
         timestamp=raw.get('received_at',receipt['received_at'])
         thread=params.get('threadId')
@@ -30,15 +62,26 @@ def project(events, *, root_thread=None, model=None):
         if method == 'thread/started':
             value=params.get('thread',{})
             if value.get('id'):
-                threads[value['id']]={'id':value['id'],'parent':value.get('parentThreadId'),**({'title':value['name']} if isinstance(value.get('name'),str) else {})}
+                old=threads.get(value['id'],{})
+                title=value.get('name') or value.get('agentNickname') or value.get('agentRole')
+                threads[value['id']]={**old,'id':value['id'],'parent':_parent(value) or old.get('parent'),**({'title':title} if isinstance(title,str) else {})}
         if turn_id and (method.startswith('turn/') or method.startswith('item/')):
             key=(thread,turn_id)
             if method=='turn/started' and key not in turn_bases:
                 baseline=previous.get(thread,baselines.get(thread))
                 turn_bases[key]=dict(baseline) if isinstance(baseline,dict) else None
             lane=turns.setdefault(key,{'id':turn_id,'thread':thread,'started':timestamp,'ended':None,'status':'running'})
-            if method == 'turn/completed':
-                lane.update(ended=timestamp,status=turn.get('status','completed'))
+            if method in {'turn/completed','turn/failed'}:
+                lane.update(ended=timestamp,status=turn.get('status','failed' if method=='turn/failed' else 'completed'))
+        # Native message/output deltas are provisional until item/completed.
+        # Late frames cannot overwrite the authoritative completed item.
+        item_id=params.get('itemId')
+        if isinstance(item_id,str) and isinstance(params.get('delta'),str):
+            value=items.get((thread,item_id))
+            field={'item/agentMessage/delta':'text','item/commandExecution/outputDelta':'aggregatedOutput'}.get(method)
+            if value and field and not value['ended']:
+                text=value['item'].get(field)
+                value['item']={**value['item'],field:(text if isinstance(text,str) else '')+params['delta']}
         item=params.get('item')
         if isinstance(item,dict) and item.get('id'):
             key=(thread,item['id'])
@@ -49,7 +92,15 @@ def project(events, *, root_thread=None, model=None):
                 value.update(ended=timestamp,item=item)
             child=item.get('agentThreadId')
             if child:
-                threads[child]={'id':child,'parent':thread}
+                threads[child]={**threads.get(child,{}),'id':child,'parent':thread}
+                if isinstance(item.get('agentPath'),str) and item['agentPath'].strip('/'):
+                    threads[child].setdefault('title',item['agentPath'].rstrip('/').rsplit('/',1)[-1])
+                if (item.get('type')=='subAgentActivity' and item.get('kind')=='started'
+                        and method=='item/started' and child not in previous
+                        and not any(key[0]==child for key in turns)):
+                    # Native child creation precedes its first turn. Replayed
+                    # starts cannot reset an already observed usage boundary.
+                    baselines.setdefault(child,dict.fromkeys(KEYS,0))
             if item.get('type') in {'collabAgentToolCall','collabAgentSpawnToolCall'}:
                 for child in item.get('receiverThreadIds',[]):
                     threads.setdefault(child,{'id':child,'parent':thread})
@@ -57,7 +108,7 @@ def project(events, *, root_thread=None, model=None):
             total=params.get('tokenUsage',{}).get('total')
             if isinstance(total,dict):
                 base=baselines.get(thread,{})
-                keys=('inputTokens','cachedInputTokens','cacheWriteInputTokens','outputTokens','reasoningOutputTokens','totalTokens')
+                keys=KEYS
                 delta={key:total[key]-base.get(key,0) for key in keys
                        if type(total.get(key)) is int and type(base.get(key,0)) is int}
                 if any(type(total.get(key)) is int and total[key]<value for key,value in previous.get(thread,{}).items()):
@@ -98,6 +149,8 @@ def project(events, *, root_thread=None, model=None):
     model_provenance={root_thread:'native runner effective model'} if root_thread and model else {}
     observed_models={}
     for record in telemetry:
+        if record.get('scope_conflict'):
+            continue
         attrs=record.get('attributes',{})
         thread=attrs.get('conversation.id')
         observed_model=attrs.get('model') or attrs.get('gen_ai.response.model')

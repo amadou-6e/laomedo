@@ -809,6 +809,8 @@ class LocalRunnerTests(unittest.TestCase):
 
     def test_start_resume_and_fresh_workspace(self):
         first = self.runner.start(self.request())
+        first_attempt = self.runner._run_dir(first['run_id']) / 'activity-attempts' / (first['activity_attempt_id']+'.json')
+        self.assertIs(json.loads(first_attempt.read_text())['fresh_thread'],True)
         self.assertEqual(first["status"], "completed")
         self.assertEqual(first["thread_id"], "native-thread")
         self.assertEqual(first["skill"]["use_evidence"], "offered")
@@ -832,6 +834,9 @@ class LocalRunnerTests(unittest.TestCase):
                                    expected_thread_id=first["thread_id"],
                                    model="test-model", effort="low")
         self.assertEqual(resumed["status"], "completed")
+        resumed_attempt = self.runner._run_dir(resumed['run_id']) / 'activity-attempts' / (resumed['activity_attempt_id']+'.json')
+        self.assertIs(json.loads(resumed_attempt.read_text())['fresh_thread'],False)
+        self.assertIs(json.loads(first_attempt.read_text())['fresh_thread'],True)
         self.assertEqual(len(resumed["turns"]), 2)
         self.assertEqual(json.loads((self.runner.state / "turn-ledger.json").read_text())
                          ["attempted_turns"], 3)
