@@ -38,12 +38,12 @@ class LaomedoClaudeAgent(Component):
             raise ValueError("unsupported_claude_effort")
         prior = getattr(self, "run_reference", None)
         prior = getattr(prior, "data", prior)
-        if prior is None and getattr(self, "run_reference_json", ""):
+        if prior in (None, '', []) and getattr(self, "run_reference_json", ""):
             prior = json.loads(self.run_reference_json)
         if self.operation not in {"fresh", "start"} and isinstance(prior, dict) and prior.get("provider") != "claude":
             raise ValueError("run_provider_mismatch")
         endpoint, payload, method = super()._prepare()
-        if self.operation in {'fresh', 'start'}:
+        if self.operation in {'fresh', 'start', 'resume'}:
             timeout = getattr(self, 'run_timeout_seconds', 180)
             if type(timeout) is not int or not 1 <= timeout <= 86400:
                 raise ValueError('claude_turn_timeout_invalid')

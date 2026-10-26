@@ -22,6 +22,44 @@ class ClaudeContainerParityTests(unittest.TestCase):
 
     invoke = controls.ClaudeRunnerTests.invoke
 
+    def test_controller_command_is_bounded_inside_container(self):
+        runtime = object.__new__(ClaudeContainer)
+        runtime.image_id = 'sha256:' + 'a' * 64
+        args = runtime.bounded_command(['claude', '--print'], time.monotonic() + 20)
+        self.assertEqual(args[:4], ['--entrypoint', 'python3', '-i', runtime.image_id])
+        self.assertIn('--kill-after=5s', args[5])
+        self.assertEqual(args[-2:], ['claude', '--print'])
+        with self.assertRaisesRegex(RunnerError, 'claude_turn_timeout'):
+            runtime.bounded_command(['claude'], time.monotonic() - 1)
+
+    def test_resume_honors_explicit_execution_timeout(self):
+        with self.invoke():
+            first = self.runner.start(self.payload)
+            resumed = self.runner.resume(first['run_id'], 'continue',
+                expected_post_run_hash=first['post_run_hash'], expected_thread_id=first['thread_id'],
+                model='sonnet', effort='low', run_timeout_seconds=31)
+        self.assertEqual(resumed['turn_timeout'],31)
+        self.assertEqual(resumed['turns'][-1]['execution_timeout_seconds'],31)
+
+    def test_stream_and_native_receipts_keep_thinking_and_text_distinct_without_duplicates(self):
+        record = self.runner._prepare(self.payload)
+        record.update(thread_id=str(uuid4()), active_host_turn=str(uuid4()))
+        root = self.runner._run_dir(record['run_id'])
+        def stream(value):
+            self.runner._native_event(root, record, {'type':'stream_event', 'event':value})
+        stream({'type':'message_start','message':{'id':'native-message'}})
+        for index, kind, field, text in [(0,'thinking','thinking','considering'), (1,'text','text','final answer')]:
+            stream({'type':'content_block_start','index':index,'content_block':{'type':kind,field:text}})
+            stream({'type':'content_block_stop','index':index})
+            # Native CLI receipts contain a single block even when stream index >0.
+            self.runner._native_event(root, record, {'type':'assistant','message':{
+                'id':'native-message','content':[{'type':kind,field:text}]}})
+        rows=[json.loads(line) for line in (root/'activity-events.jsonl').read_text().splitlines()]
+        result=project([{'raw':row['event'],'received_at':row['received_at']} for row in rows])
+        self.assertEqual(len(result['items']),2)
+        self.assertFalse(any(item.get('conflicting_receipts') for item in result['items']))
+        self.assertEqual(record['_last_streamed_text'],'final answer')
+
     def test_restart_resumes_same_profile_session_and_snapshot(self):
         with self.invoke():
             first = self.runner.start(self.payload)

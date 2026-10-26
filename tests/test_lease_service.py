@@ -273,6 +273,18 @@ class LeaseServiceTests(unittest.TestCase):
 
 
 class LeaseClientTests(unittest.TestCase):
+    def test_unverified_owner_stops_heartbeats_without_signalling_done(self):
+        from unittest.mock import Mock
+        client = object.__new__(LeaseClient)
+        client.stop_event = threading.Event()
+        client.thread = Mock()
+        client.dir = Path(self.temp.name) / 'unverified-lease'
+        client.dir.mkdir()
+        client.stop_heartbeats()
+        self.assertTrue(client.stop_event.is_set())
+        self.assertFalse((client.dir / 'done').exists())
+        client.thread.join.assert_called_once_with(timeout=3)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

@@ -621,8 +621,8 @@
   },
   "claude_proposal_scope_only": {
     "title": "This Claude node can only propose changes",
-    "description": "The request included a direct GitHub authorization or execution handoff that this proposal adapter does not support.",
-    "recovery": "Send the proposed answer to the authorized Skill or GitHub Operation input. Remove direct execution or GitHub authorization from the Claude request."
+    "description": "This historical record comes from an older Claude proposal-only runner that refused the requested operation.",
+    "recovery": "Use the current Claude node template for new work. Preserve this historical run and inspect its outcome before starting another task."
   },
   "claude_prompt_too_large": {
     "title": "The Claude input is too large",
@@ -647,12 +647,12 @@
   "claude_native_turn_failed": {
     "title": "Claude did not return a successful turn",
     "description": "The native Claude receipt reported an unsuccessful result. The underlying cause is not established by this code.",
-    "recovery": "Check the existing run and its recorded diagnostics with the operator before starting another request. Confirm subscription availability and the remaining allowance without assuming either caused the failure."
+    "recovery": "Review the recorded activity and check the host Claude login and provider availability. Confirm the existing run outcome before starting another task."
   },
   "claude_native_turn_limit_mismatch": {
-    "title": "Claude exceeded the expected turn boundary",
-    "description": "The native receipt did not match the adapter's single-turn and no-subagent boundary.",
-    "recovery": "Ask the operator to reconcile the existing run, session and allowance evidence before starting another request. Do not increase the allowance to bypass this check."
+    "title": "Claude returned an unexpected execution receipt",
+    "description": "The native receipt did not match the permitted invocation and session boundaries.",
+    "recovery": "Ask the runner operator to inspect the safe Technical details. Confirm the existing run before starting a replacement."
   },
   "claude_process_failed": {
     "title": "The Claude process did not finish successfully",
@@ -682,7 +682,7 @@
   "activity_attempt_already_exists": {
     "title": "Activity capture already exists for this attempt",
     "description": "The runner refused to replace an existing activity boundary for this attempt.",
-    "recovery": "Inspect the existing run in Agents and ask the operator to reconcile its activity evidence before starting another request. Do not reset the allowance or overwrite the existing attempt."
+    "recovery": "Open the existing activity attempt. Do not dispatch another agent task to repair its display."
   },
   "run_not_active_in_this_process": {
     "title": "This runner cannot stop the existing process",

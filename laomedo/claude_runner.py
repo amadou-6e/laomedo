@@ -275,7 +275,7 @@ class ClaudeRunner(LocalRunner):
         # Explicit editor refresh owns discovery latency. Reuse the last native
         # selection for dispatch even after its editor-cache TTL; never silently
         # remap an alias during a slow concurrent refresh. A cold API client
-        # still discovers once before any inference is accepted.
+        # refuses promptly until background discovery or explicit refresh completes.
         with self._catalog_lock:
             cached = getattr(self, '_catalog_cached', None)
             selected_catalog = deepcopy(cached[1]) if cached else None
@@ -397,11 +397,11 @@ class ClaudeRunner(LocalRunner):
                      '--mount', f'type=bind,source={root / "workspace/.agents/skills"},target=/run/laomedo/pinned-skills/skills,readonly',
                      '--mount', f'type=bind,source={service.secret_path},target=/run/laomedo/command-token,readonly',
                      '--env', 'LAOMEDO_COMMAND_URL=' + service.url,
-                     '--env', 'LAOMEDO_GITHUB_GRANTED=' + ('1' if mediation else '0'),
-                     '-i', self.image_id]
-            args += command(None, record.get('resolved_model', record['requested_model']), record['requested_effort'],
+                     '--env', 'LAOMEDO_GITHUB_GRANTED=' + ('1' if mediation else '0')]
+            native = command(None, record.get('resolved_model', record['requested_model']), record['requested_effort'],
                             record['thread_id'], resume=resume, output_only=output_only,
-                            skill_ids=tuple(x['skill_id'] for x in record['skills']))[1:]
+                            skill_ids=tuple(x['skill_id'] for x in record['skills']))
+            args += self.container.bounded_command(native, deadline)
             messages = queue.Queue(maxsize=64)
             with tempfile.TemporaryFile() as errors:
                 process = subprocess.Popen(['docker', *args], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -451,6 +451,8 @@ class ClaudeRunner(LocalRunner):
                             raise RunnerError('claude_terminal_receipt_invalid')
                         result = event
                 process.wait(timeout=10)
+                if process.returncode == 124:
+                    raise RunnerError('claude_turn_timeout')
                 if process.returncode or result is None:
                     raise RunnerError('claude_native_turn_failed')
                 return terminal_result(json.dumps(result), record['thread_id'])
@@ -466,10 +468,18 @@ class ClaudeRunner(LocalRunner):
                 process.kill()
                 process.wait(timeout=15)
             self.processes.pop(record['run_id'], None)
-            try:
-                lease.finish()
-            except RuntimeError:
-                verified = False
+            if verified:
+                try:
+                    lease.finish()
+                except RuntimeError:
+                    rechecked, recheck_detail = cleanup_exact(name, record['run_id'], token)
+                    record['container_ownership']['post_lease_cleanup_verified'] = rechecked
+                    record['container_ownership']['post_lease_cleanup_detail'] = recheck_detail
+                    verified = False
+            else:
+                # Do not mark an unknown owner done: its independent lease must
+                # take the loss-cleanup path, in addition to the kernel deadline.
+                lease.stop_heartbeats()
             verified = verified and not service_error
             record['container_ownership'].update(cleanup_verified=verified, cleanup_detail=detail)
             record['descendant_cleanup'] = 'verified' if verified else 'not_verified'
@@ -516,9 +526,16 @@ class ClaudeRunner(LocalRunner):
                 text = block.get('text', block.get('thinking', ''))
                 if block['type'] == 'text':
                     record['_last_streamed_text'] = text
+                message_id = str((event.get('message') or {}).get('id', event.get('uuid', turn)))
+                kind = 'reasoning' if block['type'] == 'thinking' else 'agentMessage'
+                digest = hashlib.sha256(text.encode()).hexdigest()
+                prior = [item for item in record.get('_completed_stream_items', {}).values()
+                         if item['message_id'] == message_id and item['type'] == kind]
+                if any(item['text_hash'] == digest for item in prior):
+                    continue  # Raw native receipts remain intact; don't duplicate the display.
+                identity = prior[0]['id'] if len(prior) == 1 else message_id + ':native:' + kind + ':' + str(index)
                 self._event(root, 'item/completed', {**common, 'item': {
-                    'id': str((event.get('message') or {}).get('id', event.get('uuid', turn))) + ':' + str(index),
-                    'type': 'reasoning' if block['type'] == 'thinking' else 'agentMessage', 'text': text}})
+                    'id': identity, 'type': kind, 'text': text}})
         partial = event.get('event') if event.get('type') == 'stream_event' else None
         if isinstance(partial, dict):
             kind = partial.get('type')
@@ -539,18 +556,24 @@ class ClaudeRunner(LocalRunner):
                 blocks[index]['text'] += delta.get('text', delta.get('thinking', ''))
                 self._event(root, 'item/updated', {**common, 'item': dict(blocks[index])})
             elif kind == 'content_block_stop' and index in blocks:
-                self._event(root, 'item/completed', {**common, 'item': blocks.pop(index)})
+                completed = blocks.pop(index)
+                record.setdefault('_completed_stream_items', {})[completed['id']] = {
+                    'id': completed['id'], 'message_id': record.get('_stream_message_id', turn),
+                    'type': completed['type'], 'text_hash': hashlib.sha256(completed['text'].encode()).hexdigest()}
+                if completed['type'] == 'agentMessage':
+                    record['_last_streamed_text'] = completed['text']
+                self._event(root, 'item/completed', {**common, 'item': completed})
             elif kind == 'message_stop':
                 record['_stream_blocks'] = {}
 
     def _event(self, root, method, params):
         # These are explicitly adapter-normalized receipts, not Codex RPC events.
         event = {"method": method, "params": params, "provider": "claude",
-                 "normalization": "claude-stream-v2"}
+                 "normalization": "claude-stream-v3"}
         with (root / "activity-events.jsonl").open("a", encoding="utf-8") as output:
             output.write(json.dumps(receipt(event)) + "\n")
 
-    def _execute(self, run_id, task, *, resume, activity_attempt_id=None):
+    def _execute(self, run_id, task, *, resume, activity_attempt_id=None, run_timeout_seconds=None):
         if not self.lock.acquire(blocking=False):
             raise RunnerError("runner_busy")
         record, attempt, flag = None, None, threading.Event()
@@ -563,6 +586,8 @@ class ClaudeRunner(LocalRunner):
                 if candidate['status'] != ('completed' if resume else 'prepared'):
                     raise RunnerError('run_not_dispatchable')
                 record = candidate
+                if run_timeout_seconds is not None:
+                    record['turn_timeout'] = run_timeout_seconds
                 self.cancel_flags[run_id] = flag
                 record.update(status='running', attempt_finished=False, snapshot_ready=False,
                               evidence_complete='unknown', completion_basis=None)
@@ -601,6 +626,7 @@ class ClaudeRunner(LocalRunner):
                 _json(root / "record.json", record)
                 host_turn = str(uuid4())
                 record.pop("_last_streamed_text", None)
+                record["_completed_stream_items"] = {}
                 record["active_host_turn"] = host_turn
                 record["output_correction_count"] = corrections
                 self._event(root, "turn/started", {"threadId": record["thread_id"],
@@ -637,10 +663,11 @@ class ClaudeRunner(LocalRunner):
                     "cost_basis": "CLI estimate; cumulative session, not a subscription charge"})
                 answer = result["result"]
                 turn = {"turn_id": host_turn, "identity_source": "host_attempt", "status": "completed",
+                        "execution_timeout_seconds": record['turn_timeout'],
                         "input_hash": "sha256:" + hashlib.sha256(prompt.encode()).hexdigest(),
                         "native_session_id": result["session_id"]}
                 record["turns"].append(turn)
-                if record.get('_last_streamed_text') != answer:
+                if str(record.get('_last_streamed_text', '')).strip() != answer.strip():
                     self._event(root, "item/completed", {"threadId": record["thread_id"], "turnId": host_turn,
                         "item": {"id": host_turn + ":answer", "type": "agentMessage", "text": answer}})
                 self._event(root, "turn/completed", {"threadId": record["thread_id"],
@@ -712,7 +739,9 @@ class ClaudeRunner(LocalRunner):
         return record
 
     def resume(self, run_id, task, *, expected_post_run_hash, expected_thread_id, model, effort,
-               activity_attempt_id=None):
+               activity_attempt_id=None, run_timeout_seconds=None):
+        if run_timeout_seconds is not None and (type(run_timeout_seconds) is not int or not 1 <= run_timeout_seconds <= 86400):
+            raise RunnerError('claude_turn_timeout_invalid')
         record = self.status(run_id)
         root = self._run_dir(run_id)
         if (record.get("provider") != self.provider or record.get("runtime_version") != CLI_VERSION or
@@ -729,7 +758,8 @@ class ClaudeRunner(LocalRunner):
             raise RunnerError("post_run_snapshot_mismatch")
         if _hash_tree(root / "workspace") != expected_post_run_hash:
             raise RunnerError("workspace_changed_since_snapshot")
-        return self._execute(run_id, task, resume=True, activity_attempt_id=activity_attempt_id)
+        return self._execute(run_id, task, resume=True, activity_attempt_id=activity_attempt_id,
+                             run_timeout_seconds=run_timeout_seconds)
 
     def cancel(self, run_id):
         with self.control_lock:

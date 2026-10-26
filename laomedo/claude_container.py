@@ -18,6 +18,14 @@ IMAGE = 'laomedo-claude-controller:2.1.310'
 PROFILE = 'laomedo-claude-profile'
 CLI_VERSION = '2.1.310'
 
+# This runs inside the container, so loss of the API, Docker client or supervisor
+# cannot leave the credential-bearing controller executing indefinitely.
+EXECUTION_GUARD = """import os,sys,time
+remaining=min(float(sys.argv[2]),float(sys.argv[1])-time.time())
+if remaining <= 0: raise SystemExit(124)
+os.execvp('timeout',['timeout','--signal=TERM','--kill-after=5s',str(remaining),*sys.argv[3:]])
+"""
+
 
 def docker_environment():
     """Docker configuration is host-owned; provider overrides never reach agents."""
@@ -105,8 +113,15 @@ class ClaudeContainer:
     def control(self, args, *, input=None, timeout=45):
         # An in-container timeout also applies if the host process disappears.
         prefix = self.prefix() + ['--entrypoint', 'timeout', '-i', self.image_id,
-                                  str(timeout), 'claude', *args]
+                                  '--signal=TERM', '--kill-after=5s', str(timeout), 'claude', *args]
         return run_docker(prefix, input=input, timeout=timeout + 10)
+
+    def bounded_command(self, command, deadline):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RunnerError('claude_turn_timeout')
+        return ['--entrypoint', 'python3', '-i', self.image_id, '-c', EXECUTION_GUARD,
+                str(time.time() + remaining), str(remaining), *command]
 
     def lease(self, run_id, name, token, cancelled, scope=None):
         if self.lease_service is None:
@@ -179,16 +194,22 @@ class CommandService:
             with self.active_lock:
                 self.active[name] = token
             try:
-                result = run_docker(prefix + ['--entrypoint', 'sh', self.runtime.image_id,
-                                    '-c', value['command']], timeout=min(120, max(1, self.deadline - time.monotonic())))
+                worker_deadline = min(self.deadline, time.monotonic() + 120)
+                result = run_docker(prefix + self.runtime.bounded_command(
+                    ['sh', '-c', value['command']], worker_deadline),
+                    timeout=max(1, worker_deadline - time.monotonic()) + 10)
                 return {'exit_code': result.returncode,
                         'output': (result.stdout + result.stderr)[:1024 * 1024].decode('utf-8', errors='replace')}
             finally:
                 verified, _ = cleanup_exact(name, self.record['run_id'], token)
-                try:
-                    lease.finish()
-                except RuntimeError:
-                    verified = False
+                if verified:
+                    try:
+                        lease.finish()
+                    except RuntimeError:
+                        cleanup_exact(name, self.record['run_id'], token)
+                        verified = False
+                else:
+                    lease.stop_heartbeats()
                 with self.active_lock:
                     self.active.pop(name, None)
                 if not verified:

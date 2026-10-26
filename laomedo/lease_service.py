@@ -569,10 +569,14 @@ class LeaseClient:
     def grant_secret(self) -> str:
         return (self.dir / "grant.secret").read_text(encoding="utf-8")
 
-    def finish(self, *, timeout: float = 15.0) -> dict:
-        """Report a normal end after the runner verified its own cleanup."""
+    def stop_heartbeats(self) -> None:
+        """Delegate loss cleanup to the independent owner; never signal done."""
         self.stop_event.set()
         self.thread.join(timeout=3)
+
+    def finish(self, *, timeout: float = 15.0) -> dict:
+        """Report a normal end after the runner verified its own cleanup."""
+        self.stop_heartbeats()
         (self.dir / "done").write_text("done", encoding="utf-8")
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:

@@ -1,3 +1,24 @@
+# Current Claude Code Docker templates
+
+Use [flow.json](flow.json) for Skill -> Claude -> Skill Operation, or
+[current-template-flow.json](current-template-flow.json) for a fresh Agent with
+optional skills. Both embed the current component, inherit the current Codex
+ports, discover native model/effort options, and expose Execution Timeout under
+Advanced controls. Configure the dedicated local runner as described in
+[the Docker guide](../../docker/claude/README.md).
+
+Normal runners have no verification-only global turn ceiling. The records and
+allowances below describe separate historical campaigns, not current startup
+configuration or authorization for future normal runs.
+
+The following executed exports are immutable historical evidence, **not current
+runnable templates**: `activity-flow.json`, `executed-flow.json`,
+`first-executed-flow.json`, and `no-skill-flow.json`. Their embedded components
+and original campaign proofs are deliberately preserved. Use the two current
+templates above for new work.
+
+## Historical campaign documentation
+
 # Claude Code Agent
 
 The Claude node uses a dedicated Docker controller and Claude Code subscription

@@ -8,6 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_catalogued_claude_codes_survive_component_routing(self):
+        catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        tree=ast.parse((ROOT/'components/laomedo/codex_agent.py').read_text(encoding='utf-8'))
+        codes=next(ast.literal_eval(node.value) for node in tree.body if isinstance(node,ast.Assign)
+                   and any(isinstance(target,ast.Name) and target.id=='_ROUTABLE_ERRORS' for target in node.targets))
+        self.assertFalse({key for key in catalogue if key.startswith('claude_')}-codes)
+        self.assertIn('container_termination_unverified',codes)
     def test_claude_runner_public_errors_including_named_codes_have_catalogue_entries(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
         tree=ast.parse((ROOT/'laomedo/claude_runner.py').read_text(encoding='utf-8'))

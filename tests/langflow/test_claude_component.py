@@ -14,6 +14,14 @@ from laomedo.output_contract import requirements
 
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
+    def test_resume_payload_contains_visible_execution_timeout(self):
+        prior={'provider':'claude','run_id':'11111111-1111-4111-8111-111111111111',
+               'status':'completed','post_run_hash':'sha256:'+'a'*64,'thread_id':'native-thread',
+               'model':'sonnet','effort':'low'}
+        payload=self.node(operation='resume',run_reference=None,run_reference_json=json.dumps(prior),
+                          run_timeout_seconds=321)._prepare()[1]
+        self.assertEqual(payload['run_timeout_seconds'],321)
+
     async def test_dropdown_refresh_uses_provider_catalog_and_preserves_selection(self):
         node = self.node()
         with patch.object(node, '_model_catalog', return_value={'sonnet':['low','medium','high'],'opus':['low','medium','high']}) as catalog:

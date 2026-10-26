@@ -39,5 +39,10 @@ claim that a container with provider credentials is an untrusted-code sandbox.
 The managed recovery service must be deployed with the matching Docker runner
 CLI: `--image`, `--profile-volume`, `--lease-service`, `--turn-timeout`.
 Legacy `--executable` and verification `--max-model-turns` are not runner options.
-Keep recovery UI work in its separate PR and validate the combined stack before
+Recovery UI PR #183 is integrated from develop; validate the combined stack before
 release; independently deploying mismatched startup arguments is unsupported.
+
+Controller and command-worker execution have an in-container deadline with a
+five-second forced-stop grace period. An unverified owner is never signalled done: the
+independent supervisor retains its loss-cleanup role. Unknown cleanup still fails
+closed and must be reconciled before replacement work.

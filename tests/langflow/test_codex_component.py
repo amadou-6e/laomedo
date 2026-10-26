@@ -357,7 +357,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_opt_in_join_uses_saved_flow_identity_and_polls_bridge(self):
         node = component(bridge_url="http://host.docker.internal:8766")
-        node._vertex = SimpleNamespace(id="agent-stage")
+        node._vertex = SimpleNamespace(id="agent-stage", full_data={})
         native_run = str(__import__("uuid").uuid4())
         calls = []
 

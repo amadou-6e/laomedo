@@ -1,3 +1,10 @@
+# Archived verification protocol
+
+The dated allowances below apply only to their identified historical campaigns.
+They remain unchanged evidence. They do not configure the current Docker runner,
+which has no verification-only global turn ceiling. See README.md for the two
+current templates; the executed campaign exports are historical records.
+
 # Real Claude proposal verification
 
 ## Additional no-skill verification approval, 2026-10-24

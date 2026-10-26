@@ -2219,12 +2219,23 @@ def serve(runner: LocalRunner, host: str = "127.0.0.1", port: int = 8765):
                 if parts == ["v1", "runs"]:
                     result = runner.start(body)
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume":
-                    runner._mirror_host_login()
+                    extra = {}
+                    if getattr(runner, 'provider', 'codex') == 'claude' and 'run_timeout_seconds' in body:
+                        value = body['run_timeout_seconds']
+                        if type(value) is not int or not 1 <= value <= 86400:
+                            raise RunnerError('claude_turn_timeout_invalid')
+                        extra['run_timeout_seconds'] = value
+                    if getattr(runner, 'provider', 'codex') == 'claude':
+                        required = (extra['run_timeout_seconds'] if extra else
+                                    runner.status(parts[2]).get('turn_timeout', runner.turn_timeout))
+                        runner._mirror_host_login(minimum_validity_seconds=required)
+                    else:
+                        runner._mirror_host_login()
                     result = runner.resume(parts[2], body["task"],
                         expected_post_run_hash=body["expected_post_run_hash"],
                         expected_thread_id=body["expected_thread_id"],
                         model=body["model"], effort=body["effort"],
-                        activity_attempt_id=body.get('activity_attempt_id'))
+                        activity_attempt_id=body.get('activity_attempt_id'), **extra)
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel":
                     result = runner.cancel(parts[2])
                 elif len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "publish":
