@@ -675,24 +675,24 @@
     "recovery": "Check the existing run to confirm its final state before starting another request. Keep any retained answer or operation evidence until the outcome is reconciled."
   },
   "pinned_skill_workspace_changed": {
-    "title": "The pinned Claude skill context changed",
-    "description": "The staged skill files no longer match the revision pinned to this run.",
-    "recovery": "Ask the operator to inspect the retained workspace and restore a verified skill revision. Check the existing run before starting replacement work."
+    "title": "The pinned skill workspace changed",
+    "description": "The staged skill workspace no longer matches the immutable skill content recorded for this run.",
+    "recovery": "Restore the original immutable Skill Reference and its unchanged workspace from the saved flow. Ask the operator to inspect the pinned skill revision before starting another request."
   },
   "activity_attempt_already_exists": {
-    "title": "Activity capture already exists for this attempt",
-    "description": "The runner refused to replace an existing activity boundary for this attempt.",
-    "recovery": "Open the existing activity attempt. Do not dispatch another agent task to repair its display."
+    "title": "This request already has activity evidence",
+    "description": "An activity attempt is already bound to this request; starting another could duplicate execution.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
   },
   "run_not_active_in_this_process": {
-    "title": "This runner cannot stop the existing process",
-    "description": "The run is not owned as an active process by this runner instance.",
-    "recovery": "Check the existing run and ask the operator to inspect the original runner process before starting another request. Do not interpret this refusal as confirmed cancellation."
+    "title": "This runner process does not own the active run",
+    "description": "The current process cannot control the selected run as an active local execution.",
+    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
   },
   "run_not_dispatchable": {
-    "title": "This run cannot be started in its current state",
-    "description": "The existing run is no longer in a state that accepts dispatch.",
-    "recovery": "Inspect the existing run and recorded activity before starting another request. Use its current lifecycle state rather than repeating the original dispatch."
+    "title": "The run is not ready for dispatch",
+    "description": "The run state no longer permits this request to be submitted as a new execution.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
   },
   "empty_token": {
     "title": "The runner credential is empty",
@@ -705,9 +705,9 @@
     "recovery": "Use only the Agent Skill References input, or leave it disconnected. Share Technical details with the maintainer if this persists."
   },
   "invalid_request": {
-    "title": "The Agent request could not be read",
-    "description": "The runner received an invalid request structure.",
-    "recovery": "Share the safe Technical details with the application maintainer. Check the existing run before starting another request."
+    "title": "The runner request was not accepted",
+    "description": "The request did not match the runner operation format; no specific cause is established here.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "materialized_skill_mismatch": {
     "title": "A pinned skill changed in the workspace",
@@ -1015,24 +1015,24 @@
     "recovery": "Verify the provider endpoint and saved Run Reference, then reconcile that run before dispatching again."
   },
   "activity_attempt_identity_required": {
-    "title": "Activity could not bind to this attempt",
-    "description": "The runner acknowledgement did not include a valid activity-attempt identity. Work may already have been accepted.",
-    "recovery": "Inspect the existing run before starting another request. Share the safe technical details with the maintainer to repair the acknowledgement path."
+    "title": "The activity reference is incomplete",
+    "description": "The runner needs an explicit attempt identity to attribute this activity safely.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
   },
   "activity_attempt_identity_mismatch": {
-    "title": "Activity belongs to a different attempt",
-    "description": "The returned activity does not match the accepted execution attempt. It was not attached to this invocation.",
-    "recovery": "Keep the original Run Reference and inspect that attempt. Do not substitute events from a neighbouring run."
+    "title": "The activity reference does not match",
+    "description": "The supplied activity identity does not match the selected runner attempt.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
   },
   "activity_runner_identity_mismatch": {
-    "title": "The activity run could not be matched",
-    "description": "The activity endpoint returned a different run identity.",
-    "recovery": "Verify the configured runner and original Run Reference before continuing."
+    "title": "The activity runner does not match",
+    "description": "Activity readback was refused because the runner identity does not match the recorded invocation.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
   },
   "activity_runner_token_missing": {
-    "title": "Activity cannot connect to the runner",
-    "description": "The host runner token file is empty.",
-    "recovery": "Configure the original runner API token file on the host. Never put it in the graph."
+    "title": "Activity cannot access the runner",
+    "description": "The activity observer does not have the configured runner access needed to read this invocation.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "agent_activity_binding_conflict": {
     "title": "Activity is already bound to different work",
@@ -1082,12 +1082,12 @@
   "claude_host_login_expired": {
     "title": "The copied Claude access credential needs refreshing",
     "description": "The host credential file contains an access credential that is expired or about to expire.",
-    "recovery": "Refresh or sign in to Claude on the host. Set Execution Timeout shorter than the remaining host login validity, then inspect any existing run before starting another task."
+    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
   },
   "claude_local_login_copy_failed": {
     "title": "The local Claude login could not be copied",
     "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check the dedicated local Docker profile and host mirror configuration. Mirroring refuses to replace an independently signed-in profile: disable mirroring to use that login, or configure a separate dedicated mirror volume. Never copy refresh credentials or a full personal profile."
+    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
   },
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",
@@ -1139,101 +1139,6 @@
     "description": "Docker is ready, but the local runner is not running.",
     "recovery": "Starting the runner does not rerun the graph. Check any existing run before starting new work."
   },
-  "conflicting_skill_inputs": {
-    "title": "Conflicting Skill Reference fields",
-    "description": "The request supplied both a single reference and a list of references.",
-    "recovery": "Use only the Agent Skill References input, or leave it disconnected. Share Technical details with the maintainer if this persists."
-  },
-  "materialized_skill_mismatch": {
-    "title": "A pinned skill changed in the workspace",
-    "description": "The run-local skill files do not match their recorded revision.",
-    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the pinned skill snapshot and review the existing run."
-  },
-  "skill_file_hash_mismatch": {
-    "title": "A pinned skill file could not be verified",
-    "description": "A file in the selected skill revision does not match its recorded hash.",
-    "recovery": "Choose a valid registered revision on the connected Skill node or ask the registry operator to inspect it."
-  },
-  "skill_frontmatter_name_mismatch": {
-    "title": "The skill name does not match its reference",
-    "description": "The selected skill declares a different name from its registry identity.",
-    "recovery": "Correct the skill name in the registry and select the new immutable revision on the Skill node."
-  },
-  "skill_frontmatter_name_required": {
-    "title": "The selected skill needs a valid name",
-    "description": "The pinned skill lacks a readable SKILL.md with a valid frontmatter name.",
-    "recovery": "Correct SKILL.md in the registry and select the new revision, or disconnect the optional skill."
-  },
-  "skill_path_conflict": {
-    "title": "A skill path already exists in the workspace",
-    "description": "The source snapshot already contains the path reserved for a connected skill.",
-    "recovery": "Ask the runner operator to remove the conflicting skill directory from the source snapshot, then review the selected Skill References."
-  },
-  "skill_ref_hash_mismatch": {
-    "title": "The skill revision could not be verified",
-    "description": "The Skill Reference revision and its recorded tree hash disagree.",
-    "recovery": "Select the immutable revision again on the Skill node. Ask the registry operator to inspect it if the mismatch persists."
-  },
-  "pinned_skill_record_invalid": {
-    "title": "The saved skill selection is invalid",
-    "description": "The run contains an invalid or incomplete skill list. An empty list is valid for a run without skills.",
-    "recovery": "Keep the original run record and ask the runner operator to inspect it. Do not change the recorded skill selection to resume."
-  },
-  "invalid_skill_id": {
-    "title": "A connected skill has an invalid identifier",
-    "description": "A supplied skill identifier does not match the supported registry format.",
-    "recovery": "Select the skill through a Skill node, or disconnect the optional Skill Reference."
-  },
-  "skill_git_exclusion_changed": {
-    "title": "The protected skill Git exclusions changed",
-    "description": "The workspace no longer has the recorded Git exclusions for its pinned skills.",
-    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the existing run and protected Git metadata."
-  },
-  "unexpected_materialized_skill": {
-    "title": "The workspace contains an unselected skill",
-    "description": "The workspace skill directories differ from the explicitly selected skill list. A run without skills requires an empty skill directory.",
-    "recovery": "Ask the runner operator to remove unintended skills from the source snapshot. Connect a Skill Reference only for skills you intend to include."
-  },
-  "unsafe_materialized_skill_path": {
-    "title": "The workspace skill directory is unsafe",
-    "description": "The runner could not verify its isolated skill directory.",
-    "recovery": "Ask the runner operator to inspect the workspace paths. Do not resume the affected workspace."
-  },
-  "claude_subscription_unavailable": {
-    "title": "The local Claude runner is not signed in",
-    "description": "The dedicated runner profile could not confirm a usable Claude login. This does not mean your host Claude subscription is unavailable.",
-    "recovery": "Check the host Claude sign-in and the configured local login copy. The runner can reuse that login without a separate sign-in."
-  },
-  "claude_host_login_unavailable": {
-    "title": "The local Claude login could not be read",
-    "description": "The runner could not read the selected host Claude access credential.",
-    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
-  },
-  "claude_host_login_expired": {
-    "title": "The copied Claude access credential needs refreshing",
-    "description": "The host credential file contains an access credential that is expired or about to expire.",
-    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
-  },
-  "claude_local_login_copy_failed": {
-    "title": "The local Claude login could not be copied",
-    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
-  },
-  "activity_attempt_already_exists": {
-    "title": "This request already has activity evidence",
-    "description": "An activity attempt is already bound to this request; starting another could duplicate execution.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
-  "activity_attempt_identity_mismatch": {
-    "title": "The activity reference does not match",
-    "description": "The supplied activity identity does not match the selected runner attempt.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
-  "activity_attempt_identity_required": {
-    "title": "The activity reference is incomplete",
-    "description": "The runner needs an explicit attempt identity to attribute this activity safely.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
   "activity_capture_interrupted_remote_outcome_unknown": {
     "title": "Activity capture was interrupted",
     "description": "The observer stopped before it could confirm the remote execution outcome.",
@@ -1242,16 +1147,6 @@
   "activity_runner_auth_unavailable": {
     "title": "Activity could not authenticate with the runner",
     "description": "The activity observer could not obtain the runner authentication needed for readback.",
-    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
-  },
-  "activity_runner_identity_mismatch": {
-    "title": "The activity runner does not match",
-    "description": "Activity readback was refused because the runner identity does not match the recorded invocation.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
-  "activity_runner_token_missing": {
-    "title": "Activity cannot access the runner",
-    "description": "The activity observer does not have the configured runner access needed to read this invocation.",
     "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "broker_request_failed": {
@@ -1283,11 +1178,6 @@
     "title": "The tool request body was not accepted",
     "description": "The command broker could not validate the submitted request body.",
     "recovery": "Inspect the tool result in Conversation and the configured runner tool policy. Ask the operator to correct the tool integration; do not grant broader access or repeat an uncertain request automatically."
-  },
-  "invalid_request": {
-    "title": "The runner request was not accepted",
-    "description": "The request did not match the runner operation format; no specific cause is established here.",
-    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "invalid_worker_command": {
     "title": "The worker command was not accepted",
@@ -1464,25 +1354,10 @@
     "description": "The retained native receipts exceeded the number of records allowed in a single projection.",
     "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
   },
-  "pinned_skill_workspace_changed": {
-    "title": "The pinned skill workspace changed",
-    "description": "The staged skill workspace no longer matches the immutable skill content recorded for this run.",
-    "recovery": "Restore the original immutable Skill Reference and its unchanged workspace from the saved flow. Ask the operator to inspect the pinned skill revision before starting another request."
-  },
   "private_opencode_server_required": {
     "title": "A private OpenCode server address is required",
     "description": "This adapter accepts only its isolated loopback OpenCode server, not a general external server URL.",
     "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
-  },
-  "run_not_active_in_this_process": {
-    "title": "This runner process does not own the active run",
-    "description": "The current process cannot control the selected run as an active local execution.",
-    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
-  },
-  "run_not_dispatchable": {
-    "title": "The run is not ready for dispatch",
-    "description": "The run state no longer permits this request to be submitted as a new execution.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
   },
   "unknown_worker_tool": {
     "title": "The worker tool is not supported",
@@ -1508,5 +1383,30 @@
     "title": "Some OpenCode telemetry could not be captured",
     "description": "The adapter could not retain all expected telemetry. The remaining activity records may be incomplete; this warning does not establish task failure.",
     "recovery": "Inspect the retained Conversation and OpenTelemetry records and check the existing run status. Ask the operator to investigate the capture before relying on its completeness; do not repeat the task just to recreate telemetry."
+  },
+  "langflow_loopback_required": {
+    "title": "The graph service must use a local address",
+    "description": "The bridge is configured with an unsupported graph service URL.",
+    "recovery": "Ask the operator to configure the local Langflow service using a loopback HTTP address, then check that the saved graph is accessible."
+  },
+  "langflow_local_login_unavailable": {
+    "title": "The bridge could not sign in to Langflow",
+    "description": "The bridge could not obtain a local application login while reading the saved graph.",
+    "recovery": "Open the local Langflow app and sign in if prompted. Ask the operator to check the bridge connection and local login configuration before starting the graph again."
+  },
+  "saved_flow_identity_unavailable": {
+    "title": "The saved graph could not be identified",
+    "description": "The bridge did not receive a usable saved graph identifier.",
+    "recovery": "Save the graph in Langflow and open that saved graph before running it. Check the existing execution before starting new work."
+  },
+  "saved_flow_fetch_failed": {
+    "title": "The bridge could not read the saved graph",
+    "description": "The local graph service did not provide the saved graph, including after a single login refresh when authorization expired.",
+    "recovery": "Open the saved graph in Langflow and confirm you can access it. Ask the operator to check the bridge login and graph service connection before starting new work."
+  },
+  "run_and_grant_store_must_differ": {
+    "title": "Run history and permissions need separate stores",
+    "description": "The local workflow is configured to use one private file for both run history and permission grants.",
+    "recovery": "Ask the operator to configure separate private files for run history and permission grants before starting this workflow."
   }
 }

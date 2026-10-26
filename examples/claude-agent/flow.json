@@ -394,7 +394,7 @@
                 "name": "handoff_reference",
                 "value": "",
                 "display_name": "Handoff Provenance",
-                "advanced": true,
+                "advanced": false,
                 "api_editable": false,
                 "input_types": [
                   "Data",

@@ -9,6 +9,27 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_catalogue_keys_are_unique(self):
+        def unique(pairs):
+            result={}
+            for key,value in pairs:
+                self.assertNotIn(key,result,f'Duplicate error catalogue key: {key}')
+                result[key]=value
+            return result
+        json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(),object_pairs_hook=unique)
+    def test_local_saved_graph_auth_producer_is_catalogued_and_routable(self):
+        catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        source=ast.parse((ROOT/'laomedo/work_graph/local_launch.py').read_text())
+        codes={node.exc.args[0].value for node in ast.walk(source)
+               if isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call) and node.exc.args
+               and isinstance(node.exc.args[0],ast.Constant) and isinstance(node.exc.args[0].value,str)}
+        tree=ast.parse((ROOT/'components/laomedo/codex_agent.py').read_text())
+        routed=next(ast.literal_eval(node.value) for node in tree.body if isinstance(node,ast.Assign)
+                    and any(isinstance(target,ast.Name) and target.id=='_ROUTABLE_ERRORS' for target in node.targets))
+        self.assertFalse(codes-catalogue.keys())
+        self.assertFalse(codes-routed)
+        for code in codes:
+            for key in ('title','description','recovery'):self.assertTrue(catalogue[code][key].strip())
     def test_catalogued_claude_codes_survive_component_routing(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
         tree=ast.parse((ROOT/'components/laomedo/codex_agent.py').read_text(encoding='utf-8'))

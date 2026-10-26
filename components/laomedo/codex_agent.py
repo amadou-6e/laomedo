@@ -19,6 +19,9 @@ from lfx.schema import Data, Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    'langflow_loopback_required', 'langflow_local_login_unavailable',
+    'saved_flow_identity_unavailable', 'saved_flow_fetch_failed',
+    'run_and_grant_store_must_differ',
     'claude_cancelled',
     'claude_container_configuration_invalid',
     'claude_container_image_missing',
@@ -119,7 +122,7 @@ class LaomedoCodexAgent(Component):
                  value="", advanced=True, show=False, info="Internal static pinned requirements when no contract connection is supplied."),
         IntInput(name="output_retries", display_name="Output Continuation Retries", value=1,
                  advanced=True, info="Additional same-session output corrections, separate from infrastructure retries. Safe continuations count in the runner turn ledger."),
-        DataInput(name="handoff_reference", display_name="Handoff Provenance", advanced=True),
+        DataInput(name="handoff_reference", display_name="Handoff Provenance"),
         StrInput(name="skill_id", display_name="Skill ID", advanced=True, show=False),
         StrInput(name="revision_id", display_name="Skill Revision", advanced=True, show=False),
         DropdownInput(name="model", display_name="Model", value="",

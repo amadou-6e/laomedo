@@ -399,7 +399,7 @@
                 "name": "handoff_reference",
                 "value": "",
                 "display_name": "Handoff Provenance",
-                "advanced": true,
+                "advanced": false,
                 "api_editable": false,
                 "input_types": [
                   "Data",
@@ -458,7 +458,7 @@
                   "JSON"
                 ],
                 "dynamic": false,
-                "info": "",
+                "info": "Optional pinned skills. Leave disconnected to run the task without skills.",
                 "title_case": false,
                 "track_in_telemetry": false,
                 "type": "other",
@@ -513,9 +513,7 @@
               "model": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
-                "options": [
-                  "opencode-go/gpt-6-luna"
-                ],
+                "options": [],
                 "options_metadata": [],
                 "combobox": false,
                 "dialog_inputs": {},
@@ -807,13 +805,13 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_opencode_agent",
-              "code_hash": "1ab1faaff3ab",
+              "code_hash": "4db95f890fe0",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
                   {
                     "name": "laomedo",
-                    "version": "0.1.0"
+                    "version": null
                   },
                   {
                     "name": "lfx",

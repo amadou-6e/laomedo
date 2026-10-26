@@ -133,3 +133,12 @@ test('invalid connected skills describe the optional zero-skill path without los
  expect(JSON.stringify(describeNodeFailure('Bearer sk-private-value',undefined))).not.toContain('private-value');
  expect(describeNodeFailure('one_to_sixteen_skills_required',undefined).description).toContain('more than sixteen');
 });
+
+test('saved graph authentication failures preserve their code and redact private details',()=>{
+ const failure=describeNodeFailure('saved_flow_fetch_failed; Bearer sk-private-value',undefined);
+ expect(failure.diagnostics.code).toBe('saved_flow_fetch_failed');
+ expect(failure.title).toContain('saved graph');
+ expect(failure.recovery).toContain('Langflow');
+ expect(JSON.stringify(failure)).not.toContain('private-value');
+ expect(describeNodeFailure('unfamiliar_saved_flow_failure',undefined).diagnostics.code).toBe('unfamiliar_saved_flow_failure');
+});

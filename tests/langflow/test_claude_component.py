@@ -46,6 +46,17 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(fields['model'].refresh_button)
         self.assertEqual(fields['runner_url'].value,'http://host.docker.internal:8769')
         self.assertTrue(fields['run_timeout_seconds'].advanced)
+        self.assertTrue(fields['handoff_reference'].show)
+        self.assertFalse(fields['handoff_reference'].advanced)
+
+    async def test_catalogue_failure_does_not_hide_handoff_input(self):
+        node=self.node()
+        config={'model':{'value':'sonnet'},'effort':{'value':'low'},
+                'handoff_reference':{'show':True,'advanced':False,'value':None}}
+        with patch.object(node,'_model_catalog',side_effect=RuntimeError('runner_model_catalog_unavailable_check_runner_connection')):
+            with self.assertRaises(RuntimeError):
+                await node.update_build_config(config,'sonnet','model')
+        self.assertEqual(config['handoff_reference'],{'show':True,'advanced':False,'value':None})
         self.assertEqual(fields['run_timeout_seconds'].value,180)
 
     def test_model_refresh_uses_claude_runner_token_not_codex_token(self):
