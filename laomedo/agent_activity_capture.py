@@ -94,7 +94,8 @@ class RunnerCapture:
                     self.accepted=True
                     after=attempt['native_start']
                     otel_after=attempt['otel_start']
-                    store.append(invocation,{'method':'capture/usageBaseline','threads':attempt['usage_baseline']})
+                    store.append(invocation,{'method':'capture/usageBaseline','threads':attempt['usage_baseline'],
+                                             'fresh_thread':attempt.get('fresh_thread') is True})
                 store.bind(invocation,run_id,native_session=page.get('thread_id'),model=page.get('model'))
                 for item in page['events']:
                     store.append(invocation,{'method':'native/receipt','received_at':item['received_at'],'event':item['event']},

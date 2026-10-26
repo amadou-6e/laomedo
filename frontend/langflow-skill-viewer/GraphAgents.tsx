@@ -122,6 +122,8 @@ export function activityTitle(value:Record<string,unknown>) {
     return target?`${action} · ${target}`:action;
   }
   if(value.type==="collabAgentToolCall"||value.type==="collabAgentSpawnToolCall")return `Subagent tool${typeof value.tool==="string"?`: ${value.tool}`:""}${typeof value.status==="string"?` · ${value.status}`:""}`;
+  if(value.type==="mcpToolCall")return [value.server,value.tool].filter(part=>typeof part==="string"&&part).join(" · ")||"MCP tool";
+  if(value.type==="dynamicToolCall")return typeof value.tool==="string"?value.tool:"Tool call";
   if(value.type==="toolCall"&&typeof value.toolName==="string")return value.toolName;
   return String(value.type??"Tool activity");
 }
@@ -223,6 +225,7 @@ export function scopedProjection(projection:Projection,scope:ActivityScope):Proj
   const cost=scope.turn?turns[0]?.cost??{...projection.cost,amount:null}:projection.cost.per_thread?.[scope.thread]??{...projection.cost,amount:null};
   const ids=new Set(items.map(item=>item.id));
   const telemetry=projection.telemetry.filter(record=>{
+    if(record.scope_conflict)return false;
     const attrs=(record.attributes??{}) as Record<string,unknown>;
     return attrs["conversation.id"]===scope.thread&&(!scope.turn||attrs["turn.id"]===scope.turn||typeof attrs["call.id"]==="string"&&ids.has(attrs["call.id"]));
   });
