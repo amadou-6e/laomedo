@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
-jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
+jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn(),post:jest.fn()}}));
 jest.mock("@/customization/utils/urls",()=>({getBaseUrl:()=>"/api/v1/"}));
 let canvasNodes:unknown[]=[];
 let activityTarget:{flowId:string;nodeId:string}|null=null;

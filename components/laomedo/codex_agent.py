@@ -57,7 +57,7 @@ _HTTP = request.build_opener(_NoRedirect())
 
 class LaomedoCodexAgent(Component):
     display_name = "Laomedo Codex Agent"
-    description = "Start, run, resume or cancel a pinned-skill Codex session through the local Docker runner."
+    description = "Start, run, resume or cancel a Codex task with optional pinned skills through the local Docker runner."
     icon = "Bot"
     name = "LaomedoCodexAgent"
 
@@ -82,11 +82,11 @@ class LaomedoCodexAgent(Component):
                       info="Refresh to load models from the configured runner. Runner availability is checked before execution."),
         DropdownInput(name="effort", display_name="Reasoning Effort", value="",
                       options=[], combobox=False),
-        DataInput(name="skill_reference", display_name="Skill References", is_list=True),
+        DataInput(name="skill_reference", display_name="Skill References", is_list=True,
+                  info="Optional pinned skills. Leave disconnected to run the task without skills."),
         DataInput(name="run_reference", display_name="Prior Run", show=False,
                   info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
-        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False,
-                 override_skip=True,
+        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False, override_skip=True,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
                  value="http://host.docker.internal:8765", real_time_refresh=True),
@@ -103,11 +103,9 @@ class LaomedoCodexAgent(Component):
     ]
 
     async def update_build_config(self, build_config, field_value, field_name=None):
+        # OpenCode has a separate provider/model and variant contract.
         if self.name != "LaomedoCodexAgent":
             return build_config
-        return await self._update_model_config(build_config, field_value, field_name)
-
-    async def _update_model_config(self, build_config, field_value, field_name=None):
         if field_name == "runner_url":
             if not isinstance(field_value, str):
                 raise ValueError("local_runner_url_required")
@@ -138,10 +136,6 @@ class LaomedoCodexAgent(Component):
         effort_field.update(options=efforts, combobox=False)
         return build_config
 
-    def _model_catalog_token_file_path(self):
-        return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
-                              "/run/secrets/laomedo-runner-token")
-
     def _model_catalog(self, build_config):
         base = str(build_config.get("runner_url", {}).get("value") or self.runner_url).rstrip("/")
         parsed = urlsplit(base)
@@ -151,7 +145,8 @@ class LaomedoCodexAgent(Component):
             raise ValueError("local_runner_url_required")
         # Discovery talks directly to the runner, never with the bridge token.
         try:
-            token = Path(self._model_catalog_token_file_path()).read_text(encoding="utf-8").strip()
+            token = Path(os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
+                         "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
             if not token:
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
@@ -281,51 +276,29 @@ class LaomedoCodexAgent(Component):
             # synchronous POST has no identity to reconcile if Stop races its reply.
             endpoint = base + "/v1/runs/async"
             connected = getattr(self, "skill_reference", None)
-            if connected in (None, "", []):
-                raise ValueError("skill_reference_required_use_skill_node")
-            if connected is not None:
-                refs = connected if isinstance(connected, list) else [connected]
-                refs = [getattr(ref, "data", ref) for ref in refs]
-                if not 1 <= len(refs) <= 16:
-                    raise ValueError("one_to_sixteen_skills_required")
-                seen = set()
-                for ref in refs:
-                    if (not isinstance(ref, dict) or
-                            not isinstance(ref.get("skill_id"), str) or
-                            not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", ref["skill_id"]) or
-                            not isinstance(ref.get("revision_id"), str) or
-                            not re.fullmatch(r"sha256:[0-9a-f]{64}", ref["revision_id"]) or
-                            ref.get("tree_hash") != ref["revision_id"]):
-                        raise ValueError("invalid_skill_reference")
-                    if ref["skill_id"] in seen:
-                        raise ValueError("duplicate_skill_id")
-                    seen.add(ref["skill_id"])
-                if len(refs) > 1:
-                    payload = {"task": task, "model": model,
-                               "effort": effort, "skill_refs": refs}
-                    payload["request_id"] = selected_request_id
-                    return self._fresh_route(endpoint, payload, selected_request_id)
-                connected = refs[0]
-            revision = ""
-            skill_id = ""
-            if connected is not None:
-                if not isinstance(connected, dict):
+            refs = [] if connected in (None, "", []) else connected if isinstance(connected, list) else [connected]
+            refs = [getattr(ref, "data", ref) for ref in refs]
+            if len(refs) > 16:
+                raise ValueError("one_to_sixteen_skills_required")
+            seen = set()
+            for ref in refs:
+                if (not isinstance(ref, dict) or
+                        not isinstance(ref.get("skill_id"), str) or
+                        not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", ref["skill_id"]) or
+                        not isinstance(ref.get("revision_id"), str) or
+                        not re.fullmatch(r"sha256:[0-9a-f]{64}", ref["revision_id"]) or
+                        ref.get("tree_hash") != ref["revision_id"]):
                     raise ValueError("invalid_skill_reference")
-                selected_id = connected.get("skill_id")
-                selected_revision = connected.get("revision_id")
-                if (not isinstance(selected_id, str) or
-                        not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", selected_id) or
-                        not isinstance(selected_revision, str) or
-                        not re.fullmatch(r"sha256:[0-9a-f]{64}", selected_revision) or
-                        connected.get("tree_hash") != selected_revision):
-                    raise ValueError("invalid_skill_reference")
-                skill_id, revision = selected_id, selected_revision
-            if not skill_id.strip() or not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
-                raise ValueError("pinned_skill_required")
+                if ref["skill_id"] in seen:
+                    raise ValueError("duplicate_skill_id")
+                seen.add(ref["skill_id"])
             payload = {"task": task, "model": model, "effort": effort,
-                       "skill_ref": {"skill_id": skill_id,
-                                     "revision_id": revision, "tree_hash": revision}}
-            payload["request_id"] = selected_request_id
+                       "request_id": selected_request_id}
+            if len(refs) == 1:
+                payload["skill_ref"] = {key: refs[0][key] for key in
+                                       ("skill_id", "revision_id", "tree_hash")}
+            else:
+                payload["skill_refs"] = refs
             return self._fresh_route(endpoint, payload, selected_request_id)
         prior = getattr(self.run_reference, "data", self.run_reference)
         if prior in (None, "", []) and getattr(self, "run_reference_json", None):
@@ -547,7 +520,8 @@ class LaomedoCodexAgent(Component):
                         {"experiment_request_binding_denied", "standing_policy_inactive",
                          "standing_policy_invalid", "standing_request_denied",
                          "standing_issue_context_required", "standing_issue_context_mismatch",
-                         "standing_pinned_inputs_required", "runner_busy"} else "runner_dispatch_refused")
+                         "standing_pinned_inputs_required", "runner_busy", "claude_host_login_unavailable",
+                         "claude_host_login_expired", "claude_local_login_copy_failed"} else "runner_dispatch_refused")
                 if 400 <= exc.code < 500:
                     raise RuntimeError(code) from None
                 raise RuntimeError("runner_runtime_unknown") from None

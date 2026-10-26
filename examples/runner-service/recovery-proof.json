@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-23",
+  "status": "historical",
+  "issue": 182,
+  "pr": 183,
+  "recovery_source": "b22add4e70b06e965bac4c4c5e8e7fa2b5f2fe8a",
+  "claude_source": "cb1873de8c095798ca22639f7989af0c4046c047",
+  "integration_source": "44643f2ccaf3feeb9db7e2f0d289bba440d08e0d",
+  "provider": "claude",
+  "requires_claude_adapter_pr": 180,
+  "scope": "Real API service restart and completed-run inspection; no new model turn or live Codex process launch.",
+  "browser": {
+    "graph_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1",
+    "explicit_start_requests": 1,
+    "model_or_graph_dispatches": 0,
+    "page_errors": [],
+    "views": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "online": true,
+        "completed_native_activity": true
+      }
+    ]
+  },
+  "status_graph": {
+    "status": "passed",
+    "real_api_restart_via_ui": true,
+    "status_graph_executions": [
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      },
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      },
+      {
+        "status": 200,
+        "existing_native_answer_returned": true
+      }
+    ],
+    "attempted_model_turns_before": 1,
+    "attempted_model_turns_after": 1,
+    "new_model_turns": 0,
+    "ceiling": 1,
+    "token_and_ledger_reused": true,
+    "api_ready_after_exhaustion": true,
+    "graph_default_operation": "status",
+    "graph_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1"
+  },
+  "code_controls": {
+    "service_tests": 7,
+    "ui_tests": 13,
+    "production_build": "passed3m30s"
+  },
+  "earlier_failure": "The verification host shut down its API but left the graph configured for fresh execution.",
+  "preview_default": "Status-only inspection of the completed real run. Fresh model work still requires a new approved allowance.",
+  "review_fixes": {
+    "startup_environment_allowlisted": true,
+    "unrelated_provider_overrides_excluded": true,
+    "recovered_availability_error_cleared": true,
+    "codex_source_option_explicit": true
+  },
+  "final_read_only_captures": {
+    "graph_url": "http://127.0.0.1:7894/flow/79b4a944-594d-4f09-85ad-8e1d197d5ef1",
+    "explicit_start_requests": 0,
+    "model_or_graph_dispatches": 0,
+    "page_errors": [],
+    "views": [
+      {
+        "theme": "light",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1600,
+        "height": 1050,
+        "online": true,
+        "completed_native_activity": true
+      },
+      {
+        "theme": "dark",
+        "width": 1080,
+        "height": 800,
+        "online": true,
+        "completed_native_activity": true
+      }
+    ]
+  },
+  "superseded_by": "Revised app connection-error UI requires fresh acceptance; this preserves only the earlier canvas/activity proof."
+}

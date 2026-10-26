@@ -1,4 +1,11 @@
-"""Explicit, disposable host composition. Never starts merely by importing.
+"""Historical EXP-139 host composition, retained for its pinned observation.
+
+This old protocol passes a retired global cap to its injected runner. It is not
+a supported current-runtime launcher. Reproduce only against the observation's
+pinned source; a new campaign requires a separately reviewed verification
+harness migration. Do not restore that cap to normal runners.
+
+Never starts merely by importing.
 
 Run services and runner as separate host processes only after configuration and
 exact-source review approval. No credential or grant enters the Langflow graph.
