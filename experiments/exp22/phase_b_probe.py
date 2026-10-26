@@ -14,6 +14,7 @@ import time
 from uuid import uuid4
 
 from laomedo.local_runner import AppServer, LocalRunner
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skill_store import SkillStore
 
 

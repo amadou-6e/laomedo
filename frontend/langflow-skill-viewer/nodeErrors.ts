@@ -15,7 +15,7 @@ const operations = new Set(["fresh", "start", "resume", "status", "cancel", "mod
 const fallback: Description = {
   title: "The node could not confirm completion",
   description: "An unrecognized failure prevented a confirmed result. Its cause has not been established.",
-  recovery: "Review the safe technical details with the operator. If a request may have reached the runner, check its existing run before starting another request.",
+  recovery: "Review the safe technical details. If a request may have reached the runner, check its existing run before starting another request.",
 };
 
 // Never copy exception bodies, stack traces, endpoints, tasks or arbitrary params.
@@ -120,10 +120,10 @@ export function describeNodeFailure(raw: unknown, status: any, context: ErrorCon
 }
 
 // Toasts are presentation only: original API events and machine codes are untouched.
-export function describeLaomedoAlert(alert: { title: string; list?: string[] }, laomedoContext = false): { title: string; list?: string[]; diagnosticCode?: string } {
+export function describeLaomedoAlert(alert: { title: string; list?: string[] }, laomedoContext = false): { title: string; list?: string[]; diagnosticCode?: string; failure?: NodeFailure } {
   const raw = (alert.list ?? []).find(value => typeof value === "string" &&
     isKnownNodeError(value, laomedoContext));
   if (!raw) return alert;
   const failure = describeNodeFailure(raw, undefined);
-  return { title: failure.title, diagnosticCode: failure.diagnostics.code, list: [failure.description, failure.recovery] };
+  return { failure, title: failure.title, diagnosticCode: failure.diagnostics.code, list: [failure.description, "Open Error details or expand Technical details for recovery steps and diagnostics."] };
 }

@@ -15,13 +15,14 @@ class LoginMirrorTests(TestCase):
         from laomedo.claude_runner import ClaudeRunner
         from laomedo.local_runner import RunnerError
         runner = object.__new__(ClaudeRunner)
+        runner.turn_timeout = 180
         runner.container = SimpleNamespace(profile='laomedo-claude-unit', image_id=IMAGE,
             control=lambda *args, **kw: SimpleNamespace(returncode=0,
                 stdout=b'{"loggedIn":true,"authMethod":"claude.ai","orgId":"unit"}'))
         with patch.dict('os.environ', {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN': '1'}), \
              patch('laomedo.claude_runner.mirror_login') as mirror:
             self.assertTrue(runner._check_auth().startswith('sha256:'))
-            mirror.assert_called_once_with('laomedo-claude-unit', IMAGE)
+            mirror.assert_called_once_with('laomedo-claude-unit', IMAGE, minimum_validity_seconds=180)
         for code in CODES:
             with self.subTest(code=code), \
                  patch.dict('os.environ', {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN': '1'}), \

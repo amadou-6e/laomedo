@@ -233,16 +233,20 @@ class ClaudeRunner(LocalRunner):
         self.profile = self.container.profile
         self.image, self.image_id = image, self.container.image_id
 
-    def _check_auth(self, *, timeout=20):
+    def _mirror_host_login(self, *, minimum_validity_seconds=None):
         if os.environ.get('LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN') == '1':
             try:
-                mirror_login(self.container.profile, self.container.image_id)
+                mirror_login(self.container.profile, self.container.image_id,
+                             minimum_validity_seconds=minimum_validity_seconds or self.turn_timeout)
             except LocalClaudeLoginError as error:
                 if str(error) == 'claude_host_login_unavailable':
                     raise RunnerError('claude_host_login_unavailable') from None
                 if str(error) == 'claude_host_login_expired':
                     raise RunnerError('claude_host_login_expired') from None
                 raise RunnerError('claude_local_login_copy_failed') from None
+
+    def _check_auth(self, *, timeout=20, minimum_validity_seconds=None):
+        self._mirror_host_login(minimum_validity_seconds=minimum_validity_seconds)
         checked = self.container.control(['auth', 'status'], timeout=timeout)
         try:
             auth = json.loads(checked.stdout)
@@ -565,7 +569,7 @@ class ClaudeRunner(LocalRunner):
             remaining = record['_attempt_deadline'] - time.monotonic()
             if remaining <= 0:
                 raise RunnerError('claude_turn_timeout')
-            identity = self._check_auth(timeout=min(60, remaining))
+            identity = self._check_auth(timeout=min(60, remaining), minimum_validity_seconds=remaining)
             if resume and (not identity or record.get("credential_subject_hash") != identity):
                 raise RunnerError("resume_auth_identity_mismatch")
             record["credential_subject_hash"] = identity
@@ -772,9 +776,8 @@ def main():
                           lease_service=args.lease_service, turn_timeout=args.turn_timeout,
                           github_authority=authority, mediator_state=args.mediator_state, git_workspace=args.git_workspace,
                           artifact_sources=dict(item.split("=",1) for item in args.artifact_source))
-    # Discovery is control-only and belongs to startup/editor refresh, before
-    # accepting async inference submissions with a short ACK deadline.
-    runner.model_catalog()
+    # Authentication and discovery belong to editor refresh or dispatch.
+    # Completed-run Status and Activity remain available when login expires.
     serve(runner, port=args.port).serve_forever()
 
 

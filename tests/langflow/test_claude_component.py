@@ -163,7 +163,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_predispatch_failure_preserves_public_code_and_redacts_unknown_payloads(self):
         from urllib.error import HTTPError
         import laomedo.codex_agent as common
-        for code in ('claude_model_required', 'claude_native_skill_policy_unsupported',
+        for code in ('claude_host_login_unavailable', 'claude_host_login_expired', 'claude_local_login_copy_failed', 'claude_model_required', 'claude_native_skill_policy_unsupported',
                      'unsupported_claude_effort', 'SECRET payload and token'):
             node = self.node(skill_reference=[])
             error = HTTPError('http://localhost:8769/v1/runs/async', 400, 'refused', {},

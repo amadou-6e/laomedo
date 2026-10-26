@@ -45,7 +45,9 @@ python -m laomedo.local_runner --state $state --skill-store $store --source-work
 The import is a one-time operation. A second import of the same skill ID is
 rejected; use `SkillStore.revision('laomedo-pilot', pinned_revision)` to check
 an existing store. Preflight initializes the real Docker app-server and lists
-model/effort options without submitting a turn. Start the normal service:
+model/effort options without submitting a turn. Normal runner startup has no
+experiment-wide turn ceiling. Bound any verification campaign with the separate
+experiment harness, not a persistent user service:
 
 ```powershell
 python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source
@@ -175,3 +177,7 @@ integrity, restart/resume binding, HTTP result and failure behavior, and the
 legacy-ledger compatibility with an internal fake app-server. They do not establish a successful
 model-backed Langflow run by themselves or a broader security boundary. Private raw events
 remain under the runner state directory and are never committed.
+
+Normal service startup does not install an experiment-wide turn ceiling. Bound
+new verification campaigns separately using `experiments/turn_harness.py`; old
+acceptance ledgers are historical evidence, not future-run authorization.

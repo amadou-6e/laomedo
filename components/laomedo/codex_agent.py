@@ -19,6 +19,7 @@ from lfx.schema import Data, Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "claude_host_login_unavailable", "claude_host_login_expired", "claude_local_login_copy_failed",
     "runner_api_token_file_unavailable", "runner_api_token_file_empty",
     "runner_transport_failed", "runner_invalid_response", "runner_invalid_error_response",
     "runner_response_identity_mismatch", "runner_response_thread_mismatch",
@@ -70,7 +71,7 @@ class _ModelCatalog(dict):
 
 class LaomedoCodexAgent(Component):
     display_name = "Laomedo Codex Agent"
-    description = "Start, run, resume or cancel a pinned-skill Codex session through the local Docker runner."
+    description = "Start, run, resume or cancel a Codex task with optional pinned skills through the local Docker runner."
     icon = "Bot"
     name = "LaomedoCodexAgent"
 
@@ -99,7 +100,7 @@ class LaomedoCodexAgent(Component):
                   info="Optional pinned skills. Leave disconnected to run the task without skills."),
         DataInput(name="run_reference", display_name="Prior Run", show=False,
                   info="Run Reference from an earlier execution. Used by resume/status/cancel; fresh/start creates a new execution."),
-        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False,
+        StrInput(name="run_reference_json", display_name="Prior Run JSON", advanced=True, show=False, override_skip=True,
                  info="For API/manual resume when no Data port is connected."),
         StrInput(name="runner_url", display_name="Runner URL", advanced=True,
                  value="http://host.docker.internal:8765", real_time_refresh=True),
@@ -337,7 +338,7 @@ class LaomedoCodexAgent(Component):
                 payload["skill_refs"] = refs
             return self._fresh_route(endpoint, payload, selected_request_id)
         prior = getattr(self.run_reference, "data", self.run_reference)
-        if prior is None and getattr(self, "run_reference_json", None):
+        if prior in (None, "", []) and getattr(self, "run_reference_json", None):
             try:
                 prior = json.loads(self.run_reference_json)
             except (ValueError, TypeError):

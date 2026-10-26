@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from laomedo.local_runner import LocalRunner
+from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skill_store import SkillStore
 
 

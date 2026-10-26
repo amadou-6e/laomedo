@@ -529,9 +529,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         node = next(n for n in flow["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent")
         fields = node["data"]["node"]["template"]
         fields["operation"]["value"] = "resume"
-        # Static legacy values must be explicitly exposed in a saved graph;
-        # Langflow does not submit hidden template inputs.
-        fields["run_reference_json"]["show"] = True
+        self.assertFalse(fields["run_reference_json"]["show"])
+        self.assertTrue(fields["run_reference_json"]["override_skip"])
         fields["run_reference_json"]["value"] = json.dumps({"run_id": RUN,
             "thread_id": "native-thread", "status": "completed", "post_run_hash": HASH,
             "model": "gpt-6-luna", "effort": "low"})
