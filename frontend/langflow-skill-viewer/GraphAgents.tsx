@@ -43,7 +43,15 @@ function ActivityInfo({label,text}:{label:string;text:string}) {
   return <Popover><PopoverTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" aria-label={label}><IconComponent name="Info" className="h-3.5 w-3.5"/></Button></PopoverTrigger><PopoverContent className="max-w-[calc(100vw-2rem)] text-xs" align="end">{text}</PopoverContent></Popover>;
 }
 
-type ExportContext = {graph_id?:string;run_id:string;execution_id:string|null;node_id:string;provider?:string;model:string|null;native_session:string|null;scope:ActivityScope;capture_state:string;truncated:boolean};
+type ExportContext = {graph_id?:string;run_id:string;execution_id:string|null;node_id:string;provider?:string;model:string|null;native_session:string|null;scope:ActivityScope;capture_state:string;capture_reason?:string|null;truncated:boolean};
+
+function safeExportContext(context:ExportContext):ExportContext {
+  return {...context,capture_reason:context.capture_reason?describeNodeFailure(context.capture_reason,undefined).diagnostics.code:null};
+}
+
+export function telemetryDocument(records:Record<string,unknown>[],coverage:string,context:ExportContext|undefined,query:string) {
+  return JSON.stringify({schema_version:1,kind:"opentelemetry_records",context:context?safeExportContext(context):undefined,search:query,coverage,records},null,2);
+}
 
 export function conversationMatches(items:Lane[],query:string) {
   if(!query.trim())return items;
@@ -53,9 +61,10 @@ export function conversationMatches(items:Lane[],query:string) {
 }
 
 export function conversationDocument(items:Lane[],context:ExportContext,query:string,format:"md"|"json") {
+  context=safeExportContext(context);
   if(format==="json")return JSON.stringify({schema_version:1,kind:"conversation",context,search:query,items},null,2);
   const fence=(text:string)=>{let length=3;for(const match of text.matchAll(/`+/g))length=Math.max(length,match[0].length+1);const marker="`".repeat(length);return `${marker}json\n${text}\n${marker}`};
-  return [`# Agent conversation`,`Graph: ${context.graph_id??"Unknown"}\nRun: ${context.run_id}\nExecution: ${context.execution_id??"Unknown"}\nProvider: ${context.provider??"Unknown"}\nModel: ${context.model??"Unknown"}\nScope: ${JSON.stringify(context.scope)}\nCapture: ${context.capture_state}${context.truncated?" (partial)":""}\nSearch: ${JSON.stringify(query)}`,
+  return [`# Agent conversation`,`Graph: ${context.graph_id??"Unknown"}\nRun: ${context.run_id}\nExecution: ${context.execution_id??"Unknown"}\nProvider: ${context.provider??"Unknown"}\nModel: ${context.model??"Unknown"}\nScope: ${JSON.stringify(context.scope)}\nCapture: ${context.capture_state}${context.truncated?" (partial)":""}\nCapture warning: ${context.capture_reason??"None"}\nSearch: ${JSON.stringify(query)}`,
     ...items.map(lane=>{const value=lane.item??{},text=messageText(value),speaker=value.type==="userMessage"?"User":lane.thread&&lane.thread!==context.native_session?"Subagent":"Agent";return `## ${text!==null?speaker:activityTitle(value)} · ${lane.started}\n\nThread: ${lane.thread??"Unknown"}${lane.turn?` · Turn: ${lane.turn}`:""}\n\n${text??fence(JSON.stringify(value,null,2))}`})].join("\n\n")+"\n";
 }
 
@@ -276,7 +285,7 @@ export function RuntimeRecords({records,coverage,context}:{records:Record<string
   const search=useMemo(()=>new Fuse(entries,{keys:["text"],threshold:.35,ignoreLocation:true,minMatchCharLength:2}),[entries]);
   const visible=query.trim()?search.search(query.trim()).map(result=>result.item):entries;
   return <section className="min-w-0 space-y-4" aria-label="OpenTelemetry">
-    <SectionHeading actions={<><ActivityInfo label="OpenTelemetry capture details" text={`${coverage}. Runtime spans are not counted as agent invocations or token charges.`}/><Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" aria-label="Export OpenTelemetry JSON" disabled={!visible.length} title={`Export ${visible.length} matching OpenTelemetry records`} onClick={()=>downloadActivity(JSON.stringify({schema_version:1,kind:"opentelemetry_records",context,search:query,coverage,records:visible.map(entry=>entry.record)},null,2),`opentelemetry-${context?.run_id??"records"}.json`,"application/json")}><IconComponent name="Download" className="h-3.5 w-3.5"/>Export</Button></>}>OpenTelemetry</SectionHeading>
+    <SectionHeading actions={<><ActivityInfo label="OpenTelemetry capture details" text={`${coverage}. Runtime spans are not counted as agent invocations or token charges.`}/><Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" aria-label="Export OpenTelemetry JSON" disabled={!visible.length} title={`Export ${visible.length} matching OpenTelemetry records`} onClick={()=>downloadActivity(telemetryDocument(visible.map(entry=>entry.record),coverage,context,query),`opentelemetry-${context?.run_id??"records"}.json`,"application/json")}><IconComponent name="Download" className="h-3.5 w-3.5"/>Export</Button></>}>OpenTelemetry</SectionHeading>
     <div className="flex min-w-0 items-center gap-3"><div className="relative min-w-0 flex-1"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div><span role="status" className="shrink-0 text-xs text-muted-foreground">{visible.length} of {records.length} records</span></div>
     <div className="divide-y rounded-md border">{visible.map(({record,index})=><div key={index} className="min-w-0 px-3 py-2"><JsonDisclosure label={`${index+1}. ${typeof record.name==="string"?record.name:`Runtime record ${index+1}`}${typeof record.signal==="string"?` / ${record.signal}`:""}`} value={record}/></div>)}{!visible.length&&<p className="p-3 text-sm text-muted-foreground">{records.length?"No matching records. Clear the search to show every record.":"No OpenTelemetry records captured."}</p>}</div>
   </section>;
@@ -360,7 +369,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
   const earlier=detail&&resumedThread?runs.filter(run=>run.id!==detail.run.id&&run.node===detail.run.node&&run.provider===detail.run.provider&&run.native_session===resumedThread&&run.execution&&run.ended&&Date.parse(run.ended)<=Date.parse(detail.run.started)).sort((a,b)=>Date.parse(b.started)-Date.parse(a.started))[0]:undefined;
   const selectScope=(invocation:string,next:ActivityScope={})=>{setSelected(invocation);setScope(next)};
   const scopeLabel=scope.turn?"Turn":scope.thread?"Conversation":"Run";
-  const exportContext:ExportContext|undefined=detail?{graph_id:flowId,run_id:detail.run.id,execution_id:detail.run.execution,node_id:detail.run.node,provider:detail.run.provider,model:(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??null,native_session:detail.run.native_session,scope,capture_state:detail.run.stream_state,truncated:detail.truncated}:undefined;
+  const exportContext:ExportContext|undefined=detail?{graph_id:flowId,run_id:detail.run.id,execution_id:detail.run.execution,node_id:detail.run.node,provider:detail.run.provider,model:(scope.thread&&scope.thread!==detail.run.native_session?projection?.cost.model:detail.run.model)??null,native_session:detail.run.native_session,scope,capture_state:detail.run.stream_state,capture_reason:detail.run.reason??null,truncated:detail.truncated}:undefined;
   const selectedLane=currentTurn??currentConversation?.lane??detail?.run;
   const executions=[...new Set(runs.map(run=>run.execution).filter((value):value is string=>Boolean(value)))];
   const agentRow=(run:Run,thread:ReturnType<typeof conversationRows>[number])=>{

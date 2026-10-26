@@ -48,6 +48,10 @@ def emitted_codes(source):
             candidates.append(node.exc.args[0])
         if isinstance(node, ast.Call):
             candidates.extend(keyword.value for keyword in node.keywords if keyword.arg in _ERROR_FIELDS)
+            if (isinstance(node.func, ast.Attribute) and node.func.attr == "setdefault"
+                    and len(node.args) >= 2 and isinstance(node.args[0], ast.Constant)
+                    and node.args[0].value in _ERROR_FIELDS):
+                candidates.append(node.args[1])
         if isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Attribute) and target.attr in _ERROR_FIELDS:
@@ -86,6 +90,17 @@ class OpenCodeErrorCatalogueTests(unittest.TestCase):
     def test_guard_catches_new_literal_and_nested_capture_failures(self):
         self.assertEqual(emitted_codes('raise RuntimeError("new_public_failure")\nself.error="new_capture_failure"\nx.update(capture_error="new_snapshot_failure" if flag else "new_stream_failure")'),
                          {"new_public_failure","new_capture_failure","new_snapshot_failure","new_stream_failure"})
+
+    def test_guard_catches_positional_capture_defaults_and_dictionary_updates(self):
+        source = '''
+x.setdefault("capture_error", capture.error or "new_terminal_failure")
+x.setdefault("reason", "new_telemetry_failure")
+x.update({"capture_error": "new_dictionary_failure"})
+x.update(error_category="new_keyword_failure")
+x.setdefault("ordinary_field", "not_an_error")
+'''
+        self.assertEqual(emitted_codes(source), {"new_terminal_failure", "new_telemetry_failure",
+                                               "new_dictionary_failure", "new_keyword_failure"})
 
 
 if __name__ == "__main__":

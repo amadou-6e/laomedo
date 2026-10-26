@@ -883,5 +883,15 @@
     "title": "The runner accounting record is invalid",
     "description": "The local accounting record has an unsupported count or shape, so an attempt could not be reserved. Normal accounting is separate from historical experiment allowances.",
     "recovery": "Ask the operator to inspect the affected accounting record against existing run history. Preserve historical experiment evidence and check any existing run before submitting another request."
+  },
+  "opencode_native_terminal_not_observed": {
+    "title": "The end of the OpenCode activity was not captured",
+    "description": "The captured native stream has no confirmed terminal event. This limits the activity record; it does not establish whether the task succeeded or failed.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records and check the existing run status before starting another request. Repeating the task will not restore the missing capture."
+  },
+  "opencode_adapter_telemetry_incomplete": {
+    "title": "Some OpenCode telemetry could not be captured",
+    "description": "The adapter could not retain all expected telemetry. The remaining activity records may be incomplete; this warning does not establish task failure.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records and check the existing run status. Ask the operator to investigate the capture before relying on its completeness; do not repeat the task just to recreate telemetry."
   }
 }

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument } from "./index";
+import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn()}}));
@@ -38,13 +38,28 @@ test("conversation fuzzy search preserves transcript order and exports exact sco
   expect(conversationMatches(items,"   ")).toBe(items);
 });
 
+test.each(["opencode_native_terminal_not_observed","opencode_adapter_telemetry_incomplete","invocation_boundary_unverified"])("exports preserve capture warning %s",reason=>{
+  const context={run_id:"run",execution_id:"execution",node_id:"node",model:null,native_session:null,scope:{thread:"child"},capture_state:"partial",capture_reason:reason,truncated:true};
+  expect(JSON.parse(conversationDocument([],context,"query","json")).context).toEqual(context);
+  expect(conversationDocument([],context,"query","md")).toContain(`Capture warning: ${reason}`);
+  const telemetry=JSON.parse(telemetryDocument([{name:"span"}],"partial",context,"query"));
+  expect(telemetry.context).toEqual(context);expect(telemetry.search).toBe("query");expect(telemetry.records).toEqual([{name:"span"}]);
+});
+
+test("exports redact unsafe capture reasons without claiming complete evidence",()=>{
+  const context={run_id:"run",execution_id:null,node_id:"node",model:null,native_session:null,scope:{},capture_state:"partial",capture_reason:"https://private.invalid/?api_key=DO_NOT_EXPORT",truncated:true};
+  for(const output of [conversationDocument([],context,"","json"),conversationDocument([],context,"","md"),telemetryDocument([],"partial",context,"")]){
+    expect(output).not.toContain("DO_NOT_EXPORT");expect(output).not.toContain("private.invalid");expect(output).toContain("unrecognized_error");expect(output).toContain("partial");
+  }
+});
+
 test("conversation search has clear and empty states, and switching scope resets it",async()=>{
   const first={...run("one","execution"),native_session:"parent"};
   const lane=(id:string,thread:string,text:string)=>({id,thread,started:first.started,ended:first.ended,item:{type:"agentMessage",text}});
   const p={...projection,threads:[{id:"parent",parent:null},{id:"child",parent:"parent",title:"Child reviewer"}],items:[lane("a","parent","Garnet main answer"),lane("b","child","Beryl child answer")]};
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:p,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
-  fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/}));
+  fireEvent.click(await screen.findByRole("button",{name:/^node-one.*completed$/},{timeout:5000}));
   const search=await screen.findByRole("textbox",{name:"Search conversation"});
   fireEvent.change(search,{target:{value:"Garnet"}});expect(screen.getByText("Garnet main answer")).toBeInTheDocument();
   fireEvent.change(search,{target:{value:"zzzzzzzzzz"}});expect(screen.getByText("No matching messages or tools.")).toBeInTheDocument();expect(screen.getByRole("button",{name:"Export conversation"})).toBeDisabled();
