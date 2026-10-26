@@ -182,7 +182,7 @@
   "runner_model_catalog_unavailable_check_runner_connection": {
     "title": "The model list could not be loaded",
     "description": "The configured runner did not return a usable capability catalogue.",
-    "recovery": "If the local runner is offline, use Start local runner. Once it is online, open Model and use its Refresh control, then select an available model and effort before running. Starting the runner and refreshing models do not submit an agent task."
+    "recovery": "If the local runner is offline, use Start local runner. Once it is online, open Model and use its Refresh control, then select an available model and effort before running. Starting the runner and refreshing models do not submit an agent task. If discovery still fails, check the configured runner account login."
   },
   "model_list_rejected": {
     "title": "The model list could not be loaded",

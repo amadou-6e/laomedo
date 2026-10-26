@@ -126,7 +126,9 @@ function LocalBackendRecovery({ children, catalogue = false }: { children?: (sta
     : error ? "The local backend connection could not be confirmed."
     : "Checking the local runner backend connection...";
 
-  const guidance = prerequisite ? prerequisite.recovery : service?.state === "ready" ? ""
+  const guidance = catalogue && service?.reason === "runner_local_offline"
+    ? "Starting the runner does not submit an agent task. Once it is online, open Model and use Refresh."
+    : prerequisite ? prerequisite.recovery : service?.state === "ready" ? ""
     : catalogue ? "Starting the runner does not submit an agent task. Once it is online, open Model and use Refresh."
     : "Starting the runner does not rerun the graph. Check any existing run before starting new work.";
   const installDocker = service?.reason === "runner_docker_not_installed";
@@ -143,5 +145,5 @@ function LocalBackendRecovery({ children, catalogue = false }: { children?: (sta
 }
 
 export default function RunnerRecovery({ message, children }: { message: unknown; children?: (state: RecoveryState) => ReactNode }) {
-  return isRunnerConnectionError(message) ? <LocalBackendRecovery catalogue={message === "runner_model_catalog_unavailable_check_runner_connection"}>{children}</LocalBackendRecovery> : null;
+  return isRunnerConnectionError(message) ? <LocalBackendRecovery catalogue={describeNodeFailure(message, undefined).diagnostics.code === "runner_model_catalog_unavailable_check_runner_connection"}>{children}</LocalBackendRecovery> : null;
 }
