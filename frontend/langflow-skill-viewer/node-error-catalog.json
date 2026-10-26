@@ -1408,5 +1408,10 @@
     "title": "Run history and permissions need separate stores",
     "description": "The local workflow is configured to use one private file for both run history and permission grants.",
     "recovery": "Ask the operator to configure separate private files for run history and permission grants before starting this workflow."
+  },
+  "invalid_handoff_artifact_selection": {
+    "title": "Selected artifact references could not be read",
+    "description": "The saved file selection must be a JSON list of file-reference objects.",
+    "recovery": "Open Selected Artifact References on the Handoff node and correct the JSON list. Use [] only if no files are intended. A connected selection takes precedence."
   }
 }

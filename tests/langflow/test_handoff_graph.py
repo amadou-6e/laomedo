@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -23,6 +24,44 @@ class Response(io.BytesIO):
 
 
 class GraphTests(unittest.IsolatedAsyncioTestCase):
+    def selection_component(self, **values):
+        path=ROOT/'components/laomedo/handoff.py'
+        spec=importlib.util.spec_from_file_location('selection_handoff',path)
+        module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
+        node=module.LaomedoHandoff(_code=path.read_text())
+        node.set_attributes(dict(origin={'status':'completed','provider':'codex','run_id':'source'},task='read file',**values))
+        return node
+
+    def test_empty_connected_selection_does_not_restore_static_files(self):
+        node=self.selection_component(artifacts=[],artifacts_json='not JSON')
+        self.assertEqual(node._selected()[1]['artifact_refs'],[])
+
+    def test_malformed_static_selection_is_refused(self):
+        for value in ('{','{}','["not a reference"]'):
+            with self.subTest(value=value):
+                node=self.selection_component(artifacts_json=value)
+                with self.assertRaisesRegex(ValueError,'invalid_handoff_artifact_selection'):
+                    node._selected()
+
+    async def test_static_artifact_selection_reaches_target_payload(self):
+        flow=builder.build()
+        handoff=next(node for node in flow['data']['nodes'] if node['data']['type']=='LaomedoHandoff')
+        selection={'provider':'codex','run_id':'source-run','snapshot_hash':'sha256:'+'a'*64,
+                   'path':'notes.md','content_hash':'sha256:'+'b'*64,'destination':'handoff/notes.md'}
+        handoff['data']['node']['template']['artifacts_json']['value']=json.dumps([selection])
+        # A saved unconnected handle may be null; it must not mask the explicit selection.
+        handoff['data']['node']['template']['artifacts']['value']=None
+        payloads=[]
+        def respond(req,**kwargs):
+            payload=json.loads(req.data);payloads.append(payload)
+            value={'run_id':'source-run' if len(payloads)==1 else 'target-run','status':'completed',
+                   'provider':'codex','answer':'source answer' if len(payloads)==1 else 'target answer'}
+            if 'request_id' in payload:value['client_request_id']=payload['request_id']
+            return Response(json.dumps(value).encode())
+        with patch('urllib.request.urlopen',side_effect=respond):
+            await Graph.from_payload(flow).arun(inputs=[{'input_value':'Read selected file'}],types=['chat'])
+        self.assertEqual(payloads[1]['artifact_refs'],[selection])
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

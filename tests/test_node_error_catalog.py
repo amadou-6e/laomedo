@@ -9,6 +9,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_handoff_selection_producer_has_catalogue_coverage(self):
+        catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        source=ast.parse((ROOT/'components/laomedo/handoff.py').read_text())
+        codes={node.exc.args[0].value for node in ast.walk(source)
+               if isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call) and node.exc.args
+               and isinstance(node.exc.args[0],ast.Constant) and isinstance(node.exc.args[0].value,str)}
+        self.assertFalse(codes-catalogue.keys())
+        for code in codes:
+            for key in ('title','description','recovery'):self.assertTrue(catalogue[code][key].strip())
     def test_catalogue_keys_are_unique(self):
         def unique(pairs):
             result={}

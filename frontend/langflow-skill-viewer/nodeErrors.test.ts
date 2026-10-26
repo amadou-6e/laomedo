@@ -142,3 +142,10 @@ test('saved graph authentication failures preserve their code and redact private
  expect(JSON.stringify(failure)).not.toContain('private-value');
  expect(describeNodeFailure('unfamiliar_saved_flow_failure',undefined).diagnostics.code).toBe('unfamiliar_saved_flow_failure');
 });
+
+test('invalid handoff selections explain the actual parameter without exposing its contents',()=>{
+ const failure=describeNodeFailure('invalid_handoff_artifact_selection; Bearer sk-private-value',undefined);
+ expect(failure.diagnostics.code).toBe('invalid_handoff_artifact_selection');
+ expect(failure.recovery).toContain('Selected Artifact References');
+ expect(JSON.stringify(failure)).not.toContain('private-value');
+});

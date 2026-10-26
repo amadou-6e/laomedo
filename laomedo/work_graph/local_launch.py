@@ -44,6 +44,7 @@ class LangflowLocalClient:
                 with request.urlopen(req, timeout=30) as response:
                     return json.load(response)
             except error.HTTPError as exc:
+                exc.close()
                 if exc.code == 401 and attempt == 0:
                     # Refresh only the local app login, then repeat this read.
                     # Never repeat a launch or model request on authentication failure.
