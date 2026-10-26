@@ -20,6 +20,19 @@ jest.mock("@/components/common/genericIconComponent",()=>({__esModule:true,defau
 jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({code}:{code:string})=> <pre><span>{code}</span></pre>}));
 beforeEach(()=>{jest.clearAllMocks();canvasNodes=[];activityTarget=null});
 
+test("native Codex tools use readable names without dropping source metadata",()=>{
+  expect(activityTitle({type:"mcpToolCall",server:"github",tool:"get_pull_request"})).toBe("github · get_pull_request");
+  expect(activityTitle({type:"dynamicToolCall",tool:"laomedo_output_precheck"})).toBe("laomedo_output_precheck");
+  expect(activityTitle({type:"mcpToolCall"})).toBe("MCP tool");
+});
+
+test("conflicting native telemetry IDs remain in All activity but cannot enter a thread export",()=>{
+  const records=[{attributes:{"conversation.id":"root","thread_id":"other"},scope_conflict:true},{attributes:{"conversation.id":"root","turn.id":"t"}}];
+  const value={...projection,telemetry:records};
+  expect(scopedProjection(value,{}).telemetry).toBe(records);
+  expect(scopedProjection(value,{thread:"root",turn:"t"}).telemetry).toEqual([records[1]]);
+});
+
 test("conversation fuzzy search preserves transcript order and exports exact scope and tool metadata",()=>{
   const items=[
     {id:"a",thread:"child",turn:"t",started:"2026-10-25T07:00:00Z",ended:null,item:{type:"agentMessage",text:"Inspect commandExecution output"}},
@@ -277,7 +290,8 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
   expect(screen.getByText("Parent answer")).toBeInTheDocument();expect(screen.getByText("Second child answer")).toBeInTheDocument();
   expect(screen.queryByText("Technical details",{selector:"summary"})).toBeNull();
   expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button",{name:/Earlier run in this conversation/}));
+  expect(screen.queryByRole("button",{name:/Earlier run in this conversation/})).toBeNull();
+  fireEvent.change(screen.getByRole("combobox"),{target:{value:"previous"}});
   await waitFor(()=>expect(screen.getByRole("combobox")).toHaveValue("previous"));
   expect(screen.queryByText("This conversation only; excludes subagents")).toBeNull();
 });
