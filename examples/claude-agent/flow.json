@@ -381,32 +381,6 @@
           "node": {
             "template": {
               "_type": "Component",
-              "handoff_reference": {
-                "tool_mode": false,
-                "trace_as_metadata": true,
-                "list": false,
-                "list_add_label": "Add More",
-                "trace_as_input": true,
-                "override_skip": false,
-                "required": false,
-                "placeholder": "",
-                "show": true,
-                "name": "handoff_reference",
-                "value": "",
-                "display_name": "Handoff Provenance",
-                "advanced": false,
-                "api_editable": false,
-                "input_types": [
-                  "Data",
-                  "JSON"
-                ],
-                "dynamic": false,
-                "info": "",
-                "title_case": false,
-                "track_in_telemetry": false,
-                "type": "other",
-                "_input_type": "JSONInput"
-              },
               "output_requirements": {
                 "tool_mode": false,
                 "trace_as_metadata": true,
@@ -514,7 +488,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "\"\"\"Claude Code client with the shared Agent lifecycle and operation ports.\"\"\"\n\nfrom copy import deepcopy\nimport json\nimport os\n\nfrom laomedo.codex_agent import LaomedoCodexAgent as Component\nfrom laomedo.claude_models import EFFORTS\nfrom langflow.io import IntInput\n\n\nclass LaomedoClaudeAgent(Component):\n    display_name = \"Laomedo Claude Agent\"\n    description = \"Run Claude Code in an isolated container with optional pinned skills and validated operations.\"\n    name = \"LaomedoClaudeAgent\"\n    activity_provider = \"claude-code\"\n    inputs = [deepcopy(item) for item in Component.inputs]\n    for _field in inputs:\n        if _field.name == 'model':\n            _field.value = 'sonnet'\n            _field.options = []\n            _field.info = ('Refresh the configured Claude runner for the model picker from '\n                           'your signed-in Claude Code account. No prompt or model turn is sent.')\n        elif _field.name == 'effort':\n            _field.value = 'low'\n            _field.options = []\n            _field.info = ('Supported effort levels for the selected Claude model. '\n                           'Default omits the effort override for models without this control.')\n        elif _field.name == 'runner_url':\n            _field.value = 'http://host.docker.internal:8769'\n    del _field\n    inputs.append(IntInput(name='run_timeout_seconds', display_name='Execution Timeout',\n                           value=180, advanced=True,\n                           info='Total execution deadline in seconds, including output corrections. HTTP Timeout controls only how long the graph waits.'))\n\n    def _prepare(self):\n        if str(self.effort) not in EFFORTS:\n            raise ValueError(\"unsupported_claude_effort\")\n        prior = getattr(self, \"run_reference\", None)\n        prior = getattr(prior, \"data\", prior)\n        if prior in (None, '', []) and getattr(self, \"run_reference_json\", \"\"):\n            prior = json.loads(self.run_reference_json)\n        if self.operation not in {\"fresh\", \"start\"} and isinstance(prior, dict) and prior.get(\"provider\") != \"claude\":\n            raise ValueError(\"run_provider_mismatch\")\n        endpoint, payload, method = super()._prepare()\n        if self.operation in {'fresh', 'start', 'resume'}:\n            timeout = getattr(self, 'run_timeout_seconds', 180)\n            if type(timeout) is not int or not 1 <= timeout <= 86400:\n                raise ValueError('claude_turn_timeout_invalid')\n            payload.get('runner_body', payload)['run_timeout_seconds'] = timeout\n        return endpoint, payload, method\n\n    def _token_file_path(self):\n        return super()._token_file_path()\n\n    def _runner_token_file_path(self):\n        return os.environ.get(\"LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE\",\n                              \"/run/secrets/laomedo-claude-runner-token\")\n\n    def _http(self, endpoint, payload, method):\n        value = super()._http(endpoint, payload, method)\n        if value.get(\"provider\") != \"claude\":\n            raise RuntimeError(\"runner_provider_mismatch\")\n        return value\n",
+                "value": "\"\"\"Claude Code client with the shared Agent lifecycle and operation ports.\"\"\"\n\nfrom copy import deepcopy\nimport json\nimport os\n\nfrom laomedo.codex_agent import LaomedoCodexAgent as Component\nfrom laomedo.claude_models import EFFORTS\nfrom langflow.io import IntInput\n\n\nclass LaomedoClaudeAgent(Component):\n    display_name = \"Laomedo Claude Agent\"\n    description = \"Run Claude Code in an isolated container with optional pinned skills and validated operations.\"\n    name = \"LaomedoClaudeAgent\"\n    activity_provider = \"claude-code\"\n    inputs = [deepcopy(item) for item in Component.inputs if item.name != 'handoff_reference']\n    for _field in inputs:\n        if _field.name == 'model':\n            _field.value = 'sonnet'\n            _field.options = []\n            _field.info = ('Refresh the configured Claude runner for the model picker from '\n                           'your signed-in Claude Code account. No prompt or model turn is sent.')\n        elif _field.name == 'effort':\n            _field.value = 'low'\n            _field.options = []\n            _field.info = ('Supported effort levels for the selected Claude model. '\n                           'Default omits the effort override for models without this control.')\n        elif _field.name == 'runner_url':\n            _field.value = 'http://host.docker.internal:8769'\n    del _field\n    inputs.append(IntInput(name='run_timeout_seconds', display_name='Execution Timeout',\n                           value=180, advanced=True,\n                           info='Total execution deadline in seconds, including output corrections. HTTP Timeout controls only how long the graph waits.'))\n\n    def _prepare(self):\n        if str(self.effort) not in EFFORTS:\n            raise ValueError(\"unsupported_claude_effort\")\n        prior = getattr(self, \"run_reference\", None)\n        prior = getattr(prior, \"data\", prior)\n        if prior in (None, '', []) and getattr(self, \"run_reference_json\", \"\"):\n            prior = json.loads(self.run_reference_json)\n        if self.operation not in {\"fresh\", \"start\"} and isinstance(prior, dict) and prior.get(\"provider\") != \"claude\":\n            raise ValueError(\"run_provider_mismatch\")\n        endpoint, payload, method = super()._prepare()\n        if self.operation in {'fresh', 'start', 'resume'}:\n            timeout = getattr(self, 'run_timeout_seconds', 180)\n            if type(timeout) is not int or not 1 <= timeout <= 86400:\n                raise ValueError('claude_turn_timeout_invalid')\n            payload.get('runner_body', payload)['run_timeout_seconds'] = timeout\n        return endpoint, payload, method\n\n    def _token_file_path(self):\n        return super()._token_file_path()\n\n    def _runner_token_file_path(self):\n        return os.environ.get(\"LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE\",\n                              \"/run/secrets/laomedo-claude-runner-token\")\n\n    def _http(self, endpoint, payload, method):\n        value = super()._http(endpoint, payload, method)\n        if value.get(\"provider\") != \"claude\":\n            raise RuntimeError(\"runner_provider_mismatch\")\n        return value\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -897,7 +871,6 @@
               "output_requirements",
               "output_requirements_json",
               "output_retries",
-              "handoff_reference",
               "skill_id",
               "revision_id",
               "model",
@@ -915,7 +888,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_claude_agent",
-              "code_hash": "19b91f4fd7c4",
+              "code_hash": "2a5bf8d02584",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [

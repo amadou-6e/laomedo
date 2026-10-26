@@ -383,3 +383,8 @@ test("Claude diagnostics remain separate from captured native activity",async()=
   expect(await screen.findByText(/terminal_receipt_only/)).toBeInTheDocument();
   expect(screen.getByText(/Model unconfirmed/)).toBeInTheDocument();
 });
+
+ test("empty Claude telemetry explains missing collection rather than implying a quiet collector",()=>{
+  render(<RuntimeRecords records={[]} coverage="No records" context={{run_id:"run",execution_id:null,node_id:"agent",provider:"claude-code",model:null,native_session:null,scope:{},capture_state:"complete",truncated:false}}/>);
+  expect(screen.getByText(/The Claude runner does not configure OpenTelemetry collection/)).toBeVisible();
+ });

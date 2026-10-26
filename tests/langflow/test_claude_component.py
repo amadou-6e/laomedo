@@ -34,7 +34,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
 
     def test_template_order_types_and_visibility_match_current_codex(self):
         base=LaomedoClaudeAgent.__bases__[0]
-        expected=base.inputs
+        expected=[item for item in base.inputs if item.name != 'handoff_reference']
         self.assertEqual([item.name for item in LaomedoClaudeAgent.inputs],[item.name for item in expected]+['run_timeout_seconds'])
         for actual,reference in zip(LaomedoClaudeAgent.inputs,expected):
             self.assertIs(type(actual),type(reference))
@@ -46,18 +46,16 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(fields['model'].refresh_button)
         self.assertEqual(fields['runner_url'].value,'http://host.docker.internal:8769')
         self.assertTrue(fields['run_timeout_seconds'].advanced)
-        self.assertTrue(fields['handoff_reference'].show)
-        self.assertFalse(fields['handoff_reference'].advanced)
+        self.assertNotIn('handoff_reference',fields)
         self.assertEqual(fields['run_timeout_seconds'].value,180)
 
-    async def test_catalogue_failure_does_not_hide_handoff_input(self):
+    async def test_catalogue_failure_does_not_add_unrequested_inputs(self):
         node=self.node()
-        config={'model':{'value':'sonnet'},'effort':{'value':'low'},
-                'handoff_reference':{'show':True,'advanced':False,'value':None}}
+        config={'model':{'value':'sonnet'},'effort':{'value':'low'}}
         with patch.object(node,'_model_catalog',side_effect=RuntimeError('runner_model_catalog_unavailable_check_runner_connection')):
             with self.assertRaises(RuntimeError):
                 await node.update_build_config(config,'sonnet','model')
-        self.assertEqual(config['handoff_reference'],{'show':True,'advanced':False,'value':None})
+        self.assertNotIn('handoff_reference',config)
 
     def test_model_refresh_uses_claude_runner_token_not_codex_token(self):
         import laomedo.codex_agent as codex

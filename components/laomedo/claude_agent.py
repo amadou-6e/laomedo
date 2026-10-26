@@ -14,7 +14,7 @@ class LaomedoClaudeAgent(Component):
     description = "Run Claude Code in an isolated container with optional pinned skills and validated operations."
     name = "LaomedoClaudeAgent"
     activity_provider = "claude-code"
-    inputs = [deepcopy(item) for item in Component.inputs]
+    inputs = [deepcopy(item) for item in Component.inputs if item.name != 'handoff_reference']
     for _field in inputs:
         if _field.name == 'model':
             _field.value = 'sonnet'

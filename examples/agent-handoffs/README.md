@@ -6,11 +6,6 @@ fresh independent workspaces. Handoff rejects failed A and passes only the selec
 answer or explicit task override. Its provenance output connects to B and persists
 in B's runner record. Runtime loop support is not inferred from cyclic visual edges.
 
-Selected Artifacts accepts connected reference data. For a static saved selection,
-use the Handoff's Selected Artifact References JSON parameter. A connected
-selection takes precedence, including an empty list. An empty selection imports
-no files; it never implies sharing the source workspace.
-
 Run credential-free tests:
 
 ```powershell
@@ -35,8 +30,7 @@ only selected files from completed, hash-bound snapshots into `handoff/` in the
 new independent workspace. Traversal, protected profile/credential paths, links,
 hash mismatches, existing destinations and case-insensitive conflicts fail before
 model dispatch. Maximum 32 files, 1 MiB per file, 8 MiB total. Cross-provider files
-require explicitly configured audited source stores and are revalidated against
-the completed source snapshot before import. Credentials are not transferred.
+require a common audited store and currently fail closed.
 
 The native `LaomedoBoundedController` node schedules the same controller with exact
 success-answer comparison, explicit iteration/turn/deadline limits and private

@@ -129,6 +129,12 @@ outputs contain task content.
 
 ### Claude Code activity
 
+The current Claude adapter does not configure an OpenTelemetry exporter or
+receiver. Its conversation, tool and usage capture comes from native CLI events;
+those are separate from OTLP runtime records. An empty telemetry section does
+not establish that a collector was running or that collection succeeded. The UI
+explicitly identifies this missing integration.
+
 Claude uses the same Agents tab, execution selector, timeline, conversation,
 usage projection and authenticated inspection routes as Codex. Each dispatch
 captures streamed native text, thinking and tool start/result events alongside

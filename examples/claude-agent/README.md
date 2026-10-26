@@ -3,7 +3,7 @@
 Use [flow.json](flow.json) for Skill -> Claude -> Skill Operation, or
 [current-template-flow.json](current-template-flow.json) for a fresh Agent with
 optional skills. Both embed the current component, inherit the current Codex
-ports, discover native model/effort options, and expose Execution Timeout under
+ports (without a Handoff input), discover native model/effort options, and expose Execution Timeout under
 Advanced controls. Configure the dedicated local runner as described in
 [the Docker guide](../../docker/claude/README.md).
 
