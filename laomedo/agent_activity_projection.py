@@ -2,12 +2,17 @@
 
 
 def project(events, *, root_thread=None, model=None):
+    if any(receipt["raw"].get("event",receipt["raw"]).get("method", "").startswith("opencode/") for receipt in events):
+        from .opencode_activity import project as project_opencode
+        return project_opencode(events, root_thread=root_thread, model=model)
     turns, items, threads, latest, baselines = {}, {}, {}, {}, {}
     points = []
     telemetry = []
     diagnostics = []
     previous = {}
     invalid_usage = set()
+    turn_usage_by_key = {}
+    turn_bases = {}
     for receipt in events:
         raw=receipt['raw']
         if raw.get('method') == 'capture/usageBaseline':
@@ -28,9 +33,12 @@ def project(events, *, root_thread=None, model=None):
         if method == 'thread/started':
             value=params.get('thread',{})
             if value.get('id'):
-                threads[value['id']]={'id':value['id'],'parent':value.get('parentThreadId')}
+                threads[value['id']]={'id':value['id'],'parent':value.get('parentThreadId'),**({'title':value['name']} if isinstance(value.get('name'),str) else {})}
         if turn_id and (method.startswith('turn/') or method.startswith('item/')):
             key=(thread,turn_id)
+            if method=='turn/started' and key not in turn_bases:
+                baseline=previous.get(thread,baselines.get(thread))
+                turn_bases[key]=dict(baseline) if isinstance(baseline,dict) else None
             lane=turns.setdefault(key,{'id':turn_id,'thread':thread,'started':timestamp,'ended':None,'status':'running'})
             if method == 'turn/completed':
                 lane.update(ended=timestamp,status=turn.get('status','completed'))
@@ -65,10 +73,15 @@ def project(events, *, root_thread=None, model=None):
                 previous[thread]={key:total[key] for key in keys if type(total.get(key)) is int}
                 if thread in invalid_usage or any(value<0 for value in delta.values()):
                     latest[thread]=None
+                    if turn_id:turn_usage_by_key[(thread,turn_id)]=None
                 else:
                     latest[thread]=delta
                     from .agent_activity_cost import estimate
-                    points.append({'at':timestamp,'thread':thread,'usage':delta,
+                    turn_base=turn_bases.get((thread,turn_id))
+                    turn_usage={key:total[key]-turn_base[key] for key in keys if type(total.get(key)) is int and type(turn_base.get(key)) is int} if isinstance(turn_base,dict) else None
+                    if turn_usage is not None and (not turn_usage or any(value<0 for value in turn_usage.values())):turn_usage=None
+                    if turn_id:turn_usage_by_key[(thread,turn_id)]=turn_usage
+                    points.append({'at':timestamp,'thread':thread,'turn':turn_id,'turn_usage':turn_usage,'usage':delta,
                                    'cost':estimate(model if thread == root_thread else None,delta)})
     related={root_thread} if root_thread else set(latest)|{value['thread'] for value in turns.values()}
     changed=True
@@ -106,6 +119,7 @@ def project(events, *, root_thread=None, model=None):
             model_provenance[thread]='runtime-reported OTLP metadata; not independently attested'
     for point in points:
         point['cost']=estimate(models.get(point['thread']),point['usage'])
+        point['turn_cost']=estimate(models.get(point['thread']),point.get('turn_usage'))
     # Child model and usage must be independently observed; do not price all
     # child activity at the parent's model or claim an inclusive known total.
     cost=estimate(models.get(root_thread),latest.get(root_thread))
@@ -120,7 +134,8 @@ def project(events, *, root_thread=None, model=None):
     if any(thread != root_thread for thread in related):
         cost['basis']+='; child model attribution is runtime-reported, not independently attested'
     cost_reason=cost.get('reason') or cost['basis']
-    return {'turns':list(turns.values()),'items':list(items.values()),'threads':list(threads.values()),
+    projected_turns=[{**lane,'usage':turn_usage_by_key.get(key),'cost':estimate(models.get(lane['thread']),turn_usage_by_key.get(key))} for key,lane in turns.items()]
+    return {'turns':projected_turns,'items':list(items.values()),'threads':list(threads.values()),
             'diagnostics':[value for value in diagnostics if value.get('threadId') in related],
             'telemetry':telemetry,'telemetry_coverage':'observed; exporter flush completeness unverified' if telemetry else 'not observed',
             'uncorrelated_thread_count':len(uncorrelated),

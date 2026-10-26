@@ -151,6 +151,9 @@ class LaomedoCodexAgent(Component):
         # OpenCode has a separate provider/model and variant contract.
         if self.name not in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             return build_config
+        return await self._update_model_config(build_config, field_value, field_name)
+
+    async def _update_model_config(self, build_config, field_value, field_name=None):
         if field_name == "runner_url":
             if not isinstance(field_value, str):
                 raise ValueError("local_runner_url_required")
@@ -185,6 +188,9 @@ class LaomedoCodexAgent(Component):
         effort_field.update(options=efforts, combobox=False)
         return build_config
 
+    def _model_catalog_token_file_path(self):
+        return self._runner_token_file_path()
+
     def _model_catalog(self, build_config):
         base = str(build_config.get("runner_url", {}).get("value") or self.runner_url).rstrip("/")
         parsed = urlsplit(base)
@@ -194,7 +200,7 @@ class LaomedoCodexAgent(Component):
             raise ValueError("local_runner_url_required")
         # Discovery talks directly to the runner, never with the bridge token.
         try:
-            token = Path(self._runner_token_file_path()).read_text(encoding="utf-8").strip()
+            token = Path(self._model_catalog_token_file_path()).read_text(encoding="utf-8").strip()
             if not token:
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})

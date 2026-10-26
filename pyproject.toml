@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-observability = ["opentelemetry-proto==1.45.1"]
+observability = ["opentelemetry-proto==1.45.1", "opentelemetry-sdk==1.45.1", "opentelemetry-exporter-otlp-proto-http==1.45.1"]
 
 [project.scripts]
 laomedo-work-graph = "laomedo.work_graph.__main__:main"

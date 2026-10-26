@@ -47,6 +47,8 @@ def install_activity_routes(app, authenticate, store=None):
                     projection=project(events,root_thread=page['run']['native_session'],model=page['run']['model'])
                     if page['has_more'] or page['run'].get('reason') == 'invocation_boundary_unverified':
                         projection['usage']=None
+                        projection['usage_by_thread']={}
+                        projection['turns']=[{**turn,'usage':None,'cost':{'amount':None}} for turn in projection['turns']]
                         projection['usage_points']=[]
                         projection['cost']={**projection['cost'],'amount':None,'per_thread':{},
                             'reason':'Detail limit reached.' if page['has_more'] else 'Invocation boundary is unverified.'}

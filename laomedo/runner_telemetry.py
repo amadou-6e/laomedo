@@ -25,7 +25,7 @@ def attributes(values):
 
 
 class LaunchTelemetry:
-    def __init__(self, directory):
+    def __init__(self, directory, *, provenance='runtime-reported'):
         from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
         from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
         token=secrets.token_urlsafe(32)
@@ -52,7 +52,7 @@ class LaunchTelemetry:
                         for scope in resource.scope_logs if self.path=='/v1/logs' else resource.scope_spans:
                             for record in scope.log_records if self.path=='/v1/logs' else scope.spans:
                                 value={'signal':'log' if self.path=='/v1/logs' else 'span',
-                                    'provenance':'runtime-reported',
+                                    'provenance':provenance,
                                     'trace_id':record.trace_id.hex(),'span_id':record.span_id.hex(),
                                     'attributes':attributes(record.attributes)}
                                 if self.path=='/v1/traces':
