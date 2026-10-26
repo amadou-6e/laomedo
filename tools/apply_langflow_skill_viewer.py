@@ -31,6 +31,9 @@ def apply(checkout):
     selection_patch = overlay / "claude-selection.patch"
     subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(selection_patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", str(selection_patch)], check=True)
+    catalog_patch = overlay / "catalog-recovery.patch"
+    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(catalog_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", str(catalog_patch)], check=True)
     shutil.copy2(overlay / "AgentModelSelection.test.ts",
                  checkout / "src/frontend/src/CustomNodes/helpers/AgentModelSelection.test.ts")
     shutil.copy2(overlay / "ClaudeModelDropdown.test.tsx",

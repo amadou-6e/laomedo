@@ -177,3 +177,24 @@ test("an unrelated startup crash is not presented as a successful cancel", async
  expect(dismissed).not.toHaveBeenCalled();
  expect(screen.getByRole("button",{name:"Dismiss",exact:true})).toBeEnabled();
 });
+
+
+test("catalogue recovery waits for actual models and remains actionable after failure", async () => {
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  const dismissed=jest.fn(); const requested=jest.fn();
+  window.addEventListener("laomedo-refresh-model-catalog",requested);
+  render(<RecoveryPopup message="runner_model_catalog_unavailable_check_runner_connection" context={{nodeId:"agent"}} onDismiss={dismissed}/>);
+  fireEvent.click(await screen.findByRole("button",{name:"Refresh models"}));
+  expect(requested).toHaveBeenCalledTimes(1);
+  expect(dismissed).not.toHaveBeenCalled();
+  expect(screen.getByRole("button",{name:"Loading models..."})).toBeDisabled();
+  act(()=>window.dispatchEvent(new CustomEvent("laomedo-model-catalog-loaded",{detail:{nodeId:"other"}})));
+  expect(dismissed).not.toHaveBeenCalled();
+  act(()=>window.dispatchEvent(new CustomEvent("laomedo-model-catalog-settled",{detail:{nodeId:"agent"}})));
+  expect(screen.getByRole("button",{name:"Refresh models"})).toBeEnabled();
+  expect(dismissed).not.toHaveBeenCalled();
+  act(()=>window.dispatchEvent(new CustomEvent("laomedo-model-catalog-loaded",{detail:{nodeId:"agent"}})));
+  expect(dismissed).toHaveBeenCalledTimes(1);
+  expect(api.post).not.toHaveBeenCalled();
+  window.removeEventListener("laomedo-refresh-model-catalog",requested);
+});

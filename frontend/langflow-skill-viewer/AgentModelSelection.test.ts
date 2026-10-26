@@ -43,3 +43,19 @@ test('ordinary components retain their existing field preservation',async()=>{
  const apply=await deferredRequest(requested,{...template('haiku','default'),effort:{value:'default',options:['default']}},()=>{mockTemplate=template('haiku','max')});
  expect(apply).toHaveBeenCalledWith(expect.objectContaining({template:expect.objectContaining({effort:expect.objectContaining({value:'max'})})}));
 });
+
+
+test("explicit refresh awaits the response and only announces applied nonempty models", async()=>{
+ let finish!: (value:any)=>void;
+ const mutateAsync=jest.fn(()=>new Promise(resolve=>{finish=resolve}));
+ const apply=jest.fn(), error=jest.fn(), loaded=jest.fn();
+ window.addEventListener("laomedo-model-catalog-loaded",loaded);
+ let settled=false;
+ const pending=mutateTemplate('fable',mockNodeId,{template:mockTemplate,outputs:[]} as any,apply,{mutateAsync} as never,error,undefined,undefined,undefined,true).then(()=>{settled=true});
+ await jest.advanceTimersByTimeAsync(2500);
+ expect(settled).toBe(false);expect(loaded).not.toHaveBeenCalled();
+ finish({template:{...mockTemplate,model:{value:'fable',options:['fable']}},outputs:[]});
+ await pending;
+ expect(apply).toHaveBeenCalledTimes(1);expect(loaded).toHaveBeenCalledTimes(1);
+ window.removeEventListener("laomedo-model-catalog-loaded",loaded);
+});

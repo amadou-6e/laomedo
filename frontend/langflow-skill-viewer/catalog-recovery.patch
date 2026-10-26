@@ -1,0 +1,92 @@
+--- a/src/frontend/src/CustomNodes/helpers/mutate-template.ts
++++ b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
+@@ -204,6 +204,12 @@
+               newNode.last_updated = newTemplate.last_updated;
+               try {
+                 setNodeClass(newNode);
++                if (parameterName === "model" || (isRefresh && newNode.template.model)) {
++                  const options = newNode.template.model?.options;
++                  if (Array.isArray(options) && options.length > 0) {
++                    window.dispatchEvent(new CustomEvent("laomedo-model-catalog-loaded", { detail: { nodeId } }));
++                  }
++                }
+               } catch (e) {
+                 if (e instanceof Error && e.message === "Node not found") {
+                   console.error("Node not found");
+@@ -222,6 +228,7 @@
+               e,
+             );
+             setErrorData({
++              nodeId,
+               title: i18n.t("input.titleErrorUpdatingComponent"),
+               list: [
+                 error.response?.data?.detail ||
+@@ -256,7 +263,7 @@
+ 
+   // Debouncing a discrete toggle like a text input lets slower refresh responses
+   // repaint it with stale state, so Tool Mode is flushed immediately.
+-  if (parameterName === "tool_mode") {
++  if (parameterName === "tool_mode" || isRefresh) {
+     await debouncedFunction?.flush();
+   }
+ };
+--- a/src/frontend/src/components/core/dropdownComponent/hooks/useDropdownMutations.ts
++++ b/src/frontend/src/components/core/dropdownComponent/hooks/useDropdownMutations.ts
+@@ -1,4 +1,4 @@
+-import type { Dispatch, SetStateAction } from "react";
++import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+ import { mutateTemplate } from "@/CustomNodes/helpers/mutate-template";
+ import { usePostTemplateValue } from "@/controllers/API/queries/nodes/use-post-template-value";
+ import useAlertStore from "@/stores/alertStore";
+@@ -54,27 +54,35 @@
+     setWaitingForResponse(false);
+   };
+ 
++  const refreshing = useRef(false);
+   const handleRefreshButtonPress = async () => {
++    if (refreshing.current) return;
++    refreshing.current = true;
+     setRefreshOptions(true);
+     setOpen(false);
+ 
+-    await mutateTemplate(
+-      value,
+-      nodeId,
+-      nodeClass!,
+-      handleNodeClass,
+-      postTemplateValue,
+-      setErrorData,
+-      undefined, // parameterName
+-      undefined, // callback
+-      undefined, // toolMode
+-      true, // isRefresh
+-    )?.then(() => {
+-      setTimeout(() => {
+-        setRefreshOptions(false);
+-      }, 2000);
+-    });
++    try {
++      await mutateTemplate(
++        value, nodeId, nodeClass!, handleNodeClass, postTemplateValue,
++        setErrorData, undefined, undefined, undefined, true,
++      );
++    } finally {
++      refreshing.current = false;
++      setRefreshOptions(false);
++      window.dispatchEvent(new CustomEvent("laomedo-model-catalog-settled", {detail: {nodeId}}));
++    }
+   };
++
++  const refresh = useRef(handleRefreshButtonPress);
++  refresh.current = handleRefreshButtonPress;
++  useEffect(() => {
++    if (name !== "model") return;
++    const listener = (event: Event) => {
++      if ((event as CustomEvent).detail?.nodeId === nodeId) void refresh.current();
++    };
++    window.addEventListener("laomedo-refresh-model-catalog", listener);
++    return () => window.removeEventListener("laomedo-refresh-model-catalog", listener);
++  }, [name, nodeId]);
+ 
+   return { handleSourceOptions, handleRefreshButtonPress };
+ }
