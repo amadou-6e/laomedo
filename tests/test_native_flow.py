@@ -8,6 +8,16 @@ from laomedo.skill_store import tree_hash
 
 
 class NativeFlowTests(unittest.TestCase):
+    def test_opencode_example_embeds_current_component(self):
+        root = Path(__file__).resolve().parents[1]
+        flow = json.loads((root / "examples/opencode-node/flow.json").read_text())
+        agents = [node for node in flow["data"]["nodes"]
+                  if node["data"]["type"] == "LaomedoOpenCodeAgent"]
+        self.assertTrue(agents)
+        for agent in agents:
+            self.assertEqual(agent["data"]["node"]["template"]["code"]["value"],
+                             (root / "components/laomedo/opencode_agent.py").read_text())
+
     def test_connection_handles_match_serialized_port_schemas(self):
         root = Path(__file__).resolve().parents[1]
         flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
@@ -35,6 +45,8 @@ class NativeFlowTests(unittest.TestCase):
         self.assertEqual(skill["data"]["node"]["template"]["revision_id"]["value"],
                          tree_hash({"SKILL.md": fixture}))
         self.assertEqual(fields["revision_id"]["value"], "")
+        self.assertTrue(fields["run_reference_json"].get("override_skip"))
+        self.assertFalse(fields["run_reference"].get("override_skip", False))
         self.assertEqual(fields["code"]["value"],
                          (root / "components/laomedo/codex_agent.py").read_text())
         names = {e["data"]["sourceHandle"]["name"] for e in flow["data"]["edges"]

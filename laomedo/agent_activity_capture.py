@@ -31,7 +31,8 @@ class RunnerCapture:
         self.opener = build_opener(ProxyHandler({}))
         if self.capture:
             try:
-                path=os.environ.get('LAOMEDO_RUNNER_TOKEN_FILE','/run/secrets/laomedo-runner-token')
+                path=(component._token_file_path() if callable(getattr(component,'_token_file_path',None))
+                      else os.environ.get('LAOMEDO_RUNNER_TOKEN_FILE','/run/secrets/laomedo-runner-token'))
                 self.token=Path(path).read_text().strip()
                 if not self.token:
                     raise ValueError('activity_runner_token_missing')
@@ -108,9 +109,11 @@ class RunnerCapture:
                 if (attempt.get('native_end') is not None and after>=attempt['native_end']
                         and otel_after>=attempt['otel_end']):
                     status=attempt['status']
+                    if getattr(getattr(self,'component',None),'name',None)=='LaomedoOpenCodeAgent':
+                        terminal_native=attempt.get('native_stream_complete') is True
                     if status in {'completed','failed','cancelled','timeout'}:
                         store.finish(invocation,'timed_out' if status=='timeout' else status,
-                            complete=terminal_native,reason=None if terminal_native else 'native_terminal_event_not_observed',
+                            complete=terminal_native,reason=attempt.get('capture_error') or (None if terminal_native else ('native_message_snapshot_only' if getattr(getattr(self,'component',None),'name',None)=='LaomedoOpenCodeAgent' else 'native_terminal_event_not_observed')),
                             ended_at=attempt['ended_at'])
                         return
                 if not page.get('has_more') and not telemetry.get('has_more'):

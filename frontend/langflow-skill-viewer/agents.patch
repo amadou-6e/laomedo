@@ -97,7 +97,7 @@
    }): JSX.Element => {
      const { t } = useTranslation();
 +    const { setActiveSection } = useSidebar();
-+    const isAgentNode = ENABLE_NEW_SIDEBAR && nodeKind(data.type) === "LaomedoCodexAgent";
++    const isAgentNode = ENABLE_NEW_SIDEBAR && ["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(nodeKind(data.type));
      const version = useDarkStore((state) => state.version);
      const [showconfirmShare, setShowconfirmShare] = useState(false);
      const [showOverrideModal, setShowOverrideModal] = useState(false);

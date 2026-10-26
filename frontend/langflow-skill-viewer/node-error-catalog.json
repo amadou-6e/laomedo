@@ -610,9 +610,9 @@
     "recovery": ""
   },
   "invalid_turn_ledger": {
-    "title": "The local attempt record cannot be read",
-    "description": "The runner could not safely update its local attempt sequence.",
-    "recovery": "Ask the operator to inspect the local attempt record and saved run metadata. Confirm existing work before starting another run."
+    "title": "The runner accounting record is invalid",
+    "description": "The local accounting record has an unsupported count or shape, so an attempt could not be reserved. Normal accounting is separate from historical experiment allowances.",
+    "recovery": "Ask the operator to inspect the affected accounting record against existing run history. Preserve historical experiment evidence and check any existing run before submitting another request."
   },
   "runner_start_cancelled": {
     "title": "Backend startup cancelled",
@@ -723,5 +723,295 @@
     "title": "The local Claude login could not be copied",
     "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
     "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
+  },
+  "activity_attempt_already_exists": {
+    "title": "This request already has activity evidence",
+    "description": "An activity attempt is already bound to this request; starting another could duplicate execution.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "activity_attempt_identity_mismatch": {
+    "title": "The activity reference does not match",
+    "description": "The supplied activity identity does not match the selected runner attempt.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "activity_attempt_identity_required": {
+    "title": "The activity reference is incomplete",
+    "description": "The runner needs an explicit attempt identity to attribute this activity safely.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "activity_capture_interrupted_remote_outcome_unknown": {
+    "title": "Activity capture was interrupted",
+    "description": "The observer stopped before it could confirm the remote execution outcome.",
+    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
+  },
+  "activity_runner_auth_unavailable": {
+    "title": "Activity could not authenticate with the runner",
+    "description": "The activity observer could not obtain the runner authentication needed for readback.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "activity_runner_identity_mismatch": {
+    "title": "The activity runner does not match",
+    "description": "Activity readback was refused because the runner identity does not match the recorded invocation.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "activity_runner_token_missing": {
+    "title": "Activity cannot access the runner",
+    "description": "The activity observer does not have the configured runner access needed to read this invocation.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "broker_request_failed": {
+    "title": "The command broker could not handle the tool request",
+    "description": "The broker rejected or could not complete the submitted tool request; the cause is not established here.",
+    "recovery": "Inspect the tool result in Conversation and the configured runner tool policy. Ask the operator to correct the tool integration; do not grant broader access or repeat an uncertain request automatically."
+  },
+  "dispatch_not_accepted": {
+    "title": "The runner did not accept this request",
+    "description": "No accepted runner attempt was bound to this activity invocation.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "dispatch_not_bound": {
+    "title": "No runner attempt was linked",
+    "description": "The activity invocation ended without a confirmed link to an accepted runner attempt.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "dispatch_refused": {
+    "title": "The request was refused before activity was linked",
+    "description": "The component refused dispatch before the activity observer could bind an accepted attempt.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "existing_attempt_reference_no_new_usage": {
+    "title": "This operation refers to an existing attempt",
+    "description": "This activity reference does not represent a new native attempt or new usage.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "invalid_body": {
+    "title": "The tool request body was not accepted",
+    "description": "The command broker could not validate the submitted request body.",
+    "recovery": "Inspect the tool result in Conversation and the configured runner tool policy. Ask the operator to correct the tool integration; do not grant broader access or repeat an uncertain request automatically."
+  },
+  "invalid_request": {
+    "title": "The runner request was not accepted",
+    "description": "The request did not match the runner operation format; no specific cause is established here.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "invalid_worker_command": {
+    "title": "The worker command was not accepted",
+    "description": "The command broker rejected the tool command because it did not match the supported command format.",
+    "recovery": "Inspect the tool result in Conversation and the configured runner tool policy. Ask the operator to correct the tool integration; do not grant broader access or repeat an uncertain request automatically."
+  },
+  "native_message_snapshot_only": {
+    "title": "The native activity stream was not captured",
+    "description": "A complete native event stream was not retained for this invocation. Any available message snapshots may omit turns and tool calls.",
+    "recovery": "Inspect any retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "native_terminal_event_not_observed": {
+    "title": "The final activity event was not observed",
+    "description": "The observer did not capture a native terminal event for this invocation; capture completeness remains uncertain.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "observation_deadline_remote_outcome_unknown": {
+    "title": "Activity observation reached its deadline",
+    "description": "Observation ended before the remote execution outcome could be confirmed.",
+    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
+  },
+  "opencode_auth_validity_invalid": {
+    "title": "OpenCode sign-in validity could not be checked",
+    "description": "The dedicated profile has invalid or unsupported authentication-validity metadata.",
+    "recovery": "Ask the operator to complete or refresh sign-in in the dedicated OpenCode runner profile, then refresh Provider/Model in the node. Never paste credentials into the graph. Check existing runs before another request."
+  },
+  "opencode_auth_validity_mismatch": {
+    "title": "OpenCode sign-in metadata does not match",
+    "description": "The authentication-validity record does not match the dedicated runner profile.",
+    "recovery": "Ask the operator to complete or refresh sign-in in the dedicated OpenCode runner profile, then refresh Provider/Model in the node. Never paste credentials into the graph. Check existing runs before another request."
+  },
+  "opencode_auth_validity_required": {
+    "title": "OpenCode sign-in validity is missing",
+    "description": "The runner could not read the authentication-validity record required before dispatch.",
+    "recovery": "Ask the operator to complete or refresh sign-in in the dedicated OpenCode runner profile, then refresh Provider/Model in the node. Never paste credentials into the graph. Check existing runs before another request."
+  },
+  "opencode_cancelled_before_dispatch": {
+    "title": "The request was cancelled before dispatch",
+    "description": "Cancellation was observed before the native model request was submitted.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "opencode_child_snapshot_incomplete": {
+    "title": "Some subagent messages were not captured",
+    "description": "The runner could not retain all available child-session message snapshots.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_console_provider_routing_not_allowed": {
+    "title": "The OpenCode provider route is not allowed",
+    "description": "The dedicated profile requests a provider route that this runner configuration does not allow.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_console_token_refresh_required": {
+    "title": "OpenCode sign-in needs refreshing",
+    "description": "The dedicated profile authentication is too close to expiry for the runner to submit a new request.",
+    "recovery": "Ask the operator to complete or refresh sign-in in the dedicated OpenCode runner profile, then refresh Provider/Model in the node. Never paste credentials into the graph. Check existing runs before another request."
+  },
+  "opencode_container_cleanup_unverified": {
+    "title": "OpenCode controller cleanup is unconfirmed",
+    "description": "The runner could not confirm that its owned controller was fully removed.",
+    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
+  },
+  "opencode_controller_not_ready": {
+    "title": "The OpenCode controller did not become ready",
+    "description": "The dedicated controller did not report readiness within the startup deadline.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_controller_startup_failed": {
+    "title": "The OpenCode controller stopped during startup",
+    "description": "The dedicated controller exited before its API was ready.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_credential_binding_key_invalid": {
+    "title": "The runner cannot verify its sign-in binding",
+    "description": "The private local key used to bind a run to its dedicated profile could not be validated.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_history_invalid": {
+    "title": "OpenCode returned an unreadable history",
+    "description": "The native message history did not have the format required to inspect or attribute this invocation.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_image_pin_mismatch": {
+    "title": "The OpenCode runtime image does not match",
+    "description": "The installed controller or worker image does not match the operator-pinned runtime identity.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_isolated_transport_required": {
+    "title": "The isolated OpenCode runner is not configured",
+    "description": "This runner has no isolated OpenCode transport configured for discovery or execution.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_model_discovery_in_progress": {
+    "title": "OpenCode model discovery is still in progress",
+    "description": "Another discovery operation still owns the dedicated profile, so this request could not begin execution.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_native_capture_size_limit": {
+    "title": "The native activity capture reached its limit",
+    "description": "The retained native event capture reached its size limit; later events may be missing.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_native_reader_cleanup_unverified": {
+    "title": "The activity reader has not confirmed shutdown",
+    "description": "The runner could not confirm that its native event-reader thread had stopped.",
+    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
+  },
+  "opencode_native_snapshot_size_limit": {
+    "title": "The message snapshot reached its limit",
+    "description": "The available message snapshot exceeded the capture size limit and could not be retained completely.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_native_snapshot_unavailable": {
+    "title": "The message snapshot could not be retained",
+    "description": "The runner could not save the native message snapshot for this invocation.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_native_stream_ended_early": {
+    "title": "The native activity stream ended early",
+    "description": "The stream closed before the observer confirmed its terminal activity evidence.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_native_stream_interrupted": {
+    "title": "The native activity stream was interrupted",
+    "description": "The observer could not continue reading the native event stream; some activity may be missing.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_native_subscription_not_ready": {
+    "title": "The native activity subscription was not ready",
+    "description": "The event subscription did not become ready within the observer startup deadline.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_native_subscription_unavailable": {
+    "title": "The native activity subscription is unavailable",
+    "description": "The runner could not open the native event subscription for this invocation.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_organization_context_invalid": {
+    "title": "The OpenCode provider configuration is invalid",
+    "description": "The dedicated profile provider configuration did not match the supported organization context format.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_output_requirements_not_supported": {
+    "title": "OpenCode output contracts are not supported",
+    "description": "This adapter cannot execute a request with the supplied output-contract requirements.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "opencode_private_auth_required": {
+    "title": "The dedicated OpenCode sign-in is unavailable",
+    "description": "The runner could not validate the private authentication profile required for isolated execution.",
+    "recovery": "Ask the operator to complete or refresh sign-in in the dedicated OpenCode runner profile, then refresh Provider/Model in the node. Never paste credentials into the graph. Check existing runs before another request."
+  },
+  "opencode_session_identity_invalid": {
+    "title": "OpenCode did not return a valid session identity",
+    "description": "The native session response could not be safely bound to this runner invocation.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "opencode_sse_frame_size_limit": {
+    "title": "A native activity event exceeded the size limit",
+    "description": "A stream event exceeded the permitted capture size and could not be read completely.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_telemetry_export_incomplete": {
+    "title": "Some OpenTelemetry records were not retained",
+    "description": "The adapter export did not retain the expected number of projected records.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_telemetry_flush_unverified": {
+    "title": "OpenTelemetry export completion is unconfirmed",
+    "description": "The telemetry provider did not confirm that its queued records were flushed before the deadline.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "opencode_telemetry_projection_limit": {
+    "title": "OpenTelemetry projection reached its limit",
+    "description": "The retained native receipts exceeded the number of records allowed in a single projection.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
+  },
+  "pinned_skill_workspace_changed": {
+    "title": "The pinned skill workspace changed",
+    "description": "The staged skill workspace no longer matches the immutable skill content recorded for this run.",
+    "recovery": "Restore the original immutable Skill Reference and its unchanged workspace from the saved flow. Ask the operator to inspect the pinned skill revision before starting another request."
+  },
+  "private_opencode_server_required": {
+    "title": "A private OpenCode server address is required",
+    "description": "This adapter accepts only its isolated loopback OpenCode server, not a general external server URL.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "run_not_active_in_this_process": {
+    "title": "This runner process does not own the active run",
+    "description": "The current process cannot control the selected run as an active local execution.",
+    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
+  },
+  "run_not_dispatchable": {
+    "title": "The run is not ready for dispatch",
+    "description": "The run state no longer permits this request to be submitted as a new execution.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "unknown_worker_tool": {
+    "title": "The worker tool is not supported",
+    "description": "The command broker received a tool name outside its supported worker interface.",
+    "recovery": "Inspect the tool result in Conversation and the configured runner tool policy. Ask the operator to correct the tool integration; do not grant broader access or repeat an uncertain request automatically."
+  },
+  "unsupported_opencode_skill_name": {
+    "title": "A skill name is not supported by OpenCode",
+    "description": "A supplied skill name does not match the native naming rules supported by this adapter.",
+    "recovery": "Restore the original immutable Skill Reference and its unchanged workspace from the saved flow. Ask the operator to inspect the pinned skill revision before starting another request."
+  },
+  "invocation_boundary_unverified": {
+    "title": "The invocation boundary could not be verified",
+    "description": "Retained activity could not be attributed completely to this invocation. Usage and cost totals are withheld rather than treated as zero.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry evidence and the original run Status. Do not infer missing usage or repeat a request merely to reconstruct its activity."
+  },
+  "opencode_native_terminal_not_observed": {
+    "title": "The end of the OpenCode activity was not captured",
+    "description": "The captured native stream has no confirmed terminal event. This limits the activity record; it does not establish whether the task succeeded or failed.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records and check the existing run status before starting another request. Repeating the task will not restore the missing capture."
+  },
+  "opencode_adapter_telemetry_incomplete": {
+    "title": "Some OpenCode telemetry could not be captured",
+    "description": "The adapter could not retain all expected telemetry. The remaining activity records may be incomplete; this warning does not establish task failure.",
+    "recovery": "Inspect the retained Conversation and OpenTelemetry records and check the existing run status. Ask the operator to investigate the capture before relying on its completeness; do not repeat the task just to recreate telemetry."
   }
 }

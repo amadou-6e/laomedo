@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
+import http.client
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -46,6 +49,28 @@ def check_auth_fresh(profile):
         raise RunnerError("opencode_auth_validity_invalid")
     if expiry <= int(time.time() * 1000) + MIN_TOKEN_REMAINING_MS:
         raise RunnerError("opencode_console_token_refresh_required")
+
+
+def _credential_binding(profile):
+    path = Path(profile) / "credential-binding-key"
+    try:
+        with path.open("xb") as target:
+            target.write(secrets.token_bytes(32))
+    except FileExistsError:
+        pass
+    binding_key = path.read_bytes()
+    if len(binding_key) != 32:
+        raise RunnerError("opencode_credential_binding_key_invalid")
+    fingerprint = json.loads((Path(profile) / "auth-validity.json").read_text())["credential_sha256"]
+    return hmac.new(binding_key, fingerprint.encode(), hashlib.sha256).hexdigest()
+
+
+def _remove_owned(name):
+    result = subprocess.run(["docker", "rm", "-f", name], capture_output=True, text=True, timeout=15)
+    if result.returncode:
+        probe = subprocess.run(["docker", "inspect", name], capture_output=True, text=True, timeout=15)
+        if probe.returncode == 0 or "no such" not in probe.stderr.lower():
+            raise RunnerError("opencode_container_cleanup_unverified")
 
 
 def worker_command(name, workspace, canonical, store, command):
@@ -154,7 +179,7 @@ class CommandBroker:
         with self.lock:
             names = list(self.active)
         for name in names:
-            subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=15)
+            _remove_owned(name)
         # Stop owned command workers before joining request-handler threads.
         self.server.server_close()
         self.thread.join(timeout=5)
@@ -163,7 +188,10 @@ class CommandBroker:
 class IsolatedOpenCode:
     """One controller per turn, persistent session profile, independent workers."""
 
-    def __init__(self, workspace, evidence, *, profile, image, image_id):
+    def __init__(self, workspace, evidence, *, profile, image, image_id, worker_image_id=None,
+                 configure_agents=None):
+        self.termination_verified = False
+        selected_worker_id = worker_image_id or WORKER_IMAGE_ID
         self.profile = _private(Path(profile))
         if not (self.profile / "auth.json").is_file():
             raise RunnerError("opencode_private_auth_required")
@@ -173,8 +201,10 @@ class IsolatedOpenCode:
             _json(identity_path, {"profile_id": str(uuid4())})
         self.runtime_identity = {"provider": "opencode", "runtime_version": CLI_VERSION,
             "image": image, "image_id": image_id,
-            "profile_id": json.loads(identity_path.read_text())["profile_id"]}
-        for label, expected in ((image, image_id), (WORKER_IMAGE, WORKER_IMAGE_ID)):
+            "profile_id": json.loads(identity_path.read_text())["profile_id"],
+            "worker_image": WORKER_IMAGE,"worker_image_id": selected_worker_id,
+            "credential_binding": _credential_binding(self.profile)}
+        for label, expected in ((image, image_id), (WORKER_IMAGE, selected_worker_id)):
             actual = subprocess.run(["docker", "image", "inspect", label, "--format", "{{.Id}}"],
                                     check=True, capture_output=True, text=True, timeout=15).stdout.strip()
             if actual != expected:
@@ -214,6 +244,11 @@ class IsolatedOpenCode:
                 config["provider"] = {"opencode-go": {"api": routing["api"], "npm": routing["npm"],
                     "models": routing.get("models", {}),
                     "options": {"headers": {"x-opencode-org-id": organization}}}}
+            # Trusted host startup policy only, never graph/request input. Keep
+            # the default isolated tools unless the operator explicitly extends
+            # them (e.g. enabling a named read-only native subagent).
+            if configure_agents is not None:
+                configure_agents(config)
             _json(root / "config.json", config)
             self.profile.joinpath("sessions").mkdir(exist_ok=True)
         except Exception:
@@ -254,6 +289,32 @@ class IsolatedOpenCode:
             self.close()
             raise
 
+    def open_events(self):
+        basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
+        connection = http.client.HTTPConnection('127.0.0.1', int(self.port), timeout=30)
+        connection.request('GET', '/event?directory=/draft', headers={
+            'Authorization': 'Basic ' + basic, 'Accept': 'text/event-stream'})
+        response = connection.getresponse()
+        if response.status != 200:
+            connection.close()
+            raise RuntimeError('opencode_native_subscription_unavailable')
+        # The owned connection is explicitly shut down by close(); a quiet model
+        # step must not terminate capture at the HTTP connect timeout.
+        if connection.sock is not None:
+            connection.sock.settimeout(None)
+        class EventStream:
+            def readline(self, limit):
+                return response.readline(limit)
+            def close(self):
+                if connection.sock is not None:
+                    try:
+                        connection.sock.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+                response.close()
+                connection.close()
+        return EventStream()
+
     def call(self, method, path, payload=None):
         basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
         req = request.Request("http://127.0.0.1:" + self.port + path + "?directory=/draft",
@@ -272,7 +333,7 @@ class IsolatedOpenCode:
     def close(self):
         try:
             if self.name is not None:
-                subprocess.run(["docker", "rm", "-f", self.name], capture_output=True, timeout=15)
+                _remove_owned(self.name)
                 self.name = None
         finally:
             try:
@@ -283,6 +344,8 @@ class IsolatedOpenCode:
                 if self.log is not None:
                     self.log.close()
                     self.log = None
+
+        self.termination_verified = True
 
     def check_auth_fresh(self):
         check_auth_fresh(self.profile)

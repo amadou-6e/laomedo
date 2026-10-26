@@ -42,7 +42,7 @@ def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -
                        connection_id="synthetic", connection_generation=1)
 
 
-from experiments.turn_harness import VerificationLocalRunner as LocalRunner
+from verification_runner import VerificationLocalRunner as LocalRunner
 
 class FakeServer:
     calls = []

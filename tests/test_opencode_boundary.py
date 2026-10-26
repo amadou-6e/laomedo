@@ -59,7 +59,7 @@ class BoundaryTests(unittest.TestCase):
             def docker(args, **_kwargs):
                 if args[:3] == ['docker', 'image', 'inspect']:
                     return Mock(stdout='fixture-image' if args[3] == 'fixture-controller' else WORKER_IMAGE_ID)
-                return Mock(stdout='')
+                return Mock(returncode=0,stdout='',stderr='')
             with patch('laomedo.opencode_boundary.CommandBroker', return_value=broker), \
                  patch('laomedo.opencode_boundary.subprocess.run', side_effect=docker):
                 with self.assertRaisesRegex(RunnerError, 'opencode_organization_context_invalid'):
@@ -80,7 +80,7 @@ class BoundaryTests(unittest.TestCase):
                 if args[:3] == ['docker', 'run', '-d']:
                     launch.extend(args)
                     raise subprocess.CalledProcessError(1, args)
-                return Mock(stdout=b'', stderr=b'')
+                return Mock(returncode=0,stdout=b'', stderr=b'')
             with patch('laomedo.opencode_boundary.CommandBroker', return_value=broker), \
                  patch('laomedo.opencode_boundary.subprocess.run', side_effect=docker):
                 with self.assertRaises(subprocess.CalledProcessError):
@@ -91,6 +91,33 @@ class BoundaryTests(unittest.TestCase):
             self.assertFalse(any('target=/controller-auth.json' in x for x in mounts))
             self.assertNotIn('cp', launch)
             self.assertFalse((profile / 'sessions/auth.json').exists())
+            broker.close.assert_called_once()
+
+    def test_trusted_agent_hook_extends_defaults_before_read_only_config_mount(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            profile, workspace, evidence = self.fixture(Path(tmp), mode='provider_key')
+            broker=Mock();broker.server.server_port=12345;broker.token='synthetic-capability'
+            configured=[]
+            def configure(config):
+                self.assertTrue(config['tools']['skill'])
+                self.assertTrue(config['tools']['laomedo_exec'])
+                self.assertEqual(config['permission']['skill'],{'*':'deny','sample':'allow'})
+                config['tools']['task']=True
+                configured.append(True)
+            def docker(args,**_kwargs):
+                if args[:3]==['docker','image','inspect']:
+                    return Mock(stdout='fixture-image' if args[3]=='fixture-controller' else WORKER_IMAGE_ID)
+                if args[:3]==['docker','run','-d']:
+                    config_file=next(evidence.glob('controller-*/config.json'))
+                    self.assertTrue(json.loads(config_file.read_text())['tools']['task'])
+                    mounts=[args[i+1] for i,value in enumerate(args) if value=='--mount']
+                    self.assertTrue(any('target=/controller-config.json,readonly' in mount for mount in mounts))
+                    raise subprocess.CalledProcessError(1,args)
+                return Mock(returncode=0,stdout=b'',stderr=b'')
+            with patch('laomedo.opencode_boundary.CommandBroker',return_value=broker),patch('laomedo.opencode_boundary.subprocess.run',side_effect=docker):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    IsolatedOpenCode(workspace,evidence,profile=profile,image='fixture-controller',image_id='fixture-image',configure_agents=configure)
+            self.assertEqual(configured,[True])
             broker.close.assert_called_once()
 
     def test_second_worker_request_rejected_while_one_is_active(self):
@@ -127,9 +154,28 @@ class BoundaryTests(unittest.TestCase):
         broker.server.shutdown.side_effect = lambda: calls.append('shutdown')
         broker.server.server_close.side_effect = lambda: calls.append('join-handlers')
         broker.thread = Mock()
-        with patch('laomedo.opencode_boundary.subprocess.run', side_effect=lambda *_a, **_k: calls.append('stop-worker')):
+        with patch('laomedo.opencode_boundary.subprocess.run', side_effect=lambda *_a, **_k: (calls.append('stop-worker') or Mock(returncode=0))):
             broker.close()
         self.assertEqual(calls, ['shutdown', 'stop-worker', 'join-handlers'])
+
+    def test_credential_binding_is_keyed_stable_and_changes_with_credentials(self):
+        from laomedo.opencode_boundary import _credential_binding
+        with tempfile.TemporaryDirectory() as tmp:
+            profile,_,_=self.fixture(Path(tmp),mode='provider_key')
+            validity_path=profile/'auth-validity.json'
+            validity=json.loads(validity_path.read_text())
+            first=_credential_binding(profile)
+            self.assertNotEqual(first,validity['credential_sha256'])
+            self.assertEqual(first,_credential_binding(profile))
+            validity['credential_sha256']=hashlib.sha256(b'rotated-test-key').hexdigest()
+            validity_path.write_text(json.dumps(validity))
+            self.assertNotEqual(first,_credential_binding(profile))
+
+    def test_cleanup_transport_failure_is_not_claimed_as_verified(self):
+        from laomedo.opencode_boundary import _remove_owned
+        with patch('laomedo.opencode_boundary.subprocess.run',return_value=Mock(returncode=1,stderr='Docker daemon unavailable')):
+            with self.assertRaisesRegex(RunnerError,'opencode_container_cleanup_unverified'):
+                _remove_owned('owned-test-container')
 
     def test_worker_never_mounts_controller_profile_or_environment(self):
         args = worker_command("owned", Path("workspace"), Path("canonical"), Path("store"), "pwd")

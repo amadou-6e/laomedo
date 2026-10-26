@@ -13,7 +13,7 @@ from laomedo.workspace_skills import remove_owned_tree
 from test_local_runner import FakeServer
 
 
-from experiments.turn_harness import VerificationLocalRunner as LocalRunner
+from verification_runner import VerificationLocalRunner as LocalRunner
 
 class WorkspaceSkillGitTests(unittest.TestCase):
     def setUp(self):

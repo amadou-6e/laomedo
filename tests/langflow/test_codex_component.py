@@ -922,3 +922,18 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModelCatalogCredentialTests(unittest.TestCase):
+    def test_bridge_enabled_discovery_uses_runner_token_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner=Path(directory)/'runner-token';runner.write_text('fixture-runner')
+            bridge=Path(directory)/'bridge-token';bridge.write_text('fixture-bridge')
+            payload=json.dumps({'models':[{'id':'test-model','efforts':['low']}]}).encode()
+            with patch.dict(module.os.environ,{'LAOMEDO_BRIDGE_URL':'http://localhost:8766',
+                    'LAOMEDO_RUNNER_TOKEN_FILE':str(runner),'LAOMEDO_BRIDGE_TOKEN_FILE':str(bridge)}), \
+                 patch.object(module._HTTP,'open',return_value=io.BytesIO(payload)) as opened:
+                node=component(operation='fresh')
+                self.assertTrue(node._bridge_base())
+                self.assertEqual(node._model_catalog({'runner_url':{'value':'http://localhost:8765'}}),{'test-model':['low']})
+                self.assertEqual(opened.call_args.args[0].get_header('Authorization'),'Bearer fixture-runner')

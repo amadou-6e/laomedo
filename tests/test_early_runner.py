@@ -21,7 +21,7 @@ from laomedo.skill_store import SkillStore
 from test_local_runner import FakeServer
 
 
-from experiments.turn_harness import VerificationLocalRunner as LocalRunner
+from verification_runner import VerificationLocalRunner as LocalRunner
 
 class BlockingServer(FakeServer):
     entered = threading.Event()

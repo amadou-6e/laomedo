@@ -14,6 +14,31 @@ from laomedo.runner_activity import notification, read_feed
 
 
 class GraphActivityTests(unittest.TestCase):
+    def test_native_turn_usage_uses_cumulative_boundary_deltas_and_ignores_last(self):
+        def receipt(raw):return {'received_at':'2026-10-24T18:00:00Z','raw':raw}
+        events=[{'method':'capture/usageBaseline','threads':{'root':{'total':{'inputTokens':100,'cachedInputTokens':20,'outputTokens':10}}}},
+                {'method':'turn/started','params':{'threadId':'root','turnId':'t1'}}]
+        for value in (120,145,145):
+            events.append({'method':'thread/tokenUsage/updated','params':{'threadId':'root','turnId':'t1','tokenUsage':{'total':{'inputTokens':value,'cachedInputTokens':25,'outputTokens':15},'last':{'inputTokens':3}}}})
+        events.extend([{'method':'turn/completed','params':{'threadId':'root','turnId':'t1','turn':{'status':'completed'}}},
+                       {'method':'turn/started','params':{'threadId':'root','turnId':'t2'}},
+                       {'method':'thread/tokenUsage/updated','params':{'threadId':'root','turnId':'t2','tokenUsage':{'total':{'inputTokens':155,'cachedInputTokens':25,'outputTokens':17},'last':{'inputTokens':2}}}}])
+        result=project([receipt(raw) for raw in events],root_thread='root')
+        self.assertEqual([turn['usage']['inputTokens'] for turn in result['turns']],[45,10])
+        self.assertEqual([point['turn_usage']['inputTokens'] for point in result['usage_points']],[20,45,45,10])
+        self.assertEqual(result['usage']['inputTokens'],55)
+        missing=project([receipt({'method':'turn/started','params':{'threadId':'root','turnId':'t'}}),receipt({'method':'thread/tokenUsage/updated','params':{'threadId':'root','turnId':'t','tokenUsage':{'total':{'inputTokens':100},'last':{'inputTokens':7}}}})],root_thread='root')
+        self.assertIsNone(missing['turns'][0]['usage'])
+        self.assertIsNone(missing['usage_points'][0]['turn_usage'])
+
+    def test_turn_usage_stays_unknown_after_counter_regression(self):
+        raw=[{'method':'capture/usageBaseline','threads':{'root':{'total':{'inputTokens':10}}}},
+             {'method':'turn/started','params':{'threadId':'root','turnId':'t'}}]
+        raw.extend({'method':'thread/tokenUsage/updated','params':{'threadId':'root','turnId':'t','tokenUsage':{'total':{'inputTokens':value}}}} for value in (20,5,30))
+        result=project([{'raw':event,'received_at':'2026-10-24T18:00:00Z'} for event in raw],root_thread='root')
+        self.assertIsNone(result['turns'][0]['usage'])
+        self.assertIsNone(result['turns'][0]['cost']['amount'])
+
     def test_concurrent_first_captures_serialize_schema_migration(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'activity.db'
