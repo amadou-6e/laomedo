@@ -21,7 +21,7 @@ jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({
 beforeEach(()=>{jest.clearAllMocks();canvasNodes=[];activityTarget=null});
 
 test("native Codex tools use readable names without dropping source metadata",()=>{
-  expect(activityTitle({type:"mcpToolCall",server:"github",tool:"get_pull_request"})).toBe("github · get_pull_request");
+  expect(activityTitle({type:"mcpToolCall",server:"github",tool:"get_pull_request"})).toBe("github Â· get_pull_request");
   expect(activityTitle({type:"dynamicToolCall",tool:"laomedo_output_precheck"})).toBe("laomedo_output_precheck");
   expect(activityTitle({type:"mcpToolCall"})).toBe("MCP tool");
 });
@@ -89,10 +89,10 @@ test("recorded names survive canvas rename and older runs use the visible canvas
   const first={...run("one","execution"),node_label:"Review PR"},second=run("two","execution");
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,second]}:{run:url.endsWith("/two")?second:first,projection,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
-  fireEvent.click(await screen.findByRole("button",{name:"Review PR · completed"}));
+  fireEvent.click(await screen.findByRole("button",{name:"Review PR Â· completed"}));
   await screen.findByRole("heading",{name:"Review PR"});
-  expect(screen.getByRole("button",{name:"Follow up · completed"})).toBeInTheDocument();
-  expect(screen.queryByRole("button",{name:"Renamed on canvas · completed"})).toBeNull();
+  expect(screen.getByRole("button",{name:"Follow up Â· completed"})).toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"Renamed on canvas Â· completed"})).toBeNull();
   fireEvent.click(screen.getByText("Node identity"));
   expect(screen.getByText("node-one")).toBeInTheDocument();
   expect(screen.getByText("Recorded when this invocation started")).toBeInTheDocument();
@@ -110,14 +110,14 @@ test("execution selection separates repeated node invocations and exposes unknow
   const first=run("one","execution-one"),second=run("two","execution-two");
   (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first,second]}:{run:url.endsWith("/one")?first:second,projection,truncated:false}}));
   render(<GraphAgents flowId="flow"/>);
-  const button=await screen.findByRole("button",{name:"node-one · completed"});
-  expect(screen.queryByRole("button",{name:"node-two · completed"})).toBeNull();
+  const button=await screen.findByRole("button",{name:"node-one Â· completed"});
+  expect(screen.queryByRole("button",{name:"node-two Â· completed"})).toBeNull();
   fireEvent.click(button);
   await screen.findByRole("heading",{name:"Conversation"});
   expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
   fireEvent.change(screen.getByRole("combobox"),{target:{value:"execution-two"}});
-  await screen.findByRole("button",{name:"node-two · completed"});
-  expect(screen.queryByRole("button",{name:"node-one · completed"})).toBeNull();
+  await screen.findByRole("button",{name:"node-two Â· completed"});
+  expect(screen.queryByRole("button",{name:"node-one Â· completed"})).toBeNull();
   await waitFor(()=>expect(api.get).toHaveBeenCalledWith(expect.stringContaining("/node-two/two"),expect.anything()));
 });
 
@@ -132,7 +132,7 @@ test("live summary updates do not restart a slower detail request",async()=>{
       :new Promise(resolve=>setTimeout(()=>resolve({data:{run:current,projection,truncated:false}}),5000)));
     view=render(<GraphAgents flowId="flow"/>);
     await act(async()=>{await Promise.resolve()});
-    fireEvent.click(screen.getByRole("button",{name:"node-live · running"}));
+    fireEvent.click(screen.getByRole("button",{name:"node-live Â· running"}));
     for(let index=0;index<5;index++)await act(async()=>{jest.advanceTimersByTime(1000)});
     expect(screen.getByRole("heading",{name:"Conversation"})).toBeInTheDocument();
     expect((api.get as jest.Mock).mock.calls.filter(([url])=>String(url).includes("/node-live/live"))).toHaveLength(1);
@@ -145,7 +145,7 @@ test("conversation follows diagnostics, roles differ and command evidence starts
  const items=[{id:"user",thread:"one",started:first.started,ended:first.ended,item:{type:"userMessage",text:"Read the file"}},{id:"tool",thread:"one",started:first.started,ended:first.ended,item:{type:"commandExecution",command:"cat README.md",exitCode:0,aggregatedOutput:"output evidence",commandActions:[{type:"read",name:"README.md"}]}},{id:"answer",thread:"one",started:first.started,ended:first.ended,item:{type:"agentMessage",text:"**Done**"}},{id:"child",thread:"child-unique-thread",started:first.started,ended:first.ended,item:{type:"agentMessage",text:"Child answer"}}];
  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,items},truncated:true}}));
  const {container}=render(<GraphAgents flowId="flow"/>);
- fireEvent.click(await screen.findByRole("button",{name:"node-one · completed"}));
+ fireEvent.click(await screen.findByRole("button",{name:"node-one Â· completed"}));
  await screen.findByRole("navigation",{name:"Activity selection"});
  fireEvent.click(screen.getByRole("button",{name:"All activity",exact:true}));
  const conversation=await screen.findByRole("region",{name:"Conversation messages and tools"});
@@ -178,7 +178,7 @@ test("Markdown formats safely without HTML or remote images",()=>{
  expect(container.querySelector('a[href^="javascript:"]')).toBeNull();
  expect(commandTitle({commandActions:[null,{}, {type:"read",name:"file"}]})).toBe("Read file");
  expect(commandTitle({command:"a"})).toBe("Shell command");
- expect(activityTitle({type:"subAgentActivity",kind:"started",agentPath:"/root/read"})).toBe("Subagent started · /root/read");
+ expect(activityTitle({type:"subAgentActivity",kind:"started",agentPath:"/root/read"})).toBe("Subagent started Â· /root/read");
  expect(activityTitle({type:"subAgentActivity",kind:"completed"})).toBe("Subagent completed");
 });
 
@@ -290,7 +290,8 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
   expect(screen.getByText("Parent answer")).toBeInTheDocument();expect(screen.getByText("Second child answer")).toBeInTheDocument();
   expect(screen.queryByText("Technical details",{selector:"summary"})).toBeNull();
   expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button",{name:/Earlier run in this conversation/}));
+  expect(screen.queryByRole("button",{name:/Earlier run in this conversation/})).toBeNull();
+  fireEvent.change(screen.getByRole("combobox"),{target:{value:"previous"}});
   await waitFor(()=>expect(screen.getByRole("combobox")).toHaveValue("previous"));
   expect(screen.queryByText("This conversation only; excludes subagents")).toBeNull();
 });
@@ -355,7 +356,7 @@ test.each([null,"invocation_boundary_unverified"])("initial graph totals respect
  const active={...run("one","execution"),status:"running",ended:null,reason,native_session:null};
  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[active]}:{run:active,projection,truncated:false}}));
  render(<GraphAgents flowId="flow"/>);
- fireEvent.click(await screen.findByRole("button",{name:"node-one · running"}));
+ fireEvent.click(await screen.findByRole("button",{name:"node-one Â· running"}));
  const totals=await screen.findByRole("group",{name:"Run totals"});
  if(reason)expect(totals).toHaveTextContent("Unknown");
  else {expect(totals).not.toHaveTextContent("Unknown");expect(totals).toHaveTextContent("$0.000000")}
