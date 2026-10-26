@@ -397,6 +397,9 @@ test("Claude diagnostics remain separate from captured native activity",async()=
 test("Claude prompt envelopes display the task while arbitrary JSON stays literal",()=>{
  const text=JSON.stringify({task:"Read the workspace.",workspace:"/draft",skills:[],imported_artifacts:[],output_requirements:null});
  expect(messageText({type:"userMessage",text},"claude-code")).toBe("Read the workspace.");
+ const captured={type:"userMessage",content:[{type:"inputText",text}],provenance:"host_submitted_prompt"};
+ expect(messageText(captured,"claude-code")).toBe("Read the workspace.");
+ expect(captured.content[0].text).toBe(text);
  expect(messageText({type:"userMessage",text},"codex-cli")).toBe(text);
  expect(messageText({type:"agentMessage",text},"claude-code")).toBe(text);
  for(const plain of ['A plain task','{"task":"Keep this JSON"}','{"task":"x","workspace":"/draft","skills":[],"imported_artifacts":[],"extra":1}']) expect(messageText({type:"userMessage",text:plain},"claude-code")).toBe(plain);

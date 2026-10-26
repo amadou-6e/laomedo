@@ -21,19 +21,20 @@ type Detail = {run:Run;projection:Projection;truncated:boolean};
 const time = (value:string) => new Date(value).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const duration = (start:string,end:string|null) => `${Math.max(0,(Date.parse(end??new Date().toISOString())-Date.parse(start))/1000).toFixed(1)}s`;
 export const messageText = (item:Record<string,unknown>|undefined,provider?:string) => {
-  if(typeof item?.text==="string") {
-    if(item.type==="userMessage" && (provider==="claude"||provider==="claude-code")) {
+  const text=typeof item?.text==="string"?item.text:
+    item?.type==="userMessage"&&Array.isArray(item.content)?item.content.map(part=>typeof part?.text==="string"?part.text:"[Non-text content]").join("\n"):null;
+  if(text!==null) {
+    if(item?.type==="userMessage" && (provider==="claude"||provider==="claude-code")) {
       try {
-        const envelope=JSON.parse(item.text);
+        const envelope=JSON.parse(text);
         if(envelope && typeof envelope==="object" && !Array.isArray(envelope) &&
           typeof envelope.task==="string" && typeof envelope.workspace==="string" &&
           Array.isArray(envelope.skills) && Array.isArray(envelope.imported_artifacts) &&
           Object.keys(envelope).every(key=>["task","workspace","skills","imported_artifacts","output_requirements"].includes(key))) return envelope.task;
       } catch { /* Ordinary user prose and JSON remain unchanged. */ }
     }
-    return item.text;
+    return text;
   }
-  if(item?.type==="userMessage"&&Array.isArray(item.content))return item.content.map(part=>typeof part?.text==="string"?part.text:"[Non-text content]").join("\n");
   return null;
 };
 
