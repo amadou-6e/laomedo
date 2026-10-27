@@ -53,8 +53,8 @@ outside model-callable mounts. The Git credential helper remains a real script
 at the stable package-root path. No JSON schema, error code, runner identity,
 image pin, request acknowledgement, cancellation or cleanup algorithm changes.
 
-The original checkout's unrelated edits are preserved in the local migration
-backup and Git stash; this branch is based on develop `6069ac9`. This increment establishes package
+This branch is based on develop `6069ac9`; unrelated pending work is not included.
+This increment establishes package
 ownership and source layout. Further splitting of cohesive runner methods is a
 separate behavior-preserving increment, not an unreviewed rewrite in a file move.
 
@@ -71,3 +71,6 @@ passing unit tests do not assert the user workflow succeeded.
 imports and the earlier `laomedo.activity.agent_activity_*` imports remain
 compatibility aliases to the same canonical modules, preserving patch targets
 and class identity. Internal callers use the grouped package.
+The intermediate `laomedo.activity.agent_activity` name is now the package API,
+not an alias of `store`: its supported exports are the three names above. Use
+`laomedo.activity.agent_activity.store` for store-module patch targets.
