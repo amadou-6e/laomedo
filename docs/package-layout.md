@@ -67,10 +67,10 @@ passing unit tests do not assert the user workflow succeeded.
 
 `activity.agent_activity` groups `store.py`, `capture.py`, `cost.py`,
 `projection.py` and `routes.py`. Its package API exposes `ActivityStore`,
-`capture_for` and `now`. Both the original flat `laomedo.agent_activity_*`
-imports and the earlier `laomedo.activity.agent_activity_*` imports remain
-compatibility aliases to the same canonical modules, preserving patch targets
-and class identity. Internal callers use the grouped package.
+`capture_for` and `now`. The original flat `laomedo.agent_activity_*` imports
+remain compatibility aliases to the canonical modules, preserving patch targets
+and class identity. Internal callers use the grouped package directly; the
+intermediate `laomedo.activity.agent_activity_*` modules are removed.
 The intermediate `laomedo.activity.agent_activity` name is now the package API,
 not an alias of `store`: its supported exports are the three names above. Use
 `laomedo.activity.agent_activity.store` for store-module patch targets.

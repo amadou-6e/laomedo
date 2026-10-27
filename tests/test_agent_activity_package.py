@@ -1,4 +1,4 @@
-"""Protect both generations of activity imports while grouping their owner."""
+"""Protect the grouped activity package and original flat imports."""
 import importlib
 import unittest
 from types import SimpleNamespace
@@ -18,8 +18,6 @@ class AgentActivityPackageTests(unittest.TestCase):
                         self.skipTest("Optional activity API dependencies are not installed")
                     raise
                 self.assertIs(importlib.import_module("laomedo.agent_activity" + suffix), canonical)
-                if suffix:
-                    self.assertIs(importlib.import_module("laomedo.activity.agent_activity" + suffix), canonical)
 
     def test_package_exports_the_existing_store_api(self):
         from laomedo.activity import agent_activity
