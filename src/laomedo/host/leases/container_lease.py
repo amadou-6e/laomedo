@@ -1,6 +1,6 @@
 """Exact-container lease supervision for a local runner process.
 
-Superseded for runner launches by ``laomedo.lease_service``: EXP-93's frozen
+Superseded for runner launches by ``laomedo.host.leases.lease_service``: EXP-93's frozen
 whole-tree diagnostic showed this runner-spawned child supervisor dies with
 the runner under ``taskkill /T /F``. The exact inspection and cleanup helpers
 below remain shared. ``LeaseProcess``/``supervise`` are kept only so the
@@ -56,7 +56,7 @@ class LeaseProcess:
         self.log = (record_path.parent / ("lease-" + token + ".log")).open("a", encoding="utf-8")
         try:
             self.process = subprocess.Popen(
-                [sys.executable, "-m", "laomedo.container_lease", str(record_path),
+                [sys.executable, "-m", "laomedo.host.leases.container_lease", str(record_path),
                  name, run_id, token, str(self.ready), str(self.result)],
                 stdin=subprocess.PIPE, stdout=self.log, stderr=self.log,
                 text=True, encoding="utf-8", **_detached_process_options())

@@ -33,8 +33,8 @@ Build and authenticate the dedicated image/profile as described in
 supervisor before the runner, using private state directories outside Git:
 
 ```powershell
-python -m laomedo.lease_service --help
-python -m laomedo.claude_runner --state <private-state> --skill-store <registry> --source <source> --lease-service <supervisor-state> --port 8769
+python -m laomedo.host.leases.lease_service --help
+python -m laomedo.agents.providers.claude_runner --state <private-state> --skill-store <registry> --source <source> --lease-service <supervisor-state> --port 8769
 ```
 
 Set `LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE` in the Langflow host to the runner's

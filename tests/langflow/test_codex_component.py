@@ -66,7 +66,7 @@ def result(**changes):
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_bridge_activity_capture_uses_runner_token(self):
-        from laomedo.agent_activity_capture import RunnerCapture
+        from laomedo.activity.agent_activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as folder:
             runner_path = Path(folder) / 'runner-token'
             bridge_path = Path(folder) / 'bridge-token'
@@ -75,7 +75,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             node = component(bridge_url='http://localhost:8766')
             with patch.dict(os.environ, {'LAOMEDO_RUNNER_TOKEN_FILE': str(runner_path),
                     'LAOMEDO_BRIDGE_TOKEN_FILE': str(bridge_path)}), \
-                    patch('laomedo.agent_activity_capture.capture_for', return_value=(object(), 'internal')):
+                    patch('laomedo.activity.agent_activity.capture.capture_for', return_value=(object(), 'internal')):
                 capture = RunnerCapture(node)
                 self.assertEqual(node._token_file_path(), str(bridge_path))
                 self.assertEqual(node._runner_token_file_path(), str(runner_path))
@@ -83,7 +83,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(capture.base, node.runner_url)
 
     def test_static_output_requirements_reach_request_and_reject_conflicts(self):
-        from laomedo.output_contract import requirements
+        from laomedo.agents.output_contract import requirements
         from lfx.schema import Data
         pin = requirements({"schema_version": 1, "fields": [
             {"name": "action", "type": "string", "required": True, "checks": {"enum": ["modify"]}}]})

@@ -16,7 +16,7 @@ from unittest.mock import patch
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from laomedo.siwc_auth import (AuthError, ChatGPTConnection, NEEDED,
+from laomedo.host.credentials.siwc_auth import (AuthError, ChatGPTConnection, NEEDED,
                                _https_json, _tls_context, _verify_id_token)
 
 
@@ -31,7 +31,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
         private_text = "secret-code-and-token"
         error = HTTPError("https://auth.openai.com/private/" + private_text,
                           400, private_text, {}, BytesIO(private_text.encode()))
-        with patch("laomedo.siwc_auth.build_opener") as opener:
+        with patch("laomedo.host.credentials.siwc_auth.build_opener") as opener:
             opener.return_value.open.side_effect = error
             with self.assertRaisesRegex(AuthError, "^auth_http_400$") as raised:
                 _https_json("https://auth.openai.com/api/accounts/oauth/token",
@@ -39,20 +39,20 @@ class ChatGPTConnectionTests(unittest.TestCase):
         self.assertNotIn(private_text, str(raised.exception))
         self.assertTrue(raised.exception.__suppress_context__)
         self.assertTrue(error.fp.closed)
-        with patch("laomedo.siwc_auth.build_opener") as opener:
+        with patch("laomedo.host.credentials.siwc_auth.build_opener") as opener:
             opener.return_value.open.side_effect = URLError(private_text)
             with self.assertRaisesRegex(AuthError, "^auth_transport_failed$") as raised:
                 _https_json("https://auth.openai.com/api/accounts/oauth/token",
                             fields={"code": private_text})
         self.assertNotIn(private_text, str(raised.exception))
-        with patch("laomedo.siwc_auth.build_opener") as opener:
+        with patch("laomedo.host.credentials.siwc_auth.build_opener") as opener:
             opener.return_value.open.side_effect = URLError(
                 ssl.SSLCertVerificationError(private_text))
             with self.assertRaisesRegex(AuthError, "^auth_tls_verify_failed$") as raised:
                 _https_json("https://auth.openai.com/api/accounts/oauth/token",
                             fields={"code": private_text})
         self.assertNotIn(private_text, str(raised.exception))
-        with patch("laomedo.siwc_auth.build_opener") as opener:
+        with patch("laomedo.host.credentials.siwc_auth.build_opener") as opener:
             opener.return_value.open.side_effect = BadStatusLine(private_text)
             with self.assertRaisesRegex(AuthError, "^auth_exchange_failed$") as raised:
                 _https_json("https://auth.openai.com/api/accounts/oauth/token",
@@ -129,9 +129,9 @@ class ChatGPTConnectionTests(unittest.TestCase):
                   "exp": int(time.time()) + 600}
         token = jwt.encode(claims, private, algorithm="RS256",
                            headers={"kid": "fixture"})
-        with patch("laomedo.siwc_auth._https_json", return_value={
+        with patch("laomedo.host.credentials.siwc_auth._https_json", return_value={
                 "jwks_uri": "https://auth.openai.com/.well-known/jwks.json"}), \
-                patch("laomedo.siwc_auth.jwt.PyJWKClient") as client:
+                patch("laomedo.host.credentials.siwc_auth.jwt.PyJWKClient") as client:
             client.return_value.get_signing_key_from_jwt.return_value.key = private.public_key()
             self.assertEqual(_verify_id_token(token, "oaiapp_fixture",
                                               "fresh-nonce")["sub"],
@@ -191,7 +191,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
         self.assertEqual(account["refresh_token"], "replacement-refresh")
         self.assertEqual(account["generation"], 2)
         account["expires_at"] = time.time() - 1
-        from laomedo.siwc_auth import _atomic_private
+        from laomedo.host.credentials.siwc_auth import _atomic_private
         _atomic_private(self.store._path(account["client_id"]), account)
         with self.assertRaisesRegex(AuthError, "auth_refresh_unknown"):
             self.store.access_token(refresh=lambda *_args, **_kwargs:
@@ -257,7 +257,7 @@ class ChatGPTConnectionTests(unittest.TestCase):
                          "synthetic-access")
         account = self.store.active()
         account["expires_at"] = time.time() + 299
-        from laomedo.siwc_auth import _atomic_private
+        from laomedo.host.credentials.siwc_auth import _atomic_private
         _atomic_private(self.store._path(account["client_id"]), account)
         restarted = ChatGPTConnection(self.root)
         self.assertEqual(restarted.access_token(refresh=refresh)[0],

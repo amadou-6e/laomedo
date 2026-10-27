@@ -10,10 +10,10 @@ import time
 import unittest
 from urllib import error, request
 
-from laomedo.github_mediation import MediationError, MediationStore
-from laomedo.lease_service import GRANT_TTL_SECONDS, LOSS_SECONDS, LeaseService
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.mediation_service import MediationHTTPService
+from laomedo.host.mediation.github_mediation import MediationError, MediationStore
+from laomedo.host.leases.lease_service import GRANT_TTL_SECONDS, LOSS_SECONDS, LeaseService
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.mediation_service import MediationHTTPService
 
 
 def _result(directory: Path) -> dict:
@@ -147,7 +147,7 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
 
     def test_trusted_handoff_lease_loss_revokes_before_cleanup_other_run_survives(self):
-        from laomedo.output_contract import requirements
+        from laomedo.agents.output_contract import requirements
         first, accepted, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         handoff = self.store.begin_publication_handoff(

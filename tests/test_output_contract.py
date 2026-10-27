@@ -6,9 +6,9 @@ import json
 import queue
 import unittest
 
-from laomedo.output_contract import (requirements, evaluate, evaluate_envelope,
+from laomedo.agents.output_contract import (requirements, evaluate, evaluate_envelope,
                                     verify_requirements, precheck_response, dynamic_tool)
-from laomedo.local_runner import AppServer
+from laomedo.agents.local_runner import AppServer
 
 
 FORM = {"schema_version": 1, "fields": [{"name": "report", "type": "string",

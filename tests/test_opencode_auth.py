@@ -6,7 +6,7 @@ import time
 import unittest
 from pathlib import Path
 
-from laomedo.opencode_auth import console_provider, credential, NoRedirect
+from laomedo.host.credentials.opencode_auth import console_provider, credential, NoRedirect
 
 
 class ConsoleAuthTests(unittest.TestCase):

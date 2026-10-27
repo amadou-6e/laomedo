@@ -18,13 +18,13 @@ import sys
 from urllib import error, request
 
 from experiments.exp05.evidence import EvidenceStore
-from laomedo.issue_context import fetch_context
-from laomedo.local_runner import (
+from laomedo.github.issues.issue_context import fetch_context
+from laomedo.agents.local_runner import (
     CONFIG_SHA256, IMAGE_ID, CLI_VERSION, VOLUME, LocalRunner, _hash_tree, _json, _private,
 )
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.skill_store import SkillStore
-from laomedo.workflow_run_store import ExternalOutcomeUnknown, WorkflowRunStore
+from laomedo.skills.skill_store import SkillStore
+from laomedo.agents.workflow_run_store import ExternalOutcomeUnknown, WorkflowRunStore
 from laomedo.work_graph.github import fetch as fetch_graph
 
 

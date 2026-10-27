@@ -8,8 +8,8 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from laomedo.handoff_http import RunnerAdapter
-from laomedo.handoffs import HandoffError, envelope
+from laomedo.agents.handoff_http import RunnerAdapter
+from laomedo.agents.handoffs import HandoffError, envelope
 
 
 class Response(io.BytesIO):
@@ -42,7 +42,7 @@ class HttpTests(unittest.TestCase):
             return Response(json.dumps({"run_id": "target", "status": "completed",
                                         "profile": "secret", "auth": "token"}).encode())
         adapter = self.adapter()
-        with patch("laomedo.handoff_http.urlopen", side_effect=respond):
+        with patch("laomedo.agents.handoff_http.urlopen", side_effect=respond):
             output = adapter.dispatch(item, deadline=time.monotonic() + 10, cancelled=threading.Event())
         self.assertNotIn("secret", str(output))
         self.assertNotIn("token", str(output))
@@ -68,7 +68,7 @@ class HttpTests(unittest.TestCase):
             self.assertNotIn("skill_refs", payload)
             return Response(json.dumps({"run_id": "source", "status": "completed"}).encode())
         adapter = self.adapter()
-        with patch("laomedo.handoff_http.urlopen", side_effect=respond):
+        with patch("laomedo.agents.handoff_http.urlopen", side_effect=respond):
             adapter.dispatch(item, deadline=time.monotonic() + 10, cancelled=threading.Event())
         with self.assertRaisesRegex(HandoffError, "skill_binding"):
             envelope(origin, target, "continue", skills=[{**skill, "skill_id": "different"}], operation="resume")
@@ -81,7 +81,7 @@ class HttpTests(unittest.TestCase):
                         "task", skills=[{"skill_id": "fixture", "revision_id": "sha256:" + "a" * 64}])
         error = HTTPError("http://localhost:8765/v1/runs", 400, "Bad Request", {},
                           io.BytesIO(b'{"error_category":"invalid_skill"}'))
-        with patch("laomedo.handoff_http.urlopen", side_effect=error):
+        with patch("laomedo.agents.handoff_http.urlopen", side_effect=error):
             result = self.adapter().dispatch(item, deadline=time.monotonic() + 10,
                                              cancelled=threading.Event())
         self.assertEqual(result["status"], "rejected")
@@ -90,7 +90,7 @@ class HttpTests(unittest.TestCase):
 
         uncertain = HTTPError("http://localhost:8765/v1/runs", 502, "Gateway Error", {},
                               io.BytesIO(b'{"error_category":"transport_closed"}'))
-        with patch("laomedo.handoff_http.urlopen", side_effect=uncertain):
+        with patch("laomedo.agents.handoff_http.urlopen", side_effect=uncertain):
             with self.assertRaisesRegex(HandoffError, "invalid_runner_response"):
                 self.adapter().dispatch(item, deadline=time.monotonic() + 10,
                                         cancelled=threading.Event())

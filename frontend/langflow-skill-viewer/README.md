@@ -49,7 +49,7 @@ selected ID/revision, clears old data while loading, and handles fixed errors
 with Retry. Opening, browsing or closing never executes the graph or changes a
 skill revision. Other component nodes keep the existing Code action.
 
-The optional `laomedo.langflow_skill_viewer:create_app` backend factory registers
+The optional `laomedo.integrations.langflow.langflow_skill_viewer:create_app` backend factory registers
 GET `/api/v1/laomedo/skills/{id}/{sha256-revision}` before the SPA catch-all,
 using the installed Langflow authentication dependency. Configure
 `LAOMEDO_SKILL_STORE` to a read-only registry mount and `LANGFLOW_FRONTEND_PATH`
@@ -106,7 +106,7 @@ superseded source/skill/revision are ignored. Discovery status is read-only.
 Skill files accepts the resolved tuple only while it matches the current controls.
 Source-empty old saved nodes retain their manual exact reference behavior.
 
-The host source service is `python -m laomedo.skill_source_server`: configure its
+The host source service is `python -m laomedo.skills.skill_source_server`: configure its
 registry, private state directory, allowed local roots and API token file. The
 Langflow backend uses `LAOMEDO_SKILL_SOURCE_URL` and
 `LAOMEDO_SKILL_SOURCE_TOKEN_FILE`. No transport token belongs in node fields.

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.bundle_stage import (BundleStageError, PINNED_IMAGE_ID,
+from laomedo.host.publication.bundle_stage import (BundleStageError, PINNED_IMAGE_ID,
                                   _read_frozen, verify_frozen_bundle)
 
 PROBE_PATH = (Path(__file__).resolve().parents[1] / "experiments" /

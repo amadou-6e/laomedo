@@ -6,7 +6,7 @@ from threading import Event, Thread
 import unittest
 from uuid import uuid4
 
-from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
+from laomedo.agents.workflow_run_store import LaunchError, WorkflowRunStore
 
 
 HASH = "sha256:" + "1" * 64

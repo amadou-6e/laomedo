@@ -6,13 +6,13 @@ import time
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
-from laomedo.claude_login import mirror_login, LocalClaudeLoginError, CODES
+from laomedo.host.credentials.claude_login import mirror_login, LocalClaudeLoginError, CODES
 
 IMAGE = 'sha256:' + 'a' * 64
 
 class LoginMirrorTests(TestCase):
     def test_access_must_cover_the_execution_deadline(self):
-        with patch('laomedo.claude_login.subprocess.run', side_effect=self.docker) as run, \
+        with patch('laomedo.host.credentials.claude_login.subprocess.run', side_effect=self.docker) as run, \
              self.assertRaisesRegex(LocalClaudeLoginError, 'claude_host_login_expired'):
             mirror_login('laomedo-claude-profile', IMAGE, source=self.source,
                          environment={}, minimum_validity_seconds=7200)
@@ -21,7 +21,7 @@ class LoginMirrorTests(TestCase):
     def test_existing_refresh_capable_login_is_preserved(self):
         import subprocess
         import sys
-        with patch('laomedo.claude_login.subprocess.run', side_effect=self.docker) as run:
+        with patch('laomedo.host.credentials.claude_login.subprocess.run', side_effect=self.docker) as run:
             mirror_login('laomedo-claude-profile', IMAGE, source=self.source, environment={})
         call = run.call_args
         script = call.args[0][-1]
@@ -37,21 +37,21 @@ class LoginMirrorTests(TestCase):
         self.assertEqual(credentials.read_bytes(), original)
 
     def test_runtime_opt_in_mirrors_before_auth_and_preserves_safe_error(self):
-        from laomedo.claude_runner import ClaudeRunner
-        from laomedo.local_runner import RunnerError
+        from laomedo.agents.providers.claude_runner import ClaudeRunner
+        from laomedo.agents.local_runner import RunnerError
         runner = object.__new__(ClaudeRunner)
         runner.turn_timeout = 180
         runner.container = SimpleNamespace(profile='laomedo-claude-unit', image_id=IMAGE,
             control=lambda *args, **kw: SimpleNamespace(returncode=0,
                 stdout=b'{"loggedIn":true,"authMethod":"claude.ai","orgId":"unit"}'))
         with patch.dict('os.environ', {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN': '1'}), \
-             patch('laomedo.claude_runner.mirror_login') as mirror:
+             patch('laomedo.agents.providers.claude_runner.mirror_login') as mirror:
             self.assertTrue(runner._check_auth().startswith('sha256:'))
             mirror.assert_called_once_with('laomedo-claude-unit', IMAGE, minimum_validity_seconds=180)
         for code in CODES:
             with self.subTest(code=code), \
                  patch.dict('os.environ', {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN': '1'}), \
-                 patch('laomedo.claude_runner.mirror_login', side_effect=LocalClaudeLoginError(code)), \
+                 patch('laomedo.agents.providers.claude_runner.mirror_login', side_effect=LocalClaudeLoginError(code)), \
                  self.assertRaisesRegex(RunnerError, '^'+code+'$'):
                 runner._check_auth()
 
@@ -75,7 +75,7 @@ class LoginMirrorTests(TestCase):
         return SimpleNamespace(returncode=0, stdout=json.dumps(value).encode(), stderr=b'')
 
     def test_mirror_copies_only_access_and_retains_host_refresh_ownership(self):
-        with patch('laomedo.claude_login.subprocess.run', side_effect=self.docker) as run:
+        with patch('laomedo.host.credentials.claude_login.subprocess.run', side_effect=self.docker) as run:
             mirror_login('laomedo-claude-profile', IMAGE, source=self.source,
                          environment={'PATH': 'host', 'ANTHROPIC_API_KEY': 'excluded'})
         call = run.call_args
@@ -92,7 +92,7 @@ class LoginMirrorTests(TestCase):
         self.assertEqual(call.kwargs['timeout'], 20)
 
     def test_local_context_is_pinned_despite_remote_host_override(self):
-        with patch('laomedo.claude_login.subprocess.run', side_effect=self.docker) as run:
+        with patch('laomedo.host.credentials.claude_login.subprocess.run', side_effect=self.docker) as run:
             mirror_login('laomedo-claude-profile', IMAGE, source=self.source,
                          environment={'DOCKER_CONTEXT':'desktop-linux','DOCKER_HOST':'tcp://remote:2375'})
         for call in run.call_args_list[1:]:
@@ -104,7 +104,7 @@ class LoginMirrorTests(TestCase):
         source = SimpleNamespace(read_text=lambda **kw: self.fail('Credential must not be read'))
         result = SimpleNamespace(returncode=0, stdout=json.dumps([
             {'Endpoints': {'docker': {'Host': 'tcp://remote.example:2375'}}}]).encode())
-        with patch('laomedo.claude_login.subprocess.run', return_value=result), \
+        with patch('laomedo.host.credentials.claude_login.subprocess.run', return_value=result), \
              self.assertRaisesRegex(LocalClaudeLoginError, 'claude_local_login_copy_failed'):
             mirror_login('laomedo-claude-profile', IMAGE, source=source,
                          environment={'DOCKER_HOST': 'tcp://127.0.0.1:2375', 'DOCKER_CONTEXT': 'remote'})
@@ -118,13 +118,13 @@ class LoginMirrorTests(TestCase):
         for value, code in [({}, 'claude_host_login_unavailable'),
                             ({'claudeAiOauth': {'accessToken': 'internal', 'expiresAt': 0}}, 'claude_host_login_expired')]:
             self.source.write_text(json.dumps(value))
-            with patch('laomedo.claude_login.subprocess.run', side_effect=self.docker) as run, \
+            with patch('laomedo.host.credentials.claude_login.subprocess.run', side_effect=self.docker) as run, \
                  self.assertRaisesRegex(LocalClaudeLoginError, code):
                 mirror_login('laomedo-claude-profile', IMAGE, source=self.source, environment={})
             self.assertFalse(any(call.args[0][1] == 'run' for call in run.call_args_list))
 
     def test_public_mirror_codes_have_catalogue_coverage(self):
-        from laomedo import claude_login
+        from laomedo.host.credentials import claude_login
         tree = ast.parse(Path(claude_login.__file__).read_text(encoding='utf-8-sig'))
         emitted = {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant)
                    and isinstance(n.value, str) and n.value.startswith('claude_')}

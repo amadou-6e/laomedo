@@ -4,7 +4,7 @@ import threading
 import unittest
 from unittest.mock import Mock
 from urllib import request,error
-from laomedo.github_pr_server import server
+from laomedo.github.pull_requests.github_pr_server import server
 
 
 class PRHTTPTests(unittest.TestCase):

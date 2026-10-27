@@ -16,15 +16,15 @@ from experiments.exp104.native_localrunner_probe import (
     api, git, wait_json, readiness, journal, scan_owned, configure_owned_clone,
 )
 from experiments.exp104.probe_active_delivery import stage_cleanup
-from laomedo.container_lease import cleanup_exact, inspect_exact
-from laomedo.github_git_transport import _base_git_environment
-from laomedo.github_mediation import MediationStore
-from laomedo.github_rest_transport import _NoRedirect
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.local_runner import GIT_IMAGE_ID, LocalRunner
+from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact
+from laomedo.github.transport.github_git_transport import _base_git_environment
+from laomedo.host.mediation.github_mediation import MediationStore
+from laomedo.github.transport.github_rest_transport import _NoRedirect
+from laomedo.host.credentials.host_token_connection import HostTokenConnection
+from laomedo.agents.local_runner import GIT_IMAGE_ID, LocalRunner
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.skill_store import SkillStore
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
+from laomedo.skills.skill_store import SkillStore
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"

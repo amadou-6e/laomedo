@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from uuid import uuid5, NAMESPACE_URL
 from lfx.graph.graph.base import Graph
-from laomedo.output_contract import requirements
+from laomedo.agents.output_contract import requirements
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('skill_operation_builder', ROOT/'examples/langflow-workgraph-demo/build_flow.py')
 builder = importlib.util.module_from_spec(spec)

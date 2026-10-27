@@ -10,7 +10,7 @@ import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-import laomedo.local_runner as runner
+import laomedo.agents.local_runner as runner
 from probe_mock_responses import MockResponses
 
 

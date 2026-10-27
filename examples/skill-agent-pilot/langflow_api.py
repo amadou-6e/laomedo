@@ -8,7 +8,7 @@ import sys
 from urllib import error, request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from laomedo.local_runner import _private
+from laomedo.agents.local_runner import _private
 
 
 HERE = Path(__file__).resolve().parent

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def producer_path(filename):
-    mapping = json.loads((ROOT / 'tools/package-layout.json').read_text())
+    mapping = json.loads((ROOT / 'tools/migrations/module-paths.json').read_text())
     module = mapping['laomedo.' + Path(filename).stem]
     return ROOT.joinpath('src', *module.split('.')).with_suffix('.py')
 

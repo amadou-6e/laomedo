@@ -15,7 +15,7 @@ def expected_arguments(service, configuration):
         raise ValueError("unknown_service")
     if any(char in str(configuration) for char in ('"', '\r', '\n', '\0')):
         raise ValueError("unsafe_configuration_path")
-    return '-m laomedo.managed_service --service ' + service + ' --configuration "' + str(configuration) + '"'
+    return '-m laomedo.host.managed_service --service ' + service + ' --configuration "' + str(configuration) + '"'
 
 
 def register(root, python, owned):

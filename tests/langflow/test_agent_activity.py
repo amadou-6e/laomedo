@@ -8,15 +8,15 @@ from types import SimpleNamespace
 try:
     from fastapi import FastAPI,Header,HTTPException
     from fastapi.testclient import TestClient
-    from laomedo.agent_activity_routes import install_activity_routes
+    from laomedo.activity.agent_activity.routes import install_activity_routes
 except ImportError:
     FastAPI=None
-from laomedo.agent_activity import ActivityStore
+from laomedo.activity.agent_activity.store import ActivityStore
 
 
 class ActivityTests(unittest.TestCase):
     def test_capture_records_visible_name_without_changing_node_identity(self):
-        from laomedo.agent_activity import capture_for
+        from laomedo.activity.agent_activity.store import capture_for
         component=SimpleNamespace(_user_id='alice',graph=SimpleNamespace(run_id='execution',flow_id='flow'),
                                   _vertex=SimpleNamespace(id='stable-node',display_name='Review PR'))
         with patch.dict(os.environ,{'LAOMEDO_AGENT_ACTIVITY_DB':str(self.store.path)}):

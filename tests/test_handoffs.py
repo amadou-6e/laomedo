@@ -1,5 +1,5 @@
 import unittest
-from laomedo.handoffs import BoundedController, HandoffError, envelope
+from laomedo.agents.handoffs import BoundedController, HandoffError, envelope
 
 
 TARGET = {"provider": "codex", "agent": "writer"}

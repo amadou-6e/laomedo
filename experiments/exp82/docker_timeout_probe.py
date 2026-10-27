@@ -10,7 +10,7 @@ from laomedo.work_graph.docker_stage import DockerLangflowStage
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.launch import launch_work_stage
-from laomedo.workflow_run_store import ExternalOutcomeUnknown, WorkflowRunStore
+from laomedo.agents.workflow_run_store import ExternalOutcomeUnknown, WorkflowRunStore
 
 from .docker_stage_probe import ROOT, no_model_flow
 

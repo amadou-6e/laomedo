@@ -10,7 +10,7 @@ import sys
 
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.model import GraphSnapshot
-from laomedo.workflow_run_store import ExternalOutcomeUnknown, WorkflowRunStore
+from laomedo.agents.workflow_run_store import ExternalOutcomeUnknown, WorkflowRunStore
 
 
 HERE = Path(__file__).resolve().parent

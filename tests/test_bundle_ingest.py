@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.bundle_ingest import (BundleIngestError, HANDOFF_NAME,
+from laomedo.skills.bundle_ingest import (BundleIngestError, HANDOFF_NAME,
                                    MAX_BUNDLE_BYTES, _record, freeze_run_bundle)
 
 
@@ -111,7 +111,7 @@ class BundleIngestTests(unittest.TestCase):
             self._freeze("attempt-2")
 
     def test_unknown_prior_attempt_blocks_fresh_identity(self):
-        with patch("laomedo.bundle_ingest._bundle_bytes",
+        with patch("laomedo.skills.bundle_ingest._bundle_bytes",
                    side_effect=RuntimeError("unreported disk failure")):
             with self.assertRaises(RuntimeError):
                 self._freeze()

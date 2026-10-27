@@ -11,11 +11,11 @@ import time
 import unittest
 from unittest.mock import patch
 
-from laomedo.langflow_stage_adapter import FrozenLangflowStage
+from laomedo.integrations.langflow.langflow_stage_adapter import FrozenLangflowStage
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.launch import launch_github_saved_flow_stage, launch_work_stage
-from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
+from laomedo.agents.workflow_run_store import LaunchError, WorkflowRunStore
 
 
 FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.json"

@@ -2,7 +2,7 @@ import contextlib,importlib.util,io,json,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 from test_live_github_issue import FakeGitHub,raw_issue
-from laomedo.github_rest_transport import GitHubRestTransport
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport
 
 ROOT=Path(__file__).resolve().parents[1]
 class AgentIssueDemoTests(unittest.TestCase):

@@ -13,9 +13,9 @@ import threading
 import time
 from uuid import uuid4
 
-from laomedo.local_runner import AppServer, LocalRunner
+from laomedo.agents.local_runner import AppServer, LocalRunner
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.skill_store import SkillStore
+from laomedo.skills.skill_store import SkillStore
 
 
 ROOT = Path(__file__).resolve().parents[2]

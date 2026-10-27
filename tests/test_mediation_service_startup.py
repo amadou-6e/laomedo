@@ -7,9 +7,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo import host_services, lease_service, mediation_service
-from laomedo.github_git_transport import PushOutcomeUnknown
-from laomedo.github_mediation import MediationStore
+from laomedo.host import host_services
+from laomedo.host.leases import lease_service
+from laomedo.host.mediation import mediation_service
+from laomedo.github.transport.github_git_transport import PushOutcomeUnknown
+from laomedo.host.mediation.github_mediation import MediationStore
 
 
 class MediationServiceStartupTests(unittest.TestCase):

@@ -23,4 +23,6 @@ where = ["src"]
 include = ["laomedo*"]
 
 [tool.setuptools.package-data]
-laomedo = ["runner-config.toml", "agent_mediation_client.mjs", "agent_gh_adapter.mjs", "agent_git_remote.mjs", "resources/skills/*/SKILL.md", "resources/bundle_stage.sh", "resources/codex-seccomp.json", "resources/codex-seccomp.md", "resources/moby-profiles-LICENSE"]
+"laomedo.agents" = ["resources/*.toml", "resources/*.json", "resources/*.md", "resources/*LICENSE", "resources/mediation/*.mjs"]
+"laomedo.skills" = ["resources/*/SKILL.md"]
+"laomedo.host.publication" = ["resources/*.sh"]

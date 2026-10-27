@@ -20,11 +20,11 @@ import threading
 import time
 from urllib import error, request
 
-from laomedo.container_lease import inspect_exact
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.lease_service import LeaseClient, SERVICE_STALE_SECONDS
-from laomedo.local_runner import IMAGE, _docker_prefix
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.leases.container_lease import inspect_exact
+from laomedo.host.credentials.host_token_connection import HostTokenConnection
+from laomedo.host.leases.lease_service import LeaseClient, SERVICE_STALE_SECONDS
+from laomedo.agents.local_runner import IMAGE, _docker_prefix
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
 
 _helper_spec = importlib.util.spec_from_file_location(
     "exp104_live_probe_helpers", Path(__file__).with_name("live_probe.py"))
@@ -390,7 +390,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
     service = runner_a = runner_b = None
     capabilities: tuple[str, ...] = ()
     try:
-        service = _process("-m", "laomedo.host_services", "--state", str(state),
+        service = _process("-m", "laomedo.host.host_services", "--state", str(state),
                            "--repository", REPOSITORY, "--checkout", str(checkout),
                            "--baseline", BASELINE, "--agent-mount", str(state / "agent-a"),
                            "--connection-id", CONNECTION_ID,

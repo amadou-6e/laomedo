@@ -2,7 +2,7 @@
 
 Issue: https://github.com/amadou-6e/laomedo/issues/27.
 
-`laomedo.opencode_runner.OpenCodeRunner` reuses the immutable skill store and
+`laomedo.agents.providers.opencode_runner.OpenCodeRunner` reuses the immutable skill store and
 workspace lifecycle. `components/laomedo/opencode_agent.py` provides native
 Langflow ports by reusing the existing Codex client. Install the category together
 with `components/` on the component server's Python module search path. Nothing

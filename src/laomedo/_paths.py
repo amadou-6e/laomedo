@@ -8,7 +8,7 @@ def package_root() -> Path:
     Returns
     -------
     Path
-        Canonical package directory, including in checkout-bridge mode.
+        Canonical package directory for editable and wheel installations.
     """
     return Path(__file__).resolve().parent
 

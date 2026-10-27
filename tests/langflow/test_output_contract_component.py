@@ -7,7 +7,7 @@ from pathlib import Path
 import unittest
 
 from lfx.schema import Data
-from laomedo.output_contract import requirements
+from laomedo.agents.output_contract import requirements
 
 PATH = Path(__file__).resolve().parents[2] / "components/laomedo/output_contract.py"
 SPEC = importlib.util.spec_from_file_location("laomedo_output_contract_component", PATH)

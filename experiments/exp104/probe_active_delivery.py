@@ -14,15 +14,15 @@ import time
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(CHECKOUT))
-from laomedo.bundle_stage import PINNED_IMAGE_ID
-from laomedo.bundle_stage_ownership import _inspect, reconcile_orphan
-from laomedo.bundle_verifier import BundleVerifier
-from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
-from laomedo.github_rest_transport import GitHubRestTransport
-from laomedo.github_mediation import MediationStore, MediationError
-from laomedo.mediation_service import MediationHTTPService
-from laomedo.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
+from laomedo.host.publication.bundle_stage import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle_stage_ownership import _inspect, reconcile_orphan
+from laomedo.host.publication.bundle_verifier import BundleVerifier
+from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
+from laomedo.github.transport.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport
+from laomedo.host.mediation.github_mediation import MediationStore, MediationError
+from laomedo.host.mediation.mediation_service import MediationHTTPService
+from laomedo.host.publication.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
 
 IDENTITY = "exp104-delivery-s1-20261009"
 REPOSITORY = "example/disposable"

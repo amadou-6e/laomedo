@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
-from laomedo.bundle_stage import (BundleStageError, MEMORY_BYTES, SCRIPT,
+from laomedo.skills.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
+from laomedo.host.publication.bundle_stage import (BundleStageError, MEMORY_BYTES, SCRIPT,
                                   PINNED_IMAGE_ID,
                                   _export_binary, _read_frozen,
                                   _single_bundle_commit,

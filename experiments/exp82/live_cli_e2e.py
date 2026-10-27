@@ -10,7 +10,7 @@ from urllib import request
 
 from laomedo.work_graph.github import fetch
 from laomedo.work_graph.grants import LocalGrantAuthority
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow_run_store import WorkflowRunStore
 
 from .docker_stage_probe import no_model_flow
 

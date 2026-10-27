@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.managed_service import configuration_arguments
+from laomedo.host.managed_service import configuration_arguments
 
 
 class ManagedServiceTests(unittest.TestCase):

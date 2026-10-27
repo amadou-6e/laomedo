@@ -1,7 +1,6 @@
 """Conservative missing-description detection for host-owned authoring tasks."""
 from pathlib import Path
 import re
-from laomedo._paths import package_root
 from laomedo.skills.skill_store import SkillStoreError
 
 
@@ -48,6 +47,6 @@ def summary_authoring(snapshot):
         raise SkillStoreError('skill_summary_source_unavailable')
     if has_description(skill['text']):
         return {'summary_required': False, 'authoring_instructions': ''}
-    instructions = (package_root() / 'resources/skills/skill-summary/SKILL.md').read_text(encoding='utf-8')
+    instructions = (Path(__file__).resolve().parent / 'resources' / 'skill-summary' / 'SKILL.md').read_text(encoding='utf-8')
     agent = instructions.split('\n## Agent instructions\n', 1)[1].split('\n## Host integration\n', 1)[0].strip()
     return {'summary_required': True, 'authoring_instructions': agent}

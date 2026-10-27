@@ -8,11 +8,11 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
-from laomedo.claude_runner import ClaudeRunner, command
-from laomedo.claude_container import ClaudeContainer, CommandService
-from laomedo.agent_activity_projection import project
-from laomedo.local_runner import RunnerError
-from laomedo.handoffs import envelope
+from laomedo.agents.providers.claude_runner import ClaudeRunner, command
+from laomedo.agents.providers.claude_container import ClaudeContainer, CommandService
+from laomedo.activity.agent_activity.projection import project
+from laomedo.agents.local_runner import RunnerError
+from laomedo.agents.handoffs import envelope
 import test_claude_runner as controls
 
 
@@ -47,7 +47,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertIs(continued['fresh_thread'], False)
 
     def test_resume_http_validates_and_forwards_execution_timeout(self):
-        from laomedo.local_runner import serve
+        from laomedo.agents.local_runner import serve
         from urllib import request, error
         server = serve(self.runner, port=0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -222,10 +222,10 @@ class ClaudeContainerParityTests(unittest.TestCase):
     def test_cancel_ack_does_not_race_execution_cleanup(self):
         record = self.runner._prepare(self.payload)
         record['status'] = 'running'
-        from laomedo.local_runner import _json
+        from laomedo.agents.local_runner import _json
         _json(self.runner._run_dir(record['run_id'])/'record.json', record)
         flag = self.runner.cancel_flags[record['run_id']] = threading.Event()
-        with patch('laomedo.claude_runner.cleanup_exact', side_effect=AssertionError('execution owns cleanup')):
+        with patch('laomedo.agents.providers.claude_runner.cleanup_exact', side_effect=AssertionError('execution owns cleanup')):
             result = self.runner.cancel(record['run_id'])
         self.assertTrue(flag.is_set())
         self.assertTrue(result['cancel_requested'])

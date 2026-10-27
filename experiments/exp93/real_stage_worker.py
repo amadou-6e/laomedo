@@ -6,10 +6,10 @@ from pathlib import Path
 import time
 
 from experiments.exp93.real_stage_support import identities, save, TASK
-from laomedo.container_lease import inspect_exact
-from laomedo.local_runner import AppServer, LocalRunner, RunnerError
+from laomedo.host.leases.container_lease import inspect_exact
+from laomedo.agents.local_runner import AppServer, LocalRunner, RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
 
 
 def run(root, side):

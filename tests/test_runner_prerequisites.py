@@ -5,20 +5,20 @@ import subprocess
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
-from laomedo.runner_prerequisites import check_docker, ERROR_CODES
+from laomedo.host.runner_prerequisites import check_docker, ERROR_CODES
 
 
 class DockerPrerequisiteTests(TestCase):
     def test_missing_cli_offers_installation_without_claiming_uninstall(self):
-        with patch('laomedo.runner_prerequisites.shutil.which', return_value=None), \
-             patch('laomedo.runner_prerequisites.subprocess.run') as run:
+        with patch('laomedo.host.runner_prerequisites.shutil.which', return_value=None), \
+             patch('laomedo.host.runner_prerequisites.subprocess.run') as run:
             self.assertEqual(check_docker({'PATH':'host-path'}), 'runner_docker_not_installed')
             run.assert_not_called()
 
     def test_healthy_engine_uses_only_fixed_read_command(self):
         env = {'PATH':'host-path','DOCKER_CONTEXT':'host-context'}
-        with patch('laomedo.runner_prerequisites.shutil.which', return_value='docker-host'), \
-             patch('laomedo.runner_prerequisites.subprocess.run', return_value=SimpleNamespace(
+        with patch('laomedo.host.runner_prerequisites.shutil.which', return_value='docker-host'), \
+             patch('laomedo.host.runner_prerequisites.subprocess.run', return_value=SimpleNamespace(
                  returncode=0, stdout='29.8.2\n', stderr='')) as run:
             self.assertIsNone(check_docker(env))
         self.assertEqual(run.call_args.args[0], ['docker-host','info','--format','{{.ServerVersion}}'])
@@ -32,23 +32,23 @@ class DockerPrerequisiteTests(TestCase):
                 ('open client-cert.pem: cannot find the file specified', 'runner_docker_check_unconfirmed'),
                 ('permission denied: SECRET', 'runner_docker_check_unconfirmed'),
                 ('unknown SECRET private detail', 'runner_docker_check_unconfirmed')]:
-            with patch('laomedo.runner_prerequisites.shutil.which', return_value='docker-host'), \
-                 patch('laomedo.runner_prerequisites.subprocess.run', return_value=SimpleNamespace(
+            with patch('laomedo.host.runner_prerequisites.shutil.which', return_value='docker-host'), \
+                 patch('laomedo.host.runner_prerequisites.subprocess.run', return_value=SimpleNamespace(
                      returncode=1, stdout='', stderr=error)):
                 self.assertEqual(check_docker({}), expected)
 
     def test_timeout_os_error_and_malformed_success_are_unconfirmed(self):
-        with patch('laomedo.runner_prerequisites.shutil.which', return_value='docker-host'):
+        with patch('laomedo.host.runner_prerequisites.shutil.which', return_value='docker-host'):
             for error in (subprocess.TimeoutExpired('private',5), PermissionError('private')):
-                with patch('laomedo.runner_prerequisites.subprocess.run', side_effect=error):
+                with patch('laomedo.host.runner_prerequisites.subprocess.run', side_effect=error):
                     self.assertEqual(check_docker({}), 'runner_docker_check_unconfirmed')
-            with patch('laomedo.runner_prerequisites.subprocess.run', return_value=SimpleNamespace(
+            with patch('laomedo.host.runner_prerequisites.subprocess.run', return_value=SimpleNamespace(
                     returncode=0, stdout='not an engine version', stderr='')):
                 self.assertEqual(check_docker({}), 'runner_docker_check_unconfirmed')
 
     def test_prerequisite_producer_has_complete_catalogue_coverage(self):
         import ast
-        from laomedo import runner_prerequisites
+        from laomedo.host import runner_prerequisites
         source = ast.parse(Path(runner_prerequisites.__file__).read_text())
         emitted = {n.value for n in ast.walk(source) if isinstance(n, ast.Constant)
                    and isinstance(n.value, str) and n.value.startswith('runner_docker_')}

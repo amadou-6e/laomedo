@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 
-from laomedo.skill_store import (ConflictError, SkillStore, SkillStoreError,
+from laomedo.skills.skill_store import (ConflictError, SkillStore, SkillStoreError,
                                  inventory, tree_hash, validate_policy)
 
 

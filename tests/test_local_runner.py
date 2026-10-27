@@ -15,20 +15,20 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from urllib import request as http_request, error as http_error
 
-from laomedo.local_runner import (AppServer, SplitAppServer, LocalRunner, RunnerError,
+from laomedo.agents.local_runner import (AppServer, SplitAppServer, LocalRunner, RunnerError,
                                   _docker_prefix, _hash_tree, _copy_tree,
                                   _native_error_summary,
                                   serve)
-from laomedo.siwc_auth import AuthError
-from laomedo.skill_store import SkillStore
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.credentials.siwc_auth import AuthError
+from laomedo.skills.skill_store import SkillStore
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
 
 
 def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -> None:
     """Real lease/mediator processes, but no Docker or provider call."""
     from unittest.mock import patch as child_patch
-    from laomedo.host_services import build_services, serve_services
-    from laomedo import lease_service
+    from laomedo.host.host_services import build_services, serve_services
+    from laomedo.host.leases import lease_service
 
     root = Path(state)
     lease, mediator = build_services(
@@ -96,7 +96,7 @@ class FakeServer:
 
 class LocalRunnerTests(unittest.TestCase):
     def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
-        from laomedo.local_runner import LocalRunner as NormalRunner, _json
+        from laomedo.agents.local_runner import LocalRunner as NormalRunner, _json
         runner = object.__new__(NormalRunner)
         runner.state = self.root / 'diagnostic-counter'
         runner.state.mkdir()
@@ -108,12 +108,12 @@ class LocalRunnerTests(unittest.TestCase):
         _json(runner.state / 'runs/prior/record.json', {'attempt_number': 7})
         (runner.state / 'attempt-count.json').write_text('broken accounting')
         self.assertEqual(restarted._reserve_turn(), 8)
-        with patch('laomedo.local_runner._json', side_effect=PermissionError('unwritable diagnostic')):
+        with patch('laomedo.agents.local_runner._json', side_effect=PermissionError('unwritable diagnostic')):
             self.assertEqual(restarted._reserve_turn(), 9)
 
 
     def _output_run(self, answers, *, effects=False, retry_count=1, native_item=None, native_precheck=False, failed_wait=False):
-        from laomedo.output_contract import requirements
+        from laomedo.agents.output_contract import requirements
         pinned = requirements({"schema_version": 1, "fields": [
             {"name": "report", "type": "string", "required": True}]})
         class OutputServer(FakeServer):
@@ -277,7 +277,7 @@ class LocalRunnerTests(unittest.TestCase):
                 # The CI success path below substitutes a fake route. First
                 # assert that the actual Linux route fails before dispatch.
                 unverified = prepare("unverified")
-                with patch("laomedo.local_runner.cleanup_exact",
+                with patch("laomedo.agents.local_runner.cleanup_exact",
                            return_value=(True, "absent")):
                     refused = mediated._execute(
                         unverified["run_id"], "Synthetic task", resume=False)
@@ -303,7 +303,7 @@ class LocalRunnerTests(unittest.TestCase):
                            patch.object(mediated, "_mediator_route", side_effect=ci_route))
             with route_check:
                 prepared = prepare(1)
-                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                with patch("laomedo.agents.local_runner.cleanup_exact", return_value=(True, "absent")):
                     result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
                 self.assertEqual(result["status"], "completed", result.get("error_category"))
                 self.assertEqual(len(FakeServer.calls), 1)
@@ -320,7 +320,7 @@ class LocalRunnerTests(unittest.TestCase):
                 status = json.loads(status_path.read_text(encoding="utf-8"))
                 status_path.write_text(json.dumps({**status, "instance": "0" * 32}),
                                        encoding="utf-8")
-                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                with patch("laomedo.agents.local_runner.cleanup_exact", return_value=(True, "absent")):
                     result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
                 self.assertEqual(result["status"], "failed")
                 self.assertEqual(result["error_category"], "mediator_unavailable")
@@ -355,7 +355,7 @@ class LocalRunnerTests(unittest.TestCase):
                         supervise_containers=True)
 
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.local_runner import GIT_IMAGE, GIT_IMAGE_ID
+        from laomedo.agents.local_runner import GIT_IMAGE, GIT_IMAGE_ID
         args = (self.root / "source", self.root / "source", self.runner.state)
         command = _docker_prefix(*args, image=GIT_IMAGE)
         entries = [command[index + 1] for index, item in enumerate(command[:-1])
@@ -446,7 +446,7 @@ class LocalRunnerTests(unittest.TestCase):
                                          "launch_token": "token-one", "supervised": True,
                                          "cleanup_verified": False}
         path.write_text(json.dumps(saved), encoding="utf-8")
-        with patch("laomedo.local_runner.cleanup_exact", return_value=(False, "conflict")) as cleanup:
+        with patch("laomedo.agents.local_runner.cleanup_exact", return_value=(False, "conflict")) as cleanup:
             restarted = LocalRunner(self.runner.state, self.runner.store.root, self.source,
                                     transport=FakeServer, check_docker=False)
         after = restarted.status(record["run_id"])
@@ -770,10 +770,10 @@ class LocalRunnerTests(unittest.TestCase):
         (private_lease / "grant.secret").write_text("synthetic-capability", encoding="utf-8")
         lease = SimpleNamespace(instance="fixture-instance", grant_id="fixture-grant",
                                 dir=private_lease, lost=threading.Event(), finish=Mock())
-        with patch("laomedo.local_runner.LeaseClient", return_value=lease), \
+        with patch("laomedo.agents.local_runner.LeaseClient", return_value=lease), \
                 patch.object(mediated, "_mediator_route",
                              return_value=("http://host.docker.internal:1234/v1/mediate", "fixture-instance")), \
-                patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                patch("laomedo.agents.local_runner.cleanup_exact", return_value=(True, "absent")):
             completed = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
             self.assertEqual(completed["status"], "completed", completed.get("error_category"))
             exclusion = completed["skill_git_exclusion"]
@@ -961,13 +961,13 @@ class LocalRunnerTests(unittest.TestCase):
 
     def test_production_runners_cannot_restore_a_verification_turn_cap(self):
         import inspect
-        from laomedo.claude_runner import ClaudeRunner
-        from laomedo.opencode_runner import OpenCodeRunner
+        from laomedo.agents.providers.claude_runner import ClaudeRunner
+        from laomedo.agents.providers.opencode_runner import OpenCodeRunner
         for runner in (LocalRunner, ClaudeRunner, OpenCodeRunner):
             self.assertNotIn("max_model_turns", inspect.signature(runner).parameters)
         for name in ("local_runner.py", "claude_runner.py", "opencode_runner.py"):
             root = Path(__file__).resolve().parents[1]
-            layout = json.loads((root / "tools/package-layout.json").read_text())
+            layout = json.loads((root / "tools/migrations/module-paths.json").read_text())
             module = layout["laomedo." + Path(name).stem]
             source = root.joinpath("src", *module.split(".")).with_suffix(".py").read_text()
             self.assertNotIn("model_turn_cap_reached", source)
@@ -1157,7 +1157,7 @@ class LocalRunnerTests(unittest.TestCase):
                          ("cancelled", "cancel_native_unconfirmed"))
         app.request.assert_called_once_with("turn/interrupt", {
             "threadId": "thread-test", "turnId": "turn-test"}, timeout=5)
-        with patch("laomedo.local_runner.subprocess.run", side_effect=[
+        with patch("laomedo.agents.local_runner.subprocess.run", side_effect=[
                 Mock(returncode=0), Mock(returncode=0),
                 Mock(returncode=1, stderr=b"error: no such object: laomedo-codex-test")]) as docker:
             app.close()
@@ -1177,7 +1177,7 @@ class LocalRunnerTests(unittest.TestCase):
         app.activity_log = io.StringIO()
         app.telemetry = None
         app.stderr = io.StringIO()
-        with patch("laomedo.local_runner.subprocess.run", side_effect=[
+        with patch("laomedo.agents.local_runner.subprocess.run", side_effect=[
                 Mock(returncode=1), Mock(returncode=1), Mock(returncode=0)]):
             with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
                 app.close()

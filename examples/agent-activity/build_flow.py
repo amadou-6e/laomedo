@@ -7,7 +7,7 @@ from pathlib import Path
 
 from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
-from laomedo.skill_store import SkillStore
+from laomedo.skills.skill_store import SkillStore
 
 ROOT=Path(__file__).resolve().parents[2]
 HERE=Path(__file__).resolve().parent

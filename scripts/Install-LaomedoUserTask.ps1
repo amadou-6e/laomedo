@@ -21,7 +21,7 @@ $taskName = 'Laomedo-' + $identity.User.Value + '-' + $Service
 $description = 'Laomedo managed per-user host process v1'
 $existing = Get-ScheduledTask -TaskName $taskName -TaskPath '\' -ErrorAction SilentlyContinue
 if ($existing) { throw 'Task already exists; inspect and explicitly remove it before replacement' }
-$arguments = '-m laomedo.managed_service --service ' + $Service + ' --configuration "' + $configPath + '"'
+$arguments = '-m laomedo.host.managed_service --service ' + $Service + ' --configuration "' + $configPath + '"'
 $action = New-ScheduledTaskAction -Execute $pythonPath -Argument $arguments -WorkingDirectory $checkoutPath
 $principal = New-ScheduledTaskPrincipal -UserId $identity.Name -LogonType Interactive -RunLevel Limited
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity.Name

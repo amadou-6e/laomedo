@@ -2,8 +2,8 @@ import json
 from copy import deepcopy
 from types import SimpleNamespace
 import unittest
-from laomedo.contract_graph import downstream_requirements, verified_route_submission
-from laomedo.output_contract import requirements
+from laomedo.agents.contract_graph import downstream_requirements, verified_route_submission
+from laomedo.agents.output_contract import requirements
 
 FORM={'schema_version':1,'fields':[]}
 

@@ -1,9 +1,9 @@
 import base64, hashlib, json, sqlite3, subprocess, sys
 from pathlib import Path
 from experiments.exp139.prepare import connection, CONNECTION, REPOSITORY, BRANCH
-from laomedo.github_rest_transport import GitHubRestTransport
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport
 
-from laomedo.siwc_auth import _outside_git
+from laomedo.host.credentials.siwc_auth import _outside_git
 root=_outside_git(Path(sys.argv[1]))
 config=json.loads((root/'config.json').read_bytes())
 provider=connection(root,Path(config['token_file']))

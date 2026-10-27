@@ -17,8 +17,8 @@ from uuid import uuid4
 
 from experiments.exp139 import runtime
 from experiments.exp139.prepare import REPOSITORY, report_task, save
-from laomedo.github_mediation import KnownRejected
-from laomedo.local_runner import LocalRunner, RunnerError
+from laomedo.host.mediation.github_mediation import KnownRejected
+from laomedo.agents.local_runner import LocalRunner, RunnerError
 
 BRANCH = re.compile(r"laomedo-dev-[0-9a-f]{32}")
 
@@ -123,7 +123,7 @@ class PersistentRunner(LocalRunner):
             raise RunnerError("standing_issue_context_mismatch")
         # Keep the pinned skill/model/form defaults for this bounded demo.
         flow = json.loads((self.policy_root / "flow-input/success.json").read_bytes())
-        from laomedo.output_contract import requirements
+        from laomedo.agents.output_contract import requirements
         form = json.loads(next(n for n in flow["data"]["nodes"] if n["id"] == "contract")
                           ["data"]["node"]["template"]["requirements_json"]["value"])
         config = json.loads((self.policy_root / "config.json").read_bytes())

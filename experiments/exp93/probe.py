@@ -9,9 +9,9 @@ import time
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from laomedo.local_runner import LocalRunner
+from laomedo.agents.local_runner import LocalRunner
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.skill_store import SkillStore
+from laomedo.skills.skill_store import SkillStore
 
 
 IMAGE = "python:3.9-slim"

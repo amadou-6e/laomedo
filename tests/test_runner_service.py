@@ -9,8 +9,8 @@ import unittest
 from unittest.mock import patch, Mock
 from urllib.error import URLError
 from urllib.request import Request, urlopen
-from laomedo.runner_service import RunnerService, install_runner_service_routes, service_environment
-from laomedo.local_runner import LocalRunner, serve
+from laomedo.host.runner_service import RunnerService, install_runner_service_routes, service_environment
+from laomedo.agents.local_runner import LocalRunner, serve
 try:
     from fastapi.testclient import TestClient
 except ImportError:
@@ -53,14 +53,14 @@ class RunnerServiceTests(unittest.TestCase):
         self.path=self.root/'config.json';self.path.write_text(json.dumps(self.config))
         self.service=RunnerService(self.path);self.url='http://127.0.0.1:18769'
         # Internal controls; these are not evidence of the host's Docker state.
-        docker = patch('laomedo.runner_service.check_docker', return_value=None)
+        docker = patch('laomedo.host.runner_service.check_docker', return_value=None)
         self.docker = docker.start(); self.addCleanup(docker.stop)
         self.real_connect=socket.create_connection
-        probe=patch('laomedo.runner_service.socket.create_connection', side_effect=ConnectionRefusedError())
+        probe=patch('laomedo.host.runner_service.socket.create_connection', side_effect=ConnectionRefusedError())
         self.probe=probe.start(); self.addCleanup(probe.stop)
 
     def test_unconfigured_and_arbitrary_urls_cannot_start_any_process(self):
-        with patch('laomedo.runner_service.subprocess.Popen') as spawn:
+        with patch('laomedo.host.runner_service.subprocess.Popen') as spawn:
             self.assertEqual(RunnerService(None).start(self.url)['state'],'unmanaged')
             for url in ['https://external.test',self.url+'/path',self.url+'?port=5','http://127.0.0.1:12345']:
                 self.assertFalse(self.service.start(url)['can_start'])
@@ -77,7 +77,7 @@ class RunnerServiceTests(unittest.TestCase):
                 self.assertEqual(env['PATH'],'runtime-path')
                 self.assertEqual('DOCKER_HOST' in env,provider in {'codex','claude'})
             with patch.object(self.service.opener,'open',side_effect=URLError('offline')), \
-                 patch('laomedo.runner_service.subprocess.Popen',return_value=Mock(poll=lambda:None)) as spawn:
+                 patch('laomedo.host.runner_service.subprocess.Popen',return_value=Mock(poll=lambda:None)) as spawn:
                 self.service.start(self.url)
             env=spawn.call_args.kwargs['env']
             for key in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','LANGFLOW_SECRET_KEY','DATABASE_URL','CLAUDE_CONFIG_DIR'):
@@ -100,7 +100,7 @@ class RunnerServiceTests(unittest.TestCase):
         for enabled in ('','1'):
             events.clear()
             with patch.dict(os.environ, {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN':enabled}), \
-                 patch('laomedo.claude_login.mirror_login',side_effect=lambda *args:events.append('mirror')) as mirror:
+                 patch('laomedo.host.credentials.claude_login.mirror_login',side_effect=lambda *args:events.append('mirror')) as mirror:
                 req=Request('http://127.0.0.1:'+str(server.server_port)+'/v1/runs/async',
                     data=json.dumps({'profile':'untrusted','image':'untrusted'}).encode(),
                     headers={'Authorization':'Bearer internal-control','Content-Type':'application/json'})
@@ -112,8 +112,8 @@ class RunnerServiceTests(unittest.TestCase):
         self.config['mirror_host_claude_login'] = True
         self.path.write_text(json.dumps(self.config))
         with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
-             patch('laomedo.claude_login.mirror_login') as mirror, \
-             patch('laomedo.runner_service.subprocess.Popen', return_value=Mock(poll=lambda:None)) as spawn:
+             patch('laomedo.host.credentials.claude_login.mirror_login') as mirror, \
+             patch('laomedo.host.runner_service.subprocess.Popen', return_value=Mock(poll=lambda:None)) as spawn:
             result = self.service.start(self.url)
         mirror.assert_not_called()
         self.assertEqual(result['state'], 'starting')
@@ -135,7 +135,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertTrue(executed.is_set())
 
     def test_async_copy_failure_is_recorded_without_model_dispatch(self):
-        from laomedo.local_runner import RunnerError
+        from laomedo.agents.local_runner import RunnerError
         record={'status':'prepared'}
         def fail(): raise RunnerError('claude_host_login_expired')
         runner=SimpleNamespace(_mirror_host_login=fail, _execute=Mock(), control_lock=threading.Lock(),
@@ -152,7 +152,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.path.write_text(json.dumps(self.config))
         (self.root/'runner/turn-ledger.json').write_text('{"attempted_turns":1}')
         with patch.object(self.service.opener,'open',side_effect=URLError('offline')), \
-             patch('laomedo.runner_service.subprocess.Popen',return_value=Mock(poll=lambda:None)) as spawn:
+             patch('laomedo.host.runner_service.subprocess.Popen',return_value=Mock(poll=lambda:None)) as spawn:
             first=self.service.start(self.url);second=self.service.start(self.url)
         self.assertEqual(first['state'],'starting');self.assertEqual(second['state'],'starting')
         spawn.assert_called_once();args=spawn.call_args.args[0]
@@ -160,7 +160,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertNotIn('max_model_turns',self.service.config(self.url))
         self.assertEqual(args[1], '-c')
         self.assertEqual(args[3], str(Path(__file__).resolve().parents[1] / "src"))
-        self.assertEqual(args[4], 'laomedo.claude_runner')
+        self.assertEqual(args[4], 'laomedo.agents.providers.claude_runner')
         self.assertEqual(spawn.call_args.kwargs['cwd'], Path(__file__).resolve().parents[1] / 'src')
         self.assertEqual(json.loads((self.root/'runner/turn-ledger.json').read_text())['attempted_turns'],1)
         self.assertNotIn('shell',spawn.call_args.kwargs)
@@ -181,7 +181,7 @@ class RunnerServiceTests(unittest.TestCase):
     def test_wrong_provider_listener_never_launches_replacement(self):
         from io import BytesIO
         with patch.object(self.service.opener,'open',return_value=BytesIO(b'{"status":"ready","provider":"codex"}')), \
-             patch('laomedo.runner_service.subprocess.Popen') as spawn:
+             patch('laomedo.host.runner_service.subprocess.Popen') as spawn:
             self.assertEqual(self.service.start(self.url)['state'],'unavailable');spawn.assert_not_called()
 
     def test_real_loopback_refusal_is_detected_on_this_platform(self):
@@ -197,7 +197,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.probe.side_effect = None
         self.probe.return_value = Mock(__enter__=Mock(), __exit__=Mock(return_value=False))
         with patch.object(self.service.opener, 'open', side_effect=TimeoutError()), \
-             patch('laomedo.runner_service.subprocess.Popen') as spawn:
+             patch('laomedo.host.runner_service.subprocess.Popen') as spawn:
             result = self.service.start()
         self.assertEqual(result, {'state': 'unavailable', 'can_start': False,
                                  'reason': 'runner_identity_unverified'})
@@ -240,10 +240,10 @@ class RunnerServiceTests(unittest.TestCase):
             self.assertEqual(result.status_code,200);self.assertEqual(result.headers['cache-control'],'no-store')
 
     def test_cancelled_startup_never_binds_a_listener(self):
-        from laomedo.startup_control import startup_gate
+        from laomedo.host.startup_control import startup_gate
         gate = self.root / 'serve.lock'
         with startup_gate(gate) as marker: marker.with_suffix('.cancel').touch()
-        with patch.dict('os.environ', {'LAOMEDO_STARTUP_GATE':str(gate)}), patch('laomedo.local_runner.ThreadingHTTPServer') as bind:
+        with patch.dict('os.environ', {'LAOMEDO_STARTUP_GATE':str(gate)}), patch('laomedo.agents.local_runner.ThreadingHTTPServer') as bind:
             with self.assertRaises(SystemExit): serve(SimpleNamespace(),port=0)
         bind.assert_not_called()
         self.assertTrue(gate.with_suffix(".cancelled").exists())
@@ -303,7 +303,7 @@ class RunnerServiceTests(unittest.TestCase):
 
     def test_default_host_service_needs_no_graph_url(self):
         with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
-             patch('laomedo.runner_service.subprocess.Popen') as spawn:
+             patch('laomedo.host.runner_service.subprocess.Popen') as spawn:
             spawn.return_value.poll.return_value = None
             self.assertEqual(self.service.status()['state'], 'offline')
             self.assertEqual(self.service.start()['state'], 'starting')
@@ -317,14 +317,14 @@ class RunnerServiceTests(unittest.TestCase):
         for reason in ('runner_docker_not_installed', 'runner_docker_unavailable', 'runner_docker_check_unconfirmed'):
             self.docker.return_value = reason
             with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
-                 patch('laomedo.runner_service.subprocess.Popen') as spawn:
+                 patch('laomedo.host.runner_service.subprocess.Popen') as spawn:
                 value = self.service.start()
                 self.assertEqual(value, {'state':'prerequisite', 'can_start':False, 'reason':reason, 'runner_state':'offline'})
                 spawn.assert_not_called()
 
     def test_start_rechecks_docker_even_after_cached_healthy_poll(self):
         with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
-             patch('laomedo.runner_service.subprocess.Popen') as spawn:
+             patch('laomedo.host.runner_service.subprocess.Popen') as spawn:
             self.assertTrue(self.service.status()['can_start'])
             self.docker.return_value = 'runner_docker_unavailable'
             self.assertFalse(self.service.start()['can_start'])
@@ -335,7 +335,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.service.docker_lock.acquire()
         try:
             with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
-                 patch('laomedo.runner_service.subprocess.Popen') as spawn:
+                 patch('laomedo.host.runner_service.subprocess.Popen') as spawn:
                 self.assertEqual(self.service.start()['reason'], 'runner_docker_check_unconfirmed')
                 spawn.assert_not_called()
         finally:

@@ -1,76 +1,65 @@
-# Package layout and compatibility
+# Package layout and migration
 
-The Python package uses setuptools' `src` layout. Install with
-`python -m pip install -e .` for development or install the built wheel.
-The minimum Python version stays 3.10; optional provider and observability
-requirements retain their existing scope.
+Install with `python -m pip install -e .`, or install the wheel. Python 3.10
+remains the minimum. Import and launch canonical domain modules directly.
+The package root contains only `__init__.py` and `_paths.py`; there are no
+forwarding modules, import hooks or checkout bridge.
 
 ```text
 src/laomedo/
-  agents/                 # Run lifecycle, contracts, artifacts and provider adapters
+  agents/
     providers/
-  skills/                 # Registry, sources, operations and materialisation
-  github/
-    issues/
-    pull_requests/
-    transport/
-  host/                   # Managed startup and independent trusted services
-    credentials/
+    resources/               # Config, seccomp and agent-side MJS adapters
+  skills/resources/          # Bundled skill instructions
+  github/{issues,pull_requests,transport}/
+  host/
+    credentials/             # Standalone Git credential helper
     mediation/
     leases/
-    publication/
-  activity/               # Activity ownership and provider telemetry
-    agent_activity/       # Store, capture, cost, projection and inspection routes
-  integrations/langflow/  # App factory, joins and stage adapters
-  work_graph/             # Existing workflow graph domain
-  resources/              # Existing byte-identical packaged resources
+    publication/resources/   # Pinned staging script
+  activity/agent_activity/   # store, capture, cost, projection, routes
+  integrations/langflow/
+  work_graph/
 ```
 
-`tools/package-layout.json` maps every retained flat module to its canonical
-module. Runtime code has one owner. A legacy import resolves to the identical
-module object, preserving exception/class identity, private helper access and
-patch targets. These names remain for actual saved Langflow graphs and installed
-services; this refactor does not remove their migration window. New component
-source imports canonical modules. `output_contract_legacy.py` deliberately keeps
-its exact historical import text because the offline migration recognises that
-known embedded source. Historical execution exports are not regenerated.
+Each implementation has one owner. Use `laomedo.agents.local_runner`,
+`laomedo.skills.skill_store` and `laomedo.activity.agent_activity.capture`.
+The activity package exports `ActivityStore`, `capture_for` and `now`;
+module patch targets live in their defining modules. Docker build definitions
+live in `containers/`; registry documentation is in `docs/skill-registry.md`.
 
-Legacy `python -m laomedo.local_runner`, `laomedo.claude_runner`,
-`laomedo.managed_service`, lease supervision and app-factory paths remain valid.
-The executable facade branches before importing its implementation and dispatches
-the real main via runpy. It cannot silently return success without starting.
-The checkout-only root bridge preserves working-directory discovery and existing
-editable-install mappings; wheels contain only the package under `src`.
-`src/laomedo/__init__.py` intentionally has no executable initialisation; a
-regression check requires bridge parity before that changes.
+Launchers use canonical names:
 
-Package-root/import-root helpers replace nesting-sensitive paths. Runner config,
-MJS adapters, seccomp policy, script resources and license bytes remain unchanged.
-Service bootstrap and Docker stage mounting use the import root; explicit source
-roots still must contain the importable package. Explicit source roots accept both the existing checkout root and
-`<checkout>/src`; installed import roots continue to work. Credentials remain outside the package and
-outside model-callable mounts. The Git credential helper remains a real script
-at the stable package-root path. No JSON schema, error code, runner identity,
-image pin, request acknowledgement, cancellation or cleanup algorithm changes.
+```text
+python -m laomedo.agents.local_runner ...
+python -m laomedo.agents.providers.claude_runner ...
+python -m laomedo.host.leases.lease_service serve ...
+python -m laomedo.host.managed_service ...
+```
 
-This branch is based on develop `6069ac9`; unrelated pending work is not included.
-This increment establishes package
-ownership and source layout. Further splitting of cohesive runner methods is a
-separate behavior-preserving increment, not an unreviewed rewrite in a file move.
+The app factory is `laomedo.integrations.langflow.langflow_skill_viewer:create_app`.
+Credentials and persisted runner/activity state stay outside the package.
+Resource bytes, image pins, schemas, request acknowledgement and cleanup
+behavior stay unchanged. Resource paths follow their owning package.
 
-Verification distinguishes internal regressions from real integration evidence:
-module identity and executable entrypoints, old embedded graph code, package
-resources from an installed wheel, core tests and explicit Langflow checks.
-Actual managed start, recorded-run Status and an authorised real Fresh run are
-required for integration acceptance. Those results are recorded separately;
-passing unit tests do not assert the user workflow succeeded.
+## One-time migration
 
-`activity.agent_activity` groups `store.py`, `capture.py`, `cost.py`,
-`projection.py` and `routes.py`. Its package API exposes `ActivityStore`,
-`capture_for` and `now`. The original flat `laomedo.agent_activity_*` imports
-remain compatibility aliases to the canonical modules, preserving patch targets
-and class identity. Internal callers use the grouped package directly; the
-intermediate `laomedo.activity.agent_activity_*` modules are removed.
-The intermediate `laomedo.activity.agent_activity` name is now the package API,
-not an alias of `store`: its supported exports are the three names above. Use
-`laomedo.activity.agent_activity.store` for store-module patch targets.
+Old flat imports are removed. Migrate older saved graph component code and
+external launcher commands before running them with this version:
+
+```text
+python tools/migrations/migrate_module_paths.py saved-flow.json service-launcher.ps1
+python tools/migrations/migrate_module_paths.py saved-flow.json service-launcher.ps1 --apply
+```
+
+The default reports which explicitly selected files need changes. Applying
+creates a sibling `.before-module-migration` backup; existing backups are never
+overwritten. Module references in graph JSON are rewritten without changing
+graph/run identities or unrelated payloads. The map in `tools/migrations/` is
+one-time migration data, not runtime compatibility code.
+
+Do not rewrite historical execution evidence. Preserve originals and migrate
+a copy when needed for a new graph. Validation covers installed discovery,
+resources, canonical CLIs, migration idempotence and migrated graph loading.
+Real Agent and managed-service acceptance are recorded separately; internal
+tests do not establish a live workflow.

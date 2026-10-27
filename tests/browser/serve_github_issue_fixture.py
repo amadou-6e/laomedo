@@ -5,10 +5,10 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/'tests'))
 from test_live_github_issue import FakeGitHub
-from laomedo.github_issue_gateway import GitHubIssueGateway
-from laomedo.github_issue_server import server
-from laomedo.github_mediation import MediationStore
-from laomedo.github_rest_transport import GitHubRestTransport
+from laomedo.github.issues.github_issue_gateway import GitHubIssueGateway
+from laomedo.github.issues.github_issue_server import server
+from laomedo.host.mediation.github_mediation import MediationStore
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport
 root=Path(tempfile.mkdtemp(prefix='laomedo-live-issue-fixture-'))
 store=MediationStore(root/'mediation.sqlite',now=lambda:100.0,monotonic=lambda:0.0)
 _,cap=store.issue(run_id='fixture-run',invocation_id='fixture-invoke',repository='owner/repo',operations={'issue_update'},target_issues={1},ttl_seconds=60)

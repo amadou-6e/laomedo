@@ -6,12 +6,12 @@ import os
 from pathlib import Path
 import time
 
-from laomedo.container_lease import inspect_exact
-from laomedo.github_git_transport import _base_git_environment
-from laomedo.local_runner import AppServer, RunnerError
+from laomedo.host.leases.container_lease import inspect_exact
+from laomedo.github.transport.github_git_transport import _base_git_environment
+from laomedo.agents.local_runner import AppServer, RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo import workspace_skills
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
+from laomedo.skills import workspace_skills
 
 IDENTITY = "exp104-localrunner-s13-20261010-a"
 

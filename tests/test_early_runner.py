@@ -11,13 +11,13 @@ from unittest.mock import patch
 from urllib import error as http_error, request as http_request
 from uuid import uuid4
 
-from laomedo.local_runner import LocalRunner, RunnerError, _json, serve
-import laomedo.local_runner as runner_module
-from laomedo.handoff_http import RunnerAdapter
-from laomedo.runner_trace_bridge import RunnerTraceBridge
-from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
-from laomedo.handoffs import HandoffError, envelope
-from laomedo.skill_store import SkillStore
+from laomedo.agents.local_runner import LocalRunner, RunnerError, _json, serve
+import laomedo.agents.local_runner as runner_module
+from laomedo.agents.handoff_http import RunnerAdapter
+from laomedo.activity.runner_trace_bridge import RunnerTraceBridge
+from laomedo.agents.workflow_run_store import LaunchError, WorkflowRunStore
+from laomedo.agents.handoffs import HandoffError, envelope
+from laomedo.skills.skill_store import SkillStore
 from test_local_runner import FakeServer
 
 

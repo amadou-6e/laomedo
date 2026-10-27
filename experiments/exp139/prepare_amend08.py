@@ -8,9 +8,9 @@ import sqlite3
 import subprocess
 import tempfile
 from experiments.exp139.prepare import ROOT, IDENTITY, BRANCH, LANGFLOW, save
-from laomedo.git_workspace import _git_environment, _bounded_git
-from laomedo.skill_store import SkillStore
-from laomedo.siwc_auth import _outside_git
+from laomedo.agents.git_workspace import _git_environment, _bounded_git
+from laomedo.skills.skill_store import SkillStore
+from laomedo.host.credentials.siwc_auth import _outside_git
 
 
 def prepare(root):

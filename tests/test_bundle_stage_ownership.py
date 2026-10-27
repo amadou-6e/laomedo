@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.bundle_stage_ownership import reserve_container, stage_lock, reconcile_orphan
+from laomedo.host.publication.bundle_stage_ownership import reserve_container, stage_lock, reconcile_orphan
 
 
 class BundleStageOwnershipTests(unittest.TestCase):

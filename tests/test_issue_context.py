@@ -5,7 +5,7 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from laomedo.issue_context import IssueContextError, _gh_json, fetch_context
+from laomedo.github.issues.issue_context import IssueContextError, _gh_json, fetch_context
 
 
 REPO = "example/work"
@@ -52,7 +52,7 @@ class IssueContextTests(unittest.TestCase):
         for status, expected in ((301, "issue_moved"), (403, "github_forbidden"),
                                  (404, "issue_unavailable"), (410, "issue_gone")):
             response = subprocess.CompletedProcess([], 1, "", f"HTTP {status}: secret detail")
-            with patch("laomedo.issue_context.subprocess.run", return_value=response):
+            with patch("laomedo.github.issues.issue_context.subprocess.run", return_value=response):
                 with self.assertRaises(IssueContextError) as caught:
                     _gh_json(BASE)
             self.assertEqual(caught.exception.code, expected)

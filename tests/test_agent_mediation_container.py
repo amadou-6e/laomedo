@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 
-from laomedo.local_runner import IMAGE, _docker_prefix
+from laomedo.agents.local_runner import IMAGE, _docker_prefix
 
 
 @unittest.skipUnless(os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",

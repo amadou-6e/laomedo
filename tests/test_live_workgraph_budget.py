@@ -10,8 +10,8 @@ import unittest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from experiments.exp139.prepare import BRANCH, REPOSITORY, report_task
 from experiments.exp139.runtime import WriteBudget, configuration
-from laomedo.github_mediation import MediationStore, KnownRejected
-from laomedo.output_contract import requirements
+from laomedo.host.mediation.github_mediation import MediationStore, KnownRejected
+from laomedo.agents.output_contract import requirements
 
 
 class BudgetTests(unittest.TestCase):

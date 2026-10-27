@@ -9,15 +9,15 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle, _record
-from laomedo.bundle_stage import PINNED_IMAGE_ID
-from laomedo.verified_stage import VerifiedStageError, resolve_verified_stage
-from laomedo.verified_git_stage import (VerifiedGitStageError,
+from laomedo.skills.bundle_ingest import HANDOFF_NAME, freeze_run_bundle, _record
+from laomedo.host.publication.bundle_stage import PINNED_IMAGE_ID
+from laomedo.host.publication.verified_stage import VerifiedStageError, resolve_verified_stage
+from laomedo.host.publication.verified_git_stage import (VerifiedGitStageError,
                                         stage_verified_git)
-from laomedo.github_git_transport import _run_bounded_tree
-from laomedo.github_git_transport import GitHubGitTransport
-from laomedo.github_mediation import MediationStore, MediationError, KnownRejected
-from laomedo.verified_git_stage import (make_grant_stage_resolver,
+from laomedo.github.transport.github_git_transport import _run_bounded_tree
+from laomedo.github.transport.github_git_transport import GitHubGitTransport
+from laomedo.host.mediation.github_mediation import MediationStore, MediationError, KnownRejected
+from laomedo.host.publication.verified_git_stage import (make_grant_stage_resolver,
                                         make_grant_bundle_freezer,
                                         classify_verified_workflow)
 
@@ -449,7 +449,7 @@ class VerifiedStageTests(unittest.TestCase):
                 "grant_id": grant_id, "supervised": True,
                 "cleanup_verified": False})
             self.record.write_text(json.dumps(record), encoding="utf-8")
-            from laomedo.bundle_ingest import _record
+            from laomedo.skills.bundle_ingest import _record
             binding = _record(self.runner, "run-a")[1]
             frozen = json.loads((self.attempt / "result.json").read_text())
             frozen.pop("run_record_sha256")

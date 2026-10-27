@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 
 from experiments.exp82.docker_stage_probe import ROOT, no_model_flow
 from laomedo.work_graph.docker_stage import DockerLangflowStage, IMAGE
-from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
+from laomedo.agents.workflow_run_store import LaunchError, WorkflowRunStore
 
 
 FORGE = '''

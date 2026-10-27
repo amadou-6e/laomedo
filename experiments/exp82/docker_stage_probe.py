@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from laomedo.work_graph.docker_stage import DockerLangflowStage
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow_run_store import WorkflowRunStore
 
 
 ROOT = Path(__file__).resolve().parents[2]

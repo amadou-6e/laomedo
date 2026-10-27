@@ -9,8 +9,8 @@ from urllib import request
 
 from experiments.exp100.probe_live import (BoundedOpener, DISPOSABLE, PUBLIC, ISSUE, JOB,
     revoke_and_verify, run_overlap, list_fields, check)
-from laomedo.github_mediation import MediationStore
-from laomedo.github_rest_transport import ISSUE_GRAPHQL_QUERY
+from laomedo.host.mediation.github_mediation import MediationStore
+from laomedo.github.transport.github_rest_transport import ISSUE_GRAPHQL_QUERY
 
 
 class FakeProvider:

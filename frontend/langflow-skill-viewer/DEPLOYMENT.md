@@ -16,7 +16,7 @@ Proposed changes only:
 4. Set `LANGFLOW_FRONTEND_PATH=/skill-frontend`,
    `LAOMEDO_SKILL_STORE=/skills`, `PYTHONPATH=/workspace`.
 5. Launch `/app/.venv/bin/python -m uvicorn
-   laomedo.langflow_skill_viewer:create_app --factory --host 0.0.0.0 --port 7860`.
+   laomedo.integrations.langflow.langflow_skill_viewer:create_app --factory --host 0.0.0.0 --port 7860`.
 
 Preserve the existing SQLite volume, every saved graph, custom-component catalog,
 runner-token mount, automatic loopback login, all other environment settings,

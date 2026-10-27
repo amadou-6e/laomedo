@@ -9,8 +9,8 @@ import time
 import unittest
 from urllib.request import urlopen
 
-from laomedo.host_services import build_services, serve_services
-from laomedo.local_runner import LocalRunner, RunnerError
+from laomedo.host.host_services import build_services, serve_services
+from laomedo.agents.local_runner import LocalRunner, RunnerError
 
 
 class HostServicesTests(unittest.TestCase):

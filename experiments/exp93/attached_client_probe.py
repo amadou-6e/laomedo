@@ -13,7 +13,7 @@ import tempfile
 import threading
 import time
 
-from laomedo.container_lease import inspect_exact, cleanup_exact
+from laomedo.host.leases.container_lease import inspect_exact, cleanup_exact
 
 IDENTITY = "exp93-attached-client-d1-20261011"
 IMAGE = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78"

@@ -20,14 +20,14 @@ import threading
 import time
 from urllib import error, request
 
-from laomedo.container_lease import cleanup_exact, inspect_exact
-from laomedo.github_git_transport import (_base_git_environment,
+from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact
+from laomedo.github.transport.github_git_transport import (_base_git_environment,
                                           _credential_environment,
                                           _push_failure_category)
-from laomedo.github_mediation import MediationError, MediationStore
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.lease_service import LeaseClient
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.github_mediation import MediationError, MediationStore
+from laomedo.host.credentials.host_token_connection import HostTokenConnection
+from laomedo.host.leases.lease_service import LeaseClient
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
 
 
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"
@@ -412,7 +412,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
 
     checkpoint()
     try:
-        mediator = _process("-m", "laomedo.mediation_service",
+        mediator = _process("-m", "laomedo.host.mediation.mediation_service",
                             "--state", str(mediator_state), "--repository", REPOSITORY,
                             "--checkout", str(checkout), "--baseline", BASELINE,
                             "--agent-mount", str(checkout), "--connection-id", CONNECTION_ID,
@@ -421,7 +421,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         info = _wait(mediator_state / "mediator.json")
         if info.get("pid") != mediator.pid or info.get("repository") != REPOSITORY:
             raise RuntimeError("mediator_identity_mismatch")
-        lease = _process("-m", "laomedo.lease_service", "serve",
+        lease = _process("-m", "laomedo.host.leases.lease_service", "serve",
                          "--state", str(lease_state), "--mediator-store", str(ledger),
                          "--authority-store", str(approvals), "--repository", REPOSITORY,
                          "--connection-id", CONNECTION_ID,
@@ -547,7 +547,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         runner_b = None
         _stop(lease)
         lease = None
-        lease = _process("-m", "laomedo.lease_service", "serve",
+        lease = _process("-m", "laomedo.host.leases.lease_service", "serve",
                          "--state", str(lease_state), "--mediator-store", str(ledger),
                          "--authority-store", str(approvals), "--repository", REPOSITORY,
                          "--connection-id", CONNECTION_ID,

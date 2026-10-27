@@ -19,10 +19,10 @@ import threading
 import time
 from urllib import error, request
 
-from laomedo.github_mediation import MediationStore
-from laomedo.lease_service import LeaseService
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.mediation_service import MediationHTTPService
+from laomedo.host.mediation.github_mediation import MediationStore
+from laomedo.host.leases.lease_service import LeaseService
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.mediation_service import MediationHTTPService
 
 
 REPOSITORY = "example/disposable"

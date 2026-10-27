@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError
-from laomedo.claude_telemetry import ClaudeTelemetry
-from laomedo.agent_activity_projection import project
+from laomedo.activity.claude_telemetry import ClaudeTelemetry
+from laomedo.activity.agent_activity.projection import project
 
 try:
  from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest

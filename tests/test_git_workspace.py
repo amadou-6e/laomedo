@@ -7,8 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo import git_workspace
-from laomedo.git_workspace import GitWorkspaceError, prepare_git_workspace
+from laomedo.agents import git_workspace
+from laomedo.agents.git_workspace import GitWorkspaceError, prepare_git_workspace
 
 
 class GitWorkspaceTests(unittest.TestCase):

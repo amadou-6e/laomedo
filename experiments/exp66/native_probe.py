@@ -15,13 +15,13 @@ from experiments.exp117.support import (
     ROOT, PILOT, LEDGER, CAP, _hash, _private_empty, _port, _events,
     _owned_container_absent, _cleanup_runner_runs, _audit_requests,
 )
-from laomedo.local_runner import LocalRunner, serve
+from laomedo.agents.local_runner import LocalRunner, serve
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.skill_store import SkillStore
-from laomedo.workflow_run_store import WorkflowRunStore
-from laomedo.handoff_http import RunnerAdapter
-from laomedo.handoffs import HandoffError
-from laomedo.runner_trace_bridge import RunnerTraceBridge
+from laomedo.skills.skill_store import SkillStore
+from laomedo.agents.workflow_run_store import WorkflowRunStore
+from laomedo.agents.handoff_http import RunnerAdapter
+from laomedo.agents.handoffs import HandoffError
+from laomedo.activity.runner_trace_bridge import RunnerTraceBridge
 
 
 def reserve_entry(state, case, *, entry=None, result=None):
@@ -56,7 +56,7 @@ def reserve_entry(state, case, *, entry=None, result=None):
 
 def reopen(path, run_id):
     """Fresh process opens only the durable store; cannot dispatch anything."""
-    code = ('import json,sys;from laomedo.workflow_run_store import WorkflowRunStore;'
+    code = ('import json,sys;from laomedo.agents.workflow_run_store import WorkflowRunStore;'
             'print(json.dumps(WorkflowRunStore(sys.argv[1]).trace_snapshot(sys.argv[2])))')
     return json.loads(subprocess.check_output(
         [sys.executable, '-c', code, str(path), run_id], cwd=ROOT, text=True, timeout=20))

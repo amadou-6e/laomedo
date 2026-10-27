@@ -74,5 +74,6 @@
   "laomedo.verified_git_stage": "laomedo.host.publication.verified_git_stage",
   "laomedo.verified_stage": "laomedo.host.publication.verified_stage",
   "laomedo.workflow_run_store": "laomedo.agents.workflow_run_store",
-  "laomedo.workspace_skills": "laomedo.skills.workspace_skills"
+  "laomedo.workspace_skills": "laomedo.skills.workspace_skills",
+  "laomedo.git_credential_helper": "laomedo.host.credentials.git_credential_helper"
 }

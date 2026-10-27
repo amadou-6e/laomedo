@@ -5,7 +5,7 @@ import json
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput, MultilineInput, Output
 from lfx.schema import Data
-from laomedo.output_contract import evaluate_envelope, requirements
+from laomedo.agents.output_contract import evaluate_envelope, requirements
 
 
 class LaomedoOutputContractLegacy(Component):

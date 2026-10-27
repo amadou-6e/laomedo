@@ -15,7 +15,7 @@ from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.__main__ import main as work_graph_main
 from laomedo.work_graph.launch import launch_github_work_stage, launch_work_stage, preflight, relevant_content_digest
-from laomedo.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
+from laomedo.agents.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
 
 
 CORPUS = Path(__file__).resolve().parents[1] / "experiments" / "exp16" / "corpus.json"

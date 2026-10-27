@@ -20,20 +20,20 @@ import threading
 
 from experiments.exp139.bindings import BoundRunner, MailboxAppServer, request_digest
 from experiments.exp139.prepare import connection, IDENTITY, REPOSITORY, BRANCH
-from laomedo.bundle_stage import verify_frozen_bundle, _read_frozen
-from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport
-from laomedo.github_mediation import MediationStore, KnownRejected
-from laomedo.github_rest_transport import GitHubRestTransport
-from laomedo.host_services import serve_services
-from laomedo.lease_service import LeaseService
-from laomedo.local_runner import GIT_IMAGE_ID, serve
+from laomedo.host.publication.bundle_stage import verify_frozen_bundle, _read_frozen
+from laomedo.github.transport.github_git_transport import GitHubGitTransport, GitHubMediatedTransport
+from laomedo.host.mediation.github_mediation import MediationStore, KnownRejected
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport
+from laomedo.host.host_services import serve_services
+from laomedo.host.leases.lease_service import LeaseService
+from laomedo.agents.local_runner import GIT_IMAGE_ID, serve
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.mediation_service import MediationHTTPService, JournaledTransport
-from laomedo.output_contract import requirements
-from laomedo.publication_controller import PublicationController
-from laomedo.siwc_auth import _outside_git
-from laomedo.verified_git_stage import make_grant_bundle_freezer, make_grant_stage_resolver, stage_verified_git
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.mediation_service import MediationHTTPService, JournaledTransport
+from laomedo.agents.output_contract import requirements
+from laomedo.host.publication.publication_controller import PublicationController
+from laomedo.host.credentials.siwc_auth import _outside_git
+from laomedo.host.publication.verified_git_stage import make_grant_bundle_freezer, make_grant_stage_resolver, stage_verified_git
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORT_PATH = "experiments/exp139/issue-report.md"

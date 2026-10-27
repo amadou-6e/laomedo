@@ -13,10 +13,10 @@ from types import ModuleType
 import unittest
 from unittest.mock import Mock, patch
 
-from laomedo.github_mediation import MediationStore
-from laomedo.lease_service import LeaseService
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.mediation_service import MediationHTTPService
+from laomedo.host.mediation.github_mediation import MediationStore
+from laomedo.host.leases.lease_service import LeaseService
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.mediation_service import MediationHTTPService
 
 _probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s11_probe.py"
 _probe_spec = importlib.util.spec_from_file_location("exp104_s11_probe", _probe_path)
@@ -54,8 +54,8 @@ class S11ProbeTests(unittest.TestCase):
         root = _probe_path.parents[2]
         child = subprocess.Popen([
             probe._direct_python(), "-c",
-            "import os,laomedo.host_services; "
-            "print(os.getpid()); print(laomedo.host_services.__file__)"],
+            "import os,laomedo.host.host_services; "
+            "print(os.getpid()); print(laomedo.host.host_services.__file__)"],
             cwd=root, env=probe._host_environment(), stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True)
         output, errors = child.communicate(timeout=10)

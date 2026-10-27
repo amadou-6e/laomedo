@@ -21,15 +21,15 @@ sys.path.insert(0, str(ROOT))
 from experiments.exp100.paired_cases import IDENTITY, MARKER, PROPOSAL, REVIEWED_ISSUE, GRAPHQL_INPUT, check
 from experiments.exp100.paired_provider import Provider, REPOSITORY, TOKEN
 from experiments.exp104.probe_active_delivery import git, stage_cleanup
-from laomedo.agent_cli import configure_remote, prepare_commands
-from laomedo.bundle_verifier import BundleVerifier
-from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
-from laomedo.github_rest_transport import GitHubRestTransport
-from laomedo.github_mediation import MediationStore
-from laomedo.local_runner import GIT_IMAGE_ID
-from laomedo.mediation_service import MediationHTTPService
-from laomedo.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
+from laomedo.host.mediation.agent_cli import configure_remote, prepare_commands
+from laomedo.host.publication.bundle_verifier import BundleVerifier
+from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
+from laomedo.github.transport.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport
+from laomedo.host.mediation.github_mediation import MediationStore
+from laomedo.agents.local_runner import GIT_IMAGE_ID
+from laomedo.host.mediation.mediation_service import MediationHTTPService
+from laomedo.host.publication.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
 
 SPEC = '193fdfb2c31e71745943039c05e14d5d72e8309e'
 

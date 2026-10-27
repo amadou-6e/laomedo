@@ -10,10 +10,10 @@ import threading
 import time
 from urllib import request, error
 
-from laomedo.github_mediation import MediationStore, MediationError
-from laomedo.lease_service import LeaseClient, LeaseService, _write_json
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.mediation_service import MediationHTTPService
+from laomedo.host.mediation.github_mediation import MediationStore, MediationError
+from laomedo.host.leases.lease_service import LeaseClient, LeaseService, _write_json
+from laomedo.host.mediation.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.mediation_service import MediationHTTPService
 
 STATE = Path('/var/lib/laomedo-s14')
 REPOSITORY = 'synthetic/disposable'

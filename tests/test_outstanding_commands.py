@@ -2,10 +2,10 @@
 import json
 import unittest
 
-from laomedo.local_runner import _command_summary, AppServer, SplitAppServer, LocalRunner, RunnerError
+from laomedo.agents.local_runner import _command_summary, AppServer, SplitAppServer, LocalRunner, RunnerError
 import threading
 from types import SimpleNamespace
-from laomedo.artifacts import ArtifactError
+from laomedo.agents.artifacts import ArtifactError
 import test_local_runner as fixtures
 
 

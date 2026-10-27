@@ -11,7 +11,7 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from laomedo.local_runner import AppServer, LocalRunner, RunnerError
+from laomedo.agents.local_runner import AppServer, LocalRunner, RunnerError
 
 
 def request_digest(request):

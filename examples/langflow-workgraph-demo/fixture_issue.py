@@ -4,7 +4,7 @@ import json
 from lfx.custom.custom_component.component import Component
 from lfx.io import Output, StrInput
 from lfx.schema import Data, Message
-from laomedo.issue_context import fetch_context
+from laomedo.github.issues.issue_context import fetch_context
 
 
 class FixtureIssue(Component):

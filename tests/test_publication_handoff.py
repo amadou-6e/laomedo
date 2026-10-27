@@ -9,10 +9,10 @@ import tempfile
 import threading
 import unittest
 
-from laomedo.github_mediation import KnownRejected, MediationError, MediationStore
-from laomedo.output_contract import requirements
-from laomedo.publication_controller import PublicationController
-from laomedo.verified_stage import VerifiedStage
+from laomedo.host.mediation.github_mediation import KnownRejected, MediationError, MediationStore
+from laomedo.agents.output_contract import requirements
+from laomedo.host.publication.publication_controller import PublicationController
+from laomedo.host.publication.verified_stage import VerifiedStage
 
 
 class PublicationHandoffTests(unittest.TestCase):
@@ -371,7 +371,7 @@ class PublicationHandoffTests(unittest.TestCase):
                 self.assertNotIn("run-a", controller.owned)
 
     def test_runner_publication_api_requires_auth_and_empty_graph_body(self):
-        from laomedo.local_runner import LocalRunner, serve
+        from laomedo.agents.local_runner import LocalRunner, serve
         from urllib import request, error
         import json
         self.ready()

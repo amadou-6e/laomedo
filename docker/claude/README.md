@@ -29,7 +29,7 @@ refresh credential is never copied. Refresh or sign in on the host when its acce
 credential expires. Remote Docker endpoints are refused for this mirror. The volume retains the native
 sessions required for Resume; deleting it invalidates those sessions.
 
-Start an independent `laomedo.lease_service` for exact ownership/heartbeat cleanup
+Start an independent `laomedo.host.leases.lease_service` for exact ownership/heartbeat cleanup
 before the API. Supply its private state directory using `--lease-service`.
 The API must not own the only cleanup process. The image is resolved to its
 immutable Docker ID and checked against the supported CLI version at startup.

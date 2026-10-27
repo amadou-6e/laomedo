@@ -9,9 +9,9 @@ import unittest
 from urllib import error, request
 from uuid import UUID, uuid4
 
-from laomedo.langflow_join import LangflowJoinController
-from laomedo.langflow_join_http import RunnerHTTPTransport, serve_langflow_join
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.integrations.langflow.langflow_join import LangflowJoinController
+from laomedo.integrations.langflow.langflow_join_http import RunnerHTTPTransport, serve_langflow_join
+from laomedo.agents.workflow_run_store import WorkflowRunStore
 from test_langflow_join_controller import FakeRunner
 
 

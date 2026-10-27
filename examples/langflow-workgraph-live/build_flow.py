@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 from lfx.graph.graph.base import Graph
-from laomedo.skill_store import inventory, tree_hash
+from laomedo.skills.skill_store import inventory, tree_hash
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent

@@ -10,7 +10,7 @@ import sys
 from tempfile import TemporaryDirectory
 
 from experiments.exp05.evidence import EvidenceStore
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow_run_store import WorkflowRunStore
 
 
 def _digest(payload_json: str) -> str:

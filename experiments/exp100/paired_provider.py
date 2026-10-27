@@ -4,7 +4,7 @@ import io
 import json
 import threading
 from urllib.parse import urlsplit
-from laomedo.github_rest_transport import ISSUE_GRAPHQL_QUERY
+from laomedo.github.transport.github_rest_transport import ISSUE_GRAPHQL_QUERY
 
 REPOSITORY = 'example/disposable'
 TOKEN = 'synthetic-paired-host-only'

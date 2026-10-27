@@ -12,8 +12,8 @@ import sys
 import tempfile
 import time
 
-from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
-from laomedo.bundle_stage import (BundleStageError, PINNED_IMAGE_ID, _run,
+from laomedo.skills.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
+from laomedo.host.publication.bundle_stage import (BundleStageError, PINNED_IMAGE_ID, _run,
                                   _single_bundle_commit, verify_frozen_bundle)
 
 

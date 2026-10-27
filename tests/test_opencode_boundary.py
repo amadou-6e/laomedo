@@ -11,9 +11,9 @@ import subprocess
 from unittest.mock import Mock, patch
 from urllib import error, request
 
-from laomedo.opencode_boundary import (CommandBroker, IsolatedOpenCode, check_auth_fresh,
+from laomedo.agents.providers.opencode_boundary import (CommandBroker, IsolatedOpenCode, check_auth_fresh,
                                       worker_command, WORKER_IMAGE, WORKER_IMAGE_ID)
-from laomedo.local_runner import RunnerError
+from laomedo.agents.local_runner import RunnerError
 
 
 class BoundaryTests(unittest.TestCase):
@@ -60,8 +60,8 @@ class BoundaryTests(unittest.TestCase):
                 if args[:3] == ['docker', 'image', 'inspect']:
                     return Mock(stdout='fixture-image' if args[3] == 'fixture-controller' else WORKER_IMAGE_ID)
                 return Mock(returncode=0,stdout='',stderr='')
-            with patch('laomedo.opencode_boundary.CommandBroker', return_value=broker), \
-                 patch('laomedo.opencode_boundary.subprocess.run', side_effect=docker):
+            with patch('laomedo.agents.providers.opencode_boundary.CommandBroker', return_value=broker), \
+                 patch('laomedo.agents.providers.opencode_boundary.subprocess.run', side_effect=docker):
                 with self.assertRaisesRegex(RunnerError, 'opencode_organization_context_invalid'):
                     IsolatedOpenCode(workspace, evidence, profile=profile,
                                      image='fixture-controller', image_id='fixture-image')
@@ -81,8 +81,8 @@ class BoundaryTests(unittest.TestCase):
                     launch.extend(args)
                     raise subprocess.CalledProcessError(1, args)
                 return Mock(returncode=0,stdout=b'', stderr=b'')
-            with patch('laomedo.opencode_boundary.CommandBroker', return_value=broker), \
-                 patch('laomedo.opencode_boundary.subprocess.run', side_effect=docker):
+            with patch('laomedo.agents.providers.opencode_boundary.CommandBroker', return_value=broker), \
+                 patch('laomedo.agents.providers.opencode_boundary.subprocess.run', side_effect=docker):
                 with self.assertRaises(subprocess.CalledProcessError):
                     IsolatedOpenCode(workspace, evidence, profile=profile,
                                      image='fixture-controller', image_id='fixture-image')
@@ -114,7 +114,7 @@ class BoundaryTests(unittest.TestCase):
                     self.assertTrue(any('target=/controller-config.json,readonly' in mount for mount in mounts))
                     raise subprocess.CalledProcessError(1,args)
                 return Mock(returncode=0,stdout=b'',stderr=b'')
-            with patch('laomedo.opencode_boundary.CommandBroker',return_value=broker),patch('laomedo.opencode_boundary.subprocess.run',side_effect=docker):
+            with patch('laomedo.agents.providers.opencode_boundary.CommandBroker',return_value=broker),patch('laomedo.agents.providers.opencode_boundary.subprocess.run',side_effect=docker):
                 with self.assertRaises(subprocess.CalledProcessError):
                     IsolatedOpenCode(workspace,evidence,profile=profile,image='fixture-controller',image_id='fixture-image',configure_agents=configure)
             self.assertEqual(configured,[True])
@@ -133,7 +133,7 @@ class BoundaryTests(unittest.TestCase):
                         raise TimeoutError()
                 return Mock(returncode=0, stdout='ok', stderr='')
             result = {}
-            with patch('laomedo.opencode_boundary.subprocess.run', side_effect=docker):
+            with patch('laomedo.agents.providers.opencode_boundary.subprocess.run', side_effect=docker):
                 thread = threading.Thread(target=lambda: result.update(broker.execute('pwd')))
                 thread.start()
                 try:
@@ -154,12 +154,12 @@ class BoundaryTests(unittest.TestCase):
         broker.server.shutdown.side_effect = lambda: calls.append('shutdown')
         broker.server.server_close.side_effect = lambda: calls.append('join-handlers')
         broker.thread = Mock()
-        with patch('laomedo.opencode_boundary.subprocess.run', side_effect=lambda *_a, **_k: (calls.append('stop-worker') or Mock(returncode=0))):
+        with patch('laomedo.agents.providers.opencode_boundary.subprocess.run', side_effect=lambda *_a, **_k: (calls.append('stop-worker') or Mock(returncode=0))):
             broker.close()
         self.assertEqual(calls, ['shutdown', 'stop-worker', 'join-handlers'])
 
     def test_credential_binding_is_keyed_stable_and_changes_with_credentials(self):
-        from laomedo.opencode_boundary import _credential_binding
+        from laomedo.agents.providers.opencode_boundary import _credential_binding
         with tempfile.TemporaryDirectory() as tmp:
             profile,_,_=self.fixture(Path(tmp),mode='provider_key')
             validity_path=profile/'auth-validity.json'
@@ -172,8 +172,8 @@ class BoundaryTests(unittest.TestCase):
             self.assertNotEqual(first,_credential_binding(profile))
 
     def test_cleanup_transport_failure_is_not_claimed_as_verified(self):
-        from laomedo.opencode_boundary import _remove_owned
-        with patch('laomedo.opencode_boundary.subprocess.run',return_value=Mock(returncode=1,stderr='Docker daemon unavailable')):
+        from laomedo.agents.providers.opencode_boundary import _remove_owned
+        with patch('laomedo.agents.providers.opencode_boundary.subprocess.run',return_value=Mock(returncode=1,stderr='Docker daemon unavailable')):
             with self.assertRaisesRegex(RunnerError,'opencode_container_cleanup_unverified'):
                 _remove_owned('owned-test-container')
 

@@ -7,9 +7,10 @@ Install this checkout with `python -m pip install -e .` (or install its wheel).
 Python implementation lives in `src/laomedo`; `agents` owns execution, with
 `skills`, `github`, `host`, `activity`, `integrations/langflow` and `work_graph`
 providing the other domains. Components, frontend, tests and docs remain at the
-repository root. See [package layout and compatibility](docs/package-layout.md).
-The root `laomedo/__init__.py` is a checkout-only bridge for existing installed
-services. It is excluded from the wheel and contains no runtime implementation.
+repository root. See [package layout and migration](docs/package-layout.md).
+Imports and service commands use their owning domain modules. Older saved
+graphs and launchers have an explicit one-time migration; forwarding modules
+and the checkout-only import bridge are removed.
 
 The [agent observability feasibility study](experiments/feasibility/agent-observability/README.md)
 assesses native App Server events and OpenTelemetry for the original Codex agent.
@@ -41,7 +42,7 @@ three-turn spike reported a no-go for the proposed local MVP on its evidence.
 
 The [issue 122 Skill Draft proof](experiments/feasibility/122/README.md)
 records versioned editing rules, deterministic draft guards, agent edits, and
-native resume. The [local skill core](src/laomedo/README.md) implements immutable
+native resume. The [local skill core](docs/skill-registry.md) implements immutable
 revisions and human-reviewed draft promotion separately from agent execution.
 
 The [issue 121 Claude probes](experiments/feasibility/121/README.md) pin the

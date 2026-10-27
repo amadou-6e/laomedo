@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from laomedo.container_lease import cleanup_exact, inspect_exact
+from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact
 
 
 NAME = "laomedo-exp104-local-preflight-20261007"

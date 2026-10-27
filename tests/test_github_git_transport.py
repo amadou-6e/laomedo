@@ -10,16 +10,16 @@ import time
 import unittest
 from unittest.mock import patch
 
-from laomedo.github_git_transport import (GitHubGitTransport,
+from laomedo.github.transport.github_git_transport import (GitHubGitTransport,
                                           PushOutcomeUnknown,
                                           GIT_COMMAND_TIMEOUT_SECONDS,
                                           GitTreeTimeout,
                                           _credential_environment,
                                           _run_bounded_tree)
-from laomedo.github_mediation import KnownRejected
-from laomedo.github_mediation import MediationStore
-from laomedo.mediation_service import JournaledTransport
-from laomedo import git_credential_helper
+from laomedo.host.mediation.github_mediation import KnownRejected
+from laomedo.host.mediation.github_mediation import MediationStore
+from laomedo.host.mediation.mediation_service import JournaledTransport
+from laomedo.host.credentials import git_credential_helper
 
 
 REPOSITORY = "example/disposable"
@@ -427,7 +427,7 @@ class GitHubGitTransportTests(unittest.TestCase):
         self.assertNotIn(secret, repr(store.effect("run-a", "effect-a")))
 
     def test_commit_digits_do_not_misclassify_remote_rejection_as_auth(self):
-        from laomedo.github_git_transport import _push_failure_category
+        from laomedo.github.transport.github_git_transport import _push_failure_category
         self.assertEqual(_push_failure_category(
             b"", b"!\t403abc:refs/heads/probe\t[remote rejected]"),
             "remote_rejected")

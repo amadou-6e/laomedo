@@ -13,8 +13,8 @@ import time
 from urllib import error, request
 from uuid import uuid4
 
-from laomedo.container_lease import LABEL_RUN, LABEL_TOKEN, inspect_exact
-from laomedo.lease_service import LeaseClient
+from laomedo.host.leases.container_lease import LABEL_RUN, LABEL_TOKEN, inspect_exact
+from laomedo.host.leases.lease_service import LeaseClient
 
 
 OUTPUT = Path(__file__).with_name("service-observation.json")
@@ -91,7 +91,7 @@ def main() -> None:
     root = Path(tempfile.mkdtemp(prefix="laomedo-exp93-service-"))
     service_state = root / "service"
     lookalike = "laomedo-codex-lookalike-" + uuid4().hex
-    service = subprocess.Popen([sys.executable, "-m", "laomedo.lease_service", "serve",
+    service = subprocess.Popen([sys.executable, "-m", "laomedo.host.leases.lease_service", "serve",
                                 "--state", str(service_state)], cwd=ROOT,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     runner = None
@@ -120,7 +120,7 @@ def main() -> None:
         if identities["child_pid"] != runner.pid or identities["service_pid"] != service.pid:
             raise RuntimeError("process_identity_mismatch")
         if ("experiments.exp93.service_probe" not in command_line(runner.pid) or
-                "laomedo.lease_service" not in command_line(service.pid)):
+                "laomedo.host.leases.lease_service" not in command_line(service.pid)):
             raise RuntimeError("process_command_mismatch")
         name, run_id, token = identities["name"], identities["run_id"], identities["token"]
         secret = (service_state / "leases" / token / "grant.secret").read_text(encoding="utf-8")
@@ -153,7 +153,7 @@ def main() -> None:
 
         alive_at = float((service_state / "service.alive").read_text(encoding="utf-8"))
         service_survived = (service.poll() is None and time.time() - alive_at < 3 and
-                            "laomedo.lease_service" in command_line(service.pid))
+                            "laomedo.host.leases.lease_service" in command_line(service.pid))
         post_status = write_status(info["port"], secret) if result else None
         revoked_at = result["revoked_at"] if result else None
         accepted_after = (sum(1 for e in events(service_state)
@@ -205,7 +205,7 @@ def main() -> None:
         if look and look["Config"]["Labels"].get("laomedo.experiment") == \
                 LOOKALIKE_LABEL.split("=", 1)[1]:
             subprocess.run(["docker", "rm", "-f", look["Id"]], capture_output=True, timeout=15)
-        if service.poll() is None and "laomedo.lease_service" in command_line(service.pid):
+        if service.poll() is None and "laomedo.host.leases.lease_service" in command_line(service.pid):
             subprocess.run(["taskkill", "/PID", str(service.pid), "/F"],
                            capture_output=True, timeout=10)
 

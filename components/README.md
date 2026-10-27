@@ -12,7 +12,7 @@ API token; its historical model-turn evidence predates that change.
 Data ports. The separate `LaomedoOutputContractLegacy` retains explicit
 Precheck Requirements and Validation Outcome ports. Install this repository's Laomedo package in the Langflow
 runtime before loading it: the node and Codex requirements input import the
-same `laomedo.output_contract` evaluator used by the host runner. Mounting only
+same `laomedo.agents.output_contract` evaluator used by the host runner. Mounting only
 component files is insufficient for this component. A missing package fails
 visibly at import rather than falling back to a different validator.
 

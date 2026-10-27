@@ -20,7 +20,7 @@ import threading
 import time
 from uuid import uuid4
 
-from laomedo.local_runner import (AppServer, CLI_VERSION, IMAGE, IMAGE_ID,
+from laomedo.agents.local_runner import (AppServer, CLI_VERSION, IMAGE, IMAGE_ID,
                                   VOLUME, _docker_prefix)
 from probe_mock_responses import MockResponses
 

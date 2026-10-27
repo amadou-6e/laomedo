@@ -17,12 +17,12 @@ from experiments.exp117.support import (
     _owned_container_absent, _port, _private_empty, BROWSER, CAP, _flow_code_pins,
     _remove_ui, _reserve, _ui_attribution, _wait_ui,
 )
-from laomedo.langflow_join_service import build_service
-from laomedo.local_runner import LocalRunner, serve
+from laomedo.integrations.langflow.langflow_join_service import build_service
+from laomedo.agents.local_runner import LocalRunner, serve
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.skill_store import SkillStore
+from laomedo.skills.skill_store import SkillStore
 from laomedo.work_graph.local_launch import LangflowLocalClient
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow_run_store import WorkflowRunStore
 
 
 PROTOCOL = ROOT / "experiments/exp117/PROTOCOL.md"

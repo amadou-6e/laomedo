@@ -6,7 +6,7 @@ Target: the existing single-user Langflow viewer on 7864, with its saved flow,
 auto-login, database and runner on 8780 preserved. No model turns or publication
 requests are part of activation. Existing run budgets and permissions stay unchanged.
 
-Start one independent hidden host process for `laomedo.skill_source_server` from
+Start one independent hidden host process for `laomedo.skills.skill_source_server` from
 this reviewed implementation, listening on loopback 8782. Use the existing runner
 API transport-token file; do not print it or create another human login. Store
 cache/index in the existing private standing demo state under a new `skill-sources`

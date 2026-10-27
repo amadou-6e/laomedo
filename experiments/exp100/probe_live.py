@@ -17,13 +17,13 @@ from urllib import parse, request
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.agent_cli import prepare_commands
-from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_mediation import MediationStore, MediationError, _request_hash
-from laomedo.github_rest_transport import GitHubRestTransport, ISSUE_GRAPHQL_QUERY, _NoRedirect
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.local_runner import GIT_IMAGE_ID
-from laomedo.mediation_service import MediationHTTPService
+from laomedo.host.mediation.agent_cli import prepare_commands
+from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
+from laomedo.host.mediation.github_mediation import MediationStore, MediationError, _request_hash
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport, ISSUE_GRAPHQL_QUERY, _NoRedirect
+from laomedo.host.credentials.host_token_connection import HostTokenConnection
+from laomedo.agents.local_runner import GIT_IMAGE_ID
+from laomedo.host.mediation.mediation_service import MediationHTTPService
 
 IDENTITY = 'exp100-live-s12-20261010-a'
 DISPOSABLE = 'ga84jog/laomedo-exp104-disposable-20261007'

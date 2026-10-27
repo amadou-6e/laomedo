@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.skill_inspection import inspect_skill, InspectionError, MAX_FILE_BYTES
-from laomedo.skill_store import SkillStore
+from laomedo.skills.skill_inspection import inspect_skill, InspectionError, MAX_FILE_BYTES
+from laomedo.skills.skill_store import SkillStore
 
 
 class SkillInspectionTests(unittest.TestCase):
@@ -137,7 +137,7 @@ class SkillInspectionTests(unittest.TestCase):
             from fastapi.testclient import TestClient
         except ImportError:
             self.skipTest("Optional FastAPI dependency checked in pinned Langflow")
-        from laomedo.langflow_skill_viewer import install_routes
+        from laomedo.integrations.langflow.langflow_skill_viewer import install_routes
         app = FastAPI()
         def authenticate(authorization: str = Header(default="")):
             if authorization != "Bearer fixture":

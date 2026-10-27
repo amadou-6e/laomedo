@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from laomedo.opencode_auth import console_provider, credential
+from laomedo.host.credentials.opencode_auth import console_provider, credential
 
 
 def main():

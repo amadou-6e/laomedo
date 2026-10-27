@@ -11,7 +11,7 @@ from pathlib import Path
 import secrets
 import tempfile
 
-from laomedo.local_runner import AppServer, VOLUME, _docker_prefix
+from laomedo.agents.local_runner import AppServer, VOLUME, _docker_prefix
 
 
 def probe():

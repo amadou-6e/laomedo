@@ -10,7 +10,7 @@ from unittest.mock import patch
 from experiments.exp104 import native_localrunner_worker as worker
 from experiments.exp104 import native_localrunner_probe as probe
 from experiments.exp104.native_localrunner_checks import IDENTITY, validate
-from laomedo.local_runner import AppServer, RunnerError
+from laomedo.agents.local_runner import AppServer, RunnerError
 
 ROOT = Path(__file__).resolve().parents[1]
 

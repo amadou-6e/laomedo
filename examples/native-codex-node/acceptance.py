@@ -18,7 +18,7 @@ from urllib import error, request
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.local_runner import _private
+from laomedo.agents.local_runner import _private
 
 STATE = _private(Path(os.environ["LOCALAPPDATA"]) / "Laomedo/native-node-21")
 BASE = "http://127.0.0.1:7862"

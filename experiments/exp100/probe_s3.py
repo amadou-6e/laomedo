@@ -12,9 +12,9 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from laomedo.github_git_transport import GitHubGitTransport
-from laomedo.github_rest_transport import GitHubRestTransport
-from laomedo.local_runner import LocalRunner
+from laomedo.github.transport.github_git_transport import GitHubGitTransport
+from laomedo.github.transport.github_rest_transport import GitHubRestTransport
+from laomedo.agents.local_runner import LocalRunner
 
 
 ROOT = Path(__file__).resolve().parents[2]

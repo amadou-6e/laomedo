@@ -12,11 +12,11 @@ import threading
 import time
 
 from experiments.exp104.native_managed_checks import BASELINE, IDENTITY, REPOSITORY
-from laomedo.agent_cli import prepare_commands
-from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_git_transport import _base_git_environment
-from laomedo.lease_service import LeaseClient
-from laomedo.local_runner import GIT_IMAGE_ID
+from laomedo.host.mediation.agent_cli import prepare_commands
+from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
+from laomedo.github.transport.github_git_transport import _base_git_environment
+from laomedo.host.leases.lease_service import LeaseClient
+from laomedo.agents.local_runner import GIT_IMAGE_ID
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 

@@ -6,9 +6,9 @@ import threading
 import unittest
 from urllib import request, error
 
-from laomedo.skill_store import SkillStore, SkillStoreError, ConflictError
-from laomedo.skill_operations import SkillOperations, proposal
-from laomedo.skill_operation_server import server
+from laomedo.skills.skill_store import SkillStore, SkillStoreError, ConflictError
+from laomedo.skills.skill_operations import SkillOperations, proposal
+from laomedo.skills.skill_operation_server import server
 
 
 class SkillOperationTests(unittest.TestCase):

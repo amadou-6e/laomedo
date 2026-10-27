@@ -6,9 +6,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.opencode_activity import retain_messages, project
-from laomedo.opencode_telemetry import export_attempt
-from laomedo.runner_activity import read_feed
+from laomedo.activity.opencode_activity import retain_messages, project
+from laomedo.activity.opencode_telemetry import export_attempt
+from laomedo.activity.runner_activity import read_feed
 
 
 try:

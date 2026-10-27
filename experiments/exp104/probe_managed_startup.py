@@ -45,7 +45,7 @@ def processes(configuration):
     command = ("$p = @(Get-CimInstance Win32_Process | Where-Object { "
                "$_.ProcessId -ne $PID -and $_.Name -eq 'python.exe' -and "
                "$_.CommandLine -and $_.CommandLine.Contains(" + quote(configuration) +
-               ") -and $_.CommandLine.Contains('laomedo.managed_service') }); "
+               ") -and $_.CommandLine.Contains('laomedo.host.managed_service') }); "
                "ConvertTo-Json -Compress -InputObject @($p | ForEach-Object { [int]$_.ProcessId })")
     return parse_processes(powershell(command))
 

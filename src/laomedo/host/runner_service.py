@@ -159,7 +159,7 @@ class RunnerService:
             if current['state'] != 'offline' or not current['can_start']:
                 return current
             config = self.config(url)
-            module = 'laomedo.claude_runner' if config['provider'] == 'claude' else 'laomedo.local_runner'
+            module = 'laomedo.agents.providers.claude_runner' if config['provider'] == 'claude' else 'laomedo.agents.local_runner'
             # Load this installation even when Python is embedded/isolated and
             # ignores PYTHONPATH. Both bootstrap and module choice are fixed;
             # neither comes from a browser request or model output.

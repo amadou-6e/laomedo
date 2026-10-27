@@ -2,9 +2,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.skill_summary import has_description, summary_authoring
-from laomedo.skill_store import SkillStore, SkillStoreError
-from laomedo.skill_operations import SkillOperations
+from laomedo.skills.skill_summary import has_description, summary_authoring
+from laomedo.skills.skill_store import SkillStore, SkillStoreError
+from laomedo.skills.skill_operations import SkillOperations
 
 
 class SkillSummaryTests(unittest.TestCase):

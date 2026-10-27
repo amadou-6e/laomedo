@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { execute, plan, readBody, AdapterError, ISSUE_GRAPHQL_QUERY } from '../src/laomedo/agent_gh_adapter.mjs';
+import { execute, plan, readBody, AdapterError, ISSUE_GRAPHQL_QUERY } from '../src/laomedo/agents/resources/mediation/agent_gh_adapter.mjs';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

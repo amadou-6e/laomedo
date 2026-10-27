@@ -19,7 +19,6 @@ import time
 from urllib.request import urlopen
 from uuid import UUID, uuid4
 
-from laomedo._paths import package_root
 from laomedo.skills.skill_store import SkillStore, SkillStoreError, inventory, tree_hash
 from laomedo.agents.artifacts import ArtifactError, import_selected, relative_path, selections
 from laomedo.host.leases.container_lease import LABEL_RUN, LABEL_TOKEN, cleanup_exact
@@ -42,10 +41,10 @@ SPLIT_TOOLS = frozenset({
     "get_goal", "update_goal", "view_image", "wait_for_environment",
     "write_stdin",
 })
-CONFIG = package_root() / "runner-config.toml"
-SECCOMP = package_root() / "resources" / "codex-seccomp.json"
+CONFIG = Path(__file__).resolve().parent / "resources" / "runner-config.toml"
+SECCOMP = Path(__file__).resolve().parent / "resources" / "codex-seccomp.json"
 SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf50691"
-MEDIATION_CLIENT = package_root() / "agent_mediation_client.mjs"
+MEDIATION_CLIENT = Path(__file__).resolve().parent / "resources" / "mediation" / "agent_mediation_client.mjs"
 CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
 CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
 _CATALOG_INIT_LOCK = threading.Lock()
