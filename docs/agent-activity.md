@@ -129,13 +129,37 @@ outputs contain task content.
 
 ### Claude Code activity
 
-The current Claude adapter does not configure an OpenTelemetry exporter or
-receiver. Its conversation, tool and usage capture comes from native CLI events;
-those are separate from OTLP runtime records. The Claude telemetry section is
-omitted when there are no records. Capture guidance lives in the usage info
-popover; terminal receipts remain stored without an extra disclosure in Activity.
-Host prompt envelopes display their task text in chat; message source details
-retain the original payload.
+Claude controller turns configure the official OpenTelemetry metrics, logs and
+beta trace exporters with OTLP HTTP/protobuf. A capability-protected, loopback
+receiver is bound to that exact controller turn and records redacted signals in
+`otel-events.jsonl`. The controller alone receives the temporary exporter
+configuration; command workers receive neither the exporter capability nor its
+network access. Authentication, discovery and version checks do not enable it.
+
+Prompt, assistant and tool-content export stays disabled. An attribute allowlist
+also removes account identity, payloads and content at ingestion. Resource labels
+and native session IDs are retained only where allowed; conflicting native session
+identity is marked and excluded from scoped views. The host-attested controller
+turn supplies conversation/turn scope, never timestamp guesses. Attempt cursors
+isolate Fresh, Resume and correction records. Receivers close before final attempt
+boundaries are sealed, and temporary capability files are removed. Upload reads
+time out after five seconds; each batch is bounded to4096 records and8MiB of
+normalized data. Shutdown drains bounded upload handlers before closing storage.
+
+Telemetry remains separate from native conversation/usage totals: OTLP counters
+are inspectable records and are not added again to token or cost charts. The
+OpenTelemetry section appears when records exist; old invocations without records
+retain their original capture history. Export flush completeness remains unverified,
+including after forced cancellation. Receiver failures have shared descriptive
+errors; a capture/cleanup error warns that the agent may already have acted. A
+successful native receipt with zero exports is a capture failure, not telemetry
+success.
+
+Install the runner's `observability` extra for its OTLP protobuf dependencies.
+Official configuration: https://code.claude.com/docs/en/monitoring-usage .
+Capture guidance stays in the usage info popover and terminal receipts stay out of
+the Activity layout. Host prompt envelopes show their task text in chat; message
+source details retain the original payload.
 
 Claude uses the same Agents tab, execution selector, timeline, conversation,
 usage projection and authenticated inspection routes as Codex. Each dispatch

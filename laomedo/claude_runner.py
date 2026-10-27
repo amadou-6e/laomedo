@@ -375,7 +375,8 @@ class ClaudeRunner(LocalRunner):
         _json(root / 'record.json', record)
         lease = self.container.lease(record['run_id'], name, token, flag, record.get('github_scope'))
         deadline = record.get('_attempt_deadline', time.monotonic() + record['turn_timeout'])
-        service, process = None, None
+        service, process, telemetry = None, None, None
+        native_completed = False
         output_only = record.get('output_correction_count', 0) > 0
         try:
             plugin = root / 'native-skill-plugin'
@@ -392,6 +393,13 @@ class ClaudeRunner(LocalRunner):
             service = CommandService(self.container, root, record, flag, deadline, mediation=mediation)
             args = self.container.prefix(name=name, run_id=record['run_id'], token=token,
                                          workspace=root / 'workspace')
+            try:
+                from .claude_telemetry import ClaudeTelemetry
+                telemetry = ClaudeTelemetry(root, run_id=record['run_id'], thread_id=record['thread_id'],
+                                            turn_id=record['active_host_turn'])
+            except (ImportError, OSError):
+                raise RunnerError('claude_telemetry_start_failed') from None
+            args += telemetry.docker_arguments()
             args += ['--add-host', 'host.docker.internal:host-gateway',
                      '--mount', f'type=bind,source={plugin},target=/run/laomedo/pinned-skills,readonly',
                      '--mount', f'type=bind,source={root / "workspace/.agents/skills"},target=/run/laomedo/pinned-skills/skills,readonly',
@@ -455,7 +463,9 @@ class ClaudeRunner(LocalRunner):
                     raise RunnerError('claude_turn_timeout')
                 if process.returncode or result is None:
                     raise RunnerError('claude_native_turn_failed')
-                return terminal_result(json.dumps(result), record['thread_id'])
+                completed = terminal_result(json.dumps(result), record['thread_id'])
+                native_completed = True
+                return completed
         finally:
             service_error = False
             if service is not None:
@@ -484,8 +494,22 @@ class ClaudeRunner(LocalRunner):
             record['container_ownership'].update(cleanup_verified=verified, cleanup_detail=detail)
             record['descendant_cleanup'] = 'verified' if verified else 'not_verified'
             _json(root / 'record.json', record)
+            telemetry_cleanup_failed = False
+            if telemetry is not None:
+                try:
+                    telemetry.close()
+                except (OSError, RuntimeError):
+                    telemetry_cleanup_failed = True
             if not verified:
                 raise RunnerError('container_termination_unverified')
+            if telemetry_cleanup_failed:
+                raise RunnerError('claude_telemetry_cleanup_unconfirmed')
+            if telemetry is not None:
+                record['telemetry_capture'] = {'records': telemetry.count,
+                    'receiver_error': telemetry.failed, 'flush_completeness': 'unverified'}
+            if (telemetry is not None and native_completed and not flag.is_set()
+                    and (telemetry.failed or telemetry.count == 0)):
+                raise RunnerError('claude_telemetry_capture_failed')
 
     def _native_event(self, root, record, event):
         if not isinstance(event, dict) or event.get('session_id', record['thread_id']) != record['thread_id']:
@@ -620,7 +644,7 @@ class ClaudeRunner(LocalRunner):
                 raise RunnerError("activity_attempt_already_exists")
             baseline = activity_usage({"modelUsage": record.get("native_model_usage")}) if resume else {}
             attempt = {"id": attempt_id, "native_start": line_count(root / "activity-events.jsonl"),
-                       "otel_start": 0, "usage_baseline": ({record["thread_id"]: {"total": baseline}} if resume else {}), "native_end": None,
+                       "otel_start": line_count(root / "otel-events.jsonl"), "usage_baseline": ({record["thread_id"]: {"total": baseline}} if resume else {}), "native_end": None,
                        "fresh_thread": not resume,
                        "otel_end": None, "status": "running", "ended_at": None}
             _json(folder / (attempt_id + ".json"), attempt)
@@ -740,7 +764,7 @@ class ClaudeRunner(LocalRunner):
                 record.update(attempt_finished=True, cancel_requested=flag.is_set())
                 if attempt is not None:
                     attempt.update(native_end=line_count(self._run_dir(run_id) / "activity-events.jsonl"),
-                                   otel_end=0, status=record["status"], ended_at=now())
+                                   otel_end=line_count(self._run_dir(run_id) / "otel-events.jsonl"), status=record["status"], ended_at=now())
                     _json(self._run_dir(run_id) / "activity-attempts" / (attempt["id"] + ".json"), attempt)
                 _json(self._run_dir(run_id) / "record.json", record)
             self.cancel_flags.pop(run_id, None)

@@ -122,7 +122,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
 
     def test_claude_literal_failures_are_covered_when_provider_is_installed(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
-        sources = [ROOT / "laomedo" / name for name in ("claude_runner.py", "claude_container.py")]
+        sources = [ROOT / "laomedo" / name for name in ("claude_runner.py", "claude_container.py", "claude_telemetry.py")]
         sources = [path for path in sources if path.exists()]
         if not sources:
             self.skipTest("Claude producer belongs to the pending provider PR, not this tree")

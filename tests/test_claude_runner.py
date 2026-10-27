@@ -156,6 +156,58 @@ class ClaudeRunnerTests(unittest.TestCase):
             "skill_ref": {"skill_id": "sample", "revision_id": self.revision['revision_id'],
                           "tree_hash": self.revision['tree_hash']}}
 
+    def test_telemetry_attempt_boundaries_exclude_prior_resume_records(self):
+        def native(root, record, prompt, flag, *, resume):
+            with (root / 'otel-events.jsonl').open('a') as out:
+                out.write('{}\n' * (2 if resume else 3))
+            return {"type":"result", "subtype":"success", "is_error":False,
+                    "session_id":record['thread_id'], "result":"done"}
+        with patch.object(self.runner, '_invoke', side_effect=native):
+            first = self.runner.start(self.payload)
+            root = self.runner._run_dir(first['run_id'])
+            before = json.loads((root/'activity-attempts'/(first['activity_attempt_id']+'.json')).read_text())
+            resumed = self.runner.resume(first['run_id'],'continue', expected_post_run_hash=first['post_run_hash'],
+                expected_thread_id=first['thread_id'],model='sonnet',effort='low')
+            after = json.loads((root/'activity-attempts'/(resumed['activity_attempt_id']+'.json')).read_text())
+        self.assertEqual((before['otel_start'],before['otel_end']),(0,3))
+        self.assertEqual((after['otel_start'],after['otel_end']),(3,5))
+
+    def test_successful_native_receipt_without_any_exports_fails_closed_for_telemetry(self):
+        import io, threading
+        from unittest.mock import Mock
+        record = self.runner._prepare(self.payload)
+        record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
+        self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
+        self.runner.container.prefix = Mock(return_value=[])
+        self.runner.container.bounded_command = Mock(return_value=[])
+        root = self.runner._run_dir(record['run_id'])
+        receipt = {"type":"result","subtype":"success","session_id":record['thread_id'],"result":"done","is_error":False}
+        process = SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO((json.dumps(receipt)+'\n').encode()),
+                                  returncode=0,wait=lambda **kwargs:0,poll=lambda:0)
+        with patch('laomedo.claude_runner.cleanup_exact',return_value=(True,'absent')), \
+             patch('laomedo.claude_runner.subprocess.Popen',return_value=process):
+            with self.assertRaisesRegex(RunnerError,'^claude_telemetry_capture_failed$'):
+                self.runner._invoke(root,record,'task',threading.Event(),resume=False)
+        self.assertEqual(record['telemetry_capture']['records'],0)
+        self.assertFalse(list(root.glob('telemetry-environment-*')))
+        self.assertFalse(list(root.glob('command-capability-*')))
+
+    def test_telemetry_start_failure_prevents_this_controller_dispatch(self):
+        import threading
+        from unittest.mock import Mock
+        record = self.runner._prepare(self.payload)
+        record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
+        self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
+        self.runner.container.prefix = Mock(return_value=[])
+        root = self.runner._run_dir(record['run_id'])
+        with patch('laomedo.claude_telemetry.ClaudeTelemetry',side_effect=OSError('private detail')), \
+             patch('laomedo.claude_runner.cleanup_exact',return_value=(True,'absent')), \
+             patch('laomedo.claude_runner.subprocess.Popen') as launch:
+            with self.assertRaisesRegex(RunnerError,'^claude_telemetry_start_failed$'):
+                self.runner._invoke(root,record,'task',threading.Event(),resume=False)
+            launch.assert_not_called()
+        self.assertFalse(list(root.glob('command-capability-*')))
+
     def invoke(self, answer='{"action":"modify"}'):
         def run(root, record, prompt, flag, *, resume):
             return {"type": "result", "subtype": "success", "is_error": False,

@@ -1413,5 +1413,20 @@
     "title": "Selected artifact references could not be read",
     "description": "The saved file selection must be a JSON list of file-reference objects.",
     "recovery": "Open Selected Artifact References on the Handoff node and correct the JSON list. Use [] only if no files are intended. A connected selection takes precedence."
+  },
+  "claude_telemetry_start_failed": {
+    "title": "Claude telemetry could not start",
+    "description": "The local runner could not start its telemetry receiver. This controller turn was not submitted.",
+    "recovery": "Install the runner observability dependencies and restart the local runner. Check recorded activity for any earlier turns before starting new work. Technical details retain the error code."
+  },
+  "claude_telemetry_cleanup_unconfirmed": {
+    "title": "Claude telemetry cleanup is unconfirmed",
+    "description": "The controller was stopped, but closing its local telemetry receiver or removing its temporary capability could not be confirmed. The agent may already have performed work.",
+    "recovery": "Inspect the existing run and its recorded activity before starting new work. Restart the local runner after checking its telemetry cleanup; do not blindly repeat the task."
+  },
+  "claude_telemetry_capture_failed": {
+    "title": "Some Claude telemetry could not be recorded",
+    "description": "The local telemetry receiver could not decode or persist an export. The agent may already have performed work; its captured native activity remains available.",
+    "recovery": "Inspect the existing run and any effects before starting new work. Check the local runner observability setup and available disk space. Do not blindly repeat the task."
   }
 }
