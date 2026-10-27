@@ -13,7 +13,7 @@ from urllib.parse import urlencode, urlsplit
 
 from laomedo.agents.local_runner import LocalRunner, RunnerError, _copy_tree, _hash_tree, _json, _id
 from uuid import uuid4
-from laomedo.activity.agent_activity import now
+from laomedo.activity.agent_activity.store import now
 from laomedo.activity.runner_activity import line_count
 from laomedo.skills.skill_store import SkillStoreError, inventory, tree_hash
 from laomedo.skills import workspace_skills

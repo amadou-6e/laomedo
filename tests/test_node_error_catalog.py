@@ -171,7 +171,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
 OPENCODE_ERROR_PRODUCERS = (
     "components/laomedo/opencode_agent.py", "src/laomedo/agents/providers/opencode_runner.py",
     "src/laomedo/agents/providers/opencode_boundary.py", "src/laomedo/activity/opencode_events.py",
-    "src/laomedo/activity/opencode_telemetry.py", "src/laomedo/activity/agent_activity_capture.py",
+    "src/laomedo/activity/opencode_telemetry.py", "src/laomedo/activity/agent_activity/capture.py",
 )
 _ERROR_FIELDS = {"error", "error_category", "capture_error", "reason"}
 

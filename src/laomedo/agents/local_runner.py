@@ -2075,7 +2075,7 @@ class LocalRunner:
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             if activity_attempt is not None:
-                                from laomedo.activity.agent_activity import now
+                                from laomedo.activity.agent_activity.store import now
                                 try:
                                     activity_attempt.update(native_end=line_count(run_dir/'activity-events.jsonl'),
                                         otel_end=line_count(run_dir/'otel-events.jsonl'),status=record['status'],ended_at=now())

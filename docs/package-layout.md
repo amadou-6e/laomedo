@@ -19,7 +19,8 @@ src/laomedo/
     mediation/
     leases/
     publication/
-  activity/               # Capture, projection, telemetry and inspection routes
+  activity/               # Activity ownership and provider telemetry
+    agent_activity/       # Store, capture, cost, projection and inspection routes
   integrations/langflow/  # App factory, joins and stage adapters
   work_graph/             # Existing workflow graph domain
   resources/              # Existing byte-identical packaged resources
@@ -52,8 +53,8 @@ outside model-callable mounts. The Git credential helper remains a real script
 at the stable package-root path. No JSON schema, error code, runner identity,
 image pin, request acknowledgement, cancellation or cleanup algorithm changes.
 
-The original `implementation` checkout's unrelated edits remain untouched; this
-branch is based on current develop6069ac9. This increment establishes package
+The original checkout's unrelated edits are preserved in the local migration
+backup and Git stash; this branch is based on develop `6069ac9`. This increment establishes package
 ownership and source layout. Further splitting of cohesive runner methods is a
 separate behavior-preserving increment, not an unreviewed rewrite in a file move.
 
@@ -63,3 +64,10 @@ resources from an installed wheel, core tests and explicit Langflow checks.
 Actual managed start, recorded-run Status and an authorised real Fresh run are
 required for integration acceptance. Those results are recorded separately;
 passing unit tests do not assert the user workflow succeeded.
+
+`activity.agent_activity` groups `store.py`, `capture.py`, `cost.py`,
+`projection.py` and `routes.py`. Its package API exposes `ActivityStore`,
+`capture_for` and `now`. Both the original flat `laomedo.agent_activity_*`
+imports and the earlier `laomedo.activity.agent_activity_*` imports remain
+compatibility aliases to the same canonical modules, preserving patch targets
+and class identity. Internal callers use the grouped package.

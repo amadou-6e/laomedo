@@ -10,7 +10,7 @@ from laomedo.skills.skill_inspection import InspectionError, inspect_skill
 
 
 def install_routes(app, root: Path, authenticate):
-    from laomedo.activity.agent_activity_routes import install_activity_routes
+    from laomedo.activity.agent_activity.routes import install_activity_routes
     install_activity_routes(app, authenticate)
     from laomedo.host.runner_service import install_runner_service_routes
     install_runner_service_routes(app, authenticate)

@@ -24,7 +24,7 @@ from laomedo.host.credentials.claude_login import mirror_login, LocalClaudeLogin
 from laomedo.skills.skill_store import inventory, tree_hash
 from laomedo.skills import workspace_skills
 from laomedo.activity.runner_activity import line_count, receipt
-from laomedo.activity.agent_activity import now
+from laomedo.activity.agent_activity.store import now
 from laomedo.agents.providers.claude_models import EFFORTS
 
 

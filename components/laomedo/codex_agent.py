@@ -718,7 +718,7 @@ class LaomedoCodexAgent(Component):
                 self._stop_request_hash = "sha256:" + hashlib.sha256(
                     json.dumps(canonical, sort_keys=True, separators=(",", ":"),
                                ensure_ascii=False).encode("utf-8")).hexdigest()
-            from laomedo.activity.agent_activity_capture import dispatch_with_capture
+            from laomedo.activity.agent_activity.capture import dispatch_with_capture
             self._dispatch_task = asyncio.create_task(asyncio.to_thread(dispatch_with_capture, self, prepared))
         try:
             # Shield the HTTP call so the same request identity can be reconciled.

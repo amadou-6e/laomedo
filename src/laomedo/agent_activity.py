@@ -2,7 +2,7 @@
 
 if __name__ == "__main__":
     import runpy
-    runpy.run_module('laomedo.activity.agent_activity', run_name="__main__", alter_sys=True)
+    runpy.run_module('laomedo.activity.agent_activity.store', run_name="__main__", alter_sys=True)
 else:
     from laomedo._compat import alias_module
-    alias_module(__name__, 'laomedo.activity.agent_activity')
+    alias_module(__name__, 'laomedo.activity.agent_activity.store')
