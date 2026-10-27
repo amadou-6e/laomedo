@@ -1,7 +1,7 @@
 # Missing-summary authoring
 
 Normal authorized Skill preparation adds the packaged internal
-[summary skill](../../laomedo/resources/skills/skill-summary/SKILL.md) when the
+[summary skill](../../src/laomedo/skills/resources/skill-summary/SKILL.md) when the
 pinned SKILL.md description is absent or blank. The existing Agent receives
 those instructions alongside the requested edit. Applying the operation must
 leave a nonempty description (older files without frontmatter must add valid

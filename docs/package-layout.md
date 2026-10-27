@@ -50,6 +50,7 @@ external launcher commands before running them with this version:
 ```text
 python tools/migrations/migrate_module_paths.py saved-flow.json service-launcher.ps1
 python tools/migrations/migrate_module_paths.py saved-flow.json service-launcher.ps1 --apply
+python tools/migrations/migrate_module_paths.py saved-flow.json --check
 ```
 
 The default reports which explicitly selected files need changes. Applying
@@ -57,6 +58,17 @@ creates a sibling `.before-module-migration` backup; existing backups are never
 overwritten. Module references in graph JSON are rewritten without changing
 graph/run identities or unrelated payloads. The map in `tools/migrations/` is
 one-time migration data, not runtime compatibility code.
+
+File migration splices changed JSON strings, preserving unrelated bytes,
+formatting, duplicate keys, Unicode, number spelling, BOM and line endings.
+Graph migration selects template code. Launcher fields are selected only at
+the root or in an explicit root `launcher` object. Unparseable retired imports
+require manual migration. `--check` exits 1 when changes are needed.
+Backup conflicts are checked before writing; replacement is atomic per file.
+An unexpected later I/O failure can leave a batch partly applied, with earlier
+originals retained in backups. Registered tasks are not files: re-run
+`scripts/Install-LaomedoUserTask.ps1` with the existing configuration to replace
+an old registered command before enabling the task again.
 
 Do not rewrite historical execution evidence. Preserve originals and migrate
 a copy when needed for a new graph. Validation covers installed discovery,

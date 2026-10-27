@@ -1,7 +1,7 @@
 # Skill operations
 
 The existing Skill node accepts ordinary operations and direct feedback from
-the original Codex Agent: **Skill Task → Agent Task → same Skill Operation**.
+the original Codex Agent: **Skill Task â†’ Agent Task â†’ same Skill Operation**.
 No new Agent component is introduced. `build_flow.py` exports without execution.
 
 An operation replaces/adds/deletes multiple UTF-8 files in one validated batch:
@@ -130,7 +130,7 @@ two changed. SVG is classified as script-capable by that schema, so its flag was
 allowed for this exact vector-document path; no command execution or additional
 script path was authorized. This policy is not installed in the read-only preview.
 
-The internal [skill-summary](../../laomedo/resources/skills/skill-summary/SKILL.md) authoring skill
+The internal [skill-summary](../../src/laomedo/skills/resources/skill-summary/SKILL.md) authoring skill
 fills missing descriptions through ordinary versioned edits and preserves user
 summaries. It is not invoked by opening the read-only viewer.
 

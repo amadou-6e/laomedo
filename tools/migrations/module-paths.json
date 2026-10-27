@@ -75,5 +75,9 @@
   "laomedo.verified_stage": "laomedo.host.publication.verified_stage",
   "laomedo.workflow_run_store": "laomedo.agents.workflow_run_store",
   "laomedo.workspace_skills": "laomedo.skills.workspace_skills",
-  "laomedo.git_credential_helper": "laomedo.host.credentials.git_credential_helper"
+  "laomedo.git_credential_helper": "laomedo.host.credentials.git_credential_helper",
+  "laomedo.activity.agent_activity_capture": "laomedo.activity.agent_activity.capture",
+  "laomedo.activity.agent_activity_cost": "laomedo.activity.agent_activity.cost",
+  "laomedo.activity.agent_activity_projection": "laomedo.activity.agent_activity.projection",
+  "laomedo.activity.agent_activity_routes": "laomedo.activity.agent_activity.routes"
 }
