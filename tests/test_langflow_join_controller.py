@@ -32,9 +32,10 @@ class FakeRunner:
             ensure_ascii=False).encode()).hexdigest()
         run_id = str(uuid4())
         record = {"client_request_id": request_id, "request_hash": digest,
-                  "provider": "codex", "run_id": run_id,
+                  "provider": getattr(self,"provider","codex"), "run_id": run_id,
                   "raw_event_ref": f"laomedo:run:{run_id}:events",
                   "status": "prepared"}
+        record['activity_initial_attempt_id'] = str(uuid4())
         self.records[request_id] = record
         self.starts.append(request_id)
         self.entered.set()
@@ -79,6 +80,20 @@ class LangflowJoinControllerTests(unittest.TestCase):
             graph_run_id="reported-graph", stage_id="agent",
             runner_body={"task": task, "model": "synthetic",
                          "effort": "low", "skill_ref": {"skill_id": "fixture"}})
+
+    def test_claude_is_durably_bound_and_cancelled_without_codex_relabelling(self):
+        self.runner.provider = 'claude'
+        self.controller = LangflowJoinController(self.store,self.runner,lambda _flow:self.export)
+        client = str(uuid4())
+        result = self.start(client)
+        self.assertEqual(result['runner_provider'],'claude')
+        cancelled = self.controller.cancel(client)
+        self.assertEqual(len(self.runner.starts),1)
+        self.assertEqual(len(self.runner.cancels),1)
+        trace = self.store.trace_snapshot(result['run_id'])
+        self.assertEqual(trace['invocation']['runner_provider'],'claude')
+        frozen = next(x['payload'] for x in trace['receipts'] if x['kind']=='runner_request_frozen')
+        self.assertEqual(frozen['provider'],'claude')
 
     def test_stop_before_start_refuses_runner_dispatch(self):
         client = str(uuid4())

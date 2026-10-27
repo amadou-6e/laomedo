@@ -589,10 +589,505 @@
     "description": "The returned model catalogue is empty, invalid or exceeds the supported size.",
     "recovery": "Check the local runner connection and ask the operator to restore its model catalogue. Do not guess provider model identifiers."
   },
+  "catalog_provider_mismatch": {
+    "title": "The model list belongs to another runner",
+    "description": "The configured endpoint did not identify itself as the Claude runner.",
+    "recovery": "Check Runner URL in Advanced controls and select the Claude runner service, then refresh Model. Refresh does not submit a model turn."
+  },
+  "unsupported_claude_effort": {
+    "title": "This Claude model does not support that effort",
+    "description": "The selected reasoning effort is not supported by the current Claude model or adapter.",
+    "recovery": "Refresh Model, select the intended model, and choose one of its listed Reasoning Effort values. Models without effort support use Default automatically."
+  },
+  "claude_model_required": {
+    "title": "Choose an available Claude model",
+    "description": "The requested model is missing, invalid or absent from the current Claude Code model picker.",
+    "recovery": "Refresh Model and select a listed Claude model. If the list cannot be loaded, check Runner URL and the runner service before submitting work."
+  },
+  "unsupported_claude_cli_version": {
+    "title": "The Claude runner image has an unsupported CLI",
+    "description": "The CLI inside the configured Docker image does not match the version supported by this runner.",
+    "recovery": "Rebuild the pinned docker/claude image and restart the runner. Updating the VS Code extension does not update this image."
+  },
+  "claude_subscription_override_refused": {
+    "title": "Claude subscription mode is not configured safely",
+    "description": "A provider or credential override could route this subscription-backed runner through a different account or billing method.",
+    "recovery": "Ask the operator to remove conflicting provider overrides from the dedicated runner environment and use the existing Claude Code subscription login. Never paste credentials into the graph."
+  },
+  "claude_subscription_unavailable": {
+    "title": "The local Claude runner is not signed in",
+    "description": "The dedicated runner profile could not confirm a usable Claude login. This does not mean your host Claude subscription is unavailable.",
+    "recovery": "Check the host Claude sign-in and the configured local login copy. The runner can reuse that login without a separate sign-in."
+  },
+  "claude_proposal_scope_only": {
+    "title": "This Claude node can only propose changes",
+    "description": "This historical record comes from an older Claude proposal-only runner that refused the requested operation.",
+    "recovery": "Use the current Claude node template for new work. Preserve this historical run and inspect its outcome before starting another task."
+  },
+  "claude_prompt_too_large": {
+    "title": "The Claude input is too large",
+    "description": "The task and pinned skill context exceed this adapter's supported prompt size.",
+    "recovery": "Reduce the task or pinned skill context before submitting work. Keep the intended skill revision and operation authorization explicit."
+  },
+  "claude_receipt_too_large": {
+    "title": "The Claude response exceeded the capture limit",
+    "description": "The runner could not safely capture the complete native response, so it cannot confirm a usable result.",
+    "recovery": "Check the existing run and ask the operator to inspect its retained evidence before starting another request. Do not assume a replacement turn is necessary or authorized."
+  },
+  "claude_terminal_receipt_invalid": {
+    "title": "The Claude completion receipt could not be read",
+    "description": "The native response did not contain a valid completion receipt for this adapter.",
+    "recovery": "Check the existing run and ask the operator to inspect its retained evidence before starting another request. Do not treat an unreadable receipt as a confirmed failed execution."
+  },
+  "claude_session_identity_mismatch": {
+    "title": "The Claude response belongs to a different session",
+    "description": "The native completion receipt did not match the session bound to this run.",
+    "recovery": "Keep the original run reference and ask the operator to reconcile the retained session evidence before starting another request. Do not substitute session identifiers."
+  },
+  "claude_native_turn_failed": {
+    "title": "Claude did not return a successful turn",
+    "description": "The native Claude receipt reported an unsuccessful result. The underlying cause is not established by this code.",
+    "recovery": "Review the recorded activity and check the host Claude login and provider availability. Confirm the existing run outcome before starting another task."
+  },
+  "claude_native_turn_limit_mismatch": {
+    "title": "Claude returned an unexpected execution receipt",
+    "description": "The native receipt did not match the permitted invocation and session boundaries.",
+    "recovery": "Ask the runner operator to inspect the safe Technical details. Confirm the existing run before starting a replacement."
+  },
+  "claude_process_failed": {
+    "title": "The Claude process did not finish successfully",
+    "description": "The native process ended without a confirmed successful receipt. This code does not establish the underlying cause.",
+    "recovery": "Check the existing run and ask the operator to inspect its retained diagnostics before starting another request. Do not repeat work whose outcome is uncertain."
+  },
+  "claude_parent_stop_unverified": {
+    "title": "Claude process shutdown could not be confirmed",
+    "description": "The runner could not confirm that the native parent process stopped.",
+    "recovery": "Ask the operator to inspect the existing process and run state before starting another request. Do not assume cancellation or timeout stopped all activity."
+  },
+  "claude_turn_timeout": {
+    "title": "Claude reached the execution deadline",
+    "description": "The invocation exceeded its Execution Timeout, including output corrections. Cleanup is checked before the run finishes.",
+    "recovery": "Inspect partial activity and cleanup status. If cleanup is verified, adjust Execution Timeout in Advanced before starting a replacement task."
+  },
+  "claude_cancelled": {
+    "title": "The Claude operation was cancelled",
+    "description": "Cancellation was requested and no successful answer is available from this attempt.",
+    "recovery": "Check the existing run to confirm its final state before starting another request. Keep any retained answer or operation evidence until the outcome is reconciled."
+  },
+  "pinned_skill_workspace_changed": {
+    "title": "The pinned skill workspace changed",
+    "description": "The staged skill workspace no longer matches the immutable skill content recorded for this run.",
+    "recovery": "Restore the original immutable Skill Reference and its unchanged workspace from the saved flow. Ask the operator to inspect the pinned skill revision before starting another request."
+  },
+  "activity_attempt_already_exists": {
+    "title": "This request already has activity evidence",
+    "description": "An activity attempt is already bound to this request; starting another could duplicate execution.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "run_not_active_in_this_process": {
+    "title": "This runner process does not own the active run",
+    "description": "The current process cannot control the selected run as an active local execution.",
+    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
+  },
+  "run_not_dispatchable": {
+    "title": "The run is not ready for dispatch",
+    "description": "The run state no longer permits this request to be submitted as a new execution.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
   "empty_token": {
     "title": "The runner credential is empty",
     "description": "The local runner credential file contains no usable token.",
     "recovery": "Ask the operator to restore the configured runner credential file. Do not paste credentials into the graph."
+  },
+  "conflicting_skill_inputs": {
+    "title": "Conflicting Skill Reference fields",
+    "description": "The request supplied both a single reference and a list of references.",
+    "recovery": "Use only the Agent Skill References input, or leave it disconnected. Share Technical details with the maintainer if this persists."
+  },
+  "invalid_request": {
+    "title": "The runner request was not accepted",
+    "description": "The request did not match the runner operation format; no specific cause is established here.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "materialized_skill_mismatch": {
+    "title": "A pinned skill changed in the workspace",
+    "description": "The run-local skill files do not match their recorded revision.",
+    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the pinned skill snapshot and review the existing run."
+  },
+  "skill_file_hash_mismatch": {
+    "title": "A pinned skill file could not be verified",
+    "description": "A file in the selected skill revision does not match its recorded hash.",
+    "recovery": "Choose a valid registered revision on the connected Skill node or ask the registry operator to inspect it."
+  },
+  "skill_frontmatter_name_mismatch": {
+    "title": "The skill name does not match its reference",
+    "description": "The selected skill declares a different name from its registry identity.",
+    "recovery": "Correct the skill name in the registry and select the new immutable revision on the Skill node."
+  },
+  "skill_frontmatter_name_required": {
+    "title": "The selected skill needs a valid name",
+    "description": "The pinned skill lacks a readable SKILL.md with a valid frontmatter name.",
+    "recovery": "Correct SKILL.md in the registry and select the new revision, or disconnect the optional skill."
+  },
+  "skill_path_conflict": {
+    "title": "A skill path already exists in the workspace",
+    "description": "The source snapshot already contains the path reserved for a connected skill.",
+    "recovery": "Ask the runner operator to remove the conflicting skill directory from the source snapshot, then review the selected Skill References."
+  },
+  "skill_ref_hash_mismatch": {
+    "title": "The skill revision could not be verified",
+    "description": "The Skill Reference revision and its recorded tree hash disagree.",
+    "recovery": "Select the immutable revision again on the Skill node. Ask the registry operator to inspect it if the mismatch persists."
+  },
+  "source_changed_during_snapshot": {
+    "title": "The source changed while being copied",
+    "description": "The runner could not create matching immutable source snapshots.",
+    "recovery": "Ask the runner operator to stabilize the configured source before starting another request."
+  },
+  "github_scope_must_come_from_authority": {
+    "title": "The GitHub authorization was not accepted",
+    "description": "GitHub access must come from the trusted host authorization flow.",
+    "recovery": "Use the authorized GitHub integration and ask the runner operator to inspect the safe Technical details."
+  },
+  "mediated_lease_required": {
+    "title": "This runner cannot provide the requested GitHub access",
+    "description": "The selected runner does not have the required mediated GitHub execution configuration.",
+    "recovery": "Ask the runner operator to configure the supported GitHub execution mode. Check the existing run before starting another request."
+  },
+  "pinned_skill_record_invalid": {
+    "title": "The saved skill selection is invalid",
+    "description": "The run contains an invalid or incomplete skill list. An empty list is valid for a run without skills.",
+    "recovery": "Keep the original run record and ask the runner operator to inspect it. Do not change the recorded skill selection to resume."
+  },
+  "external_git_directory_unsupported": {
+    "title": "The workspace Git metadata is unsupported",
+    "description": "The runner requires an independent Git directory inside its workspace.",
+    "recovery": "Ask the runner operator to provide a source snapshot with supported independent Git metadata."
+  },
+  "invalid_skill_id": {
+    "title": "A connected skill has an invalid identifier",
+    "description": "A supplied skill identifier does not match the supported registry format.",
+    "recovery": "Select the skill through a Skill node, or disconnect the optional Skill Reference."
+  },
+  "skill_git_exclusion_changed": {
+    "title": "The protected skill Git exclusions changed",
+    "description": "The workspace no longer has the recorded Git exclusions for its pinned skills.",
+    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the existing run and protected Git metadata."
+  },
+  "unexpected_materialized_skill": {
+    "title": "The workspace contains an unselected skill",
+    "description": "The workspace skill directories differ from the explicitly selected skill list. A run without skills requires an empty skill directory.",
+    "recovery": "Ask the runner operator to remove unintended skills from the source snapshot. Connect a Skill Reference only for skills you intend to include."
+  },
+  "unsafe_git_metadata": {
+    "title": "The workspace Git metadata is unsafe",
+    "description": "The runner found linked or unsupported files in its Git metadata.",
+    "recovery": "Ask the runner operator to create a safe independent source snapshot. Do not resume the affected workspace."
+  },
+  "unsafe_materialized_skill_path": {
+    "title": "The workspace skill directory is unsafe",
+    "description": "The runner could not verify its isolated skill directory.",
+    "recovery": "Ask the runner operator to inspect the workspace paths. Do not resume the affected workspace."
+  },
+  "claude_container_unavailable": {
+    "title": "The Claude container could not be reached",
+    "description": "Docker did not complete the requested container operation.",
+    "recovery": "Start Docker Desktop, check the configured runner image, then use Start runner. Inspect any existing run before starting another task."
+  },
+  "claude_container_configuration_invalid": {
+    "title": "The Claude container configuration is invalid",
+    "description": "The host runner image or dedicated profile volume is not configured correctly.",
+    "recovery": "Ask the operator to correct the Docker image and dedicated Claude profile volume in the runner service configuration."
+  },
+  "claude_container_image_missing": {
+    "title": "The Claude runner image is missing",
+    "description": "Docker could not find the configured pinned Claude image.",
+    "recovery": "Build the image using docker/claude/Dockerfile as documented, then use Start runner."
+  },
+  "claude_container_profile_unavailable": {
+    "title": "The dedicated Claude profile is unavailable",
+    "description": "The configured Docker volume could not be created or was not marked as a Claude runner profile.",
+    "recovery": "Ask the operator to provision a dedicated Laomedo Claude profile volume. Do not mount your personal profile."
+  },
+  "claude_turn_timeout_invalid": {
+    "title": "The execution timeout is invalid",
+    "description": "The execution deadline must be a whole number between 1 and 86400 seconds.",
+    "recovery": "Set Execution Timeout in the node Advanced settings to a supported value."
+  },
+  "claude_workspace_command_invalid": {
+    "title": "The workspace command was rejected",
+    "description": "The command tool received an unsupported request. No command was accepted through this tool.",
+    "recovery": "Check the agent task and command tool arguments. Inspect existing activity before starting a replacement run."
+  },
+  "claude_mediation_outcome_unknown": {
+    "title": "The GitHub operation outcome is unknown",
+    "description": "The host lost the response to an authorized GitHub operation. The remote change may have completed.",
+    "recovery": "Inspect the GitHub target and its operation journal before submitting another operation. Do not retry the write blindly."
+  },
+  "unsupported_join_provider": {
+    "title": "This agent cannot use graph tracking",
+    "description": "The graph tracking service does not support this runner provider.",
+    "recovery": "Use a configured Codex or Claude runner with the matching graph tracking service."
+  },
+  "lease_service_required": {
+    "title": "Cleanup supervision is not configured",
+    "description": "The runner cannot start work without an independent container cleanup service.",
+    "recovery": "Ask the operator to start the documented lease service and configure its state directory before running the graph."
+  },
+  "mediated_grant_unavailable": {
+    "title": "The GitHub authorization grant is unavailable",
+    "description": "The host could not obtain the scoped grant required for a GitHub operation.",
+    "recovery": "Ask the operator to check the run approval and mediator service. Do not give the agent a GitHub token."
+  },
+  "client_request_identity_conflict": {
+    "title": "This request identity belongs to another task",
+    "description": "The saved request ID is already associated with different execution inputs.",
+    "recovery": "Inspect the existing run. Start a new task with a new request ID only after reconciling the earlier execution."
+  },
+  "first_slice_requires_fresh_codex": {
+    "title": "Graph tracking requires a supported fresh run",
+    "description": "This graph tracking entry point accepts only fresh Codex or Claude invocations.",
+    "recovery": "Select Fresh or Start on the supported agent. Use its Run Reference for status, resume or cancellation."
+  },
+  "flow_resolver_required": {
+    "title": "Saved graph lookup is not configured",
+    "description": "The graph tracking service has no saved-flow resolver.",
+    "recovery": "Ask the operator to configure saved-flow lookup in the graph tracking service."
+  },
+  "invalid_langflow_start": {
+    "title": "The graph start request is incomplete",
+    "description": "Graph tracking could not validate the task and execution identifiers.",
+    "recovery": "Save the graph and start it from the graph Run control. Inspect any earlier run before submitting another task."
+  },
+  "runner_ack_identity_mismatch": {
+    "title": "The runner acknowledgement does not match",
+    "description": "The runner returned identifiers that could not be correlated with this graph invocation. The task may have started.",
+    "recovery": "Inspect the runner and graph tracking records before submitting another start."
+  },
+  "runner_cancel_identity_mismatch": {
+    "title": "Cancellation could not be matched to the run",
+    "description": "The active runner binding does not match the requested graph invocation.",
+    "recovery": "Inspect the Run Reference and runner activity before attempting cancellation again."
+  },
+  "runner_lookup_mismatch": {
+    "title": "The recovered run does not match",
+    "description": "The runner lookup returned a different provider, request or execution identity.",
+    "recovery": "Ask the operator to reconcile the saved request with the runner journal. Do not submit another start blindly."
+  },
+  "runner_lookup_unknown": {
+    "title": "The runner execution could not be located",
+    "description": "The read-only lookup did not establish which execution belongs to this request.",
+    "recovery": "Inspect the runner journal and existing activity. The request may still be active; do not repeat it blindly."
+  },
+  "runner_observation_not_correlated": {
+    "title": "The activity record does not match the run",
+    "description": "The runner observation could not be attached to the expected graph invocation.",
+    "recovery": "Inspect the Run Reference and graph tracking records before changing or repeating the task."
+  },
+  "runner_request_not_frozen": {
+    "title": "The original start request was not recorded",
+    "description": "The tracking service has no frozen request identity for this invocation.",
+    "recovery": "Inspect the graph tracking records and any native activity before starting a replacement task."
+  },
+  "runner_start_unknown": {
+    "title": "The runner start outcome is unknown",
+    "description": "The start response was lost or could not be verified. A native execution may already exist.",
+    "recovery": "Use the saved request identity to inspect runner activity before submitting another start."
+  },
+  "saved_flow_identity_mismatch": {
+    "title": "The saved graph does not match",
+    "description": "The tracking service could not verify the requested saved-flow identity.",
+    "recovery": "Save the intended graph and check the graph tracking configuration before starting it."
+  },
+  "stage_not_in_saved_flow": {
+    "title": "The agent is absent from the saved graph",
+    "description": "This agent node could not be found in the saved-flow revision used for tracking.",
+    "recovery": "Save the graph with this agent node, then inspect earlier execution state before starting a new task."
+  },
+  "unresolved_component_identity": {
+    "title": "The saved node definition is incomplete",
+    "description": "The tracking service could not freeze a unique node ID and component definition.",
+    "recovery": "Save or reload the graph and ensure its custom components are installed before starting a new task."
+  },
+  "unresolved_saved_graph": {
+    "title": "The saved graph is incomplete",
+    "description": "The tracking service could not read a nonempty saved node list.",
+    "recovery": "Save the graph and check that the graph tracking service can retrieve it."
+  },
+  "completed_origin_required": {
+    "title": "The source agent has not completed",
+    "description": "Handoff requires a completed Origin Run.",
+    "recovery": "Connect a completed agent Run Reference to Origin Run before passing its output onward."
+  },
+  "handoff_provider_required": {
+    "title": "The source agent provider is missing",
+    "description": "The Origin Run does not identify a supported provider.",
+    "recovery": "Connect an explicit Codex, Claude or OpenCode Run Reference to Origin Run."
+  },
+  "handoff_task_required": {
+    "title": "The handoff task is empty",
+    "description": "Neither Task Override nor the completed source answer supplies a task.",
+    "recovery": "Provide Task Override in Advanced or use a source run with a nonempty answer."
+  },
+  "one_to_sixteen_targets_required": {
+    "title": "The controller target list is invalid",
+    "description": "A controller needs between one and sixteen agent targets.",
+    "recovery": "Set Targets to a supported nonempty list."
+  },
+  "provider_model_effort_required": {
+    "title": "A controller target is incomplete",
+    "description": "Each target must specify a supported provider, model and effort.",
+    "recovery": "Configure each target with Codex, Claude or OpenCode and a valid model/effort pair."
+  },
+  "explicit_stop_and_mode_required": {
+    "title": "The controller stop condition is missing",
+    "description": "The controller requires an explicit stop condition and execution mode.",
+    "recovery": "Set Mode and Stop When before starting the controller."
+  },
+  "artifact_path_list_required": {
+    "title": "The selected artifact paths are invalid",
+    "description": "The controller could not validate the artifact path list.",
+    "recovery": "Provide a list of relative artifact paths in the controller settings."
+  },
+  "claude_native_skill_policy_unsupported": {
+    "title": "The selected skill needs unsupported controller permissions",
+    "description": "This skill contains controller-side shell substitutions or metadata that can change the frozen tool, model or session grant. It was refused before execution.",
+    "recovery": "Use a pinned skill without inline shell substitutions, hooks, fork contexts or tool/model overrides. Run permitted draft scripts through the isolated workspace command tool instead."
+  },
+  "fresh_codex_request_required": {
+    "title": "A new agent run is required",
+    "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent\u2019s original completed Run Reference."
+  },
+  "runner_token_file_required": {
+    "title": "The handoff runner is not connected",
+    "description": "The host has not configured an authentication token file for this provider.",
+    "recovery": "Configure the provider runner token file on the host, then check its Status. Never put the token in a graph."
+  },
+  "runner_token_unavailable": {
+    "title": "The handoff runner login is unavailable",
+    "description": "The host could not read the configured runner token file.",
+    "recovery": "Restore access to the configured host token file and check Status before submitting work."
+  },
+  "runner_token_invalid": {
+    "title": "The handoff runner login is invalid",
+    "description": "The configured host token does not match the runner token format.",
+    "recovery": "Configure the original token file created by this runner. Do not paste or edit tokens in the graph."
+  },
+  "dispatch_stopped": {
+    "title": "The handoff was stopped",
+    "description": "Stop was requested before this handoff finished dispatching.",
+    "recovery": "Check the source and target run Status to reconcile any accepted work before starting another run."
+  },
+  "runner_request_conflict": {
+    "title": "The handoff request conflicts with saved work",
+    "description": "The request identity is already bound to different work.",
+    "recovery": "Inspect the saved run and handoff. Do not reuse its request identity for a changed payload."
+  },
+  "invalid_runner_response": {
+    "title": "The handoff response could not be verified",
+    "description": "The runner did not return a usable run reference. Remote execution may still be active.",
+    "recovery": "Check the target runner Status and retained request before dispatching again."
+  },
+  "invalid_runner_status_identity": {
+    "title": "The handoff status belongs to different work",
+    "description": "The returned status did not match the expected provider and run identity.",
+    "recovery": "Check the configured provider endpoint and original Run Reference. Reconcile existing work before a new dispatch."
+  },
+  "foreign_resume": {
+    "title": "This agent cannot resume the selected session",
+    "description": "The native session belongs to another provider.",
+    "recovery": "Resume through its original provider, or use an explicit Fresh handoff with selected artifacts."
+  },
+  "runner_request_changed": {
+    "title": "The handoff request changed during dispatch",
+    "description": "The request no longer matches its frozen identity or contents.",
+    "recovery": "Restore the frozen request and inspect the existing run before issuing different work."
+  },
+  "runner_result_pending": {
+    "title": "The handoff result is still pending",
+    "description": "The graph did not observe a terminal result within its waiting deadline. Execution may still be active.",
+    "recovery": "Check Status or request Cancel for the existing run. Do not start a duplicate while its outcome is unknown."
+  },
+  "runner_poll_identity_mismatch": {
+    "title": "The handoff status could not be matched",
+    "description": "A status response did not match the acknowledged target run.",
+    "recovery": "Verify the provider endpoint and saved Run Reference, then reconcile that run before dispatching again."
+  },
+  "activity_attempt_identity_required": {
+    "title": "The activity reference is incomplete",
+    "description": "The runner needs an explicit attempt identity to attribute this activity safely.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "activity_attempt_identity_mismatch": {
+    "title": "The activity reference does not match",
+    "description": "The supplied activity identity does not match the selected runner attempt.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "activity_runner_identity_mismatch": {
+    "title": "The activity runner does not match",
+    "description": "Activity readback was refused because the runner identity does not match the recorded invocation.",
+    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "activity_runner_token_missing": {
+    "title": "Activity cannot access the runner",
+    "description": "The activity observer does not have the configured runner access needed to read this invocation.",
+    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+  },
+  "agent_activity_binding_conflict": {
+    "title": "Activity is already bound to different work",
+    "description": "The saved invocation cannot be attached to a different runner identity.",
+    "recovery": "Inspect the retained invocation and its original Run Reference before starting replacement work."
+  },
+  "agent_activity_closed": {
+    "title": "This activity record is already closed",
+    "description": "New events cannot be appended to a terminal activity record.",
+    "recovery": "Inspect the retained result. A new execution needs its own invocation identity."
+  },
+  "agent_activity_cursor_invalid": {
+    "title": "The activity page could not be selected",
+    "description": "The requested pagination cursor is invalid.",
+    "recovery": "Refresh the Agents tab to reload activity from its saved starting position."
+  },
+  "agent_activity_event_invalid": {
+    "title": "An activity event could not be accepted",
+    "description": "An incoming event did not satisfy the activity contract. It was not recorded as valid evidence.",
+    "recovery": "Inspect the run Status and retained partial activity. Share the technical code with the maintainer."
+  },
+  "agent_activity_execution_required": {
+    "title": "Activity is missing an execution identity",
+    "description": "The graph did not supply the execution identity needed to keep invocation records separate.",
+    "recovery": "Run the saved graph through the application execution path. Share the technical details if the identity is still missing."
+  },
+  "agent_activity_identity_required": {
+    "title": "Activity is missing its owner or node identity",
+    "description": "The application could not establish the identity needed to reserve an activity record.",
+    "recovery": "Open the saved graph in the signed-in application and share the technical details if the problem remains."
+  },
+  "agent_activity_not_found": {
+    "title": "This activity record is unavailable",
+    "description": "No accessible activity record matches this request.",
+    "recovery": "Refresh the Agents tab and select an invocation available to the current application account."
+  },
+  "agent_activity_status_invalid": {
+    "title": "The activity status could not be accepted",
+    "description": "The supplied status is not supported by the activity contract.",
+    "recovery": "Inspect the existing run Status and share this technical code with the maintainer."
+  },
+  "claude_host_login_unavailable": {
+    "title": "The local Claude login could not be read",
+    "description": "The runner could not read the selected host Claude access credential.",
+    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
+  },
+  "claude_host_login_expired": {
+    "title": "The copied Claude access credential needs refreshing",
+    "description": "The host credential file contains an access credential that is expired or about to expire.",
+    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
+  },
+  "claude_local_login_copy_failed": {
+    "title": "The local Claude login could not be copied",
+    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
+    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
   },
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",
@@ -644,101 +1139,6 @@
     "description": "Docker is ready, but the local runner is not running.",
     "recovery": "Starting the runner does not rerun the graph. Check any existing run before starting new work."
   },
-  "conflicting_skill_inputs": {
-    "title": "Conflicting Skill Reference fields",
-    "description": "The request supplied both a single reference and a list of references.",
-    "recovery": "Use only the Agent Skill References input, or leave it disconnected. Share Technical details with the maintainer if this persists."
-  },
-  "materialized_skill_mismatch": {
-    "title": "A pinned skill changed in the workspace",
-    "description": "The run-local skill files do not match their recorded revision.",
-    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the pinned skill snapshot and review the existing run."
-  },
-  "skill_file_hash_mismatch": {
-    "title": "A pinned skill file could not be verified",
-    "description": "A file in the selected skill revision does not match its recorded hash.",
-    "recovery": "Choose a valid registered revision on the connected Skill node or ask the registry operator to inspect it."
-  },
-  "skill_frontmatter_name_mismatch": {
-    "title": "The skill name does not match its reference",
-    "description": "The selected skill declares a different name from its registry identity.",
-    "recovery": "Correct the skill name in the registry and select the new immutable revision on the Skill node."
-  },
-  "skill_frontmatter_name_required": {
-    "title": "The selected skill needs a valid name",
-    "description": "The pinned skill lacks a readable SKILL.md with a valid frontmatter name.",
-    "recovery": "Correct SKILL.md in the registry and select the new revision, or disconnect the optional skill."
-  },
-  "skill_path_conflict": {
-    "title": "A skill path already exists in the workspace",
-    "description": "The source snapshot already contains the path reserved for a connected skill.",
-    "recovery": "Ask the runner operator to remove the conflicting skill directory from the source snapshot, then review the selected Skill References."
-  },
-  "skill_ref_hash_mismatch": {
-    "title": "The skill revision could not be verified",
-    "description": "The Skill Reference revision and its recorded tree hash disagree.",
-    "recovery": "Select the immutable revision again on the Skill node. Ask the registry operator to inspect it if the mismatch persists."
-  },
-  "pinned_skill_record_invalid": {
-    "title": "The saved skill selection is invalid",
-    "description": "The run contains an invalid or incomplete skill list. An empty list is valid for a run without skills.",
-    "recovery": "Keep the original run record and ask the runner operator to inspect it. Do not change the recorded skill selection to resume."
-  },
-  "invalid_skill_id": {
-    "title": "A connected skill has an invalid identifier",
-    "description": "A supplied skill identifier does not match the supported registry format.",
-    "recovery": "Select the skill through a Skill node, or disconnect the optional Skill Reference."
-  },
-  "skill_git_exclusion_changed": {
-    "title": "The protected skill Git exclusions changed",
-    "description": "The workspace no longer has the recorded Git exclusions for its pinned skills.",
-    "recovery": "Do not resume this workspace. Ask the runner operator to inspect the existing run and protected Git metadata."
-  },
-  "unexpected_materialized_skill": {
-    "title": "The workspace contains an unselected skill",
-    "description": "The workspace skill directories differ from the explicitly selected skill list. A run without skills requires an empty skill directory.",
-    "recovery": "Ask the runner operator to remove unintended skills from the source snapshot. Connect a Skill Reference only for skills you intend to include."
-  },
-  "unsafe_materialized_skill_path": {
-    "title": "The workspace skill directory is unsafe",
-    "description": "The runner could not verify its isolated skill directory.",
-    "recovery": "Ask the runner operator to inspect the workspace paths. Do not resume the affected workspace."
-  },
-  "claude_subscription_unavailable": {
-    "title": "The local Claude runner is not signed in",
-    "description": "The dedicated runner profile could not confirm a usable Claude login. This does not mean your host Claude subscription is unavailable.",
-    "recovery": "Check the host Claude sign-in and the configured local login copy. The runner can reuse that login without a separate sign-in."
-  },
-  "claude_host_login_unavailable": {
-    "title": "The local Claude login could not be read",
-    "description": "The runner could not read the selected host Claude access credential.",
-    "recovery": "Check that Claude Code is signed in on this machine and that its local credential file is available to the app."
-  },
-  "claude_host_login_expired": {
-    "title": "The copied Claude access credential needs refreshing",
-    "description": "The host credential file contains an access credential that is expired or about to expire.",
-    "recovery": "Use your signed-in host Claude session to refresh its credential, then start the task when it is ready. The runner does not refresh a duplicate login."
-  },
-  "claude_local_login_copy_failed": {
-    "title": "The local Claude login could not be copied",
-    "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
-  },
-  "activity_attempt_already_exists": {
-    "title": "This request already has activity evidence",
-    "description": "An activity attempt is already bound to this request; starting another could duplicate execution.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
-  "activity_attempt_identity_mismatch": {
-    "title": "The activity reference does not match",
-    "description": "The supplied activity identity does not match the selected runner attempt.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
-  "activity_attempt_identity_required": {
-    "title": "The activity reference is incomplete",
-    "description": "The runner needs an explicit attempt identity to attribute this activity safely.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
   "activity_capture_interrupted_remote_outcome_unknown": {
     "title": "Activity capture was interrupted",
     "description": "The observer stopped before it could confirm the remote execution outcome.",
@@ -747,16 +1147,6 @@
   "activity_runner_auth_unavailable": {
     "title": "Activity could not authenticate with the runner",
     "description": "The activity observer could not obtain the runner authentication needed for readback.",
-    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
-  },
-  "activity_runner_identity_mismatch": {
-    "title": "The activity runner does not match",
-    "description": "Activity readback was refused because the runner identity does not match the recorded invocation.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
-  },
-  "activity_runner_token_missing": {
-    "title": "Activity cannot access the runner",
-    "description": "The activity observer does not have the configured runner access needed to read this invocation.",
     "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "broker_request_failed": {
@@ -788,11 +1178,6 @@
     "title": "The tool request body was not accepted",
     "description": "The command broker could not validate the submitted request body.",
     "recovery": "Inspect the tool result in Conversation and the configured runner tool policy. Ask the operator to correct the tool integration; do not grant broader access or repeat an uncertain request automatically."
-  },
-  "invalid_request": {
-    "title": "The runner request was not accepted",
-    "description": "The request did not match the runner operation format; no specific cause is established here.",
-    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "invalid_worker_command": {
     "title": "The worker command was not accepted",
@@ -969,25 +1354,10 @@
     "description": "The retained native receipts exceeded the number of records allowed in a single projection.",
     "recovery": "Inspect the retained Conversation and OpenTelemetry records. Missing evidence does not establish task failure or authorize repeating the task. Check the existing run status before starting another request."
   },
-  "pinned_skill_workspace_changed": {
-    "title": "The pinned skill workspace changed",
-    "description": "The staged skill workspace no longer matches the immutable skill content recorded for this run.",
-    "recovery": "Restore the original immutable Skill Reference and its unchanged workspace from the saved flow. Ask the operator to inspect the pinned skill revision before starting another request."
-  },
   "private_opencode_server_required": {
     "title": "A private OpenCode server address is required",
     "description": "This adapter accepts only its isolated loopback OpenCode server, not a general external server URL.",
     "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
-  },
-  "run_not_active_in_this_process": {
-    "title": "This runner process does not own the active run",
-    "description": "The current process cannot control the selected run as an active local execution.",
-    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
-  },
-  "run_not_dispatchable": {
-    "title": "The run is not ready for dispatch",
-    "description": "The run state no longer permits this request to be submitted as a new execution.",
-    "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
   },
   "unknown_worker_tool": {
     "title": "The worker tool is not supported",
@@ -1013,5 +1383,50 @@
     "title": "Some OpenCode telemetry could not be captured",
     "description": "The adapter could not retain all expected telemetry. The remaining activity records may be incomplete; this warning does not establish task failure.",
     "recovery": "Inspect the retained Conversation and OpenTelemetry records and check the existing run status. Ask the operator to investigate the capture before relying on its completeness; do not repeat the task just to recreate telemetry."
+  },
+  "langflow_loopback_required": {
+    "title": "The graph service must use a local address",
+    "description": "The bridge is configured with an unsupported graph service URL.",
+    "recovery": "Ask the operator to configure the local Langflow service using a loopback HTTP address, then check that the saved graph is accessible."
+  },
+  "langflow_local_login_unavailable": {
+    "title": "The bridge could not sign in to Langflow",
+    "description": "The bridge could not obtain a local application login while reading the saved graph.",
+    "recovery": "Open the local Langflow app and sign in if prompted. Ask the operator to check the bridge connection and local login configuration before starting the graph again."
+  },
+  "saved_flow_identity_unavailable": {
+    "title": "The saved graph could not be identified",
+    "description": "The bridge did not receive a usable saved graph identifier.",
+    "recovery": "Save the graph in Langflow and open that saved graph before running it. Check the existing execution before starting new work."
+  },
+  "saved_flow_fetch_failed": {
+    "title": "The bridge could not read the saved graph",
+    "description": "The local graph service did not provide the saved graph, including after a single login refresh when authorization expired.",
+    "recovery": "Open the saved graph in Langflow and confirm you can access it. Ask the operator to check the bridge login and graph service connection before starting new work."
+  },
+  "run_and_grant_store_must_differ": {
+    "title": "Run history and permissions need separate stores",
+    "description": "The local workflow is configured to use one private file for both run history and permission grants.",
+    "recovery": "Ask the operator to configure separate private files for run history and permission grants before starting this workflow."
+  },
+  "invalid_handoff_artifact_selection": {
+    "title": "Selected artifact references could not be read",
+    "description": "The saved file selection must be a JSON list of file-reference objects.",
+    "recovery": "Open Selected Artifact References on the Handoff node and correct the JSON list. Use [] only if no files are intended. A connected selection takes precedence."
+  },
+  "claude_telemetry_start_failed": {
+    "title": "Claude telemetry could not start",
+    "description": "The local runner could not start its telemetry receiver. This controller turn was not submitted.",
+    "recovery": "Install the runner observability dependencies and restart the local runner. Check recorded activity for any earlier turns before starting new work. Technical details retain the error code."
+  },
+  "claude_telemetry_cleanup_unconfirmed": {
+    "title": "Claude telemetry cleanup is unconfirmed",
+    "description": "The controller was stopped, but closing its local telemetry receiver or removing its temporary capability could not be confirmed. The agent may already have performed work.",
+    "recovery": "Inspect the existing run and its recorded activity before starting new work. Restart the local runner after checking its telemetry cleanup; do not blindly repeat the task."
+  },
+  "claude_telemetry_capture_failed": {
+    "title": "Some Claude telemetry could not be recorded",
+    "description": "The local telemetry receiver could not decode or persist an export. The agent may already have performed work; its captured native activity remains available.",
+    "recovery": "Inspect the existing run and any effects before starting new work. Check the local runner observability setup and available disk space. Do not blindly repeat the task."
   }
 }

@@ -1,5 +1,5 @@
 import CopyIcon from "@/components/laomedoErrors/CopyIcon";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import PopupFrame, { popupButtonStyle } from "./PopupFrame";
 import RunnerRecovery, { DOCKER_INSTALL_URL, PREREQUISITE_CODES } from "./RunnerRecovery";
 import { describeNodeFailure, type ErrorContext } from "@/components/laomedoErrors/nodeErrors";
@@ -11,6 +11,23 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
   dismissRef.current = onDismiss;
   const failure = describeNodeFailure(message, undefined, context);
   const name = (context.nodeLabel || context.nodeType || "Agent").replace(/^Laomedo\s*/, "").slice(0, 120);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const catalogue = failure.diagnostics.code === "runner_model_catalog_unavailable_check_runner_connection";
+  useEffect(() => {
+    if (!catalogue || !context.nodeId) return;
+    const loaded = (event: Event) => {
+      if ((event as CustomEvent).detail?.nodeId === context.nodeId) dismissRef.current();
+    };
+    const settled = (event: Event) => {
+      if ((event as CustomEvent).detail?.nodeId === context.nodeId) setLoadingModels(false);
+    };
+    window.addEventListener("laomedo-model-catalog-loaded", loaded);
+    window.addEventListener("laomedo-model-catalog-settled", settled);
+    return () => {
+      window.removeEventListener("laomedo-model-catalog-loaded", loaded);
+      window.removeEventListener("laomedo-model-catalog-settled", settled);
+    };
+  }, [catalogue, context.nodeId]);
   const buttonStyle = popupButtonStyle;
   return <RunnerRecovery message={message}>{recovery => {
     const checking = !recovery.state && !recovery.error;
@@ -22,6 +39,9 @@ export default function RecoveryPopup({ message, context, onDismiss }: {
       tools={!busy && <CopyIcon label="Copy diagnostics" text={diagnostics} />}
       heading={<><h3 className="text-sm font-bold">{recovery.title || failure.title}</h3><span className="min-w-0 break-words text-sm text-muted-foreground">{"\u00b7"} {name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</span></>}
       footer={<>
+        {catalogue && context.nodeId && recovery.state === "ready" && <button type="button" disabled={loadingModels}
+          onClick={() => { setLoadingModels(true); window.dispatchEvent(new CustomEvent("laomedo-refresh-model-catalog", {detail: {nodeId: context.nodeId}})); }}
+          style={{...buttonStyle, width: 196}}>{loadingModels ? "Loading models..." : "Refresh models"}</button>}
         {(recovery.canStart || recovery.waiting) && <button type="button" onClick={recovery.restart} disabled={recovery.waiting} style={{ ...buttonStyle, width: 196, maxWidth: "100%" }}
           className="disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
           {recovery.waiting ? "Starting..." : "Start local runner"}

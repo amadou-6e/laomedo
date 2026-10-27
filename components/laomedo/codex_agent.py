@@ -19,6 +19,44 @@ from lfx.schema import Data, Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    'langflow_loopback_required', 'langflow_local_login_unavailable',
+    'saved_flow_identity_unavailable', 'saved_flow_fetch_failed',
+    'run_and_grant_store_must_differ',
+    'claude_cancelled',
+    'claude_container_configuration_invalid',
+    'claude_container_image_missing',
+    'claude_container_profile_unavailable',
+    'claude_container_unavailable',
+    'claude_host_login_expired',
+    'claude_host_login_unavailable',
+    'claude_local_login_copy_failed',
+    'claude_mediation_outcome_unknown',
+    'claude_model_required',
+    'claude_native_skill_policy_unsupported',
+    'claude_native_turn_failed',
+    'claude_native_turn_limit_mismatch',
+    'claude_parent_stop_unverified',
+    'claude_process_failed',
+    'claude_prompt_too_large',
+    'claude_proposal_scope_only',
+    'claude_receipt_too_large',
+    'claude_session_identity_mismatch',
+    'claude_subscription_override_refused',
+    'claude_subscription_unavailable',
+    'claude_terminal_receipt_invalid',
+    'claude_telemetry_start_failed',
+    'claude_telemetry_capture_failed',
+    'claude_telemetry_cleanup_unconfirmed',
+    'claude_turn_timeout',
+    'claude_turn_timeout_invalid',
+    'claude_workspace_command_invalid',
+    'container_termination_unverified',
+    'lease_service_required',
+    'lease_service_unavailable',
+    'resume_auth_identity_mismatch',
+    'resume_binding_mismatch',
+
+    "claude_host_login_unavailable", "claude_host_login_expired", "claude_local_login_copy_failed",
     "runner_api_token_file_unavailable", "runner_api_token_file_empty",
     "runner_transport_failed", "runner_invalid_response", "runner_invalid_error_response",
     "runner_response_identity_mismatch", "runner_response_thread_mismatch",
@@ -29,6 +67,10 @@ _ROUTABLE_ERRORS = {
     "standing_policy_inactive", "standing_policy_invalid", "standing_request_denied",
     "standing_issue_context_required", "standing_issue_context_mismatch",
     "standing_pinned_inputs_required", "runner_busy",
+    "claude_model_required", "unsupported_claude_effort", "claude_turn_timeout_invalid",
+    "claude_native_skill_policy_unsupported", "claude_subscription_unavailable",
+    "runner_model_catalog_unavailable_check_runner_connection",
+    "pinned_skill_ref_required", "skill_frontmatter_name_required",
 }
 
 
@@ -53,6 +95,15 @@ class _NoRedirect(request.HTTPRedirectHandler):
 
 
 _HTTP = request.build_opener(_NoRedirect())
+
+
+class _ModelCatalog(dict):
+    """Model/effort mapping with optional provider presentation metadata."""
+
+    def __init__(self):
+        super().__init__()
+        self.metadata = {}
+        self.effort_aliases = {}
 
 
 class LaomedoCodexAgent(Component):
@@ -104,7 +155,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_build_config(self, build_config, field_value, field_name=None):
         # OpenCode has a separate provider/model and variant contract.
-        if self.name != "LaomedoCodexAgent":
+        if self.name not in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             return build_config
         return await self._update_model_config(build_config, field_value, field_name)
 
@@ -127,11 +178,15 @@ class LaomedoCodexAgent(Component):
         if model and model not in choices:
             choices.append(model)  # Preserve imported selections, never substitute.
         model_field.update(options=choices, combobox=False, real_time_refresh=True)
+        if self.name == "LaomedoClaudeAgent":
+            model_field["options_metadata"] = [getattr(catalog, "metadata", {}).get(choice, {}) for choice in choices]
         selected = effort_field.get("value", "")
         if not isinstance(selected, str):
             raise ValueError("invalid_effort_selection")
-        efforts = list(catalog.get(model, []))
-        if field_name == "model" and selected not in efforts:
+        efforts = list(catalog.get(model, getattr(catalog, "effort_aliases", {}).get(model, [])))
+        if self.name == "LaomedoClaudeAgent" and efforts == ["default"]:
+            effort_field["value"] = "default"
+        elif field_name == "model" and selected not in efforts:
             effort_field["value"] = ""
         elif selected and selected not in efforts:
             # Preserve saved values on load; the runner remains authoritative.
@@ -140,8 +195,7 @@ class LaomedoCodexAgent(Component):
         return build_config
 
     def _model_catalog_token_file_path(self):
-        return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
-                              "/run/secrets/laomedo-runner-token")
+        return self._runner_token_file_path()
 
     def _model_catalog(self, build_config):
         base = str(build_config.get("runner_url", {}).get("value") or self.runner_url).rstrip("/")
@@ -156,17 +210,28 @@ class LaomedoCodexAgent(Component):
             if not token:
                 raise ValueError("empty_token")
             req = request.Request(base + "/v1/models", headers={"Authorization": "Bearer " + token})
-            with _HTTP.open(req, timeout=30) as response:
+            with _HTTP.open(req, timeout=75 if self.name == "LaomedoClaudeAgent" else 30) as response:
                 raw = response.read(1024 * 1024 + 1)
                 if len(raw) > 1024 * 1024:
                     raise ValueError("catalog_too_large")
                 payload = json.loads(raw)
-            catalog = {}
+            if self.name == 'LaomedoClaudeAgent' and payload.get('provider') != 'claude':
+                raise ValueError('catalog_provider_mismatch')
+            catalog = _ModelCatalog()
             for item in payload["models"]:
                 model, efforts = item["id"], item["efforts"]
                 if not isinstance(model, str) or not model or model in catalog or not isinstance(efforts, list) or not all(isinstance(x, str) and x for x in efforts):
                     raise ValueError("invalid_catalog")
                 catalog[model] = efforts
+                if self.name == "LaomedoClaudeAgent":
+                    catalog.metadata[model] = {"id": model, "laomedo_native_model": True,
+                        **({"display_name": item["name"]} if isinstance(item.get("name"), str) else {}),
+                        **({"resolved_model": item["resolved_model"]} if isinstance(item.get("resolved_model"), str) else {})}
+                    resolved = item.get("resolved_model")
+                    if isinstance(resolved, str) and resolved:
+                        catalog.effort_aliases.setdefault(resolved, efforts)
+                        if model != "default":
+                            catalog.metadata[resolved] = {**catalog.metadata[model], "id": resolved}
             if not catalog:
                 raise ValueError("empty_catalog")
             return catalog
@@ -175,7 +240,7 @@ class LaomedoCodexAgent(Component):
 
     async def update_frontend_node(self, new_frontend_node, current_frontend_node):
         updated = await super().update_frontend_node(new_frontend_node, current_frontend_node)
-        if self.name == "LaomedoCodexAgent":
+        if self.name in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             try:
                 await self.update_build_config(updated["template"], None)
             except ValueError as exc:
@@ -187,6 +252,8 @@ class LaomedoCodexAgent(Component):
                     field = updated["template"].get(name, {})
                     value = field.get("value")
                     field["options"] = [value] if isinstance(value, str) and value else []
+                    if self.name == "LaomedoClaudeAgent" and name == "model":
+                        field["options_metadata"] = [{} for _ in field["options"]]
         return updated
 
     def _pre_run_setup(self):
@@ -209,6 +276,12 @@ class LaomedoCodexAgent(Component):
         endpoint, payload, method = self._prepare_request()
         connected = getattr(self, "output_requirements", None)
         static = str(getattr(self, "output_requirements_json", "") or "").strip()
+        if not static and getattr(self, '_vertex', None) is not None:
+            # Langflow omits hidden inputs from component parameters. This
+            # internal pin still belongs to the saved graph, including an
+            # isolated feedback subgraph; it must not silently lose validation.
+            field = self._vertex.full_data.get('data', {}).get('node', {}).get('template', {}).get('output_requirements_json', {})
+            static = str(field.get('value') or '').strip()
         if static:
             from laomedo.output_contract import verify_requirements
             try:
@@ -218,7 +291,7 @@ class LaomedoCodexAgent(Component):
             if connected not in (None, "", []) and verify_requirements(getattr(connected, "data", connected)) != pinned:
                 raise ValueError("conflicting_output_requirements")
             connected = pinned
-        if self.name == "LaomedoCodexAgent":
+        if self.name in {"LaomedoCodexAgent", "LaomedoClaudeAgent"}:
             from laomedo.contract_graph import downstream_requirements
             from laomedo.output_contract import verify_requirements
             explicit = (verify_requirements(getattr(connected, "data", connected))
@@ -243,9 +316,10 @@ class LaomedoCodexAgent(Component):
             if not isinstance(selected, dict) or set(selected) != {
                     "execution_id", "step", "source", "workspace_policy", "artifact_refs"}:
                 raise ValueError("invalid_handoff_reference")
-            payload["handoff"] = {key: selected[key] for key in
+            target = payload.get("runner_body", payload)
+            target["handoff"] = {key: selected[key] for key in
                                   ("execution_id", "step", "source", "workspace_policy")}
-            payload["artifact_refs"] = selected["artifact_refs"]
+            target["artifact_refs"] = selected["artifact_refs"]
         return endpoint, payload, method
 
     def _prepare_request(self):
@@ -342,9 +416,9 @@ class LaomedoCodexAgent(Component):
         # A host-wide Codex join setting must not redirect OpenCode or lifecycle
         # operations. Stop handling during a fresh/start invocation still uses
         # the bridge so its in-flight request can be reconciled correctly.
-        if self.name != "LaomedoCodexAgent" or str(self.operation) not in {"fresh", "start"}:
+        if self.name not in {"LaomedoCodexAgent", "LaomedoClaudeAgent"} or str(self.operation) not in {"fresh", "start"}:
             return ""
-        base = str(os.environ.get("LAOMEDO_BRIDGE_URL", getattr(self, "bridge_url", "")) or "").rstrip("/")
+        base = str(os.environ.get("LAOMEDO_CLAUDE_BRIDGE_URL" if self.name == "LaomedoClaudeAgent" else "LAOMEDO_BRIDGE_URL", getattr(self, "bridge_url", "")) or "").rstrip("/")
         if not base:
             return ""
         parsed = urlsplit(base)
@@ -377,8 +451,12 @@ class LaomedoCodexAgent(Component):
 
     def _token_file_path(self):
         if self._bridge_base():
-            return os.environ.get("LAOMEDO_BRIDGE_TOKEN_FILE",
+            return os.environ.get("LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE" if self.name == "LaomedoClaudeAgent" else "LAOMEDO_BRIDGE_TOKEN_FILE",
                                   "/run/secrets/laomedo-bridge-token")
+        return self._runner_token_file_path()
+
+    def _runner_token_file_path(self):
+        """Activity always polls the runner, even when dispatch uses a bridge."""
         return os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE",
                               "/run/secrets/laomedo-runner-token")
 
@@ -523,11 +601,7 @@ class LaomedoCodexAgent(Component):
                 # only a fixed public code, never arbitrary server error text.
                 category = result.get("error_category")
                 code = (category if isinstance(category, str) and category in
-                        {"experiment_request_binding_denied", "standing_policy_inactive",
-                         "standing_policy_invalid", "standing_request_denied",
-                         "standing_issue_context_required", "standing_issue_context_mismatch",
-                         "standing_pinned_inputs_required", "runner_busy", "claude_host_login_unavailable",
-                         "claude_host_login_expired", "claude_local_login_copy_failed"} else "runner_dispatch_refused")
+                        _ROUTABLE_ERRORS else "runner_dispatch_refused")
                 if 400 <= exc.code < 500:
                     raise RuntimeError(code) from None
                 raise RuntimeError("runner_runtime_unknown") from None
@@ -614,7 +688,7 @@ class LaomedoCodexAgent(Component):
                           else type(result["precheck"].get(key)) is int and
                           result["precheck"][key] >= 0) else "unknown")
                          for key in ("installed", "call_count")},
-            "provider": result.get("provider", "codex"),
+            "provider": result.get("provider") or ("claude" if self.name == "LaomedoClaudeAgent" else "codex"),
             "handoff": result.get("handoff"), "imported_artifacts": result.get("imported_artifacts", []),
             "thread_id": result.get("thread_id"), "status": result.get("status"),
             "post_run_hash": result.get("post_run_hash"),

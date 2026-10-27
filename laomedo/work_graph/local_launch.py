@@ -2,7 +2,8 @@
 
 import json
 from pathlib import Path
-from urllib import parse, request
+from threading import Lock
+from urllib import error, parse, request
 
 from laomedo.workflow_run_store import LaunchError, WorkflowRunStore
 
@@ -19,6 +20,10 @@ class LangflowLocalClient:
                 or parsed.query or parsed.fragment):
             raise LaunchError("langflow_loopback_required")
         self.base_url = base_url.rstrip("/")
+        self._token_lock = Lock()
+        self._token = self._login()
+
+    def _login(self):
         try:
             with request.urlopen(self.base_url + "/api/v1/auto_login", timeout=15) as response:
                 token = json.load(response)["access_token"]
@@ -26,19 +31,30 @@ class LangflowLocalClient:
             raise LaunchError("langflow_local_login_unavailable") from None
         if not isinstance(token, str) or not token:
             raise LaunchError("langflow_local_login_unavailable")
-        self._token = token
+        return token
 
     def fetch(self, flow_id):
         if not isinstance(flow_id, str) or not flow_id or "/" in flow_id:
             raise LaunchError("saved_flow_identity_unavailable")
-        req = request.Request(self.base_url + "/api/v1/flows/" + parse.quote(flow_id),
-            headers={"Authorization": "Bearer " + self._token,
-                     "Accept": "application/json"})
-        try:
-            with request.urlopen(req, timeout=30) as response:
-                return json.load(response)
-        except (OSError, ValueError):
-            raise LaunchError("saved_flow_fetch_failed") from None
+        for attempt in range(2):
+            token = self._token
+            req = request.Request(self.base_url + "/api/v1/flows/" + parse.quote(flow_id),
+                headers={"Authorization": "Bearer " + token, "Accept": "application/json"})
+            try:
+                with request.urlopen(req, timeout=30) as response:
+                    return json.load(response)
+            except error.HTTPError as exc:
+                exc.close()
+                if exc.code == 401 and attempt == 0:
+                    # Refresh only the local app login, then repeat this read.
+                    # Never repeat a launch or model request on authentication failure.
+                    with self._token_lock:
+                        if self._token == token:
+                            self._token = self._login()
+                    continue
+                raise LaunchError("saved_flow_fetch_failed") from None
+            except (OSError, ValueError):
+                raise LaunchError("saved_flow_fetch_failed") from None
 
 
 def launch_local_saved_flow(*, snapshot_path, work_key, flow_id, langflow_base,

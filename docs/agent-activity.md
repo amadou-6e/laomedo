@@ -1,7 +1,8 @@
 # Graph agent activity
 
 The **Agents** section in the graph sidebar shows retained activity from the
-original `LaomedoCodexAgent`. The singular Agent section retains its A2A setup.
+original `LaomedoCodexAgent` and subscription `LaomedoClaudeAgent`.
+The singular Agent section retains its A2A setup.
 There is no PR-specific agent.
 
 Choose a graph execution to compare invocation and turn intervals, including
@@ -126,6 +127,69 @@ outputs contain task content.
 
 ## Validation scope
 
+### Claude Code activity
+
+Claude controller turns configure the official OpenTelemetry metrics, logs and
+beta trace exporters with OTLP HTTP/protobuf. A capability-protected, loopback
+receiver is bound to that exact controller turn and records redacted signals in
+`otel-events.jsonl`. The controller alone receives the temporary exporter
+configuration; command workers receive neither the exporter capability nor its
+network access. Authentication, discovery and version checks do not enable it.
+
+Prompt, assistant and tool-content export stays disabled. An attribute allowlist
+also removes account identity, payloads and content at ingestion. Resource labels
+and native session IDs are retained only where allowed; conflicting native session
+identity is marked and excluded from scoped views. The host-attested controller
+turn supplies conversation/turn scope, never timestamp guesses. Attempt cursors
+isolate Fresh, Resume and correction records. Receivers close before final attempt
+boundaries are sealed, and temporary capability files are removed. Upload reads
+time out after five seconds; each batch is bounded to 4096 records and 8 MiB of
+normalized data. Shutdown drains bounded upload handlers before closing storage.
+
+Telemetry remains separate from native conversation/usage totals: OTLP counters
+are inspectable records and are not added again to token or cost charts. The
+OpenTelemetry section appears when records exist; old invocations without records
+retain their original capture history. Export flush completeness remains unverified,
+including after forced cancellation. Receiver failures have shared descriptive
+errors; a capture/cleanup error warns that the agent may already have acted. A
+successful native receipt with zero exports is a capture warning, not telemetry
+success. Capture warnings make the Activity stream partial and use the shared
+error presenter, while preserving the completed task, snapshot and Resume. Each
+attempt retains its own warning; later Resume cannot rewrite earlier coverage.
+
+Install the runner's `observability` extra for its OTLP protobuf dependencies.
+Official configuration: https://code.claude.com/docs/en/monitoring-usage .
+Capture guidance stays in the usage info popover and terminal receipts stay out of
+the Activity layout. Host prompt envelopes show their task text in chat; message
+source details retain the original payload.
+
+Claude uses the same Agents tab, execution selector, timeline, conversation,
+usage projection and authenticated inspection routes as Codex. Each dispatch
+captures streamed native text, thinking and tool start/result events alongside
+the exact host-submitted prompt and terminal answer. Correction prompts are
+distinct turns and run without tools. Failed or cancelled dispatches retain
+partial activity and close their timeline lanes. These are normalized official
+CLI events, not Codex RPC messages or a claim of complete SDK event coverage.
+Native controller file/shell tools are disabled; file and command operations
+use the credential-free worker. Only selected pinned native Skill invocations
+are permitted. Subagents are not enabled in this slice.
+
+Token points use cumulative `modelUsage` from the native terminal receipt.
+Resumes subtract the previous receipt baseline; corrections replace cumulative
+totals rather than adding them. Missing or regressing counters stay unknown.
+Input includes uncached input, cache reads and cache writes; thinking is shown
+only when explicitly reported. A sole reported model is recorded, never inferred
+from the requested alias. The terminal diagnostic retains the CLI's cumulative
+session cost estimate, clearly separate from an invocation cost or subscription
+charge. No Claude prices are invented for the shared verified price catalog.
+
+Usage semantics: https://code.claude.com/docs/en/agent-sdk/cost-tracking
+The original proposal verification precedes this capture extension. Its receipts
+verify normalization. The separately approved one-turn
+[activity proof](../examples/claude-agent/activity-proof.json) verifies fresh
+successful capture through the real Langflow graph; live correction, failed-turn
+and resumed-capture scenarios remain outside that additional verification.
+
 Internal tests cover owner/execution isolation, read-only inspection, source
 pagination, retry deduplication, conflicting receipts, resume baselines, counter
 regressions, pricing unknowns and invocation boundaries. They are not real
@@ -142,3 +206,8 @@ adds the adversarial case: two original nodes target one completed run, one resu
 is accepted and the refused node has zero events/turns and unassigned usage/cost.
 The source hashes identify the tested controller mechanism. This is separate from
 the positive concurrent/subagent example and from internal fixture tests.
+
+Each graph join service is bound to one runner provider. Deploy separate bridge
+instances and private tokens for Codex and Claude; pass `--provider claude` for
+the Claude bridge and point that node at its matching bridge URL. Provider IDs
+are preserved through the journal and cannot be relabelled by a node request.

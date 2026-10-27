@@ -42,6 +42,9 @@ class LangflowJoinController:
             raise ValueError("flow_resolver_required")
         self.store = store
         self.runner = runner
+        self.provider = getattr(runner, "provider", "codex")
+        if self.provider not in {"codex", "claude"}:
+            raise LaunchError("unsupported_join_provider")
         self.resolve_saved_flow = resolve_saved_flow
         self._cancel_lock = RLock()
 
@@ -117,7 +120,7 @@ class LangflowJoinController:
         if runner_attempt_terminal(native):
             self.store.record_runner_terminal(
                 snapshot["run_id"], snapshot["invocation_id"],
-                provider="codex", runner_run_id=snapshot["runner_run_id"],
+                provider=self.provider, runner_run_id=snapshot["runner_run_id"],
                 status=native["status"],
                 cancel_confirmed=native.get("cancel_confirmed") is True,
                 attempt_finished=native.get("attempt_finished") is True)
@@ -146,7 +149,7 @@ class LangflowJoinController:
         if prior is not None:
             if prior["client_request_hash"] != client_hash:
                 raise LaunchError("client_request_identity_conflict")
-            return self._snapshot(client_request_id)
+            return self.status(client_request_id)
         exported = self.resolve_saved_flow(flow_id)
         graph, codes = self._saved_graph(exported, flow_id, stage_id)
         run = self.store.reserve(graph=graph, component_code=codes,
@@ -158,7 +161,7 @@ class LangflowJoinController:
         run_id = run["run_id"]
         invocation_id = self.store.reserve_invocation(run_id, stage_id)
         request_hash = _digest(body)
-        self.store.freeze_runner_request(run_id, invocation_id, request_hash)
+        self.store.freeze_runner_request(run_id, invocation_id, request_hash, provider=self.provider)
         _, created = self.store.claim_langflow_client(
             client_request_id, client_hash, run_id=run_id,
             invocation_id=invocation_id, flow_id=flow_id,
@@ -178,7 +181,7 @@ class LangflowJoinController:
         if (not isinstance(ack, dict) or
                 ack.get("client_request_id") != invocation_id or
                 ack.get("request_hash") != request_hash or
-                ack.get("provider") != "codex"):
+                ack.get("provider") != self.provider):
             self.store.record_runner_failure(
                 run_id, invocation_id, category="runner_ack_identity_mismatch")
             self._reconcile_stop_after_failure(client_request_id)
@@ -186,7 +189,7 @@ class LangflowJoinController:
         try:
             self.store.bind_runner_ack(
                 run_id, invocation_id, request_id=ack["client_request_id"],
-                provider="codex", runner_run_id=ack.get("run_id"),
+                provider=self.provider, runner_run_id=ack.get("run_id"),
                 raw_event_ref=ack.get("raw_event_ref"))
         except LaunchError:
             self.store.record_runner_failure(
@@ -195,7 +198,10 @@ class LangflowJoinController:
             raise
         if self.store.langflow_cancel_requested(client_request_id):
             self.cancel(client_request_id)
-        return self._snapshot(client_request_id)
+        # Preserve the native acknowledgement's attempt identity for Activity
+        # capture before the first status poll. On reconnect, status() recovers
+        # the same identity from the bound runner rather than dispatching again.
+        return {**self._snapshot(client_request_id), "native_record": ack}
 
     def cancel(self, client_request_id):
         """Retain Stop before ack; reconcile only by read-only native lookup."""
@@ -223,24 +229,24 @@ class LangflowJoinController:
                 if (not isinstance(found, dict) or
                         found.get("client_request_id") != invocation_id or
                         found.get("request_hash") != row["runner_request_hash"] or
-                        found.get("provider") != "codex"):
+                        found.get("provider") != self.provider):
                     raise LaunchError("runner_lookup_mismatch")
                 self.store.bind_runner_ack(
                     run_id, invocation_id, request_id=invocation_id,
-                    provider="codex", runner_run_id=found.get("run_id"),
+                    provider=self.provider, runner_run_id=found.get("run_id"),
                     raw_event_ref=found.get("raw_event_ref"))
                 runner_run_id = found["run_id"]
             status = self.runner.status(runner_run_id)
             if runner_attempt_terminal(status):
                 self.store.record_runner_observation(
-                    run_id, invocation_id, provider="codex",
+                    run_id, invocation_id, provider=self.provider,
                     runner_run_id=runner_run_id, kind="runner_status",
                     payload={"status": status.get("status"),
                              "cancel_sent": False})
                 return self.status(client_request_id)
             cancelled = self.runner.cancel(runner_run_id)
             self.store.record_runner_observation(
-                run_id, invocation_id, provider="codex",
+                run_id, invocation_id, provider=self.provider,
                 runner_run_id=runner_run_id, kind="runner_cancel",
                 payload={"cancel_requested": cancelled.get("cancel_requested"),
                          "cancel_confirmed": cancelled.get("cancel_confirmed")})

@@ -93,8 +93,7 @@ $private = Join-Path $env:LOCALAPPDATA 'Laomedo'
 python -m laomedo.local_runner --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
 ```
 
-The HTTP runner binds only to `127.0.0.1:8765` and defaults to zero model
-turns. It also requires `Authorization: Bearer <token>` for every status and
+The HTTP runner binds only to `127.0.0.1:8765`. It requires `Authorization: Bearer <token>` for every status and
 mutation request. The runner creates a random token once in its private state
 directory at `api-token`; clients read that file through an operator-controlled
 private mount or local environment. Do not put the token in a flow, URL, Git,
@@ -109,9 +108,10 @@ that remote work stopped. The no-model Docker teardown probe is
 `examples/skill-agent-pilot/probe_container_teardown.py`.
 
 Normal runners and managed services have no verification-only global turn cap.
-Historical `turn-ledger.json` files remain evidence; normal diagnostic accounting
-uses `attempt-count.json` without an authorization ceiling. Isolated verification
-uses `experiments/turn_harness.py`, never runtime configuration. Start,
+Historical `turn-ledger.json` files remain untouched evidence. Normal diagnostic
+accounting uses a durable, ceiling-free `attempt-count.json`; damaged or unwritable
+accounting never refuses execution. Isolated verification uses
+`experiments/turn_harness.py`, never runtime configuration. Start,
 status, cancel, and resume endpoints use `/v1/runs`. Resume needs the native
 thread ID and exact last post-run hash; a missing or altered snapshot fails
 before dispatch. Raw app-server events, session state, and snapshots stay
@@ -123,5 +123,6 @@ Fresh requests may include validated `handoff` provenance and explicit
 runner, copy only selected ordinary files beneath `handoff/` in the new workspace,
 and persist the import manifest. `POST /v1/runs/<run-id>/artifacts` with `paths`
 returns pinned manifest references, never file contents or arbitrary host paths.
-Cross-provider files require a separate audited shared-store interface and fail
-closed today. See [handoff examples](../examples/agent-handoffs/README.md).
+Cross-provider files require an explicit host-configured `--artifact-source
+PROVIDER=STATE` mapping. The source record provider, run and selected-file hashes
+are verified; requests cannot supply arbitrary host state paths. See [handoff examples](../examples/agent-handoffs/README.md).

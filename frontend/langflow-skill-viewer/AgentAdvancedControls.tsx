@@ -4,16 +4,16 @@ import { useUpdateNodeInternals } from "@xyflow/react";
 // Only scalar configuration controls belong here. Connected fields remain on
 // the normal canvas path so collapsing this section never hides a wired port.
 const CONTROLS = new Set([
-  "output_retries", "timeout_seconds", "runner_url",
+  "output_retries", "timeout_seconds", "run_timeout_seconds", "runner_url",
 ]);
 export function isAgentControlHidden(data: any, name: string): boolean {
   const kind = data.node?.name || data.type;
-  return ["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind) &&
+  return ["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(kind) &&
     ["request_id", "skill_id", "revision_id", "output_requirements", "output_requirements_json", "run_reference", "run_reference_json", "bridge_url"].includes(name);
 }
 export function advancedAgentFields(data: any, fields: string[], edges: any[], toolMode: boolean): string[] {
   const kind = data.node?.name || data.type;
-  if (!["LaomedoCodexAgent", "LaomedoOpenCodeAgent"].includes(kind)) return [];
+  if (!["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(kind)) return [];
   return fields.filter((name) => {
     const field = data.node?.template?.[name];
     return CONTROLS.has(name) && field?.show && field.advanced === true && field.type !== "other" &&

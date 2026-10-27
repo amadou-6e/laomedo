@@ -1,0 +1,80 @@
+# Archived verification protocol
+
+The dated allowances below apply only to their identified historical campaigns.
+They remain unchanged evidence. They do not configure the current Docker runner,
+which has no verification-only global turn ceiling. See README.md for the two
+current templates; the executed campaign exports are historical records.
+
+# Real Claude proposal verification
+
+## Additional no-skill verification approval, 2026-10-24
+
+The user explicitly answered **Allow one verification turn** to verify a Fresh
+Claude Agent task with no Skill References. Preserve all existing runs and the
+durable ledger: the dedicated activity preview advances from one consumed turn
+under a ceiling of one to a total ceiling of two. Do not reset its ledger.
+
+Use one real saved single-Agent graph, `sonnet` / `low`, an empty skill list,
+no output contract, zero output corrections, no tools, edits or retries. The task
+is to reply exactly `Agent without skills works.`. Record the actual native
+answer, empty request/record/prompt skill lists, native session and usage,
+completed graph activity, unchanged protected snapshots, and the one-turn ledger
+increment. An uncertain dispatch must be reconciled through read-only state;
+do not submit it again. No further inference is authorized after this turn.
+
+## Additional activity verification approval, 2026-10-23
+
+After the original campaign's three-turn ceiling was exhausted, the user
+explicitly answered **Allow one verification turn** for a separate read-only
+summary test of graph activity capture. Preserve the original ledger and runs.
+The additional dedicated runner has a durable ceiling of exactly one native
+turn, no output contract, no edits or operations, and no corrections or resume.
+Do not retry an uncertain dispatch. Stop the runner after that turn and keep
+the graph available for inspection. Verify prompt hash, native answer, completed
+timeline, native token counters, model and diagnostics through authenticated
+read-only APIs and the actual rendered Agents view. Never replace this proof
+with fixtures. A readback-harness failure may be reconciled without dispatch.
+
+The original proposal campaign protocol follows.
+
+Authorized by the user's request for a Claude node and explicit selection of
+Claude Code subscription on 2026-10-19. Use the normal official CLI login in
+place, without copying or reading credential files. Keep the reviewer session
+separate from the node's new native Claude session.
+
+Create a real new workspace-guide skill with a missing description. Run the
+actual native Langflow two-node Skill -> Claude -> Skill feedback graph. Use
+Claude Code 2.1.301, sonnet, low effort, native tools disabled, pinned skill
+snapshots and static output requirements. Permit one initial turn and at most
+one same-session output correction. Preserve errors and uncertain dispatches;
+do not silently restart, repair JSON or reset the ledger.
+
+Read back the accepted candidate independently. Require only a description line
+to differ, exact parent and backend provenance, unchanged canonical/source, and
+same-ticket replay without another model or revision. Then permit one additional
+native resume turn asking for the previous proposal, without applying it again.
+Total campaign ceiling: three turns. A failed resume is not silently retried.
+Record native session, pinned skill hashes, host IDs, terminal receipt, output
+validation, process cleanup and actual usage fields. Unknown stays unknown.
+
+Internal controls may simulate receipts but are not this acceptance. No fixture
+provider or credential access is permitted. Stop the runner and writable host
+service afterward. The review preview must use an empty edit-policy map and
+clear the edit request. Do not merge before independent review, passing CI and
+the user's review of the actual working graph.
+
+## Verification-harness correction (2026-10-21)
+
+The first real edit completed and was host-applied using one turn. Exact byte
+readback confirmed a description-only insertion with CRLF preserved. The original
+verifier compared normalized LF text with raw CRLF and used an overescaped regex;
+its finally block stopped the runner before resume. Preserve that successful
+run, its native receipt, commit and the harness error. Do not replay its task.
+
+Use the remaining two turns for a new explicitly requested description revision
+and one resume of that new session. Preserve the original completed run and
+unchanged ledger (total ceiling still three). The old run is not reattached to a
+new runner instance. If the new edit needs a correction, it consumes the last
+turn and resume remains unverified; never dispatch a fourth turn. Compare exact
+bytes, write exported accepted bytes without newline conversion, and disable
+writable services after this case.

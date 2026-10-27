@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
 from urllib import error, request
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from laomedo.langflow_join import LangflowJoinController
 from laomedo.langflow_join_http import RunnerHTTPTransport, serve_langflow_join
@@ -57,6 +57,21 @@ class LangflowJoinHTTPTests(unittest.TestCase):
                 "runner_body": {"task": "synthetic task", "model": "synthetic",
                                 "effort": "low", "skill_ref": {"skill_id": "fixture"}}}
 
+    def test_claude_ack_and_run_poll_preserve_provider_and_attempt_after_restart(self):
+        self.runner.provider = self.controller.provider = 'claude'
+        client = str(uuid4())
+        code, started = self.call('POST', '/v1/invocations', self.body(client))
+        self.assertEqual(code, 202)
+        self.assertEqual(started['provider'], 'claude')
+        native_id = started['run_id']
+        self.assertIsNone(self.store.langflow_runner_binding(native_id, provider='codex'))
+        self.controller.store = WorkflowRunStore(self.store.path)
+        code, current = self.call('GET', '/v1/runs/'+native_id)
+        self.assertEqual(code, 200)
+        self.assertEqual(current['provider'], 'claude')
+        self.assertEqual(current['activity_initial_attempt_id'], started['activity_initial_attempt_id'])
+        self.assertEqual(len(self.runner.starts), 1)
+
     def test_unconfirmed_native_cancel_is_incomplete_until_explicit_confirmation(self):
         client = str(uuid4())
         self.call("POST", "/v1/invocations", self.body(client))
@@ -83,16 +98,20 @@ class LangflowJoinHTTPTests(unittest.TestCase):
         self.assertEqual(code, 202)
         self.assertEqual(started["client_request_id"], client)
         self.assertIsNotNone(started["run_id"])
+        attempt = started['activity_initial_attempt_id']
+        self.assertEqual(str(UUID(attempt)), attempt)
         self.assertFalse(started["executing_graph_verified"])
         self.assertEqual(len(self.runner.starts), 1)
 
         code, retry = self.call("POST", "/v1/invocations", body)
         self.assertEqual(code, 202)
         self.assertEqual(retry["run_id"], started["run_id"])
+        self.assertEqual(retry['activity_initial_attempt_id'], attempt)
         self.assertEqual(len(self.runner.starts), 1)
         code, by_client = self.call("GET", "/v1/requests/" + client)
         self.assertEqual(code, 200)
         self.assertEqual(by_client["run_id"], started["run_id"])
+        self.assertEqual(by_client['activity_initial_attempt_id'], attempt)
         code, by_run = self.call("GET", "/v1/runs/" + started["run_id"])
         self.assertEqual(code, 200)
         self.assertEqual(by_run["invocation_id"], started["invocation_id"])

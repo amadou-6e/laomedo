@@ -72,7 +72,7 @@ def verified_route_submission(contract, envelope):
     if len(sources) != 1 or _handle(sources[0], 'source', 'name') != 'submission':
         raise ValueError('integrated_contract_agent_binding_required')
     source = graph.get_vertex(sources[0]['source'])
-    if source.data.get('type') != 'LaomedoCodexAgent':
+    if source.data.get('type') not in {'LaomedoCodexAgent', 'LaomedoClaudeAgent'}:
         raise ValueError('integrated_contract_codex_agent_required')
     agent = source.custom_component
     binding = getattr(agent, '_downstream_contract_binding', None)

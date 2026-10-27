@@ -1,0 +1,59 @@
+--- a/src/frontend/src/CustomNodes/helpers/mutate-template.ts
++++ b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
+@@ -100,6 +100,9 @@
+     if ((nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" &&
+         ["resolved_skill_id", "resolved_revision_id", "resolved_selection", "discovery_status"].includes(fieldName)) ||
+         (["LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(skillNode?.data.type ?? "")) && fieldName === "discovery_status")) continue;
++    if (["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(nodeKind(skillNode?.data.type ?? "") ?? "") &&
++        fieldName === "effort" && Array.isArray(incomingField.options) &&
++        !incomingField.options.includes(currentField.value)) continue;
+     if (!isEqual(currentField.value, appliedValue)) {
+       incomingField.value = cloneDeep(currentField.value);
+     }
+@@ -120,6 +123,13 @@
+     const current = getNodeTemplate(nodeId);
+     const selectors = nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" ? ["source", "skill_id", "revision_id"] : ["repository_url", "labels", "state", nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubPR" ? "pr_choice" : "issue_choice"];
+     for (const name of selectors) {
++      const expected = name === parameterName ? newValue : requestedNode.template?.[name]?.value;
++      if (!isEqual(current?.[name]?.value, expected)) return true;
++    }
++  }
++  if (["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(nodeKind(skillNode?.data.type ?? "") ?? "")) {
++    const current = getNodeTemplate(nodeId);
++    for (const name of ["model", "runner_url"]) {
+       const expected = name === parameterName ? newValue : requestedNode.template?.[name]?.value;
+       if (!isEqual(current?.[name]?.value, expected)) return true;
+     }
+--- a/src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx
++++ b/src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx
+@@ -23,6 +23,7 @@
+   helperText,
+   filteredOptions,
+   filteredMetadata,
++  selectedOptionMetadata,
+   ariaLabelledBy,
+ }: {
+   disabled?: boolean;
+@@ -43,10 +44,11 @@
+   // biome-ignore lint/suspicious/noExplicitAny: legacy
+   filteredMetadata: Record<string, any>[] | undefined;
+   // Id of NodeInputField's label element for this field.
++  selectedOptionMetadata?: Record<string, unknown>;
+   ariaLabelledBy?: string;
+ }) {
+   const { t } = useTranslation();
+-  const selectedMetadata = filteredMetadata?.find((item) => item?.id === value);
++  const selectedMetadata = selectedOptionMetadata ?? filteredMetadata?.find((item) => item?.id === value);
+ 
+   const renderSelectedIcon = () => {
+     const selectedIndex = filteredOptions.findIndex(
+--- a/src/frontend/src/components/core/dropdownComponent/index.tsx
++++ b/src/frontend/src/components/core/dropdownComponent/index.tsx
+@@ -358,6 +358,7 @@
+             helperText={helperText}
+             filteredOptions={visibleFilteredOptions}
+             filteredMetadata={visibleFilteredMetadata}
++            selectedOptionMetadata={policyOptionsMetaData?.find((item) => item?.id === visibleValue)}
+             ariaLabelledBy={ariaLabelledBy}
+           />
+         </div>

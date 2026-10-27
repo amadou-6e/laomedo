@@ -53,8 +53,10 @@ experiment harness, not a persistent user service:
 python -m laomedo.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source
 ```
 
-Historical `turn-ledger.json` files remain evidence and do not gate future
-user runs. Normal attempt sequencing uses `attempt-count.json`. The HTTP API binds to `127.0.0.1:8765` only and every request
+Historical `turn-ledger.json` stays untouched evidence. Current ceiling-free
+`attempt-count.json` is diagnostic accounting only; historical experiment
+ceilings do not restrict normal runs. Bounded verification belongs in a
+separate harness, never in the service or its persisted startup configuration. The HTTP API binds to `127.0.0.1:8765` only and every request
 requires the private bearer token saved at `$state/api-token`. The Langflow
 container needs that file mounted read-only at
 `/run/secrets/laomedo-runner-token`; the token is read at call time and is not
@@ -161,8 +163,9 @@ To reproduce the model checks with a newly authorized budget:
 The missing-snapshot check temporarily holds the completed run's `post-run`
 directory, attempts a resume with its original binding, then restores the
 directory. It must return `post_run_snapshot_mismatch` before reserving a turn.
-Once the ledger is exhausted, a new request must return
-`model_turn_cap_reached` without issuing a native thread or changing the ledger.
+Historical ledgers, including exhausted or malformed ones, must remain untouched
+and must not authorize or refuse normal runner work. Bound any verification
+allowance in a separate experiment harness, never in this service.
 
 ## Credential-free checks
 
@@ -172,7 +175,7 @@ python -m unittest discover -s tests -p 'test_*.py' -q
 
 These credential-free tests cover exact materialization, workspace separation, snapshot
 integrity, restart/resume binding, HTTP result and failure behavior, and the
-persistent turn cap with a fake app-server. They do not establish a successful
+legacy-ledger compatibility with an internal fake app-server. They do not establish a successful
 model-backed Langflow run by themselves or a broader security boundary. Private raw events
 remain under the runner state directory and are never committed.
 

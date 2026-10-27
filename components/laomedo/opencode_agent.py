@@ -12,6 +12,7 @@ class LaomedoOpenCodeAgent(Component):
     display_name = "Laomedo OpenCode Agent"
     description = "Run pinned skills with OpenCode through its isolated local Docker runner."
     name = "LaomedoOpenCodeAgent"
+    activity_provider = "opencode"
     inputs = [deepcopy(item) for item in Component.inputs if item.name not in
               {"model", "effort", "runner_url", "bridge_url", "output_requirements",
                "output_requirements_json", "output_retries"}] + [
@@ -63,6 +64,9 @@ class LaomedoOpenCodeAgent(Component):
         return self._token_file_path()
 
     def _token_file_path(self):
+        return self._runner_token_file_path()
+
+    def _runner_token_file_path(self):
         return os.environ.get("LAOMEDO_OPENCODE_RUNNER_TOKEN_FILE",
                               "/run/secrets/laomedo-opencode-runner-token")
 

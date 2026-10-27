@@ -13,7 +13,6 @@ from laomedo.workspace_skills import remove_owned_tree
 from test_local_runner import FakeServer
 
 
-from verification_runner import VerificationLocalRunner as LocalRunner
 
 class WorkspaceSkillGitTests(unittest.TestCase):
     def setUp(self):
@@ -45,7 +44,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
                  '-c', 'core.autocrlf=false', 'commit', '-m', 'fixture')
         (checkout/'.git/info/exclude').unlink(missing_ok=True)
         return LocalRunner(self.root/f'state-{index}', self.store.root, source,
-                           transport=transport, check_docker=False, max_model_turns=1)
+                           transport=transport, check_docker=False)
 
     def request(self):
         return {'task': 'fixture', 'model': 'test-model', 'effort': 'low',

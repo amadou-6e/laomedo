@@ -19,12 +19,25 @@ def apply(checkout):
     if revision != UPSTREAM:
         raise SystemExit("pinned_langflow_checkout_required")
     overlay = ROOT / "frontend/langflow-skill-viewer"
+    models_patch = overlay / "claude-models.patch"
     patch = overlay / "upstream.patch"
     target = checkout / "src/frontend/src/modals/skillFilesModal"
     if target.exists() or subprocess.check_output(["git", "-C", str(checkout), "status", "--porcelain"]).strip():
         raise SystemExit("clean_upstream_checkout_required")
     subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(patch)], check=True)
     subprocess.run(["git", "-C", str(checkout), "apply", str(patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(models_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", str(models_patch)], check=True)
+    selection_patch = overlay / "claude-selection.patch"
+    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(selection_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", str(selection_patch)], check=True)
+    catalog_patch = overlay / "catalog-recovery.patch"
+    subprocess.run(["git", "-C", str(checkout), "apply", "--check", str(catalog_patch)], check=True)
+    subprocess.run(["git", "-C", str(checkout), "apply", str(catalog_patch)], check=True)
+    shutil.copy2(overlay / "AgentModelSelection.test.ts",
+                 checkout / "src/frontend/src/CustomNodes/helpers/AgentModelSelection.test.ts")
+    shutil.copy2(overlay / "ClaudeModelDropdown.test.tsx",
+                 checkout / "src/frontend/src/components/core/dropdownComponent/ClaudeModelDropdown.test.tsx")
     agent_target = checkout / "src/frontend/src/CustomNodes/GenericNode/components/RenderInputParameters"
     shutil.copy2(overlay / "RenderAgentInputParameters.tsx", agent_target / "index.tsx")
     shutil.copy2(overlay / "AgentAdvancedControls.tsx", agent_target / "AgentAdvancedControls.tsx")
@@ -129,9 +142,13 @@ def apply(checkout):
     flow_error = replace_once(flow_error, '                                  <Button size="sm" onClick={handleRetry}>', '                                  {!descriptiveError && <Button size="sm" onClick={handleRetry}>')
     flow_error = replace_once(flow_error, '{t("flowBuild.retry")}\n                                  </Button>', '{t("flowBuild.retry")}\n                                  </Button>}')
     flow_error = replace_once(flow_error, 'className="max-h-48 overflow-y-auto"', 'className="max-h-[60vh] overflow-y-auto"')
-    flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
+    flow_error = replace_once(flow_error, '                        <Markdown\n', '                        {descriptiveError ? <NodeErrorNotice inline message={descriptiveError} context={{\n                          nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name ?? "Flow",\n                          operation: affectedNode?.data.node?.template?.operation?.value,\n                          savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n                        }} /> : <Markdown\n')
     flow_error = replace_once(flow_error, '                        </Markdown>', '                        </Markdown>}')
     flow_error = replace_once(flow_error, 'className="absolute right-0 font-mono text-xs"', 'className={cn("absolute right-0 font-mono text-xs", descriptiveError && "hidden")}')
+    # Stop must disappear immediately on success, not survive as an exiting
+    # animation over the successful duration.
+    flow_error = replace_once(flow_error, '                      <AnimatePresence mode="sync">\n                        {!buildInfo?.success && (', '                      {!buildInfo?.success && <AnimatePresence mode="sync">\n                        {!buildInfo?.success && (')
+    flow_error = replace_once(flow_error, '                      </AnimatePresence>\n                    </div>', '                      </AnimatePresence>}\n                    </div>')
     flow_error = replace_once(flow_error, '  return (\n    <AnimatePresence mode="wait">', '  if (!isBuilding && descriptiveError && !dismissed) {\n    return <FlowErrorPopup message={descriptiveError} laomedo={Boolean(affectedNode) || isKnownNodeError(descriptiveError, graphNodes.some(node => node.data.type?.startsWith("Laomedo")))} onDismiss={() => { setBuildInfo(null); setDismissed(false); }} context={{\n      nodeId: affectedNode?.id, nodeType: affectedNode?.data.type, nodeLabel: affectedNode?.data.node?.display_name,\n      operation: affectedNode?.data.node?.template?.operation?.value,\n      savedReferences: [affectedNode?.data.node?.template?.run_reference?.value, affectedNode?.data.node?.template?.run_reference_json?.value],\n    }} />;\n  }\n  return (\n    <AnimatePresence mode="wait">')
     flow_error_path.write_text(flow_error, encoding="utf-8")
     outcome_patch = overlay / "runner-outcomes.patch"

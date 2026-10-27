@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import GraphAgents, { HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./index";
+import GraphAgents, { messageText, HighlightedJson, MessageMarkdown, commandTitle, activityTitle, aggregateUsagePoints, RuntimeRecords, UsageCharts, conversationRows, scopedProjection, turnPosition, conversationMatches, conversationDocument, telemetryDocument } from "./index";
 import { api } from "@/controllers/API/api";
 jest.mock("react-syntax-highlighter",()=>({Prism:({children}:{children:string})=><pre><span>{children}</span></pre>}));
 jest.mock("@/controllers/API/api",()=>({api:{get:jest.fn(),post:jest.fn()}}));
@@ -360,4 +360,58 @@ test.each([null,"invocation_boundary_unverified"])("initial graph totals respect
  const totals=await screen.findByRole("group",{name:"Run totals"});
  if(reason)expect(totals).toHaveTextContent("Unknown");
  else {expect(totals).not.toHaveTextContent("Unknown");expect(totals).toHaveTextContent("$0.000000")}
+});
+
+test("Claude messages use their recorded provider instead of the Codex label",async()=>{
+  const first={...run("one","execution"),provider:"claude-code"};
+  const item={id:"message",thread:"one",turn:"turn",started:first.started,ended:first.ended,item:{type:"agentMessage",text:"A real provider label belongs here."}};
+  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,items:[item]},truncated:false}}));
+  render(<GraphAgents flowId="flow"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"node-one \u00b7 completed"}));
+  await screen.findByText("Claude",{exact:true});
+  expect(screen.queryByText("Codex",{exact:true})).toBeNull();
+});
+
+test("Claude diagnostics remain separate from captured native activity",async()=>{
+  const first={...run("one","execution"),provider:"claude-code",model:null};
+  const diagnostics=[{evidence:"terminal_receipt_only",tools_enabled:false,reported_session_cost_usd:0.01,cost_basis:"CLI estimate; cumulative session, not a subscription charge"}];
+  (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection:{...projection,diagnostics},truncated:false}}));
+  render(<GraphAgents flowId="flow"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"node-one \u00b7 completed"}));
+  await screen.findByRole("button",{name:"Usage and cost details"});
+  expect(screen.queryByText(/Claude activity shows the native events captured for this invocation/)).toBeNull();
+  expect(screen.queryByText("Claude terminal receipt 1")).toBeNull();
+  expect(screen.queryByText(/terminal_receipt_only/)).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Usage and cost details"}));
+  expect(await screen.findByText(/Claude activity shows the native events captured for this invocation/)).toBeVisible();
+  expect(screen.getByText(/Model unconfirmed/)).toBeInTheDocument();
+});
+
+ test("empty Claude telemetry section is omitted",()=>{
+  render(<RuntimeRecords records={[]} coverage="No records" context={{run_id:"run",execution_id:null,node_id:"agent",provider:"claude-code",model:null,native_session:null,scope:{},capture_state:"complete",truncated:false}}/>);
+  expect(screen.queryByRole("region",{name:"OpenTelemetry"})).toBeNull();
+  expect(screen.queryByText("OpenTelemetry")).toBeNull();
+ });
+
+
+test("Claude prompt envelopes display the task while arbitrary JSON stays literal",()=>{
+ const text=JSON.stringify({task:"Read the workspace.",workspace:"/draft",skills:[],imported_artifacts:[],output_requirements:null});
+ expect(messageText({type:"userMessage",text},"claude-code")).toBe("Read the workspace.");
+ const captured={type:"userMessage",content:[{type:"inputText",text}],provenance:"host_submitted_prompt"};
+ expect(messageText(captured,"claude-code")).toBe("Read the workspace.");
+ expect(captured.content[0].text).toBe(text);
+ expect(messageText({type:"userMessage",text},"codex-cli")).toBe(text);
+ expect(messageText({type:"agentMessage",text},"claude-code")).toBe(text);
+ for(const plain of ['A plain task','{"task":"Keep this JSON"}','{"task":"x","workspace":"/draft","skills":[],"imported_artifacts":[],"extra":1}']) expect(messageText({type:"userMessage",text:plain},"claude-code")).toBe(plain);
+});
+
+
+test("Claude capture warning does not relabel a completed task as failed",async()=>{
+ const first={...run("one","execution"),provider:"claude-code",stream_state:"partial",reason:"claude_telemetry_capture_failed"};
+ (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection,truncated:false}}));
+ render(<GraphAgents flowId="flow"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"node-one \u00b7 completed"}));
+ expect(await screen.findByText(/Capture note: Some Claude telemetry could not be recorded/)).toBeVisible();
+ expect(screen.getByRole("button",{name:"Error details: Some Claude telemetry could not be recorded"})).toBeVisible();
+ expect(screen.getByText(/Captured stream: partial/)).toBeVisible();
 });

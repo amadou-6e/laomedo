@@ -36,6 +36,7 @@ def project(events, *, root_thread=None, model=None):
     turns, items, threads, latest, baselines = {}, {}, {}, {}, {}
     points = []
     telemetry = []
+    diagnostics = []
     previous = {}
     invalid_usage = set()
     turn_usage_by_key = {}
@@ -52,6 +53,8 @@ def project(events, *, root_thread=None, model=None):
         event=raw.get('event',raw)
         params=event.get('params',{})
         method=event.get('method',event.get('type','unknown'))
+        if method == 'claude/result':
+            diagnostics.append(params)
         if method == 'otel/record':
             telemetry.append(_telemetry(params))
             continue
@@ -86,6 +89,8 @@ def project(events, *, root_thread=None, model=None):
         if isinstance(item,dict) and item.get('id'):
             key=(thread,item['id'])
             value=items.setdefault(key,{'id':item['id'],'thread':thread,'turn':turn_id,'started':timestamp,'ended':None,'item':item})
+            if method == 'item/updated' and value['ended'] is None:
+                value['item'] = item
             if method == 'item/completed':
                 if value['ended'] and value['item'] != item:
                     value['conflicting_receipts']=True
@@ -106,6 +111,9 @@ def project(events, *, root_thread=None, model=None):
                     threads.setdefault(child,{'id':child,'parent':thread})
         if method == 'thread/tokenUsage/updated' and thread:
             total=params.get('tokenUsage',{}).get('total')
+            if total is None and params.get('usage_scope') in {'native_session_cumulative', 'terminal_receipt_unavailable'}:
+                invalid_usage.add(thread)
+                latest[thread]=None
             if isinstance(total,dict):
                 base=baselines.get(thread,{})
                 keys=KEYS
@@ -181,6 +189,7 @@ def project(events, *, root_thread=None, model=None):
     cost_reason=cost.get('reason') or cost['basis']
     projected_turns=[{**lane,'usage':turn_usage_by_key.get(key),'cost':estimate(models.get(lane['thread']),turn_usage_by_key.get(key))} for key,lane in turns.items()]
     return {'turns':projected_turns,'items':list(items.values()),'threads':list(threads.values()),
+            'diagnostics':[value for value in diagnostics if value.get('threadId') in related],
             'telemetry':telemetry,'telemetry_coverage':'observed; exporter flush completeness unverified' if telemetry else 'not observed',
             'uncorrelated_thread_count':len(uncorrelated),
             'usage':usage,'usage_by_thread':latest,'usage_points':points,

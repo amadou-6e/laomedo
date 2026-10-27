@@ -139,6 +139,10 @@ def inspect_exact(name: str, run_id: str, token: str) -> tuple[str, str | None]:
 def cleanup_exact(name: str, run_id: str, token: str) -> tuple[bool, str]:
     """Stop only the exact labelled reservation, then prove it is absent."""
     state, container_id = inspect_exact(name, run_id, token)
+    if state == "unknown":
+        # One bounded read-only reconciliation handles a transient daemon stall.
+        # No removal is permitted until the exact labels have been established.
+        state, container_id = inspect_exact(name, run_id, token)
     if state == "absent":
         return True, "absent"
     if state != "owned":
@@ -147,11 +151,13 @@ def cleanup_exact(name: str, run_id: str, token: str) -> tuple[bool, str]:
         result = subprocess.run(["docker", "rm", "-f", container_id],
                                 capture_output=True, text=True, timeout=15)
     except (OSError, subprocess.TimeoutExpired):
-        return False, "remove_unknown"
+        result = None
     after, _ = inspect_exact(name, run_id, token)
+    if after == "unknown":
+        after, _ = inspect_exact(name, run_id, token)
     if after == "absent":
         return True, "removed"
-    return False, "remove_failed" if result.returncode else "still_present"
+    return False, "remove_unknown" if result is None else "remove_failed" if result.returncode else "still_present"
 
 
 def cleanup_after_loss(name: str, run_id: str, token: str, *,

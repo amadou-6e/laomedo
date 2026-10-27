@@ -3,6 +3,26 @@ import catalog from "./node-error-catalog.json";
 
 const run = "11111111-1111-4111-8111-111111111111";
 const request = "22222222-2222-4222-8222-222222222222";
+test("Claude model failures retain their code and redact native payload details",()=>{
+ const failure=describeNodeFailure('Error building Component LaomedoClaudeAgent: \n\nunsupported_claude_effort; private-native-payload',undefined,
+  {nodeId:'agent',nodeType:'LaomedoClaudeAgent',operation:'fresh'});
+ expect(failure.title).toBe('This Claude model does not support that effort');
+ expect(failure.recovery).toContain('Reasoning Effort');
+ expect(failure.diagnostics.code).toBe('unsupported_claude_effort');
+ expect(JSON.stringify(failure)).not.toContain('private-native-payload');
+ const unknown=describeNodeFailure('claude_future_failure_2',undefined,{nodeType:'LaomedoClaudeAgent'});
+ expect(unknown.diagnostics.code).toBe('claude_future_failure_2');
+ expect(unknown.description).toContain('cause has not been established');
+ expect(unknown.recovery).toContain('before starting another request');
+});
+test("a model-refresh alert attaches actionable recovery for its real error-details control",()=>{
+ const value=describeLaomedoAlert({title:'Refresh failed',list:['runner_model_catalog_unavailable_check_runner_connection']},true);
+ expect(value.title).toBe('The model list could not be loaded');
+ expect(value.failure?.recovery).toContain('Refresh control');
+ expect(value.list?.join(' ')).toContain('Open Error details');
+ expect(value.list?.join(' ')).not.toContain(value.failure?.recovery);
+ expect(value.diagnosticCode).toBe('runner_model_catalog_unavailable_check_runner_connection');
+});
 test.each(Object.keys(catalog))("maps %s without mutating its stable code", code => {
   const failure = describeNodeFailure(code, undefined, { nodeId: "agent", operation: "resume" });
   expect(failure.diagnostics.code).toBe(code);
@@ -92,9 +112,40 @@ test("notification diagnostics come from the matched failure rather than the fir
 });
 
 test("future safe codes and branded unknown failures use the descriptive flow path", () => {
- expect(isKnownNodeError("future_condition_240", true)).toBe(true);
+ expect(isKnownNodeError("future_condition_240", true)).toBe(false);
  expect(isKnownNodeError("Error building Component Laomedo Codex Agent: \n\nUnrecognized provider response")).toBe(true);
  expect(isKnownNodeError("An unrelated ordinary message")).toBe(false);
  expect(isKnownNodeError("future_condition_240")).toBe(false);
  expect(isKnownNodeError("unauthorized")).toBe(false);
+});
+
+test("a mixed graph leaves another component's snake case alert intact", () => {
+ const other = { title: "Other component failed", list: ["future_condition_240"] };
+ expect(describeLaomedoAlert(other, true)).toBe(other);
+ expect(describeLaomedoAlert({ title: "Failure", list: ["Error building Component LaomedoClaudeAgent: \n\nfuture_condition_240"] }, true).diagnosticCode).toBe("future_condition_240");
+});
+
+test('invalid connected skills describe the optional zero-skill path without losing diagnostics',()=>{
+ const failure=describeNodeFailure('invalid_skill_reference',undefined);
+ expect(failure.description).toContain('Skills are optional');
+ expect(failure.recovery).toContain('disconnect Skill References');
+ expect(failure.diagnostics.code).toBe('invalid_skill_reference');
+ expect(JSON.stringify(describeNodeFailure('Bearer sk-private-value',undefined))).not.toContain('private-value');
+ expect(describeNodeFailure('one_to_sixteen_skills_required',undefined).description).toContain('more than sixteen');
+});
+
+test('saved graph authentication failures preserve their code and redact private details',()=>{
+ const failure=describeNodeFailure('saved_flow_fetch_failed; Bearer sk-private-value',undefined);
+ expect(failure.diagnostics.code).toBe('saved_flow_fetch_failed');
+ expect(failure.title).toContain('saved graph');
+ expect(failure.recovery).toContain('Langflow');
+ expect(JSON.stringify(failure)).not.toContain('private-value');
+ expect(describeNodeFailure('unfamiliar_saved_flow_failure',undefined).diagnostics.code).toBe('unfamiliar_saved_flow_failure');
+});
+
+test('invalid handoff selections explain the actual parameter without exposing its contents',()=>{
+ const failure=describeNodeFailure('invalid_handoff_artifact_selection; Bearer sk-private-value',undefined);
+ expect(failure.diagnostics.code).toBe('invalid_handoff_artifact_selection');
+ expect(failure.recovery).toContain('Selected Artifact References');
+ expect(JSON.stringify(failure)).not.toContain('private-value');
 });

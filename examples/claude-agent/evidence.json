@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-22",
+  "source_revision": "ad35ffa6ad0c400f1857734d8379ef1a0e6ed36d",
+  "status": "passed",
+  "provider": "claude",
+  "runtime": "Claude Code 2.1.301",
+  "requested_model": "sonnet",
+  "requested_effort": "low",
+  "run_id": "5f39bb32-3ae6-4344-97e7-9718dc6dc383",
+  "thread_id": "c7bf1115-ac01-4a70-98c1-1e28d18f62b6",
+  "flow_id": "f454eb22-f19a-4de0-a2ad-a691e6522d9f",
+  "base_revision": "sha256:e53f206dfd9a1704dfbbdedcba7474f9ada2b98797b065adbf374042229e3369",
+  "candidate_revision": "sha256:3b0a832eb6fb041f49dac0cfeb52d380a843010914b436c9b5321266a087adba",
+  "commit": {
+    "commit_id": "sha256:ba4a4eb18af559d30c3e5879fee072075b9206c390c44723cd13f0a2da9b7600",
+    "skill_id": "claude-workspace-guide",
+    "revision_id": "sha256:3b0a832eb6fb041f49dac0cfeb52d380a843010914b436c9b5321266a087adba",
+    "parent_commit": "sha256:96b748e8f161f22201943ddc8d96caf6a07430f35465090659bb1f3fe5776341",
+    "created_at": "2026-10-22T16:45:48.814232+00:00",
+    "message": "Replace only the description line in SKILL.md frontmatter with the requested text; all other bytes (including CRLF line endings) are preserved.",
+    "files": [
+      "SKILL.md"
+    ],
+    "patch": "--- base/SKILL.md\n+++ draft/SKILL.md\n@@ -1,6 +1,6 @@\n ---\\r\\n\n name: claude-workspace-guide\\r\\n\n-description: Helps a user understand a selected registered skill in Laomedo by inspecting its pinned revision, files, and commit diffs in a read-only way.\\r\\n\n+description: Inspect a skill's pinned files and compare its commit revisions without changing it.\\r\\n\n ---\\r\\n\n \\r\\n\n # Inspect a skill workspace\\r\\n\n",
+    "editor": {
+      "kind": "agent",
+      "run_id": "5f39bb32-3ae6-4344-97e7-9718dc6dc383",
+      "thread_id": "c7bf1115-ac01-4a70-98c1-1e28d18f62b6",
+      "trace_ref": "laomedo:run:5f39bb32-3ae6-4344-97e7-9718dc6dc383:events"
+    },
+    "draft_id": "9e545156-8e33-43b4-88cb-74eb999694a9",
+    "policy_ref": {
+      "policy_id": "claude-workspace-guide",
+      "revision_id": "1",
+      "hash": "sha256:cdc9900f8c9d30c10777c34986d36f9399a96d44f11dc0066e887724b35a7166"
+    },
+    "nonce": "5263092198a3416a9a55cca58745f905"
+  },
+  "attempted_turns": 3,
+  "maximum_turns": 3,
+  "output_corrections_used": 0,
+  "output_validation": {
+    "contract_status": "accepted",
+    "errors": [],
+    "requirements_revision": "sha256:a9561f8b55481f4a6503a90006ab6d7fff611db98cced480cda7d508adbcfa9d",
+    "schema_version": "laomedo.output-validation.v1"
+  },
+  "same_session_resume": true,
+  "same_ticket_replay_without_new_turn_or_commit": true,
+  "source_unchanged": true,
+  "canonical_unchanged": true,
+  "only_description_line_changed": true,
+  "prior_skill_run_id": "ae53c65d-7925-4816-a1c2-9ec54c15c0ad",
+  "preserved_initial_run": true,
+  "parent_exit_observed": true,
+  "descendant_cleanup": "not_verified",
+  "evidence_complete": "unknown",
+  "precheck_installed": false,
+  "graph_nodes": 2,
+  "graph_edges": 2,
+  "preview_url": "http://127.0.0.1:7893/flow/f454eb22-f19a-4de0-a2ad-a691e6522d9f"
+}

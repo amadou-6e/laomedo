@@ -16,13 +16,25 @@ import { getBaseUrl } from "@/customization/utils/urls";
 type Run = {provider?:string;id:string;node:string;node_label?:string|null;execution:string|null;started:string;ended:string|null;status:string;stream_state:string;reason?:string|null;runner_run_id:string|null;native_session:string|null;model:string|null;event_count:number};
 type Lane = {id:string;thread?:string;turn?:string;started:string;ended:string|null;status?:string;usage?:Record<string,number>|null;cost?:Cost;item?:Record<string,unknown>;conflicting_receipts?:boolean};
 type Cost = {amount:number|null;currency:string;basis:string;catalog_date:string;source:string|null;model?:string|null;per_thread?:Record<string,Cost>;reason?:string|null};
-type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null;title?:string}[];usage_by_thread?:Record<string,Record<string,number>|null>;usage:Record<string,number>|null;usage_points:{at:string;thread:string;turn?:string;turn_usage?:Record<string,number>|null;turn_cost?:Cost;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string};
+type Projection = {turns:Lane[];items:Lane[];threads:{id:string;parent:string|null;title?:string}[];usage_by_thread?:Record<string,Record<string,number>|null>;usage:Record<string,number>|null;usage_points:{at:string;thread:string;turn?:string;turn_usage?:Record<string,number>|null;turn_cost?:Cost;usage:Record<string,number>;cost:Cost}[];clock:string;cost:Cost;cost_reason:string;telemetry:Record<string,unknown>[];telemetry_coverage:string;diagnostics?:Record<string,unknown>[]};
 type Detail = {run:Run;projection:Projection;truncated:boolean};
 const time = (value:string) => new Date(value).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const duration = (start:string,end:string|null) => `${Math.max(0,(Date.parse(end??new Date().toISOString())-Date.parse(start))/1000).toFixed(1)}s`;
-const messageText = (item:Record<string,unknown>|undefined) => {
-  if(typeof item?.text==="string")return item.text;
-  if(item?.type==="userMessage"&&Array.isArray(item.content))return item.content.map(part=>typeof part?.text==="string"?part.text:"[Non-text content]").join("\n");
+export const messageText = (item:Record<string,unknown>|undefined,provider?:string) => {
+  const text=typeof item?.text==="string"?item.text:
+    item?.type==="userMessage"&&Array.isArray(item.content)?item.content.map(part=>typeof part?.text==="string"?part.text:"[Non-text content]").join("\n"):null;
+  if(text!==null) {
+    if(item?.type==="userMessage" && (provider==="claude"||provider==="claude-code")) {
+      try {
+        const envelope=JSON.parse(text);
+        if(envelope && typeof envelope==="object" && !Array.isArray(envelope) &&
+          typeof envelope.task==="string" && typeof envelope.workspace==="string" &&
+          Array.isArray(envelope.skills) && Array.isArray(envelope.imported_artifacts) &&
+          Object.keys(envelope).every(key=>["task","workspace","skills","imported_artifacts","output_requirements"].includes(key))) return envelope.task;
+      } catch { /* Ordinary user prose and JSON remain unchanged. */ }
+    }
+    return text;
+  }
   return null;
 };
 
@@ -65,7 +77,7 @@ export function conversationDocument(items:Lane[],context:ExportContext,query:st
   if(format==="json")return JSON.stringify({schema_version:1,kind:"conversation",context,search:query,items},null,2);
   const fence=(text:string)=>{let length=3;for(const match of text.matchAll(/`+/g))length=Math.max(length,match[0].length+1);const marker="`".repeat(length);return `${marker}json\n${text}\n${marker}`};
   return [`# Agent conversation`,`Graph: ${context.graph_id??"Unknown"}\nRun: ${context.run_id}\nExecution: ${context.execution_id??"Unknown"}\nProvider: ${context.provider??"Unknown"}\nModel: ${context.model??"Unknown"}\nScope: ${JSON.stringify(context.scope)}\nCapture: ${context.capture_state}${context.truncated?" (partial)":""}\nCapture warning: ${context.capture_reason??"None"}\nSearch: ${JSON.stringify(query)}`,
-    ...items.map(lane=>{const value=lane.item??{},text=messageText(value),speaker=value.type==="userMessage"?"User":lane.thread&&lane.thread!==context.native_session?"Subagent":"Agent";return `## ${text!==null?speaker:activityTitle(value)} · ${lane.started}\n\nThread: ${lane.thread??"Unknown"}${lane.turn?` · Turn: ${lane.turn}`:""}\n\n${text??fence(JSON.stringify(value,null,2))}`})].join("\n\n")+"\n";
+    ...items.map(lane=>{const value=lane.item??{},text=messageText(value,context.provider),speaker=value.type==="userMessage"?"User":lane.thread&&lane.thread!==context.native_session?"Subagent":"Agent";return `## ${text!==null?speaker:activityTitle(value)} · ${lane.started}\n\nThread: ${lane.thread??"Unknown"}${lane.turn?` · Turn: ${lane.turn}`:""}\n\n${text??fence(JSON.stringify(value,null,2))}`})].join("\n\n")+"\n";
 }
 
 function downloadActivity(content:string,name:string,type:string) {
@@ -123,15 +135,16 @@ export function activityTitle(value:Record<string,unknown>) {
   }
   if(value.type==="collabAgentToolCall"||value.type==="collabAgentSpawnToolCall")return `Subagent tool${typeof value.tool==="string"?`: ${value.tool}`:""}${typeof value.status==="string"?` · ${value.status}`:""}`;
   if(value.type==="mcpToolCall")return [value.server,value.tool].filter(part=>typeof part==="string"&&part).join(" · ")||"MCP tool";
-  if(value.type==="dynamicToolCall")return typeof value.tool==="string"?value.tool:"Tool call";
+  if(value.type==="dynamicToolCall")return value.tool==="mcp__laomedo__exec_command"?"Shell command":value.tool==="mcp__laomedo__github_operation"?"GitHub operation":typeof value.tool==="string"?value.tool:"Tool call";
   if(value.type==="toolCall"&&typeof value.toolName==="string")return value.toolName;
   return String(value.type??"Tool activity");
 }
 
 function ActivityItem({lane,rootThread,provider}:{lane:Lane;rootThread:string|null;provider?:string}) {
-  const value=lane.item??{},message=messageText(value),user=value.type==="userMessage";
+  const value=lane.item??{},message=messageText(value,provider),user=value.type==="userMessage";
   const child=Boolean(rootThread&&lane.thread&&lane.thread!==rootThread);
-  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:provider==="opencode"?"OpenCode":"Codex";
+  const providerName=provider==="claude"||provider==="claude-code"?"Claude":provider==="opencode"||provider==="opencode-cli"?"OpenCode":!provider||provider==="codex"||provider==="codex-cli"?"Codex":"Agent";
+  const speaker=child?`Subagent ${lane.thread!.slice(-8)}`:providerName;
   const timing=<span title={`${lane.started} → ${lane.ended??"running"}`} className="tabular-nums">{time(lane.started)}{!user&&` · ${duration(lane.started,lane.ended)}`}</span>;
   if(message!==null)return <div className={`flex min-w-0 flex-col gap-2 ${user?"items-end":"items-start"}`} data-message-role={user?"user":"agent"}>
     <div className="flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground"><div className={`flex flex-wrap items-center gap-2 ${user?"ml-auto":"flex-1"}`}><span title={lane.thread}>{user?"You":speaker}</span>{timing}</div><MessageSource value={value}/></div>
@@ -287,6 +300,7 @@ export function RuntimeRecords({records,coverage,context}:{records:Record<string
   const entries=useMemo(()=>records.map((record,index)=>({record,index,text:JSON.stringify(record)})),[records]);
   const search=useMemo(()=>new Fuse(entries,{keys:["text"],threshold:.35,ignoreLocation:true,minMatchCharLength:2}),[entries]);
   const visible=query.trim()?search.search(query.trim()).map(result=>result.item):entries;
+  if(!records.length && (context?.provider==="claude"||context?.provider==="claude-code")) return null;
   return <section className="min-w-0 space-y-4" aria-label="OpenTelemetry">
     <SectionHeading actions={<><ActivityInfo label="OpenTelemetry capture details" text={`${coverage}. Runtime spans are not counted as agent invocations or token charges.`}/><Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" aria-label="Export OpenTelemetry JSON" disabled={!visible.length} title={`Export ${visible.length} matching OpenTelemetry records`} onClick={()=>downloadActivity(telemetryDocument(visible.map(entry=>entry.record),coverage,context,query),`opentelemetry-${context?.run_id??"records"}.json`,"application/json")}><IconComponent name="Download" className="h-3.5 w-3.5"/>Export</Button></>}>OpenTelemetry</SectionHeading>
     <div className="flex min-w-0 items-center gap-3"><div className="relative min-w-0 flex-1"><IconComponent name="Search" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/><input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search OpenTelemetry records" placeholder="Search records by name, thread, tool or metadata..." className="h-9 w-full rounded-md border bg-background pl-9 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/>{query&&<button type="button" onClick={()=>setQuery("")} className="absolute right-3 top-2 text-xs text-muted-foreground underline">Clear</button>}</div><span role="status" className="shrink-0 text-xs text-muted-foreground">{visible.length} of {records.length} records</span></div>
@@ -428,7 +442,7 @@ export default function GraphAgents({flowId}:{flowId?:string}) {
       {detail.run.reason&&<p className="text-sm" role="status">Capture note: {describeNodeFailure(detail.run.reason,undefined).title} <NodeErrorNotice message={detail.run.reason} context={{nodeId:detail.run.node,nodeLabel:label(detail.run)}}/></p>}
       {detail.truncated&&<p role="alert">This invocation exceeds the detail limit. The view is partial.</p>}
       <section className="min-w-0 space-y-4" aria-labelledby="agent-usage-heading">
-        <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.`}/>}>Usage and diagnostics</SectionHeading>
+        <SectionHeading id="agent-usage-heading" actions={<ActivityInfo label="Usage and cost details" text={`${projection!.usage===null?"Aggregate usage is incomplete. ":""}${projection!.cost_reason}. Cached input is part of input; reasoning is part of output. Charts show captured observations only.${detail.run.provider==="claude"||detail.run.provider==="claude-code"?" Claude activity shows the native events captured for this invocation. Usage is reported only when supplied by Claude. Check the recorded tool activity and cleanup status for this run.":""}`}/>}>Usage and diagnostics</SectionHeading>
         <UsageCharts key={`usage:${selected}:${scope.thread??""}:${scope.turn??""}`} projection={projection!} scopeLabel={scopeLabel} running={!detail.truncated&&!detail.run.reason&&selectedLane?.status==="running"}/>
       </section>
       <RuntimeRecords key={`records:${selected}:${scope.thread??""}:${scope.turn??""}`} records={projection!.telemetry} coverage={projection!.telemetry_coverage} context={exportContext!}/>

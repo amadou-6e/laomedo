@@ -68,7 +68,7 @@ class LaomedoSkill(Component):
             if raw or not str(getattr(self, 'edit_request', '')).strip():
                 raise ValueError('skill_feedback_request_required')
             source = self.graph.get_vertex(feedback.source_id)
-            if source.data.get('type') != 'LaomedoCodexAgent' or feedback.source_handle.name != 'answer':
+            if source.data.get('type') not in {'LaomedoCodexAgent', 'LaomedoClaudeAgent'} or feedback.source_handle.name != 'answer':
                 raise ValueError('skill_feedback_original_agent_required')
             # feedback_edge already validates the Task and independent read-only
             # Skill references; those references must reach the isolated Agent.

@@ -13,6 +13,7 @@ test("only Agent scalar controls are grouped; hidden and connected fields stay o
   expect(advancedAgentFields(data, fields, [{ target: "agent", data: { targetHandle: { fieldName: "runner_url" } } }], false)).toEqual([]);
   expect(advancedAgentFields({ ...data, type: "Other" }, fields, [], false)).toEqual([]);
   expect(advancedAgentFields({ ...data, type: "LaomedoOpenCodeAgent" }, fields, [], false)).toEqual(["runner_url"]);
+  expect(advancedAgentFields({ ...data, type: "LaomedoClaudeAgent" }, fields, [], false)).toEqual(["runner_url"]);
 });
 test("starts collapsed and retains edited values through collapse and reopen", () => {
   render(<AgentAdvancedControls nodeId="a" visible><input aria-label="Runner URL" defaultValue="local" /></AgentAdvancedControls>);
@@ -64,4 +65,25 @@ test("obsolete connection and bridge controls stay hidden in legacy Agent templa
  const legacy = { ...data, node: { template: { ...data.node.template, ...Object.fromEntries(names.map(name => [name, { ...field, advanced: false }])) } } };
  render(<RenderInputParameters data={legacy} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false} />);
  for (const name of names) expect(screen.queryByRole("textbox", { name })).toBeNull();
+});
+
+test("Claude uses the shared collapsed controls and hides legacy internal fields", () => {
+ const normal={...data,type:"LaomedoClaudeAgent",node:{template:{...data.node.template,
+  run_timeout_seconds:{...field,type:'int',value:180},
+  model:{...field,advanced:false},skill_reference:{...field,type:'other',advanced:false},
+  run_reference:{...field,advanced:false},output_requirements:{...field,advanced:false}}}};
+ render(<RenderInputParameters data={normal} types={{}} isToolMode={false} showNode shownOutputs={[]} showHiddenOutputs={false}/>);
+ expect(screen.getByRole('textbox',{name:'model'})).toBeVisible();
+ expect(screen.queryByRole('textbox',{name:'runner_url'})).toBeNull();
+ expect(screen.queryByRole('textbox',{name:'run_reference'})).toBeNull();
+ expect(screen.queryByRole('textbox',{name:'output_requirements'})).toBeNull();
+ expect(screen.queryByRole('textbox',{name:'run_timeout_seconds'})).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'Advanced controls'}));
+ expect(screen.getByRole('textbox',{name:'runner_url'})).toBeVisible();
+ expect(screen.getByRole('textbox',{name:'run_timeout_seconds'})).toHaveValue('180');
+ fireEvent.change(screen.getByRole('textbox',{name:'run_timeout_seconds'}),{target:{value:'321'}});
+ fireEvent.click(screen.getByRole('button',{name:'Advanced controls'}));
+ fireEvent.click(screen.getByRole('button',{name:'Advanced controls'}));
+ expect(screen.getByRole('textbox',{name:'run_timeout_seconds'})).toHaveValue('321');
+ expect(screen.getByRole('textbox',{name:'skill_reference'})).toHaveAttribute('data-handle','true');
 });

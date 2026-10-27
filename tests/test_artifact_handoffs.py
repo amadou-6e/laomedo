@@ -8,7 +8,6 @@ from laomedo.local_runner import LocalRunner
 import test_local_runner as fixtures
 
 
-from verification_runner import VerificationLocalRunner as LocalRunner
 
 class ArtifactTests(unittest.TestCase):
     def setUp(self):
@@ -36,7 +35,7 @@ class ArtifactTests(unittest.TestCase):
         self.assertEqual((snapshot / "handoff/selected.txt").read_text(), "from-first-turn")
         self.assertFalse((self.runner._run_dir(self.first["run_id"]) / "post-run/handoff").exists())
         restarted = LocalRunner(self.runner.state, self.runner.store.root, self.fixture.source,
-                                transport=fixtures.FakeServer, check_docker=False, max_model_turns=6)
+                                transport=fixtures.FakeServer, check_docker=False)
         recovered = restarted.status(second["run_id"])
         self.assertEqual(recovered["handoff"], request["handoff"])
         self.assertEqual(recovered["imported_artifacts"], [self.ref])

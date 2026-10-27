@@ -73,7 +73,7 @@ class NativeCommandsTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("node"), "Node unavailable")
     def test_production_gh_adapter_controls(self):
-        result = subprocess.run(["node", "--test", "tests/test_agent_gh.mjs"], cwd=ROOT,
+        result = subprocess.run(["node", "--test", "--test-reporter=tap", "tests/test_agent_gh.mjs"], cwd=ROOT,
             capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr.decode())
         self.assertIn(b"# pass 20", result.stdout)

@@ -14,7 +14,6 @@ def command(method, identity="exec-1", **fields):
         "type": "commandExecution", "id": identity, **fields}}}
 
 
-from verification_runner import VerificationLocalRunner as LocalRunner
 
 class ProjectionTests(unittest.TestCase):
     def test_both_native_transports_complete_with_a_dangling_command(self):
@@ -81,7 +80,7 @@ class RunnerTests(unittest.TestCase):
         self.assertFalse((root / "post-run").exists())
         self.assertIn("exec-1", (root / "raw-events.jsonl").read_text())
         restarted = LocalRunner(self.runner.state, self.runner.store.root, self.source,
-            transport=fixtures.FakeServer, check_docker=False, max_model_turns=6)
+            transport=fixtures.FakeServer, check_docker=False)
         self.assertEqual(restarted.status(result["run_id"])["command_summary"]["outstanding_ids"], ["exec-1"])
         self.assertEqual(result["controller_cleanup"], "confirmed")
         self.assertTrue(result["attempt_finished"])
