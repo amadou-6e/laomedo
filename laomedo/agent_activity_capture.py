@@ -113,7 +113,7 @@ class RunnerCapture:
                         terminal_native=attempt.get('native_stream_complete') is True
                     if status in {'completed','failed','cancelled','timeout'}:
                         store.finish(invocation,'timed_out' if status=='timeout' else status,
-                            complete=terminal_native,reason=attempt.get('capture_error') or (None if terminal_native else ('native_message_snapshot_only' if getattr(getattr(self,'component',None),'name',None)=='LaomedoOpenCodeAgent' else 'native_terminal_event_not_observed')),
+                            complete=terminal_native and not attempt.get('capture_error'),reason=attempt.get('capture_error') or (None if terminal_native else ('native_message_snapshot_only' if getattr(getattr(self,'component',None),'name',None)=='LaomedoOpenCodeAgent' else 'native_terminal_event_not_observed')),
                             ended_at=attempt['ended_at'])
                         return
                 if not page.get('has_more') and not telemetry.get('has_more'):

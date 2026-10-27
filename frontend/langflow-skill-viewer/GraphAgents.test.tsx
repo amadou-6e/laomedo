@@ -404,3 +404,14 @@ test("Claude prompt envelopes display the task while arbitrary JSON stays litera
  expect(messageText({type:"agentMessage",text},"claude-code")).toBe(text);
  for(const plain of ['A plain task','{"task":"Keep this JSON"}','{"task":"x","workspace":"/draft","skills":[],"imported_artifacts":[],"extra":1}']) expect(messageText({type:"userMessage",text:plain},"claude-code")).toBe(plain);
 });
+
+
+test("Claude capture warning does not relabel a completed task as failed",async()=>{
+ const first={...run("one","execution"),provider:"claude-code",stream_state:"partial",reason:"claude_telemetry_capture_failed"};
+ (api.get as jest.Mock).mockImplementation((url:string)=>Promise.resolve({data:url.endsWith("/flow")?{runs:[first]}:{run:first,projection,truncated:false}}));
+ render(<GraphAgents flowId="flow"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"node-one \u00b7 completed"}));
+ expect(await screen.findByText(/Capture note: Some Claude telemetry could not be recorded/)).toBeVisible();
+ expect(screen.getByRole("button",{name:"Error details: Some Claude telemetry could not be recorded"})).toBeVisible();
+ expect(screen.getByText(/Captured stream: partial/)).toBeVisible();
+});

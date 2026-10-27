@@ -180,7 +180,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual((after['otel_start'],after['otel_end']),(3,5))
 
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
-    def test_successful_native_receipt_without_any_exports_fails_closed_for_telemetry(self):
+    def test_successful_native_receipt_without_exports_preserves_result_and_warns(self):
         import io, threading
         from unittest.mock import Mock
         record = self.runner._prepare(self.payload)
@@ -194,11 +194,28 @@ class ClaudeRunnerTests(unittest.TestCase):
                                   returncode=0,wait=lambda **kwargs:0,poll=lambda:0)
         with patch('laomedo.claude_runner.cleanup_exact',return_value=(True,'absent')), \
              patch('laomedo.claude_runner.subprocess.Popen',return_value=process):
-            with self.assertRaisesRegex(RunnerError,'^claude_telemetry_capture_failed$'):
-                self.runner._invoke(root,record,'task',threading.Event(),resume=False)
+            result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
+        self.assertEqual(result['result'],'done')
+        self.assertEqual(record['telemetry_capture']['error_category'],'claude_telemetry_capture_failed')
         self.assertEqual(record['telemetry_capture']['records'],0)
         self.assertFalse(list(root.glob('telemetry-environment-*')))
         self.assertFalse(list(root.glob('command-capability-*')))
+
+    def test_capture_warning_preserves_completed_snapshot_and_resume_and_prior_boundary(self):
+        def native(root, record, prompt, flag, *, resume):
+            if not resume:record['telemetry_capture']['error_category']='claude_telemetry_capture_failed'
+            return {"type":"result","subtype":"success","is_error":False,"session_id":record['thread_id'],"result":"done"}
+        with patch.object(self.runner,'_invoke',side_effect=native):
+            first=self.runner.start(self.payload)
+            root=self.runner._run_dir(first['run_id'])
+            old=root/'activity-attempts'/(first['activity_attempt_id']+'.json')
+            self.assertEqual(first['status'],'completed');self.assertTrue(first['snapshot_ready'])
+            self.assertEqual(json.loads(old.read_text())['capture_error'],'claude_telemetry_capture_failed')
+            resumed=self.runner.resume(first['run_id'],'continue',expected_post_run_hash=first['post_run_hash'],expected_thread_id=first['thread_id'],model='sonnet',effort='low')
+            current=root/'activity-attempts'/(resumed['activity_attempt_id']+'.json')
+            self.assertEqual(resumed['status'],'completed')
+            self.assertIsNone(json.loads(current.read_text())['capture_error'])
+            self.assertEqual(json.loads(old.read_text())['capture_error'],'claude_telemetry_capture_failed')
 
     def test_telemetry_start_failure_prevents_this_controller_dispatch(self):
         import threading

@@ -152,8 +152,10 @@ OpenTelemetry section appears when records exist; old invocations without record
 retain their original capture history. Export flush completeness remains unverified,
 including after forced cancellation. Receiver failures have shared descriptive
 errors; a capture/cleanup error warns that the agent may already have acted. A
-successful native receipt with zero exports is a capture failure, not telemetry
-success.
+successful native receipt with zero exports is a capture warning, not telemetry
+success. Capture warnings make the Activity stream partial and use the shared
+error presenter, while preserving the completed task, snapshot and Resume. Each
+attempt retains its own warning; later Resume cannot rewrite earlier coverage.
 
 Install the runner's `observability` extra for its OTLP protobuf dependencies.
 Official configuration: https://code.claude.com/docs/en/monitoring-usage .

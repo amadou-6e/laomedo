@@ -502,14 +502,17 @@ class ClaudeRunner(LocalRunner):
                     telemetry_cleanup_failed = True
             if not verified:
                 raise RunnerError('container_termination_unverified')
-            if telemetry_cleanup_failed:
-                raise RunnerError('claude_telemetry_cleanup_unconfirmed')
             if telemetry is not None:
-                record['telemetry_capture'] = {'records': telemetry.count,
-                    'receiver_error': telemetry.failed, 'flush_completeness': 'unverified'}
-            if (telemetry is not None and native_completed and not flag.is_set()
-                    and (telemetry.failed or telemetry.count == 0)):
-                raise RunnerError('claude_telemetry_capture_failed')
+                capture = record.setdefault('telemetry_capture', {'records': 0,
+                    'receiver_error': False, 'flush_completeness': 'unverified'})
+                capture['records'] += telemetry.count
+                capture['receiver_error'] = capture['receiver_error'] or telemetry.failed
+                if telemetry_cleanup_failed:
+                    capture['error_category'] = 'claude_telemetry_cleanup_unconfirmed'
+                elif telemetry.failed or (native_completed and telemetry.count == 0):
+                    capture.setdefault('error_category', 'claude_telemetry_capture_failed')
+                # Capture failure must not discard an attested native result or
+                # its completed snapshot, or invite replay of effects already done.
 
     def _native_event(self, root, record, event):
         if not isinstance(event, dict) or event.get('session_id', record['thread_id']) != record['thread_id']:
@@ -643,6 +646,8 @@ class ClaudeRunner(LocalRunner):
             if (folder / (attempt_id + ".json")).exists():
                 raise RunnerError("activity_attempt_already_exists")
             baseline = activity_usage({"modelUsage": record.get("native_model_usage")}) if resume else {}
+            record['telemetry_capture'] = {'records': 0, 'receiver_error': False,
+                                           'flush_completeness': 'unverified'}
             attempt = {"id": attempt_id, "native_start": line_count(root / "activity-events.jsonl"),
                        "otel_start": line_count(root / "otel-events.jsonl"), "usage_baseline": ({record["thread_id"]: {"total": baseline}} if resume else {}), "native_end": None,
                        "fresh_thread": not resume,
@@ -764,7 +769,8 @@ class ClaudeRunner(LocalRunner):
                 record.update(attempt_finished=True, cancel_requested=flag.is_set())
                 if attempt is not None:
                     attempt.update(native_end=line_count(self._run_dir(run_id) / "activity-events.jsonl"),
-                                   otel_end=line_count(self._run_dir(run_id) / "otel-events.jsonl"), status=record["status"], ended_at=now())
+                                   otel_end=line_count(self._run_dir(run_id) / "otel-events.jsonl"), status=record["status"], ended_at=now(),
+                                   capture_error=record.get('telemetry_capture', {}).get('error_category'))
                     _json(self._run_dir(run_id) / "activity-attempts" / (attempt["id"] + ".json"), attempt)
                 _json(self._run_dir(run_id) / "record.json", record)
             self.cancel_flags.pop(run_id, None)

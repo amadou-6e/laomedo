@@ -135,6 +135,15 @@ class NodeErrorCatalogueTests(unittest.TestCase):
                         codes.add(value.value)
         self.assertEqual(codes - catalogue.keys(), set(), "Catalogue every installed literal Claude failure")
 
+    def test_claude_stored_capture_codes_are_catalogued(self):
+        catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        codes=set()
+        for name in ('claude_runner.py','claude_telemetry.py'):
+            codes.update(code for code in emitted_codes((ROOT/'laomedo'/name).read_text(encoding='utf-8')) if code.startswith('claude_'))
+        self.assertIn('claude_telemetry_capture_failed',codes)
+        self.assertIn('claude_telemetry_cleanup_unconfirmed',codes)
+        self.assertFalse(codes-catalogue.keys())
+
     def test_runner_service_public_codes_have_catalogue_coverage(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         source = ast.parse((ROOT / "laomedo/runner_service.py").read_text())
