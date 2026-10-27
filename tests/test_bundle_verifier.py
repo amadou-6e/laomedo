@@ -148,7 +148,7 @@ class BundleVerifierTests(unittest.TestCase):
         self.assertEqual(set(final), {"instance", "pid", "module_root", "phase",
             "started_monotonic", "scan_started_monotonic", "scan_completed_monotonic"})
         self.assertEqual(Path(final["module_root"]).resolve(),
-                         Path(__file__).resolve().parents[1] / "laomedo")
+                         Path(__file__).resolve().parents[1] / "src" / "laomedo")
         self.assertFalse((self.workspace / "service-status.json").exists())
         self.assertNotIn("grant-a", json.dumps(final))
 

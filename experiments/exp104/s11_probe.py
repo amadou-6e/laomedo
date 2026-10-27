@@ -308,7 +308,7 @@ def _require_clean_source(root: Path) -> None:
 
 
 def _require_module_origin(root: Path) -> str:
-    package_root = (root / "laomedo").resolve()
+    package_root = (root / "src" / "laomedo").resolve()
     seen = 0
     for name, module in tuple(sys.modules.items()):
         if name != "laomedo" and not name.startswith("laomedo."):

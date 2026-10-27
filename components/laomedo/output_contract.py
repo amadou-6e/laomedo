@@ -5,7 +5,7 @@ import json
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput, MultilineInput, Output
 from lfx.schema import Data
-from laomedo.output_contract import evaluate_envelope, requirements
+from laomedo.agents.output_contract import evaluate_envelope, requirements
 
 
 class LaomedoOutputContract(Component):
@@ -36,7 +36,7 @@ class LaomedoOutputContract(Component):
         self._routing_result = None
 
     def _route(self, selected):
-        from laomedo.contract_graph import verified_route_submission, route_destination
+        from laomedo.agents.contract_graph import verified_route_submission, route_destination
         from copy import deepcopy
         cached = getattr(self, "_routing_result", None)
         if cached is None:

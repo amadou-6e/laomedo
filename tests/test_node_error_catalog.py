@@ -8,6 +8,13 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def producer_path(filename):
+    mapping = json.loads((ROOT / 'tools/package-layout.json').read_text())
+    module = mapping['laomedo.' + Path(filename).stem]
+    return ROOT.joinpath('src', *module.split('.')).with_suffix('.py')
+
+
+
 class NodeErrorCatalogueTests(unittest.TestCase):
     def test_handoff_selection_producer_has_catalogue_coverage(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
@@ -28,7 +35,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(),object_pairs_hook=unique)
     def test_local_saved_graph_auth_producer_is_catalogued_and_routable(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
-        source=ast.parse((ROOT/'laomedo/work_graph/local_launch.py').read_text())
+        source=ast.parse((ROOT/'src/laomedo/work_graph/local_launch.py').read_text())
         codes={node.exc.args[0].value for node in ast.walk(source)
                if isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call) and node.exc.args
                and isinstance(node.exc.args[0],ast.Constant) and isinstance(node.exc.args[0].value,str)}
@@ -48,7 +55,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         self.assertIn('container_termination_unverified',codes)
     def test_claude_runner_public_errors_including_named_codes_have_catalogue_entries(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
-        tree=ast.parse((ROOT/'laomedo/claude_runner.py').read_text(encoding='utf-8'))
+        tree=ast.parse((ROOT/'src/laomedo/agents/providers/claude_runner.py').read_text(encoding='utf-8'))
         assignments={}
         for node in ast.walk(tree):
             if isinstance(node,ast.Assign) and isinstance(node.value,ast.Constant) and isinstance(node.value.value,str):
@@ -67,7 +74,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
     def test_claude_container_and_join_public_codes_have_explanations(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
         for filename in ('claude_container.py', 'langflow_join.py', 'runner_trace_bridge.py', 'handoff_http.py', 'agent_activity_capture.py', 'agent_activity.py'):
-            tree=ast.parse((ROOT/'laomedo'/filename).read_text())
+            tree=ast.parse((producer_path(filename)).read_text())
             for node in ast.walk(tree):
                 if (isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call) and
                     isinstance(node.exc.func,ast.Name) and node.exc.func.id in {'RunnerError','LaunchError','HandoffError','ValueError'} and
@@ -84,7 +91,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
                    'workspace_skills.py':{'verify','install','_exclude'}}
         missing=[]
         for filename,names in producers.items():
-            tree=ast.parse((ROOT/'laomedo'/filename).read_text())
+            tree=ast.parse((producer_path(filename)).read_text())
             for function in ast.walk(tree):
                 if not isinstance(function,ast.FunctionDef) or function.name not in names:continue
                 for node in ast.walk(function):
@@ -95,7 +102,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         self.assertEqual(missing,[],'Affected runner skill validation needs shared explanations and recovery')
     def test_normal_attempt_accounting_codes_have_catalogue_coverage(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
-        source = ast.parse((ROOT / "laomedo/local_runner.py").read_text(encoding="utf-8"))
+        source = ast.parse((ROOT / "src/laomedo/agents/local_runner.py").read_text(encoding="utf-8"))
         method = next(node for node in ast.walk(source)
                       if isinstance(node, ast.FunctionDef) and node.name == "_reserve_turn")
         codes = {node.exc.args[0].value for node in ast.walk(method)
@@ -122,7 +129,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
 
     def test_claude_literal_failures_are_covered_when_provider_is_installed(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
-        sources = [ROOT / "laomedo" / name for name in ("claude_runner.py", "claude_container.py", "claude_telemetry.py")]
+        sources = [producer_path(name) for name in ("claude_runner.py", "claude_container.py", "claude_telemetry.py")]
         sources = [path for path in sources if path.exists()]
         if not sources:
             self.skipTest("Claude producer belongs to the pending provider PR, not this tree")
@@ -139,14 +146,14 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
         codes=set()
         for name in ('claude_runner.py','claude_telemetry.py'):
-            codes.update(code for code in emitted_codes((ROOT/'laomedo'/name).read_text(encoding='utf-8')) if code.startswith('claude_'))
+            codes.update(code for code in emitted_codes((producer_path(name)).read_text(encoding='utf-8')) if code.startswith('claude_'))
         self.assertIn('claude_telemetry_capture_failed',codes)
         self.assertIn('claude_telemetry_cleanup_unconfirmed',codes)
         self.assertFalse(codes-catalogue.keys())
 
     def test_runner_service_public_codes_have_catalogue_coverage(self):
         catalogue = json.loads((ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
-        source = ast.parse((ROOT / "laomedo/runner_service.py").read_text())
+        source = ast.parse((ROOT / "src/laomedo/host/runner_service.py").read_text())
         codes = set()
         for node in ast.walk(source):
             if isinstance(node, ast.Dict):
@@ -162,9 +169,9 @@ class NodeErrorCatalogueTests(unittest.TestCase):
 
 
 OPENCODE_ERROR_PRODUCERS = (
-    "components/laomedo/opencode_agent.py", "laomedo/opencode_runner.py",
-    "laomedo/opencode_boundary.py", "laomedo/opencode_events.py",
-    "laomedo/opencode_telemetry.py", "laomedo/agent_activity_capture.py",
+    "components/laomedo/opencode_agent.py", "src/laomedo/agents/providers/opencode_runner.py",
+    "src/laomedo/agents/providers/opencode_boundary.py", "src/laomedo/activity/opencode_events.py",
+    "src/laomedo/activity/opencode_telemetry.py", "src/laomedo/activity/agent_activity_capture.py",
 )
 _ERROR_FIELDS = {"error", "error_category", "capture_error", "reason"}
 
@@ -213,7 +220,7 @@ class OpenCodeErrorCatalogueTests(unittest.TestCase):
 
     def test_changed_normal_accounting_methods_have_catalogue_coverage(self):
         catalog=json.loads((ROOT/"frontend/langflow-skill-viewer/node-error-catalog.json").read_text(encoding="utf-8"))
-        tree=ast.parse((ROOT/"laomedo/local_runner.py").read_text(encoding="utf-8"))
+        tree=ast.parse((ROOT/"src/laomedo/agents/local_runner.py").read_text(encoding="utf-8"))
         runner=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=="LocalRunner")
         methods={node.name:node for node in runner.body if isinstance(node,ast.FunctionDef) and node.name in {"_reserve_turn","_turn_available"}}
         self.assertEqual(set(methods),{"_reserve_turn","_turn_available"})

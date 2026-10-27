@@ -4,9 +4,9 @@ import re
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput
 from lfx.schema import Data, Message
-from laomedo.github_pr_client import pr_request
-from laomedo.github_pr_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS
-from laomedo.pr_agent_loop import feedback_edge, agent_operation, bind_feedback_parameters, operation_value
+from laomedo.github.pull_requests.github_pr_client import pr_request
+from laomedo.github.pull_requests.github_pr_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS
+from laomedo.agents.pr_agent_loop import feedback_edge, agent_operation, bind_feedback_parameters, operation_value
 
 
 class LaomedoGitHubPR(Component):

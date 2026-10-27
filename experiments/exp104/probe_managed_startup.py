@@ -121,7 +121,7 @@ def run(private: Path):
         mediator = json.loads((root / "state" / "mediator" / "mediator.json").read_text())
         observation["host_module_root_matches"] = (
             os.path.normcase(str(Path(mediator["module_root"]).resolve())) ==
-            os.path.normcase(str(CHECKOUT / "laomedo")))
+            os.path.normcase(str(CHECKOUT / "src" / "laomedo")))
         if not observation["host_module_root_matches"]:
             raise RuntimeError("host_source_mismatch")
         old_heartbeat = heartbeat.read_text()

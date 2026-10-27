@@ -29,7 +29,7 @@ def probe():
             '--mount',f'type=bind,source={root},target=/fixture,readonly',
             '--mount',f'type=bind,source={root / "capability"},target=/run/laomedo/capability,readonly',
             '--mount',f'type=bind,source={ROOT / "laomedo/agent_mediation_client.mjs"},target=/run/laomedo/mediate.mjs,readonly',
-            '--mount',f'type=bind,source={ROOT / "laomedo/runner-config.toml"},target=/config.toml,readonly',
+            '--mount',f'type=bind,source={ROOT / "src/laomedo/runner-config.toml"},target=/config.toml,readonly',
             '--env','LAOMEDO_MEDIATOR_URL=http://host.docker.internal:1/v1/mediate',
             '--env','LAOMEDO_MEDIATOR_INSTANCE='+'0'*32,
             '--env','PATH=/fixture/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',

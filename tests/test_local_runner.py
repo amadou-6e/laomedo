@@ -966,7 +966,10 @@ class LocalRunnerTests(unittest.TestCase):
         for runner in (LocalRunner, ClaudeRunner, OpenCodeRunner):
             self.assertNotIn("max_model_turns", inspect.signature(runner).parameters)
         for name in ("local_runner.py", "claude_runner.py", "opencode_runner.py"):
-            source = (Path(__file__).resolve().parents[1] / "laomedo" / name).read_text()
+            root = Path(__file__).resolve().parents[1]
+            layout = json.loads((root / "tools/package-layout.json").read_text())
+            module = layout["laomedo." + Path(name).stem]
+            source = root.joinpath("src", *module.split(".")).with_suffix(".py").read_text()
             self.assertNotIn("model_turn_cap_reached", source)
             self.assertNotIn("--max-model-turns", source)
 

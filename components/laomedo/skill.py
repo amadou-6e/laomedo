@@ -7,10 +7,10 @@ import asyncio
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput, DropdownInput, Output, StrInput
 from lfx.schema import Data, Message
-from laomedo.skill_source_client import source_request
-from laomedo.skill_operation_client import skill_request
-from laomedo.skill_operations import proposal
-from laomedo.pr_agent_loop import feedback_edge, bind_feedback_parameters, agent_operation
+from laomedo.skills.skill_source_client import source_request
+from laomedo.skills.skill_operation_client import skill_request
+from laomedo.skills.skill_operations import proposal
+from laomedo.agents.pr_agent_loop import feedback_edge, bind_feedback_parameters, agent_operation
 
 
 class LaomedoSkill(Component):

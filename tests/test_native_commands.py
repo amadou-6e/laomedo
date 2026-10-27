@@ -34,8 +34,8 @@ class NativeCommandsTests(unittest.TestCase):
                 "--env=LAOMEDO_REPOSITORY=" + REPO, "--env=LAOMEDO_RUN_BRANCH=run-branch",
                 "--env=GIT_CONFIG_NOSYSTEM=1", "--env=GIT_CONFIG_GLOBAL=/dev/null"]
             for source, target in ((wrappers, "/run/laomedo/bin"),
-                (ROOT / "laomedo/agent_gh_adapter.mjs", "/run/laomedo/gh.mjs"),
-                (ROOT / "laomedo/agent_git_remote.mjs", "/run/laomedo/git-remote.mjs"),
+                (ROOT / "src/laomedo/agent_gh_adapter.mjs", "/run/laomedo/gh.mjs"),
+                (ROOT / "src/laomedo/agent_git_remote.mjs", "/run/laomedo/git-remote.mjs"),
                 (ROOT / "tests/fixtures/native_mediation_stub.mjs", "/run/laomedo/mediate.mjs"),
                 (ROOT / "tests/fixtures/native_command_fixture.mjs", "/run/laomedo/test.mjs")):
                 command.extend(["--mount", f"type=bind,source={source},target={target},readonly"])
@@ -64,8 +64,8 @@ class NativeCommandsTests(unittest.TestCase):
             self.assertIn("LAOMEDO_RUN_BRANCH=run-branch", command)
             self.assertIn(f"type=bind,source={wrappers},target=/run/laomedo/bin,readonly", command)
             self.assertNotIn("GH_TOKEN", " ".join(command))
-            self.assertTrue((ROOT / "laomedo/agent_gh_adapter.mjs").is_file())
-            self.assertTrue((ROOT / "laomedo/agent_git_remote.mjs").is_file())
+            self.assertTrue((ROOT / "src/laomedo/agent_gh_adapter.mjs").is_file())
+            self.assertTrue((ROOT / "src/laomedo/agent_git_remote.mjs").is_file())
             self.assertEqual(prepare_commands(root, REPO, "run-branch"), wrappers)
             (wrappers / "gh").write_text("modified", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "command_wrapper_changed"):
@@ -223,7 +223,7 @@ class NativeCommandsTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "Node unavailable")
     def test_remote_helper_target_and_push_batch_controls(self):
         script = """
-import { target, pushTarget } from './laomedo/agent_git_remote.mjs';
+import { target, pushTarget } from './src/laomedo/agent_git_remote.mjs';
 import assert from 'node:assert/strict';
 const context = {repository:'example/disposable', branch:'run-branch'};
 target('laomedo::example/disposable', context);

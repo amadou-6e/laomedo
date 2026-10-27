@@ -62,7 +62,7 @@ class S11ProbeTests(unittest.TestCase):
         self.assertEqual(child.returncode, 0, errors)
         lines = output.splitlines()
         self.assertEqual(int(lines[0]), child.pid)
-        self.assertTrue(Path(lines[1]).resolve().is_relative_to(root / "laomedo"))
+        self.assertTrue(Path(lines[1]).resolve().is_relative_to(root / "src" / "laomedo"))
 
     def test_agent_process_environment_drops_host_token_override(self):
         with patch.dict(os.environ, {"GH_LAOMEDO": "synthetic-provider-token",

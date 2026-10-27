@@ -19,7 +19,7 @@ observability = ["opentelemetry-proto==1.45.1", "opentelemetry-sdk==1.45.1", "op
 laomedo-work-graph = "laomedo.work_graph.__main__:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["laomedo*"]
 
 [tool.setuptools.package-data]

@@ -41,13 +41,13 @@ class ReviewedIssueCliTests(unittest.TestCase):
             self.assertEqual(len(calls), 1)
 
     def test_graphql_query_is_identical_on_agent_and_host(self):
-        script = "import {ISSUE_GRAPHQL_QUERY} from './laomedo/agent_gh_adapter.mjs'; console.log(ISSUE_GRAPHQL_QUERY);"
+        script = "import {ISSUE_GRAPHQL_QUERY} from './src/laomedo/agent_gh_adapter.mjs'; console.log(ISSUE_GRAPHQL_QUERY);"
         result = subprocess.run(['node', '--input-type=module', '-e', script], cwd=ROOT,
                                 check=True, capture_output=True, timeout=10)
         self.assertEqual(result.stdout.decode().strip(), ISSUE_GRAPHQL_QUERY)
 
     def request(self, body='marker reviewed body'):
-        script = """import {plan} from './laomedo/agent_gh_adapter.mjs';
+        script = """import {plan} from './src/laomedo/agent_gh_adapter.mjs';
         console.log(JSON.stringify(plan(['issue','create','--title','T','--body',process.argv[1]],
           {repository:'example/disposable',effect:'issue-effect',marker:'marker',
            reviewedProposal:'review-1'}).request));"""

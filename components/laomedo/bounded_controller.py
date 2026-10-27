@@ -37,8 +37,8 @@ class LaomedoBoundedController(Component):
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
-            from laomedo.handoffs import BoundedController
-            from laomedo.handoff_http import RunnerAdapter
+            from laomedo.agents.handoffs import BoundedController
+            from laomedo.agents.handoff_http import RunnerAdapter
             targets = json.loads(self.targets_json)
             if not isinstance(targets, list) or not 1 <= len(targets) <= 16:
                 raise ValueError("one_to_sixteen_targets_required")

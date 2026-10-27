@@ -29,7 +29,7 @@ def probe():
         with tempfile.TemporaryDirectory(prefix='laomedo139-helper-') as temporary:
             root = Path(temporary)
             config = root / 'config.toml'
-            config.write_bytes((ROOT / 'laomedo/runner-config.toml').read_bytes())
+            config.write_bytes((ROOT / 'src/laomedo/runner-config.toml').read_bytes())
             helper = root / 'bin'
             helper.mkdir()
             (helper / 'git-remote-laomedo').write_text('#!/bin/sh\nprintf HELPER_FOUND\\n\n', newline='\n')

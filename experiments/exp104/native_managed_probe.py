@@ -141,7 +141,7 @@ def agent_command(root, side, args, token, capability, *, effect=None, marker=No
 
 def readiness(root, owned):
     """Both exact task PID sets plus current, same-boot diagnostic origins."""
-    expected = os.path.normcase(str(CHECKOUT / "laomedo"))
+    expected = os.path.normcase(str(CHECKOUT / "src" / "laomedo"))
     deadline = time.monotonic() + 25
     while time.monotonic() < deadline:
         try:
