@@ -44,9 +44,10 @@ def migrate_source(source: str) -> str:
                                   (" as " + alias if alias != name else ""))
             start_column = len(lines[node.lineno - 1].encode()[:node.col_offset].decode())
             end_column = len(lines[node.end_lineno - 1].encode()[:node.end_col_offset].decode())
+            separator = "; " if lines[node.lineno - 1][:start_column].strip() else "\n" + " " * start_column
             replacements.append((offsets[node.lineno - 1] + start_column,
                                  offsets[node.end_lineno - 1] + end_column,
-                                 ("\n" + " " * start_column).join(statements)))
+                                 separator.join(statements)))
         for start, end, replacement in sorted(replacements, reverse=True):
             source = source[:start] + replacement + source[end:]
     for old, new in sorted(MODULE_PATHS.items(), key=lambda item: -len(item[0])):

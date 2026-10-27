@@ -59,7 +59,7 @@ def _direct_python() -> str:
 
 
 def _source_pythonpath() -> str:
-    return os.pathsep.join((str(Path(__file__).resolve().parents[2]),
+    return os.pathsep.join((str(Path(__file__).resolve().parents[2] / "src"),
                             sysconfig.get_path("purelib")))
 
 

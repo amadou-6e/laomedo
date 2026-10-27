@@ -14,6 +14,14 @@ _spec.loader.exec_module(migration)
 
 
 class ModuleMigrationTests(unittest.TestCase):
+    def test_inline_import_with_unicode_keeps_statement_structure(self):
+        source = "label = 'λ'; from laomedo import local_runner, skill_store\n"
+        namespace = {}
+        exec(migration.migrate_source(source), namespace)
+        self.assertEqual(namespace["label"], "λ")
+        self.assertTrue(hasattr(namespace["local_runner"], "LocalRunner"))
+        self.assertTrue(hasattr(namespace["skill_store"], "SkillStore"))
+
     def test_aliases_and_multiline_imports_keep_local_names(self):
         source = "from laomedo import (agent_activity, local_runner as runner)\n"
         rewritten = migration.migrate_source(source)
@@ -45,3 +53,9 @@ class ModuleMigrationTests(unittest.TestCase):
             self.assertEqual(applied.returncode, 0, applied.stderr)
             self.assertEqual(path.with_name(path.name + ".before-module-migration").read_bytes(), original)
             self.assertIn("laomedo.agents.local_runner", path.read_text())
+            changed = json.dumps({"code": "import laomedo.skill_store"}).encode()
+            path.write_bytes(changed)
+            refused = subprocess.run([sys.executable, str(TOOL), str(path), "--apply"], capture_output=True, timeout=30)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertEqual(path.read_bytes(), changed)
+            self.assertEqual(path.with_name(path.name + ".before-module-migration").read_bytes(), original)

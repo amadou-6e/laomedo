@@ -1,5 +1,6 @@
 """Credential-free worker controls; fake stage, no Docker or provider effects."""
 import hashlib
+import laomedo
 import json
 from pathlib import Path
 import tempfile
@@ -148,7 +149,7 @@ class BundleVerifierTests(unittest.TestCase):
         self.assertEqual(set(final), {"instance", "pid", "module_root", "phase",
             "started_monotonic", "scan_started_monotonic", "scan_completed_monotonic"})
         self.assertEqual(Path(final["module_root"]).resolve(),
-                         Path(__file__).resolve().parents[1] / "src" / "laomedo")
+                         Path(laomedo.__file__).resolve().parent)
         self.assertFalse((self.workspace / "service-status.json").exists())
         self.assertNotIn("grant-a", json.dumps(final))
 
