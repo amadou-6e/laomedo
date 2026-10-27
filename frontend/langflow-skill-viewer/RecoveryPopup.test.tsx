@@ -83,6 +83,16 @@ test("online guidance is not repeated or conditional on a future reconnect", asy
   expect(screen.queryByText(/Starting the runner does not rerun/)).toBeNull();
 });
 
+test("a healthy API does not turn an unresolved catalogue failure green", async () => {
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  render(<RecoveryPopup message="runner_model_catalog_unavailable_check_runner_connection" context={{nodeId:"agent"}} onDismiss={jest.fn()} />);
+  await screen.findByText(/Open Model and use Refresh/);
+  const popup=screen.getByRole("region",{name:"Local backend recovery"});
+  expect(popup).toHaveStyle({borderLeftColor:"#F87171"});
+  expect(popup).toHaveAttribute("data-error-code","runner_model_catalog_unavailable_check_runner_connection");
+  expect(api.post).not.toHaveBeenCalled();
+});
+
 test("Escape dismisses from inside the popup and restores prior focus on unmount", async () => {
   const trigger = document.createElement("button");
   document.body.append(trigger); trigger.focus();

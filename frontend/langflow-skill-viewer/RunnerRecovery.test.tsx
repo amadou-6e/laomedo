@@ -17,6 +17,31 @@ test("unrelated errors do not create recovery controls or query a runner", () =>
   expect(isRunnerConnectionError("Task text mentions runner_transport_failed but another operation failed")).toBe(false);
 });
 
+test("native model discovery failure offers managed startup without dispatch", async () => {
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"offline",can_start:true}});
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" />);
+  await screen.findByRole("button",{name:"Start local runner"});
+  expect(screen.getByText(/Starting the runner does not submit an agent task/)).toBeVisible();
+  expect(api.post).not.toHaveBeenCalled();
+  expect(isRunnerConnectionError("Task mentions runner_model_catalog_unavailable_check_runner_connection")).toBe(false);
+});
+
+test("model discovery failure on a ready backend offers refresh without restart", async () => {
+  (api.get as jest.Mock).mockResolvedValue({data:{state:"ready",can_start:false}});
+  render(<RunnerRecovery message="runner_model_catalog_unavailable_check_runner_connection" />);
+  await screen.findByText(/Open Model and use Refresh/);
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+test.each(["offline", "ready"])("prefixed catalogue errors keep discovery guidance on %s backends", async state => {
+  (api.get as jest.Mock).mockResolvedValue({data:{state,can_start:state==="offline",...(state==="offline"?{reason:"runner_local_offline"}:{})}});
+  render(<RunnerRecovery message={"Error building Component Laomedo Claude Agent:\n\nrunner_model_catalog_unavailable_check_runner_connection"} />);
+  await screen.findByText(state==="ready" ? /Open Model and use Refresh/ : /Starting the runner does not submit an agent task/);
+  expect(document.body.textContent).not.toContain("Check the existing run");
+  expect(api.post).not.toHaveBeenCalled();
+});
+
 test("the error UI restarts the host-configured API without a graph URL or dispatch", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: { state: "offline", can_start: true } });
   let finish: (value: unknown) => void = () => {};
