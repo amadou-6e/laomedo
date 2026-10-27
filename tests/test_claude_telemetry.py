@@ -85,3 +85,16 @@ class ClaudeTelemetryTests(unittest.TestCase):
    else:receiver.close()
   self.assertTrue(bounded,'Upload handler must not outlive bounded receiver shutdown')
   self.assertFalse(receiver.environment.exists());self.assertFalse(receiver.thread.is_alive())
+
+ def test_rejected_authenticated_lengths_mark_capture_failed(self):
+  import http.client
+  for length in [None,0,8*1024*1024+1]:
+   self.receiver.failed=False
+   client=http.client.HTTPConnection(*self.receiver.server.server_address,timeout=5)
+   try:
+    client.putrequest('POST','/v1/logs');client.putheader('Authorization','Bearer '+self.receiver.token)
+    if length is not None:client.putheader('Content-Length',str(length))
+    client.endheaders();response=client.getresponse();self.assertEqual(response.status,413);response.read()
+    self.assertTrue(self.receiver.failed)
+   finally:client.close()
+  self.assertEqual((self.root/'otel-events.jsonl').read_text(),'')

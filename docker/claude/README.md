@@ -57,3 +57,7 @@ Controller and command-worker execution have an in-container deadline with a
 five-second forced-stop grace period. An unverified owner is never signalled done: the
 independent supervisor retains its loss-cleanup role. Unknown cleanup still fails
 closed and must be reconciled before replacement work.
+
+Native OTLP capture currently targets local Docker Desktop: the controller reaches
+the loopback receiver through `host.docker.internal`. Native Linux Docker routing
+is not established by the Windows integration evidence.

@@ -201,6 +201,34 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertFalse(list(root.glob('telemetry-environment-*')))
         self.assertFalse(list(root.glob('command-capability-*')))
 
+    @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
+    def test_unexpected_receiver_cleanup_failure_preserves_native_result(self):
+        import io, threading
+        from unittest.mock import Mock
+        from laomedo.claude_telemetry import ClaudeTelemetry
+        original_close=ClaudeTelemetry.close
+        def broken_close(receiver):
+            original_close(receiver)
+            raise ValueError('private cleanup detail')
+        record = self.runner._prepare(self.payload)
+        record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
+        self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
+        self.runner.container.prefix = Mock(return_value=[])
+        self.runner.container.bounded_command = Mock(return_value=[])
+        root = self.runner._run_dir(record['run_id'])
+        receipt = {"type":"result","subtype":"success","session_id":record['thread_id'],"result":"done","is_error":False}
+        process = SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO((json.dumps(receipt)+'\n').encode()),
+                                  returncode=0,wait=lambda **kwargs:0,poll=lambda:0)
+        with patch('laomedo.claude_runner.cleanup_exact',return_value=(True,'absent')), \
+             patch('laomedo.claude_runner.subprocess.Popen',return_value=process), \
+             patch.object(ClaudeTelemetry,'close',broken_close):
+            result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
+        self.assertEqual(result['result'],'done')
+        self.assertEqual(record['telemetry_capture']['error_category'],'claude_telemetry_cleanup_unconfirmed')
+        self.assertEqual(record['telemetry_capture']['records'],0)
+        self.assertFalse(list(root.glob('telemetry-environment-*')))
+        self.assertFalse(list(root.glob('command-capability-*')))
+
     def test_capture_warning_preserves_completed_snapshot_and_resume_and_prior_boundary(self):
         def native(root, record, prompt, flag, *, resume):
             if not resume:record['telemetry_capture']['error_category']='claude_telemetry_capture_failed'

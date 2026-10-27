@@ -71,6 +71,7 @@ class ClaudeTelemetry:
                 try:
                     length = int(self.headers.get('Content-Length', '0'))
                     if not 0 < length <= 8 * 1024 * 1024:
+                        owner.failed = True
                         self.send_error(413); return
                     raw = self.rfile.read(length)
                     if len(raw) != length:

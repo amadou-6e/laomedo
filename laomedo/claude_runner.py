@@ -498,7 +498,7 @@ class ClaudeRunner(LocalRunner):
             if telemetry is not None:
                 try:
                     telemetry.close()
-                except (OSError, RuntimeError):
+                except Exception:
                     telemetry_cleanup_failed = True
             if not verified:
                 raise RunnerError('container_termination_unverified')
