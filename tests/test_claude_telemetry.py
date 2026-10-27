@@ -8,6 +8,13 @@ from urllib.error import HTTPError
 from laomedo.claude_telemetry import ClaudeTelemetry
 from laomedo.agent_activity_projection import project
 
+try:
+ from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
+ OBSERVABILITY_AVAILABLE=True
+except ImportError:
+ OBSERVABILITY_AVAILABLE=False
+
+@unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
 class ClaudeTelemetryTests(unittest.TestCase):
  def setUp(self):
   self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)

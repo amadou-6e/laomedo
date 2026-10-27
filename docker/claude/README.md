@@ -1,5 +1,16 @@
 # Claude subscription controller
 
+Install the host runner's OTLP dependencies from the repository root:
+
+```powershell
+python -m pip install ".[observability]"
+```
+
+The controller exports native metrics, events and beta traces to a private local
+receiver. This host dependency is separate from the Docker image. Prompt and tool
+content export stays off; exporter credentials never reach command workers. Missing
+receiver dependencies refuse the controller turn before model dispatch.
+
 Build from the repository root:
 
 ```powershell

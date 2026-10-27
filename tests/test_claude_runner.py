@@ -15,6 +15,13 @@ from laomedo.local_runner import RunnerError
 from laomedo.output_contract import requirements
 
 
+try:
+    from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
+    OBSERVABILITY_AVAILABLE = True
+except ImportError:
+    OBSERVABILITY_AVAILABLE = False
+
+
 class ClaudeRunnerTests(unittest.TestCase):
     def test_no_skills_produces_empty_prompt_bundle_and_preserves_resume_binding(self):
         payload={key:value for key,value in self.payload.items() if key!='skill_ref'}
@@ -172,6 +179,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual((before['otel_start'],before['otel_end']),(0,3))
         self.assertEqual((after['otel_start'],after['otel_end']),(3,5))
 
+    @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
     def test_successful_native_receipt_without_any_exports_fails_closed_for_telemetry(self):
         import io, threading
         from unittest.mock import Mock

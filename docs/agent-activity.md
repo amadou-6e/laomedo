@@ -143,7 +143,7 @@ identity is marked and excluded from scoped views. The host-attested controller
 turn supplies conversation/turn scope, never timestamp guesses. Attempt cursors
 isolate Fresh, Resume and correction records. Receivers close before final attempt
 boundaries are sealed, and temporary capability files are removed. Upload reads
-time out after five seconds; each batch is bounded to4096 records and8MiB of
+time out after five seconds; each batch is bounded to 4096 records and 8 MiB of
 normalized data. Shutdown drains bounded upload handlers before closing storage.
 
 Telemetry remains separate from native conversation/usage totals: OTLP counters
