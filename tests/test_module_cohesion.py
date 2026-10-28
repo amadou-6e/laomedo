@@ -42,4 +42,3 @@ class ModuleCohesionTests(unittest.TestCase):
         for old, new in mapping.items():
             path = ROOT.joinpath('src', *new.split('.'))
             self.assertTrue(path.with_suffix('.py').is_file() or (path / '__init__.py').is_file(), (old, new))
-
