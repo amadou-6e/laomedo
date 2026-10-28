@@ -1,4 +1,5 @@
-{  "request_timeout": {
+{
+  "request_timeout": {
     "title": "The Agent did not respond in time",
     "description": "The runner did not receive a response to an Agent request before its deadline. The request may still be active.",
     "recovery": "Check the existing run status before starting another run. Do not repeat the operation until its outcome and cleanup are confirmed."
