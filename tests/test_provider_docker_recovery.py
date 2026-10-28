@@ -1,4 +1,5 @@
 """Internal failure controls; these do not establish live agent acceptance."""
+from importlib.util import find_spec
 
 import ast
 import json
@@ -18,6 +19,7 @@ from laomedo.agents.runtime.errors import RunnerError
 class ProviderRecoveryTests(unittest.TestCase):
     """Keep previous-run recovery and fatal command results independent of model claims."""
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_previous_catalogue_receipt_is_recovered_or_preserved(self):
         from py_docker.errors import CleanupUnconfirmedError
         with tempfile.TemporaryDirectory() as temporary:
@@ -52,6 +54,7 @@ class ProviderRecoveryTests(unittest.TestCase):
             self.assertEqual(len(list(runner.state.glob("catalog/*/docker-receipts/*.json"))), 1)
             self.assertFalse(runner.lock.locked())
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_opencode_output_limit_is_a_fatal_run_code(self):
         from py_docker.errors import OutputLimitError
         with tempfile.TemporaryDirectory() as temporary:

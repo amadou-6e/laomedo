@@ -1,4 +1,5 @@
 """Credential-free command recipe and MCP capability checks."""
+from importlib.util import find_spec
 
 from pathlib import Path
 import hashlib
@@ -12,8 +13,9 @@ from urllib import error; from urllib import request
 
 from laomedo.agents.providers.opencode.boundary import CommandBroker; from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode; from laomedo.agents.providers.opencode.utils import check_auth_fresh; from laomedo.agents.providers.codex.settings import IMAGE_ID
 from laomedo.agents.runtime.errors import RunnerError
-from py_docker.errors import DockerOperationError, CleanupUnconfirmedError
-from py_docker.execution.models import CommandResult
+if find_spec("py_docker"):
+    from py_docker.errors import DockerOperationError, CleanupUnconfirmedError
+    from py_docker.execution.models import CommandResult
 CONTROLLER_ID = 'sha256:'+'a'*64
 ENDPOINT = 'npipe:////./pipe/dockerDesktopLinuxEngine'
 
@@ -51,6 +53,7 @@ class BoundaryTests(unittest.TestCase):
             with self.assertRaisesRegex(RunnerError, 'opencode_auth_validity_mismatch'):
                 check_auth_fresh(profile)
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_failed_controller_options_close_broker(self):
         with tempfile.TemporaryDirectory() as tmp:
             profile, workspace, evidence = self.fixture(Path(tmp), mode='provider_key')
@@ -63,6 +66,7 @@ class BoundaryTests(unittest.TestCase):
                 client.return_value.sessions.open.assert_not_called()
 
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_controller_mounts_auth_read_only_without_persistent_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
             profile,workspace,evidence=self.fixture(Path(tmp),mode='provider_key')
@@ -87,6 +91,7 @@ class BoundaryTests(unittest.TestCase):
                 broker.return_value.close.assert_called_once()
 
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_trusted_agent_hook_extends_defaults_before_read_only_config_mount(self):
         with tempfile.TemporaryDirectory() as tmp:
             profile,workspace,evidence=self.fixture(Path(tmp),mode='provider_key')
@@ -108,6 +113,7 @@ class BoundaryTests(unittest.TestCase):
                 self.assertTrue(next(m for m in spec.mounts if m.target=='/controller-config.json').read_only)
 
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_second_worker_request_rejected_while_one_is_active(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
@@ -163,6 +169,7 @@ class BoundaryTests(unittest.TestCase):
             validity_path.write_text(json.dumps(validity))
             self.assertNotEqual(first,_credential_binding(profile))
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_cleanup_transport_failure_is_not_claimed_as_verified(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);broker=CommandBroker(root,root,root,root,docker_endpoint=ENDPOINT)
@@ -174,6 +181,7 @@ class BoundaryTests(unittest.TestCase):
                 broker.close()
 
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_worker_never_mounts_controller_profile_or_environment(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);broker=CommandBroker(root,root,root,root,docker_endpoint=ENDPOINT,worker_image_id=CONTROLLER_ID)

@@ -20,6 +20,9 @@ jobs:
           python -m unittest discover -s tests -p test_lease_service.py -v
           python -m unittest discover -s tests -p test_native_commands.py -v
           python -m unittest discover -s tests -p test_exp104_s11_probe.py -v
+          python -m unittest discover -s tests -p 'test_claude*.py' -v
+          python -m unittest discover -s tests -p 'test_opencode*.py' -v
+          python -m unittest discover -s tests -p test_provider_docker_recovery.py -v
   package-and-test:
     runs-on: ubuntu-latest
     strategy:

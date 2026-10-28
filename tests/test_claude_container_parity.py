@@ -1,4 +1,5 @@
 """Internal controls; actual Docker/agent/graph evidence is recorded separately."""
+from importlib.util import find_spec
 import json
 import threading
 import time
@@ -231,6 +232,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertTrue(result['cancel_requested'])
         self.assertFalse(result['cancel_confirmed'])
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_command_worker_has_neither_profile_nor_network(self):
         runtime = ClaudeContainer.__new__(ClaudeContainer)
         runtime.profile, runtime.image_id = 'laomedo-claude-internal', 'sha256:'+'a'*64

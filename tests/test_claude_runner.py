@@ -1,4 +1,5 @@
 """Internal controls only: simulated CLI receipts are not live acceptance."""
+from importlib.util import find_spec
 import json
 import subprocess
 import sys
@@ -180,6 +181,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual((after['otel_start'],after['otel_end']),(3,5))
 
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_successful_native_receipt_without_exports_preserves_result_and_warns(self):
         import io; import threading
         from unittest.mock import Mock
@@ -216,6 +218,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertFalse(record['container_ownership']['cleanup_verified'])
 
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_unexpected_receiver_cleanup_failure_preserves_native_result(self):
         import io; import threading
         from unittest.mock import Mock
@@ -359,6 +362,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual(refused['status'], 'completed')
         self.assertEqual(json.loads(ledger.read_text()), {'attempted_turns': 500, 'max_authorized_turns': 1})
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_environment_excludes_host_service_credentials(self):
         from laomedo.agents.providers.claude.container import ClaudeContainer
         runtime = ClaudeContainer.__new__(ClaudeContainer)
