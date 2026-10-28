@@ -11,7 +11,7 @@ from uuid import uuid4
 from laomedo.host.mediation.agent_cli import prepare_commands; from laomedo.host.mediation.agent_cli import configure_remote
 from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.errors import KnownRejected
-from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.native.models import CodexLaunch
 from laomedo.host.mediation.authority import RunGrantAuthority; from laomedo.host.mediation.authority import FIRST_SLICE_OPERATIONS
 
 
@@ -51,19 +51,20 @@ class NativeCommandsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             self.assertIn(b'"native_fetch":true', result.stdout)
 
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_wrappers_and_mounts_are_agent_only_and_readonly(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             wrappers = prepare_commands(root, REPO, "run-branch")
             self.assertNotIn(b"\r", (wrappers / "gh").read_bytes())
-            command = _docker_prefix(root, root, root, capability=root / "capability",
+            command = CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64,capability=root / "capability",
                 mediator_url="http://host.docker.internal:1234/v1/mediate",
                 mediator_instance="a" * 32, command_directory=wrappers,
-                repository=REPO, branch="run-branch")
-            self.assertIn("LAOMEDO_REPOSITORY=" + REPO, command)
-            self.assertIn("LAOMEDO_RUN_BRANCH=run-branch", command)
-            self.assertIn(f"type=bind,source={wrappers},target=/run/laomedo/bin,readonly", command)
-            self.assertNotIn("GH_TOKEN", " ".join(command))
+                repository=REPO, branch="run-branch").to_container_spec()
+            self.assertEqual(command.environment["LAOMEDO_REPOSITORY"].get_secret_value(),REPO)
+            self.assertEqual(command.environment["LAOMEDO_RUN_BRANCH"].get_secret_value(),"run-branch")
+            self.assertTrue(any(m.source==str(wrappers) and m.target=="/run/laomedo/bin" and m.read_only for m in command.mounts))
+            self.assertNotIn("GH_TOKEN", command.model_dump_json())
             self.assertTrue((ROOT / "src/laomedo/agents/resources/mediation/agent_gh_adapter.mjs").is_file())
             self.assertTrue((ROOT / "src/laomedo/agents/resources/mediation/agent_git_remote.mjs").is_file())
             self.assertEqual(prepare_commands(root, REPO, "run-branch"), wrappers)

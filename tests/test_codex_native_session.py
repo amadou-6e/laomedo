@@ -127,6 +127,8 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         package=root.joinpath("src/laomedo/agents/providers/codex")
         self.assertFalse(package.joinpath("servers.py").exists())
+        self.assertFalse(package.joinpath("split/transport.py").exists())
+        self.assertNotIn("def _docker_prefix",package.joinpath("utils.py").read_text())
         source=package.joinpath("native/server.py").read_text()
         tree=ast.parse(source)
         imports={alias.name for node in ast.walk(tree) if isinstance(node,ast.Import) for alias in node.names}
@@ -139,8 +141,10 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         catalogue=json.loads(root.joinpath("frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         codes=set()
-        for module in ("server.py","models.py","base.py","settings.py"):
-            tree=ast.parse(root.joinpath("src/laomedo/agents/providers/codex/native",module).read_text())
+        producers=[root.joinpath("src/laomedo/agents/providers/codex/native",module) for module in ("server.py","models.py","base.py","settings.py")]
+        producers += [root.joinpath("src/laomedo/agents/providers/codex/split",module) for module in ("server.py","models.py")]
+        for module in producers:
+            tree=ast.parse(module.read_text())
             for node in ast.walk(tree):
                 if isinstance(node,ast.Call) and getattr(node.func,"id",getattr(node.func,"attr",""))=="RunnerError" and node.args:
                     codes.update(value.value.split(":",1)[0] for value in ast.walk(node.args[0]) if isinstance(value,ast.Constant) and isinstance(value.value,str))
@@ -165,16 +169,6 @@ class RetirementAndCatalogueTests(unittest.TestCase):
             self.assertFalse(root.joinpath("catalog/identity").exists())
             self.assertFalse(root.joinpath("preflight/identity").exists())
 
-
-    def test_split_diagnostic_constructor_is_bound(self):
-        """Catch mechanical renames without running the historical fake provider."""
-        root=Path(__file__).resolve().parents[1]
-        path=root.joinpath("experiments/feasibility/107/probe_patch_hook.py")
-        tree=ast.parse(path.read_text())
-        imported={alias.asname or alias.name for node in ast.walk(tree) if isinstance(node,ast.ImportFrom) for alias in node.names}
-        called={node.func.id for node in ast.walk(tree) if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id.startswith("_owned_runner_")}
-        self.assertTrue(called)
-        self.assertFalse(called-imported)
 
     def test_host_budgets_validate_before_launch_attempt_marker(self):
         """An invalid host setting must not be recorded as dispatch."""

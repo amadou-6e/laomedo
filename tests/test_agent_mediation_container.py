@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 
-from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.native.models import CodexLaunch
 
 
 @unittest.skipUnless(os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",
@@ -50,18 +50,22 @@ class AgentMediationContainerTests(unittest.TestCase):
             for path in (workspace, canonical, store):
                 path.mkdir()
             url = f"http://host.docker.internal:{server.server_port}/v1/mediate"
-            command = ["docker", *_docker_prefix(
-                workspace, canonical, store, capability=capability,
-                mediator_url=url, mediator_instance="a" * 32)]
-            command = command[:command.index(IMAGE) + 1] + [
-                "node", "/run/laomedo/mediate.mjs"]
-            self.assertNotIn("synthetic-run-capability", " ".join(command))
-            self.assertIn("--cap-drop", command)
-            self.assertIn("no-new-privileges", command)
-            result = subprocess.run(command, input=json.dumps({
-                "repository": "example/disposable", "operation": "actions_read",
-                "payload": {}}), text=True, capture_output=True, timeout=30)
-        self.assertEqual(result.returncode, 0, result.stderr)
+            from py_docker import Client
+            from py_docker.jobs.models import ContainerJob
+            from py_docker.streams.models import StreamLimits
+            from uuid import uuid4
+            with Client() as client:
+                spec=CodexLaunch(workspace=workspace,canonical=canonical,store_mount=store,
+                    image=client.images.resolve(IMAGE),name="laomedo-mediate-"+uuid4().hex,
+                    capability=capability,mediator_url=url,mediator_instance="a"*32).to_container_spec()
+                payload=json.dumps({"repository":"example/disposable","operation":"actions_read","payload":{}})
+                spec=spec.model_copy(update={"stdin_open":False,"command":["sh","-c",'printf \'%s\' "$1" | node /run/laomedo/mediate.mjs',"request",payload]})
+                self.assertNotIn("synthetic-run-capability",spec.model_dump_json())
+                self.assertEqual(spec.cap_drop,["ALL"])
+                self.assertIn("no-new-privileges",spec.security_opt)
+                result=client.jobs.run(ContainerJob(spec=spec,limits=StreamLimits(seconds=30,max_bytes=65536),
+                    wait_timeout_seconds=30,receipt_path=Path(directory).joinpath("receipt.json")))
+        self.assertEqual(result.exit_code, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout), {"ok": True})
         self.assertEqual(seen, [("/v1/mediate", "Bearer synthetic-run-capability",
                                  "a" * 32,

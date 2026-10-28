@@ -431,3 +431,5 @@ end as `unknown` with a distinct sanitized category and outcome; a consumed
 turn and partial trace remain recorded. These are fake-server tests, not
 claims that a provider-side revocation or refresh was observed live. The
 suite passed **227 tests, 4 skipped** at this evidence revision.
+
+The CLI-specific `probe_controller_env.py` and `probe_remote_executor.py` were retired with the SDK transport migration. Their source remains in Git at `815bec3`; recorded JSON evidence remains historical. Current behavior is checked through the maintained native/split SDK transports. The remaining fake-provider probes are internal controls, not integration acceptance.

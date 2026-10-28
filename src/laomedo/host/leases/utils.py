@@ -40,7 +40,8 @@ def inspect_exact(identity: _leases_models.ContainerIdentity) -> tuple[str, str 
     """Inspect on the original endpoint; legacy missing endpoint stays unknown."""
     try:
         with identity.client() as client:
-            return client.containers.watch(identity.reservation()).inspect()
+            observation = client.containers.watch(identity.reservation()).inspect()
+            return observation.state, observation.identity.id if observation.identity else None
     except (ImportError, OSError, ValueError, RuntimeError):
         return "unknown", None
 

@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.split.server import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.split.server import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.native.models import CodexLaunch; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.host.mediation.authority import RunGrantAuthority
@@ -43,6 +43,7 @@ def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -
 
 
 class FakeServer:
+    streams_closed = False
     calls = []
     turn_inputs = []
 
@@ -334,23 +335,21 @@ class LocalRunnerTests(unittest.TestCase):
         finally:
             child.terminate()
             child.join(timeout=5)
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_mediator_mount_contains_capability_not_provider_token(self):
-        capability = self.runner.state / "grant.secret"
-        capability.write_text("synthetic-run-capability", encoding="utf-8")
-        command = _docker_prefix(self.root / "source", self.root / "source",
-                                 self.runner.state, capability=capability,
-                                 mediator_url="http://host.docker.internal:1234/v1/mediate",
-                                 mediator_instance="a" * 32)
-        joined = " ".join(command)
-        self.assertIn("source=" + str(capability), joined)
-        self.assertIn("target=/run/laomedo/capability,readonly", joined)
-        self.assertIn("LAOMEDO_MEDIATOR_URL=http://host.docker.internal:1234/v1/mediate",
-                      joined)
-        self.assertIn("LAOMEDO_MEDIATOR_INSTANCE=" + "a" * 32, joined)
-        self.assertNotIn("synthetic-run-capability", joined)
-        self.assertNotIn("GH_TOKEN", joined)
-        with self.assertRaisesRegex(RunnerError, "incomplete_mediator_mount"):
-            _docker_prefix(self.root, self.root, self.root, capability=capability)
+        capability=self.runner.state / "grant.secret"
+        capability.write_text("synthetic-run-capability")
+        spec=CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.runner.state,
+            image="sha256:"+"a"*64,capability=capability,mediator_url="http://host.docker.internal:1234/v1/mediate",
+            mediator_instance="a"*32).to_container_spec()
+        mount=next(m for m in spec.mounts if m.target=="/run/laomedo/capability")
+        self.assertEqual(mount.source,str(capability)); self.assertTrue(mount.read_only)
+        self.assertEqual(spec.environment["LAOMEDO_MEDIATOR_INSTANCE"].get_secret_value(),"a"*32)
+        self.assertNotIn("synthetic-run-capability",spec.model_dump_json())
+        self.assertNotIn("GH_TOKEN",spec.environment)
+        with self.assertRaisesRegex(RunnerError,"incomplete_mediator_mount"):
+            CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.root,
+                        image="sha256:"+"a"*64,capability=capability).to_container_spec()
 
     def test_split_executor_cannot_claim_legacy_container_lease(self):
         with self.assertRaisesRegex(RunnerError, "split_executor_lease_unavailable"):
@@ -358,20 +357,15 @@ class LocalRunnerTests(unittest.TestCase):
                         check_docker=False, split_executor=True,
                         supervise_containers=True)
 
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.agents.providers.codex.settings import GIT_IMAGE; from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
-        args = (self.root / "source", self.root / "source", self.runner.state)
-        command = _docker_prefix(*args, image=GIT_IMAGE)
-        entries = [command[index + 1] for index, item in enumerate(command[:-1])
-                   if item == "--env" and command[index + 1].startswith("GIT_CONFIG_")]
-        self.assertEqual(entries, ["GIT_CONFIG_COUNT=1",
-                                  "GIT_CONFIG_KEY_0=safe.directory",
-                                  "GIT_CONFIG_VALUE_0=/draft"])
-        self.assertNotIn("GIT_CONFIG_COUNT=1", _docker_prefix(*args))
-        pinned = _docker_prefix(*args, image=GIT_IMAGE_ID)
-        self.assertEqual([pinned[index + 1] for index, item in enumerate(pinned[:-1])
-                          if item == "--env" and pinned[index + 1].startswith("GIT_CONFIG_")],
-                         entries)
+        from laomedo.agents.providers.codex.settings import GIT_IMAGE, GIT_IMAGE_ID
+        for image in (GIT_IMAGE,GIT_IMAGE_ID):
+            spec=CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.root,image=image).to_container_spec()
+            values={k:v.get_secret_value() for k,v in spec.environment.items() if k.startswith("GIT_CONFIG_")}
+            self.assertEqual(values,{"GIT_CONFIG_COUNT":"1","GIT_CONFIG_KEY_0":"safe.directory","GIT_CONFIG_VALUE_0":"/draft"})
+        spec=CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.root,image="sha256:"+"a"*64).to_container_spec()
+        self.assertNotIn("GIT_CONFIG_COUNT",spec.environment)
 
     def test_container_identity_is_saved_before_transport_launch(self):
         class InspectReservation(FakeServer):

@@ -2,7 +2,7 @@
 
 This records the migration for Laomedo issues #196–202. The preflight replacement merged in PR #212 at develop 5ffab075, and its py-docker dependency merged in PR #11 at a084711. The owner authorized those merges using the reviewed Git pin before PyPI publication. The visible checkout remains unchanged.
 
-The normal interactive lifecycle replacement is a separate draft on develop. Its optional runner extra pins the unpublished py-docker #12 feature revision. Publication/hash locking, real graph acceptance and owner approval for this new migration remain separate pending steps.
+The normal and split Codex lifecycle replacement is a separate draft on develop. Its optional runner extra pins the unpublished py-docker #12 feature revision. Publication/hash locking, real graph acceptance and owner approval for this new migration remain separate pending steps.
 
 ## Ownership
 
@@ -87,8 +87,8 @@ application launch policy; `native/server.py` handles native JSON-RPC over the
 library's bounded binary session. `native/base.py` shares native protocol and
 turn interruption with the explicitly separate `split` package. The former
 mixed `servers.py` is removed and callers migrate to defining modules. There is
-no normal-mode CLI fallback after an SDK failure. Split's controller and executor
-still use their explicit CLI transport; their migration remains separate.
+no CLI transport fallback after an SDK failure. Split controller and executor
+now use exact SDK sessions, with shared native protocol and separate credential scopes.
 
 The normal SDK spec preserves writable rootfs, bridge networking, UID/GID
 10001:10001, capability dropping, no-new-privileges, memory/process limits,
@@ -104,7 +104,7 @@ endpoint and lifetime. The existing Git/relay experiment projects typed policy
 subclasses rather than parsing a Docker command; its run identity and capability
 redaction survive that projection. The obsolete CLI-rewriter startup control is
 removed. Earlier control output remains historical evidence, not acceptance of
-the new SDK path. Explicit CLI-only diagnostic probes use the split transport.
+the new SDK path. Maintained diagnostics use typed SDK policies; the obsolete CLI-only EXP107 entrypoints are retired.
 
 The independent lease supervisor remains authoritative for application ownership
 and runner-loss cleanup. SDK containers carry its existing run/token labels plus
@@ -219,3 +219,15 @@ owner graph review remain separate pending steps.
 ### Conservative observations
 
 Mount readback currently requires the engine to preserve explicit mount order. A reordered equivalent list is refused rather than accepted; matching by target is a future compatibility improvement. A container that is created but neither running nor terminal has no confirmed exit code. EOF in that state waits for the bounded request deadline rather than inventing a successful exit or a known failure.
+
+## Consolidation and LOC acceptance
+
+The pre-offloading implementation baseline is develop `975d13cf2d8a62c50acef2b1eb4835c6040d9bee`, before PR212. Compare production code under `src` separately from tests, documents, and historical experiments. The owner expects at least parity; if production remains larger, reinvestigate and report the remaining gap. Historical script retirement does not establish production parity.
+
+Both Codex modes now use owned py-docker sessions. The CLI `SplitTransport`, `_docker_prefix`, and `_docker_checked` are retired; maintained callers use typed launch projections. The two obsolete CLI-only EXP107 feasibility entrypoints are retired with their reports and Git history retained. Pydantic models describe application policy, not another Docker framework.
+
+The runtime owns binary line framing, EOF/state confirmation, exact reservation observation/removal and delayed-create watches. Laomedo owns decoding, Codex protocol, telemetry, evidence, reader workers, grant revocation and the independent supervisor process. Lease registrations and run ownership now record the pinned Docker endpoint; legacy records without it cannot claim cleanup against an ambient daemon. Claude's shared lease caller pins its Docker CLI environment to the same endpoint. This does not migrate the remaining Claude/OpenCode container lifecycle.
+
+Normal close confirmation replaces a redundant container cleanup call; independent lease completion still verifies revocation and cleanup. A failed lease completion remains unverified rather than being promoted to success by another absence check. Split controller and executor close their exact sessions and retain unresolved receipts. Profile preparation recovers its one-shot receipt before dispatch and initializes the explicitly selected volume with bounded SDK jobs; a failure never deletes a mutable volume name.
+
+Real no-model checks have verified split initialize/registration, an eight-model catalogue and clean removal of both containers, plus exact cleanup while ambient Docker configuration deliberately selected an unavailable endpoint. These are source checks using the explicitly selected local image with a harness-only pin override, not acceptance of the checked-in image, model execution, graph acceptance or publication. Final installed-wheel, model/cancel, reviewer and CI evidence remains required for the final revision.

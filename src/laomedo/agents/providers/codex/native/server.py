@@ -45,6 +45,7 @@ class AppServer(BaseNativeServer):
         self._reader_done = threading.Event()
         self._reader_failed = False
         self._closed = False
+        self.cleanup_confirmed = False
         self._resource_lock = threading.Lock()
         self._resources_closed = False
         self._resources_failed = False
@@ -152,6 +153,7 @@ class AppServer(BaseNativeServer):
         error = None
         try:
             self.session.close()
+            self.cleanup_confirmed = True
         except (DockerOperationError, OSError):
             error = RunnerError("container_termination_unverified")
         finally:

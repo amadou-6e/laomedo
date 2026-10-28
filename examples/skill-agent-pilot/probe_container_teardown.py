@@ -1,35 +1,24 @@
-"""No-model Docker probe for owned-container cleanup after client termination."""
-
+"""Real no-model check that owned SDK session close removes its exact ID."""
 from pathlib import Path
-import subprocess
-import sys
 import tempfile
-import time
 from uuid import uuid4
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from laomedo.agents.providers.codex.split.transport import SplitTransport; from laomedo.agents.providers.codex.settings import IMAGE
+from py_docker import Client
+from py_docker.containers.models import ContainerSpec
+from py_docker.sessions.models import ContainerSession
+from py_docker.streams.models import StreamLimits
+from laomedo.agents.providers.codex.settings import IMAGE
 
 
 def main():
-    name = "laomedo-codex-review-" + uuid4().hex
-    command = ["docker", "run", "--rm", "-i", "--name", name, "--pull=never",
-               IMAGE, "sh", "-c", "sleep 60"]
-    with tempfile.TemporaryDirectory(prefix="laomedo-teardown-") as directory:
-        app = SplitTransport(command, Path(directory))
-        try:
-            for _ in range(50):
-                state = subprocess.run(["docker", "inspect", "--format", "{{.State.Running}}", name],
-                                       capture_output=True, text=True, timeout=10)
-                if state.returncode == 0 and state.stdout.strip() == "true":
-                    break
-                time.sleep(.1)
-            else:
+    """Launch an inert process and confirm exact cleanup without credentials."""
+    with tempfile.TemporaryDirectory(prefix="laomedo-teardown-") as directory, Client() as client:
+        spec=ContainerSpec(image=client.images.resolve(IMAGE),name="laomedo-teardown-"+uuid4().hex,
+                           stdin_open=True,command=["sh","-c","sleep 60"])
+        with client.sessions.open(ContainerSession(spec=spec,limits=StreamLimits(seconds=20,max_bytes=1024),
+                receipt_path=Path(directory).joinpath("receipt.json"))) as session:
+            if not session.state().running:
                 raise RuntimeError("owned_container_never_started")
-        finally:
-            app.close()
-        absent = subprocess.run(["docker", "inspect", name], capture_output=True, timeout=10)
-        if absent.returncode == 0:
+        if not session.state().removed:
             raise RuntimeError("owned_container_survived_close")
         print("owned_container_removed; model_turns_submitted=0")
 

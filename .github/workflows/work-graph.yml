@@ -16,6 +16,10 @@ jobs:
           python -m unittest discover -s tests -p test_runner_sandbox_policy.py -v
           python -m unittest discover -s tests -p test_local_runner.py -v
           python -m unittest discover -s tests -p test_live_workgraph_bindings.py -v
+          python -m unittest discover -s tests -p test_container_lease.py -v
+          python -m unittest discover -s tests -p test_lease_service.py -v
+          python -m unittest discover -s tests -p test_native_commands.py -v
+          python -m unittest discover -s tests -p test_exp104_s11_probe.py -v
   package-and-test:
     runs-on: ubuntu-latest
     strategy:

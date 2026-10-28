@@ -24,7 +24,6 @@ import laomedo.host.mediation.authority as _mediation_authority
 import laomedo.skills.workspace.utils as workspace_skills
 import re
 import shutil
-import subprocess
 import threading
 import time
 
@@ -146,16 +145,13 @@ class CodexRunner(Runner):
 
             selected = CodexPreflight(self.state).check(self.image, self.image_id)
             self.docker_environment = selected.environment
-            if not split_executor:
-                subprocess.run(
-                    ["docker", "volume", "inspect", _codex_settings.VOLUME],
-                    check=True,
-                    capture_output=True,
-                    timeout=15,
-                    env=self.docker_environment,
-                )
+            if split_executor:
+                _codex_utils._ensure_split_profile(self.profile, state=self.state, env=self.docker_environment)
             else:
-                _codex_utils._ensure_split_profile(self.profile, env=self.docker_environment)
+                from py_docker import Client
+                with Client(environment=self.docker_environment) as docker:
+                    docker.sdk.volumes.get(_codex_settings.VOLUME)
+
 
 
     def runtime_binding(self):
@@ -208,6 +204,7 @@ class CodexRunner(Runner):
                 self.profile,
                 provider_config=self.split_provider_config,
                 docker_environment=self.docker_environment,
+                lifetime_seconds=lifetime_seconds,
                 access_token=(
                     access_token
                     if access_token is not None
@@ -345,13 +342,11 @@ class CodexRunner(Runner):
                     ("store_write", "printf FORBIDDEN > /store/sentinel.txt"),
                     ("auth_read", "cat /home/runner/.codex/auth.json >/dev/null"),
                 ):
-                    response = subprocess.run(
-                        ["docker", "exec", server.executor_name, "sh", "-c", command],
-                        env=self.docker_environment,
-                        capture_output=True,
-                        timeout=15,
-                    )
-                    checks[label] = response.returncode
+                    from py_docker.streams.models import StreamLimits
+                    response = server._executor_client.execution.run(
+                        server.executor.identity, ["sh", "-c", command],
+                        StreamLimits(seconds=15,max_bytes=65536))
+                    checks[label] = response.exit_code
             else:
                 for label, command in (
                     ("workspace_write", "printf CANARY > /draft/canary.txt"),
@@ -1093,11 +1088,10 @@ class CodexRunner(Runner):
                                 error_category="container_termination_unverified",
                             )
                     elif record is not None and self.supervise_containers:
-                        verified, detail = _leases_utils.cleanup_exact(
-                            _leases_models.ContainerIdentity(
-                                name=name, run_id=run_id, token=launch_token, docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST")
-                            )
-                        )
+                        verified, detail = ((True, "absent") if getattr(server,"cleanup_confirmed",False) else
+                            _leases_utils.cleanup_exact(_leases_models.ContainerIdentity(
+                                name=name,run_id=run_id,token=launch_token,
+                                docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"))))
                         if lease is not None:
                             # The executor is already removed. Only a trusted
                             # controller can keep its SAME lease through output
@@ -1113,12 +1107,7 @@ class CodexRunner(Runner):
                                     resumed=resume,
                                     streams_closed=(
                                         server is not None and (
-                                            server.streams_closed if hasattr(server, "streams_closed") else (
-                                                getattr(server, "reader", None) is not None
-                                                and getattr(server, "stderr_reader", None) is not None
-                                                and not server.reader.is_alive()
-                                                and not server.stderr_reader.is_alive()
-                                            )
+                                            server.streams_closed
                                         )
                                     ),
                                 )
@@ -1135,14 +1124,6 @@ class CodexRunner(Runner):
                                 except Exception:
                                     verified = False
                                     detail = "lease_service_unverified"
-                        # A failed normal close may have been completed by the
-                        # independent supervisor after its pipe closed.
-                        if not verified:
-                            verified, detail = _leases_utils.cleanup_exact(
-                                _leases_models.ContainerIdentity(
-                                    name=name, run_id=run_id, token=launch_token, docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST")
-                                )
-                            )
                         record["container_ownership"]["cleanup_verified"] = verified
                         record["container_ownership"]["cleanup_detail"] = detail
                         if not verified:

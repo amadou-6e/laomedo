@@ -9,8 +9,6 @@ import hashlib
 import json
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.host.credentials.siwc.errors as _siwc_errors
-import laomedo.host.leases.settings as _leases_settings
-import subprocess
 
 
 
@@ -79,159 +77,6 @@ def _auth_record_error(exc: _siwc_errors.AuthError) -> tuple[str, str]:
     return "auth_mode_unavailable", code.removeprefix("auth_")
 
 
-def _docker_prefix(
-    workspace: Path,
-    canonical: Path,
-    store_mount: Path,
-    *,
-    image: str = _codex_settings.IMAGE,
-    name: str | None = None,
-    run_id: str | None = None,
-    launch_token: str | None = None,
-    capability: Path | None = None,
-    mediator_url: str | None = None,
-    mediator_instance: str | None = None,
-    command_directory: Path | None = None,
-    repository: str | None = None,
-    branch: str | None = None,
-    base_branch: str = "main",
-    nested_sandbox: bool = True,
-) -> list[str]:
-    """The #146 Docker grant and mounts, with only per-run paths substituted."""
-    name = name or "laomedo-codex-" + uuid4().hex
-    seccomp = []
-    if nested_sandbox:
-        if (
-            hashlib.sha256(_codex_settings.SECCOMP.read_bytes()).hexdigest()
-            != _codex_settings.SECCOMP_SHA256
-        ):
-            raise _runtime_errors.RunnerError("seccomp_profile_changed")
-        seccomp = ["--security-opt", "seccomp=" + str(_codex_settings.SECCOMP)]
-    labels = (
-        [
-            "--label",
-            f"{_leases_settings.LABEL_RUN}={run_id}",
-            "--label",
-            f"{_leases_settings.LABEL_TOKEN}={launch_token}",
-        ]
-        if run_id and launch_token
-        else []
-    )
-    mediation = (
-        [
-            "--mount",
-            f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
-            "--mount",
-            f"type=bind,source={_codex_settings.MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
-            "--env",
-            "LAOMEDO_MEDIATOR_URL=" + mediator_url,
-            "--env",
-            "LAOMEDO_MEDIATOR_INSTANCE=" + mediator_instance,
-            "--env",
-            "LAOMEDO_CAPABILITY_FILE=/run/laomedo/capability",
-        ]
-        if all(
-            value is not None for value in (capability, mediator_url, mediator_instance)
-        )
-        else []
-    )
-    if (
-        any(
-            value is not None for value in (capability, mediator_url, mediator_instance)
-        )
-        and not mediation
-    ):
-        raise _runtime_errors.RunnerError("incomplete_mediator_mount")
-    if command_directory is not None:
-        if not mediation or repository is None or branch is None:
-            raise _runtime_errors.RunnerError("incomplete_command_mount")
-        mediation += [
-            "--mount",
-            f"type=bind,source={command_directory},target=/run/laomedo/bin,readonly",
-            "--mount",
-            f"type=bind,source={_codex_settings.MEDIATION_CLIENT.with_name('agent_gh_adapter.mjs')},target=/run/laomedo/gh.mjs,readonly",
-            "--mount",
-            f"type=bind,source={_codex_settings.MEDIATION_CLIENT.with_name('agent_git_remote.mjs')},target=/run/laomedo/git-remote.mjs,readonly",
-            "--env",
-            "LAOMEDO_REPOSITORY=" + repository,
-            "--env",
-            "LAOMEDO_RUN_BRANCH=" + branch,
-            "--env",
-            "LAOMEDO_BASE_BRANCH=" + base_branch,
-            "--env",
-            "PATH=/run/laomedo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-        ]
-    # Windows bind mounts need not be owned by the container's non-root UID.
-    # Trust only our fixed workspace, never arbitrary paths or a wildcard.
-    git_config = (
-        [
-            "--env",
-            "GIT_CONFIG_COUNT=1",
-            "--env",
-            "GIT_CONFIG_KEY_0=safe.directory",
-            "--env",
-            "GIT_CONFIG_VALUE_0=/draft",
-        ]
-        if image in {_codex_settings.GIT_IMAGE, _codex_settings.GIT_IMAGE_ID}
-        else []
-    )
-    return [
-        "run",
-        "--rm",
-        "-i",
-        "--name",
-        name,
-        *labels,
-        "--pull=never",
-        "--network",
-        "bridge",
-        "--cap-drop",
-        "ALL",
-        "--security-opt",
-        "no-new-privileges",
-        *seccomp,
-        "--pids-limit",
-        "128",
-        "--memory",
-        "1g",
-        "--user",
-        "10001:10001",
-        "--mount",
-        f"type=volume,source={_codex_settings.VOLUME},target=/home/runner/.codex",
-        "--mount",
-        f"type=bind,source={workspace},target=/draft",
-        "--mount",
-        f"type=bind,source={canonical},target=/canonical,readonly",
-        "--mount",
-        f"type=bind,source={store_mount},target=/store",
-        "--mount",
-        f"type=bind,source={_codex_settings.CONFIG},target=/config.toml,readonly",
-        *mediation,
-        *git_config,
-        "--workdir",
-        "/draft",
-        image,
-        "sh",
-        "-c",
-        'cp /config.toml /home/runner/.codex/config.toml && exec codex "$@"',
-        "bootstrap",
-        "app-server",
-        "--stdio",
-    ]
-
-
-def _docker_checked(*args: str, timeout: float = 15, env=None) -> str:
-    try:
-        result = subprocess.run(
-            ["docker", *args], capture_output=True, text=True, timeout=timeout, env=env
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        raise _runtime_errors.RunnerError("docker_control_unavailable") from None
-    if result.returncode:
-        raise _runtime_errors.RunnerError("docker_control_failed")
-    return result.stdout.strip()
-
-
 def _split_profile(state: Path) -> str:
     return (
         "laomedo-codex-split-"
@@ -239,38 +84,38 @@ def _split_profile(state: Path) -> str:
     )
 
 
-def _ensure_split_profile(name: str, *, env=None) -> None:
-    found = subprocess.run(
-        ["docker", "volume", "inspect", name], capture_output=True, timeout=10, env=env
-    )
-    if found.returncode == 0:
-        return
-    _docker_checked("volume", "create", name, env=env)
+def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
+    """Reuse the explicitly selected profile or initialize a newly owned volume.
+
+    Failed initialization retains the volume rather than deleting a mutable name.
+    The one-shot container keeps its own durable cleanup receipt in runner state.
+    """
+    from docker.errors import NotFound, DockerException
+    from py_docker import Client
+    from py_docker.containers.models import ContainerSpec, Mount
+    from py_docker.jobs.models import ContainerJob
+    from py_docker.streams.models import StreamLimits
+    from py_docker.errors import CleanupUnconfirmedError
     try:
-        _docker_checked(
-            "run",
-            "--rm",
-            "--pull=never",
-            "--network",
-            "none",
-            "--user",
-            "0:0",
-            "--cap-drop",
-            "ALL",
-            "--cap-add",
-            "CHOWN",
-            "--mount",
-            f"type=volume,source={name},target=/home/runner/.codex",
-            _codex_settings.IMAGE,
-            "chown",
-            "10001:10001",
-            "/home/runner/.codex",
-            timeout=30,
-            env=env,
-        )
-    except Exception:
-        _docker_checked("volume", "rm", name, env=env)
-        raise
+        with Client(environment=env) as client:
+            client.jobs.recover(state.joinpath("profile-init.json"))
+            try:
+                client.sdk.volumes.get(name)  # Explicit host-selected existing profile.
+            except NotFound:
+                client.volumes.create(name=name)
+            image=client.images.resolve(_codex_settings.IMAGE, expected_id=_codex_settings.IMAGE_ID)
+            result=client.jobs.run(ContainerJob(
+                spec=ContainerSpec(image=image,name="laomedo-profile-"+uuid4().hex,
+                    user="0:0",cap_add=["CHOWN"],command=["chown","10001:10001","/home/runner/.codex"],
+                    mounts=[Mount(type="volume",source=name,target="/home/runner/.codex")]),
+                limits=StreamLimits(seconds=30,max_bytes=65536),wait_timeout_seconds=30,
+                receipt_path=state.joinpath("profile-init.json")))
+            if result.exit_code:
+                raise _runtime_errors.RunnerError("docker_control_failed")
+    except CleanupUnconfirmedError:
+        raise _runtime_errors.RunnerError("container_termination_unverified") from None
+    except (RuntimeError, DockerException):
+        raise _runtime_errors.RunnerError("docker_control_failed") from None
 
 
 def _command_summary(events: list[dict], turn_id: str) -> dict:

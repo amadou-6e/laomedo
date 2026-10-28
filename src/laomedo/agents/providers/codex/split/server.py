@@ -3,23 +3,20 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import queue
 import re
 import secrets
-import subprocess
 import threading
 import time
 from pathlib import Path
 from uuid import uuid4
 
 import laomedo.agents.providers.codex.settings as _codex_settings
-import laomedo.agents.providers.codex.utils as _codex_utils
 import laomedo.agents.runtime.errors as _runtime_errors
-from laomedo.agents.providers.codex.split.transport import SplitTransport
+from laomedo.agents.providers.codex.native.server import AppServer
 
 
-class SplitAppServer(SplitTransport):
+class SplitAppServer(AppServer):
     """Pinned Codex controller with a separate, disposable tool executor.
 
     This mode is credential-free until the app-owned OAuth broker is connected.
@@ -37,7 +34,20 @@ class SplitAppServer(SplitTransport):
         provider_config=(),
         access_token=None,
         docker_environment=None,
+        lifetime_seconds: float = 300,
     ):
+        """Open both exact-ID sessions on the preflight-selected endpoint."""
+        from py_docker import Client
+        from py_docker.containers.models import ContainerSpec, Mount
+        from py_docker.sessions.models import ContainerSession
+        from py_docker.streams.models import StreamLimits
+
+        from laomedo.agents.providers.codex.split.models import SplitLaunch
+
+        if access_token is not None and (
+            not isinstance(access_token, str) or not access_token
+        ):
+            raise _runtime_errors.RunnerError("invalid_controller_token")
         self.docker_environment = docker_environment
         self.executor_name = "laomedo-executor-" + uuid4().hex
         self.environment_id = "laomedo-executor-" + uuid4().hex
@@ -45,129 +55,100 @@ class SplitAppServer(SplitTransport):
         self.registered = False
         self.authorization_probe = None
         self._controller_started = False
-        self._executor_started = False
-        if (
-            self._docker_checked(
-                "image", "inspect", _codex_settings.IMAGE, "--format", "{{.Id}}"
-            )
-            != _codex_settings.IMAGE_ID
-        ):
-            raise _runtime_errors.RunnerError("docker_image_digest_changed")
-        executor = [
-            "run",
-            "--rm",
-            "-d",
-            "--name",
-            self.executor_name,
-            "--pull=never",
-            "--network",
-            "bridge",
-            "--cap-drop",
-            "ALL",
-            "--security-opt",
-            "no-new-privileges",
-            "--pids-limit",
-            "128",
-            "--memory",
-            "1g",
-            "--user",
-            "10001:10001",
-            "--mount",
-            f"type=bind,source={workspace},target=/draft",
-            "--tmpfs",
-            "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
-            "--workdir",
-            "/draft",
-            _codex_settings.IMAGE,
-            "codex",
-            "exec-server",
-            "--listen",
-            "ws://0.0.0.0:39871",
-            "--ws-auth",
-            "capability-token",
-            "--ws-token-sha256",
-            hashlib.sha256(self.executor_token.encode()).hexdigest(),
-        ]
+        self.executor = None
+        self._executor_client = Client(environment=docker_environment)
         try:
-            self._docker_checked(*executor, timeout=30)
-            self._executor_started = True
-            command = _codex_utils._docker_prefix(
-                workspace, canonical, store_mount, nested_sandbox=False
+            image = self._executor_client.images.resolve(
+                _codex_settings.IMAGE, expected_id=_codex_settings.IMAGE_ID
             )
-            command[command.index("--network") + 1] = "container:" + self.executor_name
-            old_mount = f"type=volume,source={_codex_settings.VOLUME},target=/home/runner/.codex"
-            index = command.index(old_mount)
-            del command[index - 1 : index + 1]
-            command[command.index("--workdir") : command.index("--workdir")] = [
-                "--mount",
-                f"type=volume,source={profile},target=/home/runner/.codex",
-            ]
-            command += [
-                "-c",
-                "features.deferred_executor=true",
-                "-c",
-                "features.executor_capability_discovery=true",
-            ]
-            for setting in provider_config:
-                command += ["-c", setting]
-            environment = docker_environment
-            if access_token is not None:
-                if not isinstance(access_token, str) or not access_token:
-                    raise _runtime_errors.RunnerError("invalid_controller_token")
-                command[command.index("--workdir") : command.index("--workdir")] = [
-                    "--env",
-                    "ACCESS_TOKEN",
-                ]
-                environment = dict(
-                    os.environ if docker_environment is None else docker_environment,
-                    ACCESS_TOKEN=access_token,
+            spec = ContainerSpec(
+                image=image,
+                name=self.executor_name,
+                stdin_open=True,
+                command=[
+                    "codex",
+                    "exec-server",
+                    "--listen",
+                    "ws://0.0.0.0:39871",
+                    "--ws-auth",
+                    "capability-token",
+                    "--ws-token-sha256",
+                    hashlib.sha256(self.executor_token.encode()).hexdigest(),
+                ],
+                user="10001:10001",
+                network_mode="bridge",
+                read_only=False,
+                working_dir="/draft",
+                mounts=[Mount(type="bind", source=str(workspace), target="/draft")],
+                tmpfs={"/home/runner/.codex": "rw,uid=10001,gid=10001,mode=0700"},
+            )
+            self.executor = self._executor_client.sessions.open(
+                ContainerSession(
+                    spec=spec,
+                    limits=StreamLimits(seconds=lifetime_seconds, max_bytes=65536),
+                    receipt_path=evidence.joinpath("executor-receipt.json"),
                 )
+            )
+            launch = SplitLaunch(
+                workspace=workspace,
+                canonical=canonical,
+                store_mount=store_mount,
+                image=image,
+                profile=profile,
+                executor_id=self.executor.identity.id,
+                provider_config=tuple(provider_config),
+                access_token=access_token,
+            )
             super().__init__(
-                ["docker", *command],
+                launch,
                 evidence,
-                env=environment,
-                docker_environment=docker_environment,
+                env=docker_environment,
+                lifetime_seconds=lifetime_seconds,
+                secret_redactions=((access_token,) if access_token else ()),
             )
             self._controller_started = True
-        except Exception:
-            if self._executor_started:
-                subprocess.run(
-                    ["docker", "rm", "-f", self.executor_name],
-                    check=False,
-                    env=self.docker_environment,
-                    capture_output=True,
-                    timeout=15,
-                )
+        except Exception as primary:
+            try:
+                self._close_executor()
+            except _runtime_errors.RunnerError as cleanup:
+                raise cleanup from primary
+            from py_docker.errors import (
+                CleanupUnconfirmedError,
+                DockerOperationError,
+                OwnershipConflictError,
+            )
+
+            if isinstance(primary, CleanupUnconfirmedError):
+                raise _runtime_errors.RunnerError(
+                    "executor_termination_unverified"
+                ) from None
+            if isinstance(primary, OwnershipConflictError):
+                raise _runtime_errors.RunnerError(
+                    "docker_image_digest_changed"
+                ) from None
+            if isinstance(primary, DockerOperationError):
+                raise _runtime_errors.RunnerError("docker_control_failed") from None
             raise
 
-    def _docker_checked(self, *args: str, timeout: float = 15) -> str:
-        """Run a split control operation on the preflight-selected Docker endpoint.
+    def _exec(self, identity, command):
+        """Execute a bounded policy probe through the selected owned session."""
+        from py_docker.errors import DockerOperationError
+        from py_docker.streams.models import StreamLimits
 
-        Parameters
-        ----------
-        *args : str
-            Docker CLI arguments supplied by the split controller.
-        timeout : float
-            Maximum seconds allowed for this control request.
-
-        Returns
-        -------
-        str
-            Stripped output; existing Docker control errors propagate unchanged.
-        """
-        return _codex_utils._docker_checked(
-            *args, timeout=timeout, env=self.docker_environment
-        )
+        try:
+            result = self._executor_client.execution.run(
+                identity, command, StreamLimits(seconds=5, max_bytes=65536)
+            )
+            if result.exit_code:
+                raise _runtime_errors.RunnerError("docker_control_failed")
+            return result.stdout.decode("utf-8").strip()
+        except (DockerOperationError, UnicodeError):
+            raise _runtime_errors.RunnerError("docker_control_unavailable") from None
 
     def _controller_listeners(self) -> set[str]:
         """Reject controller-owned listening TCP/Unix and any UDP socket."""
-        fds = self._docker_checked(
-            "exec",
-            self.container_name,
-            "sh",
-            "-c",
-            "ls -l /proc/[0-9]*/fd 2>/dev/null",
-            timeout=5,
+        fds = self._exec(
+            self.session.identity, ["sh", "-c", "ls -l /proc/[0-9]*/fd 2>/dev/null"]
         )
         owned = set(re.findall(r"socket:\[(\d+)\]", fds))
         if not owned:
@@ -179,9 +160,7 @@ class SplitAppServer(SplitTransport):
             ("udp", "udp"),
             ("udp6", "udp"),
         ):
-            rows = self._docker_checked(
-                "exec", self.container_name, "cat", "/proc/net/" + table, timeout=5
-            )
+            rows = self._exec(self.session.identity, ["cat", "/proc/net/" + table])
             for row in rows.splitlines()[1:]:
                 fields = row.split()
                 if (
@@ -190,9 +169,7 @@ class SplitAppServer(SplitTransport):
                     and (kind == "udp" or fields[3] == "0A")
                 ):
                     found.add(kind)
-        rows = self._docker_checked(
-            "exec", self.container_name, "cat", "/proc/net/unix", timeout=5
-        )
+        rows = self._exec(self.session.identity, ["cat", "/proc/net/unix"])
         for row in rows.splitlines()[1:]:
             fields = row.split()
             if len(fields) > 6 and fields[6] in owned and int(fields[3], 16) & 0x10000:
@@ -203,29 +180,17 @@ class SplitAppServer(SplitTransport):
         if self._controller_listeners():
             raise _runtime_errors.RunnerError("controller_listener_gate_failed")
         if (
-            self._docker_checked(
-                "exec", self.container_name, "codex", "--version", timeout=5
-            )
+            self._exec(self.session.identity, ["codex", "--version"])
             != _codex_settings.CLI_VERSION
         ):
             raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
-        if (
-            self._docker_checked(
-                "inspect",
-                self.executor_name,
-                "--format",
-                "{{.State.Running}}",
-                timeout=5,
-            )
-            != "true"
-        ):
+        if not self.executor.state().running:
             raise _runtime_errors.RunnerError("executor_not_running")
-        for name in (self.container_name, self.executor_name):
+        for session in (self.session, self.executor):
+            container = self._executor_client.containers.inspect(session.identity)
             if (
-                self._docker_checked(
-                    "inspect", name, "--format", "{{.Image}}", timeout=5
-                )
-                != _codex_settings.IMAGE_ID
+                container is None
+                or container.attrs["Image"] != _codex_settings.IMAGE_ID
             ):
                 raise _runtime_errors.RunnerError("running_image_digest_changed")
 
@@ -305,23 +270,14 @@ class SplitAppServer(SplitTransport):
                 self.interrupt(turn_id)
                 return "unknown", "auth_revoked_during_turn"
             try:
-                if (
-                    self._docker_checked(
-                        "inspect",
-                        self.executor_name,
-                        "--format",
-                        "{{.State.Running}}",
-                        timeout=3,
-                    )
-                    != "true"
-                ):
+                if not self.executor.state().running:
                     return "unknown", "executor_lost"
-            except _runtime_errors.RunnerError:
+            except RuntimeError:
                 return "unknown", "executor_lost"
             try:
                 msg = self.messages.get(timeout=min(0.25, deadline - time.monotonic()))
             except queue.Empty:
-                if self.process.poll() is not None:
+                if self._transport_exited():
                     return "unknown", "controller_exited"
                 continue
             self._observe(msg)
@@ -329,31 +285,30 @@ class SplitAppServer(SplitTransport):
         return "timeout", "turn_timeout"
 
     def close(self) -> None:
+        """Confirm controller and executor removal before releasing clients."""
         error = None
         try:
             if self._controller_started:
                 super().close()
-        except _runtime_errors.RunnerError as exc:
-            error = exc
-        finally:
-            try:
-                if self._executor_started:
-                    self._docker_checked("rm", "-f", self.executor_name, timeout=15)
-                    check = subprocess.run(
-                        ["docker", "inspect", self.executor_name],
-                        check=False,
-                        env=self.docker_environment,
-                        capture_output=True,
-                        timeout=10,
-                    )
-                    if check.returncode == 0 or not any(
-                        marker in check.stderr
-                        for marker in (b"No such object:", b"No such container:")
-                    ):
-                        raise _runtime_errors.RunnerError(
-                            "executor_termination_unverified"
-                        )
-            except _runtime_errors.RunnerError as exc:
-                error = error or exc
-        if error:
+        except _runtime_errors.RunnerError as failure:
+            error = failure
+        try:
+            self._close_executor()
+        except _runtime_errors.RunnerError as failure:
+            error = failure
+        if error is not None:
             raise error
+
+    def _close_executor(self) -> None:
+        """Keep an unresolved executor receipt and report cleanup uncertainty."""
+        from py_docker.errors import DockerOperationError
+
+        try:
+            if self.executor is not None:
+                self.executor.close()
+        except DockerOperationError:
+            raise _runtime_errors.RunnerError(
+                "executor_termination_unverified"
+            ) from None
+        finally:
+            self._executor_client.close()

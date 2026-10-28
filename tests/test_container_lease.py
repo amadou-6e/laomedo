@@ -14,11 +14,13 @@ from laomedo.host.leases.utils import cleanup_after_loss; from laomedo.host.leas
 
 
 class ContainerLeaseTests(unittest.TestCase):
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_cleanup_uses_original_endpoint_and_runtime_ownership(self):
         identity=ContainerIdentity(name="exact",run_id="run",token="private",docker_endpoint="unix:///original.sock")
         with patch("py_docker.Client") as client:
             watch=client.return_value.__enter__.return_value.containers.watch.return_value
-            watch.inspect.return_value=("owned","a"*64)
+            from py_docker.containers.models import ContainerObservation, ContainerIdentity as RuntimeIdentity
+            watch.inspect.return_value=ContainerObservation(state="owned",identity=RuntimeIdentity(id="a"*64,name="exact",labels={"owner":"private"}))
             watch.cleanup.return_value.verified=True
             watch.cleanup.return_value.detail="removed"
             self.assertEqual(inspect_exact(identity),("owned","a"*64))
@@ -28,6 +30,7 @@ class ContainerLeaseTests(unittest.TestCase):
             self.assertEqual(reservation.labels["laomedo.launch_token"].get_secret_value(),"private")
             watch.cleanup.assert_called_once_with(watch_seconds=0)
 
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_missing_legacy_endpoint_cannot_claim_absence(self):
         identity=ContainerIdentity(name="exact",run_id="run",token="private")
         with patch("py_docker.Client") as client:
@@ -35,6 +38,7 @@ class ContainerLeaseTests(unittest.TestCase):
             self.assertEqual(cleanup_exact(identity),(False,"unknown"))
             client.assert_not_called()
 
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_loss_watch_delegates_configured_duration(self):
         identity=ContainerIdentity(name="exact",run_id="run",token="private",docker_endpoint="unix:///original.sock")
         with patch("py_docker.Client") as client:
