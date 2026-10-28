@@ -105,9 +105,11 @@ Git history retained. Maintained diagnostics use the SDK. Tests with internal
 controls do not establish integration acceptance.
 
 Required acceptance includes installed-wheel/source provenance, real completion,
-cancellation, EOF and abrupt-loss recovery, exact cleanup, descriptive failure
+cancellation and abrupt-loss recovery, exact cleanup, descriptive failure
 presentation, final-head CI and full substantive Claude review. Live graph review
 and owner merge approval remain separate. Local checks with image73ad do not
 validate checked-in image7b79 or establish the local image's build provenance.
 No credentials are copied by this migration. Actual login-only mirroring remains
 subject to the owner's existing dedicated-local-volume authorization.
+
+Real stream/EOF checks currently cover the runtime transport; a Codex-level EOF failure is not claimed as accepted. A split model turn remains unverified: only split initialize, registration and catalogue have real evidence.

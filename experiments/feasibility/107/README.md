@@ -19,7 +19,9 @@ would give Codex app-server an OAuth access token in `ACCESS_TOKEN`, as in the
 [OpenAI app-server recipe](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server).
 Can a command invoked through this runner's `command/exec` read that token?
 
-Run the probe from the Laomedo checkout in PowerShell:
+Historical invocation: this CLI-only entrypoint is retired. Retrieve its source
+from Git revision `815bec3` to examine the original experiment; the commands
+below do not run in the current checkout.
 
 ```powershell
 $env:PYTHONPATH = (Get-Location).Path
@@ -82,7 +84,9 @@ token, no canary file, and no login volume. The two containers
 share a Docker network namespace for loopback transport, but have separate PID
 and mount namespaces. Their only shared file mount is the disposable draft.
 
-Run from the Laomedo checkout:
+Historical invocation: this CLI-only entrypoint is retired at the SDK migration.
+The commands below document source preserved in Git at `815bec3` and do not run
+in the current checkout.
 
 ```powershell
 $env:PYTHONPATH = (Get-Location).Path
