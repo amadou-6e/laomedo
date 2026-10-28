@@ -63,7 +63,11 @@ one-time migration data, not runtime compatibility code.
 
 File migration splices changed JSON strings, preserving unrelated bytes,
 formatting, duplicate keys, Unicode, number spelling, BOM and line endings.
-Graph migration selects template code. Launcher fields are selected only at
+Graph migration selects template code. It preserves `metadata.code_hash` and
+stored dependency metadata; it does not regenerate component-cache metadata.
+Generate current component templates/exports through Langflow or the graph's
+builder when refreshed metadata is required. Import migration alone does not
+certify those fields. Launcher fields are selected only at
 the root or in an explicit root `launcher` object. Unparseable retired imports
 require manual migration. `--check` exits 1 when changes are needed.
 Backup conflicts are checked before writing; replacement is atomic per file.

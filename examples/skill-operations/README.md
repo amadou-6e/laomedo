@@ -1,7 +1,7 @@
 # Skill operations
 
 The existing Skill node accepts ordinary operations and direct feedback from
-the original Codex Agent: **Skill Task â†’ Agent Task â†’ same Skill Operation**.
+the original Codex Agent: **Skill Task → Agent Task → same Skill Operation**.
 No new Agent component is introduced. `build_flow.py` exports without execution.
 
 An operation replaces/adds/deletes multiple UTF-8 files in one validated batch:

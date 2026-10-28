@@ -106,7 +106,7 @@ superseded source/skill/revision are ignored. Discovery status is read-only.
 Skill files accepts the resolved tuple only while it matches the current controls.
 Source-empty old saved nodes retain their manual exact reference behavior.
 
-The host source service is `python -m laomedo.skills.sources.server`: configure its
+The host source service is `python -m laomedo.skills.sources.cli`: configure its
 registry, private state directory, allowed local roots and API token file. The
 Langflow backend uses `LAOMEDO_SKILL_SOURCE_URL` and
 `LAOMEDO_SKILL_SOURCE_TOKEN_FILE`. No transport token belongs in node fields.
