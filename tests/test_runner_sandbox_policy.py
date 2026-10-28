@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.agents.providers.codex.settings import CLI_VERSION; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.preflight.models import DockerSelection
 
 
 class RunnerSandboxPolicyTests(unittest.TestCase):
@@ -41,17 +42,16 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             class Capture:
                 def __init__(self, command, evidence):
                     commands.append(command)
-            with patch("subprocess.run", side_effect=[
-                    subprocess.CompletedProcess([], 0, approved, ""),
-                    subprocess.CompletedProcess([], 0, CLI_VERSION, ""),
-                    subprocess.CompletedProcess([], 0, "", "")]):
+            selection = DockerSelection(image_id=approved, environment={"DOCKER_HOST": "unix:///local-test.sock"})
+            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", return_value=selection) as checked, patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as docker:
                 runner = LocalRunner(root / "state", root / "skills", source,
                                      image_id=approved, transport=Capture)
+                checked.assert_called_once_with(runner.image, approved)
+                self.assertEqual(docker.call_args.kwargs["env"], selection.environment)
             runner._open_server(root)
             self.assertIn(approved, commands[0])
             self.assertNotIn(runner.image, commands[0])
-            with patch("subprocess.run", return_value=
-                       subprocess.CompletedProcess([], 0, "sha256:" + "b" * 64, "")):
+            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", side_effect=RunnerError("docker_image_digest_changed")):
                 with self.assertRaisesRegex(RunnerError, "docker_image_digest_changed"):
                     LocalRunner(root / "mismatch", root / "skills", source,
                                 image_id=approved)
@@ -61,14 +61,10 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             source = Path(__file__).resolve().parents[1] / "examples/github-pr"
             approved = "sha256:" + "a" * 64
-            with patch("subprocess.run", side_effect=[
-                    subprocess.CompletedProcess([], 0, approved, ""),
-                    subprocess.CompletedProcess([], 0, "codex-cli unexpected", "")]) as docker:
+            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
                 with self.assertRaisesRegex(RunnerError, "unsupported_codex_cli_version"):
                     LocalRunner(root / "state", root / "skills", source, image_id=approved)
-            version_command = docker.call_args.args[0]
-            self.assertIn("none", version_command)
-            self.assertNotIn("--mount", version_command)
+            docker.assert_not_called()
             self.assertFalse((root / "state/turn-ledger.json").exists())
 
     def test_local_image_override_rejects_tags_git_and_split_mode(self):

@@ -193,6 +193,25 @@ class PreflightControls(unittest.TestCase):
             self.preflight._probe(self.client, "local-image", self.expected)
         self.client.containers.remove.assert_called_once()
 
+    def test_wrong_version_and_nonzero_exit_each_refuse_after_cleanup(self):
+        """Validate both native version failures inside the actual preflight owner."""
+        from py_docker.streams.models import Frame
+
+        for output, status in ((b"codex-cli unexpected", 0), (b"codex-cli 0.159.2", 7)):
+            with self.subTest(output=output, status=status):
+                self.stream.read_frame.side_effect = [
+                    Frame(channel="stdout", data=output),
+                    None,
+                ]
+                self.client.sdk.containers.get.return_value.wait.return_value = {
+                    "StatusCode": status
+                }
+                with self.assertRaisesRegex(
+                    RunnerError, "^unsupported_codex_cli_version$"
+                ):
+                    self.preflight._probe(self.client, "image", self.expected)
+                self.assertFalse(self.preflight.receipt_path.exists())
+
     def test_cleanup_failure_wins_and_retains_private_receipt(self):
         """Unverified resources take precedence over a failed version check."""
         from py_docker.errors import DockerOperationError
