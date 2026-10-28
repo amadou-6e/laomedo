@@ -8,7 +8,7 @@ The implementation PR remains draft until that contract is reviewed.
 
 ## Install and import the synthetic example
 
-Python 3.10 or newer is required. The package has no runtime dependencies.
+Python 3.10 or newer is required. Installation includes the package's declared dependencies.
 From the repository root:
 
 ```sh

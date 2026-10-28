@@ -2,6 +2,8 @@
 
 PR nodes own PR selection, inspection and existing-PR operations.
 
+- [Inspect a PR and apply an Agent proposal](walkthrough.md): a read-only starting
+  path followed by the explicitly authorized feedback workflow.
 - [User stories and visuals](user-stories.md): selection, inspection, Agent feedback
   and a labelled proposal for creation before a PR reference exists.
 - [PR node guide](../../../../examples/github-pr/README.md): feedback wiring and limitations.

@@ -1,8 +1,8 @@
 # Local skill revision and draft core
 
-`skill_store.py` is the first deterministic implementation of the Laomedo
-Skill Revision and Skill Draft contracts. It requires Python 3.10+ and only
-the standard library. It provides immutable, content-addressed skill
+`laomedo.skills.registry.store.SkillStore` implements the Laomedo Skill Revision
+and Skill Draft contracts. Install the package and its declared dependencies;
+Python 3.10+ is required. It provides immutable, content-addressed skill
 revisions; exact file hashes and reads; independently hashed editing policies;
 reviewable draft workspaces and byte-exact diffs; and a separate promotion
 operation that requires the reviewed draft and policy hashes plus an unchanged
@@ -115,8 +115,8 @@ accounting never refuses execution. Isolated verification uses
 status, cancel, and resume endpoints use `/v1/runs`. Resume needs the native
 thread ID and exact last post-run hash; a missing or altered snapshot fails
 before dispatch. Raw app-server events, session state, and snapshots stay
-outside Git. Python 3.10+ and only the standard library are required for the
-runner; Docker and the existing private volume are required for a real turn.
+outside Git. Install the runner's declared package dependencies; Docker and the
+existing private volume are required for a real turn.
 
 Fresh requests may include validated `handoff` provenance and explicit
 `artifact_refs`. References resolve completed, hash-bound snapshots owned by this

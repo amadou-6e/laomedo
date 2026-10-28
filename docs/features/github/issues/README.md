@@ -2,6 +2,8 @@
 
 Issue nodes own issue selection, inspection and existing-issue operations.
 
+- [Work from an issue](walkthrough.md): connect, select, inspect and read outputs;
+  then understand the prerequisites for an authorized update.
 - [User stories and visuals](user-stories.md): select an issue, inspect it and apply an operation.
 - [Issue node guide](../../../../examples/github-issue/README.md): controls, outputs,
   host setup, operation payloads and deployment limitations.

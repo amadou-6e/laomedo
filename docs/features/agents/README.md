@@ -1,5 +1,10 @@
 # Agents
 
+Start with [run and inspect an Agent task](walkthrough.md): ask a useful project
+question, choose a model, run once and check the actual answer. If you have not
+set up the app and runner, [getting started](../../getting-started.md) includes
+the complete local installation and first-run path.
+
 [User stories and visuals](user-stories.md) describe the implemented experience
 and clearly labelled proposals.
 

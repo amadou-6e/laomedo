@@ -1,5 +1,9 @@
 # Skills
 
+Start with [select, inspect and revise a Skill](walkthrough.md). It imports real
+instruction files, configures discovery/history, and walks through a two-file
+candidate edit and per-file comparison. A proposal stays separate from promotion.
+
 [User stories and visuals](user-stories.md) describe the implemented experience
 and clearly labelled proposals.
 
