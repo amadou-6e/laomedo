@@ -1,10 +1,8 @@
 # Docker runtime adoption
 
-This is the migration record for Laomedo issues #196–202. This PR replaces Codex startup image/version preflight in normal and split execution with py-docker. It is stacked on provider-neutral PR #211 at b703590. The visible checkout is kept
-unchanged. The optional `runner` extra pins the local-trial jobs feature from
-py-docker PR #11 before PyPI; that package PR remains unmerged.
-This replacement is not ready to merge into develop until the published dependency is
-hash-pinned and the owner reviews the working graph.
+This records the migration for Laomedo issues #196–202. The preflight replacement merged in PR #212 at develop 5ffab075, and its py-docker dependency merged in PR #11 at a084711. The owner authorized those merges using the reviewed Git pin before PyPI publication. The visible checkout remains unchanged.
+
+The normal interactive lifecycle replacement is a separate draft on develop. Its optional runner extra pins the unpublished py-docker #12 feature revision. Publication/hash locking, real graph acceptance and owner approval for this new migration remain separate pending steps.
 
 ## Ownership
 

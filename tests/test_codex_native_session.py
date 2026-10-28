@@ -84,6 +84,17 @@ class NativeSessionTests(unittest.TestCase):
                 cli.assert_not_called()
                 client.return_value.close.assert_called_once_with()
 
+    def test_reader_start_failure_cleans_the_open_session(self):
+        """A local thread-start failure cannot strand a created controller."""
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
+            with patch("py_docker.Client") as client, patch("threading.Thread.start",side_effect=RuntimeError("internal thread control")):
+                with self.assertRaisesRegex(RunnerError,"runner_transport_failed"):
+                    AppServer(launch,root)
+                client.return_value.sessions.open.return_value.close.assert_called_once_with()
+                client.return_value.close.assert_called_once_with()
+
 
 class RetirementAndCatalogueTests(unittest.TestCase):
     """Keep retired imports out and catalogue coverage on the new producer."""
@@ -103,10 +114,12 @@ class RetirementAndCatalogueTests(unittest.TestCase):
     def test_new_native_transport_failures_are_catalogued(self):
         root=Path(__file__).resolve().parents[1]
         catalogue=json.loads(root.joinpath("frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
-        tree=ast.parse(root.joinpath("src/laomedo/agents/providers/codex/native/server.py").read_text())
         codes=set()
-        for node in ast.walk(tree):
-            if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=="RunnerError" and node.args:
-                codes.update(value.value for value in ast.walk(node.args[0]) if isinstance(value,ast.Constant) and isinstance(value.value,str))
+        for module in ("server.py","models.py","base.py"):
+            tree=ast.parse(root.joinpath("src/laomedo/agents/providers/codex/native",module).read_text())
+            for node in ast.walk(tree):
+                if isinstance(node,ast.Call) and getattr(node.func,"id",getattr(node.func,"attr",""))=="RunnerError" and node.args:
+                    codes.update(value.value.split(":",1)[0] for value in ast.walk(node.args[0]) if isinstance(value,ast.Constant) and isinstance(value.value,str))
         self.assertTrue(codes)
         self.assertEqual(codes-set(catalogue),set())
+        self.assertNotIn("operator",catalogue["container_termination_unverified"]["recovery"])

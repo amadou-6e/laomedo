@@ -1,4 +1,19 @@
-{
+{  "request_timeout": {
+    "title": "The Agent did not respond in time",
+    "description": "The runner did not receive a response to an Agent request before its deadline. The request may still be active.",
+    "recovery": "Check the existing run status before starting another run. Do not repeat the operation until its outcome and cleanup are confirmed."
+  },
+  "incomplete_mediator_mount": {
+    "title": "The GitHub connection setup is incomplete",
+    "description": "A required part of the runner connection for GitHub operations is missing. The Agent was not started.",
+    "recovery": "Check the local runner GitHub connection and run configuration. Complete the missing setup before starting a new run."
+  },
+  "incomplete_command_mount": {
+    "title": "The GitHub command setup is incomplete",
+    "description": "The runner could not prepare a complete authorized GitHub command environment. The Agent was not started.",
+    "recovery": "Check the local runner GitHub connection, repository and branch configuration before starting a new run."
+  },
+
   "prior_run_required": {
     "title": "No previous run is available",
     "description": "This operation needs a reference to an earlier run.",
@@ -457,27 +472,27 @@
   "protected_mount_changed": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
   },
   "container_termination_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
   },
   "executor_termination_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
   },
   "run_preparation_cleanup_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
   },
   "opencode_transport_cleanup_failed": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Ask the operator to inspect the runtime and cleanup receipts. Do not start another run until the existing container and workspace state are confirmed."
+    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
   },
   "opencode_provider_error": {
     "title": "The provider did not produce a completed answer",

@@ -104,7 +104,17 @@ class AppServer(BaseNativeServer):
                     receipt_path=evidence.joinpath(settings.NATIVE_RECEIPT_FILENAME),
                 )
             )
-        except Exception as failure:
+            self.reader = threading.Thread(target=self._read_frames, daemon=True)
+            self.reader.start()
+        except Exception as primary_failure:
+            failure = primary_failure
+            if self.session is not None:
+                from py_docker.errors import DockerOperationError
+
+                try:
+                    self.session.close()
+                except DockerOperationError as cleanup:
+                    failure = cleanup
             self._close_resources()
             if isinstance(failure, RunnerError):
                 raise
@@ -117,8 +127,6 @@ class AppServer(BaseNativeServer):
                 if isinstance(failure, CleanupUnconfirmedError)
                 else "runner_transport_failed"
             ) from None
-        self.reader = threading.Thread(target=self._read_frames, daemon=True)
-        self.reader.start()
 
     @property
     def streams_closed(self) -> bool:

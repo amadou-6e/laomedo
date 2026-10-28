@@ -37,6 +37,8 @@ class SettingsContractTests(unittest.TestCase):
             self.assertIsNone(cls.model_config['secrets_dir'])
             self.assertFalse(cls.model_config['enable_decoding'])
             for name, field in cls.model_fields.items():
+                if field.annotation in (int, float):
+                    continue  # Numeric host settings have explicit validation below.
                 with self.subTest(module=module.__name__, field=name):
                     alias = field.validation_alias
                     with patch.dict(os.environ, {}, clear=True):
@@ -54,7 +56,8 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/providers/codex/split/server.py': {'otel', 'multi_agent'},
+            'agents/providers/codex/split/transport.py': {'otel', 'multi_agent'},
+            'agents/providers/codex/native/server.py': {'otel', 'multi_agent'},
             'agents/providers/claude/runner.py': {'mirror_host_login'},
             'activity/opencode/telemetry.py': {'otel'},
         }
@@ -66,6 +69,19 @@ class SettingsContractTests(unittest.TestCase):
                         and isinstance(node.comparators[0], ast.Constant) and node.comparators[0].value == '1'
                         and isinstance(node.ops[0], (ast.Eq, ast.NotEq))}
             self.assertEqual(compared, fields, relative)
+
+    def test_native_stream_settings_validate_positive_numeric_environment(self):
+        from pydantic import ValidationError
+        from laomedo.agents.providers.codex.settings import Settings
+        for field, alias in (("stream_max_bytes","LAOMEDO_CODEX_STREAM_MAX_BYTES"),
+                             ("stream_startup_margin","LAOMEDO_CODEX_STREAM_STARTUP_MARGIN")):
+            with self.subTest(field=field), patch.dict(os.environ, {}, clear=True):
+                os.environ[alias]="1024"
+                self.assertEqual(getattr(Settings(),field),1024)
+                for invalid in ("", "0", "-1", "not-a-number"):
+                    os.environ[alias]=invalid
+                    with self.assertRaises(ValidationError):
+                        Settings()
 
     def test_fixed_protocol_pins_are_not_environment_fields(self):
         for module, cls in self.classes():
