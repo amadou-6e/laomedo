@@ -38,3 +38,14 @@
 - Migrate callers to defining modules and remove obsolete files. Add structural
   regression checks so mixed class/function files and retired imports cannot
   quietly return.
+
+## Commit and push checkpoints
+
+- After each coherent, reviewable block of work, commit and push the task branch
+  promptly. Do not accumulate several completed blocks locally or wait until the
+  whole task, final review or live verification is finished before pushing.
+- Push in-progress work to a draft branch/PR with its pending checks and blockers
+  stated clearly. A pushed checkpoint is not a verification or completion claim,
+  and it does not authorize merging.
+- Stage only changes owned by the task. Preserve unrelated edits; never commit
+  credentials, private runtime state, generated caches or verification tooling.
