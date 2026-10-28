@@ -16,3 +16,5 @@ The [Issue guide](../../../examples/github-issue/README.md) describes discovery
 and operation results. The [PR guide](../../../examples/github-pr/README.md)
 describes returning an Agent operation to the same selected PR node. Provider
 execution remains an [Agent](../agents/README.md) concern.
+
+Module documentation: [Issues](issues/README.md) and [pull requests](pull-requests/README.md).
