@@ -184,7 +184,9 @@ class PreflightControls(unittest.TestCase):
         )
         with (
             patch("py_docker.Client", return_value=self.client),
-            self.assertRaisesRegex(RunnerError, "^container_termination_unverified$") as caught,
+            self.assertRaisesRegex(
+                RunnerError, "^container_termination_unverified$"
+            ) as caught,
         ):
             self.preflight.check("image", self.expected)
         self.assertTrue(caught.exception.__suppress_context__)
@@ -201,6 +203,20 @@ class PreflightControls(unittest.TestCase):
             self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
         ):
             self.preflight.check("image", self.expected)
+
+    def test_active_receipt_owner_is_unconfirmed_readiness_not_failed_cleanup(self):
+        """Do not suggest orphan recovery when another caller owns the live job."""
+        from py_docker.errors import ReceiptInUseError
+
+        self.client.jobs.recover.side_effect = ReceiptInUseError(
+            "acquire container receipt"
+        )
+        with (
+            patch("py_docker.Client", return_value=self.client),
+            self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
+        ):
+            self.preflight.check("image", self.expected)
+        self.client.jobs.run.assert_not_called()
 
     def test_selected_endpoint_pins_cli_snapshot_and_ignores_library_env_overrides(
         self,
