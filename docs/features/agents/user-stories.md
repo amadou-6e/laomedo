@@ -1,5 +1,8 @@
 # Agent user stories
 
+Acceptance criteria describe intended behavior and were not re-verified for this
+documentation increment. Consult the linked guides and revision-specific evidence.
+
 These stories describe the existing Agent experience. **Implemented** means the
 control or behavior exists in code; a screenshot alone is not an end-to-end test.
 Images are actual app captures, not mockups. See [visual provenance](assets/README.md).

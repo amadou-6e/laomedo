@@ -1,5 +1,8 @@
 # Skill user stories
 
+Acceptance criteria describe intended behavior and were not re-verified for this
+documentation increment. Consult the linked guides and revision-specific evidence.
+
 Implemented stories use actual app screenshots; the deferred Git publishing story
 uses an explicitly labelled mockup. Status distinguishes implementation from live
 acceptance. See [visual provenance](assets/README.md).
@@ -58,7 +61,7 @@ Acceptance criteria:
 - A rejected edit does not partially update the revision or silently promote it.
 
 Visual: [the actual Skill Operation input](assets/skill-node.png) and
-[the recorded real revision comparison](assets/skill-history.png).
+[an example single-file revision comparison](assets/skill-history.png).
 Historical evidence: [real multi-file Agent edit](../../../examples/skill-operations/evidence.json)
 and [operation contract and limitations](../../../examples/skill-operations/README.md).
 Those records establish their named runs and revisions, not a fresh test of this checkout.
@@ -103,4 +106,5 @@ Proposed acceptance criteria for discussion:
 ![MOCKUP — proposed review of a Skill revision before publishing a Git commit](assets/git-publishing-mock.png)
 
 *Mockup with illustrative content. No publishing operation or Git integration was run.
+This exploration does not replace canonical UI design specifications.
 [Editable HTML mockup](assets/git-publishing-mock.html).*

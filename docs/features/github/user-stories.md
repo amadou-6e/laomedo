@@ -1,5 +1,8 @@
 # GitHub user stories
 
+Acceptance criteria describe intended behavior and were not re-verified for this
+documentation increment. Consult the linked guides and revision-specific evidence.
+
 Issue and PR nodes own repository selection and operations. The screenshots below
 show actual implemented component forms. Their host connection is not configured
 for this documentation graph; they do not demonstrate a successful GitHub read or
@@ -94,4 +97,5 @@ Proposed acceptance criteria for discussion:
 ![MOCKUP — a new PR operation with no pre-existing PR reference](assets/create-pr-mock.png)
 
 *Mockup with illustrative branches and title. No PR was created.
+This exploration does not replace canonical UI design specifications.
 [Editable HTML mockup](assets/create-pr-mock.html).*
