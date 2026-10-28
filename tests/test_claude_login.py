@@ -42,7 +42,7 @@ class LoginMirrorTests(TestCase):
         runner = object.__new__(ClaudeRunner)
         runner.turn_timeout = 180
         runner.container = SimpleNamespace(profile='laomedo-claude-unit', image_id=IMAGE,
-            control=lambda *args, **kw: SimpleNamespace(returncode=0,
+            control=lambda *args, **kw: SimpleNamespace(exit_code=0,
                 stdout=b'{"loggedIn":true,"authMethod":"claude.ai","orgId":"unit"}'))
         with patch.dict('os.environ', {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN': '1'}), \
              patch('laomedo.host.credentials.claude.utils.mirror_login') as mirror:

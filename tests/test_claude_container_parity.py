@@ -25,12 +25,12 @@ class ClaudeContainerParityTests(unittest.TestCase):
     def test_controller_command_is_bounded_inside_container(self):
         runtime = object.__new__(ClaudeContainer)
         runtime.image_id = 'sha256:' + 'a' * 64
-        args = runtime.bounded_command(['claude', '--print'], time.monotonic() + 20)
-        self.assertEqual(args[:4], ['--entrypoint', 'python3', '-i', runtime.image_id])
-        self.assertIn('--kill-after=5s', args[5])
+        args = runtime.guarded(['claude', '--print'], time.monotonic() + 20)
+        self.assertEqual(args[:2], ['python3', '-c'])
+        self.assertIn('--kill-after=5s', args[2])
         self.assertEqual(args[-2:], ['claude', '--print'])
         with self.assertRaisesRegex(RunnerError, 'claude_turn_timeout'):
-            runtime.bounded_command(['claude'], time.monotonic() - 1)
+            runtime.guarded(['claude'], time.monotonic() - 1)
 
     def test_resume_honors_explicit_execution_timeout(self):
         with self.invoke():
@@ -232,13 +232,15 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertFalse(result['cancel_confirmed'])
 
     def test_command_worker_has_neither_profile_nor_network(self):
-        runtime = object.__new__(ClaudeContainer)
-        runtime.profile = 'laomedo-claude-internal'
-        flags = runtime.prefix(worker=True)
-        self.assertIn('--network=none', flags)
-        self.assertNotIn('type=volume,source=laomedo-claude-internal,target=/profile', flags)
-        self.assertIn('--read-only', flags)
-        self.assertIn('--cap-drop=ALL', flags)
+        runtime = ClaudeContainer.__new__(ClaudeContainer)
+        runtime.profile, runtime.image_id = 'laomedo-claude-internal', 'sha256:'+'a'*64
+        spec = runtime.spec(['sh', '-c', 'pwd'], worker=True)
+        self.assertEqual(spec.network_mode, 'none')
+        self.assertEqual(spec.mounts, [])
+        self.assertTrue(spec.read_only)
+        self.assertEqual(spec.cap_drop, ['ALL'])
+        self.assertEqual(spec.environment['HOME'].get_secret_value(), '/tmp')
+
 
     def test_optional_skills_and_claude_handoff_are_accepted(self):
         result = envelope(None, {'provider': 'claude', 'model': 'sonnet', 'effort': 'low'},

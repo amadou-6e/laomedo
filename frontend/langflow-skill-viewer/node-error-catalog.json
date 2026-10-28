@@ -44,7 +44,6 @@
     "description": "The runner could not prepare a complete authorized GitHub command environment. The Agent was not started.",
     "recovery": "Check the local runner GitHub connection, repository and branch configuration before starting a new run."
   },
-
   "prior_run_required": {
     "title": "No previous run is available",
     "description": "This operation needs a reference to an earlier run.",
@@ -1003,7 +1002,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent’s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentâ€™s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -1479,5 +1478,10 @@
     "title": "This saved Agent node needs an update",
     "description": "This node inherits an older provider component. It was stopped before sending a request because its provider routing could be incorrect.",
     "recovery": "Replace the node with its current provider component, or migrate a copy of the saved flow with the module migration tool before loading it. Custom Agent subclasses must extend the shared AgentComponent."
+  },
+  "workspace_command_output_too_large": {
+    "title": "The workspace command returned too much output",
+    "description": "The isolated command exceeded its output limit. The runner stopped it and confirmed container cleanup before reporting this failure.",
+    "recovery": "Check the current workspace changes before deciding whether to run another command. Limit the command output; the original command may already have changed files."
   }
 }

@@ -25,7 +25,16 @@ select it. Ambiguous, remote and TLS configurations fail closed in this local
 integration. Core imports and stage workers remain SDK-independent. Actual
 Claude container startup also requires the runner extra for endpoint binding;
 missing dependencies and unsupported configuration map to Claude error codes.
-The remaining Claude/OpenCode lifecycle is not yet migrated.
+The Claude and OpenCode provider migration is in progress in this draft. Their
+controllers use owned output-only sessions; command workers and Claude control
+requests use bounded jobs. Provider policy stays in Laomedo. Old CLI builders,
+name-based OpenCode removal and telemetry environment files have been removed.
+Claude uses private read-only input files because Windows named pipes cannot
+half-close stdin while retaining output. OpenCode launches both resolved immutable
+images and accepts a published endpoint only on IPv4 loopback. Startup receipts
+are recovered before another launch. Oversized command output is a failure after
+confirmed cleanup, with a warning that workspace changes may already exist.
+This is implementation status, not provider, graph, publication or LOC acceptance.
 
 ## Canonical paths
 

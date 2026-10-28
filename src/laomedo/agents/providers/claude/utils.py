@@ -9,39 +9,6 @@ import laomedo.agents.providers.claude.catalog as _claude_catalog
 import laomedo.agents.providers.claude.settings as _claude_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import re
-import subprocess
-
-
-def docker_environment():
-    """Docker configuration is host-owned; provider overrides never reach agents."""
-    import os
-
-    keys = {
-        "PATH",
-        "SYSTEMROOT",
-        "WINDIR",
-        "HOME",
-        "USERPROFILE",
-        "APPDATA",
-        "LOCALAPPDATA",
-        "TEMP",
-        "TMP",
-        "DOCKER_HOST",
-        "DOCKER_CONTEXT",
-        "DOCKER_CONFIG",
-        "DOCKER_CERT_PATH",
-        "DOCKER_TLS_VERIFY",
-    }
-    return {k: v for k, v in os.environ.items() if k.upper() in keys}
-
-
-def run_docker(args, *, env=None, **kwargs):
-    try:
-        return subprocess.run(
-            ["docker", *args], env=docker_environment() if env is None else env, capture_output=True, **kwargs
-        )
-    except (OSError, subprocess.SubprocessError):
-        raise _runtime_errors.RunnerError("claude_container_unavailable") from None
 
 
 def activity_usage(result):
@@ -87,12 +54,6 @@ def activity_usage(result):
             value["thinkingTokens"] for value in models.values()
         )
     return normalized
-
-
-def cli_environment():
-    # This environment belongs to the Docker client, not to Claude. No host
-    # profile or provider overrides are forwarded into containers.
-    return docker_environment()
 
 
 def command(

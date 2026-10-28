@@ -60,7 +60,7 @@ class NativeSessionTests(unittest.TestCase):
                 server=AppServer(launch,root,lifetime_seconds=321,secret_redactions=("private-token",))
                 server.reader.join(timeout=2)
                 self.assertTrue(server.streams_closed)
-                self.assertEqual(server.messages.get_nowait()["params"]["text"],"café")
+                self.assertEqual(server.messages.get_nowait()["params"]["text"],"cafÃ©")
                 request=client.return_value.sessions.open.call_args.args[0]
                 self.assertEqual(request.limits.seconds,321)
                 self.assertEqual(request.spec.command[-2:],["app-server","--stdio"])
@@ -143,6 +143,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         codes=set()
         producers=[root.joinpath("src/laomedo/agents/providers/codex/native",module) for module in ("server.py","models.py","base.py","settings.py")]
         producers += [root.joinpath("src/laomedo/agents/providers/codex/split",module) for module in ("server.py","models.py")]
+        producers += [root.joinpath("src/laomedo/agents/providers", module) for module in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py")]
         for module in producers:
             tree=ast.parse(module.read_text())
             for node in ast.walk(tree):

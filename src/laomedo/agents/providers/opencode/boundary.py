@@ -13,23 +13,34 @@ import http.client
 import json
 import laomedo.agents.providers.opencode.settings as _opencode_settings
 import laomedo.agents.providers.opencode.utils as _opencode_utils
-import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
 import secrets
 import shutil
 import socket
-import subprocess
 import threading
 import time
 
 
 class CommandBroker:
-    def __init__(self, workspace, canonical, store, evidence):
+    def __init__(
+        self,
+        workspace,
+        canonical,
+        store,
+        evidence,
+        *,
+        worker_image_id=None,
+        docker_endpoint=None,
+    ):
         self.workspace, self.canonical, self.store = workspace, canonical, store
         self.evidence = evidence
         self.token = secrets.token_hex(32)
-        self.active = set()
+        self.closed = self.cleanup_failed = False
+        self.worker_image_id = worker_image_id or _opencode_settings.WORKER_IMAGE_ID
+        self.docker_endpoint = docker_endpoint
+        self.receipts = evidence.joinpath("docker-receipts")
+        self.receipts.mkdir(mode=0o700, exist_ok=True)
         self.lock = threading.Lock()
         self.capacity = threading.BoundedSemaphore(1)
         broker = self
@@ -37,6 +48,11 @@ class CommandBroker:
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_):
                 pass
+
+            def setup(self):
+                """Bound malformed or abandoned broker uploads."""
+                super().setup()
+                self.connection.settimeout(5)
 
             def do_POST(self):
                 if (
@@ -73,6 +89,7 @@ class CommandBroker:
         # Docker bridge must reach this host listener. A random bearer capability
         # is mandatory, and only one run's immutable mounts are addressable.
         self.server = ThreadingHTTPServer(("0.0.0.0", 0), Handler)
+        self.server.daemon_threads = True
         try:
             self.thread = threading.Thread(
                 target=self.server.serve_forever, daemon=True
@@ -118,37 +135,90 @@ class CommandBroker:
         }
 
     def execute(self, command):
+        """Run one credential-free worker; a receipt owns all cleanup uncertainty."""
         if not self.capacity.acquire(blocking=False):
             return {"exit_code": 75, "stdout": "", "stderr": "worker_busy"}
-        name = "laomedo-oc-worker-" + uuid4().hex
         try:
             with self.lock:
-                self.active.add(name)
+                if self.closed:
+                    raise _runtime_errors.RunnerError(
+                        "opencode_container_cleanup_unverified"
+                    )
+            from py_docker import Client
+            from py_docker.containers.models import ContainerSpec, Mount
+            from py_docker.jobs.models import ContainerJob
+            from py_docker.streams.models import StreamLimits
+            from py_docker.errors import (
+                CleanupUnconfirmedError,
+                DeadlineError,
+                DockerOperationError,
+                OutputLimitError,
+            )
+
+            name = "laomedo-oc-worker-" + uuid4().hex
             try:
-                proc = subprocess.run(
-                    _opencode_utils.worker_command(
-                        name, self.workspace, self.canonical, self.store, command
-                    ),
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=60,
-                )
+                with Client(
+                    environment={"DOCKER_HOST": self.docker_endpoint}
+                ) as docker:
+                    result = docker.jobs.run(
+                        ContainerJob(
+                            spec=ContainerSpec(
+                                image=self.worker_image_id,
+                                name=name,
+                                entrypoint=["timeout"],
+                                command=[
+                                    "--signal=TERM",
+                                    "--kill-after=5s",
+                                    "60",
+                                    "sh",
+                                    "-c",
+                                    command,
+                                ],
+                                user="10001:10001",
+                                read_only=False,
+                                working_dir="/draft",
+                                mounts=[
+                                    Mount(
+                                        type="bind",
+                                        source=str(source),
+                                        target=target,
+                                        read_only=readonly,
+                                    )
+                                    for source, target, readonly in (
+                                        (self.workspace, "/draft", False),
+                                        (self.canonical, "/canonical", True),
+                                        (self.store, "/store", True),
+                                    )
+                                ],
+                            ),
+                            limits=StreamLimits(seconds=70, max_bytes=1024 * 1024),
+                            wait_timeout_seconds=10.0,
+                            receipt_path=self.receipts.joinpath(name + ".json"),
+                        )
+                    )
                 value = {
-                    "exit_code": proc.returncode,
-                    "stdout": proc.stdout[:32768],
-                    "stderr": proc.stderr[:32768],
+                    "exit_code": result.exit_code,
+                    "stdout": result.stdout.decode("utf-8", errors="replace")[:32768],
+                    "stderr": result.stderr.decode("utf-8", errors="replace")[:32768],
                 }
-            except subprocess.TimeoutExpired:
+            except CleanupUnconfirmedError:
+                self.cleanup_failed = True
+                raise _runtime_errors.RunnerError(
+                    "opencode_container_cleanup_unverified"
+                ) from None
+            except DeadlineError:
                 value = {"exit_code": 124, "stdout": "", "stderr": "worker_timeout"}
-            finally:
-                subprocess.run(
-                    ["docker", "rm", "-f", name], capture_output=True, timeout=15
-                )
-                with self.lock:
-                    self.active.discard(name)
-            with (self.evidence / "worker-events.jsonl").open(
+            except OutputLimitError:
+                value = {
+                    "exit_code": 125,
+                    "stdout": "",
+                    "stderr": "workspace_command_output_too_large",
+                }
+            except DockerOperationError:
+                raise _runtime_errors.RunnerError(
+                    "opencode_controller_startup_failed"
+                ) from None
+            with self.evidence.joinpath("worker-events.jsonl").open(
                 "a", encoding="utf-8"
             ) as log:
                 log.write(json.dumps({"command": command, **value}) + "\n")
@@ -157,14 +227,17 @@ class CommandBroker:
             self.capacity.release()
 
     def close(self):
-        self.server.shutdown()
+        """Refuse new requests and await the bounded active job's exact cleanup."""
         with self.lock:
-            names = list(self.active)
-        for name in names:
-            _opencode_utils._remove_owned(name)
-        # Stop owned command workers before joining request-handler threads.
+            self.closed = True
+        self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=5)
+        acquired = self.capacity.acquire(timeout=180)
+        if acquired:
+            self.capacity.release()
+        if not acquired or self.cleanup_failed or self.thread.is_alive():
+            raise _runtime_errors.RunnerError("opencode_container_cleanup_unverified")
 
 
 class IsolatedOpenCode:
@@ -200,19 +273,26 @@ class IsolatedOpenCode:
             "worker_image_id": selected_worker_id,
             "credential_binding": _opencode_utils._credential_binding(self.profile),
         }
-        for label, expected in (
-            (image, image_id),
-            (_opencode_settings.WORKER_IMAGE, selected_worker_id),
-        ):
-            actual = subprocess.run(
-                ["docker", "image", "inspect", label, "--format", "{{.Id}}"],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            ).stdout.strip()
-            if actual != expected:
-                raise _runtime_errors.RunnerError("opencode_image_pin_mismatch")
+        try:
+            from py_docker import Client
+            from py_docker.errors import DockerOperationError
+        except ImportError:
+            raise _runtime_errors.RunnerError(
+                "opencode_controller_startup_failed"
+            ) from None
+        try:
+            with Client() as docker:
+                self.docker_endpoint = docker.connection.endpoint
+                docker.images.resolve(image, expected_id=image_id)
+                docker.images.resolve(
+                    _opencode_settings.WORKER_IMAGE, expected_id=selected_worker_id
+                )
+                receipts = evidence.joinpath("docker-receipts")
+                receipts.mkdir(mode=0o700, exist_ok=True)
+                for receipt in receipts.glob("*.json"):
+                    docker.sessions.recover(receipt)
+        except DockerOperationError:
+            raise _runtime_errors.RunnerError("opencode_image_pin_mismatch") from None
         root = evidence / ("controller-" + uuid4().hex)
         root.mkdir()
         view = root / "view"
@@ -222,9 +302,16 @@ class IsolatedOpenCode:
         self.broker = None
         self.log = None
         self.name = None
+        self.session = self.docker = self.drainer = None
+        self.drain_error = None
         try:
             self.broker = CommandBroker(
-                workspace, evidence / "canonical", evidence / "store", evidence
+                workspace,
+                evidence / "canonical",
+                evidence / "store",
+                evidence,
+                worker_image_id=selected_worker_id,
+                docker_endpoint=self.docker_endpoint,
             )
             self.password = secrets.token_hex(32)
             self.name = "laomedo-oc-controller-" + uuid4().hex
@@ -288,91 +375,93 @@ class IsolatedOpenCode:
         except Exception:
             self.close()
             raise
-        cmd = [
-            "docker",
-            "run",
-            "-d",
-            "--name",
-            self.name,
-            "--pull=never",
-            "--network",
-            "bridge",
-            "--cap-drop",
-            "ALL",
-            "--security-opt",
-            "no-new-privileges",
-            "--pids-limit",
-            "128",
-            "--memory",
-            "1g",
-            "--user",
-            "10001:10001",
-            "-p",
-            "127.0.0.1::4096",
-            "--mount",
-            f"type=bind,source={view},target=/draft,readonly",
-            "--mount",
-            f"type=bind,source={root / 'config.json'},target=/controller-config.json,readonly",
-            "--mount",
-            f"type=bind,source={self.profile / 'sessions'},target=/home/runner/.local/share/opencode",
-            "--mount",
-            f"type=bind,source={self.profile / 'auth.json'},target=/home/runner/.local/share/opencode/auth.json,readonly",
-            "-e",
-            "OPENCODE_CONFIG=/controller-config.json",
-            "-e",
-            "OPENCODE_DISABLE_PROJECT_CONFIG=true",
-            "-e",
-            "OPENCODE_SERVER_PASSWORD=" + self.password,
-            "-e",
-            "HOME=/home/runner",
-            "-e",
-            "XDG_STATE_HOME=/tmp/opencode-state",
-            "-e",
-            "XDG_CACHE_HOME=/tmp/opencode-cache",
-            "-e",
-            "XDG_CONFIG_HOME=/tmp/opencode-config",
-            "--workdir",
-            "/draft",
-            image,
-            "opencode",
-            "serve",
-            "--pure",
-            "--hostname",
-            "0.0.0.0",
-            "--port",
-            "4096",
-        ]
+        from py_docker.containers.models import ContainerSpec, Mount
+        from py_docker.sessions.models import ContainerSession
+        from py_docker.streams.models import StreamLimits
+
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=30)
-            self.port = (
-                subprocess.run(
-                    ["docker", "port", self.name, "4096/tcp"],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
+            self.docker = Client(environment={"DOCKER_HOST": self.docker_endpoint})
+            self.session = self.docker.sessions.open(
+                ContainerSession(
+                    spec=ContainerSpec(
+                        image=image_id,
+                        name=self.name,
+                        command=[
+                            "opencode",
+                            "serve",
+                            "--pure",
+                            "--hostname",
+                            "0.0.0.0",
+                            "--port",
+                            "4096",
+                        ],
+                        user="10001:10001",
+                        read_only=False,
+                        network_mode="bridge",
+                        working_dir="/draft",
+                        ports={"4096/tcp": None},
+                        extra_hosts={"host.docker.internal": "host-gateway"},
+                        environment={
+                            "OPENCODE_CONFIG": "/controller-config.json",
+                            "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+                            "OPENCODE_SERVER_PASSWORD": self.password,
+                            "HOME": "/home/runner",
+                            "XDG_STATE_HOME": "/tmp/opencode-state",
+                            "XDG_CACHE_HOME": "/tmp/opencode-cache",
+                            "XDG_CONFIG_HOME": "/tmp/opencode-config",
+                        },
+                        mounts=[
+                            Mount(
+                                type="bind",
+                                source=str(source),
+                                target=target,
+                                read_only=readonly,
+                            )
+                            for source, target, readonly in (
+                                (view, "/draft", True),
+                                (
+                                    root.joinpath("config.json"),
+                                    "/controller-config.json",
+                                    True,
+                                ),
+                                (
+                                    self.profile.joinpath("sessions"),
+                                    "/home/runner/.local/share/opencode",
+                                    False,
+                                ),
+                                (
+                                    self.profile.joinpath("auth.json"),
+                                    "/home/runner/.local/share/opencode/auth.json",
+                                    True,
+                                ),
+                            )
+                        ],
+                    ),
+                    limits=StreamLimits(seconds=86400, max_bytes=36 * 1024 * 1024),
+                    receipt_path=receipts.joinpath(self.name + ".json"),
                 )
-                .stdout.strip()
-                .rsplit(":", 1)[1]
+            )
+
+            def drain():
+                try:
+                    with root.joinpath("startup.log").open("wb") as log:
+                        while (frame := self.session.read_frame()) is not None:
+                            log.write(frame.data)
+                            log.flush()
+                except Exception:
+                    self.drain_error = "opencode_controller_startup_failed"
+
+            self.drainer = threading.Thread(target=drain, daemon=True)
+            self.drainer.start()
+            self.port = self.docker.containers.published_port(
+                self.session.identity, "4096/tcp"
             )
             for _ in range(40):
                 try:
                     if self.call("GET", "/global/health").get("healthy"):
                         break
                 except (OSError, error.URLError):
-                    running = subprocess.run(
-                        [
-                            "docker",
-                            "inspect",
-                            self.name,
-                            "--format",
-                            "{{.State.Running}}",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    ).stdout.strip()
-                    if running != "true":
+                    if self.drain_error or not self.session.state().running:
                         raise _runtime_errors.RunnerError(
                             "opencode_controller_startup_failed"
                         )
@@ -380,12 +469,10 @@ class IsolatedOpenCode:
             else:
                 raise _runtime_errors.RunnerError("opencode_controller_not_ready")
         except Exception:
-            logs = subprocess.run(
-                ["docker", "logs", self.name], capture_output=True, timeout=15
-            )
-            (root / "startup.log").write_bytes(logs.stdout + logs.stderr)
             self.close()
-            raise
+            raise _runtime_errors.RunnerError(
+                "opencode_controller_startup_failed"
+            ) from None
 
     def open_events(self):
         basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
@@ -422,7 +509,7 @@ class IsolatedOpenCode:
     def call(self, method, path, payload=None):
         basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
         req = request.Request(
-            "http://127.0.0.1:" + self.port + path + "?directory=/draft",
+            "http://127.0.0.1:" + str(self.port) + path + "?directory=/draft",
             data=None if payload is None else json.dumps(payload).encode(),
             headers={
                 "Authorization": "Basic " + basic,
@@ -445,20 +532,31 @@ class IsolatedOpenCode:
         return value
 
     def close(self):
+        """Close on the launch thread; uncertain controller or worker cleanup fails."""
         try:
-            if self.name is not None:
-                _opencode_utils._remove_owned(self.name)
-                self.name = None
+            if self.session is not None:
+                self.session.close()
+            if self.drainer is not None:
+                self.drainer.join(5)
+                if self.drainer.is_alive():
+                    raise _runtime_errors.RunnerError(
+                        "opencode_container_cleanup_unverified"
+                    )
+        except Exception:
+            raise _runtime_errors.RunnerError(
+                "opencode_container_cleanup_unverified"
+            ) from None
         finally:
             try:
                 if self.broker is not None:
                     self.broker.close()
                     self.broker = None
             finally:
+                if self.docker is not None:
+                    self.docker.close()
                 if self.log is not None:
                     self.log.close()
                     self.log = None
-
         self.termination_verified = True
 
     def check_auth_fresh(self):

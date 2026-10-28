@@ -42,12 +42,12 @@ class ClaudeTelemetryTests(unittest.TestCase):
   from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
   self.assertEqual(self.receiver.server.server_address[0],'127.0.0.1')
   with self.assertRaises(HTTPError) as refused:self.post('/v1/logs',ExportLogsServiceRequest(),token='wrong')
-  self.assertEqual(refused.exception.code,401);self.assertNotIn(self.receiver.token,' '.join(self.receiver.docker_arguments()))
-  self.assertIn('OTEL_LOG_USER_PROMPTS=0',self.receiver.environment.read_text());self.assertIn('OTEL_LOG_TOOL_CONTENT=0',self.receiver.environment.read_text())
+  self.assertEqual(refused.exception.code,401);self.assertFalse(list(self.root.glob('telemetry-environment-*')))
+  self.assertEqual(self.receiver.environment['OTEL_LOG_USER_PROMPTS'],'0');self.assertEqual(self.receiver.environment['OTEL_LOG_TOOL_CONTENT'],'0')
  def test_conflicting_native_session_is_not_silently_relabelled(self):
   value=self.receiver.record({'session.id':'different'},signal='log',name='event');self.assertTrue(value['scope_conflict']);self.assertEqual(value['attributes']['session.id'],'different')
  def test_close_removes_environment_and_releases_receiver(self):
-  receiver=ClaudeTelemetry(self.root,run_id='next',thread_id='session',turn_id='next');env=receiver.environment;receiver.close();self.assertFalse(env.exists());self.assertFalse(receiver.thread.is_alive())
+  receiver=ClaudeTelemetry(self.root,run_id='next',thread_id='session',turn_id='next');receiver.close();self.assertFalse(list(self.root.glob('telemetry-environment-*')));self.assertFalse(receiver.thread.is_alive())
 
  def test_tool_scope_uses_explicit_native_call_ids_only(self):
   record=self.receiver.record({'tool_use_id':'call-123','gen_ai.tool.call.id':'call-123'},signal='span',name='claude_code.tool')
@@ -84,7 +84,7 @@ class ClaudeTelemetryTests(unittest.TestCase):
    if 'closed' in locals():closed.join(3)
    else:receiver.close()
   self.assertTrue(bounded,'Upload handler must not outlive bounded receiver shutdown')
-  self.assertFalse(receiver.environment.exists());self.assertFalse(receiver.thread.is_alive())
+  self.assertFalse(list(self.root.glob('telemetry-environment-*')));self.assertFalse(receiver.thread.is_alive())
 
  def test_rejected_authenticated_lengths_mark_capture_failed(self):
   import http.client

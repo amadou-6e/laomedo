@@ -27,13 +27,10 @@ import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.utils as workspace_skills
-import os
 import laomedo.host.credentials.claude.settings as _host_claude_settings
 import queue
 import re
-import signal
 import subprocess
-import tempfile
 import threading
 import time
 
@@ -51,15 +48,24 @@ class ClaudeRunner(_runtime_runner.Runner):
             if type(value) is not int or not 1 <= value <= 86400:
                 raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
             extra["run_timeout_seconds"] = value
-        required = extra.get("run_timeout_seconds") if extra else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        required = (
+            extra.get("run_timeout_seconds")
+            if extra
+            else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        )
         self._mirror_host_login(minimum_validity_seconds=required)
         return extra
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
-            execution_mode="claude_container", cli_version="Claude Code " + _claude_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
+            execution_mode="claude_container",
+            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
         # The independent lease supervisor owns controller/worker lifetimes.
@@ -67,8 +73,13 @@ class ClaudeRunner(_runtime_runner.Runner):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
+                _leases_models.ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
+            )
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
@@ -143,7 +154,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 args, input=(json.dumps(payload) + "\n").encode(), timeout=45
             )
             raw = result.stdout
-            if result.returncode or len(raw) > 1024 * 1024:
+            if result.exit_code or len(raw) > 1024 * 1024:
                 raise ValueError("invalid_catalog_transport")
             responses = []
             for line in raw.decode("utf-8").splitlines():
@@ -202,7 +213,6 @@ class ClaudeRunner(_runtime_runner.Runner):
         )
         self.executable = "claude"
         self._catalog_lock = threading.Lock()
-        self.processes = {}
         super().__init__(
             state,
             skill_store,
@@ -248,7 +258,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 "claude_subscription_unavailable"
             ) from None
         if (
-            checked.returncode
+            checked.exit_code
             or not auth.get("loggedIn")
             or auth.get("authMethod") != "claude.ai"
         ):
@@ -447,21 +457,6 @@ class ClaudeRunner(_runtime_runner.Runner):
             ensure_ascii=False,
         )
 
-    @staticmethod
-    def _stop(process):
-        if process.poll() is not None:
-            return
-        if os.name == "nt":
-            subprocess.run(
-                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=15,
-            )
-        else:
-            os.killpg(process.pid, signal.SIGKILL)
-        process.wait(timeout=15)
-
     def _invoke(self, root, record, prompt, flag, *, resume):
         name, token = "laomedo-claude-" + uuid4().hex, uuid4().hex
         record["container_ownership"] = {
@@ -478,7 +473,9 @@ class ClaudeRunner(_runtime_runner.Runner):
         deadline = record.get(
             "_attempt_deadline", time.monotonic() + record["turn_timeout"]
         )
-        service, process, telemetry = None, None, None
+        service, telemetry, reader_thread = None, None, None
+        reader_stop = threading.Event()
+        input_path = root.joinpath("controller-input-" + uuid4().hex)
         native_completed = False
         output_only = record.get("output_correction_count", 0) > 0
         try:
@@ -499,12 +496,6 @@ class ClaudeRunner(_runtime_runner.Runner):
             service = _claude_container.CommandService(
                 self.container, root, record, flag, deadline, mediation=mediation
             )
-            args = self.container.prefix(
-                name=name,
-                run_id=record["run_id"],
-                token=token,
-                workspace=root / "workspace",
-            )
             try:
                 import laomedo.activity.claude.telemetry as _claude_telemetry
 
@@ -518,21 +509,6 @@ class ClaudeRunner(_runtime_runner.Runner):
                 raise _runtime_errors.RunnerError(
                     "claude_telemetry_start_failed"
                 ) from None
-            args += telemetry.docker_arguments()
-            args += [
-                "--add-host",
-                "host.docker.internal:host-gateway",
-                "--mount",
-                f"type=bind,source={plugin},target=/run/laomedo/pinned-skills,readonly",
-                "--mount",
-                f'type=bind,source={root / "workspace/.agents/skills"},target=/run/laomedo/pinned-skills/skills,readonly',
-                "--mount",
-                f"type=bind,source={service.secret_path},target=/run/laomedo/command-token,readonly",
-                "--env",
-                "LAOMEDO_COMMAND_URL=" + service.url,
-                "--env",
-                "LAOMEDO_GITHUB_GRANTED=" + ("1" if mediation else "0"),
-            ]
             native = _agents_providers_claude_utils.command(
                 None,
                 record.get("resolved_model", record["requested_model"]),
@@ -542,51 +518,92 @@ class ClaudeRunner(_runtime_runner.Runner):
                 output_only=output_only,
                 skill_ids=tuple(x["skill_id"] for x in record["skills"]),
             )
-            args += self.container.bounded_command(native, deadline)
+            from py_docker.containers.models import Mount
+
+            input_path.write_bytes(prompt.encode())
+            input_path.chmod(0o600)
+            command = ["sh", "-c", 'exec "$@" < /run/laomedo/input', "sh", *native]
+            spec = self.container.spec(
+                self.container.guarded(command, deadline),
+                name=name,
+                run_id=record["run_id"],
+                token=token,
+                workspace=root.joinpath("workspace"),
+                environment={
+                    **telemetry.environment,
+                    "LAOMEDO_COMMAND_URL": service.url,
+                    "LAOMEDO_GITHUB_GRANTED": "1" if mediation else "0",
+                },
+                extra_hosts={"host.docker.internal": "host-gateway"},
+                mounts=[
+                    Mount(
+                        type="bind", source=str(source), target=target, read_only=True
+                    )
+                    for source, target in (
+                        (input_path, "/run/laomedo/input"),
+                        (plugin, "/run/laomedo/pinned-skills"),
+                        (
+                            root.joinpath("workspace/.agents/skills"),
+                            "/run/laomedo/pinned-skills/skills",
+                        ),
+                        (service.secret_path, "/run/laomedo/command-token"),
+                    )
+                ],
+            )
             messages = queue.Queue(maxsize=64)
-            with tempfile.TemporaryFile() as errors:
-                process = subprocess.Popen(
-                    ["docker", *args],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=errors,
-                    env=getattr(self.container, "docker_environment", None),
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
-                self.processes[record["run_id"]] = process
+            with self.control_lock:
+                if flag.is_set():
+                    raise _runtime_errors.RunnerError("claude_cancelled")
+                if time.monotonic() >= deadline:
+                    raise _runtime_errors.RunnerError("claude_turn_timeout")
+            with self.container.session(
+                spec,
+                self.container.receipts.joinpath("claude-" + name + ".json"),
+                max(1, deadline - time.monotonic()) + 10,
+            ) as session:
 
                 def reader():
                     try:
-                        while True:
-                            line = process.stdout.readline(1024 * 1024 + 1)
-                            if not line:
-                                break
-                            messages.put(line)
+                        while not reader_stop.is_set():
+                            try:
+                                value = session.read_line()
+                            except Exception as error:
+                                value = error
+                            while not reader_stop.is_set():
+                                try:
+                                    messages.put(value, timeout=0.1)
+                                    break
+                                except queue.Full:
+                                    continue
+                            if value is None or isinstance(value, Exception):
+                                return
                     finally:
-                        messages.put(None)
+                        reader_stop.set()
 
-                threading.Thread(target=reader, daemon=True).start()
-                with self.control_lock:
-                    if flag.is_set():
-                        raise _runtime_errors.RunnerError("claude_cancelled")
-                    if time.monotonic() >= deadline:
-                        raise _runtime_errors.RunnerError("claude_turn_timeout")
-                    process.stdin.write(prompt.encode())
-                    process.stdin.close()
-                total, result = 0, None
+                reader_thread = threading.Thread(target=reader, daemon=True)
+                reader_thread.start()
+                total, stderr_size, result = 0, 0, None
                 while True:
                     if flag.is_set():
                         raise _runtime_errors.RunnerError("claude_cancelled")
                     if time.monotonic() >= deadline:
                         raise _runtime_errors.RunnerError("claude_turn_timeout")
-                    if os.fstat(errors.fileno()).st_size > 4 * 1024 * 1024:
-                        raise _runtime_errors.RunnerError("claude_receipt_too_large")
                     try:
                         line = messages.get(timeout=0.1)
                     except queue.Empty:
                         continue
                     if line is None:
                         break
+                    if isinstance(line, Exception):
+                        raise line
+                    if line.channel == "stderr":
+                        stderr_size += len(line.data)
+                        if stderr_size > 4 * 1024 * 1024:
+                            raise _runtime_errors.RunnerError(
+                                "claude_receipt_too_large"
+                            )
+                        continue
+                    line = line.data
                     total += len(line)
                     if len(line) > 1024 * 1024 or total > 32 * 1024 * 1024:
                         raise _runtime_errors.RunnerError("claude_receipt_too_large")
@@ -603,10 +620,10 @@ class ClaudeRunner(_runtime_runner.Runner):
                                 "claude_terminal_receipt_invalid"
                             )
                         result = event
-                process.wait(timeout=10)
-                if process.returncode == 124:
+                exit_code = session.wait(timeout=10)
+                if exit_code == 124:
                     raise _runtime_errors.RunnerError("claude_turn_timeout")
-                if process.returncode or result is None:
+                if exit_code or result is None:
                     raise _runtime_errors.RunnerError("claude_native_turn_failed")
                 completed = _agents_providers_claude_utils.terminal_result(
                     json.dumps(result), record["thread_id"]
@@ -622,28 +639,37 @@ class ClaudeRunner(_runtime_runner.Runner):
                     service_error = True
             verified, detail = _leases_utils.cleanup_exact(
                 _leases_models.ContainerIdentity(
-                    name=name, run_id=record["run_id"], token=token, docker_endpoint=getattr(self.container, "docker_endpoint", None)
+                    name=name,
+                    run_id=record["run_id"],
+                    token=token,
+                    docker_endpoint=getattr(self.container, "docker_endpoint", None),
                 )
             )
-            if process is not None and process.poll() is None:
-                process.kill()
-                process.wait(timeout=15)
-            self.processes.pop(record["run_id"], None)
+            reader_stop.set()
+            if reader_thread is not None:
+                reader_thread.join(3)
+                verified = verified and not reader_thread.is_alive()
+            input_path.unlink(missing_ok=True)
             if verified:
                 try:
                     lease.finish()
                 except RuntimeError:
                     rechecked, recheck_detail = _leases_utils.cleanup_exact(
                         _leases_models.ContainerIdentity(
-                            name=name, run_id=record["run_id"], token=token, docker_endpoint=getattr(self.container, "docker_endpoint", None)
+                            name=name,
+                            run_id=record["run_id"],
+                            token=token,
+                            docker_endpoint=getattr(
+                                self.container, "docker_endpoint", None
+                            ),
                         )
                     )
-                    record["container_ownership"][
-                        "post_lease_cleanup_verified"
-                    ] = rechecked
-                    record["container_ownership"][
-                        "post_lease_cleanup_detail"
-                    ] = recheck_detail
+                    record["container_ownership"]["post_lease_cleanup_verified"] = (
+                        rechecked
+                    )
+                    record["container_ownership"]["post_lease_cleanup_detail"] = (
+                        recheck_detail
+                    )
                     verified = False
             else:
                 # Do not mark an unknown owner done: its independent lease must
