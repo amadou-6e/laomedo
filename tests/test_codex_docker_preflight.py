@@ -243,11 +243,11 @@ class PreflightControls(unittest.TestCase):
         """Unexpected SDK result shapes do not escape the descriptive error boundary."""
         self.client.__enter__.return_value = self.client
         self.client.sdk.containers.get.return_value.wait.return_value = None
-        with patch("py_docker.Client", return_value=self.client):
-            with self.assertRaisesRegex(
-                RunnerError, "^runner_docker_check_unconfirmed$"
-            ):
-                self.preflight.check("image", self.expected)
+        with (
+            patch("py_docker.Client", return_value=self.client),
+            self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
+        ):
+            self.preflight.check("image", self.expected)
         self.client.containers.remove.assert_called_once_with(self.identity, force=True)
         self.assertFalse(self.preflight.receipt_path.exists())
 
