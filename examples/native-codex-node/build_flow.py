@@ -3,7 +3,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL; from uuid import uuid5
 
 from lfx.custom.custom_component.component import Component
 from lfx.custom.directory_reader.directory_reader import DirectoryReader

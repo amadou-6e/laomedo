@@ -8,10 +8,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from uuid import uuid4
-from laomedo.workflow_run_store import WorkflowRunStore, LaunchError
-from laomedo.handoff_http import RunnerAdapter
-from laomedo.runner_trace_bridge import RunnerTraceBridge
-from laomedo.handoffs import HandoffError, envelope
+from laomedo.agents.workflow.store import WorkflowRunStore; from laomedo.agents.workflow.errors import LaunchError
+from laomedo.agents.handoffs.transport import RunnerAdapter
+from laomedo.activity.runner.trace_bridge import RunnerTraceBridge
+from laomedo.agents.handoffs.errors import HandoffError; from laomedo.agents.handoffs.utils import envelope
 
 class NativeTimeoutReconciliationTests(unittest.TestCase):
     def setUp(self):
@@ -119,11 +119,11 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
             self.assertEqual(req.get_header("Authorization"), "Bearer " + "a" * 64)
             return io.BytesIO(json.dumps({"run_id": self.native, "status": "cancelled",
                 "cancel_confirmed": True, "task": "PRIVATE", "auth": "SECRET"}).encode())
-        with patch("laomedo.handoff_http.urlopen", side_effect=response):
+        with patch("laomedo.agents.handoffs.transport.urlopen", side_effect=response):
             value = adapter.status("codex", self.native)
         self.assertNotIn("PRIVATE", str(value))
         self.assertNotIn("SECRET", str(value))
-        with patch("laomedo.handoff_http.urlopen", return_value=io.BytesIO(
+        with patch("laomedo.agents.handoffs.transport.urlopen", return_value=io.BytesIO(
                 json.dumps({"run_id": str(uuid4())}).encode())):
             with self.assertRaisesRegex(HandoffError, "runner_status_identity_mismatch"):
                 adapter.status("codex", self.native)
@@ -166,7 +166,7 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
         bridge = RunnerTraceBridge(self.store, adapter)
         raw = {"run_id": self.native, "status": "unknown", "attempt_finished": True,
                "task": "PRIVATE", "auth": "SECRET"}
-        with patch("laomedo.handoff_http.urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
+        with patch("laomedo.agents.handoffs.transport.urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
             result = bridge.observe_terminal(self.run, self.inv)
         self.assertIs(result["attempt_finished"], True)
         self.assertNotIn("SECRET", str(result))
@@ -186,8 +186,8 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
                             "raw_event_ref": f"laomedo:run:{self.native}:events"}).encode())
                     now[0] = poll_time
                     raise TimeoutError("fixture")
-                with patch("laomedo.handoff_http.time.monotonic", side_effect=lambda: now[0]), \
-                        patch("laomedo.handoff_http.urlopen", side_effect=respond):
+                with patch("laomedo.agents.handoffs.transport.time.monotonic", side_effect=lambda: now[0]), \
+                        patch("laomedo.agents.handoffs.transport.urlopen", side_effect=respond):
                     with self.assertRaises(error):
                         self.adapter().dispatch(handoff, deadline=1.0, cancelled=threading.Event(), early_start=True)
 

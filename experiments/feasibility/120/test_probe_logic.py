@@ -6,9 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from _shared import (construct_env, credential_gate, fingerprint, reserve_model_turn,
-                     restore_workspace_snapshot, select_supported_pair,
-                     snapshot_workspace, validate_pair)
+from _shared import construct_env; from _shared import credential_gate; from _shared import fingerprint; from _shared import reserve_model_turn; from _shared import restore_workspace_snapshot; from _shared import select_supported_pair; from _shared import snapshot_workspace; from _shared import validate_pair
 from probe_stream_events import stream_evidence
 from provision_chatgpt_handoff import provision
 

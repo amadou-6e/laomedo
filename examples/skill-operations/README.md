@@ -30,7 +30,7 @@ can forge those assertions; the viewer labels this boundary. Real acceptance
 must compare run references independently with the actual runner receipts.
 
 Configure the independent loopback service with `python -m
-laomedo.skill_operation_server --registry PATH --database PATH --policies PATH
+laomedo.skills.operations.cli --registry PATH --database PATH --policies PATH
 --api-token-file PATH --port PORT`. Policies is a private JSON map from skill ID
 to a validated existing edit policy. Backend-only environment variables are
 `LAOMEDO_SKILL_OPERATION_URL` and `LAOMEDO_SKILL_OPERATION_TOKEN_FILE`. No token,
@@ -130,7 +130,7 @@ two changed. SVG is classified as script-capable by that schema, so its flag was
 allowed for this exact vector-document path; no command execution or additional
 script path was authorized. This policy is not installed in the read-only preview.
 
-The internal [skill-summary](../../laomedo/resources/skills/skill-summary/SKILL.md) authoring skill
+The internal [skill-summary](../../src/laomedo/skills/resources/skill-summary/SKILL.md) authoring skill
 fills missing descriptions through ordinary versioned edits and preserves user
 summaries. It is not invoked by opening the read-only viewer.
 

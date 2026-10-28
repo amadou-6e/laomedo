@@ -40,9 +40,8 @@ UNLISTED_MARKER = "UNLISTED-121-RAN"
 async def collect_query(prompt, options, summary, label, marker=None,
                         timeout_s=180, ledger=None):
     """One-shot query() with a wall-clock deadline. Returns collected events."""
-    from claude_agent_sdk._errors import (CLIConnectionError, CLINotFoundError,
-                                          ProcessError, ResultError)
-    from _shared import collect_events, count_attempted_turn
+    from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import CLINotFoundError; from claude_agent_sdk._errors import ProcessError; from claude_agent_sdk._errors import ResultError
+    from _shared import collect_events; from _shared import count_attempted_turn
 
     messages = []
     outcome = {}
@@ -94,9 +93,9 @@ async def _query(prompt, options):
 
 async def run_interrupt(project, private_home, config_dir, state, summary, ledger):
     """Start a long turn, interrupt it, and drain to its ResultMessage."""
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ResultMessage
-    from claude_agent_sdk._errors import CLIConnectionError, CLINotFoundError
-    from _shared import collect_events, count_attempted_turn, options_env
+    from claude_agent_sdk import ClaudeAgentOptions; from claude_agent_sdk import ClaudeSDKClient; from claude_agent_sdk import ResultMessage
+    from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import CLINotFoundError
+    from _shared import collect_events; from _shared import count_attempted_turn; from _shared import options_env
 
     options = ClaudeAgentOptions(
         cwd=str(project),
@@ -163,10 +162,7 @@ def main():
                         help="existing private parent shared with the settings probe")
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _shared import (BudgetLedger, compare_personal_roots, credential_gate,
-                          fingerprint, hash_personal_roots, prepare_state_dir,
-                          restore_workspace_snapshot, runner_versions,
-                          skill_attempt, snapshot_workspace, write_skill)
+    from _shared import BudgetLedger; from _shared import compare_personal_roots; from _shared import credential_gate; from _shared import fingerprint; from _shared import hash_personal_roots; from _shared import prepare_state_dir; from _shared import restore_workspace_snapshot; from _shared import runner_versions; from _shared import skill_attempt; from _shared import snapshot_workspace; from _shared import write_skill
 
     state = args.state_dir.resolve()
     summary = dict(runner_versions())
@@ -337,7 +333,7 @@ async def _skill_pair(make_options, summary, ledger):
     model, so not_attempted is the expected state) and whether its body ran.
     Then check Read access to its files and /name dispatch, which the
     reference says bypasses the allowlist."""
-    from _shared import skill_attempt, tool_succeeded
+    from _shared import skill_attempt; from _shared import tool_succeeded
 
     unlisted = await collect_query(
         f"Use the {UNLISTED_SKILL} skill and follow it.",

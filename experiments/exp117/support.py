@@ -9,7 +9,7 @@ import threading
 import time
 from urllib.request import urlopen
 from uuid import uuid4
-from laomedo.local_runner import IMAGE as CODEX_IMAGE, IMAGE_ID, VOLUME
+from laomedo.agents.providers.codex.settings import IMAGE as CODEX_IMAGE; from laomedo.agents.providers.codex.settings import IMAGE_ID; from laomedo.agents.providers.codex.settings import VOLUME
 ROOT=Path(__file__).resolve().parents[2]
 PILOT=ROOT/'examples/skill-agent-pilot'
 LANGFLOW_IMAGE='langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0'

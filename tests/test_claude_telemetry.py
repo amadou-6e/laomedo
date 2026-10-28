@@ -3,10 +3,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from urllib.request import Request,urlopen
+from urllib.request import Request; from urllib.request import urlopen
 from urllib.error import HTTPError
-from laomedo.claude_telemetry import ClaudeTelemetry
-from laomedo.agent_activity_projection import project
+from laomedo.activity.claude.telemetry import ClaudeTelemetry
+from laomedo.activity.agent_activity.projection import project
 
 try:
  from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
@@ -70,7 +70,7 @@ class ClaudeTelemetryTests(unittest.TestCase):
   self.assertEqual((self.root/'otel-events.jsonl').read_text(),'')
 
  def test_shutdown_bounds_an_interrupted_authenticated_upload(self):
-  import socket,threading,time
+  import socket; import threading; import time
   receiver=ClaudeTelemetry(self.root,run_id='stalled',thread_id='session',turn_id='stalled')
   before=set(threading.enumerate());client=socket.create_connection(receiver.server.server_address,timeout=2)
   try:

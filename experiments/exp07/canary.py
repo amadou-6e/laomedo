@@ -1,6 +1,6 @@
 """Disposable external-write grant; expiry is enforced by this service."""
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path

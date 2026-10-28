@@ -5,8 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.agent_cli import configure_remote
-from laomedo.local_runner import _copy_tree, _hash_tree
+from laomedo.host.mediation.agent_cli import configure_remote
+from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.runtime.utils import _hash_tree
 
 
 @unittest.skipUnless(shutil.which("git"), "Git required")

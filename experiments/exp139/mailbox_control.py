@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 from experiments.exp139.bindings import PROFILE_OVERRIDES
-from experiments.exp139.helper_control import IMAGE, ROOT
+from experiments.exp139.helper_control import IMAGE; from experiments.exp139.helper_control import ROOT
 
 SCRIPT = r'''
 const fs=require('fs'), cp=require('child_process'), http=require('http');
@@ -54,7 +54,7 @@ server.listen(0,'127.0.0.1',async()=>{
 def probe():
     with tempfile.TemporaryDirectory(prefix='laomedo139-mailbox-') as temporary:
         root=Path(temporary)
-        (root/'config.toml').write_bytes((ROOT/'laomedo/runner-config.toml').read_bytes())
+        (root/'config.toml').write_bytes((ROOT/'src/laomedo/agents/providers/codex/resources/runner-config.toml').read_bytes())
         (root/'fixture.cjs').write_text(SCRIPT,encoding='utf-8')
         (root/'capability').write_text('DUMMY_RUN_CAPABILITY')
         (root/'auth.json').write_text('{"dummy":"NOT_A_LOGIN"}')

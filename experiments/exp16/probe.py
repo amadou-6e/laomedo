@@ -9,8 +9,8 @@ from pathlib import Path
 import sys
 
 from laomedo.work_graph.github import import_pages
-from laomedo.work_graph.model import GraphSnapshot
-from laomedo.workflow_run_store import ExternalOutcomeUnknown, WorkflowRunStore
+from laomedo.work_graph.models import GraphSnapshot
+from laomedo.agents.workflow.errors import ExternalOutcomeUnknown; from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 HERE = Path(__file__).resolve().parent

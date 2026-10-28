@@ -10,7 +10,7 @@ import sys
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from connection import ConnectionBroker, ConnectionRefused
+from connection import ConnectionBroker; from connection import ConnectionRefused
 from fake_provider import FakeProvider
 
 

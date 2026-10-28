@@ -14,7 +14,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from experiments.exp100.bundle_transfer import git, git_env, verify_bundle
+from experiments.exp100.bundle_transfer import git; from experiments.exp100.bundle_transfer import git_env; from experiments.exp100.bundle_transfer import verify_bundle
 
 
 REF = "refs/heads/run-a"

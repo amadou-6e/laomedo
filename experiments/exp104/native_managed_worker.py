@@ -3,6 +3,8 @@
 Not a product runner or a capture entry point. The reviewed controller must
 prepare/bind the trusted scope and paths before starting this process.
 """
+
+from laomedo.host.leases.models import ContainerIdentity
 import argparse
 import json
 import os
@@ -11,12 +13,12 @@ import subprocess
 import threading
 import time
 
-from experiments.exp104.native_managed_checks import BASELINE, IDENTITY, REPOSITORY
-from laomedo.agent_cli import prepare_commands
-from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_git_transport import _base_git_environment
-from laomedo.lease_service import LeaseClient
-from laomedo.local_runner import GIT_IMAGE_ID
+from experiments.exp104.native_managed_checks import BASELINE; from experiments.exp104.native_managed_checks import IDENTITY; from experiments.exp104.native_managed_checks import REPOSITORY
+from laomedo.host.mediation.agent_cli import prepare_commands
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
+from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.host.leases.client import LeaseClient
+from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 
@@ -84,7 +86,7 @@ def run(root, side):
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=_base_git_environment())
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
-            state, metadata = inspect_exact(selected["name"], selected["run_id"], selected["token"])
+            state, metadata = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
             if state == "owned":
                 ready = {"pid": os.getpid(), "run_id": selected["run_id"],
                          "grant_id": lease.grant_id, "container_id": metadata}
@@ -104,7 +106,7 @@ def run(root, side):
         if child.poll() is None:
             raise RuntimeError("scripted_container_deadline")
     finally:
-        verified, _ = cleanup_exact(selected["name"], selected["run_id"], selected["token"])
+        verified, _ = cleanup_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
         if child is not None:
             child.wait(timeout=10)
         record["status"] = "completed" if verified else "interrupted"

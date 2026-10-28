@@ -1,5 +1,10 @@
 """Synthetic CLI composition checks for separately launched host services."""
 
+from laomedo.host.leases.service import LeaseService as _owned_lease_service_LeaseService
+
+from laomedo.host.mediation.service import JournaledTransport as _owned_mediation_service_JournaledTransport
+from laomedo.host.mediation.service import MediationHTTPService as _owned_mediation_service_MediationHTTPService
+
 import json
 from pathlib import Path
 import sys
@@ -7,9 +12,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo import host_services, lease_service, mediation_service
-from laomedo.github_git_transport import PushOutcomeUnknown
-from laomedo.github_mediation import MediationStore
+import laomedo.host.host_services as host_services
+import laomedo.host.leases.service_cli as lease_service
+import laomedo.host.mediation.cli as mediation_service
+from laomedo.github.transport.git.errors import PushOutcomeUnknown
+from laomedo.host.mediation.store import MediationStore
 
 
 class MediationServiceStartupTests(unittest.TestCase):
@@ -39,8 +46,8 @@ class MediationServiceStartupTests(unittest.TestCase):
                 "--connection-id", "selected", "--connection-generation", "1",
                 "--token-file", str(self.token_file)]
         with patch.object(sys, "argv", args), patch.object(
-                mediation_service.MediationHTTPService, "serve", serve), patch.object(
-                mediation_service.MediationHTTPService, "close", close):
+                _owned_mediation_service_MediationHTTPService, "serve", serve), patch.object(
+                _owned_mediation_service_MediationHTTPService, "close", close):
             mediation_service.main()
         status = json.loads((self.state / "mediator.json").read_text(encoding="utf-8"))
         self.assertEqual(status["connection_id"], "selected")
@@ -60,7 +67,7 @@ class MediationServiceStartupTests(unittest.TestCase):
                 "--repository", "example/disposable",
                 "--connection-id", "selected", "--connection-generation", "1"]
         with patch.object(sys, "argv", args), patch.object(
-                lease_service.LeaseService, "serve", serve):
+                _owned_lease_service_LeaseService, "serve", serve):
             lease_service.main()
         self.assertIsNotNone(seen[0].mediator)
         self.assertIsNotNone(seen[0].mediation_authority)
@@ -89,8 +96,8 @@ class MediationServiceStartupTests(unittest.TestCase):
                     instance.server.server_close()
 
                 state = self.state / entry.__name__.split(".")[-1]
-                with patch.object(entry, "make_grant_bundle_freezer", factory), \
-                        patch.object(entry, "MediationStore", store_factory):
+                with patch("laomedo.host.publication.verified.utils.make_grant_bundle_freezer", factory), \
+                        patch("laomedo.host.mediation.store.MediationStore", store_factory):
                     if entry is host_services:
                         lease, mediator = entry.build_services(
                             state=state, repository="example/disposable",
@@ -111,8 +118,8 @@ class MediationServiceStartupTests(unittest.TestCase):
                             "--runner-state", str(self.path / "runner"),
                             "--private-stage", str(self.path / "stages")]
                         with patch.object(sys, "argv", args), patch.object(
-                                entry.MediationHTTPService, "serve", lambda _instance: None), \
-                                patch.object(entry.MediationHTTPService, "close", close):
+                                _owned_mediation_service_MediationHTTPService, "serve", lambda _instance: None), \
+                                patch.object(_owned_mediation_service_MediationHTTPService, "close", close):
                             entry.main()
                 callback = captured.get("confirmed_stage_authorizer")
                 self.assertTrue(callable(callback), "host confirmation gate missing")
@@ -125,7 +132,7 @@ class MediationServiceStartupTests(unittest.TestCase):
 
     def test_provider_journal_counts_attempts_without_secret_payload(self):
         journal = self.path / "attempts.jsonl"
-        transport = mediation_service.JournaledTransport(
+        transport = _owned_mediation_service_JournaledTransport(
             lambda repository, operation, payload, **binding:
             {"accepted": True}, journal)
         result = transport("example/disposable", "git_push", {
@@ -146,7 +153,7 @@ class MediationServiceStartupTests(unittest.TestCase):
         def nonzero_push(*_args, **_kwargs):
             raise PushOutcomeUnknown("authentication_or_authorization", 1)
 
-        journal = mediation_service.JournaledTransport(
+        journal = _owned_mediation_service_JournaledTransport(
             nonzero_push, attempts, diagnostics)
         store = MediationStore(
             self.path / "effects.sqlite",

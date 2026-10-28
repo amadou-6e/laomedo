@@ -1,4 +1,6 @@
 """Single-use, independently reviewed real-agent crash test. No GitHub writes."""
+
+from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from contextlib import closing
 from hashlib import sha256
@@ -8,23 +10,21 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
-from experiments.exp93.real_stage_support import IDENTITY, TASK, identities, reserve, finalize, save, validate
+from experiments.exp93.real_stage_support import IDENTITY; from experiments.exp93.real_stage_support import TASK; from experiments.exp93.real_stage_support import identities; from experiments.exp93.real_stage_support import reserve; from experiments.exp93.real_stage_support import finalize; from experiments.exp93.real_stage_support import save; from experiments.exp93.real_stage_support import validate
 from experiments.exp104 import native_managed_tasks as tasks
-from experiments.exp104.native_localrunner_probe import (
-    api, git, wait_json, readiness, journal, scan_owned, configure_owned_clone,
-)
+from experiments.exp104.native_localrunner_probe import api; from experiments.exp104.native_localrunner_probe import git; from experiments.exp104.native_localrunner_probe import wait_json; from experiments.exp104.native_localrunner_probe import readiness; from experiments.exp104.native_localrunner_probe import journal; from experiments.exp104.native_localrunner_probe import scan_owned; from experiments.exp104.native_localrunner_probe import configure_owned_clone
 from experiments.exp104.probe_active_delivery import stage_cleanup
-from laomedo.container_lease import cleanup_exact, inspect_exact
-from laomedo.github_git_transport import _base_git_environment
-from laomedo.github_mediation import MediationStore
-from laomedo.github_rest_transport import _NoRedirect
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.local_runner import GIT_IMAGE_ID, LocalRunner
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
+from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.host.mediation.store import MediationStore
+from laomedo.github.transport.rest.transport import _NoRedirect
+from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.skill_store import SkillStore
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.skills.registry.store import SkillStore
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"
@@ -49,7 +49,7 @@ def wait_cleanup(root, selected, killed):
             finished = result.get("cleanup_finished_at_monotonic")
             if result.get("cleanup_verified") is not True or type(finished) not in (float,int) or not killed<=finished<=killed+60:
                 raise ValueError("service_cleanup_unverified_or_late")
-            if inspect_exact(selected["name"],selected["run_id"],selected["token"])[0] != "absent":
+            if inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))[0] != "absent":
                 raise ValueError("independent_container_absence_failed")
             observed = time.monotonic()
             if observed>killed+60:
@@ -186,7 +186,7 @@ def cleanup(root, owned, workers):
         try:
             selected = identities(root, side)
             if selected.get("name"):
-                result[side], _ = cleanup_exact(selected["name"], selected["run_id"], selected["token"])
+                result[side], _ = cleanup_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
             else:
                 result[side] = not dispatched
         except Exception:
@@ -328,7 +328,7 @@ def run(root, token_file, source, review_file):
             "item_id":(boundary.get("params",{}).get("item") or {}).get("id")}
         observation["loss"] = {"command_started": started}
         save(root/"observation.json", observation)
-        if inspect_exact(a["name"],a["run_id"],a["token"]) != ("owned",ready["a"]["container_id"]):
+        if inspect_exact(ContainerIdentity(name=a['name'], run_id=a['run_id'], token=a['token'])) != ("owned",ready["a"]["container_id"]):
             raise ValueError("a_ownership_changed")
         observation["boundary_observed"] = True
         native_record = json.loads((root/"runner/runs"/a["run_id"]/"record.json").read_bytes())

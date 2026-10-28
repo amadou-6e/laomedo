@@ -19,7 +19,7 @@ No credential value is ever printed. Personal roots are compared by hash.
 import hashlib
 import json
 import os
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal; from decimal import InvalidOperation
 from pathlib import Path
 import platform
 import shutil

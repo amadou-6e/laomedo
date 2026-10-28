@@ -1,0 +1,219 @@
+"""First-slice, single-invocation bridge from native runner to durable trace.
+
+Langflow remains responsible for workflow scheduling. This bridge only reserves
+and correlates one fresh native invocation; it never retries an uncertain POST.
+"""
+
+import laomedo.agents.handoffs.errors as _handoffs_errors
+import laomedo.agents.workflow.errors as _workflow_errors
+import laomedo.agents.workflow.utils as _workflow_utils
+
+
+class RunnerTraceBridge:
+    def __init__(self, store, adapter):
+        self.store = store
+        self.adapter = adapter
+
+    def dispatch(self, run_id, stage_id, handoff, *, deadline, cancelled):
+        if handoff.get("operation") != "fresh" or handoff.get("target", {}).get(
+            "provider"
+        ) not in {"codex", "claude"}:
+            raise _workflow_errors.LaunchError("first_slice_requires_fresh_codex")
+        provider = handoff["target"]["provider"]
+        invocation_id = self.store.reserve_invocation(run_id, stage_id)
+        _, request_hash = self.adapter.fresh_request(handoff, invocation_id)
+        self.store.freeze_runner_request(
+            run_id, invocation_id, request_hash, provider=provider
+        )
+        self.store.begin_invocation(run_id, invocation_id)
+
+        def on_ack(ack):
+            self.store.bind_runner_ack(
+                run_id,
+                invocation_id,
+                request_id=ack["client_request_id"],
+                provider=provider,
+                runner_run_id=ack["run_id"],
+                raw_event_ref=ack["raw_event_ref"],
+            )
+
+        try:
+            result = self.adapter.dispatch(
+                handoff,
+                deadline=deadline,
+                cancelled=cancelled,
+                early_start=True,
+                runner_request_id=invocation_id,
+                expected_request_hash=request_hash,
+                on_ack=on_ack,
+            )
+        except _handoffs_errors.HandoffError as exc:
+            if str(exc) == "runner_result_pending":
+                self.store.record_runner_wait_uncertain(run_id, invocation_id)
+            else:
+                category = (
+                    "runner_request_conflict"
+                    if str(exc) == "runner_request_conflict"
+                    else (
+                        "runner_ack_identity_mismatch"
+                        if str(exc) == "runner_ack_identity_mismatch"
+                        else "runner_dispatch_error"
+                    )
+                )
+                self.store.record_runner_failure(
+                    run_id, invocation_id, category=category
+                )
+            raise
+        except Exception as exc:
+            category = (
+                "runner_binding_conflict"
+                if isinstance(exc, _workflow_errors.LaunchError)
+                and str(exc) == "runner_binding_conflict"
+                else (
+                    "runner_binding_write_error"
+                    if isinstance(exc, _workflow_errors.LaunchError)
+                    else "runner_transport_error"
+                )
+            )
+            try:
+                self.store.record_runner_failure(
+                    run_id, invocation_id, category=category
+                )
+            except Exception:
+                pass  # Preserve the original binding or transport failure.
+            raise
+        if result.get("status") == "rejected" and not result.get("run_id"):
+            self.store.record_runner_rejection(
+                run_id,
+                invocation_id,
+                category=result.get("error_category") or "runner_rejected",
+            )
+        if result.get("run_id"):
+            self.store.record_runner_observation(
+                run_id,
+                invocation_id,
+                provider=provider,
+                runner_run_id=result["run_id"],
+                kind="runner_status",
+                payload={
+                    "status": result.get("status"),
+                    "error_category": result.get("error_category"),
+                },
+            )
+        return invocation_id, result
+
+    def reconcile(self, run_id, invocation_id, execution_id):
+        """Explicit read-only lookup; never repeats the native start request."""
+        binding = self.store.trace_snapshot(run_id)["invocation"]
+        frozen = self.store.trace_snapshot(run_id)["receipts"]
+        request_receipt = next(
+            (r["payload"] for r in frozen if r["kind"] == "runner_request_frozen"), {}
+        )
+        provider = binding.get("runner_provider") or request_receipt.get(
+            "provider", "codex"
+        )
+        if (
+            binding["invocation_id"] != invocation_id
+            or not binding["runner_request_hash"]
+        ):
+            raise _workflow_errors.LaunchError("runner_request_not_frozen")
+        try:
+            found = self.adapter.lookup_request(provider, binding["runner_request_id"])
+        except Exception as exc:
+            category = (
+                "runner_lookup_conflict"
+                if isinstance(exc, _handoffs_errors.HandoffError)
+                and str(exc) == "runner_request_conflict"
+                else "runner_lookup_unknown"
+            )
+            self.store.record_runner_failure(run_id, invocation_id, category=category)
+            raise
+        if found is None:
+            self.store.record_runner_failure(
+                run_id, invocation_id, category="runner_lookup_unknown"
+            )
+            return None
+        if (
+            not isinstance(found, dict)
+            or found.get("client_request_id") != binding["runner_request_id"]
+            or found.get("request_hash") != binding["runner_request_hash"]
+            or found.get("provider") != provider
+        ):
+            self.store.record_runner_failure(
+                run_id, invocation_id, category="runner_lookup_mismatch"
+            )
+            raise _workflow_errors.LaunchError("runner_lookup_mismatch")
+        try:
+            self.store.bind_runner_ack(
+                run_id,
+                invocation_id,
+                request_id=found["client_request_id"],
+                provider=provider,
+                runner_run_id=found.get("run_id"),
+                raw_event_ref=found.get("raw_event_ref"),
+            )
+        except _workflow_errors.LaunchError as exc:
+            self.store.record_runner_failure(
+                run_id,
+                invocation_id,
+                category=(
+                    "runner_binding_conflict"
+                    if str(exc) == "runner_binding_conflict"
+                    else "runner_binding_write_error"
+                ),
+            )
+            raise
+        self.adapter.active[execution_id] = (
+            self.adapter.endpoints[provider],
+            found["run_id"],
+        )
+        self.store.record_runner_observation(
+            run_id,
+            invocation_id,
+            provider=provider,
+            runner_run_id=found["run_id"],
+            kind="runner_status",
+            payload={"status": found.get("status"), "reconciled": True},
+        )
+        return found
+
+    def cancel(self, run_id, invocation_id, execution_id):
+        binding = self.store.trace_snapshot(run_id)["invocation"]
+        if binding["invocation_id"] != invocation_id or not binding["runner_run_id"]:
+            raise _workflow_errors.LaunchError("runner_observation_not_correlated")
+        active = self.adapter.active.get(execution_id)
+        if active is None or active[1] != binding["runner_run_id"]:
+            raise _workflow_errors.LaunchError("runner_cancel_identity_mismatch")
+        result = self.adapter.cancel(execution_id)
+        self.store.record_runner_observation(
+            run_id,
+            invocation_id,
+            provider=binding["runner_provider"],
+            runner_run_id=binding["runner_run_id"],
+            kind="runner_cancel",
+            payload={
+                "cancel_requested": result.get("cancel_requested"),
+                "cancel_confirmed": result.get("cancel_confirmed"),
+            },
+        )
+        return result
+
+    def observe_terminal(self, run_id, invocation_id):
+        """Explicit authenticated status reconciliation; never starts a turn."""
+        binding = self.store.trace_snapshot(run_id)["invocation"]
+        if binding["invocation_id"] != invocation_id or not binding["runner_run_id"]:
+            raise _workflow_errors.LaunchError("runner_observation_not_correlated")
+        native = self.adapter.status(
+            binding["runner_provider"], binding["runner_run_id"]
+        )
+        if _workflow_utils.runner_attempt_terminal(native):
+            self.store.record_runner_terminal(
+                run_id,
+                invocation_id,
+                provider=binding["runner_provider"],
+                runner_run_id=binding["runner_run_id"],
+                status=native["status"],
+                cancel_confirmed=native.get("cancel_confirmed") is True,
+                attempt_finished=native.get("attempt_finished") is True,
+            )
+        return native

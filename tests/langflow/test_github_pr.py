@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
-from lfx.schema import Data, Message
+from lfx.schema import Data; from lfx.schema import Message
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests'))

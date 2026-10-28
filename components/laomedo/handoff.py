@@ -1,7 +1,7 @@
 """Select task and provenance explicitly between two agent nodes."""
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, MessageTextInput, Output
-from lfx.schema import Data, Message
+from lfx.io import DataInput; from lfx.io import MessageTextInput; from lfx.io import Output
+from lfx.schema import Data; from lfx.schema import Message
 from uuid import uuid4
 
 

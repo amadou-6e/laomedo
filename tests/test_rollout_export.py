@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.local_runner import RunnerError
-from laomedo.rollout_export import export_rollout
+from laomedo.agents.runtime.errors import RunnerError
+from laomedo.activity.rollout_export import export_rollout
 
 
 class Result:

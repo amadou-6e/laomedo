@@ -1,7 +1,7 @@
 """Build the PR feedback graph with a Skill input; never starts an Agent or provider call."""
-import argparse,importlib.util,json
+import argparse; import importlib.util; import json
 from pathlib import Path
-from uuid import uuid5,NAMESPACE_URL
+from uuid import uuid5; from uuid import NAMESPACE_URL
 from lfx.graph.graph.base import Graph
 ROOT=Path(__file__).resolve().parents[3]
 spec=importlib.util.spec_from_file_location('pr_original_builder',ROOT/'examples/langflow-workgraph-demo/build_flow.py')

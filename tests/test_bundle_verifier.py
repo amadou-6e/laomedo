@@ -1,5 +1,6 @@
 """Credential-free worker controls; fake stage, no Docker or provider effects."""
 import hashlib
+import laomedo
 import json
 from pathlib import Path
 import tempfile
@@ -7,9 +8,9 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from laomedo.bundle_ingest import freeze_run_bundle, HANDOFF_NAME, _durable_json
-from laomedo.bundle_verifier import BundleVerifier, _publish_status
-from laomedo.bundle_stage import BundleStageError
+from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.ingestion.utils import _durable_json
+from laomedo.host.publication.verifier import BundleVerifier; from laomedo.host.publication.status import _publish_status
+from laomedo.host.publication.bundle.errors import BundleStageError
 
 
 class BundleVerifierTests(unittest.TestCase):
@@ -148,7 +149,7 @@ class BundleVerifierTests(unittest.TestCase):
         self.assertEqual(set(final), {"instance", "pid", "module_root", "phase",
             "started_monotonic", "scan_started_monotonic", "scan_completed_monotonic"})
         self.assertEqual(Path(final["module_root"]).resolve(),
-                         Path(__file__).resolve().parents[1] / "laomedo")
+                         Path(laomedo.__file__).resolve().parent)
         self.assertFalse((self.workspace / "service-status.json").exists())
         self.assertNotIn("grant-a", json.dumps(final))
 
@@ -176,7 +177,7 @@ class BundleVerifierTests(unittest.TestCase):
                 raise PermissionError("synthetic-reader-lock")
             return original(source, target)
 
-        with patch("laomedo.bundle_verifier.os.replace", replace):
+        with patch("laomedo.host.publication.cli.os.replace", replace):
             _publish_status(path, {"phase": "idle"})
         self.assertEqual(json.loads(path.read_bytes()), {"phase": "idle"})
         self.assertEqual(len(calls), 2)

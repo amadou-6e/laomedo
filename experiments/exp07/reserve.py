@@ -1,7 +1,7 @@
 """Reserve a synthetic stage record then leave it dispatching for crash sweep."""
 
 import os
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 store = WorkflowRunStore("/state/runs.sqlite3")

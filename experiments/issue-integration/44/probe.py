@@ -6,7 +6,7 @@ endpoint or retries a possible external write after a crash.
 """
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime; from datetime import timezone
 from hashlib import sha256
 import json
 import os
@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import tempfile
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request; from urllib.request import urlopen
 
 
 class ProbeError(ValueError):

@@ -1,5 +1,10 @@
 """Independent lease service: grant revocation and exact cleanup, no Docker daemon."""
 
+from laomedo.host.leases.utils import _read_float as _owned_lease_service__read_float
+from laomedo.host.leases.utils import _read_json as _owned_lease_service__read_json
+from laomedo.host.leases.utils import _write_float as _owned_lease_service__write_float
+from laomedo.host.leases.utils import _write_json as _owned_lease_service__write_json
+
 import json
 import os
 from pathlib import Path
@@ -8,11 +13,11 @@ import threading
 import time
 import unittest
 from unittest.mock import patch
-from urllib import error, request
+from urllib import error; from urllib import request
 
-from laomedo import lease_service
-from laomedo.github_mediation import MediationStore
-from laomedo.lease_service import LeaseClient, LeaseService
+import laomedo.host.leases.service as lease_service
+from laomedo.host.mediation.store import MediationStore
+from laomedo.host.leases.client import LeaseClient; from laomedo.host.leases.service import LeaseService
 
 
 def _result(directory: Path) -> dict:
@@ -32,8 +37,8 @@ class LeaseServiceTests(unittest.TestCase):
         self.state = Path(self.temp.name) / "service"
         self.cleanups = []
 
-        def cleanup(name, run_id, token):
-            self.cleanups.append((name, run_id, token))
+        def cleanup(identity):
+            self.cleanups.append((identity.name, identity.run_id, identity.token.get_secret_value()))
             return True, "removed_after_loss"
 
         self.service = LeaseService(self.state, loss_seconds=.5, cleanup=cleanup)
@@ -57,15 +62,15 @@ class LeaseServiceTests(unittest.TestCase):
         seen_before_publish = []
 
         def inspect_replace(source, target):
-            seen_before_publish.append(lease_service._read_float(heartbeat))
+            seen_before_publish.append(_owned_lease_service__read_float(heartbeat))
             self.assertEqual(Path(target), heartbeat)
             self.assertEqual(Path(source).parent, heartbeat.parent)
             replace(source, target)
 
-        with patch("laomedo.lease_service.os.replace", side_effect=inspect_replace):
-            lease_service._write_float(heartbeat, 2.0)
+        with patch("laomedo.host.leases.service.os.replace", side_effect=inspect_replace):
+            _owned_lease_service__write_float(heartbeat, 2.0)
         self.assertEqual(seen_before_publish, [1.0])
-        self.assertEqual(lease_service._read_float(heartbeat), 2.0)
+        self.assertEqual(_owned_lease_service__read_float(heartbeat), 2.0)
 
     def test_heartbeat_retries_windows_replace_lock_and_cleans_pending_file(self):
         heartbeat = self.state / "service.alive"
@@ -79,10 +84,10 @@ class LeaseServiceTests(unittest.TestCase):
                 raise PermissionError("simulated reader lock")
             replace(source, target)
 
-        with patch("laomedo.lease_service.os.replace", side_effect=locked_once):
-            lease_service._write_float(heartbeat, 2.0)
+        with patch("laomedo.host.leases.service.os.replace", side_effect=locked_once):
+            _owned_lease_service__write_float(heartbeat, 2.0)
         self.assertEqual(len(attempts), 2)
-        self.assertEqual(lease_service._read_float(heartbeat), 2.0)
+        self.assertEqual(_owned_lease_service__read_float(heartbeat), 2.0)
         self.assertEqual(list(self.state.glob("service.alive.pending-*")), [])
 
     def test_failed_heartbeat_write_does_not_end_service_beat_loop(self):
@@ -100,7 +105,7 @@ class LeaseServiceTests(unittest.TestCase):
             if len(waits) == 2:
                 self.service.stopping.set()
 
-        with patch("laomedo.lease_service._write_float", side_effect=fail_once), \
+        with patch("laomedo.host.leases.utils._write_float", side_effect=fail_once), \
              patch.object(self.service.stopping, "wait", side_effect=stop_after_second_wait), \
              self.assertLogs(level="WARNING"):
             self.service._beat()
@@ -122,7 +127,7 @@ class LeaseServiceTests(unittest.TestCase):
 
         with patch.object(Path, "read_text", autospec=True,
                           side_effect=locked_once):
-            self.assertEqual(lease_service._read_float(heartbeat), 2.0)
+            self.assertEqual(_owned_lease_service__read_float(heartbeat), 2.0)
         self.assertEqual(len(attempts), 2)
 
     def test_json_read_retries_transient_windows_lock(self):
@@ -140,7 +145,7 @@ class LeaseServiceTests(unittest.TestCase):
 
         with patch.object(Path, "read_text", autospec=True,
                           side_effect=locked_once):
-            self.assertEqual(lease_service._read_json(record),
+            self.assertEqual(_owned_lease_service__read_json(record),
                              {"instance": "one"})
         self.assertEqual(len(attempts), 2)
 
@@ -149,19 +154,19 @@ class LeaseServiceTests(unittest.TestCase):
             json.dumps({"instance": "old-instance"}), encoding="utf-8")
         (self.state / "service.alive").write_text("1.0", encoding="utf-8")
         (self.state / "service.alive.monotonic").write_text("1.0", encoding="utf-8")
-        original_write = lease_service._write_json
+        original_write = _owned_lease_service__write_json
         publication = []
 
         def inspect_publication(path, value):
             if path == self.state / "service.json":
                 publication.append((
-                    lease_service._read_json(path),
-                    lease_service._read_float(self.state / "service.alive"),
-                    lease_service._read_float(self.state / "service.alive.monotonic"),
+                    _owned_lease_service__read_json(path),
+                    _owned_lease_service__read_float(self.state / "service.alive"),
+                    _owned_lease_service__read_float(self.state / "service.alive.monotonic"),
                     time.time(), time.monotonic()))
             original_write(path, value)
 
-        with patch("laomedo.lease_service._write_json",
+        with patch("laomedo.host.leases.utils._write_json",
                    side_effect=inspect_publication):
             thread = threading.Thread(target=self.service.serve, daemon=True)
             thread.start()
@@ -180,7 +185,7 @@ class LeaseServiceTests(unittest.TestCase):
             self.assertFalse(thread.is_alive())
 
     def test_serve_refuses_publication_when_initial_heartbeat_fails(self):
-        with patch("laomedo.lease_service._write_float",
+        with patch("laomedo.host.leases.utils._write_float",
                    side_effect=OSError("unwritable heartbeat")):
             with self.assertRaisesRegex(OSError, "unwritable heartbeat"):
                 self.service.serve()
@@ -231,7 +236,7 @@ class LeaseServiceTests(unittest.TestCase):
     def test_done_revokes_grant_and_checks_absence(self):
         lease_dir, secret = self.register()
         (lease_dir / "done").write_text("done", encoding="utf-8")
-        with patch("laomedo.lease_service.inspect_exact", return_value=("absent", None)):
+        with patch("laomedo.host.leases.utils.inspect_exact", return_value=("absent", None)):
             self.service.tick()
             result = _result(lease_dir)
         self.assertEqual((result["reason"], result["cleanup_verified"]), ("done", True))
@@ -293,9 +298,9 @@ class LeaseClientTests(unittest.TestCase):
     def wait_for_service(self):
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
-            if (lease_service._read_json(self.state / "service.json") is not None and
-                    lease_service._read_float(self.state / "service.alive") is not None and
-                    lease_service._read_float(
+            if (_owned_lease_service__read_json(self.state / "service.json") is not None and
+                    _owned_lease_service__read_float(self.state / "service.alive") is not None and
+                    _owned_lease_service__read_float(
                         self.state / "service.alive.monotonic") is not None):
                 return
             time.sleep(.05)
@@ -321,12 +326,12 @@ class LeaseClientTests(unittest.TestCase):
         self.wait_for_service()
         cancelled = threading.Event()
         # The service runs in-thread here; production refuses a same-process service.
-        with patch("laomedo.lease_service.os.getpid", return_value=-2):
+        with patch("laomedo.host.leases.service.os.getpid", return_value=-2):
             client = LeaseClient(self.state, run_id="run-one", name="exact-name",
                                  token="token-one", cancelled=cancelled)
         self.assertTrue(client.grant_id.startswith("grant-"))
         self.assertTrue(service.book.check(client.grant_secret())[0])
-        with patch("laomedo.lease_service.inspect_exact", return_value=("absent", None)):
+        with patch("laomedo.host.leases.utils.inspect_exact", return_value=("absent", None)):
             result = client.finish()
         self.assertEqual(result["reason"], "done")
         self.assertFalse(service.book.check(client.grant_secret())[0])
@@ -342,7 +347,7 @@ class LeaseClientTests(unittest.TestCase):
         self.addCleanup(stop_service)
         self.wait_for_service()
 
-        original_write = lease_service._write_json
+        original_write = _owned_lease_service__write_json
         saw_staged_registration = []
 
         def checked_write(path, value):
@@ -355,14 +360,14 @@ class LeaseClientTests(unittest.TestCase):
                 saw_staged_registration.append(True)
             original_write(path, value)
 
-        with patch("laomedo.lease_service._write_json", side_effect=checked_write), \
-                patch("laomedo.lease_service.os.getpid", return_value=-2):
+        with patch("laomedo.host.leases.utils._write_json", side_effect=checked_write), \
+                patch("laomedo.host.leases.service.os.getpid", return_value=-2):
             client = LeaseClient(self.state, run_id="run-race", name="exact-name",
                                  token="token-race", cancelled=threading.Event())
         self.assertEqual(saw_staged_registration, [True])
         self.assertFalse((client.dir / "result.json").exists())
         self.assertTrue((client.dir / "accepted.json").exists())
-        with patch("laomedo.lease_service.inspect_exact", return_value=("absent", None)):
+        with patch("laomedo.host.leases.utils.inspect_exact", return_value=("absent", None)):
             client.finish()
 
     def test_client_reports_service_refusal_without_waiting_for_timeout(self):
@@ -382,7 +387,7 @@ class LeaseClientTests(unittest.TestCase):
         self.addCleanup(stop_service)
         self.wait_for_service()
         try:
-            with patch("laomedo.lease_service.os.getpid", return_value=-2):
+            with patch("laomedo.host.leases.service.os.getpid", return_value=-2):
                 with self.assertRaisesRegex(
                         RuntimeError, "lease_service_refused:mediated_lease_not_authorized"):
                     LeaseClient(self.state, run_id="r", name="n", token="t",

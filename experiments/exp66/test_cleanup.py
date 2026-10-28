@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock; from unittest.mock import patch
 
 from experiments.exp66.native_probe import finish
 

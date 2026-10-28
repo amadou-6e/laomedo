@@ -1,10 +1,10 @@
 """Bounded synthetic GitHub provider shared by independent paired states."""
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import io
 import json
 import threading
 from urllib.parse import urlsplit
-from laomedo.github_rest_transport import ISSUE_GRAPHQL_QUERY
+from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
 
 REPOSITORY = 'example/disposable'
 TOKEN = 'synthetic-paired-host-only'

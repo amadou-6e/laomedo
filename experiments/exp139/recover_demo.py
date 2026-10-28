@@ -7,7 +7,7 @@ import socket
 import sqlite3
 import subprocess
 
-from experiments.exp139.prepare import ROOT, LANGFLOW, report_task, save
+from experiments.exp139.prepare import ROOT; from experiments.exp139.prepare import LANGFLOW; from experiments.exp139.prepare import report_task; from experiments.exp139.prepare import save
 from experiments.exp139.runtime import configuration
 
 

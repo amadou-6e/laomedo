@@ -2,18 +2,18 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime; from datetime import timezone
 import hashlib
 import hmac
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
 import re
 import threading
 import time
-from urllib import parse, request
-from uuid import NAMESPACE_URL, uuid5
+from urllib import parse; from urllib import request
+from uuid import NAMESPACE_URL; from uuid import uuid5
 
 BASE = "http://127.0.0.1:18743"
 FIXTURE_KEY = b"exp123-synthetic-fixture-key"

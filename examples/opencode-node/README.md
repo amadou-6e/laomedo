@@ -104,3 +104,12 @@ Two graph reloads triggered no discovery or execution requests. The Playwright
 response-wait harness timed out, so the existing run was reconciled through the
 real terminal record and Activity rather than resubmitted. This does not extend
 acceptance to live cancellation, SSE/OTLP, subagents or monetary costs.
+
+## Provider-neutral template refresh
+
+Current Agent templates use the shared provider-neutral component and refreshed
+Langflow metadata. Graph/node identities, connections and configured values are
+retained. These refreshed exports were loaded for structural validation; they
+were not rerun against a model/provider. Earlier execution receipts remain
+historical. The pre-refactor exports are retained at Git revision
+`735e4171266bd47afe56f685d93f2faba1c885f2`.

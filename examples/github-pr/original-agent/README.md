@@ -27,7 +27,7 @@ proposal or eliminate prompt injection risk within the granted content scope.
 Import `title-skill/` as the immutable `pr-feedback-title` skill using SkillStore,
 then use its actual revision. Run the independent lease service and existing
 LocalRunner, with private state/registry, an inspected immutable image and the
-dedicated authorized local credential volume. [Docker startup](../../../docs/docker-sandbox.md)
+dedicated authorized local credential volume. [Docker startup](../../../docs/features/agents/runner/docker-sandbox.md)
 documents the checked profile and preflight. Provider tokens must stay outside
 all Agent mounts; this example reuses the existing test-only Codex login volume.
 

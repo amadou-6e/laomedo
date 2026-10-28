@@ -2,11 +2,29 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import sys
+from unittest.mock import patch
 
-from laomedo.managed_service import configuration_arguments
+from laomedo.host.managed_service import configuration_arguments
 
 
 class ManagedServiceTests(unittest.TestCase):
+    def test_selected_service_is_dispatched_with_its_configuration(self):
+        from laomedo.host.managed_service import main
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'settings.json'
+            path.write_text('{}')
+            for service, selected, other in (
+                ('host-services', 'laomedo.host.host_services.main', 'laomedo.host.publication.cli.main'),
+                ('bundle-verifier', 'laomedo.host.publication.cli.main', 'laomedo.host.host_services.main'),
+            ):
+                with self.subTest(service=service), patch.object(sys, 'argv', [
+                    'managed', '--service', service, '--configuration', str(path)
+                ]), patch(selected) as start, patch(other) as wrong:
+                    main()
+                    start.assert_called_once_with()
+                    wrong.assert_not_called()
+
     def test_explicit_file_reference_not_credential_is_passed(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "settings.json"

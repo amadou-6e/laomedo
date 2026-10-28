@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 
 from experiments.exp05.evidence import EvidenceStore
 from laomedo.work_graph.github import import_pages
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 ROOT = Path(__file__).resolve().parents[2]

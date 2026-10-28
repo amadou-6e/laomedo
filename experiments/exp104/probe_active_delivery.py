@@ -1,4 +1,6 @@
 """Frozen no-model active-container delivery with explicit fake connectors."""
+
+from laomedo.host.leases.models import ContainerIdentity
 from hashlib import sha256
 import argparse
 import io
@@ -14,15 +16,15 @@ import time
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(CHECKOUT))
-from laomedo.bundle_stage import PINNED_IMAGE_ID
-from laomedo.bundle_stage_ownership import _inspect, reconcile_orphan
-from laomedo.bundle_verifier import BundleVerifier
-from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
-from laomedo.github_rest_transport import GitHubRestTransport
-from laomedo.github_mediation import MediationStore, MediationError
-from laomedo.mediation_service import MediationHTTPService
-from laomedo.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle.ownership import _inspect; from laomedo.host.publication.bundle.ownership import reconcile_orphan
+from laomedo.host.publication.verifier import BundleVerifier
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError
+from laomedo.host.mediation.service import MediationHTTPService
+from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
 
 IDENTITY = "exp104-delivery-s1-20261009"
 REPOSITORY = "example/disposable"
@@ -196,7 +198,7 @@ def run(private):
             time.sleep(.1)
         if not result_file.is_file(): raise RuntimeError("delivery_pending_no_retry")
         result = json.loads(result_file.read_bytes())
-        state, container_id = inspect_exact(name, "run-a", launch)
+        state, container_id = inspect_exact(ContainerIdentity(name=name, run_id='run-a', token=launch))
         observation.update(agent_still_owned=state == "owned", agent_client_alive=agent.poll() is None,
             commit=result["commit"], number=result["number"], final_body_sha256=sha256(result["final_body"].encode()).hexdigest(),
             operations=result["operations"], push_calls=push_calls, rest_calls=list(fake.calls))
@@ -244,12 +246,12 @@ def run(private):
     except Exception as failure:
         observation["failure_class"] = type(failure).__name__
     finally:
-        observation["agent_cleanup_verified"], _ = cleanup_exact(name, "run-a", launch)
+        observation["agent_cleanup_verified"], _ = cleanup_exact(ContainerIdentity(name=name, run_id='run-a', token=launch))
         if agent is not None:
             try: agent.wait(timeout=10)
             except subprocess.TimeoutExpired: agent.kill(); agent.wait(timeout=5)
             # Inspect again once the docker run client cannot still create it.
-            again, _ = cleanup_exact(name, "run-a", launch)
+            again, _ = cleanup_exact(ContainerIdentity(name=name, run_id='run-a', token=launch))
             observation["agent_cleanup_verified"] = observation["agent_cleanup_verified"] and again
         stopped.set()
         if verifier_thread: verifier_thread.join(timeout=60)

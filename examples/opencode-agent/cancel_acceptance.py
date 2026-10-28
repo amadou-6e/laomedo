@@ -4,7 +4,7 @@ import json
 import subprocess
 import threading
 import time
-from urllib.request import Request, urlopen
+from urllib.request import Request; from urllib.request import urlopen
 from urllib.error import HTTPError
 
 import acceptance as a

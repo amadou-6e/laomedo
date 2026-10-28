@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from experiments.exp09.probe import main, run_cases, validate_delivery_projection
+from experiments.exp09.probe import main; from experiments.exp09.probe import run_cases; from experiments.exp09.probe import validate_delivery_projection
 
 
 class ReplayTests(unittest.TestCase):

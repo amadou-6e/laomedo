@@ -1,5 +1,5 @@
 """Frozen input vectors. The controller constructs review bytes, not the agent."""
-from laomedo.github_rest_transport import ISSUE_GRAPHQL_QUERY
+from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
 from hashlib import sha256
 
 IDENTITY = 'exp100-paired-s11-20261010-a'

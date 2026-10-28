@@ -7,8 +7,7 @@ import sys
 import tempfile
 import unittest
 
-from laomedo.skill_store import (ConflictError, SkillStore, SkillStoreError,
-                                 inventory, tree_hash, validate_policy)
+from laomedo.skills.registry.errors import ConflictError; from laomedo.skills.registry.store import SkillStore; from laomedo.skills.registry.errors import SkillStoreError; from laomedo.skills.registry.utils import inventory; from laomedo.skills.registry.utils import tree_hash; from laomedo.skills.registry.utils import validate_policy
 
 
 BASE = ("---\nname: fixture-core\ndescription: Synthetic skill.\n---\n\n"

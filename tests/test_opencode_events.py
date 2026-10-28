@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.opencode_events import NativeCapture, frames
-from laomedo.runner_activity import read_feed
+from laomedo.activity.opencode.events import NativeCapture; from laomedo.activity.opencode.utils import frames
+from laomedo.activity.runner.feed import read_feed
 
 
 class OpenCodeEventTests(unittest.TestCase):
@@ -65,7 +65,7 @@ class OpenCodeEventTests(unittest.TestCase):
 
     def test_checkpoints_and_sse_share_writer_and_seal(self):
         from concurrent.futures import ThreadPoolExecutor
-        from laomedo.opencode_activity import retain_messages
+        from laomedo.activity.opencode.projection import retain_messages
         def snapshot(index):
             retain_messages(self.root, 'ses_root', [{'info': {'id': str(index)}, 'parts': [{'text': 'x'*100000}]}], writer=self.capture)
         def event(index):

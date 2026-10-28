@@ -23,13 +23,7 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import (AppServer, RequestTimeout, codex_version,
-                      compare_personal_roots, construct_env, credential_gate,
-                      fingerprint, hash_personal_roots, read_turn_context,
-                      reserve_model_turn, restore_workspace_snapshot,
-                      select_supported_pair,
-                      snapshot_workspace, summarize_methods, validate_pair,
-                      write_skill)
+from _shared import AppServer; from _shared import RequestTimeout; from _shared import codex_version; from _shared import compare_personal_roots; from _shared import construct_env; from _shared import credential_gate; from _shared import fingerprint; from _shared import hash_personal_roots; from _shared import read_turn_context; from _shared import reserve_model_turn; from _shared import restore_workspace_snapshot; from _shared import select_supported_pair; from _shared import snapshot_workspace; from _shared import summarize_methods; from _shared import validate_pair; from _shared import write_skill
 
 
 def await_turn(server, timeout=90):

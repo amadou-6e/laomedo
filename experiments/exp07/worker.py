@@ -2,7 +2,7 @@
 
 import os
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
 
 TOKEN = os.environ["CANARY_GRANT"]

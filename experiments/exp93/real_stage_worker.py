@@ -1,15 +1,17 @@
 """Real production stage A; initialized zero-turn continuity fixture B."""
+
+from laomedo.host.leases.models import ContainerIdentity
 import argparse
 import json
 import os
 from pathlib import Path
 import time
 
-from experiments.exp93.real_stage_support import identities, save, TASK
-from laomedo.container_lease import inspect_exact
-from laomedo.local_runner import AppServer, LocalRunner, RunnerError
+from experiments.exp93.real_stage_support import identities; from experiments.exp93.real_stage_support import save; from experiments.exp93.real_stage_support import TASK
+from laomedo.host.leases.utils import inspect_exact
+from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.authority import RunGrantAuthority
 
 
 def run(root, side):
@@ -27,7 +29,7 @@ def run(root, side):
                 if "result" not in response:
                     raise RunnerError("native_initialize_rejected")
                 selected = identities(root, side)
-                state, container_id = inspect_exact(selected["name"], selected["run_id"], selected["token"])
+                state, container_id = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
                 if state != "owned":
                     raise RunnerError("native_container_not_owned")
                 save(root / (side + "-ready.json"), {**selected, "container_id": container_id,

@@ -7,6 +7,8 @@ GitHub token stays in the host process; Docker receives only a run capability.
 
 from __future__ import annotations
 
+from laomedo.host.leases.models import ContainerIdentity
+
 import argparse
 from hashlib import sha256
 import importlib.util
@@ -18,13 +20,13 @@ import sys
 import sysconfig
 import threading
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
-from laomedo.container_lease import inspect_exact
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.lease_service import LeaseClient, SERVICE_STALE_SECONDS
-from laomedo.local_runner import IMAGE, _docker_prefix
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.leases.utils import inspect_exact
+from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.host.leases.client import LeaseClient; from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
+from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.host.mediation.authority import RunGrantAuthority
 
 _helper_spec = importlib.util.spec_from_file_location(
     "exp104_live_probe_helpers", Path(__file__).with_name("live_probe.py"))
@@ -59,7 +61,7 @@ def _direct_python() -> str:
 
 
 def _source_pythonpath() -> str:
-    return os.pathsep.join((str(Path(__file__).resolve().parents[2]),
+    return os.pathsep.join((str(Path(__file__).resolve().parents[2] / "src"),
                             sysconfig.get_path("purelib")))
 
 
@@ -225,7 +227,7 @@ def _agent_runner(state: Path, side: str, ready: Path) -> None:
     try:
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
-            owned, _ = inspect_exact(name, run_id, token)
+            owned, _ = inspect_exact(ContainerIdentity(name=name, run_id=run_id, token=token))
             if owned == "owned":
                 ready.write_text(json.dumps({"pid": os.getpid(), "name": name,
                                              "run_id": run_id, "grant_id": lease.grant_id}) + "\n",
@@ -308,7 +310,7 @@ def _require_clean_source(root: Path) -> None:
 
 
 def _require_module_origin(root: Path) -> str:
-    package_root = (root / "laomedo").resolve()
+    package_root = (root / "src" / "laomedo").resolve()
     seen = 0
     for name, module in tuple(sys.modules.items()):
         if name != "laomedo" and not name.startswith("laomedo."):
@@ -390,7 +392,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
     service = runner_a = runner_b = None
     capabilities: tuple[str, ...] = ()
     try:
-        service = _process("-m", "laomedo.host_services", "--state", str(state),
+        service = _process("-m", "laomedo.host.host_services", "--state", str(state),
                            "--repository", REPOSITORY, "--checkout", str(checkout),
                            "--baseline", BASELINE, "--agent-mount", str(state / "agent-a"),
                            "--connection-id", CONNECTION_ID,
@@ -472,7 +474,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
             ready = _wait(state / ("runner-" + side + ".json"))
             if ready.get("pid") != process.pid or ready.get("run_id") != RUNS[side]:
                 raise RuntimeError("runner_identity_mismatch")
-            owned, container_id = inspect_exact(NAMES[side], RUNS[side], LEASES[side])
+            owned, container_id = inspect_exact(ContainerIdentity(name=NAMES[side], run_id=RUNS[side], token=LEASES[side]))
             if owned != "owned" or not container_id:
                 raise RuntimeError("container_identity_unverified")
             ready_by_side[side] = ready
@@ -532,7 +534,7 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
         record["events"].append({"name": "a_denied", "http": status,
                                  "error": denied.get("error"), "provider_delta": 0})
         a_result = _wait(state / "lease" / "leases" / LEASES["a"] / "result.json", 40)
-        absent, _ = inspect_exact(NAMES["a"], RUNS["a"], LEASES["a"])
+        absent, _ = inspect_exact(ContainerIdentity(name=NAMES['a'], run_id=RUNS['a'], token=LEASES['a']))
         if (a_result.get("cleanup_verified") is not True or
                 a_result.get("revoked_grants") != [ready_by_side["a"]["grant_id"]] or
                 not isinstance(a_result.get("cleanup_finished_at_monotonic"), (int, float)) or

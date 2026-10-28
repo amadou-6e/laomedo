@@ -5,10 +5,10 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from experiments.exp100.paired_cases import IDENTITY, REQUIRED, GRAPHQL_INPUT, REFUSALS, check
+from experiments.exp100.paired_cases import IDENTITY; from experiments.exp100.paired_cases import REQUIRED; from experiments.exp100.paired_cases import GRAPHQL_INPUT; from experiments.exp100.paired_cases import REFUSALS; from experiments.exp100.paired_cases import check
 from hashlib import sha256
 from experiments.exp100.paired_provider import Provider
-from experiments.exp100.probe_paired import isolated_environment, install_direct_journal, received_updates
+from experiments.exp100.probe_paired import isolated_environment; from experiments.exp100.probe_paired import install_direct_journal; from experiments.exp100.probe_paired import received_updates
 from experiments.exp104.probe_active_delivery import git
 from pathlib import Path
 

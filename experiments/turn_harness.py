@@ -3,8 +3,8 @@
 These subclasses preserve legacy experiment controls without installing their
 global limits in user-facing runtime defaults or managed startup configuration.
 """
-from laomedo.local_runner import LocalRunner, RunnerError, _json, _read
-from laomedo.opencode_runner import OpenCodeRunner
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.utils import _read
+from laomedo.agents.providers.opencode.runner import OpenCodeRunner
 
 
 class VerificationTurnBounds:

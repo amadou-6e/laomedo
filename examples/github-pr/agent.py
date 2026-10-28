@@ -1,6 +1,6 @@
 """Deterministic Agent fixture: no model, credentials or provider calls."""
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageInput, DropdownInput, Output
+from lfx.io import MessageInput; from lfx.io import DropdownInput; from lfx.io import Output
 from lfx.schema import Data
 
 

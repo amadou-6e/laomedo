@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime; from datetime import timezone
 import hashlib
 import json
 from pathlib import Path
 import subprocess
 import time
-from urllib import error, parse, request
+from urllib import error; from urllib import parse; from urllib import request
 
-from experiments.exp123.runtime import HEADS, signed
+from experiments.exp123.runtime import HEADS; from experiments.exp123.runtime import signed
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent

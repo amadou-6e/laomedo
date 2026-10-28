@@ -19,8 +19,8 @@ python examples/agent-handoffs/build_flow.py
 python tests/langflow/test_handoff_graph.py
 ```
 
-`laomedo.handoffs.BoundedController` schedules finite chains or bounded loops via
-`laomedo.handoff_http.RunnerAdapter`. Supply target provider/model/effort, pinned
+`laomedo.agents.handoffs.controller.BoundedController` schedules finite chains or bounded loops via
+`laomedo.agents.handoffs.transport.RunnerAdapter`. Supply target provider/model/effort, pinned
 skills, positive iteration and turn budgets, deadline and explicit success predicate.
 It bounds dispatch attempts, but a timed-out fresh request may leave remote agent
 work running until the runner stops it. It conservatively reserves uncertain sends,

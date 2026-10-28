@@ -3,8 +3,8 @@ import json
 import threading
 import unittest
 from unittest.mock import Mock
-from urllib import request,error
-from laomedo.github_pr_server import server
+from urllib import request; from urllib import error
+from laomedo.github.pull_requests.server import PullRequestServer as server
 
 
 class PRHTTPTests(unittest.TestCase):

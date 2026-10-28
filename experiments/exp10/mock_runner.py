@@ -1,7 +1,7 @@
 """No-model, loopback-only runner that records a delayed external effect."""
 
-from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from datetime import datetime; from datetime import timezone
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path

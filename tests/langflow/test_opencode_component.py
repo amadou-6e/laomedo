@@ -48,7 +48,7 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         import json
         import os
         import tempfile
-        import laomedo.codex_agent as codex
+        import laomedo.integrations.langflow.agent.component as codex
         node = self.node()
         fields = {item.name: item.model_dump() for item in node.inputs}
         fields["runner_url"]["value"] = node.runner_url
@@ -99,8 +99,8 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         fields['operation']['value']='status';fields['run_reference']['value']=''
         fields['run_reference_json']['value']=json.dumps({'provider':'opencode','run_id':run_id})
         flow['data']['nodes']=[agent];flow['data']['edges']=[]
-        from laomedo.codex_agent import LaomedoCodexAgent
-        with patch.object(LaomedoCodexAgent,'_http',return_value={'provider':'opencode','run_id':run_id,'status':'completed','answer':'Recorded result'}) as http:
+        from laomedo.integrations.langflow.agent.component import AgentComponent
+        with patch.object(AgentComponent,'_http',return_value={'provider':'opencode','run_id':run_id,'status':'completed','answer':'Recorded result'}) as http:
             await Graph.from_payload(flow).arun(inputs=[{'input_value':''}],types=['chat'])
         self.assertEqual(http.call_count,1)
         endpoint,body,method=http.call_args.args

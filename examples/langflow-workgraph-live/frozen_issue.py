@@ -3,8 +3,8 @@ import base64
 import hashlib
 import json
 from lfx.custom.custom_component.component import Component
-from lfx.io import Output, StrInput, MultilineInput, NestedDictInput
-from lfx.schema import Data, Message
+from lfx.io import Output; from lfx.io import StrInput; from lfx.io import MultilineInput; from lfx.io import NestedDictInput
+from lfx.schema import Data; from lfx.schema import Message
 
 
 class FrozenIssue(Component):

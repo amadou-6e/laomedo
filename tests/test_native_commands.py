@@ -8,11 +8,11 @@ import tempfile
 import unittest
 from uuid import uuid4
 
-from laomedo.agent_cli import prepare_commands, configure_remote
-from laomedo.github_git_transport import GitHubGitTransport, _base_git_environment
-from laomedo.github_mediation import MediationStore, MediationError, KnownRejected
-from laomedo.local_runner import _docker_prefix
-from laomedo.mediation_authority import RunGrantAuthority, FIRST_SLICE_OPERATIONS
+from laomedo.host.mediation.agent_cli import prepare_commands; from laomedo.host.mediation.agent_cli import configure_remote
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.errors import KnownRejected
+from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.host.mediation.authority import RunGrantAuthority; from laomedo.host.mediation.authority import FIRST_SLICE_OPERATIONS
 
 
 REPO = "example/disposable"
@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class NativeCommandsTests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("LAOMEDO_TEST_NATIVE_DOCKER") == "1", "opt-in Docker development fixture")
     def test_native_git_and_gh_protocol_in_pinned_image(self):
-        from laomedo.local_runner import GIT_IMAGE_ID
+        from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
         with tempfile.TemporaryDirectory() as temporary:
             wrappers = prepare_commands(Path(temporary), REPO, "run-branch")
             name = "laomedo-native-dev-" + uuid4().hex
@@ -34,8 +34,8 @@ class NativeCommandsTests(unittest.TestCase):
                 "--env=LAOMEDO_REPOSITORY=" + REPO, "--env=LAOMEDO_RUN_BRANCH=run-branch",
                 "--env=GIT_CONFIG_NOSYSTEM=1", "--env=GIT_CONFIG_GLOBAL=/dev/null"]
             for source, target in ((wrappers, "/run/laomedo/bin"),
-                (ROOT / "laomedo/agent_gh_adapter.mjs", "/run/laomedo/gh.mjs"),
-                (ROOT / "laomedo/agent_git_remote.mjs", "/run/laomedo/git-remote.mjs"),
+                (ROOT / "src/laomedo/agents/resources/mediation/agent_gh_adapter.mjs", "/run/laomedo/gh.mjs"),
+                (ROOT / "src/laomedo/agents/resources/mediation/agent_git_remote.mjs", "/run/laomedo/git-remote.mjs"),
                 (ROOT / "tests/fixtures/native_mediation_stub.mjs", "/run/laomedo/mediate.mjs"),
                 (ROOT / "tests/fixtures/native_command_fixture.mjs", "/run/laomedo/test.mjs")):
                 command.extend(["--mount", f"type=bind,source={source},target={target},readonly"])
@@ -64,8 +64,8 @@ class NativeCommandsTests(unittest.TestCase):
             self.assertIn("LAOMEDO_RUN_BRANCH=run-branch", command)
             self.assertIn(f"type=bind,source={wrappers},target=/run/laomedo/bin,readonly", command)
             self.assertNotIn("GH_TOKEN", " ".join(command))
-            self.assertTrue((ROOT / "laomedo/agent_gh_adapter.mjs").is_file())
-            self.assertTrue((ROOT / "laomedo/agent_git_remote.mjs").is_file())
+            self.assertTrue((ROOT / "src/laomedo/agents/resources/mediation/agent_gh_adapter.mjs").is_file())
+            self.assertTrue((ROOT / "src/laomedo/agents/resources/mediation/agent_git_remote.mjs").is_file())
             self.assertEqual(prepare_commands(root, REPO, "run-branch"), wrappers)
             (wrappers / "gh").write_text("modified", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "command_wrapper_changed"):
@@ -223,7 +223,7 @@ class NativeCommandsTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "Node unavailable")
     def test_remote_helper_target_and_push_batch_controls(self):
         script = """
-import { target, pushTarget } from './laomedo/agent_git_remote.mjs';
+import { target, pushTarget } from './src/laomedo/agents/resources/mediation/agent_git_remote.mjs';
 import assert from 'node:assert/strict';
 const context = {repository:'example/disposable', branch:'run-branch'};
 target('laomedo::example/disposable', context);

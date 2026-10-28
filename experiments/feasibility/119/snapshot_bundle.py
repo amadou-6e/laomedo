@@ -3,7 +3,7 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import Path; from pathlib import PurePosixPath
 
 
 def sha256(data: bytes) -> str:

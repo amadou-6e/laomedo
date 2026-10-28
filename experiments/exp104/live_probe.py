@@ -8,6 +8,8 @@ state directory or automatically retry an uncertain remote effect.
 
 from __future__ import annotations
 
+from laomedo.host.leases.models import ContainerIdentity
+
 import argparse
 from contextlib import closing
 import json
@@ -18,16 +20,14 @@ import subprocess
 import sys
 import threading
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
-from laomedo.container_lease import cleanup_exact, inspect_exact
-from laomedo.github_git_transport import (_base_git_environment,
-                                          _credential_environment,
-                                          _push_failure_category)
-from laomedo.github_mediation import MediationError, MediationStore
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.lease_service import LeaseClient
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
+from laomedo.github.transport.git.utils import _base_git_environment; from laomedo.github.transport.git.utils import _credential_environment; from laomedo.github.transport.git.utils import _push_failure_category
+from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
+from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.host.leases.client import LeaseClient
+from laomedo.host.mediation.authority import RunGrantAuthority
 
 
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"
@@ -136,7 +136,7 @@ def _runner(state: Path, run_id: str, lease_token: str, name: str,
     if launched.returncode:
         (ready.parent / (ready.stem + ".docker-stderr.txt")).write_bytes(launched.stderr)
         raise RuntimeError("container_launch_failed:" + str(launched.returncode))
-    owned, _ = inspect_exact(name, run_id, lease_token)
+    owned, _ = inspect_exact(ContainerIdentity(name=name, run_id=run_id, token=lease_token))
     if owned != "owned":
         raise RuntimeError("container_identity_unverified")
     ready.write_text(json.dumps({"run_id": run_id, "pid": os.getpid(),
@@ -412,7 +412,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
 
     checkpoint()
     try:
-        mediator = _process("-m", "laomedo.mediation_service",
+        mediator = _process("-m", "laomedo.host.mediation.cli",
                             "--state", str(mediator_state), "--repository", REPOSITORY,
                             "--checkout", str(checkout), "--baseline", BASELINE,
                             "--agent-mount", str(checkout), "--connection-id", CONNECTION_ID,
@@ -421,7 +421,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         info = _wait(mediator_state / "mediator.json")
         if info.get("pid") != mediator.pid or info.get("repository") != REPOSITORY:
             raise RuntimeError("mediator_identity_mismatch")
-        lease = _process("-m", "laomedo.lease_service", "serve",
+        lease = _process("-m", "laomedo.host.leases.service_cli", "serve",
                          "--state", str(lease_state), "--mediator-store", str(ledger),
                          "--authority-store", str(approvals), "--repository", REPOSITORY,
                          "--connection-id", CONNECTION_ID,
@@ -487,8 +487,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         checkpoint()
         revoked = _wait(lease_state / "leases" / LEASE_A / "revoked.json", timeout=40)
         observation["lease_revocation_a"] = revoked
-        observation["container_a_at_denial"] = inspect_exact(
-            CONTAINER_A, RUN_A, LEASE_A)[0]
+        observation["container_a_at_denial"] = inspect_exact(ContainerIdentity(name=CONTAINER_A, run_id=RUN_A, token=LEASE_A))[0]
         checkpoint()
         detected_mono = revoked.get("detected_at_monotonic")
         revoked_mono = revoked.get("revoked_at_monotonic")
@@ -547,7 +546,7 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
         runner_b = None
         _stop(lease)
         lease = None
-        lease = _process("-m", "laomedo.lease_service", "serve",
+        lease = _process("-m", "laomedo.host.leases.service_cli", "serve",
                          "--state", str(lease_state), "--mediator-store", str(ledger),
                          "--authority-store", str(approvals), "--repository", REPOSITORY,
                          "--connection-id", CONNECTION_ID,
@@ -669,8 +668,8 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
                                        "transport_calls": len(ambiguous_calls),
                                        "state": second_unknown["state"]})
         observation["provider_attempts"] = _call_count(mediator_state / "provider-attempts.jsonl")
-        observation["container_a_after"] = inspect_exact(CONTAINER_A, RUN_A, LEASE_A)[0]
-        observation["container_b_after"] = inspect_exact(CONTAINER_B, RUN_B, LEASE_B)[0]
+        observation["container_a_after"] = inspect_exact(ContainerIdentity(name=CONTAINER_A, run_id=RUN_A, token=LEASE_A))[0]
+        observation["container_b_after"] = inspect_exact(ContainerIdentity(name=CONTAINER_B, run_id=RUN_B, token=LEASE_B))[0]
         observation["secret_canary"] = _secret_canary(state, token)
         if observation["secret_canary"]["exact_token_hits"]:
             raise RuntimeError("secret_canary_failed")
@@ -693,8 +692,8 @@ def run(state: Path, token_file: Path, code_sha: str, token_key: str,
                                               (CONTAINER_B, RUN_B, LEASE_B),
                                               (CONTAINER_C, RUN_C, LEASE_C)):
                 try:
-                    verified, detail = cleanup_exact(name, run_id, lease_token)
-                    state_after, _ = inspect_exact(name, run_id, lease_token)
+                    verified, detail = cleanup_exact(ContainerIdentity(name=name, run_id=run_id, token=lease_token))
+                    state_after, _ = inspect_exact(ContainerIdentity(name=name, run_id=run_id, token=lease_token))
                     cleanup[name] = {"verified": verified, "detail": detail,
                                      "state_after": state_after}
                 except Exception:

@@ -40,7 +40,7 @@ async def run_case(submission, *, status="completed", correction=None,
         reference = payload.get("output_requirements") if payload else None
         precheck = []
         if correction:
-            from laomedo.output_contract import precheck_response
+            from laomedo.agents.contracts.output import precheck_response
             for candidate in [submission, {"task_outcome": "success", "report": "corrected fixture"}] if correction == "within_request" else [submission, submission]:
                 feedback = precheck_response(reference, {"tool": "laomedo_output_precheck", "threadId": "fixture-thread",
                     "arguments": {"requirements_revision": reference["requirements_revision"], "submission": candidate}}, "fixture-thread")

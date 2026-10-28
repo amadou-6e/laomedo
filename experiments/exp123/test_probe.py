@@ -5,8 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
-from experiments.exp123.probe import assess, fixture, validate_capture
-from experiments.exp123.runtime import FixtureStore, HEADS
+from experiments.exp123.probe import assess; from experiments.exp123.probe import fixture; from experiments.exp123.probe import validate_capture
+from experiments.exp123.runtime import FixtureStore; from experiments.exp123.runtime import HEADS
 
 
 class ProbeTests(unittest.TestCase):

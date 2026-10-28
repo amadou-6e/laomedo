@@ -13,7 +13,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer, codex_version, construct_env
+from _shared import AppServer; from _shared import codex_version; from _shared import construct_env
 
 
 def execute(server, env: dict, draft: Path, target: Path, mode: str) -> dict:

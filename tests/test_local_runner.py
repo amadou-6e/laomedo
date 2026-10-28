@@ -1,6 +1,7 @@
 """Credential-free runner and pinned-skill contract tests."""
 
 from pathlib import Path
+from laomedo.host.leases.models import ContainerIdentity
 from contextlib import nullcontext
 import io
 import json
@@ -12,23 +13,20 @@ import threading
 import time
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
-from urllib import request as http_request, error as http_error
+from unittest.mock import Mock; from unittest.mock import patch
+from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.local_runner import (AppServer, SplitAppServer, LocalRunner, RunnerError,
-                                  _docker_prefix, _hash_tree, _copy_tree,
-                                  _native_error_summary,
-                                  serve)
-from laomedo.siwc_auth import AuthError
-from laomedo.skill_store import SkillStore
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.servers import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.host.credentials.siwc.errors import AuthError
+from laomedo.skills.registry.store import SkillStore
+from laomedo.host.mediation.authority import RunGrantAuthority
 
 
 def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -> None:
     """Real lease/mediator processes, but no Docker or provider call."""
     from unittest.mock import patch as child_patch
-    from laomedo.host_services import build_services, serve_services
-    from laomedo import lease_service
+    from laomedo.host.host_services import build_services; from laomedo.host.host_services import serve_services
+    import laomedo.host.leases.service as lease_service
 
     root = Path(state)
     lease, mediator = build_services(
@@ -36,7 +34,7 @@ def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -
         baseline="a" * 40, agent_mount=Path(checkout),
         connection_id="synthetic", connection_generation=1,
         token_file=Path(token_file))
-    with child_patch.object(lease_service, "inspect_exact",
+    with child_patch("laomedo.host.leases.utils.inspect_exact",
                             return_value=("absent", None)):
         serve_services(lease, mediator, root, repository="example/disposable",
                        connection_id="synthetic", connection_generation=1)
@@ -96,7 +94,7 @@ class FakeServer:
 
 class LocalRunnerTests(unittest.TestCase):
     def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
-        from laomedo.local_runner import LocalRunner as NormalRunner, _json
+        from laomedo.agents.providers.codex.runner import CodexRunner as NormalRunner; from laomedo.agents.runtime.utils import _json
         runner = object.__new__(NormalRunner)
         runner.state = self.root / 'diagnostic-counter'
         runner.state.mkdir()
@@ -108,12 +106,12 @@ class LocalRunnerTests(unittest.TestCase):
         _json(runner.state / 'runs/prior/record.json', {'attempt_number': 7})
         (runner.state / 'attempt-count.json').write_text('broken accounting')
         self.assertEqual(restarted._reserve_turn(), 8)
-        with patch('laomedo.local_runner._json', side_effect=PermissionError('unwritable diagnostic')):
+        with patch('laomedo.agents.runtime.utils._json', side_effect=PermissionError('unwritable diagnostic')):
             self.assertEqual(restarted._reserve_turn(), 9)
 
 
     def _output_run(self, answers, *, effects=False, retry_count=1, native_item=None, native_precheck=False, failed_wait=False):
-        from laomedo.output_contract import requirements
+        from laomedo.agents.contracts.output import requirements
         pinned = requirements({"schema_version": 1, "fields": [
             {"name": "report", "type": "string", "required": True}]})
         class OutputServer(FakeServer):
@@ -241,14 +239,15 @@ class LocalRunnerTests(unittest.TestCase):
             args=(str(host_state), str(token_file), str(self.source)))
         child.start()
         try:
-            deadline = time.monotonic() + 10
+            # This bounds cold Windows child-process setup, not runner latency.
+            deadline = time.monotonic() + 30
             while not all(path.exists() for path in (
                     host_state / "lease" / "service.json",
                     host_state / "lease" / "service.alive",
                     host_state / "lease" / "service.alive.monotonic",
                     host_state / "mediator" / "mediator.json")):
                 if time.monotonic() > deadline or not child.is_alive():
-                    self.fail("synthetic host services did not start")
+                    self.fail(f"internal host services did not start (child exit={child.exitcode})")
                 time.sleep(.02)
             authority = RunGrantAuthority(
                 host_state / "authority.sqlite",
@@ -277,7 +276,7 @@ class LocalRunnerTests(unittest.TestCase):
                 # The CI success path below substitutes a fake route. First
                 # assert that the actual Linux route fails before dispatch.
                 unverified = prepare("unverified")
-                with patch("laomedo.local_runner.cleanup_exact",
+                with patch("laomedo.host.leases.utils.cleanup_exact",
                            return_value=(True, "absent")):
                     refused = mediated._execute(
                         unverified["run_id"], "Synthetic task", resume=False)
@@ -303,7 +302,7 @@ class LocalRunnerTests(unittest.TestCase):
                            patch.object(mediated, "_mediator_route", side_effect=ci_route))
             with route_check:
                 prepared = prepare(1)
-                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                with patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")):
                     result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
                 self.assertEqual(result["status"], "completed", result.get("error_category"))
                 self.assertEqual(len(FakeServer.calls), 1)
@@ -320,7 +319,7 @@ class LocalRunnerTests(unittest.TestCase):
                 status = json.loads(status_path.read_text(encoding="utf-8"))
                 status_path.write_text(json.dumps({**status, "instance": "0" * 32}),
                                        encoding="utf-8")
-                with patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                with patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")):
                     result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
                 self.assertEqual(result["status"], "failed")
                 self.assertEqual(result["error_category"], "mediator_unavailable")
@@ -355,7 +354,7 @@ class LocalRunnerTests(unittest.TestCase):
                         supervise_containers=True)
 
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.local_runner import GIT_IMAGE, GIT_IMAGE_ID
+        from laomedo.agents.providers.codex.settings import GIT_IMAGE; from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
         args = (self.root / "source", self.root / "source", self.runner.state)
         command = _docker_prefix(*args, image=GIT_IMAGE)
         entries = [command[index + 1] for index, item in enumerate(command[:-1])
@@ -446,14 +445,14 @@ class LocalRunnerTests(unittest.TestCase):
                                          "launch_token": "token-one", "supervised": True,
                                          "cleanup_verified": False}
         path.write_text(json.dumps(saved), encoding="utf-8")
-        with patch("laomedo.local_runner.cleanup_exact", return_value=(False, "conflict")) as cleanup:
+        with patch("laomedo.host.leases.utils.cleanup_exact", return_value=(False, "conflict")) as cleanup:
             restarted = LocalRunner(self.runner.state, self.runner.store.root, self.source,
                                     transport=FakeServer, check_docker=False)
         after = restarted.status(record["run_id"])
         self.assertEqual(after["status"], "interrupted")
         self.assertEqual(after["error_category"], "container_cleanup_unverified")
         self.assertFalse(after["container_ownership"]["cleanup_verified"])
-        cleanup.assert_called_once_with("exact-name", record["run_id"], "token-one")
+        cleanup.assert_called_once_with(ContainerIdentity(name="exact-name", run_id=record["run_id"], token="token-one"))
 
     def test_native_error_summary_only_exposes_schema_codes(self):
         secret = "SECRET_LOGIN_TOKEN_and_https://private.example/path"
@@ -770,10 +769,10 @@ class LocalRunnerTests(unittest.TestCase):
         (private_lease / "grant.secret").write_text("synthetic-capability", encoding="utf-8")
         lease = SimpleNamespace(instance="fixture-instance", grant_id="fixture-grant",
                                 dir=private_lease, lost=threading.Event(), finish=Mock())
-        with patch("laomedo.local_runner.LeaseClient", return_value=lease), \
+        with patch("laomedo.host.leases.client.LeaseClient", return_value=lease), \
                 patch.object(mediated, "_mediator_route",
                              return_value=("http://host.docker.internal:1234/v1/mediate", "fixture-instance")), \
-                patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+                patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")):
             completed = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
             self.assertEqual(completed["status"], "completed", completed.get("error_category"))
             exclusion = completed["skill_git_exclusion"]
@@ -961,12 +960,15 @@ class LocalRunnerTests(unittest.TestCase):
 
     def test_production_runners_cannot_restore_a_verification_turn_cap(self):
         import inspect
-        from laomedo.claude_runner import ClaudeRunner
-        from laomedo.opencode_runner import OpenCodeRunner
+        from laomedo.agents.providers.claude.runner import ClaudeRunner
+        from laomedo.agents.providers.opencode.runner import OpenCodeRunner
         for runner in (LocalRunner, ClaudeRunner, OpenCodeRunner):
             self.assertNotIn("max_model_turns", inspect.signature(runner).parameters)
         for name in ("local_runner.py", "claude_runner.py", "opencode_runner.py"):
-            source = (Path(__file__).resolve().parents[1] / "laomedo" / name).read_text()
+            root = Path(__file__).resolve().parents[1]
+            layout = json.loads((root / "tools/migrations/module-paths.json").read_text())
+            module = layout["laomedo." + Path(name).stem]
+            source = root.joinpath("src", *module.split(".")).with_suffix(".py").read_text()
             self.assertNotIn("model_turn_cap_reached", source)
             self.assertNotIn("--max-model-turns", source)
 
@@ -1154,7 +1156,7 @@ class LocalRunnerTests(unittest.TestCase):
                          ("cancelled", "cancel_native_unconfirmed"))
         app.request.assert_called_once_with("turn/interrupt", {
             "threadId": "thread-test", "turnId": "turn-test"}, timeout=5)
-        with patch("laomedo.local_runner.subprocess.run", side_effect=[
+        with patch("subprocess.run", side_effect=[
                 Mock(returncode=0), Mock(returncode=0),
                 Mock(returncode=1, stderr=b"error: no such object: laomedo-codex-test")]) as docker:
             app.close()
@@ -1174,7 +1176,7 @@ class LocalRunnerTests(unittest.TestCase):
         app.activity_log = io.StringIO()
         app.telemetry = None
         app.stderr = io.StringIO()
-        with patch("laomedo.local_runner.subprocess.run", side_effect=[
+        with patch("subprocess.run", side_effect=[
                 Mock(returncode=1), Mock(returncode=1), Mock(returncode=0)]):
             with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
                 app.close()
@@ -1251,7 +1253,7 @@ class LocalRunnerTests(unittest.TestCase):
                 self.log.write('{"method":"item/started"}\n')
                 self.log.flush()
                 started.set()
-                assert cancelled.wait(3)
+                assert cancelled.wait(15)
                 return "cancelled", "cancelled_by_user"
 
         self.runner.transport = Blocking
@@ -1272,7 +1274,9 @@ class LocalRunnerTests(unittest.TestCase):
 
         submitting = threading.Thread(target=submit)
         submitting.start()
-        self.assertTrue(started.wait(2))
+        # Wait for the actual transport phase; workspace preparation/file scanning
+        # is not the cancellation behavior this internal test measures.
+        self.assertTrue(started.wait(15), f"internal transport not reached: {result}")
         run_dir = next((self.runner.state / "runs").iterdir())
         req = http_request.Request(base + "/" + run_dir.name + "/cancel",
                                    data=b"{}", method="POST",
@@ -1280,7 +1284,7 @@ class LocalRunnerTests(unittest.TestCase):
         with http_request.urlopen(req) as response:
             self.assertEqual(response.status, 202)
             self.assertTrue(json.load(response)["cancel_requested"])
-        submitting.join(3)
+        submitting.join(15)
         self.assertEqual(result["status"], "cancelled")
         self.assertEqual(result["run_id"], run_dir.name)
         self.assertIn("item/started", (run_dir / "raw-events.jsonl").read_text())

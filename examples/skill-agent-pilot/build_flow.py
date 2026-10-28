@@ -7,7 +7,7 @@ from copy import deepcopy
 from importlib.metadata import version
 import json
 from pathlib import Path
-from uuid import uuid5, NAMESPACE_URL
+from uuid import uuid5; from uuid import NAMESPACE_URL
 
 from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template

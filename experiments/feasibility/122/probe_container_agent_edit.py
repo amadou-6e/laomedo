@@ -12,8 +12,8 @@ import time
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer, inside_git_tree, reserve_model_turn, select_supported_pair
-from probe_codex_edit import await_turn, event_summary
+from _shared import AppServer; from _shared import inside_git_tree; from _shared import reserve_model_turn; from _shared import select_supported_pair
+from probe_codex_edit import await_turn; from probe_codex_edit import event_summary
 from probe_draft_guards import BASE_SKILL
 
 
@@ -31,7 +31,7 @@ def docker_prefix(draft: Path, canonical: Path, store: Path) -> list[str]:
         "--mount", f"type=bind,source={draft},target=/draft",
         "--mount", f"type=bind,source={canonical},target=/canonical,readonly",
         "--mount", f"type=bind,source={store},target=/store",
-        "--mount", f"type=bind,source={config / 'runner-config.toml'},target=/config.toml,readonly",
+        "--mount", f"type=bind,source={config / 'agents/providers/codex/resources/runner-config.toml'},target=/config.toml,readonly",
         "--workdir", "/draft", IMAGE, "sh", "-c",
         "cp /config.toml /home/runner/.codex/config.toml && exec codex \"$@\"",
         "bootstrap",

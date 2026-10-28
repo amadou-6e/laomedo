@@ -5,11 +5,11 @@ import sys
 import time
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput, Output, StrInput
+from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io import StrInput
 from lfx.schema.message import Message
 
 sys.path.insert(0, "/laomedo-src")
-from laomedo.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 class Exp06Stage(Component):

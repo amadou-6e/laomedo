@@ -9,10 +9,10 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "122"))
-from _shared import AppServer, inside_git_tree, reserve_model_turn, select_supported_pair
-from probe_codex_edit import await_turn, event_summary, validate_draft
+from _shared import AppServer; from _shared import inside_git_tree; from _shared import reserve_model_turn; from _shared import select_supported_pair
+from probe_codex_edit import await_turn; from probe_codex_edit import event_summary; from probe_codex_edit import validate_draft
 from probe_container_agent_edit import docker_prefix
-from probe_draft_guards import BASE_SKILL, inventory, policy_ref, tree_hash
+from probe_draft_guards import BASE_SKILL; from probe_draft_guards import inventory; from probe_draft_guards import policy_ref; from probe_draft_guards import tree_hash
 
 
 def event_evidence(events: list[dict]) -> list[dict]:

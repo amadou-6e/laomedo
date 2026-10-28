@@ -12,7 +12,7 @@ API token; its historical model-turn evidence predates that change.
 Data ports. The separate `LaomedoOutputContractLegacy` retains explicit
 Precheck Requirements and Validation Outcome ports. Install this repository's Laomedo package in the Langflow
 runtime before loading it: the node and Codex requirements input import the
-same `laomedo.output_contract` evaluator used by the host runner. Mounting only
+same `laomedo.agents.contracts.output` evaluator used by the host runner. Mounting only
 component files is insufficient for this component. A missing package fails
 visibly at import rather than falling back to a different validator.
 
@@ -211,3 +211,14 @@ inputs refuse without an HTTP publication request. Existing raw validation
 inputs remain compatible. The current live builder omits Accepted Validation,
 Requirements and the separate router; frozen historical exports are unchanged.
 The host still independently validates the run and publication authority.
+
+## Shared Agent implementation
+
+Codex, Claude and OpenCode keep their existing component class names, inputs and
+outputs. Each imports the provider-neutral `AgentComponent` from the installed
+`laomedo.integrations.langflow.agent.component` package. Install the matching
+runtime revision alongside the component category; mounting component files alone
+is insufficient. The shared base is outside this category and is not a new node.
+For old embedded Claude/OpenCode code that inherits Codex, run the explicit
+[module migration](../docs/architecture/package-layout.md#one-time-migration)
+on a copy before loading. Historical executed exports remain unchanged.

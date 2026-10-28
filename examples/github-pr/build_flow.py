@@ -2,7 +2,7 @@
 import importlib.util
 import json
 from pathlib import Path
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL; from uuid import uuid5
 from lfx.graph.graph.base import Graph
 from lfx.services.deps import get_settings_service
 

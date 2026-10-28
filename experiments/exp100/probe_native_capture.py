@@ -1,4 +1,6 @@
 """Single-use S10 local-provider capture; no real token or model turn."""
+
+from laomedo.host.leases.models import ContainerIdentity
 from hashlib import sha256
 import argparse
 import json
@@ -13,17 +15,17 @@ import time
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(CHECKOUT))
-from experiments.exp104.probe_active_delivery import FakeGitHub, git, stage_cleanup, refusal_code
-from laomedo.agent_cli import configure_remote, prepare_commands
-from laomedo.bundle_verifier import BundleVerifier
-from laomedo.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
-from laomedo.github_rest_transport import GitHubRestTransport
-from laomedo.github_mediation import MediationStore
-from laomedo.local_runner import GIT_IMAGE_ID
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.mediation_service import MediationHTTPService
-from laomedo.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
+from experiments.exp104.probe_active_delivery import FakeGitHub; from experiments.exp104.probe_active_delivery import git; from experiments.exp104.probe_active_delivery import stage_cleanup; from experiments.exp104.probe_active_delivery import refusal_code
+from laomedo.host.mediation.agent_cli import configure_remote; from laomedo.host.mediation.agent_cli import prepare_commands
+from laomedo.host.publication.verifier import BundleVerifier
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.mediation.store import MediationStore
+from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.host.mediation.service import MediationHTTPService
+from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
 
 IDENTITY = "exp100-native-s10-20261010-b"
 RUN_ID = IDENTITY + "-run"
@@ -198,7 +200,7 @@ def run(private, source_sha):
             if agent.poll() is not None:
                 raise RuntimeError("fixture_exited_no_retry")
             if time.monotonic() >= next_renewal:
-                state, _ = inspect_exact(name, RUN_ID, launch)
+                state, _ = inspect_exact(ContainerIdentity(name=name, run_id=RUN_ID, token=launch))
                 if state != "owned" or not store.renew_grant(grant, 60):
                     raise RuntimeError("synthetic_owned_grant_renewal_failed")
                 observation["synthetic_grant_renewals_seconds"].append(time.monotonic() - started)
@@ -207,7 +209,7 @@ def run(private, source_sha):
         if not result_file.exists():
             raise RuntimeError("capture_pending_no_retry")
         result = json.loads(result_file.read_bytes())
-        owned, _ = inspect_exact(name, RUN_ID, launch)
+        owned, _ = inspect_exact(ContainerIdentity(name=name, run_id=RUN_ID, token=launch))
         pushes = [entry for entry in git_calls if entry["command"] == "push"]
         observation.update(result, baseline=baseline, agent_owned=owned == "owned",
             agent_alive=agent.poll() is None, git_calls=git_calls, rest_calls=list(fake.calls),
@@ -266,13 +268,13 @@ def run(private, source_sha):
         observation["rest_calls"] = list(fake.calls) if fake is not None else []
         if workspace is not None and (workspace / ".git/native-progress.json").is_file():
             observation["command_progress"] = json.loads((workspace / ".git/native-progress.json").read_bytes())
-        observation["agent_cleanup_verified"], _ = cleanup_exact(name, RUN_ID, launch)
+        observation["agent_cleanup_verified"], _ = cleanup_exact(ContainerIdentity(name=name, run_id=RUN_ID, token=launch))
         if agent is not None:
             try:
                 agent.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 agent.kill(); agent.wait(timeout=5)
-            again, _ = cleanup_exact(name, RUN_ID, launch)
+            again, _ = cleanup_exact(ContainerIdentity(name=name, run_id=RUN_ID, token=launch))
             observation["agent_cleanup_verified"] = observation["agent_cleanup_verified"] and again
         stopped.set()
         if verifier_thread:

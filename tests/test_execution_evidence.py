@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from laomedo.local_runner import _execution_evidence
+from laomedo.agents.providers.codex.utils import _execution_evidence
 import test_local_runner as fixtures
 
 
@@ -133,8 +133,8 @@ class RunnerClosureTests(unittest.TestCase):
         self.runner.lease_service = self.root / "dummy-lease"
         lease = SimpleNamespace(lost=threading.Event(), finish=lambda: None,
                                 instance="fixture-service", grant_id=None)
-        with patch("laomedo.local_runner.LeaseClient", return_value=lease), \
-                patch("laomedo.local_runner.cleanup_exact", return_value=(True, "absent")):
+        with patch("laomedo.host.leases.client.LeaseClient", return_value=lease), \
+                patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")):
             result = self.runner.start(self.request())
             self.assertEqual(result["status"], "completed", result.get("error_category"))
             self.assertIs(result["evidence_complete"], True)

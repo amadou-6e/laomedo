@@ -1,4 +1,6 @@
 """Unexecuted S12 controller. Exact-source independent review gates live use."""
+
+from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from hashlib import sha256
 import json
@@ -7,17 +9,17 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
-from experiments.exp104.native_managed_checks import BASELINE, IDENTITY, REPOSITORY, validate
+from experiments.exp104.native_managed_checks import BASELINE; from experiments.exp104.native_managed_checks import IDENTITY; from experiments.exp104.native_managed_checks import REPOSITORY; from experiments.exp104.native_managed_checks import validate
 from experiments.exp104 import native_managed_tasks as tasks
 from experiments.exp104.native_managed_worker import identities
-from laomedo.agent_cli import configure_remote
-from laomedo.container_lease import cleanup_exact, inspect_exact
-from laomedo.github_git_transport import _base_git_environment
-from laomedo.host_token_connection import HostTokenConnection
-from laomedo.local_runner import GIT_IMAGE_ID
-from laomedo.mediation_authority import RunGrantAuthority
+from laomedo.host.mediation.agent_cli import configure_remote
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
+from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
+from laomedo.host.mediation.authority import RunGrantAuthority
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 SPEC_SHA = "ea2558e910d640b802b7b197d2a90b8d14e3249c"
@@ -52,7 +54,7 @@ def configure_owned_clone(workspace, trusted):
 
 def api(token, path):
     # Read-only, no caller URL or redirect fallback; credentials stay host-side.
-    from laomedo.github_rest_transport import _NoRedirect
+    from laomedo.github.transport.rest.transport import _NoRedirect
     prefix = "/repos/" + REPOSITORY
     if not (path == "/user" or path == prefix or path.startswith(prefix + "/")):
         raise ValueError("preflight_repository_mismatch")
@@ -118,7 +120,7 @@ def agent_command(root, side, args, token, capability, *, effect=None, marker=No
     if time.monotonic() >= float((root / "deadline").read_text()):
         raise TimeoutError("procedure_deadline_no_retry")
     selected = identities(side)
-    state, container_id = inspect_exact(selected["name"], selected["run_id"], selected["token"])
+    state, container_id = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
     ready = json.loads((root / (side + "-ready.json")).read_bytes())
     if state != "owned" or container_id != ready["container_id"]:
         raise ValueError("container_ownership_changed")
@@ -141,7 +143,7 @@ def agent_command(root, side, args, token, capability, *, effect=None, marker=No
 
 def readiness(root, owned):
     """Both exact task PID sets plus current, same-boot diagnostic origins."""
-    expected = os.path.normcase(str(CHECKOUT / "laomedo"))
+    expected = os.path.normcase(str(CHECKOUT / "src" / "laomedo"))
     deadline = time.monotonic() + 25
     while time.monotonic() < deadline:
         try:
@@ -250,7 +252,7 @@ def run(root, token_file, source, review_record, approval):
         git("bundle", "create", bundle, "refs/heads/main", cwd=trusted)
         if bundle.stat().st_size > 256 * 1024:
             raise ValueError("native_fetch_base_bundle_limit")
-        from laomedo.bundle_stage import PINNED_IMAGE_ID
+        from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
         for image in (GIT_IMAGE_ID, PINNED_IMAGE_ID):
             inspected = subprocess.run(["docker", "image", "inspect", image, "--format", "{{.Id}}"],
                                        capture_output=True, timeout=15)
@@ -271,7 +273,7 @@ def run(root, token_file, source, review_record, approval):
             save(root / (service + ".json"), configuration)
         # Fail before task registration if the task interpreter cannot import
         # this source/dependencies; no package installation or login fallback.
-        checked = subprocess.run([sys.executable, "-c", "import laomedo.managed_service; import laomedo.local_runner"],
+        checked = subprocess.run([sys.executable, "-c", "import laomedo.host.managed_service; import laomedo.agents.providers.codex.cli"],
             cwd=CHECKOUT, env=_base_git_environment(), capture_output=True, timeout=15)
         if checked.returncode:
             raise ValueError("task_interpreter_dependencies_missing")
@@ -335,7 +337,7 @@ def run(root, token_file, source, review_record, approval):
         after = journal(root)
         unchanged = api(token, "/repos/" + REPOSITORY + "/pulls/" + str(current_a["number"]))
         from contextlib import closing
-        from laomedo.github_mediation import MediationStore
+        from laomedo.host.mediation.store import MediationStore
         store = MediationStore(root / "host/mediator/mediator.sqlite", connection_is_current=connection.current)
         with closing(store._connect()) as db:
             b_grant = store._grant(db, capabilities["b"], REPOSITORY, "pr_create")
@@ -398,7 +400,7 @@ def deliver_pr(root, side, command, observation):
 
 
 def refuse_update(mediator, capability, payload):
-    from laomedo.github_rest_transport import _NoRedirect
+    from laomedo.github.transport.rest.transport import _NoRedirect
     call = request.Request(f"http://127.0.0.1:{mediator['port']}/v1/mediate",
         data=json.dumps({"repository": REPOSITORY, "operation": "pr_update", "payload": payload,
                          "effect_id": IDENTITY + "-denied-update-a"}).encode(), method="POST",
@@ -413,7 +415,7 @@ def refuse_update(mediator, capability, payload):
 
 def cleanup_capture(root, owned, workers, observation):
     from contextlib import closing
-    from laomedo.github_mediation import MediationStore
+    from laomedo.host.mediation.store import MediationStore
     from experiments.exp104.probe_active_delivery import stage_cleanup
     cleanup = observation["cleanup"]
     cleanup["grants"] = False
@@ -433,7 +435,7 @@ def cleanup_capture(root, owned, workers, observation):
         pass
     for side in ("a", "b"):
         selected = identities(side)
-        cleanup[side], _ = cleanup_exact(selected["name"], selected["run_id"], selected["token"])
+        cleanup[side], _ = cleanup_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
     worker_cleanup = True
     for worker in workers.values():
         try:

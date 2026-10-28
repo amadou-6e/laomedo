@@ -5,6 +5,6 @@ import sys
 _harness_path = str(Path(__file__).resolve().parents[1] / "experiments")
 sys.path.insert(0, _harness_path)
 try:
-    from turn_harness import VerificationLocalRunner, VerificationOpenCodeRunner
+    from turn_harness import VerificationLocalRunner; from turn_harness import VerificationOpenCodeRunner
 finally:
     sys.path.remove(_harness_path)

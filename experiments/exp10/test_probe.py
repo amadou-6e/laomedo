@@ -1,7 +1,7 @@
 """Independent checks of EXP-10's pinned synthetic timeout observation."""
 
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime; from datetime import timedelta
 import json
 from pathlib import Path
 import unittest

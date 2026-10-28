@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from laomedo.host.leases.models import ContainerIdentity
+
 import json
 from pathlib import Path
 import subprocess
 
-from laomedo.container_lease import cleanup_exact, inspect_exact
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
 
 
 NAME = "laomedo-exp104-local-preflight-20261007"
@@ -16,7 +18,7 @@ IMAGE = "sha256:bb8009c87ab69e751a1dd2c6c7f8abaae3d9fce8e072802d4a23c95594d16d84
 
 
 def main() -> None:
-    if inspect_exact(NAME, RUN, TOKEN)[0] != "absent":
+    if inspect_exact(ContainerIdentity(name=NAME, run_id=RUN, token=TOKEN))[0] != "absent":
         raise RuntimeError("preflight_name_not_absent")
     launched = subprocess.run([
         "docker", "run", "-d", "--name", NAME, "--network", "none",
@@ -28,13 +30,12 @@ def main() -> None:
         capture_output=True, timeout=30)
     result = {"kind": "local_docker_preflight", "returncode": launched.returncode,
               "stderr": launched.stderr.decode(errors="replace"),
-              "inspect_state": inspect_exact(NAME, RUN, TOKEN)[0]}
+              "inspect_state": inspect_exact(ContainerIdentity(name=NAME, run_id=RUN, token=TOKEN))[0]}
     try:
         if result["returncode"] or result["inspect_state"] != "owned":
             raise RuntimeError("docker_preflight_failed")
     finally:
-        result["cleanup_verified"], result["cleanup_state"] = cleanup_exact(
-            NAME, RUN, TOKEN)
+        result["cleanup_verified"], result["cleanup_state"] = cleanup_exact(ContainerIdentity(name=NAME, run_id=RUN, token=TOKEN))
         Path(__file__).with_name("docker-preflight-observation.json").write_text(
             json.dumps(result, sort_keys=True, indent=2) + "\n",
             encoding="utf-8", newline="\n")

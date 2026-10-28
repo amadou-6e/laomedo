@@ -1,12 +1,43 @@
 # laomedo
-Design, inspect, and experiment with Codex and Claude Code agent workflows
+Compose and inspect agent work with versioned Skills and GitHub issue/PR context.
+
+## Start here
+
+- [Who Laomedo is for](docs/vision-and-goals/README.md#who-this-is-for): workflow
+  authors, Skill maintainers and developers working with repository tasks.
+- [Getting started](docs/getting-started.md): install the local app, configure a
+  real Claude runner, run your first project question, inspect its answer and clean up.
+- Practical guides: [Agents](docs/features/agents/walkthrough.md),
+  [Skills](docs/features/skills/walkthrough.md),
+  [Issues](docs/features/github/issues/walkthrough.md) and
+  [pull requests](docs/features/github/pull-requests/walkthrough.md).
+
+Browse the [implementation documentation](docs/README.md) for vision, architecture
+and feature guides.
+
+## Source layout
+
+Install this checkout with `python -m pip install -e .` (or install its wheel).
+Python implementation lives in `src/laomedo`; `agents` owns execution, with
+`skills`, `github`, `host`, `activity`, `integrations/langflow` and `work_graph`
+providing the other domains. Components, frontend, tests and docs remain at the
+repository root. See [package layout and migration](docs/architecture/package-layout.md).
+Imports and service commands use their owning domain modules. Older saved
+graphs and launchers have an explicit one-time migration; forwarding modules
+and the checkout-only import bridge are removed.
+
+## Historical investigation records
+
+These investigations describe their original revisions and availability limits.
+Use the current guides above for setup; historical campaign budgets do not limit
+normal user runs.
 
 The [agent observability feasibility study](experiments/feasibility/agent-observability/README.md)
 assesses native App Server events and OpenTelemetry for the original Codex agent.
-The [earlier activity prototype](docs/agent-activity.md) is historical preparation,
-not completed original-agent integration.
+The [current activity guide](docs/features/agents/activity.md) describes retained
+Agent conversations and provider-specific limits separately from that earlier study.
 
-The [Work Graph foundation](docs/work-graph.md) imports GitHub work and native
+The [Work Graph foundation](docs/architecture/work-graph.md) imports GitHub work and native
 blocker relationships using an existing `gh` login. It stores verified,
 immutable snapshots and inspects filtered projections with dependency
 readiness calculated from the full graph. This slice provides a Python
@@ -31,19 +62,22 @@ three-turn spike reported a no-go for the proposed local MVP on its evidence.
 
 The [issue 122 Skill Draft proof](experiments/feasibility/122/README.md)
 records versioned editing rules, deterministic draft guards, agent edits, and
-native resume. The [local skill core](laomedo/README.md) implements immutable
+native resume. The [local skill core](docs/features/skills/registry.md) implements immutable
 revisions and human-reviewed draft promotion separately from agent execution.
 
 The [issue 121 Claude probes](experiments/feasibility/121/README.md) pin the
 Claude Agent SDK and guard isolation, settings, streaming, and resume tests.
 No Claude model call ran: the native CLI and dedicated credential were
 unavailable, so Claude capability remains unknown and the local MVP is no-go
-on current evidence.
+on that campaign's evidence. Current Claude setup is documented in
+[getting started](docs/getting-started.md) and [the Docker guide](docker/claude/README.md).
 
 The [issue 123 trace spike](experiments/feasibility/123/README.md) checks a
 synthetic private Codex rollout against AGENTVIZ's parser and tests a minimal
 event projection without additional model calls. Claude and full Langflow
 correlation remain unverified.
+
+## Integration and validation references
 
 ### Trusted draft publisher (#138)
 

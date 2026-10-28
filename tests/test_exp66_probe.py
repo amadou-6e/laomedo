@@ -1,7 +1,7 @@
 """Falsifying checks for the direct-capture EXP-66 live synthetic trace."""
 
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime; from datetime import timedelta
 from hashlib import sha256
 import json
 from pathlib import Path

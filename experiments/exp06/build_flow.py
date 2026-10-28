@@ -10,7 +10,7 @@ from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
 
 sys.path.insert(0, "/experiments")
-from exp03.build_flow import STARTER, edge
+from exp03.build_flow import STARTER; from exp03.build_flow import edge
 
 
 HERE = Path(__file__).resolve().parent

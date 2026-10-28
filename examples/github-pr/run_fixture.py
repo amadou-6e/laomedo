@@ -7,9 +7,9 @@ import sys
 import tempfile
 from unittest.mock import patch
 from lfx.graph.graph.base import Graph
-from laomedo.github_pr_gateway import GitHubPRGateway
-from laomedo.github_mediation import MediationStore
-from laomedo.github_rest_transport import GitHubRestTransport
+from laomedo.github.pull_requests.gateway import GitHubPRGateway
+from laomedo.host.mediation.store import MediationStore
+from laomedo.github.transport.rest.transport import GitHubRestTransport
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests'))
@@ -29,7 +29,7 @@ async def run():
         def request(action, **body):
             return gateway.discover(**body) if action == 'discover' else gateway.execute(**body)
         outcomes = []
-        with patch('laomedo.github_pr_client.pr_request', side_effect=request):
+        with patch('laomedo.github.pull_requests.client.pr_request', side_effect=request):
             for _ in range(2):
                 graph = Graph.from_payload(builder.build())
                 outcome = await graph.arun(inputs=[{}], outputs=['pr'])

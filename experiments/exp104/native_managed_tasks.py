@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import time
 
-from experiments.exp104.probe_managed_startup import powershell, processes, quote
+from experiments.exp104.probe_managed_startup import powershell; from experiments.exp104.probe_managed_startup import processes; from experiments.exp104.probe_managed_startup import quote
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 SERVICES = ("host-services", "bundle-verifier")
@@ -15,7 +15,7 @@ def expected_arguments(service, configuration):
         raise ValueError("unknown_service")
     if any(char in str(configuration) for char in ('"', '\r', '\n', '\0')):
         raise ValueError("unsafe_configuration_path")
-    return '-m laomedo.managed_service --service ' + service + ' --configuration "' + str(configuration) + '"'
+    return '-m laomedo.host.managed_service --service ' + service + ' --configuration "' + str(configuration) + '"'
 
 
 def register(root, python, owned):

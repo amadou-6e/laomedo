@@ -33,7 +33,7 @@ grant tokens remain on the host outside the copied workspace.
 Commands after separate configuration approval:
 
 - `python examples/github-issue/agent_operation_demo.py prepare --state <private-root>`
-- Start independent `python -m laomedo.lease_service serve --state <private-root>/lease`.
+- Start independent `python -m laomedo.host.leases.service_cli serve --state <private-root>/lease`.
 - `python examples/github-issue/agent_operation_demo.py propose --state <private-root>`
 - `python examples/github-issue/agent_operation_demo.py apply --state <private-root>`
 

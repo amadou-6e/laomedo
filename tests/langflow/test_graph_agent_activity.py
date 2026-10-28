@@ -1,4 +1,6 @@
 """Internal tests only; real graph acceptance is recorded separately."""
+
+from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
 import json
 from pathlib import Path
 import tempfile
@@ -7,10 +9,10 @@ import threading
 from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 
-from laomedo.agent_activity import ActivityStore
-from laomedo.agent_activity_projection import project
-from laomedo.agent_activity_cost import estimate
-from laomedo.runner_activity import notification, read_feed
+from laomedo.activity.agent_activity.store import ActivityStore
+from laomedo.activity.agent_activity.projection import project
+from laomedo.activity.agent_activity.cost import estimate
+from laomedo.activity.runner.feed import notification; from laomedo.activity.runner.feed import read_feed
 
 
 class GraphActivityTests(unittest.TestCase):
@@ -43,7 +45,7 @@ class GraphActivityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'activity.db'
             def start(index):
-                return ActivityStore(path).start('alice','flow',f'node-{index}',execution='graph')
+                return ActivityStore(path).start(CaptureIdentity.from_values('alice', 'flow', f'node-{index}', execution='graph'))
             with ThreadPoolExecutor(max_workers=8) as pool:
                 runs=list(pool.map(start,range(8)))
             self.assertEqual(len(set(runs)),8)
@@ -59,9 +61,9 @@ class GraphActivityTests(unittest.TestCase):
     def test_execution_owner_scope_and_retry_deduplication(self):
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
-            first=store.start('alice','flow','agent',execution='first')
-            store.start('alice','flow','agent',execution='second')
-            store.start('bob','flow','agent',execution='first')
+            first=store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='first'))
+            store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='second'))
+            store.start(CaptureIdentity.from_values('bob', 'flow', 'agent', execution='first'))
             event={'method':'item/completed','params':{'item':{'id':'same'}}}
             for cursor in (1,1,2):
                 store.append(first,event,source='native',cursor=cursor)
@@ -69,7 +71,7 @@ class GraphActivityTests(unittest.TestCase):
             self.assertEqual([run['id'] for run in runs],[first])
             self.assertEqual(runs[0]['event_count'],2)
             readonly=ActivityStore(store.path,read_only=True)
-            with self.assertRaises(Exception):readonly.start('alice','flow','agent')
+            with self.assertRaises(Exception):readonly.start(CaptureIdentity.from_values('alice', 'flow', 'agent'))
 
     def test_feed_excludes_account_and_rpc_responses(self):
         for event in ({'id':1,'result':{'token':'private'}},{'method':'account/updated'}, {'method':'models/list'}):
@@ -119,12 +121,12 @@ class GraphActivityTests(unittest.TestCase):
         self.assertEqual(project([{'raw':raw,'received_at':'2026-10-15T00:00:00Z'}])['turns'],[])
 
     def test_refused_attempt_cannot_adopt_another_resume(self):
-        from laomedo.agent_activity_capture import RunnerCapture
+        from laomedo.activity.agent_activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
-            invocation=store.start('alice','flow','refused',execution='graph')
+            invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'refused', execution='graph'))
             capture=RunnerCapture.__new__(RunnerCapture)
-            capture.capture=(store,invocation);capture.timeout=1;capture.accepted=False
+            capture.capture=ActivityInvocation(store=store, invocation_id=invocation);capture.timeout=1;capture.accepted=False
             capture.attempt_id='22222222-2222-4222-8222-222222222222'
             capture.refused=threading.Event();capture.done=threading.Event();capture.done.set()
             capture.outcome='failed'
@@ -136,12 +138,12 @@ class GraphActivityTests(unittest.TestCase):
             self.assertEqual(page['run']['reason'],'dispatch_not_accepted')
 
     def test_accepted_attempt_baseline_and_boundary_are_authoritative(self):
-        from laomedo.agent_activity_capture import RunnerCapture
+        from laomedo.activity.agent_activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
-            invocation=store.start('alice','flow','agent',execution='graph')
+            invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='graph'))
             capture=RunnerCapture.__new__(RunnerCapture)
-            capture.capture=(store,invocation);capture.timeout=1;capture.accepted=False
+            capture.capture=ActivityInvocation(store=store, invocation_id=invocation);capture.timeout=1;capture.accepted=False
             capture.attempt_id='11111111-1111-4111-8111-111111111111'
             capture.refused=threading.Event();capture.done=threading.Event();capture.outcome=None
             capture.feed=lambda *args: {'accepted':True,'attempt':{'id':capture.attempt_id,
@@ -155,16 +157,16 @@ class GraphActivityTests(unittest.TestCase):
             self.assertEqual(page['run']['ended'],'2026-10-15T00:00:01Z')
             self.assertEqual(len(page['events']),2)  # baseline plus this attempt's terminal
             self.assertIs(page['events'][0]['raw']['fresh_thread'],True)
-            other=store.start('alice','flow','duplicate',execution='other')
+            other=store.start(CaptureIdentity.from_values('alice', 'flow', 'duplicate', execution='other'))
             self.assertFalse(store.claim_attempt(other,'runner',capture.attempt_id))
 
     def test_capture_warning_is_partial_but_native_task_remains_completed(self):
-        from laomedo.agent_activity_capture import RunnerCapture
+        from laomedo.activity.agent_activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
-            invocation=store.start('alice','flow','agent',execution='graph')
+            invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='graph'))
             capture=RunnerCapture.__new__(RunnerCapture)
-            capture.capture=(store,invocation);capture.timeout=1;capture.accepted=False
+            capture.capture=ActivityInvocation(store=store, invocation_id=invocation);capture.timeout=1;capture.accepted=False
             capture.attempt_id='11111111-1111-4111-8111-111111111111'
             capture.refused=threading.Event();capture.done=threading.Event();capture.outcome=None
             capture.feed=lambda *args:{'accepted':True,'attempt':{'id':capture.attempt_id,

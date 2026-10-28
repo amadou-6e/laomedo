@@ -1,7 +1,7 @@
 examples/skill-agent-pilot/** text eol=lf
 experiments/** text eol=lf
-laomedo/resources/*.sh text eol=lf
-laomedo/resources/codex-seccomp.json text eol=lf
+src/laomedo/host/publication/resources/*.sh text eol=lf
+src/laomedo/agents/resources/codex-seccomp.json text eol=lf
 experiments/exp22/prethread.json -text whitespace=cr-at-eol
 experiments/exp22/active.json -text whitespace=cr-at-eol
 experiments/exp104/live-provider-attempts-d2-02.jsonl -text whitespace=cr-at-eol
@@ -16,3 +16,7 @@ frontend/langflow-skill-viewer/agents.patch text eol=lf whitespace=-blank-at-eol
 frontend/langflow-skill-viewer/claude-models.patch text eol=lf whitespace=-blank-at-eol
 examples/skill-operations/** text eol=lf
 frontend/langflow-skill-viewer/claude-selection.patch text eol=lf whitespace=-blank-at-eol
+
+# Historical graph evidence retains exact original bytes.
+examples/github-pr/original-agent/historical-flow-before-skill-input.json -text
+examples/skill-operations/historical-flow-before-skill-input.json -text

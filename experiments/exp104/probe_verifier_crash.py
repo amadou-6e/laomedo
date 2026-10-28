@@ -11,11 +11,11 @@ import time
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(CHECKOUT))
-from laomedo.bundle_ingest import HANDOFF_NAME, freeze_run_bundle
-from laomedo.bundle_stage import PINNED_IMAGE_ID, verify_frozen_bundle
-from laomedo.bundle_verifier import BundleVerifier
-from laomedo.bundle_stage_ownership import _inspect
-from laomedo.github_git_transport import _base_git_environment
+from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID; from laomedo.host.publication.bundle.stage import verify_frozen_bundle
+from laomedo.host.publication.verifier import BundleVerifier
+from laomedo.host.publication.bundle.ownership import _inspect
+from laomedo.github.transport.git.utils import _base_git_environment
 
 IDENTITY = "exp104-verifier-loss-s2-20261009"
 

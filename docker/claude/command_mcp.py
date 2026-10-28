@@ -2,7 +2,7 @@
 import json
 import os
 import sys
-from urllib.request import Request, urlopen
+from urllib.request import Request; from urllib.request import urlopen
 
 
 for line in sys.stdin:

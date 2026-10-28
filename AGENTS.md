@@ -20,3 +20,48 @@
   Bound experiments in a separate harness. Retain historical evidence without
   letting its counters restrict normal user runs. Do not spend model turns solely
   to verify removal of a cap; use explicitly approved live checks when needed.
+
+## Python module cohesion
+
+- Group cohesive features into packages; do not stop at a fixed nesting depth.
+  Repeated filename prefixes are a signal to review the package boundary.
+- A Python implementation file introduces classes or standalone functions, never
+  both. Put class-only exceptions in errors.py. Keep package initializers small.
+- Make a function a method when its responsibility belongs to an object. Keep
+  independent helpers in the owning feature's utils.py (or a focused function-only
+  module); do not create a cross-domain dumping ground of utilities.
+- When values repeatedly travel together as one concept, define a canonical
+  Pydantic model in that feature's models.py and pass that model internally.
+  Put constructors, validation and projections on the model where appropriate.
+  Preserve existing external payloads, persisted schemas and error behavior at
+  explicit boundaries; do not silently coerce input or duplicate domain models.
+- Migrate callers to defining modules and remove obsolete files. Add structural
+  regression checks so mixed class/function files and retired imports cannot
+  quietly return.
+
+## Settings and exception contracts
+
+- Name feature configuration modules `settings.py`, never `constants.py`.
+  Externally supplied configuration belongs to a feature-owned Pydantic settings
+  object in that file. Load it at the point of use; preserve existing environment
+  names, missing/empty behavior and flag semantics. Fixed protocol/security values
+  and mutable locks remain single-owner values, not configurable fields.
+- Keep credentials out of settings serialization and representations. Preserve
+  explicit child-process environment filtering, dynamic credential lookups and
+  standard-library-only credential helpers.
+- Exceptions in `errors.py` must document their distinct domain and outcome
+  guarantees and expose the existing stable machine `code`. Preserve inheritance,
+  exception arguments and boundary categories. Specialized subclasses may inherit
+  the implementation but must document their contract; do not leave pass-only
+  placeholders. User-facing explanations/recovery belong to the shared catalogue.
+
+## Commit and push checkpoints
+
+- After each coherent, reviewable block of work, commit and push the task branch
+  promptly. Do not accumulate several completed blocks locally or wait until the
+  whole task, final review or live verification is finished before pushing.
+- Push in-progress work to a draft branch/PR with its pending checks and blockers
+  stated clearly. A pushed checkpoint is not a verification or completion claim,
+  and it does not authorize merging.
+- Stage only changes owned by the task. Preserve unrelated edits; never commit
+  credentials, private runtime state, generated caches or verification tooling.

@@ -1,6 +1,6 @@
 """EXP-14: a lost GitHub acknowledgement is unknown, never a blind retry."""
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import importlib.util
 import json
 import os

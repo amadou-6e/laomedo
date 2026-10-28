@@ -9,10 +9,10 @@ import tempfile
 import threading
 import unittest
 
-from laomedo.github_mediation import KnownRejected, MediationError, MediationStore
-from laomedo.output_contract import requirements
-from laomedo.publication_controller import PublicationController
-from laomedo.verified_stage import VerifiedStage
+from laomedo.host.mediation.errors import KnownRejected; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
+from laomedo.agents.contracts.output import requirements
+from laomedo.host.publication.controller import PublicationController
+from laomedo.host.publication.verified.models import VerifiedStage
 
 
 class PublicationHandoffTests(unittest.TestCase):
@@ -37,10 +37,7 @@ class PublicationHandoffTests(unittest.TestCase):
                          "task_outcome": "success", "executor_status": "completed",
                          "evidence_complete": True,
                          "requirements_revision": self.reference["requirements_revision"]}
-        self.artifact = VerifiedStage("run-a", "attempt-a", self.repository,
-                                     "run-a-branch", "a" * 40, "b" * 40,
-                                     sha256(b"fake-bundle").hexdigest(), "c" * 64,
-                                     b"fake-bundle")
+        self.artifact = VerifiedStage(run_id='run-a', attempt_id='attempt-a', repository=self.repository, branch='run-a-branch', baseline='a' * 40, commit='b' * 40, bundle_sha256=sha256(b'fake-bundle').hexdigest(), stage_digest='c' * 64, bundle=b'fake-bundle')
         self.calls = []
 
     def issue(self, run):
@@ -159,9 +156,9 @@ class PublicationHandoffTests(unittest.TestCase):
         self.pushed()
         old = self.artifact
         from dataclasses import replace
-        self.artifact = replace(old, run_id="other")
+        self.artifact = type(old).model_validate({**old.model_dump(), 'run_id': 'other'})
         self.refused("publication_artifact_mismatch", self.freeze)
-        self.artifact = replace(old, bundle=b"tampered")
+        self.artifact = type(old).model_validate({**old.model_dump(), 'bundle': b'tampered'})
         self.refused("publication_artifact_unverified", self.freeze)
 
     def test_expiry_and_renewals_cannot_reset_dispatch_deadline(self):
@@ -371,8 +368,8 @@ class PublicationHandoffTests(unittest.TestCase):
                 self.assertNotIn("run-a", controller.owned)
 
     def test_runner_publication_api_requires_auth_and_empty_graph_body(self):
-        from laomedo.local_runner import LocalRunner, serve
-        from urllib import request, error
+        from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.serving import RunnerServer as serve
+        from urllib import request; from urllib import error
         import json
         self.ready()
         finished = []

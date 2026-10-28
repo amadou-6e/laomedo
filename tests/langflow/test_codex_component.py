@@ -1,5 +1,7 @@
 """Run inside the pinned Langflow image; all runner traffic is synthetic."""
 
+from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
+
 import asyncio
 from copy import deepcopy
 import importlib.util
@@ -12,7 +14,7 @@ from types import SimpleNamespace
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch; from unittest.mock import PropertyMock
 from urllib import error
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "components/laomedo/codex_agent.py"
@@ -20,6 +22,8 @@ spec = importlib.util.spec_from_file_location("codex_agent", MODULE_PATH)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
+from laomedo.integrations.langflow.agent import component as shared_module
+
 skill_spec = importlib.util.spec_from_file_location("skill_component", MODULE_PATH.with_name("skill.py"))
 skill_module = importlib.util.module_from_spec(skill_spec)
 sys.modules[skill_spec.name] = skill_module
@@ -51,7 +55,7 @@ def component(**values):
     if values.get("request_id") == RUN:
         node._generated_request_id = RUN
     if "skill_reference" not in values:
-        node.skill_reference = module.Data(data={"skill_id": node.skill_id,
+        node.skill_reference = shared_module.Data(data={"skill_id": node.skill_id,
             "revision_id": node.revision_id, "tree_hash": node.revision_id})
     return node
 
@@ -66,7 +70,7 @@ def result(**changes):
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_bridge_activity_capture_uses_runner_token(self):
-        from laomedo.agent_activity_capture import RunnerCapture
+        from laomedo.activity.agent_activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as folder:
             runner_path = Path(folder) / 'runner-token'
             bridge_path = Path(folder) / 'bridge-token'
@@ -75,7 +79,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             node = component(bridge_url='http://localhost:8766')
             with patch.dict(os.environ, {'LAOMEDO_RUNNER_TOKEN_FILE': str(runner_path),
                     'LAOMEDO_BRIDGE_TOKEN_FILE': str(bridge_path)}), \
-                    patch('laomedo.agent_activity_capture.capture_for', return_value=(object(), 'internal')):
+                    patch('laomedo.activity.agent_activity.utils.capture_for', return_value=ActivityInvocation.model_construct(store=object(), invocation_id='internal')):
                 capture = RunnerCapture(node)
                 self.assertEqual(node._token_file_path(), str(bridge_path))
                 self.assertEqual(node._runner_token_file_path(), str(runner_path))
@@ -83,7 +87,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(capture.base, node.runner_url)
 
     def test_static_output_requirements_reach_request_and_reject_conflicts(self):
-        from laomedo.output_contract import requirements
+        from laomedo.agents.contracts.output import requirements
         from lfx.schema import Data
         pin = requirements({"schema_version": 1, "fields": [
             {"name": "action", "type": "string", "required": True, "checks": {"enum": ["modify"]}}]})
@@ -112,7 +116,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             node = component(request_id=RUN)
             body = {"status": "failed", "error_category": category}
             with self.subTest(status=status), patch.object(node, "_token", return_value="synthetic"), \
-                    patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                    patch.object(shared_module.request, "urlopen", side_effect=error.HTTPError(
                         "http://localhost", status, "failure", {}, Response(json.dumps(body).encode()))) as http:
                 output = (await node.submission_output()).data
             self.assertEqual(output["error_category"], expected)
@@ -132,7 +136,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                             requirements_revision=HASH, precheck={"installed": True, "call_count": 0},
                             evidence_complete=False, completion_basis="process_exit")
             with self.subTest(report=report), patch.object(node, "_token", return_value="synthetic"), \
-                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(native).encode())):
+                    patch.object(shared_module.request, "urlopen", return_value=Response(json.dumps(native).encode())):
                 output = (await node.submission_output()).data
             self.assertEqual(output["task_outcome"], expected)
             self.assertEqual(output["executor_status"], "completed")
@@ -147,7 +151,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         for answer in ("All done", "[]", "not JSON", None):
             node = component(request_id=RUN)
             with self.subTest(answer=answer), patch.object(node, "_token", return_value="synthetic"), \
-                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(
+                    patch.object(shared_module.request, "urlopen", return_value=Response(json.dumps(
                         result(answer=answer, client_request_id=RUN)).encode())):
                 output = (await node.submission_output()).data
             self.assertEqual(output["task_outcome"], "unknown")
@@ -163,7 +167,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 evidence_complete=False, post_run_hash=None, output_ref=None,
                 answer=json.dumps({"task_outcome": "success", "summary": "partial"}))
             with self.subTest(status=status), patch.object(node, "_token", return_value="synthetic"), \
-                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(native).encode())) as http:
+                    patch.object(shared_module.request, "urlopen", return_value=Response(json.dumps(native).encode())) as http:
                 output = (await node.submission_output()).data
             self.assertEqual(output["executor_status"], status)
             self.assertEqual(output["task_outcome"], "unknown")
@@ -177,7 +181,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         native = result(status="running", client_request_id=RUN, answer="partial text",
                         output_ref="unready", invocation_id="invocation-fixture")
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", side_effect=[
+                patch.object(shared_module.request, "urlopen", side_effect=[
                     Response(json.dumps(native).encode()),
                     *[TimeoutError("SECRET private-path") for _ in range(3)]]) as http:
             output = (await node.submission_output()).data
@@ -196,8 +200,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         completed = result(client_request_id=RUN, answer='{"task_outcome":"success"}',
                            requirements_revision=HASH, evidence_complete=True)
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.time, "sleep"), \
-                patch.object(module.request, "urlopen", side_effect=[
+                patch.object(shared_module.time, "sleep"), \
+                patch.object(shared_module.request, "urlopen", side_effect=[
                     Response(json.dumps(running).encode()), TimeoutError("SECRET"),
                     Response(json.dumps(completed).encode())]) as http:
             output = (await node.submission_output()).data
@@ -213,7 +217,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_submission_lost_start_ack_keeps_request_without_inventing_run(self):
         node = component(request_id=RUN)
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", side_effect=TimeoutError("SECRET")) as http:
+                patch.object(shared_module.request, "urlopen", side_effect=TimeoutError("SECRET")) as http:
             output = (await node.submission_output()).data
         self.assertEqual(output["task_outcome"], "unknown")
         self.assertEqual(output["executor_status"], "unknown")
@@ -227,10 +231,10 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         native = result(status="timeout", client_request_id=RUN, answer=None,
                         output_ref=None, error_category="turn_timeout")
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                patch.object(shared_module.request, "urlopen", side_effect=error.HTTPError(
                     "http://localhost", 502, "failure", {}, Response(json.dumps(native).encode()))) as http:
             output = (await node.submission_output()).data
-            with self.assertRaises(module.RunnerResultError):
+            with self.assertRaises(shared_module.RunnerResultError):
                 await node.run_output()
         self.assertEqual(output["executor_status"], "timeout")
         self.assertEqual(output["error_category"], "turn_timeout")
@@ -238,7 +242,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(http.call_count, 1)
 
     async def test_submission_invalid_inputs_refuse_before_dispatch(self):
-        with patch.object(module.request, "urlopen") as http:
+        with patch.object(shared_module.request, "urlopen") as http:
             with self.assertRaisesRegex(ValueError, "task_required"):
                 await component(task=" ").submission_output()
             http.assert_not_called()
@@ -248,7 +252,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         native = result(status="failed", run_id="foreign-run", client_request_id="foreign-request",
                         raw_event_ref="foreign-trace", answer='{"task_outcome":"success"}')
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+                patch.object(shared_module.request, "urlopen", side_effect=error.HTTPError(
                     "http://localhost", 502, "failure", {}, Response(json.dumps(native).encode()))):
             output = (await node.submission_output()).data
         self.assertEqual(output["executor_status"], "unknown")
@@ -263,7 +267,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             native = result(status="failed", client_request_id=RUN, answer=None,
                             error_category=category)
             with self.subTest(category=category), patch.object(node, "_token", return_value="synthetic"), \
-                    patch.object(module.request, "urlopen", return_value=Response(json.dumps(native).encode())):
+                    patch.object(shared_module.request, "urlopen", return_value=Response(json.dumps(native).encode())):
                 output = (await node.submission_output()).data
             self.assertEqual(output["error_category"], "runner_runtime_unknown")
             self.assertNotIn("NOT_A_PUBLIC_CODE", json.dumps(output))
@@ -271,7 +275,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_all_three_outputs_share_dispatch(self):
         node = component(request_id=RUN)
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", return_value=Response(json.dumps(
+                patch.object(shared_module.request, "urlopen", return_value=Response(json.dumps(
                     result(client_request_id=RUN)).encode())) as http:
             answer, run, submission = await asyncio.gather(
                 node.answer_output(), node.run_output(), node.submission_output())
@@ -288,7 +292,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         def respond(req, **_kwargs):
             return Response(json.dumps(result(client_request_id=json.loads(req.data)["request_id"])).encode())
         with patch.object(module.LaomedoCodexAgent, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", side_effect=respond) as http:
+                patch.object(shared_module.request, "urlopen", side_effect=respond) as http:
             # Imported source builds a distinct class, so the fake token file is used.
             with tempfile.TemporaryDirectory() as state:
                 token = Path(state) / "token"
@@ -309,7 +313,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertLessEqual(len(calls), 2)
             return Response(json.dumps(replies.pop(0)).encode())
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", side_effect=opened):
+                patch.object(shared_module.request, "urlopen", side_effect=opened):
             with self.assertRaisesRegex(RuntimeError, "outstanding_command_completion_unknown"):
                 await node.run_output()
         self.assertEqual(calls, ["POST", "GET"])
@@ -325,7 +329,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertLessEqual(len(calls), 3)
             return Response(json.dumps(replies.pop(0)).encode())
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", side_effect=opened):
+                patch.object(shared_module.request, "urlopen", side_effect=opened):
             output = (await node.run_output()).data
         self.assertEqual(output["status"], "completed")
         self.assertEqual(calls, ["POST", "GET", "GET"])
@@ -347,7 +351,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                        answer=None, post_run_hash=None, output_ref=None,
                        error_category="outstanding_command_completion_unknown")
         with patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module.request, "urlopen", return_value=Response(json.dumps(value).encode())):
+                patch.object(shared_module.request, "urlopen", return_value=Response(json.dumps(value).encode())):
             output = (await node.run_output()).data
         self.assertEqual(output["run_id"], RUN)
         self.assertIs(output["attempt_finished"], True)
@@ -380,7 +384,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                           return_value=SimpleNamespace(flow_id="saved-flow",
                                                        run_id="graph-run", edges=[])), \
                 patch.object(node, "_token", return_value="synthetic"), \
-                patch.object(module._HTTP, "open", side_effect=bridge_open):
+                patch.object(shared_module._HTTP, "open", side_effect=bridge_open):
             output = (await node.run_output()).data
         self.assertEqual(output["status"], "completed")
         self.assertEqual(output["run_id"], native_run)
@@ -453,7 +457,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(environment.stop)
 
     async def test_multiple_skill_inputs_and_repeated_ids(self):
-        refs = [module.Data(data={"skill_id": name, "revision_id": HASH, "tree_hash": HASH})
+        refs = [shared_module.Data(data={"skill_id": name, "revision_id": HASH, "tree_hash": HASH})
                 for name in ("first", "second")]
         node = component(skill_reference=refs, skill_id="", revision_id="")
         payload = node._prepare()[1]
@@ -479,7 +483,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         root = Path(__file__).resolve().parents[2]
         flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
         graph = Graph.from_payload(flow)
-        with patch.object(module.request, "urlopen", side_effect=lambda req, **_kwargs:
+        with patch.object(shared_module.request, "urlopen", side_effect=lambda req, **_kwargs:
                           Response(json.dumps(result(client_request_id=
                               json.loads(req.data)["request_id"])).encode())) as http:
             output = await graph.arun(inputs=[{"input_value": "Read fixture"}],
@@ -510,7 +514,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             probe = payload["langflow_probe"]
             observed.append((probe["run_id"], probe["flow_id"], probe["stage_id"]))
             return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
-        with patch.object(module.request, "urlopen", side_effect=respond):
+        with patch.object(shared_module.request, "urlopen", side_effect=respond):
             for _ in range(2):
                 await Graph.from_payload(flow).arun(
                     inputs=[{"input_value": "Read fixture"}], types=["chat"])
@@ -538,7 +542,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(req.full_url.endswith(f"/{RUN}/resume"))
             self.assertEqual(json.loads(req.data)["expected_post_run_hash"], HASH)
             return Response(json.dumps(result()).encode())
-        with patch.object(module.request, "urlopen", side_effect=respond) as http:
+        with patch.object(shared_module.request, "urlopen", side_effect=respond) as http:
             await Graph.from_payload(flow).arun(inputs=[{"input_value": "Read marker"}],
                                                 types=["chat"])
             self.assertEqual(http.call_count, 1)
@@ -576,7 +580,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 return Response(json.dumps(result(answer="continued fixture")).encode())
             self.assertTrue(req.full_url.endswith("/v1/runs/async"))
             return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
-        with patch.object(module.request, "urlopen", side_effect=respond):
+        with patch.object(shared_module.request, "urlopen", side_effect=respond):
             output = await Graph.from_payload(flow).arun(inputs=[{"input_value": "Read fixture"}], types=["chat"])
         self.assertEqual(len(calls), 2)
         self.assertTrue(calls[1].endswith(f"/{RUN}/resume"))
@@ -603,7 +607,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                              {"second", skill["data"]["node"]["template"]["skill_id"]["value"]})
             return Response(json.dumps(result(client_request_id=
                 json.loads(req.data)["request_id"])).encode())
-        with patch.object(module.request, "urlopen", side_effect=respond) as http:
+        with patch.object(shared_module.request, "urlopen", side_effect=respond) as http:
             await Graph.from_payload(flow).arun(inputs=[{"input_value": "Use both skills"}], types=["chat"])
             self.assertEqual(http.call_count, 1)
 
@@ -614,7 +618,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(payload["skill_ref"]["tree_hash"], HASH)
             self.assertEqual(req.get_header("Authorization"), "Bearer test-runner-token")
             return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
-        with patch.object(module.request, "urlopen", side_effect=respond) as http:
+        with patch.object(shared_module.request, "urlopen", side_effect=respond) as http:
             message, data = await asyncio.gather(node.answer_output(), node.run_output())
             self.assertEqual(message.text, "amber 3")
             self.assertEqual(data.data["run_id"], RUN)
@@ -633,7 +637,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             seen.append(payload["request_id"])
             return Response(json.dumps(result(status="prepared", answer=None,
                 client_request_id=payload["request_id"])).encode())
-        with patch.object(module.request, "urlopen", side_effect=respond) as http:
+        with patch.object(shared_module.request, "urlopen", side_effect=respond) as http:
             early = (await node.run_output()).data
             self.assertEqual(early["status"], "prepared")
             self.assertEqual(early["run_id"], RUN)
@@ -645,11 +649,11 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             await node.run_output()
             self.assertNotEqual(seen[0], seen[1])
         ignored = component(operation="start", request_id="not-a-uuid")._prepare_request()[1]
-        self.assertEqual(str(module.UUID(ignored["request_id"])), ignored["request_id"])
+        self.assertEqual(str(shared_module.UUID(ignored["request_id"])), ignored["request_id"])
 
     async def test_uncertain_start_error_retains_retry_identity(self):
         node = component(operation="start")
-        with patch.object(module.request, "urlopen", side_effect=TimeoutError()):
+        with patch.object(shared_module.request, "urlopen", side_effect=TimeoutError()):
             with self.assertRaisesRegex(RuntimeError, "check status for request_id") as caught:
                 await node.run_output()
         self.assertIn(node._generated_request_id, str(caught.exception))
@@ -658,7 +662,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         cases = [{"revision_id": "latest"}, {"task": " "},
                  {"runner_url": "https://example.com"}, {"timeout_seconds": 0},
                  {"operation": "resume"}, {"operation": "status", "run_reference": {"run_id": "../x"}}]
-        with patch.object(module.request, "urlopen") as http:
+        with patch.object(shared_module.request, "urlopen") as http:
             for values in cases:
                 with self.subTest(values=values), self.assertRaises(ValueError):
                     await component(**values).run_output()
@@ -673,8 +677,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(payload["expected_thread_id"], prior["thread_id"])
             self.assertEqual(payload["expected_post_run_hash"], HASH)
             return Response(json.dumps(result()).encode())
-        with patch.object(module.request, "urlopen", side_effect=respond) as http:
-            await component(operation="resume", run_reference=module.Data(data=prior)).run_output()
+        with patch.object(shared_module.request, "urlopen", side_effect=respond) as http:
+            await component(operation="resume", run_reference=shared_module.Data(data=prior)).run_output()
             with self.assertRaisesRegex(ValueError, "resume_model_effort_mismatch"):
                 await component(operation="resume", run_reference=prior, effort="high").run_output()
             self.assertEqual(http.call_count, 1)
@@ -686,7 +690,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                    {"thread_id": None}, {"thread_id": {"private": "path"}},
                    {"status": "cancelled"}, {"status": "unknown"},
                    {"model": "different"}, {"effort": "high"}]
-        with patch.object(module.request, "urlopen") as http:
+        with patch.object(shared_module.request, "urlopen") as http:
             for change in changes:
                 with self.subTest(change=change), self.assertRaises(ValueError):
                     await component(operation="resume", run_reference={**prior, **change}).run_output()
@@ -701,7 +705,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 response = Response(json.dumps(result(run_id=other)).encode())
                 failure = error.HTTPError("http://localhost", 502, "failure", {}, response)
                 with self.subTest(operation=operation, http_error=http_error), \
-                        patch.object(module.request, "urlopen", side_effect=failure if http_error else None,
+                        patch.object(shared_module.request, "urlopen", side_effect=failure if http_error else None,
                                      return_value=response):
                     with self.assertRaisesRegex(RuntimeError, "runner_response_identity_mismatch"):
                         await component(operation=operation, run_reference=prior).run_output()
@@ -709,7 +713,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_resume_refuses_changed_native_thread_without_fresh_fallback(self):
         prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
                  "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low"}
-        with patch.object(module.request, "urlopen", return_value=Response(
+        with patch.object(shared_module.request, "urlopen", return_value=Response(
                 json.dumps(result(thread_id="another-thread")).encode())) as http:
             with self.assertRaisesRegex(RuntimeError, "runner_response_thread_mismatch"):
                 await component(operation="resume", run_reference=prior).run_output()
@@ -724,9 +728,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             payload = json.dumps(result(status=status, answer=None, post_run_hash=None,
                 output_ref=None, error_category="synthetic_" + status,
                 profile="PRIVATE_PROFILE_PATH", workspace="PRIVATE_WORKSPACE_PATH")).encode()
-            with self.subTest(status=status), patch.object(module.request, "urlopen", side_effect=
+            with self.subTest(status=status), patch.object(shared_module.request, "urlopen", side_effect=
                     error.HTTPError("http://localhost", 502, "failure", {}, Response(payload))) as http:
-                with self.assertRaises(module.RunnerResultError) as caught:
+                with self.assertRaises(shared_module.RunnerResultError) as caught:
                     await component(operation="resume", run_reference=prior).run_output()
                 reference = caught.exception.run_reference
                 self.assertEqual(reference["run_id"], RUN)
@@ -739,9 +743,9 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         # Pre-dispatch refusal has no new result: retain the known run/trace,
         # without relabelling the previous completed turn as this turn's success.
         payload = json.dumps({"status": "failed", "error_category": "post_run_snapshot_mismatch"}).encode()
-        with patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+        with patch.object(shared_module.request, "urlopen", side_effect=error.HTTPError(
                 "http://localhost", 400, "refused", {}, Response(payload))) as http:
-            with self.assertRaises(module.RunnerResultError) as caught:
+            with self.assertRaises(shared_module.RunnerResultError) as caught:
                 await component(operation="resume", run_reference=prior).run_output()
             self.assertEqual(caught.exception.run_reference["run_id"], RUN)
             self.assertEqual(caught.exception.run_reference["trace_ref"], prior["trace_ref"])
@@ -752,8 +756,8 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         prior = {"run_id": RUN, "status": "completed", "thread_id": "native-thread",
                  "post_run_hash": HASH, "model": "gpt-6-luna", "effort": "low",
                  "trace_ref": f"laomedo:run:{RUN}:events"}
-        with patch.object(module.request, "urlopen", side_effect=TimeoutError()) as http:
-            with self.assertRaises(module.RunnerResultError) as caught:
+        with patch.object(shared_module.request, "urlopen", side_effect=TimeoutError()) as http:
+            with self.assertRaises(shared_module.RunnerResultError) as caught:
                 await component(operation="resume", run_reference=prior).run_output()
             self.assertIn("remote execution may still be active", str(caught.exception))
             self.assertEqual(caught.exception.run_reference["run_id"], RUN)
@@ -764,7 +768,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_failed_run_preserves_identity_and_category(self):
         payload = json.dumps(result(status="timeout", error_category="turn_timeout")).encode()
-        with patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+        with patch.object(shared_module.request, "urlopen", side_effect=error.HTTPError(
                 "http://localhost", 502, "failure", {}, Response(payload))):
             with self.assertRaisesRegex(RuntimeError, RUN + " failed: turn_timeout"):
                 await component().answer_output()
@@ -773,7 +777,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         for response, expected in [(Response(b"[]"), "runner_invalid_response"),
                                    (Response(b"not json"), "runner_invalid_response"),
                                    (TimeoutError(), "remote execution may still be active")]:
-            with patch.object(module.request, "urlopen", side_effect=(response if
+            with patch.object(shared_module.request, "urlopen", side_effect=(response if
                     isinstance(response, Exception) else None), return_value=response):
                 with self.assertRaisesRegex(RuntimeError, expected):
                     await component().run_output()
@@ -786,20 +790,20 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(req.get_method(), "GET" if operation == "status" else "POST")
                 return Response(json.dumps(result(status="running",
                     cancel_requested=operation == "cancel", answer=None)).encode())
-            with patch.object(module.request, "urlopen", side_effect=respond):
+            with patch.object(shared_module.request, "urlopen", side_effect=respond):
                 data = (await node.run_output()).data
                 self.assertEqual(data["status"], "running")
 
     async def test_repeated_cancel_accepts_terminal_runner_record(self):
         node = component(operation="cancel", run_reference={"run_id": RUN}, task="")
         payload = json.dumps(result(status="cancelled", answer=None)).encode()
-        with patch.object(module.request, "urlopen", side_effect=error.HTTPError(
+        with patch.object(shared_module.request, "urlopen", side_effect=error.HTTPError(
                 "http://localhost", 502, "terminal", {}, Response(payload))):
             self.assertEqual((await node.run_output()).data["status"], "cancelled")
 
     async def test_missing_runner_token_fails_before_request(self):
         with patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": "missing-token-file"}):
-            with patch.object(module.request, "urlopen") as http:
+            with patch.object(shared_module.request, "urlopen") as http:
                 with self.assertRaisesRegex(RuntimeError, "runner_api_token_file_unavailable"):
                     await component().run_output()
                 http.assert_not_called()
@@ -813,34 +817,34 @@ class AgentControlOwnershipTests(unittest.TestCase):
         self.assertTrue(fields["skill_reference"]["show"])
 
     def test_request_identity_is_generated_and_stable_within_build(self):
-        node = component(skill_id="", revision_id="", skill_reference=module.Data(data={
+        node = component(skill_id="", revision_id="", skill_reference=shared_module.Data(data={
             "skill_id": "connected-skill", "revision_id": HASH, "tree_hash": HASH}))
         first = node._prepare_request()[1]
         second = node._prepare_request()[1]
         self.assertEqual(first["request_id"], second["request_id"])
-        self.assertEqual(str(module.UUID(first["request_id"])), first["request_id"])
+        self.assertEqual(str(shared_module.UUID(first["request_id"])), first["request_id"])
         self.assertEqual(first["skill_ref"]["skill_id"], "connected-skill")
 
 
 class ObsoleteAgentControlTests(unittest.TestCase):
     def test_global_codex_bridge_does_not_route_lifecycle_or_other_providers(self):
-        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+        with patch.dict(shared_module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
             for operation in ("resume", "status", "cancel"):
                 self.assertEqual(component(operation=operation)._bridge_base(), "")
             node = component(operation="fresh")
-            node.name = "LaomedoOpenCodeAgent"
+            node.supports_join_bridge = False
             self.assertEqual(node._bridge_base(), "")
 
     def test_backend_bridge_configuration_overrides_legacy_node_value(self):
         node = component(bridge_url="http://localhost:8766")
-        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+        with patch.dict(shared_module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
             self.assertEqual(node._bridge_base(), "http://localhost:8767")
-        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": ""}):
+        with patch.dict(shared_module.os.environ, {"LAOMEDO_BRIDGE_URL": ""}):
             self.assertEqual(node._bridge_base(), "")
 
 
     def test_hidden_overrides_cannot_drive_execution(self):
-        node = component(request_id="legacy-id", skill_reference=module.Data(data={
+        node = component(request_id="legacy-id", skill_reference=shared_module.Data(data={
             "skill_id": "authoritative", "revision_id": HASH, "tree_hash": HASH}),
             skill_id="old-skill", revision_id="old-revision")
         payload = node._prepare_request()[1]
@@ -905,7 +909,7 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_codex_callback_does_not_modify_opencode_settings(self):
         node = component()
-        node.name = "LaomedoOpenCodeAgent"
+        node.discover_models_on_upgrade = False
         config = {"model": {"value": "provider/model"}, "effort": {"value": "default"}}
         self.assertEqual(await node.update_build_config(deepcopy(config), "other", "model"), config)
 
@@ -947,9 +951,9 @@ class ModelCatalogCredentialTests(unittest.TestCase):
             runner=Path(directory)/'runner-token';runner.write_text('fixture-runner')
             bridge=Path(directory)/'bridge-token';bridge.write_text('fixture-bridge')
             payload=json.dumps({'models':[{'id':'test-model','efforts':['low']}]}).encode()
-            with patch.dict(module.os.environ,{'LAOMEDO_BRIDGE_URL':'http://localhost:8766',
+            with patch.dict(shared_module.os.environ,{'LAOMEDO_BRIDGE_URL':'http://localhost:8766',
                     'LAOMEDO_RUNNER_TOKEN_FILE':str(runner),'LAOMEDO_BRIDGE_TOKEN_FILE':str(bridge)}), \
-                 patch.object(module._HTTP,'open',return_value=io.BytesIO(payload)) as opened:
+                 patch.object(shared_module._HTTP,'open',return_value=io.BytesIO(payload)) as opened:
                 node=component(operation='fresh')
                 self.assertTrue(node._bridge_base())
                 self.assertEqual(node._model_catalog({'runner_url':{'value':'http://localhost:8765'}}),{'test-model':['low']})

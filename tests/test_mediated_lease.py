@@ -8,12 +8,12 @@ import tempfile
 import threading
 import time
 import unittest
-from urllib import error, request
+from urllib import error; from urllib import request
 
-from laomedo.github_mediation import MediationError, MediationStore
-from laomedo.lease_service import GRANT_TTL_SECONDS, LOSS_SECONDS, LeaseService
-from laomedo.mediation_authority import RunGrantAuthority
-from laomedo.mediation_service import MediationHTTPService
+from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
+from laomedo.host.leases.settings import GRANT_TTL_SECONDS; from laomedo.host.leases.settings import LOSS_SECONDS; from laomedo.host.leases.service import LeaseService
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.host.mediation.service import MediationHTTPService
 
 
 def _result(directory: Path) -> dict:
@@ -48,8 +48,8 @@ class MediatedLeaseTests(unittest.TestCase):
                 self.repositories.get(identity) == repository)
         self.cleanups = []
 
-        def cleanup(name, run_id, token):
-            self.cleanups.append((name, run_id, token))
+        def cleanup(identity):
+            self.cleanups.append((identity.name, identity.run_id, identity.token.get_secret_value()))
             return True, "removed_after_loss"
 
         self.cleanup = cleanup
@@ -117,6 +117,9 @@ class MediatedLeaseTests(unittest.TestCase):
             payload={}, effect_id=None, transport=lambda *args: self.calls.append(args) or {})
 
     def test_exact_run_revoke_precedes_cleanup_and_other_run_survives(self):
+        # This checks isolation, not detection latency. Keep healthy leases valid
+        # across real local HTTP/file I/O; the deliberately stale lease is 10s old.
+        self.service.loss_seconds = 5
         first, accepted, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         self.assertTrue(accepted["grant_id"])
@@ -124,10 +127,10 @@ class MediatedLeaseTests(unittest.TestCase):
         self.read(token_b)
         self.assertNotIn(token_a, self.store.path.read_bytes().decode("latin1"))
 
-        def cleanup_after_denial(name, run_id, lease_token):
+        def cleanup_after_denial(identity):
             with self.assertRaisesRegex(MediationError, "grant_unavailable"):
                 self.read(token_a)
-            return self.cleanup(name, run_id, lease_token)
+            return self.cleanup(identity)
 
         self.service.cleanup = cleanup_after_denial
 
@@ -147,7 +150,7 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
 
     def test_trusted_handoff_lease_loss_revokes_before_cleanup_other_run_survives(self):
-        from laomedo.output_contract import requirements
+        from laomedo.agents.contracts.output import requirements
         first, accepted, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         handoff = self.store.begin_publication_handoff(
@@ -159,10 +162,10 @@ class MediatedLeaseTests(unittest.TestCase):
         # verification. No GitHub transport or Docker command is executed.
         with closing(self.store._connect()) as db, db:
             db.execute("UPDATE publication_handoffs SET phase='validation_pending' WHERE grant_id=?", (handoff,))
-        def cleanup_after_denial(name, run_id, lease_token):
+        def cleanup_after_denial(identity):
             with self.assertRaisesRegex(MediationError, "grant_unavailable"):
                 self.read(token_a)
-            return self.cleanup(name, run_id, lease_token)
+            return self.cleanup(identity)
         self.service.cleanup = cleanup_after_denial
         (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         self.service.tick()
@@ -175,16 +178,24 @@ class MediatedLeaseTests(unittest.TestCase):
     def test_slow_cleanup_does_not_block_other_run_or_admission(self):
         self.assertLess(GRANT_TTL_SECONDS + LOSS_SECONDS, 60)
         first, _, token_a = self.register("a", "lease-a")
-        _, _, token_b = self.register("b", "lease-b")
+        healthy, _, token_b = self.register("b", "lease-b")
         started = threading.Event()
         release = threading.Event()
 
-        def slow_cleanup(name, run_id, lease_token):
+        def slow_cleanup(identity):
             started.set()
             if not release.wait(3):
                 raise AssertionError("cleanup not released")
-            return self.cleanup(name, run_id, lease_token)
+            return self.cleanup(identity)
 
+        keep_alive = threading.Event()
+        def heartbeat():
+            from laomedo.host.leases.utils import _write_float
+            while not keep_alive.wait(.02):
+                _write_float(healthy / "heartbeat", time.time())
+                _write_float(healthy / "heartbeat.monotonic", time.monotonic())
+        heartbeats = threading.Thread(target=heartbeat, daemon=True)
+        heartbeats.start()
         self.service.cleanup = slow_cleanup
         (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         try:
@@ -204,6 +215,8 @@ class MediatedLeaseTests(unittest.TestCase):
             self.assertFalse((first / "result.json").exists())
         finally:
             release.set()
+            keep_alive.set()
+            heartbeats.join(3)
         self.assertEqual(_result(first)["reason"], "heartbeat_lost")
 
     def test_scan_rechecks_time_after_an_earlier_lease_stalls(self):
@@ -397,6 +410,9 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertIsNotNone(grants[0][0])
 
     def test_http_mediator_denies_revoked_grant_before_transport(self):
+        # This checks isolation, not detection latency. Keep healthy leases valid
+        # across real local HTTP/file I/O; the deliberately stale lease is 10s old.
+        self.service.loss_seconds = 5
         first, _, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         import threading

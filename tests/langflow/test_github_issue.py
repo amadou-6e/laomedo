@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from lfx.schema import Data
-from laomedo.github_issue_gateway import GitHubIssueGateway
-from laomedo.github_mediation import MediationStore
-from laomedo.github_rest_transport import GitHubRestTransport
+from laomedo.github.issues.gateway import GitHubIssueGateway
+from laomedo.host.mediation.store import MediationStore
+from laomedo.github.transport.rest.transport import GitHubRestTransport
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests"))

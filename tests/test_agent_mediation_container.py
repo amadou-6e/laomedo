@@ -1,6 +1,6 @@
 """No-model Docker proof that only the run capability reaches the agent."""
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 
-from laomedo.local_runner import IMAGE, _docker_prefix
+from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.utils import _docker_prefix
 
 
 @unittest.skipUnless(os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",

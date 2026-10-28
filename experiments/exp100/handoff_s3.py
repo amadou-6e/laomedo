@@ -13,8 +13,7 @@ from pathlib import Path
 import re
 import stat
 
-from experiments.exp100.bundle_transfer import (MAX_BUNDLE_BYTES, git,
-                                                verify_bundle)
+from experiments.exp100.bundle_transfer import MAX_BUNDLE_BYTES; from experiments.exp100.bundle_transfer import git; from experiments.exp100.bundle_transfer import verify_bundle
 
 
 _IDENTITY = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")

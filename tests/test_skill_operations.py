@@ -4,11 +4,11 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
-from urllib import request, error
+from urllib import request; from urllib import error
 
-from laomedo.skill_store import SkillStore, SkillStoreError, ConflictError
-from laomedo.skill_operations import SkillOperations, proposal
-from laomedo.skill_operation_server import server
+from laomedo.skills.registry.store import SkillStore; from laomedo.skills.registry.errors import SkillStoreError; from laomedo.skills.registry.errors import ConflictError
+from laomedo.skills.operations.service import SkillOperations; from laomedo.skills.operations.utils import proposal
+from laomedo.skills.operations.server import SkillOperationServer as server
 
 
 class SkillOperationTests(unittest.TestCase):

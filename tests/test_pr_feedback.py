@@ -3,7 +3,7 @@ import json
 import unittest
 from contextlib import closing
 from unittest.mock import patch
-from laomedo.github_pr_gateway import GitHubPRGateway
+from laomedo.github.pull_requests.gateway import GitHubPRGateway
 from test_live_github_pr import LiveGitHubPRTests
 
 

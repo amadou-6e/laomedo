@@ -45,7 +45,7 @@ def processes(configuration):
     command = ("$p = @(Get-CimInstance Win32_Process | Where-Object { "
                "$_.ProcessId -ne $PID -and $_.Name -eq 'python.exe' -and "
                "$_.CommandLine -and $_.CommandLine.Contains(" + quote(configuration) +
-               ") -and $_.CommandLine.Contains('laomedo.managed_service') }); "
+               ") -and $_.CommandLine.Contains('laomedo.host.managed_service') }); "
                "ConvertTo-Json -Compress -InputObject @($p | ForEach-Object { [int]$_.ProcessId })")
     return parse_processes(powershell(command))
 
@@ -121,7 +121,7 @@ def run(private: Path):
         mediator = json.loads((root / "state" / "mediator" / "mediator.json").read_text())
         observation["host_module_root_matches"] = (
             os.path.normcase(str(Path(mediator["module_root"]).resolve())) ==
-            os.path.normcase(str(CHECKOUT / "laomedo")))
+            os.path.normcase(str(CHECKOUT / "src" / "laomedo")))
         if not observation["host_module_root_matches"]:
             raise RuntimeError("host_source_mismatch")
         old_heartbeat = heartbeat.read_text()

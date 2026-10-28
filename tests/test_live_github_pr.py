@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from urllib.parse import urlsplit, parse_qs
-from laomedo.github_pr_gateway import GitHubPRGateway
-from laomedo.github_rest_transport import GitHubRestTransport
-from laomedo.github_mediation import MediationStore, MediationError
+from urllib.parse import urlsplit; from urllib.parse import parse_qs
+from laomedo.github.pull_requests.gateway import GitHubPRGateway
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError
 
 
 def raw_pr(number, labels, state="open"):

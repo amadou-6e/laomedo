@@ -9,10 +9,10 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.claude_runner import ClaudeRunner, CLI_VERSION, command, terminal_result, cli_environment, activity_usage
-from laomedo.agent_activity_projection import project
-from laomedo.local_runner import RunnerError
-from laomedo.output_contract import requirements
+from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.settings import CLI_VERSION; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import cli_environment; from laomedo.agents.providers.claude.utils import activity_usage
+from laomedo.activity.agent_activity.projection import project
+from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.contracts.output import requirements
 
 
 try:
@@ -43,7 +43,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_catalog_does_not_dispatch_or_claim_model_execution(self):
         before=(self.runner.state/'turn-ledger.json').exists()
         with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \
-             patch.object(self.runner,'_open_server',side_effect=AssertionError('no Codex RPC')):
+             patch('laomedo.agents.providers.codex.servers.AppServer',side_effect=AssertionError('no Codex RPC')):
             catalog=self.runner.model_catalog()
         self.assertEqual([item['id'] for item in catalog['models']],['sonnet','opus','haiku'])
         self.assertEqual(catalog['account_availability'],'cli_reported')
@@ -181,7 +181,7 @@ class ClaudeRunnerTests(unittest.TestCase):
 
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
     def test_successful_native_receipt_without_exports_preserves_result_and_warns(self):
-        import io, threading
+        import io; import threading
         from unittest.mock import Mock
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
@@ -192,8 +192,8 @@ class ClaudeRunnerTests(unittest.TestCase):
         receipt = {"type":"result","subtype":"success","session_id":record['thread_id'],"result":"done","is_error":False}
         process = SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO((json.dumps(receipt)+'\n').encode()),
                                   returncode=0,wait=lambda **kwargs:0,poll=lambda:0)
-        with patch('laomedo.claude_runner.cleanup_exact',return_value=(True,'absent')), \
-             patch('laomedo.claude_runner.subprocess.Popen',return_value=process):
+        with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
+             patch('subprocess.Popen',return_value=process):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         self.assertEqual(result['result'],'done')
         self.assertEqual(record['telemetry_capture']['error_category'],'claude_telemetry_capture_failed')
@@ -203,9 +203,9 @@ class ClaudeRunnerTests(unittest.TestCase):
 
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
     def test_unexpected_receiver_cleanup_failure_preserves_native_result(self):
-        import io, threading
+        import io; import threading
         from unittest.mock import Mock
-        from laomedo.claude_telemetry import ClaudeTelemetry
+        from laomedo.activity.claude.telemetry import ClaudeTelemetry
         original_close=ClaudeTelemetry.close
         def broken_close(receiver):
             original_close(receiver)
@@ -219,8 +219,8 @@ class ClaudeRunnerTests(unittest.TestCase):
         receipt = {"type":"result","subtype":"success","session_id":record['thread_id'],"result":"done","is_error":False}
         process = SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO((json.dumps(receipt)+'\n').encode()),
                                   returncode=0,wait=lambda **kwargs:0,poll=lambda:0)
-        with patch('laomedo.claude_runner.cleanup_exact',return_value=(True,'absent')), \
-             patch('laomedo.claude_runner.subprocess.Popen',return_value=process), \
+        with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
+             patch('subprocess.Popen',return_value=process), \
              patch.object(ClaudeTelemetry,'close',broken_close):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         self.assertEqual(result['result'],'done')
@@ -253,9 +253,9 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
         self.runner.container.prefix = Mock(return_value=[])
         root = self.runner._run_dir(record['run_id'])
-        with patch('laomedo.claude_telemetry.ClaudeTelemetry',side_effect=OSError('private detail')), \
-             patch('laomedo.claude_runner.cleanup_exact',return_value=(True,'absent')), \
-             patch('laomedo.claude_runner.subprocess.Popen') as launch:
+        with patch('laomedo.activity.claude.telemetry.ClaudeTelemetry',side_effect=OSError('private detail')), \
+             patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
+             patch('subprocess.Popen') as launch:
             with self.assertRaisesRegex(RunnerError,'^claude_telemetry_start_failed$'):
                 self.runner._invoke(root,record,'task',threading.Event(),resume=False)
             launch.assert_not_called()

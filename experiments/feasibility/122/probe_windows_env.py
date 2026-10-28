@@ -6,7 +6,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer, construct_env
+from _shared import AppServer; from _shared import construct_env
 
 
 codex = Path(sys.argv[1]).resolve(strict=True)
