@@ -6,6 +6,22 @@ an unpublished Git revision for local verification. PyPI publication, an accepte
 image build and owner graph approval are separate requirements before release.
 The preflight migration merged in PR212; the normal/split migration remains draft.
 
+Docker startup checks use the same py-docker image, receipt and job operations
+across providers. Codex's remaining CLI version policy lives directly on its
+runner; the separate `codex/preflight` package and selection wrapper are retired.
+Image inspection has a typed failure, so providers can map it without nested
+exception ladders or interpreting diagnostic text.
+
+The public `preflight()` operations intentionally retain their current meanings:
+Codex launches a native handshake/model and permission probe; Claude checks
+authentication and may perform its existing opt-in login mirror; OpenCode reports
+transport configuration without launching an authenticated backend. Its
+`transport_configured` result does not attest readiness. Protocol health and
+version checks run during backend startup/catalogue/turn execution. Unifying
+these public operations would change side effects and requires a separate
+behavioural contract; this refactor neither invents successful checks nor removes
+Codex's permission probes.
+
 ## Boundary
 
 The runtime owns endpoint/context resolution, immutable resource identity,

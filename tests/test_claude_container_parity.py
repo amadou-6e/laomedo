@@ -3,6 +3,7 @@ from importlib.util import find_spec
 import json
 import threading
 import time
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -18,6 +19,37 @@ import test_claude_runner as controls
 
 
 class ClaudeContainerParityTests(unittest.TestCase):
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
+    def test_constructor_classifies_images_configuration_and_cleanup(self):
+        """Preserve provider codes while using shared typed Docker failures."""
+        from unittest.mock import MagicMock
+        from py_docker.errors import CleanupUnconfirmedError, ConnectionConfigurationError, DockerOperationError, ImageResolutionError
+        cases = (
+            ("client", ConnectionConfigurationError("private connection"), "claude_container_configuration_invalid"),
+            ("client", DockerOperationError("private daemon"), "claude_container_unavailable"),
+            ("image", ImageResolutionError("private inspection"), "claude_container_image_missing"),
+            ("receipt", CleanupUnconfirmedError("private receipt"), "container_termination_unverified"),
+        )
+        for stage, failure, code in cases:
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                receipts = root.joinpath("receipts")
+                receipts.mkdir()
+                receipts.joinpath("claude-pending.json").write_text("internal control", encoding="utf-8")
+                client = MagicMock()
+                selected = client.return_value.__enter__.return_value
+                if stage == "client":
+                    client.side_effect = failure
+                elif stage == "image":
+                    selected.images.resolve.side_effect = failure
+                else:
+                    selected.sessions.recover.side_effect = failure
+                with patch("py_docker.Client", client), patch.object(ClaudeContainer, "check_supervisor"), patch.object(ClaudeContainer, "control") as control:
+                    with self.assertRaisesRegex(RunnerError, "^" + code + "$") as caught:
+                        ClaudeContainer("local-image", "laomedo-claude-test", root.joinpath("lease"))
+                    self.assertNotIn("private", str(caught.exception))
+                    control.assert_not_called()
+
     def setUp(self):
         controls.ClaudeRunnerTests.setUp(self)
 

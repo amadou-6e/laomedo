@@ -8,6 +8,7 @@ import laomedo.agents.providers.codex.native.settings as _native_settings
 from pathlib import Path
 from uuid import uuid4
 import hashlib
+import logging
 import json
 import laomedo.agents.contracts.output as _contracts_output
 import laomedo.agents.runtime.errors as _runtime_errors
@@ -141,10 +142,7 @@ class CodexRunner(Runner):
             raise _runtime_errors.RunnerError("permission_config_changed")
         self.docker_environment = None
         if check_docker:
-            from laomedo.agents.providers.codex.preflight.service import CodexPreflight
-
-            selected = CodexPreflight(self.state).check(self.image, self.image_id)
-            self.docker_environment = selected.environment
+            self.docker_environment = self._check_container()
             if split_executor:
                 _codex_utils._ensure_split_profile(self.profile, state=self.state, env=self.docker_environment)
             else:
@@ -153,7 +151,135 @@ class CodexRunner(Runner):
                     if not docker.volumes.exists(_codex_settings.VOLUME):
                         raise _runtime_errors.RunnerError("docker_control_failed")
 
+    def _check_container(self) -> dict[str, str]:
+        """Recover and verify the Docker runtime without credentials or model work.
 
+        Returns
+        -------
+        dict[str, str]
+            Private host environment with the selected local daemon pinned.
+
+        Raises
+        ------
+        RunnerError
+            Existing image, CLI, configuration or cleanup refusal. Cleanup
+            uncertainty wins and retains the receipt; no implicit retry occurs.
+        """
+        try:
+            from docker.errors import DockerException
+            from requests.exceptions import RequestException
+            from py_docker import Client
+            from py_docker.connection.settings import ConnectionSettings
+            from py_docker.containers.models import ContainerSpec
+            from py_docker.errors import (
+                CleanupUnconfirmedError,
+                ConnectionConfigurationError,
+                DockerOperationError,
+                OwnershipConflictError,
+            )
+            from py_docker.jobs.models import ContainerJob
+            from py_docker.streams.models import StreamLimits
+        except ImportError:
+            logging.getLogger(__name__).warning(
+                "Local Docker runtime dependencies are missing. Install Laomedo's "
+                "runner extra in the Python environment used to start this runner "
+                "(python -m pip install -e '.[runner]')."
+            )
+            raise _runtime_errors.RunnerError(
+                "runner_docker_check_unconfirmed"
+            ) from None
+        snapshot = ConnectionSettings.environment_snapshot(None)
+        try:
+            with Client(
+                settings=ConnectionSettings(
+                    timeout_seconds=_codex_settings.PREFLIGHT_API_TIMEOUT_SECONDS
+                ),
+                environment=snapshot,
+            ) as client:
+                receipt = self.state.joinpath(
+                    _codex_settings.PREFLIGHT_RECEIPT_FILENAME
+                )
+                client.jobs.recover(receipt)
+                self._recover_containers(client)
+                try:
+                    client.images.resolve(self.image, expected_id=self.image_id)
+                except OwnershipConflictError:
+                    raise _runtime_errors.RunnerError(
+                        "docker_image_digest_changed"
+                    ) from None
+                result = client.jobs.run(
+                    ContainerJob(
+                        spec=ContainerSpec(
+                            image=self.image_id,
+                            name="laomedo-codex-preflight-" + uuid4().hex,
+                            command=["codex", "--version"],
+                            user="10001:10001",
+                        ),
+                        limits=StreamLimits(
+                            seconds=_codex_settings.PREFLIGHT_STREAM_SECONDS,
+                            max_bytes=_codex_settings.PREFLIGHT_MAX_OUTPUT_BYTES,
+                        ),
+                        receipt_path=receipt,
+                        wait_timeout_seconds=_codex_settings.PREFLIGHT_WAIT_SECONDS,
+                    )
+                )
+                try:
+                    version = result.stdout.decode("utf-8").strip()
+                except UnicodeDecodeError:
+                    raise _runtime_errors.RunnerError(
+                        "unsupported_codex_cli_version"
+                    ) from None
+                if result.exit_code != 0 or version != _codex_settings.CLI_VERSION:
+                    raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
+                pinned = {
+                    key: value
+                    for key, value in snapshot.items()
+                    if key.upper() not in {"DOCKER_HOST", "DOCKER_CONTEXT"}
+                }
+                pinned["DOCKER_HOST"] = client.connection.endpoint
+                return pinned
+        except _runtime_errors.RunnerError:
+            raise
+        except CleanupUnconfirmedError:
+            raise _runtime_errors.RunnerError(
+                "container_termination_unverified"
+            ) from None
+        except ConnectionConfigurationError:
+            logging.getLogger(__name__).warning(
+                "Docker endpoint selection was rejected: use one unambiguous local "
+                "DOCKER_HOST or DOCKER_CONTEXT; TLS and remote endpoints are unsupported "
+                "by this local trial. No configuration values are logged."
+            )
+            raise _runtime_errors.RunnerError(
+                "runner_docker_check_unconfirmed"
+            ) from None
+        except (
+            DockerOperationError,
+            DockerException,
+            RequestException,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
+            raise _runtime_errors.RunnerError(
+                "runner_docker_check_unconfirmed"
+            ) from None
+
+    def _recover_containers(self, client) -> None:
+        """Recover central and legacy receipts on the selected client.
+
+        Parameters
+        ----------
+        client : py_docker.Client
+            Endpoint-bound client; recovery refuses uncertain or active receipts.
+        """
+        for pending in self.state.joinpath("receipts").glob("*.json"):
+            client.sessions.recover(pending)
+        for folder in ("runs", "catalog", "preflight"):
+            for pending in self.state.joinpath(folder).glob("*/*receipt*.json"):
+                client.sessions.recover(pending)
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
@@ -311,7 +437,12 @@ class CodexRunner(Runner):
 
 
     def preflight(self) -> dict:
-        """Check the existing Docker app-server and advertised models without a turn."""
+        """Launch native handshake, model and permission probes without a model turn.
+
+        This active check starts a controller and uses a disposable workspace.
+        Provider-neutral Docker startup validation is performed separately by
+        the constructor; this method checks the Codex protocol and permissions.
+        """
         root = self.state / "preflight" / str(uuid4())
         root.mkdir(parents=True)
         for name in ("workspace", "canonical", "store"):

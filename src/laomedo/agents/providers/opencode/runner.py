@@ -200,6 +200,12 @@ class OpenCodeRunner(_runtime_runner.Runner):
         return super()._prepare(request, **kwargs)
 
     def preflight(self):
+        """Report transport configuration without launching an authenticated backend.
+
+        transport_configured is not a health or authentication attestation.
+        Backend startup and catalogue/turn discovery perform the active checks;
+        retain this configuration-only boundary and its existing public payload.
+        """
         if self.transport_factory is None:
             return {
                 "provider": "opencode",

@@ -45,18 +45,14 @@ class ClaudeContainer:
                 CleanupUnconfirmedError,
                 ConnectionConfigurationError,
                 DockerOperationError,
+                ImageResolutionError,
             )
         except ImportError:
             raise _runtime_errors.RunnerError("claude_container_unavailable") from None
         try:
             with Client() as docker:
                 self.docker_endpoint = docker.connection.endpoint
-                try:
-                    self.image_id = docker.images.resolve(image)
-                except DockerOperationError:
-                    raise _runtime_errors.RunnerError(
-                        "claude_container_image_missing"
-                    ) from None
+                self.image_id = docker.images.resolve(image)
                 self.receipts = Path(lease_service).parent.joinpath("receipts")
                 self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in self.receipts.glob("claude-*.json"):
@@ -76,6 +72,8 @@ class ClaudeContainer:
             raise _runtime_errors.RunnerError(
                 "claude_container_configuration_invalid"
             ) from None
+        except ImageResolutionError:
+            raise _runtime_errors.RunnerError("claude_container_image_missing") from None
         except DockerOperationError:
             raise _runtime_errors.RunnerError("claude_container_unavailable") from None
         version = self.control(["--version"], timeout=60)

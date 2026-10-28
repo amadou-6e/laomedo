@@ -155,7 +155,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
 
     def test_recovered_metadata_is_removed_but_run_history_is_preserved(self):
         """Only successfully reconciled metadata folders are disposable."""
-        from laomedo.agents.providers.codex.preflight.service import CodexPreflight
+        from laomedo.agents.providers.codex.runner import CodexRunner
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
             for folder in ("runs","catalog","preflight"):
@@ -165,7 +165,8 @@ class RetirementAndCatalogueTests(unittest.TestCase):
                 directory.joinpath("history.json").write_text("retained execution evidence")
             client=Mock()
             client.sessions.recover.side_effect=lambda pending:pending.unlink()
-            CodexPreflight(root)._recover_sessions(client)
+            runner = CodexRunner.__new__(CodexRunner); runner.state = root
+            runner._recover_containers(client)
             self.assertTrue(root.joinpath("runs/identity/history.json").exists())
             self.assertTrue(root.joinpath("catalog/identity/history.json").exists())
             self.assertTrue(root.joinpath("preflight/identity/history.json").exists())
@@ -180,7 +181,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
 
     @unittest.skipUnless(find_spec("py_docker"),"Requires optional Docker runtime")
     def test_executor_receipt_is_recovered_and_unresolved_intent_is_retained(self):
-        from laomedo.agents.providers.codex.preflight.service import CodexPreflight
+        from laomedo.agents.providers.codex.runner import CodexRunner
         from laomedo.agents.providers.codex.runner import CodexRunner
         from py_docker.errors import CleanupUnconfirmedError
         with tempfile.TemporaryDirectory() as temp:
@@ -192,9 +193,9 @@ class RetirementAndCatalogueTests(unittest.TestCase):
             self.assertTrue(runner._pending_receipts(root))
             client=Mock(); client.sessions.recover.side_effect=CleanupUnconfirmedError("internal cleanup")
             with self.assertRaises(CleanupUnconfirmedError):
-                CodexPreflight(state)._recover_sessions(client)
+                runner._recover_containers(client)
             self.assertTrue(executor.exists()); self.assertTrue(root.exists())
             client.sessions.recover.side_effect=lambda pending:pending.unlink()
-            CodexPreflight(state)._recover_sessions(client)
+            runner._recover_containers(client)
             self.assertFalse(runner._pending_receipts(root))
             client.sessions.recover.assert_called_with(executor)

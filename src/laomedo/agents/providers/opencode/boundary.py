@@ -294,7 +294,7 @@ class IsolatedOpenCode:
             from py_docker import Client
             from py_docker.errors import (
                 CleanupUnconfirmedError, ConnectionConfigurationError,
-                DockerOperationError, OwnershipConflictError,
+                DockerOperationError, OwnershipConflictError, ImageResolutionError,
             )
         except ImportError:
             raise _runtime_errors.RunnerError(
@@ -303,13 +303,8 @@ class IsolatedOpenCode:
         try:
             with Client() as docker:
                 self.docker_endpoint = docker.connection.endpoint
-                try:
-                    docker.images.resolve(image, expected_id=image_id)
-                    docker.images.resolve(_opencode_settings.WORKER_IMAGE, expected_id=selected_worker_id)
-                except OwnershipConflictError:
-                    raise _runtime_errors.RunnerError("opencode_image_pin_mismatch") from None
-                except DockerOperationError:
-                    raise _runtime_errors.RunnerError("opencode_controller_image_unavailable") from None
+                docker.images.resolve(image, expected_id=image_id)
+                docker.images.resolve(_opencode_settings.WORKER_IMAGE, expected_id=selected_worker_id)
                 receipts = (
                     Path(receipt_directory)
                     if receipt_directory is not None
@@ -318,6 +313,10 @@ class IsolatedOpenCode:
                 receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in receipts.glob("*.json"):
                     docker.sessions.recover(receipt)
+        except OwnershipConflictError:
+            raise _runtime_errors.RunnerError("opencode_image_pin_mismatch") from None
+        except ImageResolutionError:
+            raise _runtime_errors.RunnerError("opencode_controller_image_unavailable") from None
         except CleanupUnconfirmedError:
             raise _runtime_errors.RunnerError("opencode_container_cleanup_unverified") from None
         except ConnectionConfigurationError:

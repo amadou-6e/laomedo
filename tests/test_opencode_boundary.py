@@ -41,12 +41,12 @@ class BoundaryTests(unittest.TestCase):
 
     @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_startup_failure_codes_distinguish_configuration_images_and_recovery(self):
-        from py_docker.errors import ConnectionConfigurationError, OwnershipConflictError
+        from py_docker.errors import ConnectionConfigurationError, OwnershipConflictError, ImageResolutionError
         cases = [
             ('client', ConnectionConfigurationError('internal selection'), 'opencode_container_configuration_invalid'),
             ('client', DockerOperationError('internal connection'), 'opencode_controller_startup_failed'),
             ('images', OwnershipConflictError('internal pin'), 'opencode_image_pin_mismatch'),
-            ('images', DockerOperationError('internal image inspection'), 'opencode_controller_image_unavailable'),
+            ('images', ImageResolutionError('internal image inspection'), 'opencode_controller_image_unavailable'),
             ('recover', CleanupUnconfirmedError('internal receipt'), 'opencode_container_cleanup_unverified'),
         ]
         for stage, error, expected in cases:

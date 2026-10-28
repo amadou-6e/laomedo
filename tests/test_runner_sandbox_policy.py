@@ -6,7 +6,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.native.models import CodexLaunch
-from laomedo.agents.providers.codex.preflight.models import DockerSelection
 
 
 @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
@@ -60,16 +59,16 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_both_modes_use_one_preflight_before_profile_access(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp); source=Path(__file__).resolve().parents[1] / "examples/github-pr"
-            selection=DockerSelection(image_id="sha256:"+"a"*64,environment={"DOCKER_HOST":"unix:///selected.sock"})
+            selection={"DOCKER_HOST":"unix:///selected.sock"}
             for split in (False,True):
-                with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check",return_value=selection) as checked, patch(
+                with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container",return_value=selection) as checked, patch(
                         "laomedo.agents.providers.codex.utils._ensure_split_profile") as profile, patch("py_docker.Client") as client:
                     runner=LocalRunner(root / str(split),root / "skills",source,split_executor=split)
-                    checked.assert_called_once_with(runner.image,runner.image_id)
+                    checked.assert_called_once_with()
                     if split:
-                        profile.assert_called_once_with(runner.profile,state=runner.state,env=selection.environment)
+                        profile.assert_called_once_with(runner.profile,state=runner.state,env=selection)
                     else:
-                        client.assert_called_once_with(environment=selection.environment)
+                        client.assert_called_once_with(environment=selection)
                         client.return_value.__enter__.return_value.volumes.exists.assert_called_once()
 
     def test_split_control_calls_keep_the_selected_endpoint(self):
@@ -86,7 +85,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
         source = inspect.getsource(LocalRunner.__init__)
         self.assertNotIn('"--version"', source)
         self.assertNotIn('"{{.Id}}"', source)
-        self.assertEqual(source.count("CodexPreflight(self.state).check("), 1)
+        self.assertEqual(source.count("self._check_container()"), 1)
 
     def test_changed_or_missing_packaged_profile_refuses_launch(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -120,16 +119,16 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             class Capture:
                 def __init__(self, command, evidence):
                     commands.append(command)
-            selection = DockerSelection(image_id=approved, environment={"DOCKER_HOST": "unix:///local-test.sock"})
-            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", return_value=selection) as checked, patch("py_docker.Client") as docker:
+            selection = {"DOCKER_HOST": "unix:///local-test.sock"}
+            with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container", return_value=selection) as checked, patch("py_docker.Client") as docker:
                 runner = LocalRunner(root / "state", root / "skills", source,
                                      image_id=approved, transport=Capture)
-                checked.assert_called_once_with(runner.image, approved)
-                self.assertEqual(docker.call_args.kwargs["environment"], selection.environment)
+                checked.assert_called_once_with()
+                self.assertEqual(docker.call_args.kwargs["environment"], selection)
             runner._open_server(root)
             self.assertEqual(approved, commands[0].image)
             self.assertNotEqual(runner.image, commands[0].image)
-            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", side_effect=RunnerError("docker_image_digest_changed")):
+            with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container", side_effect=RunnerError("docker_image_digest_changed")):
                 with self.assertRaisesRegex(RunnerError, "docker_image_digest_changed"):
                     LocalRunner(root / "mismatch", root / "skills", source,
                                 image_id=approved)
@@ -139,7 +138,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             source = Path(__file__).resolve().parents[1] / "examples/github-pr"
             approved = "sha256:" + "a" * 64
-            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
+            with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
                 with self.assertRaisesRegex(RunnerError, "unsupported_codex_cli_version"):
                     LocalRunner(root / "state", root / "skills", source, image_id=approved)
             docker.assert_not_called()

@@ -124,3 +124,10 @@ class Settings(BaseSettings):
         return init_settings, env_settings
 
     multi_agent: str | None = Field(default=None, validation_alias='LAOMEDO_RUNNER_MULTI_AGENT', repr=False, exclude=True)
+
+# Credential-free startup probe; these bound I/O, not total Docker wall time.
+PREFLIGHT_API_TIMEOUT_SECONDS = 15
+PREFLIGHT_STREAM_SECONDS = 20
+PREFLIGHT_MAX_OUTPUT_BYTES = 65536
+PREFLIGHT_WAIT_SECONDS = 20
+PREFLIGHT_RECEIPT_FILENAME = "docker-preflight-receipt.json"
