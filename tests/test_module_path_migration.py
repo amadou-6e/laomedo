@@ -15,6 +15,30 @@ _spec.loader.exec_module(migration)
 
 
 class ModuleMigrationTests(unittest.TestCase):
+    def test_unsafe_dotted_and_keyword_forms_require_manual_migration(self):
+        sources = [
+            'patch("laomedo.local_runner.subprocess.run")',
+            'import laomedo.local_runner\nx = laomedo.local_runner.RunnerError',
+            'from laomedo.container_lease import cleanup_exact\ncleanup_exact("n", "r", token=t)',
+            'from laomedo.container_lease import cleanup_exact\ncleanup_exact(name="n", run_id="r", token=t)',
+            'from laomedo.agent_activity import ActivityStore\nstore.start(owner, flow, node=n)',
+            'import laomedo.work_graph.model as models\nmodels.WorkItem("a")',
+            'from laomedo.agent_activity import capture_for\nr = capture_for(c)\ns, i = r',
+        ]
+        for source in sources:
+            with self.subTest(source=source), self.assertRaises(migration.ManualMigrationRequired):
+                migration.migrate_source(source)
+
+    def test_check_refuses_unmapped_dotted_patch_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'legacy.py'
+            source = 'patch("laomedo.local_runner.subprocess.run")'
+            path.write_text(source)
+            result = subprocess.run([sys.executable, str(TOOL), str(path), '--check'], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('manual', result.stdout.lower() + result.stderr.lower())
+            self.assertEqual(path.read_text(), source)
+
     def test_renamed_server_symbol_in_its_final_module_is_migrated(self):
         source = "import laomedo.skill_operation_server as api\nvalue = api.server(ops, token)\n"
         result = migration.migrate_source(source)

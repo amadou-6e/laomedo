@@ -73,7 +73,8 @@ class IssueServer(ThreadingHTTPServer):
                 except Exception as error:
                     category = (
                         str(error)
-                        if type(error) is ValueError and str(error) in SAFE_ERRORS
+                        if type(error) is ValueError
+                        and str(error) in _issues_contract.ERROR_CODES
                         else "github_issue_unavailable"
                     )
                     if isinstance(

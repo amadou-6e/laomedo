@@ -117,6 +117,9 @@ class MediatedLeaseTests(unittest.TestCase):
             payload={}, effect_id=None, transport=lambda *args: self.calls.append(args) or {})
 
     def test_exact_run_revoke_precedes_cleanup_and_other_run_survives(self):
+        # This checks isolation, not detection latency. Keep healthy leases valid
+        # across real local HTTP/file I/O; the deliberately stale lease is 10s old.
+        self.service.loss_seconds = 5
         first, accepted, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         self.assertTrue(accepted["grant_id"])
@@ -407,6 +410,9 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertIsNotNone(grants[0][0])
 
     def test_http_mediator_denies_revoked_grant_before_transport(self):
+        # This checks isolation, not detection latency. Keep healthy leases valid
+        # across real local HTTP/file I/O; the deliberately stale lease is 10s old.
+        self.service.loss_seconds = 5
         first, _, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         import threading

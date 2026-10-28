@@ -38,6 +38,13 @@ class FileEdit(BaseModel):
 
 
 class SkillProposal(BaseModel):
+    """Internal strict record; use from_payload at the public decoding boundary.
+
+    from_payload repeats the wire checks before construction to preserve stable
+    SkillStoreError categories. Direct internal construction uses ValidationError;
+    validator exceptions must never be forwarded as public error messages.
+    """
+
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )

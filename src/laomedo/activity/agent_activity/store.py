@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from laomedo.activity.agent_activity.models import CaptureIdentity
+
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4

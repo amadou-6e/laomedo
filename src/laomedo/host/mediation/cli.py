@@ -16,7 +16,6 @@ import time
 
 def main() -> None:
     import laomedo.host.mediation.service as _mediation_service
-    import laomedo.host.mediation.service as _mediation_service
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

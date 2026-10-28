@@ -1,6 +1,11 @@
 """Loopback lease and mediation HTTP server."""
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import laomedo.host.leases.grants as _leases_grants
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import json

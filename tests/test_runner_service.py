@@ -244,7 +244,7 @@ class RunnerServiceTests(unittest.TestCase):
         from laomedo.host.runner.startup import startup_gate
         gate = self.root / 'serve.lock'
         with startup_gate(gate) as marker: marker.with_suffix('.cancel').touch()
-        with patch.dict('os.environ', {'LAOMEDO_STARTUP_GATE':str(gate)}), patch('laomedo.agents.runtime.serving.ThreadingHTTPServer') as bind:
+        with patch.dict('os.environ', {'LAOMEDO_STARTUP_GATE':str(gate)}), patch('http.server.ThreadingHTTPServer.server_bind') as bind:
             with self.assertRaises(SystemExit): serve(SimpleNamespace(),port=0)
         bind.assert_not_called()
         self.assertTrue(gate.with_suffix(".cancelled").exists())

@@ -83,6 +83,7 @@ tests do not establish a live workflow.
 Package boundaries follow a feature's responsibilities and dependencies, with no
 fixed nesting depth. Repeated filename prefixes trigger an ownership review.
 Implementation files introduce classes or standalone functions, never both.
+Request-handler classes may be nested in their owning server constructor.
 Exceptions live in class-only `errors.py`. Helpers that belong to an object become
 methods; independent helpers stay in that feature's function-only `utils.py` or a
 focused module such as `serialization.py`. `constants.py` owns genuinely shared
@@ -111,7 +112,9 @@ The standalone Git credential helper remains stdlib-only.
 Migration maps distinguish module names, moved symbols and CLI entrypoints. Every
 published generation resolves directly to final owners in one pass. Ambiguous
 symbols, dynamic access to retired modules and changed typed call signatures
-require manual migration before any selected file is written. In particular,
+require manual migration before any selected file is written. Detection is
+conservative and best-effort; manually review changed call signatures and dynamic
+references even after a successful migration preview. In particular,
 container cleanup takes `ContainerIdentity`; `ActivityStore.start` takes
 `CaptureIdentity`; `capture_for` returns `ActivityInvocation` with `.store` and
 `.invocation_id`, rather than a tuple. Historical execution records are retained.

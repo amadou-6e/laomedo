@@ -14,7 +14,7 @@ import laomedo.host.publication.bundle.constants as _bundle_constants
 import laomedo.host.publication.bundle.errors as _bundle_errors
 import laomedo.host.publication.bundle.ownership as _bundle_ownership
 import laomedo.host.publication.bundle.stage as _bundle_stage
-import laomedo.host.publication.cli as _publication_cli
+import laomedo.host.publication.status as _publication_status
 import laomedo.skills.ingestion.constants as _ingestion_constants
 import laomedo.skills.ingestion.errors as _ingestion_errors
 import laomedo.skills.ingestion.utils as _ingestion_utils
@@ -201,11 +201,11 @@ class BundleVerifier:
         try:
             while not stopping.is_set():
                 status.update(phase="scanning", scan_started_monotonic=time.monotonic())
-                _publication_cli._publish_status(path, status)
+                _publication_status._publish_status(path, status)
                 self.scan_once()
                 status.update(phase="idle", scan_completed_monotonic=time.monotonic())
-                _publication_cli._publish_status(path, status)
+                _publication_status._publish_status(path, status)
                 stopping.wait(0.2)
         finally:
             status.update(phase="stopped")
-            _publication_cli._publish_status(path, status)
+            _publication_status._publish_status(path, status)

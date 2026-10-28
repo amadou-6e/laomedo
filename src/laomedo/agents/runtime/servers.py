@@ -110,7 +110,6 @@ class AppServer:
             try:
                 event = json.loads(line)
                 import laomedo.activity.runner.feed as _runner_feed
-                import laomedo.activity.runner.feed as _runner_feed
 
                 if _runner_feed.notification(event):
                     self.activity_log.write(

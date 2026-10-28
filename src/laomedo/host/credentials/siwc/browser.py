@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import laomedo.host.credentials.siwc.connection as _siwc_connection
+
 from functools import partial
 from laomedo.host.credentials.siwc.callback import CallbackHandler
 from http.server import HTTPServer

@@ -57,7 +57,7 @@ class BoundaryTests(unittest.TestCase):
             broker.token = 'synthetic-capability'
             def docker(args, **_kwargs):
                 if args[:3] == ['docker', 'image', 'inspect']:
-                    return Mock(stdout='fixture-image' if args[3] == 'fixture-controller' else WORKER_IMAGE_ID)
+                    return Mock(stdout='fixture-image' if args[3] == 'fixture-controller' else IMAGE_ID)
                 return Mock(returncode=0,stdout='',stderr='')
             with patch('laomedo.agents.providers.opencode.boundary.CommandBroker', return_value=broker), \
                  patch('laomedo.agents.providers.opencode.boundary.subprocess.run', side_effect=docker):
@@ -75,7 +75,7 @@ class BoundaryTests(unittest.TestCase):
             launch = []
             def docker(args, **_kwargs):
                 if args[:3] == ['docker', 'image', 'inspect']:
-                    return Mock(stdout='fixture-image' if args[3] == 'fixture-controller' else WORKER_IMAGE_ID)
+                    return Mock(stdout='fixture-image' if args[3] == 'fixture-controller' else IMAGE_ID)
                 if args[:3] == ['docker', 'run', '-d']:
                     launch.extend(args)
                     raise subprocess.CalledProcessError(1, args)
@@ -105,7 +105,7 @@ class BoundaryTests(unittest.TestCase):
                 configured.append(True)
             def docker(args,**_kwargs):
                 if args[:3]==['docker','image','inspect']:
-                    return Mock(stdout='fixture-image' if args[3]=='fixture-controller' else WORKER_IMAGE_ID)
+                    return Mock(stdout='fixture-image' if args[3]=='fixture-controller' else IMAGE_ID)
                 if args[:3]==['docker','run','-d']:
                     config_file=next(evidence.glob('controller-*/config.json'))
                     self.assertTrue(json.loads(config_file.read_text())['tools']['task'])

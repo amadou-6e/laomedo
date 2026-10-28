@@ -4,6 +4,7 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from pathlib import Path
+from pydantic import ValidationError
 import argparse
 import json
 import laomedo.work_graph.github as _work_graph_github
@@ -142,7 +143,12 @@ def main(argv: list[str] | None = None) -> int:
             )
         return 0
     except (ValueError, KeyError, TypeError, OSError, RuntimeError) as error:
-        parser.exit(2, f"Work Graph: {error}\n")
+        message = (
+            error.errors()[0]["msg"]
+            if isinstance(error, ValidationError)
+            else str(error)
+        )
+        parser.exit(2, f"Work Graph: {message}\n")
 
 
 if __name__ == "__main__":

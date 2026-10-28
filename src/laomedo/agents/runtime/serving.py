@@ -1,6 +1,11 @@
 """Expose the authenticated local runner HTTP interface."""
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import laomedo.agents.runtime.runner as _runtime_runner
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 import json

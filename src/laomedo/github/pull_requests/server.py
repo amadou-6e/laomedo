@@ -93,7 +93,8 @@ class PullRequestServer(ThreadingHTTPServer):
                 except Exception as error:
                     category = (
                         str(error)
-                        if type(error) is ValueError and str(error) in SAFE_ERRORS
+                        if type(error) is ValueError
+                        and str(error) in _pull_requests_contract.ERROR_CODES
                         else "github_pr_unavailable"
                     )
                     if isinstance(

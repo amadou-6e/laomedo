@@ -66,6 +66,15 @@ def migrate_source(source: str) -> str:
     capture_returns = set()
     activity_store_imported = False
     changed_models = set()
+    parents = (
+        {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
+        if tree is not None
+        else {}
+    )
     if tree is not None:
         # AST columns count UTF-8 bytes, using Python's physical line boundaries.
         lines = _physical_lines(source)
@@ -108,7 +117,9 @@ def migrate_source(source: str) -> str:
                     elif full in SYMBOL_PATHS:
                         target, name = SYMBOL_PATHS[full].rsplit(".", 1)
                         if name == "LeaseHTTPServer":
-                            raise ManualMigrationRequired("Lease handler construction now belongs to LeaseHTTPServer; manual migration is required")
+                            raise ManualMigrationRequired(
+                                "Lease handler construction now belongs to LeaseHTTPServer; manual migration is required"
+                            )
                         if name in {
                             "WorkItem",
                             "Dependency",
@@ -178,6 +189,12 @@ def migrate_source(source: str) -> str:
             ):
                 replace(node.args[0], repr(CLI_PATHS[node.args[0].value]))
         for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and any(
+                ast.unparse(node).startswith(old + ".") for old in MODULE_PATHS
+            ):
+                raise ManualMigrationRequired(
+                    "Retired fully qualified attributes require manual migration and explicit imports"
+                )
             if (
                 isinstance(node, ast.Assign)
                 and isinstance(node.value, ast.Call)
@@ -229,16 +246,71 @@ def migrate_source(source: str) -> str:
                 ):
                     full = aliases[node.func.value.id] + "." + node.func.attr
                 target = SYMBOL_PATHS.get(full, "")
+                if node.args and target.rsplit(".", 1)[-1] in {
+                    "WorkItem",
+                    "Dependency",
+                    "GraphSnapshot",
+                    "VerifiedStage",
+                }:
+                    raise ManualMigrationRequired(
+                        "Pydantic model construction requires named fields; manual migration of positional arguments is required"
+                    )
+
+                if (
+                    name in capture_returns
+                    or target.rsplit(".", 1)[-1] == "capture_for"
+                ):
+                    parent = parents.get(node)
+                    if isinstance(parent, ast.Attribute) and parent.attr in {
+                        "store",
+                        "invocation_id",
+                    }:
+                        pass
+                    elif (
+                        isinstance(parent, ast.Assign)
+                        and len(parent.targets) == 1
+                        and isinstance(parent.targets[0], ast.Name)
+                    ):
+                        variable = parent.targets[0].id
+                        uses = [
+                            n
+                            for n in ast.walk(tree)
+                            if isinstance(n, ast.Name)
+                            and n.id == variable
+                            and isinstance(n.ctx, ast.Load)
+                        ]
+                        if not uses or any(
+                            not isinstance(parents.get(n), ast.Attribute)
+                            or parents[n].attr not in {"store", "invocation_id"}
+                            for n in uses
+                        ):
+                            raise ManualMigrationRequired(
+                                "capture_for results require manual review of .store and .invocation_id access"
+                            )
+                    else:
+                        raise ManualMigrationRequired(
+                            "capture_for now returns ActivityInvocation; manual migration is required"
+                        )
+
                 if (
                     activity_store_imported
                     and isinstance(node.func, ast.Attribute)
                     and node.func.attr == "start"
-                    and len(node.args) >= 3
+                    and (
+                        len(node.args) + len(node.keywords) >= 3
+                        or any(
+                            k.arg in {"owner", "flow", "node", "provider", "execution"}
+                            for k in node.keywords
+                        )
+                    )
                 ):
                     raise ManualMigrationRequired(
                         "ActivityStore.start now takes CaptureIdentity; manual migration of this call is required"
                     )
-                if len(node.args) >= 3 and (
+                if (
+                    len(node.args) + len(node.keywords) >= 3
+                    or any(k.arg in {"name", "run_id", "token"} for k in node.keywords)
+                ) and (
                     name in changed_parameters
                     or target.rsplit(".", 1)[-1]
                     in {"inspect_exact", "cleanup_exact", "cleanup_after_loss"}
@@ -256,8 +328,13 @@ def migrate_source(source: str) -> str:
                 if full in SYMBOL_PATHS:
                     target, name = SYMBOL_PATHS[full].rsplit(".", 1)
                     if name == "LeaseHTTPServer":
-                        raise ManualMigrationRequired("Lease handler construction now belongs to LeaseHTTPServer; manual migration is required")
-                    if target != MODULE_PATHS.get(original, original) or name != node.attr:
+                        raise ManualMigrationRequired(
+                            "Lease handler construction now belongs to LeaseHTTPServer; manual migration is required"
+                        )
+                    if (
+                        target != MODULE_PATHS.get(original, original)
+                        or name != node.attr
+                    ):
                         alias = "_migrated_" + node.value.id + "_" + node.attr
                         additional.add(
                             "from " + target + " import " + name + " as " + alias
@@ -300,7 +377,15 @@ def migrate_source(source: str) -> str:
             lambda m: m[1] + new,
             source,
         )
-    return MODULE_PATTERN.sub(lambda match: MODULE_PATHS[match.group()], source)
+    source = MODULE_PATTERN.sub(lambda match: MODULE_PATHS[match.group()], source)
+    if any(
+        re.search(r"(?<![\w.])" + re.escape(old) + r"\.", source)
+        for old in MODULE_PATHS
+    ):
+        raise ManualMigrationRequired(
+            "A retired module attribute remains; manual migration is required"
+        )
+    return source
 
 
 def _migrate_selected(value, path):

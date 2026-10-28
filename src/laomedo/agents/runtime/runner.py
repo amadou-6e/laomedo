@@ -282,7 +282,6 @@ class LocalRunner:
         command_directory = None
         if capability is not None and self.git_workspace:
             import laomedo.host.mediation.agent_cli as _mediation_agent_cli
-            import laomedo.host.mediation.agent_cli as _mediation_agent_cli
 
             if repository is None or branch is None:
                 raise _runtime_errors.RunnerError("mediated_command_scope_missing")
