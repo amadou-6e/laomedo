@@ -138,7 +138,20 @@ class CodexRunner(Runner):
             _codex_settings.CONFIG_LF_SHA256,
         }:
             raise _runtime_errors.RunnerError("permission_config_changed")
-        if check_docker:
+        self.docker_environment = None
+        if check_docker and not split_executor:
+            from laomedo.agents.providers.codex.preflight.service import CodexPreflight
+
+            selected = CodexPreflight(self.state).check(self.image, self.image_id)
+            self.docker_environment = selected.environment
+            subprocess.run(
+                ["docker", "volume", "inspect", _codex_settings.VOLUME],
+                check=True,
+                capture_output=True,
+                timeout=15,
+                env=self.docker_environment,
+            )
+        elif check_docker:
             found = subprocess.run(
                 ["docker", "image", "inspect", self.image, "--format", "{{.Id}}"],
                 check=True,
@@ -274,8 +287,11 @@ class CodexRunner(Runner):
             return self.transport(
                 command,
                 root,
+                env=getattr(self, "docker_environment", None),
                 secret_redactions=(capability.read_text(encoding="utf-8").strip(),),
             )
+        if self.transport is _runtime_servers.AppServer:
+            return self.transport(command, root, env=getattr(self, "docker_environment", None))
         return self.transport(command, root)
 
 

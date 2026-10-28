@@ -1,10 +1,11 @@
 # Docker runtime adoption
 
-This is the migration record for Laomedo issues #196–202. Implementation is
-pending the reviewed `py-docker` release; no Docker CLI path has been replaced by
-this document. The implementation baseline is 735e417, which includes the current
-src-layout work on top of fetched develop 6069ac9. The visible checkout is kept
-unchanged. Reconcile with develop again before opening the implementation PR.
+This is the migration record for Laomedo issues #196–202. The first local trial replaces normal, non-split Codex image/version preflight
+with the merged `py-docker` runtime. It is stacked on provider-neutral PR #211
+head 8ff5a27; fetched develop remains 6069ac9. The visible checkout is kept
+unchanged. The optional `runner` extra pins Git merge 212e24d before PyPI;
+this trial is not ready to merge into develop until the published dependency is
+hash-pinned and the owner reviews the working graph.
 
 ## Ownership
 
@@ -26,10 +27,10 @@ ranges and pinned Langflow stage before adoption.
 | Issue | Existing owners | Runtime surface and remaining requirement |
 | --- | --- | --- |
 | #196 connection/readiness | host/runner/prerequisites.py, provider environment helpers | Client and ResolvedConnection; retain installation-vs-stopped-vs-unknown distinctions and resolve one endpoint for SDK and remaining CLI calls. |
-| #197 image/CLI checks | agents/runtime/runner.py, provider containers | Images.resolve plus restricted credential-free verification container; exact expected image ID and native CLI version remain Laomedo policy. |
+| #197 image/CLI checks | agents/providers/codex/runner.py, provider containers | Images.resolve plus restricted credential-free verification container; exact expected image ID and native CLI version remain Laomedo policy. |
 | #198 volumes/login copy | agents/runtime/utils.py, host/credentials/claude/utils.py | Volumes inspection/creation receipts; preserve existing named-volume labels and local-only login restrictions. Unique-volume helper alone does not migrate existing fixed auth volumes. |
 | #199 launch | provider/runtime launch helpers, work_graph/docker_stage.py, publication bundle stage | ContainerSpec, reserve/create/reconcile and launch readback; compare every existing launch option before switching. No implicit pulls/builds or force replacement. |
-| #200 interactive protocol | agents/runtime/servers.py, provider consumers | Execution.attach binary frames and stdin; prove real agent JSON-RPC, activity, cancellation and shutdown parity. SDK socket closure is not container termination; stdin half-close is not guaranteed. |
+| #200 interactive protocol | agents/providers/codex/servers.py, provider consumers | Execution.attach binary frames and stdin; prove real agent JSON-RPC, activity, cancellation and shutdown parity. SDK socket closure is not container termination; stdin half-close is not guaranteed. |
 | #201 exec/export | command workers, publication bundle/stage.py and verified/git.py | Execution.run supports bounded binary output; archive streaming and a total end-to-end deadline are not supplied by the first prerelease. Keep the current verified export until those contracts are implemented and reviewed. |
 | #202 cleanup/supervision | host/leases and publication/bundle/ownership.py | Exact immutable-ID removal and receipts; preserve absent/owned/conflict/unknown results, name replacement checks, ownership locks and independent supervisor lifetime. Never prune by prefix or port. |
 
@@ -43,9 +44,9 @@ Laomedo must retain its own serialized named-volume lifecycle where required.
 
 The library has credential-free local Windows named-pipe and Unix-socket checks.
 These establish library behavior only. Internal fault-injection checks establish
-recovery logic, not a real daemon failure or a working agent graph. Runtime CI,
-reviewed release artifacts and PyPI name/publisher acceptance precede dependency
-locking; each migration then needs its own affected checks and real agent path.
+recovery logic, not a real daemon failure or a working agent graph. The local trial records the merged Git revision and built-wheel hash. Runtime CI,
+reviewed release artifacts and PyPI name/publisher acceptance precede production
+dependency locking; each migration then needs its own affected checks and real agent path.
 
 All existing public error codes and actual UI recovery controls stay intact.
 Explicitly cover new producer paths in the shared error catalogue guard. A Docker
@@ -58,3 +59,41 @@ The SDK owns Docker HTTP transport. The separate implementation-wide HTTPX issue
 
 Do not merge Laomedo into develop until the owner reviews the real working graph
 and approves. Library CI or a package reviewer verdict does not satisfy that gate.
+
+
+## First local slice: normal Codex preflight
+
+The host-only `runner` extra loads py-docker lazily. Core Laomedo, Langflow
+components and stage-worker imports do not require the Docker SDK. Split Codex,
+Claude, OpenCode, host readiness classification, login mirroring, volumes,
+publication/export and independent lease supervision retain their existing paths.
+
+One scoped Client receives the exact host environment snapshot and explicit
+15-second request settings. PY_DOCKER_* endpoint overrides are deliberately not
+adopted. Ambiguous DOCKER_HOST/DOCKER_CONTEXT, remote and TLS configurations now
+fail closed for this local trial. Image inspection checks the host pin; creation
+uses that immutable ID, never the mutable tag. The real codex --version probe
+has no volumes or login, runs as 10001:10001 with no networking, no capabilities
+and no-new-privileges. Read-only rootfs, 128 processes and 1g memory intentionally
+tighten the previous probe and require real-image verification.
+
+Attach happens before start; combined binary output is limited to 64 KiB and a
+20-second stream lifetime. Exit-status wait is bounded separately to 20 seconds.
+These are per-operation limits, not the former single 20-second process deadline.
+The private runner state retains a canonical ownership receipt before create;
+unknown create outcomes retain it and block another probe until exact cleanup
+can be confirmed. Cleanup failure takes precedence over version/pin errors.
+
+The remaining normal-mode CLI volume check, launch and fallback cleanup receive
+the same snapshot pinned with DOCKER_HOST and without DOCKER_CONTEXT. Independent
+lease cleanup remains on its existing host CLI configuration. Therefore changing
+Docker host/context configuration while a runner or lease service is alive is
+unsupported; restart/reconcile services first. This pre-existing lease risk is
+not claimed fixed by the trial and blocks general endpoint migration (#196/#202).
+
+Error mapping uses existing catalogue entries: image pin mismatch becomes
+docker_image_digest_changed; nonzero/invalid UTF-8/version mismatch becomes
+unsupported_codex_cli_version; SDK, connection, import and stream failures become
+runner_docker_check_unconfirmed; cleanup uncertainty becomes
+container_termination_unverified. Missing image is not inferred from a generic
+SDK failure. No external exception text, output or receipt labels cross the boundary.

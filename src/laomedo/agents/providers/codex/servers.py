@@ -27,6 +27,7 @@ class AppServer:
     def __init__(
         self, command: list[str], evidence: Path, *, env=None, secret_redactions=()
     ):
+        self.docker_environment = env
         self.telemetry = None
         if _runner_settings.Settings().otel == "1":
             import laomedo.activity.runner.telemetry as _runner_telemetry
@@ -261,6 +262,7 @@ class AppServer:
                 else:
                     subprocess.run(
                         ["docker", "rm", "-f", self.container_name],
+                        env=getattr(self, "docker_environment", None),
                         capture_output=True,
                         timeout=15,
                     )
@@ -285,11 +287,13 @@ class AppServer:
                 else:
                     subprocess.run(
                         ["docker", "rm", "-f", self.container_name],
+                        env=getattr(self, "docker_environment", None),
                         capture_output=True,
                         timeout=15,
                     )
                     probe = subprocess.run(
                         ["docker", "inspect", self.container_name],
+                        env=getattr(self, "docker_environment", None),
                         capture_output=True,
                         timeout=10,
                     )
