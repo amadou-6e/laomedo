@@ -97,3 +97,48 @@ unsupported_codex_cli_version; SDK, connection, import and stream failures becom
 runner_docker_check_unconfirmed; cleanup uncertainty becomes
 container_termination_unverified. Missing image is not inferred from a generic
 SDK failure. No external exception text, output or receipt labels cross the boundary.
+
+## Local installation and recovery
+
+For a normal Codex host runner, install `python -m pip install -e '.[runner]'`
+or `uv sync --extra runner` in the same environment used by
+`python -m laomedo.agents.providers.codex.cli`. A managed launcher must point to
+that environment; installing into the app's different Python does not update it.
+The constructor checks the optional runtime before starting Docker work, for
+both manual and managed launchers. Its host startup log distinguishes a missing
+runner extra from rejected ambiguous/TLS/remote endpoint settings using fixed
+diagnostics, without logging environment values or raw external exceptions.
+The shared public code remains runner_docker_check_unconfirmed.
+
+If startup reports container_termination_unverified, stop that runner and retain
+`<runner-state>/docker-preflight-receipt.json`. This is private ownership data;
+do not copy its labels into a graph, issue, transcript or shared log. A later
+startup automatically reconciles an observed matching container and removes
+only its immutable ID. A corrupt receipt, conflicting resource, unknown daemon
+response or absent never-observed create leaves the receipt in place and blocks
+another probe. Even failure to delete the receipt after container removal is
+reported conservatively as cleanup-unverified.
+
+For a never-observed reservation, immediate absence is insufficient: an old
+daemon request might still complete. Do not simply delete the receipt to retry.
+Keep the original host/context unchanged, stop the original runner/client, and
+resolve the original daemon's outstanding create request first. If that cannot
+be established, restart the local Docker engine at a suitable time, after
+reconciling other active local work. Once the old request cannot execute, inspect
+the saved name and ownership label privately on that same endpoint. Remove only
+a matching owned immutable ID if present; a conflict requires investigation.
+Only after confirmed absence and no outstanding create may you remove the saved
+receipt and start the runner again. There is no automatic timed-absence shortcut
+and no new graph retry or model request is needed for this recovery.
+
+## Local trial evidence limits
+
+The installed local image is sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738,
+not the checked-in sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239.
+The trial confirms the default pin is refused, then uses the existing trusted-host
+image_id override. This is local integration evidence for that explicitly selected
+image, whose build provenance is not established here; it does not validate the
+checked-in image or approve changing its pin. The local wheel hash, merged source
+revision, installed module origin and module-byte comparison are retained in the
+ignored trial evidence. PyPI publication, hash-pinned production adoption and
+owner graph review remain separate pending steps.

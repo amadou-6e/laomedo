@@ -1,6 +1,7 @@
 """Internal preflight controls; real Docker/agent acceptance is recorded separately."""
 
 import ast
+import builtins
 import importlib.util
 import json
 import subprocess
@@ -42,6 +43,35 @@ assert 'docker' not in sys.modules
         )
         self.assertNotIn("sensitive", repr(selection))
         self.assertEqual(selection.model_dump(), {"image_id": selection.image_id})
+
+    def test_missing_optional_runtime_has_an_actionable_safe_startup_log(self):
+        """The manual and managed constructor path names the missing install extra."""
+        original = builtins.__import__
+
+        def without_runtime(name, *args, **kwargs):
+            if name == "docker.errors":
+                raise ImportError("external private diagnostic")
+            return original(name, *args, **kwargs)
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("builtins.__import__", side_effect=without_runtime),
+            self.assertLogs(
+                "laomedo.agents.providers.codex.preflight.service", level="WARNING"
+            ) as logs,
+            self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
+        ):
+            CodexPreflight(Path(directory)).check("image", "sha256:" + "a" * 64)
+        self.assertIn(".[runner]", logs.output[0])
+        self.assertNotIn("external private diagnostic", logs.output[0])
+
+    def test_current_security_policy_retains_canonical_checkout_bytes(self):
+        """Keep the moved hashed seccomp policy under its LF checkout rule."""
+        attributes = ROOT.joinpath(".gitattributes").read_text()
+        self.assertIn(
+            "src/laomedo/agents/providers/codex/resources/codex-seccomp.json text eol=lf",
+            attributes,
+        )
 
     def test_every_new_preflight_error_producer_has_descriptive_catalogue_coverage(
         self,
@@ -200,6 +230,44 @@ class PreflightControls(unittest.TestCase):
         self.client.containers.reconcile.assert_called_once_with(self.receipt)
         self.client.containers.remove.assert_called_once_with(self.identity, force=True)
         self.assertFalse(self.preflight.receipt_path.exists())
+
+    def test_receipt_cannot_be_replaced_by_a_second_probe(self):
+        """Exclusive creation preserves an outstanding reservation until recovery."""
+        self.preflight._save(self.receipt)
+        before = self.preflight.receipt_path.read_bytes()
+        with self.assertRaises(FileExistsError):
+            self.preflight._save(self.receipt)
+        self.assertEqual(self.preflight.receipt_path.read_bytes(), before)
+
+    def test_malformed_sdk_status_is_translated_and_owned_probe_is_removed(self):
+        """Unexpected SDK result shapes do not escape the descriptive error boundary."""
+        self.client.__enter__.return_value = self.client
+        self.client.sdk.containers.get.return_value.wait.return_value = None
+        with patch("py_docker.Client", return_value=self.client):
+            with self.assertRaisesRegex(
+                RunnerError, "^runner_docker_check_unconfirmed$"
+            ):
+                self.preflight.check("image", self.expected)
+        self.client.containers.remove.assert_called_once_with(self.identity, force=True)
+        self.assertFalse(self.preflight.receipt_path.exists())
+
+    def test_rejected_endpoint_diagnostic_never_logs_configuration_values(self):
+        """Help local setup without exposing raw errors or endpoint credentials."""
+        from py_docker.errors import ConnectionConfigurationError
+
+        with (
+            patch(
+                "py_docker.Client",
+                side_effect=ConnectionConfigurationError("private endpoint"),
+            ),
+            self.assertLogs(
+                "laomedo.agents.providers.codex.preflight.service", level="WARNING"
+            ) as logs,
+            self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
+        ):
+            self.preflight.check("image", self.expected)
+        self.assertIn("DOCKER_HOST", logs.output[0])
+        self.assertNotIn("private endpoint", logs.output[0])
 
     def test_selected_endpoint_pins_cli_snapshot_and_ignores_library_env_overrides(
         self,

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -60,9 +62,17 @@ class CodexPreflight:
             from docker.errors import DockerException
             from py_docker import Client
             from py_docker.connection.settings import ConnectionSettings
-            from py_docker.errors import DockerOperationError
+            from py_docker.errors import (
+                ConnectionConfigurationError,
+                DockerOperationError,
+            )
             from requests.exceptions import RequestException
         except ImportError:
+            logging.getLogger(__name__).warning(
+                "Local Docker runtime dependencies are missing. Install Laomedo's "
+                "runner extra in the Python environment used to start this runner "
+                "(python -m pip install -e '.[runner]')."
+            )
             raise RunnerError("runner_docker_check_unconfirmed") from None
 
         snapshot = ConnectionSettings.environment_snapshot(None)
@@ -84,12 +94,22 @@ class CodexPreflight:
                 return DockerSelection(image_id=expected_id, environment=pinned)
         except RunnerError:
             raise
+        except ConnectionConfigurationError:
+            logging.getLogger(__name__).warning(
+                "Docker endpoint selection was rejected: use one unambiguous local "
+                "DOCKER_HOST or DOCKER_CONTEXT; TLS and remote endpoints are unsupported "
+                "by this local trial. No configuration values are logged."
+            )
+            raise RunnerError("runner_docker_check_unconfirmed") from None
         except (
             DockerOperationError,
             DockerException,
             RequestException,
             OSError,
             ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
         ):
             raise RunnerError("runner_docker_check_unconfirmed") from None
 
@@ -166,7 +186,10 @@ class CodexPreflight:
                 for key, token in reservation.labels.items()
             },
         }
-        with self.receipt_path.open("x", encoding="utf-8") as target:
+        descriptor = os.open(
+            self.receipt_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
+        )
+        with os.fdopen(descriptor, "w", encoding="utf-8") as target:
             json.dump(value, target)
 
     def _recover(self, client: Client) -> None:
