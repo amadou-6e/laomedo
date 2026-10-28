@@ -118,7 +118,7 @@ SDK failure. No external exception text, output or receipt labels cross the boun
 
 ## Local installation and recovery
 
-For a normal Codex host runner, install `python -m pip install -e '.[runner]'`
+For a Codex host runner (normal or split), install `python -m pip install -e '.[runner]'`
 or `uv sync --extra runner` in the same environment used by
 `python -m laomedo.agents.providers.codex.cli`. A managed launcher must point to
 that environment; installing into the app's different Python does not update it.
