@@ -8,7 +8,7 @@ Build from the pinned local base image, then check the result against
 `GIT_IMAGE_ID` in `laomedo/local_runner.py`:
 
 ```sh
-docker build --provenance=false --tag laomedo-codex-git:0.159.2 containers/codex-git
+docker build --provenance=false --tag laomedo-codex-git:0.159.2 docker/codex-git
 docker image inspect laomedo-codex-git:0.159.2 --format '{{.Id}}'
 ```
 
