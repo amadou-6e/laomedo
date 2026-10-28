@@ -7,21 +7,56 @@ forwarding modules, import hooks or checkout bridge.
 
 ```text
 src/laomedo/
-  activity/{agent_activity,claude,opencode,runner}/
-  agents/
-    {artifacts,contracts,feedback,handoffs,runtime,workflow,workspace}/
-    providers/{claude,opencode}/
-    resources/
-  skills/{authoring,ingestion,inspection,operations,registry,sources,workspace}/
-  skills/resources/
-  github/{issues,pull_requests,transport/{git,rest}}/
-  host/
-    credentials/{claude,opencode,siwc,token}/
-    {leases,mediation,runner}/
-    publication/{bundle,handoff,verified}/
-    publication/resources/
-  integrations/langflow/join/
-  work_graph/
+|-- activity/
+|   |-- agent_activity/
+|   |-- claude/
+|   |-- opencode/
+|   `-- runner/
+|-- agents/
+|   |-- artifacts/
+|   |-- contracts/
+|   |-- feedback/
+|   |-- handoffs/
+|   |-- runtime/
+|   |-- workflow/
+|   |-- workspace/
+|   |-- providers/
+|   |   |-- claude/
+|   |   `-- opencode/
+|   `-- resources/
+|-- skills/
+|   |-- authoring/
+|   |-- ingestion/
+|   |-- inspection/
+|   |-- operations/
+|   |-- registry/
+|   |-- sources/
+|   |-- workspace/
+|   `-- resources/
+|-- github/
+|   |-- issues/
+|   |-- pull_requests/
+|   `-- transport/
+|       |-- git/
+|       `-- rest/
+|-- host/
+|   |-- credentials/
+|   |   |-- claude/
+|   |   |-- opencode/
+|   |   |-- siwc/
+|   |   `-- token/
+|   |-- leases/
+|   |-- mediation/
+|   |-- runner/
+|   `-- publication/
+|       |-- bundle/
+|       |-- handoff/
+|       |-- verified/
+|       `-- resources/
+|-- integrations/
+|   `-- langflow/
+|       `-- join/
+`-- work_graph/
 ```
 
 Each implementation has one owner. Use `laomedo.agents.runtime.runner`,
