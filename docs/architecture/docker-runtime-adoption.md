@@ -34,7 +34,20 @@ half-close stdin while retaining output. OpenCode launches both resolved immutab
 images and accepts a published endpoint only on IPv4 loopback. Startup receipts
 are recovered before another launch. Oversized command output is a failure after
 confirmed cleanup, with a warning that workspace changes may already exist.
-This is implementation status, not provider, graph, publication or LOC acceptance.
+Recovery checks central receipts and older run/catalogue receipt directories
+before another OpenCode dispatch. Catalogue cleanup retains unresolved intent.
+Receipts include the resolved Docker endpoint; missing or mismatched provenance
+blocks automatic recovery. The controller has an in-container deadline, and
+capture failures stop it rather than silently leaving an unread stream. Fatal
+worker output and transport failures reach the run record and shared node error
+presenter, with cleanup uncertainty taking precedence.
+
+Real zero-turn startup passed for both providers. A real OpenCode task completed
+through its worker, and Claude completed after the already-authorized access-only
+login mirror refreshed an expired copy. These are provider integration evidence,
+not graph acceptance. The host credential mirror still uses its existing CLI
+transport; its credential policy and transport are outside this increment.
+Graph, publication and LOC acceptance remain outstanding.
 
 ## Canonical paths
 

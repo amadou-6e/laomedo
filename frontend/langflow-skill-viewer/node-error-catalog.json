@@ -1002,7 +1002,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentâ€™s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent’s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -1483,5 +1483,20 @@
     "title": "The workspace command returned too much output",
     "description": "The isolated command exceeded its output limit. The runner stopped it and confirmed container cleanup before reporting this failure.",
     "recovery": "Check the current workspace changes before deciding whether to run another command. Limit the command output; the original command may already have changed files."
+  },
+  "opencode_command_service_closed": {
+    "title": "The workspace command service has stopped",
+    "description": "This run no longer accepts workspace commands because its command service is closing or closed.",
+    "recovery": "Check the existing run status and workspace before deciding whether to start new work."
+  },
+  "opencode_workspace_command_failed": {
+    "title": "The isolated workspace command could not finish",
+    "description": "The runner could not confirm the workspace command result. Its container was cleaned up before this failure was reported.",
+    "recovery": "Inspect the existing run and workspace changes. The command may already have changed files; do not repeat it automatically."
+  },
+  "opencode_controller_output_failed": {
+    "title": "The Agent output could not be captured",
+    "description": "The runner lost the controller output stream or its output exceeded the allowed limit. A completed Agent response could not be confirmed.",
+    "recovery": "Check the existing run status and workspace changes before starting new work. Check Technical details for the stable error code."
   }
 }

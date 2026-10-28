@@ -164,6 +164,6 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_claude_endpoint_configuration_maps_to_descriptive_code(self):
         from laomedo.agents.providers.claude.container import ClaudeContainer
         from py_docker.errors import ConnectionConfigurationError
-        with patch("py_docker.Client",side_effect=ConnectionConfigurationError("select local endpoint")):
+        with patch.object(ClaudeContainer,"check_supervisor"), patch("py_docker.Client",side_effect=ConnectionConfigurationError("select local endpoint")):
             with self.assertRaisesRegex(RunnerError,"claude_container_configuration_invalid"):
                 ClaudeContainer()

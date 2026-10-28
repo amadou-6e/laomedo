@@ -68,6 +68,7 @@ class BoundaryTests(unittest.TestCase):
             profile,workspace,evidence=self.fixture(Path(tmp),mode='provider_key')
             with patch('py_docker.Client') as client, patch('laomedo.agents.providers.opencode.boundary.CommandBroker') as broker:
                 client.return_value.__enter__.return_value.connection.endpoint=ENDPOINT
+                broker.return_value.error_code=None
                 broker.return_value.token='internal-capability'
                 broker.return_value.server.server_port=12345
                 client.return_value.sessions.open.side_effect=DockerOperationError('internal refusal')
@@ -95,6 +96,7 @@ class BoundaryTests(unittest.TestCase):
                 config['tools']['task']=True
             with patch('py_docker.Client') as client, patch('laomedo.agents.providers.opencode.boundary.CommandBroker') as broker:
                 client.return_value.__enter__.return_value.connection.endpoint=ENDPOINT
+                broker.return_value.error_code=None
                 broker.return_value.token='internal-capability'
                 broker.return_value.server.server_port=12345
                 client.return_value.sessions.open.side_effect=DockerOperationError('internal refusal')
@@ -144,7 +146,7 @@ class BoundaryTests(unittest.TestCase):
             finally:
                 broker.capacity.release();thread.join(4)
             self.assertTrue(closed.is_set())
-            with self.assertRaisesRegex(RunnerError,'opencode_container_cleanup_unverified'):
+            with self.assertRaisesRegex(RunnerError,'opencode_command_service_closed'):
                 broker.execute('pwd')
 
 

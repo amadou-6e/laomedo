@@ -28,7 +28,6 @@ import laomedo.host.leases.utils as _leases_utils
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.utils as workspace_skills
 import laomedo.host.credentials.claude.settings as _host_claude_settings
-import queue
 import re
 import subprocess
 import threading
@@ -473,8 +472,8 @@ class ClaudeRunner(_runtime_runner.Runner):
         deadline = record.get(
             "_attempt_deadline", time.monotonic() + record["turn_timeout"]
         )
-        service, telemetry, reader_thread = None, None, None
-        reader_stop = threading.Event()
+        service, telemetry, watcher, session = None, None, None, None
+        watch_stop = threading.Event()
         input_path = root.joinpath("controller-input-" + uuid4().hex)
         native_completed = False
         output_only = record.get("output_correction_count", 0) > 0
@@ -550,7 +549,6 @@ class ClaudeRunner(_runtime_runner.Runner):
                     )
                 ],
             )
-            messages = queue.Queue(maxsize=64)
             with self.control_lock:
                 if flag.is_set():
                     raise _runtime_errors.RunnerError("claude_cancelled")
@@ -562,40 +560,31 @@ class ClaudeRunner(_runtime_runner.Runner):
                 max(1, deadline - time.monotonic()) + 10,
             ) as session:
 
-                def reader():
-                    try:
-                        while not reader_stop.is_set():
+                def stop_when_requested():
+                    """Terminate the exact owned ID; creator-thread close owns the receipt."""
+                    while not watch_stop.wait(0.1):
+                        if (
+                            flag.is_set()
+                            or time.monotonic() >= deadline
+                            or service.error_code
+                        ):
                             try:
-                                value = session.read_line()
-                            except Exception as error:
-                                value = error
-                            while not reader_stop.is_set():
-                                try:
-                                    messages.put(value, timeout=0.1)
-                                    break
-                                except queue.Full:
-                                    continue
-                            if value is None or isinstance(value, Exception):
-                                return
-                    finally:
-                        reader_stop.set()
+                                session.terminate()
+                            except Exception:
+                                pass  # Creator close and the independent lease must verify cleanup.
+                            return
 
-                reader_thread = threading.Thread(target=reader, daemon=True)
-                reader_thread.start()
+                watcher = threading.Thread(target=stop_when_requested, daemon=True)
+                watcher.start()
                 total, stderr_size, result = 0, 0, None
                 while True:
                     if flag.is_set():
                         raise _runtime_errors.RunnerError("claude_cancelled")
                     if time.monotonic() >= deadline:
                         raise _runtime_errors.RunnerError("claude_turn_timeout")
-                    try:
-                        line = messages.get(timeout=0.1)
-                    except queue.Empty:
-                        continue
+                    line = session.read_line()
                     if line is None:
                         break
-                    if isinstance(line, Exception):
-                        raise line
                     if line.channel == "stderr":
                         stderr_size += len(line.data)
                         if stderr_size > 4 * 1024 * 1024:
@@ -637,39 +626,27 @@ class ClaudeRunner(_runtime_runner.Runner):
                     service.close()
                 except Exception:
                     service_error = True
-            verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(
-                    name=name,
-                    run_id=record["run_id"],
-                    token=token,
-                    docker_endpoint=getattr(self.container, "docker_endpoint", None),
+            watch_stop.set()
+            verified, detail = True, "removed"
+            if session is None or session.cleanup_confirmed is not True:
+                verified, detail = _leases_utils.cleanup_exact(
+                    _leases_models.ContainerIdentity(
+                        name=name,
+                        run_id=record["run_id"],
+                        token=token,
+                        docker_endpoint=getattr(
+                            self.container, "docker_endpoint", None
+                        ),
+                    )
                 )
-            )
-            reader_stop.set()
-            if reader_thread is not None:
-                reader_thread.join(3)
-                verified = verified and not reader_thread.is_alive()
+            if watcher is not None:
+                watcher.join(3)
+                verified = verified and not watcher.is_alive()
             input_path.unlink(missing_ok=True)
             if verified:
                 try:
                     lease.finish()
                 except RuntimeError:
-                    rechecked, recheck_detail = _leases_utils.cleanup_exact(
-                        _leases_models.ContainerIdentity(
-                            name=name,
-                            run_id=record["run_id"],
-                            token=token,
-                            docker_endpoint=getattr(
-                                self.container, "docker_endpoint", None
-                            ),
-                        )
-                    )
-                    record["container_ownership"]["post_lease_cleanup_verified"] = (
-                        rechecked
-                    )
-                    record["container_ownership"]["post_lease_cleanup_detail"] = (
-                        recheck_detail
-                    )
                     verified = False
             else:
                 # Do not mark an unknown owner done: its independent lease must
@@ -710,6 +687,12 @@ class ClaudeRunner(_runtime_runner.Runner):
                     )
                 # Capture failure must not discard an attested native result or
                 # its completed snapshot, or invite replay of effects already done.
+            if service is not None and service.error_code:
+                raise _runtime_errors.RunnerError("workspace_command_output_too_large")
+            if flag.is_set():
+                raise _runtime_errors.RunnerError("claude_cancelled")
+            if time.monotonic() >= deadline:
+                raise _runtime_errors.RunnerError("claude_turn_timeout")
 
     def _native_event(self, root, record, event):
         if (

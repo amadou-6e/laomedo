@@ -32,15 +32,21 @@ class CommandBroker:
         *,
         worker_image_id=None,
         docker_endpoint=None,
+        receipt_directory=None,
     ):
         self.workspace, self.canonical, self.store = workspace, canonical, store
         self.evidence = evidence
         self.token = secrets.token_hex(32)
         self.closed = self.cleanup_failed = False
+        self.error_code = None
         self.worker_image_id = worker_image_id or _opencode_settings.WORKER_IMAGE_ID
         self.docker_endpoint = docker_endpoint
-        self.receipts = evidence.joinpath("docker-receipts")
-        self.receipts.mkdir(mode=0o700, exist_ok=True)
+        self.receipts = (
+            Path(receipt_directory)
+            if receipt_directory is not None
+            else evidence.joinpath("docker-receipts")
+        )
+        self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.capacity = threading.BoundedSemaphore(1)
         broker = self
@@ -141,9 +147,7 @@ class CommandBroker:
         try:
             with self.lock:
                 if self.closed:
-                    raise _runtime_errors.RunnerError(
-                        "opencode_container_cleanup_unverified"
-                    )
+                    raise _runtime_errors.RunnerError("opencode_command_service_closed")
             from py_docker import Client
             from py_docker.containers.models import ContainerSpec, Mount
             from py_docker.jobs.models import ContainerJob
@@ -209,14 +213,16 @@ class CommandBroker:
             except DeadlineError:
                 value = {"exit_code": 124, "stdout": "", "stderr": "worker_timeout"}
             except OutputLimitError:
+                self.error_code = "workspace_command_output_too_large"
                 value = {
                     "exit_code": 125,
                     "stdout": "",
                     "stderr": "workspace_command_output_too_large",
                 }
             except DockerOperationError:
+                self.error_code = "opencode_workspace_command_failed"
                 raise _runtime_errors.RunnerError(
-                    "opencode_controller_startup_failed"
+                    "opencode_workspace_command_failed"
                 ) from None
             with self.evidence.joinpath("worker-events.jsonl").open(
                 "a", encoding="utf-8"
@@ -253,6 +259,7 @@ class IsolatedOpenCode:
         image_id,
         worker_image_id=None,
         configure_agents=None,
+        receipt_directory=None,
     ):
         self.termination_verified = False
         selected_worker_id = worker_image_id or _opencode_settings.WORKER_IMAGE_ID
@@ -287,8 +294,12 @@ class IsolatedOpenCode:
                 docker.images.resolve(
                     _opencode_settings.WORKER_IMAGE, expected_id=selected_worker_id
                 )
-                receipts = evidence.joinpath("docker-receipts")
-                receipts.mkdir(mode=0o700, exist_ok=True)
+                receipts = (
+                    Path(receipt_directory)
+                    if receipt_directory is not None
+                    else evidence.joinpath("docker-receipts")
+                )
+                receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for receipt in receipts.glob("*.json"):
                     docker.sessions.recover(receipt)
         except DockerOperationError:
@@ -304,6 +315,7 @@ class IsolatedOpenCode:
         self.name = None
         self.session = self.docker = self.drainer = None
         self.drain_error = None
+        self.closing = False
         try:
             self.broker = CommandBroker(
                 workspace,
@@ -312,6 +324,7 @@ class IsolatedOpenCode:
                 evidence,
                 worker_image_id=selected_worker_id,
                 docker_endpoint=self.docker_endpoint,
+                receipt_directory=receipts,
             )
             self.password = secrets.token_hex(32)
             self.name = "laomedo-oc-controller-" + uuid4().hex
@@ -386,7 +399,11 @@ class IsolatedOpenCode:
                     spec=ContainerSpec(
                         image=image_id,
                         name=self.name,
+                        entrypoint=["timeout"],
                         command=[
+                            "--signal=TERM",
+                            "--kill-after=5s",
+                            str(_opencode_settings.CONTROLLER_LIFETIME_SECONDS),
                             "opencode",
                             "serve",
                             "--pure",
@@ -437,7 +454,10 @@ class IsolatedOpenCode:
                             )
                         ],
                     ),
-                    limits=StreamLimits(seconds=86400, max_bytes=36 * 1024 * 1024),
+                    limits=StreamLimits(
+                        seconds=_opencode_settings.CONTROLLER_LIFETIME_SECONDS + 10,
+                        max_bytes=36 * 1024 * 1024,
+                    ),
                     receipt_path=receipts.joinpath(self.name + ".json"),
                 )
             )
@@ -445,11 +465,21 @@ class IsolatedOpenCode:
             def drain():
                 try:
                     with root.joinpath("startup.log").open("wb") as log:
+                        tail = bytearray()
                         while (frame := self.session.read_frame()) is not None:
-                            log.write(frame.data)
+                            tail.extend(frame.data)
+                            del tail[: -_opencode_settings.CONTROLLER_LOG_TAIL_BYTES]
+                            log.seek(0)
+                            log.write(tail)
+                            log.truncate()
                             log.flush()
                 except Exception:
-                    self.drain_error = "opencode_controller_startup_failed"
+                    if not self.closing:
+                        self.drain_error = "opencode_controller_output_failed"
+                        try:
+                            self.session.terminate()
+                        except Exception:
+                            pass  # Creator-thread close retains and reports cleanup uncertainty.
 
             self.drainer = threading.Thread(target=drain, daemon=True)
             self.drainer.start()
@@ -506,7 +536,15 @@ class IsolatedOpenCode:
 
         return EventStream()
 
+    def check_transport(self):
+        """Surface fatal capture or worker failures independently of model claims."""
+        if self.drain_error:
+            raise _runtime_errors.RunnerError("opencode_controller_output_failed")
+        if self.broker is not None and self.broker.error_code:
+            raise _runtime_errors.RunnerError(self.broker.error_code)
+
     def call(self, method, path, payload=None):
+        self.check_transport()
         basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
         req = request.Request(
             "http://127.0.0.1:" + str(self.port) + path + "?directory=/draft",
@@ -522,6 +560,7 @@ class IsolatedOpenCode:
         ) as response:
             raw = response.read()
             value = json.loads(raw) if raw else None
+        self.check_transport()
         # Raw provider records stay in private run evidence. Request credentials
         # and config responses are never placed in the provider trace.
         if path not in {"/config", "/provider"}:
@@ -533,6 +572,7 @@ class IsolatedOpenCode:
 
     def close(self):
         """Close on the launch thread; uncertain controller or worker cleanup fails."""
+        self.closing = True
         try:
             if self.session is not None:
                 self.session.close()
@@ -554,10 +594,13 @@ class IsolatedOpenCode:
             finally:
                 if self.docker is not None:
                     self.docker.close()
+                    self.docker = None
                 if self.log is not None:
                     self.log.close()
                     self.log = None
+        self.session = None
         self.termination_verified = True
+        self.check_transport()
 
     def check_auth_fresh(self):
         _opencode_utils.check_auth_fresh(self.profile)

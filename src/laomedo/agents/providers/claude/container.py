@@ -44,6 +44,7 @@ class ClaudeContainer:
         try:
             from py_docker import Client
             from py_docker.errors import (
+                CleanupUnconfirmedError,
                 ConnectionConfigurationError,
                 DockerOperationError,
             )
@@ -69,6 +70,8 @@ class ClaudeContainer:
                     raise _runtime_errors.RunnerError(
                         "claude_container_profile_unavailable"
                     )
+        except CleanupUnconfirmedError:
+            raise _runtime_errors.RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:
             raise _runtime_errors.RunnerError(
                 "claude_container_configuration_invalid"
@@ -300,6 +303,7 @@ class CommandService:
         self.token = secrets.token_hex(32)
         self.lock = threading.Lock()
         self.cleanup_failed = False
+        self.error_code = None
         self.active_lock = threading.Lock()
         self.active = {}
         self.closed = False
@@ -364,6 +368,7 @@ class CommandService:
             )
             with self.active_lock:
                 self.active[name] = token
+            cleanup_confirmed = job_started = False
             try:
                 worker_deadline = min(self.deadline, time.monotonic() + 120)
                 spec = self.runtime.spec(
@@ -376,36 +381,39 @@ class CommandService:
                     workspace=self.root.joinpath("workspace"),
                     worker=True,
                 )
+                job_started = True
                 result = self.runtime.job(
                     spec, timeout=max(1, worker_deadline - time.monotonic())
                 )
+                cleanup_confirmed = True
                 return {
                     "exit_code": result.exit_code,
                     "output": (result.stdout + result.stderr)[: 1024 * 1024].decode(
                         "utf-8", errors="replace"
                     ),
                 }
-            finally:
-                verified, _ = _leases_utils.cleanup_exact(
-                    _leases_models.ContainerIdentity(
-                        name=name,
-                        run_id=self.record["run_id"],
-                        token=token,
-                        docker_endpoint=self.runtime.docker_endpoint,
-                    )
+            except _runtime_errors.RunnerError as error:
+                if str(error) == "workspace_command_output_too_large":
+                    self.error_code = "workspace_command_output_too_large"
+                cleanup_confirmed = (
+                    job_started and str(error) != "container_termination_unverified"
                 )
+                raise
+            finally:
+                verified = cleanup_confirmed
+                if not verified:
+                    verified, _ = _leases_utils.cleanup_exact(
+                        _leases_models.ContainerIdentity(
+                            name=name,
+                            run_id=self.record["run_id"],
+                            token=token,
+                            docker_endpoint=self.runtime.docker_endpoint,
+                        )
+                    )
                 if verified:
                     try:
                         lease.finish()
                     except RuntimeError:
-                        _leases_utils.cleanup_exact(
-                            _leases_models.ContainerIdentity(
-                                name=name,
-                                run_id=self.record["run_id"],
-                                token=token,
-                                docker_endpoint=self.runtime.docker_endpoint,
-                            )
-                        )
                         verified = False
                 else:
                     lease.stop_heartbeats()

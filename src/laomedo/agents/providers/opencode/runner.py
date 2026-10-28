@@ -76,31 +76,83 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     provider = "opencode"
 
-    def __init__(self, state, skill_store, source_workspace, *, transport_factory=None,
-                 lease_service=None, github_authority=None, mediator_state=None,
-                 git_workspace=False, publication_controller=None, artifact_sources=None):
+    def __init__(
+        self,
+        state,
+        skill_store,
+        source_workspace,
+        *,
+        transport_factory=None,
+        lease_service=None,
+        github_authority=None,
+        mediator_state=None,
+        git_workspace=False,
+        publication_controller=None,
+        artifact_sources=None,
+    ):
         self.transport_factory = transport_factory
         self.active_backends = {}
         self._opencode_catalog_lock = threading.Lock()
         self._opencode_catalog_cached = None
-        super().__init__(state, skill_store, source_workspace, lease_service=lease_service,
-                         github_authority=github_authority, mediator_state=mediator_state,
-                         git_workspace=git_workspace, publication_controller=publication_controller,
-                         artifact_sources=artifact_sources)
+        super().__init__(
+            state,
+            skill_store,
+            source_workspace,
+            lease_service=lease_service,
+            github_authority=github_authority,
+            mediator_state=mediator_state,
+            git_workspace=git_workspace,
+            publication_controller=publication_controller,
+            artifact_sources=artifact_sources,
+        )
+        self._recover_containers()
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=None, image=None, image_id=None,
-            execution_mode="opencode_http", cli_version="opencode " + _opencode_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=None,
+            image=None,
+            image_id=None,
+            execution_mode="opencode_http",
+            cli_version="opencode " + _opencode_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
-        """No persisted controller is owned by this HTTP adapter; its supervisor owns workers."""
+        """Constructor recovery reconciles receipts across prior runs before dispatch."""
+
+    def _recover_containers(self):
+        """Recover central and legacy run/catalogue receipts before new dispatch."""
+        if self.transport_factory is None or self.lock.locked():
+            return
+        pending = [
+            *self.state.glob("receipts/*.json"),
+            *self.state.glob("runs/*/docker-receipts/*.json"),
+            *self.state.glob("catalog/*/docker-receipts/*.json"),
+        ]
+        if not pending:
+            return
+        try:
+            from py_docker import Client
+            from py_docker.errors import DockerOperationError
+        except ImportError:
+            raise _runtime_errors.RunnerError(
+                "opencode_container_cleanup_unverified"
+            ) from None
+        try:
+            with Client() as docker:
+                for receipt in pending:
+                    docker.sessions.recover(receipt)
+        except DockerOperationError:
+            raise _runtime_errors.RunnerError(
+                "opencode_container_cleanup_unverified"
+            ) from None
 
     def model_catalog(self):
         """Discover connected native models without creating a session or turn."""
         if self.transport_factory is None:
             raise _runtime_errors.RunnerError("opencode_isolated_transport_required")
+        self._recover_containers()
         with self._opencode_catalog_lock:
             cached = self._opencode_catalog_cached
             if cached and time.monotonic() - cached[0] < 30:
@@ -139,7 +191,9 @@ class OpenCodeRunner(_runtime_runner.Runner):
                         backend.close()
                 finally:
                     try:
-                        if root.exists():
+                        if root.exists() and not list(
+                            root.joinpath("docker-receipts").glob("*.json")
+                        ):
                             shutil.rmtree(root)
                     finally:
                         self.lock.release()
@@ -158,6 +212,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
             raise _runtime_errors.RunnerError(
                 "opencode_output_requirements_not_supported"
             )
+        self._recover_containers()
         return super()._prepare(request, **kwargs)
 
     def preflight(self):
@@ -626,12 +681,17 @@ class OpenCodeRunner(_runtime_runner.Runner):
                             backend is not None
                             and getattr(backend, "termination_verified", False)
                         )
-            except Exception:
+            except Exception as error:
                 if record is not None:
+                    verified = backend is not None and getattr(
+                        backend, "termination_verified", False
+                    )
                     record.update(
                         status="failed",
-                        error_category="opencode_transport_cleanup_failed",
-                        controller_cleanup="unverified",
+                        error_category=str(error)
+                        if isinstance(error, _runtime_errors.RunnerError)
+                        else "opencode_transport_cleanup_failed",
+                        controller_cleanup="confirmed" if verified else "unverified",
                         cancel_confirmed=False,
                     )
             finally:

@@ -113,7 +113,6 @@ class SettingsContractTests(unittest.TestCase):
             'host/runner/utils.py': 'os.environ.items()',
             'agents/workspace/git.py': 'os.environ.items()',
             'github/transport/git/utils.py': 'os.environ.items()',
-            'agents/providers/claude/utils.py': 'os.environ.items()',
             'host/credentials/claude/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
                         'host/publication/cli.py': 'key in os.environ',
@@ -123,6 +122,9 @@ class SettingsContractTests(unittest.TestCase):
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+        claude=(SOURCE / 'agents/providers/claude/container.py').read_text(encoding='utf-8')
+        self.assertNotIn('os.environ', claude)
+        self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
         split=(SOURCE / 'agents/providers/codex/split/server.py').read_text()
         self.assertNotIn('os.environ',split)
         self.assertIn('environment=docker_environment',split)

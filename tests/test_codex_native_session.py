@@ -60,7 +60,7 @@ class NativeSessionTests(unittest.TestCase):
                 server=AppServer(launch,root,lifetime_seconds=321,secret_redactions=("private-token",))
                 server.reader.join(timeout=2)
                 self.assertTrue(server.streams_closed)
-                self.assertEqual(server.messages.get_nowait()["params"]["text"],"cafÃ©")
+                self.assertEqual(server.messages.get_nowait()["params"]["text"],"café")
                 request=client.return_value.sessions.open.call_args.args[0]
                 self.assertEqual(request.limits.seconds,321)
                 self.assertEqual(request.spec.command[-2:],["app-server","--stdio"])
