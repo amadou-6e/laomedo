@@ -10,7 +10,7 @@ from test_module_path_migration import TOOL; from test_module_path_migration imp
 
 class MigrationFileTests(unittest.TestCase):
     def test_json_splicing_preserves_unrelated_bytes(self):
-        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃƒÂ© ÃŽÂ»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode('utf-8')
+        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃ© Î»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode('utf-8')
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'graph.json'; path.write_bytes(source)
             result = subprocess.run([sys.executable, str(TOOL), str(path), '--apply'], capture_output=True, timeout=30)
@@ -24,7 +24,7 @@ class MigrationFileTests(unittest.TestCase):
             path = Path(directory) / 'launch.py'; path.write_bytes(source)
             result = subprocess.run([sys.executable, str(TOOL), str(path), '--apply'], capture_output=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(path.read_bytes(), source.replace(b'laomedo.local_runner', b'laomedo.agents.runtime.runner'))
+            self.assertEqual(path.read_bytes(), b'\xef\xbb\xbffrom laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner\n')
 
     def test_unparseable_import_requires_manual_migration(self):
         source = 'from laomedo import local_runner\nif (\n'
@@ -44,9 +44,9 @@ class MigrationFileTests(unittest.TestCase):
         migrated = migration.migrate_value(graph); data = migrated['nodes'][0]['data']
         self.assertEqual(data['module'], old); self.assertEqual(data['args'], [old])
         self.assertEqual(data['node']['template']['task']['value'], old)
-        self.assertEqual(data['node']['template']['code']['value'], 'import laomedo.agents.runtime.runner')
+        self.assertEqual(data['node']['template']['code']['value'], 'import laomedo.agents.providers.codex.runner')
         launcher = {'command': 'python -m ' + old, 'nested': {'command': old}}
-        self.assertEqual(migration.migrate_value(launcher), {'command': 'python -m laomedo.agents.runtime.cli', 'nested': {'command': old}})
+        self.assertEqual(migration.migrate_value(launcher), {'command': 'python -m laomedo.agents.providers.codex.cli', 'nested': {'command': old}})
 
     def test_removed_intermediate_import_is_migrated(self):
         source = 'from laomedo.activity import agent_activity_capture as capture\n'

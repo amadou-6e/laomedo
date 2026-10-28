@@ -1,6 +1,8 @@
 {
-  "laomedo.agents.local_runner": "laomedo.agents.runtime.cli",
+  "laomedo.agents.local_runner": "laomedo.agents.providers.codex.cli",
   "laomedo.agents.providers.claude_runner": "laomedo.agents.providers.claude.cli",
+  "laomedo.agents.runtime.cli": "laomedo.agents.providers.codex.cli",
+  "laomedo.agents.runtime.servers": "laomedo.agents.providers.codex.servers",
   "laomedo.bundle_verifier": "laomedo.host.publication.cli",
   "laomedo.claude_runner": "laomedo.agents.providers.claude.cli",
   "laomedo.container_lease": "laomedo.host.leases.process_cli",
@@ -16,7 +18,7 @@
   "laomedo.host.mediation.mediation_service": "laomedo.host.mediation.cli",
   "laomedo.host.publication.bundle_verifier": "laomedo.host.publication.cli",
   "laomedo.lease_service": "laomedo.host.leases.service_cli",
-  "laomedo.local_runner": "laomedo.agents.runtime.cli",
+  "laomedo.local_runner": "laomedo.agents.providers.codex.cli",
   "laomedo.mediation_service": "laomedo.host.mediation.cli",
   "laomedo.siwc_auth": "laomedo.host.credentials.siwc.cli",
   "laomedo.skill_operation_server": "laomedo.skills.operations.cli",

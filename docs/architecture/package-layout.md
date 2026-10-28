@@ -21,6 +21,8 @@ src/laomedo/
 |   |-- workflow/
 |   |-- workspace/
 |   |-- providers/
+|   |   |-- codex/
+|   |   |   `-- resources/
 |   |   |-- claude/
 |   |   `-- opencode/
 |   `-- resources/
@@ -41,6 +43,8 @@ src/laomedo/
 |       `-- rest/
 |-- host/
 |   |-- credentials/
+|   |   |-- codex/
+|   |   |   `-- resources/
 |   |   |-- claude/
 |   |   |-- opencode/
 |   |   |-- siwc/
@@ -55,11 +59,14 @@ src/laomedo/
 |       `-- resources/
 |-- integrations/
 |   `-- langflow/
+|       |-- agent/
 |       `-- join/
 `-- work_graph/
 ```
 
-Each implementation has one owner. Use `laomedo.agents.runtime.runner`,
+Each implementation has one owner. The neutral lifecycle is
+`laomedo.agents.runtime.runner.Runner`; Codex execution is
+`laomedo.agents.providers.codex.runner.CodexRunner`. Use
 `laomedo.skills.registry.store` and `laomedo.activity.agent_activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
@@ -68,7 +75,7 @@ live in `docker/`; registry documentation is in [the Skills registry guide](../f
 Launchers use canonical names:
 
 ```text
-python -m laomedo.agents.runtime.cli ...
+python -m laomedo.agents.providers.codex.cli ...
 python -m laomedo.agents.providers.claude.cli ...
 python -m laomedo.host.leases.service_cli serve ...
 python -m laomedo.host.managed_service ...
@@ -152,6 +159,7 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 
 | Owner | Models and purpose |
 | --- | --- |
+| agents/runtime | RuntimeBinding groups provider-owned public record metadata |
 | agents/contracts | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
@@ -182,3 +190,50 @@ conflicting module aliases. Regression checks preserve model serialization,
 existing snapshot bytes/hashes, operation error codes and secret redaction. Error
 catalogue checks follow feature error producers after extraction. Installed-wheel,
 pinned-stage-image and real graph evidence remain separate from internal tests.
+
+## Provider-neutral Agent boundary
+
+The shared `Runner` is a template-method lifecycle, not a default Codex provider.
+It owns private state, durable request identity and acknowledgement, workspace
+preparation, immutable skill/artifact inputs and host authorization orchestration.
+Codex, Claude and OpenCode extend it directly. They own their constructors,
+request policy, model discovery/cache, native execution, resume binding,
+pre-dispatch authentication, cancellation and exact restart cleanup.
+`RuntimeBinding` in `agents/runtime/models.py` groups the public record fields;
+it never carries an access token. Credential identity metadata is distinct from
+login material. The record key set remains stable, including explicit nulls.
+OpenCode prepared records now report its own CLI and `opencode_http` mode, with
+null image/profile/config fields, rather than inherited Codex metadata. Historical
+records remain readable; the migration does not rewrite execution history.
+
+The shared HTTP server delegates editor refresh and resume extensions to provider
+hooks. Shared runtime code imports neither concrete providers nor credential
+implementations. Closed external provider IDs for handoff/artifact validation
+belong to the contracts vocabulary, not a default-provider switch.
+
+Mediated GitHub eligibility is explicit: Codex enables it only with its supervised,
+non-split execution path. Claude remains ineligible through the shared preparation
+path. OpenCode now refuses this path before binding a grant: its former inherited
+supervision flag did not implement mediated execution. Existing
+`mediated_lease_required` behavior identifies the refusal. This does not enable a
+new remote-write capability for either provider.
+
+Graph components keep their public names and ports. Their shared implementation
+lives in `integrations/langflow/agent/component.py`, imported by the installed
+package, so no additional base node is exposed by the component category loader.
+Concrete adapters declare capabilities instead of the common component choosing
+behavior by node name. Embedded Claude/OpenCode sources inheriting the old Codex
+component must be migrated with the one-time tool; custom methods and graph
+identities are retained. Regenerate templates when current dependency metadata is
+needed. Current source templates are distinct from historical execution evidence.
+
+Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
+Git ownership, mediation server extraction and frontend feature directories remain
+separate follow-ups (#206?#210).
+
+Concrete Codex components reject stale subclass inheritance before model discovery,
+bridge selection or dispatch with `agent_component_migration_required`. The shared
+error catalogue explains updating the node or explicitly migrating saved source;
+unmigrated Claude/OpenCode code cannot silently route through Codex configuration.
+OpenCode owns its worker image pin independently in its settings. It initially uses
+the same reviewed sandbox bytes as Codex, without importing Codex configuration.

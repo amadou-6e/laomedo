@@ -11,7 +11,7 @@ from unittest.mock import patch; from unittest.mock import Mock
 from urllib.error import URLError
 from urllib.request import Request; from urllib.request import urlopen
 from laomedo.host.runner.service import RunnerService; from laomedo.host.runner.routes import install_runner_service_routes; from laomedo.host.runner.utils import service_environment
-from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.serving import RunnerServer as serve
 try:
     from fastapi.testclient import TestClient
 except ImportError:

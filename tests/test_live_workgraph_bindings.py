@@ -6,7 +6,7 @@ import sys
 from unittest.mock import patch
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from experiments.exp139.bindings import BoundRunner; from experiments.exp139.bindings import GitMetadataAppServer; from experiments.exp139.bindings import MailboxAppServer; from experiments.exp139.bindings import GIT_OVERRIDE; from experiments.exp139.bindings import PROFILE_OVERRIDES; from experiments.exp139.bindings import request_digest
-from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.servers import AppServer
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.servers import AppServer
 
 
 class BindingTests(unittest.TestCase):

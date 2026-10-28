@@ -6,7 +6,7 @@ import tempfile
 from unittest.mock import patch
 from experiments.exp139.bindings import MailboxAppServer
 from experiments.exp139.helper_control import IMAGE; from experiments.exp139.helper_control import ROOT
-from laomedo.agents.runtime.servers import AppServer
+from laomedo.agents.providers.codex.servers import AppServer
 
 
 def probe():
@@ -29,7 +29,7 @@ def probe():
             '--mount',f'type=bind,source={root},target=/fixture,readonly',
             '--mount',f'type=bind,source={root / "capability"},target=/run/laomedo/capability,readonly',
             '--mount',f'type=bind,source={ROOT / "laomedo/agent_mediation_client.mjs"},target=/run/laomedo/mediate.mjs,readonly',
-            '--mount',f'type=bind,source={ROOT / "src/laomedo/agents/resources/runner-config.toml"},target=/config.toml,readonly',
+            '--mount',f'type=bind,source={ROOT / "src/laomedo/agents/providers/codex/resources/runner-config.toml"},target=/config.toml,readonly',
             '--env','LAOMEDO_MEDIATOR_URL=http://host.docker.internal:1/v1/mediate',
             '--env','LAOMEDO_MEDIATOR_INSTANCE='+'0'*32,
             '--env','PATH=/fixture/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',

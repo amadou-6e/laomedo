@@ -22,7 +22,7 @@ import threading
 class RunnerServer(ThreadingHTTPServer):
     def __init__(
         self,
-        runner: _runtime_runner.LocalRunner,
+        runner: _runtime_runner.Runner,
         host: str = "127.0.0.1",
         port: int = 8765,
     ):
@@ -75,11 +75,7 @@ class RunnerServer(ThreadingHTTPServer):
                     if parts == ["v1", "models"] and not parsed.query:
                         self._reply(
                             200,
-                            (
-                                runner.model_catalog(refresh=True)
-                                if getattr(runner, "provider", "codex") == "claude"
-                                else runner.model_catalog()
-                            ),
+                            runner.editor_model_catalog(),
                         )
                         return
                     if parts == ["v1", "health"]:
@@ -87,7 +83,7 @@ class RunnerServer(ThreadingHTTPServer):
                             200,
                             {
                                 "status": "ready",
-                                "provider": getattr(runner, "provider", "codex"),
+                                "provider": runner.provider,
                             },
                         )
                         return
@@ -207,28 +203,7 @@ class RunnerServer(ThreadingHTTPServer):
                         and parts[:2] == ["v1", "runs"]
                         and parts[3] == "resume"
                     ):
-                        extra = {}
-                        if (
-                            getattr(runner, "provider", "codex") == "claude"
-                            and "run_timeout_seconds" in body
-                        ):
-                            value = body["run_timeout_seconds"]
-                            if type(value) is not int or not 1 <= value <= 86400:
-                                raise _runtime_errors.RunnerError(
-                                    "claude_turn_timeout_invalid"
-                                )
-                            extra["run_timeout_seconds"] = value
-                        if getattr(runner, "provider", "codex") == "claude":
-                            required = (
-                                extra["run_timeout_seconds"]
-                                if extra
-                                else runner.status(parts[2]).get(
-                                    "turn_timeout", runner.turn_timeout
-                                )
-                            )
-                            runner._mirror_host_login(minimum_validity_seconds=required)
-                        else:
-                            runner._mirror_host_login()
+                        extra = runner.prepare_resume(parts[2], body)
                         result = runner.resume(
                             parts[2],
                             body["task"],

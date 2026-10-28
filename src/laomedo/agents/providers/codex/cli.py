@@ -1,6 +1,7 @@
 """Implementation owned by agents / runtime / cli."""
 
 from __future__ import annotations
+import laomedo.agents.providers.codex.runner as _codex_runner
 
 from pathlib import Path
 import argparse
@@ -10,7 +11,7 @@ import laomedo.host.mediation.authority as _mediation_authority
 
 
 def main():
-    import laomedo.agents.runtime.runner as _runtime_runner
+    import laomedo.agents.providers.codex.runner as _runtime_runner
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, required=True)
@@ -63,7 +64,7 @@ def main():
         if args.github_authority_store
         else None
     )
-    runner = _runtime_runner.LocalRunner(
+    runner = _codex_runner.CodexRunner(
         args.state,
         args.skill_store,
         args.source_workspace,

@@ -182,7 +182,7 @@ class IsolatedOpenCode:
         configure_agents=None,
     ):
         self.termination_verified = False
-        selected_worker_id = worker_image_id or _runtime_settings.IMAGE_ID
+        selected_worker_id = worker_image_id or _opencode_settings.WORKER_IMAGE_ID
         self.profile = _runtime_utils._private(Path(profile))
         if not (self.profile / "auth.json").is_file():
             raise _runtime_errors.RunnerError("opencode_private_auth_required")
@@ -196,13 +196,13 @@ class IsolatedOpenCode:
             "image": image,
             "image_id": image_id,
             "profile_id": json.loads(identity_path.read_text())["profile_id"],
-            "worker_image": _runtime_settings.IMAGE,
+            "worker_image": _opencode_settings.WORKER_IMAGE,
             "worker_image_id": selected_worker_id,
             "credential_binding": _opencode_utils._credential_binding(self.profile),
         }
         for label, expected in (
             (image, image_id),
-            (_runtime_settings.IMAGE, selected_worker_id),
+            (_opencode_settings.WORKER_IMAGE, selected_worker_id),
         ):
             actual = subprocess.run(
                 ["docker", "image", "inspect", label, "--format", "{{.Id}}"],

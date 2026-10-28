@@ -19,6 +19,7 @@ import laomedo.agents.providers.claude.container as _claude_container
 import laomedo.agents.providers.claude.utils as _agents_providers_claude_utils
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.runner as _runtime_runner
+import laomedo.agents.runtime.models as _runtime_models
 import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.host.credentials.claude.errors as _claude_errors
 import laomedo.host.credentials.claude.utils as _host_credentials_claude_utils
@@ -37,8 +38,40 @@ import threading
 import time
 
 
-class ClaudeRunner(_runtime_runner.LocalRunner):
+class ClaudeRunner(_runtime_runner.Runner):
     provider = "claude"
+
+    def editor_model_catalog(self):
+        return self.model_catalog(refresh=True)
+
+    def prepare_resume(self, run_id, body):
+        extra = {}
+        if "run_timeout_seconds" in body:
+            value = body["run_timeout_seconds"]
+            if type(value) is not int or not 1 <= value <= 86400:
+                raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
+            extra["run_timeout_seconds"] = value
+        required = extra.get("run_timeout_seconds") if extra else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        self._mirror_host_login(minimum_validity_seconds=required)
+        return extra
+
+    def runtime_binding(self):
+        return _runtime_models.RuntimeBinding(
+            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
+            execution_mode="claude_container", cli_version="Claude Code " + _claude_settings.CLI_VERSION,
+            config_sha256=None)
+
+    def recover_interrupted(self, record):
+        # The independent lease supervisor owns controller/worker lifetimes.
+        # Reconcile the exact persisted controller identity without broad cleanup.
+        owner = record.get("container_ownership") or {}
+        if owner.get("supervised"):
+            verified, detail = _leases_utils.cleanup_exact(
+                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
+                                                token=owner["launch_token"]))
+            owner.update(cleanup_verified=verified, cleanup_detail=detail)
+            if not verified:
+                record["error_category"] = "container_cleanup_unverified"
 
     def model_catalog(self, *, refresh=False):
         """Share an in-flight discovery across simultaneous editor refreshes."""
@@ -174,8 +207,6 @@ class ClaudeRunner(_runtime_runner.LocalRunner):
             state,
             skill_store,
             source_workspace,
-            check_docker=False,
-            supervise_containers=False,
             lease_service=lease_service,
             github_authority=github_authority,
             mediator_state=mediator_state,

@@ -90,7 +90,7 @@ skill into the private store:
 
 ```powershell
 $private = Join-Path $env:LOCALAPPDATA 'Laomedo'
-python -m laomedo.agents.runtime.cli --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
+python -m laomedo.agents.providers.codex.cli --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
 ```
 
 The HTTP runner binds only to `127.0.0.1:8765`. It requires `Authorization: Bearer <token>` for every status and

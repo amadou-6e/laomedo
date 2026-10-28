@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 from laomedo.github.transport.git.transport import GitHubGitTransport
 from laomedo.github.transport.rest.transport import GitHubRestTransport
-from laomedo.agents.runtime.runner import LocalRunner
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
 
 
 ROOT = Path(__file__).resolve().parents[2]

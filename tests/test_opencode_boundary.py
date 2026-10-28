@@ -11,7 +11,7 @@ import subprocess
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import error; from urllib import request
 
-from laomedo.agents.providers.opencode.boundary import CommandBroker; from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode; from laomedo.agents.providers.opencode.utils import check_auth_fresh; from laomedo.agents.providers.opencode.utils import worker_command; from laomedo.agents.runtime.settings import IMAGE; from laomedo.agents.runtime.settings import IMAGE_ID
+from laomedo.agents.providers.opencode.boundary import CommandBroker; from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode; from laomedo.agents.providers.opencode.utils import check_auth_fresh; from laomedo.agents.providers.opencode.utils import worker_command; from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.settings import IMAGE_ID
 from laomedo.agents.runtime.errors import RunnerError
 
 

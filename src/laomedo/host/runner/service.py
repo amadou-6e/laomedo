@@ -235,7 +235,7 @@ class RunnerService:
             module = (
                 "laomedo.agents.providers.claude.cli"
                 if config["provider"] == "claude"
-                else "laomedo.agents.runtime.cli"
+                else "laomedo.agents.providers.codex.cli"
             )
             # Load this installation even when Python is embedded/isolated and
             # ignores PYTHONPATH. Both bootstrap and module choice are fixed;

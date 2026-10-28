@@ -1,15 +1,15 @@
 """Own native app-server processes and the split-controller boundary."""
 
 from __future__ import annotations
+import laomedo.agents.providers.codex.settings as _codex_settings
+import laomedo.agents.providers.codex.utils as _codex_utils
 
 from pathlib import Path
 from uuid import uuid4
 import hashlib
 import json
 import laomedo.agents.contracts.output as _contracts_output
-import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
@@ -34,7 +34,7 @@ class AppServer:
             self.telemetry = _runner_telemetry.LaunchTelemetry(evidence)
             index = command.index("app-server")
             command = command[:index] + self.telemetry.arguments() + command[index:]
-        if _runtime_settings.Settings().multi_agent == "1":
+        if _codex_settings.Settings().multi_agent == "1":
             index = command.index("app-server")
             command = (
                 command[:index]
@@ -340,10 +340,10 @@ class SplitAppServer(AppServer):
         self._controller_started = False
         self._executor_started = False
         if (
-            _runtime_utils._docker_checked(
-                "image", "inspect", _runtime_settings.IMAGE, "--format", "{{.Id}}"
+            _codex_utils._docker_checked(
+                "image", "inspect", _codex_settings.IMAGE, "--format", "{{.Id}}"
             )
-            != _runtime_settings.IMAGE_ID
+            != _codex_settings.IMAGE_ID
         ):
             raise _runtime_errors.RunnerError("docker_image_digest_changed")
         executor = [
@@ -371,7 +371,7 @@ class SplitAppServer(AppServer):
             "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
             "--workdir",
             "/draft",
-            _runtime_settings.IMAGE,
+            _codex_settings.IMAGE,
             "codex",
             "exec-server",
             "--listen",
@@ -382,13 +382,13 @@ class SplitAppServer(AppServer):
             hashlib.sha256(self.executor_token.encode()).hexdigest(),
         ]
         try:
-            _runtime_utils._docker_checked(*executor, timeout=30)
+            _codex_utils._docker_checked(*executor, timeout=30)
             self._executor_started = True
-            command = _runtime_utils._docker_prefix(
+            command = _codex_utils._docker_prefix(
                 workspace, canonical, store_mount, nested_sandbox=False
             )
             command[command.index("--network") + 1] = "container:" + self.executor_name
-            old_mount = f"type=volume,source={_runtime_settings.VOLUME},target=/home/runner/.codex"
+            old_mount = f"type=volume,source={_codex_settings.VOLUME},target=/home/runner/.codex"
             index = command.index(old_mount)
             del command[index - 1 : index + 1]
             command[command.index("--workdir") : command.index("--workdir")] = [
@@ -425,7 +425,7 @@ class SplitAppServer(AppServer):
 
     def _controller_listeners(self) -> set[str]:
         """Reject controller-owned listening TCP/Unix and any UDP socket."""
-        fds = _runtime_utils._docker_checked(
+        fds = _codex_utils._docker_checked(
             "exec",
             self.container_name,
             "sh",
@@ -443,7 +443,7 @@ class SplitAppServer(AppServer):
             ("udp", "udp"),
             ("udp6", "udp"),
         ):
-            rows = _runtime_utils._docker_checked(
+            rows = _codex_utils._docker_checked(
                 "exec", self.container_name, "cat", "/proc/net/" + table, timeout=5
             )
             for row in rows.splitlines()[1:]:
@@ -454,7 +454,7 @@ class SplitAppServer(AppServer):
                     and (kind == "udp" or fields[3] == "0A")
                 ):
                     found.add(kind)
-        rows = _runtime_utils._docker_checked(
+        rows = _codex_utils._docker_checked(
             "exec", self.container_name, "cat", "/proc/net/unix", timeout=5
         )
         for row in rows.splitlines()[1:]:
@@ -467,14 +467,14 @@ class SplitAppServer(AppServer):
         if self._controller_listeners():
             raise _runtime_errors.RunnerError("controller_listener_gate_failed")
         if (
-            _runtime_utils._docker_checked(
+            _codex_utils._docker_checked(
                 "exec", self.container_name, "codex", "--version", timeout=5
             )
-            != _runtime_settings.CLI_VERSION
+            != _codex_settings.CLI_VERSION
         ):
             raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
         if (
-            _runtime_utils._docker_checked(
+            _codex_utils._docker_checked(
                 "inspect",
                 self.executor_name,
                 "--format",
@@ -486,10 +486,10 @@ class SplitAppServer(AppServer):
             raise _runtime_errors.RunnerError("executor_not_running")
         for name in (self.container_name, self.executor_name):
             if (
-                _runtime_utils._docker_checked(
+                _codex_utils._docker_checked(
                     "inspect", name, "--format", "{{.Image}}", timeout=5
                 )
-                != _runtime_settings.IMAGE_ID
+                != _codex_settings.IMAGE_ID
             ):
                 raise _runtime_errors.RunnerError("running_image_digest_changed")
 
@@ -570,7 +570,7 @@ class SplitAppServer(AppServer):
                 return "unknown", "auth_revoked_during_turn"
             try:
                 if (
-                    _runtime_utils._docker_checked(
+                    _codex_utils._docker_checked(
                         "inspect",
                         self.executor_name,
                         "--format",
@@ -602,7 +602,7 @@ class SplitAppServer(AppServer):
         finally:
             try:
                 if self._executor_started:
-                    _runtime_utils._docker_checked(
+                    _codex_utils._docker_checked(
                         "rm", "-f", self.executor_name, timeout=15
                     )
                     check = subprocess.run(

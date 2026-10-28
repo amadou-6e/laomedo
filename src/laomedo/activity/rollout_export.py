@@ -1,6 +1,7 @@
 """Copy one native Codex rollout from the existing private volume for AGENTVIZ."""
 
 from __future__ import annotations
+import laomedo.agents.providers.codex.settings as _codex_settings
 
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -34,8 +35,8 @@ def export_rollout(state: Path, run_id: str, *, docker_run=subprocess.run) -> Pa
         "--user",
         "10001:10001",
         "--mount",
-        f"type=volume,source={_runtime_settings.VOLUME},target=/home/runner/.codex,readonly",
-        _runtime_settings.IMAGE,
+        f"type=volume,source={_codex_settings.VOLUME},target=/home/runner/.codex,readonly",
+        _codex_settings.IMAGE,
     ]
     listing = docker_run(
         [

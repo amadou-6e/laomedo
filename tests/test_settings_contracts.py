@@ -54,8 +54,7 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/runtime/servers.py': {'otel', 'multi_agent'},
-            'agents/runtime/runner.py': {'mirror_host_login'},
+            'agents/providers/codex/servers.py': {'otel', 'multi_agent'},
             'agents/providers/claude/runner.py': {'mirror_host_login'},
             'activity/opencode/telemetry.py': {'otel'},
         }
@@ -96,7 +95,7 @@ class SettingsContractTests(unittest.TestCase):
             'agents/providers/claude/utils.py': 'os.environ.items()',
             'host/credentials/claude/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
-            'agents/runtime/servers.py': 'dict(os.environ, ACCESS_TOKEN=access_token)',
+            'agents/providers/codex/servers.py': 'dict(os.environ, ACCESS_TOKEN=access_token)',
             'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',
@@ -120,6 +119,11 @@ class ErrorContractTests(unittest.TestCase):
                 cls = getattr(module, node.name)
                 with self.subTest(exception=cls.__name__):
                     self.assertGreater(len(ast.get_docstring(node) or ''), 35)
+                    if cls.__name__ == 'RunnerResultError':
+                        error = cls({'run_id': 'retained-run', 'error_category': 'runner_transport_failed'})
+                        self.assertEqual(error.code, 'runner_transport_failed')
+                        self.assertEqual(error.run_reference['run_id'], 'retained-run')
+                        continue  # Graph invocation errors retain a record, unlike scalar domain errors.
                     if cls.__name__ == 'PushOutcomeUnknown':
                         error = cls('timeout', None)
                         code = 'push_outcome_unknown'

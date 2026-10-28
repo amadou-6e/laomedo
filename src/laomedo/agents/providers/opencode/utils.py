@@ -103,7 +103,7 @@ def worker_command(name, workspace, canonical, store, command):
         f"type=bind,source={store},target=/store,readonly",
         "--workdir",
         "/draft",
-        _runtime_settings.IMAGE,
+        _opencode_settings.WORKER_IMAGE,
         "sh",
         "-c",
         command,

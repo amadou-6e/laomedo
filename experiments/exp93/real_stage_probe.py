@@ -21,7 +21,7 @@ from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.host.mediation.store import MediationStore
 from laomedo.github.transport.rest.transport import _NoRedirect
 from laomedo.host.credentials.token.connection import HostTokenConnection
-from laomedo.agents.runtime.settings import GIT_IMAGE_ID; from laomedo.agents.runtime.runner import LocalRunner
+from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.skills.registry.store import SkillStore
