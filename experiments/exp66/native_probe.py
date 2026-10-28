@@ -12,7 +12,7 @@ import time
 from uuid import uuid4
 
 from experiments.exp117.support import ROOT; from experiments.exp117.support import PILOT; from experiments.exp117.support import LEDGER; from experiments.exp117.support import CAP; from experiments.exp117.support import _hash; from experiments.exp117.support import _private_empty; from experiments.exp117.support import _port; from experiments.exp117.support import _events; from experiments.exp117.support import _owned_container_absent; from experiments.exp117.support import _cleanup_runner_runs; from experiments.exp117.support import _audit_requests
-from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.serving import RunnerServer as serve
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skills.registry.store import SkillStore
 from laomedo.agents.workflow.store import WorkflowRunStore

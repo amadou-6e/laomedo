@@ -21,6 +21,8 @@ src/laomedo/
 |   |-- workflow/
 |   |-- workspace/
 |   |-- providers/
+|   |   |-- codex/
+|   |   |   `-- resources/
 |   |   |-- claude/
 |   |   `-- opencode/
 |   `-- resources/
@@ -41,6 +43,8 @@ src/laomedo/
 |       `-- rest/
 |-- host/
 |   |-- credentials/
+|   |   |-- codex/
+|   |   |   `-- resources/
 |   |   |-- claude/
 |   |   |-- opencode/
 |   |   |-- siwc/
@@ -59,7 +63,9 @@ src/laomedo/
 `-- work_graph/
 ```
 
-Each implementation has one owner. Use `laomedo.agents.runtime.runner`,
+Each implementation has one owner. The neutral lifecycle is
+`laomedo.agents.runtime.runner.Runner`; Codex execution is
+`laomedo.agents.providers.codex.runner.CodexRunner`. Use
 `laomedo.skills.registry.store` and `laomedo.activity.agent_activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
@@ -68,7 +74,7 @@ live in `docker/`; registry documentation is in [the Skills registry guide](../f
 Launchers use canonical names:
 
 ```text
-python -m laomedo.agents.runtime.cli ...
+python -m laomedo.agents.providers.codex.cli ...
 python -m laomedo.agents.providers.claude.cli ...
 python -m laomedo.host.leases.service_cli serve ...
 python -m laomedo.host.managed_service ...
@@ -182,3 +188,43 @@ conflicting module aliases. Regression checks preserve model serialization,
 existing snapshot bytes/hashes, operation error codes and secret redaction. Error
 catalogue checks follow feature error producers after extraction. Installed-wheel,
 pinned-stage-image and real graph evidence remain separate from internal tests.
+
+## Provider-neutral Agent boundary
+
+The shared `Runner` is a template-method lifecycle, not a default Codex provider.
+It owns private state, durable request identity and acknowledgement, workspace
+preparation, immutable skill/artifact inputs and host authorization orchestration.
+Codex, Claude and OpenCode extend it directly. They own their constructors,
+request policy, model discovery/cache, native execution, resume binding,
+pre-dispatch authentication, cancellation and exact restart cleanup.
+`RuntimeBinding` in `agents/runtime/models.py` groups the public record fields;
+it never carries an access token. Credential identity metadata is distinct from
+login material. The record key set remains stable, including explicit nulls.
+OpenCode prepared records now report its own CLI and `opencode_http` mode, with
+null image/profile/config fields, rather than inherited Codex metadata. Historical
+records remain readable; the migration does not rewrite execution history.
+
+The shared HTTP server delegates editor refresh and resume extensions to provider
+hooks. Shared runtime code imports neither concrete providers nor credential
+implementations. Closed external provider IDs for handoff/artifact validation
+belong to the contracts vocabulary, not a default-provider switch.
+
+Mediated GitHub eligibility is explicit: Codex enables it only with its supervised,
+non-split execution path. Claude remains ineligible through the shared preparation
+path. OpenCode now refuses this path before binding a grant: its former inherited
+supervision flag did not implement mediated execution. Existing
+`mediated_lease_required` behavior identifies the refusal. This does not enable a
+new remote-write capability for either provider.
+
+Graph components keep their public names and ports. Their shared implementation
+lives in `integrations/langflow/agent/component.py`, imported by the installed
+package, so no additional base node is exposed by the component category loader.
+Concrete adapters declare capabilities instead of the common component choosing
+behavior by node name. Embedded Claude/OpenCode sources inheriting the old Codex
+component must be migrated with the one-time tool; custom methods and graph
+identities are retained. Regenerate templates when current dependency metadata is
+needed. Current source templates are distinct from historical execution evidence.
+
+Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
+Git ownership, mediation server extraction and frontend feature directories remain
+separate follow-ups (#206?#210).

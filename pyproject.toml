@@ -25,6 +25,7 @@ where = ["src"]
 include = ["laomedo*"]
 
 [tool.setuptools.package-data]
-"laomedo.agents" = ["resources/*.toml", "resources/*.json", "resources/*.md", "resources/*LICENSE", "resources/mediation/*.mjs"]
+"laomedo.agents" = ["resources/mediation/*.mjs"]
+"laomedo.agents.providers.codex" = ["resources/*.toml", "resources/*.json", "resources/*.md", "resources/*LICENSE"]
 "laomedo.skills" = ["resources/*/SKILL.md"]
 "laomedo.host.publication" = ["resources/*.sh"]

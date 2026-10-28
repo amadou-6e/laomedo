@@ -26,3 +26,7 @@ class RunnerRequest(BaseModel):
     def component_arguments(self):
         """Saved components retain their existing _http(endpoint, payload, method) API."""
         return self.endpoint, self.payload, self.method
+
+
+# Closed external handoff/artifact vocabulary, not provider selection logic.
+SUPPORTED_PROVIDERS = frozenset({"codex", "opencode", "claude"})

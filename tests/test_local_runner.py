@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.agents.runtime.servers import AppServer; from laomedo.agents.runtime.servers import SplitAppServer; from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _docker_prefix; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.runtime.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.servers import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.host.mediation.authority import RunGrantAuthority
@@ -94,7 +94,7 @@ class FakeServer:
 
 class LocalRunnerTests(unittest.TestCase):
     def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
-        from laomedo.agents.runtime.runner import LocalRunner as NormalRunner; from laomedo.agents.runtime.utils import _json
+        from laomedo.agents.providers.codex.runner import CodexRunner as NormalRunner; from laomedo.agents.runtime.utils import _json
         runner = object.__new__(NormalRunner)
         runner.state = self.root / 'diagnostic-counter'
         runner.state.mkdir()
@@ -353,7 +353,7 @@ class LocalRunnerTests(unittest.TestCase):
                         supervise_containers=True)
 
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.agents.runtime.settings import GIT_IMAGE; from laomedo.agents.runtime.settings import GIT_IMAGE_ID
+        from laomedo.agents.providers.codex.settings import GIT_IMAGE; from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
         args = (self.root / "source", self.root / "source", self.runner.state)
         command = _docker_prefix(*args, image=GIT_IMAGE)
         entries = [command[index + 1] for index, item in enumerate(command[:-1])

@@ -58,7 +58,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('handoff_reference',config)
 
     def test_model_refresh_uses_claude_runner_token_not_codex_token(self):
-        import laomedo.codex_agent as codex
+        import laomedo.integrations.langflow.agent.component as codex
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'claude-token').write_text('claude-control');(root/'codex-token').write_text('codex-control')
             with patch.dict(os.environ,{'LAOMEDO_CLAUDE_RUNNER_TOKEN_FILE':str(root/'claude-token'),
@@ -70,7 +70,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(http.call_args.kwargs['timeout'],75)
 
     def test_resolved_model_efforts_follow_first_native_match_like_runner(self):
-        import laomedo.codex_agent as codex
+        import laomedo.integrations.langflow.agent.component as codex
         body={'provider':'claude','models':[
             {'id':'default','resolved_model':'claude-opus-test','efforts':['low']},
             {'id':'opus','resolved_model':'claude-opus-test','efforts':['low','max']}]}
@@ -83,7 +83,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(catalog['opus'],['low','max'])
 
     async def test_native_labels_and_all_efforts_reach_dropdown_and_dispatch_payload(self):
-        import laomedo.codex_agent as codex
+        import laomedo.integrations.langflow.agent.component as codex
         node=self.node(model='fable',effort='max')
         catalog=codex._ModelCatalog()
         catalog['fable']=['low','medium','high','xhigh','max']
@@ -102,7 +102,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(config['effort']['value'],'default')
 
     async def test_imported_resolved_model_keeps_native_efforts_and_pin_without_duplicate_picker_rows(self):
-        import laomedo.codex_agent as codex
+        import laomedo.integrations.langflow.agent.component as codex
         node=self.node(model='claude-sonnet-test',effort='max')
         catalog=codex._ModelCatalog();catalog['sonnet']=['low','max']
         catalog.effort_aliases['claude-sonnet-test']=['low','max']
@@ -179,7 +179,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
 
     def test_predispatch_failure_preserves_public_code_and_redacts_unknown_payloads(self):
         from urllib.error import HTTPError
-        import laomedo.codex_agent as common
+        import laomedo.integrations.langflow.agent.component as common
         for code in ('claude_host_login_unavailable', 'claude_host_login_expired', 'claude_local_login_copy_failed', 'claude_model_required', 'claude_native_skill_policy_unsupported',
                      'unsupported_claude_effort', 'SECRET payload and token'):
             node = self.node(skill_reference=[])

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.runtime.utils import _execution_evidence
+from laomedo.agents.providers.codex.utils import _execution_evidence
 import test_local_runner as fixtures
 
 

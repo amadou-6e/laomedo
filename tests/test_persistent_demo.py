@@ -121,7 +121,7 @@ class StandingBudgetTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 2)
 
     def test_new_manual_requests_get_fresh_branches_and_host_tasks(self):
-        from laomedo.agents.runtime.runner import LocalRunner
+        from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
         from laomedo.agents.contracts.output import requirements
         save(self.root / "standing-policy.json", {"repository": REPOSITORY,
              "turns_per_run": 4, "pushes_per_run": 1, "draft_prs_per_run": 1, "enabled": True})

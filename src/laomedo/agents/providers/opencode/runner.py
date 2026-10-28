@@ -14,6 +14,7 @@ import laomedo.agents.providers.opencode.settings as _opencode_settings
 import laomedo.agents.providers.opencode.utils as _opencode_utils
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.runner as _runtime_runner
+import laomedo.agents.runtime.models as _runtime_models
 import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.skills.registry.errors as _registry_errors
 import laomedo.skills.registry.utils as _registry_utils
@@ -66,7 +67,7 @@ class OpenCodeHTTP:
         self.log.close()
 
 
-class OpenCodeRunner(_runtime_runner.LocalRunner):
+class OpenCodeRunner(_runtime_runner.Runner):
     """Reuse immutable skills, snapshot lifecycle and bounded dispatch accounting.
 
     No production transport is installed by default: mounting authentication with
@@ -75,12 +76,26 @@ class OpenCodeRunner(_runtime_runner.LocalRunner):
 
     provider = "opencode"
 
-    def __init__(self, *args, transport_factory=None, **kwargs):
-        super().__init__(*args, check_docker=False, **kwargs)
+    def __init__(self, state, skill_store, source_workspace, *, transport_factory=None,
+                 lease_service=None, github_authority=None, mediator_state=None,
+                 git_workspace=False, publication_controller=None, artifact_sources=None):
         self.transport_factory = transport_factory
         self.active_backends = {}
         self._opencode_catalog_lock = threading.Lock()
         self._opencode_catalog_cached = None
+        super().__init__(state, skill_store, source_workspace, lease_service=lease_service,
+                         github_authority=github_authority, mediator_state=mediator_state,
+                         git_workspace=git_workspace, publication_controller=publication_controller,
+                         artifact_sources=artifact_sources)
+
+    def runtime_binding(self):
+        return _runtime_models.RuntimeBinding(
+            provider=self.provider, profile=None, image=None, image_id=None,
+            execution_mode="opencode_http", cli_version="opencode " + _opencode_settings.CLI_VERSION,
+            config_sha256=None)
+
+    def recover_interrupted(self, record):
+        """No persisted controller is owned by this HTTP adapter; its supervisor owns workers."""
 
     def model_catalog(self):
         """Discover connected native models without creating a session or turn."""

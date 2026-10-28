@@ -18,7 +18,7 @@ from uuid import uuid4
 from experiments.exp139 import runtime
 from experiments.exp139.prepare import REPOSITORY; from experiments.exp139.prepare import report_task; from experiments.exp139.prepare import save
 from laomedo.host.mediation.errors import KnownRejected
-from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
 
 BRANCH = re.compile(r"laomedo-dev-[0-9a-f]{32}")
 

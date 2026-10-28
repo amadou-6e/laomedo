@@ -30,7 +30,7 @@ class PackageLayoutTests(unittest.TestCase):
                 self.assertNotIn("alias_module", Path(module.__file__).read_text())
 
     def test_resource_owners_and_bytes(self):
-        from laomedo.agents.runtime.settings import CONFIG; from laomedo.agents.runtime.settings import SECCOMP; from laomedo.agents.runtime.settings import MEDIATION_CLIENT
+        from laomedo.agents.providers.codex.settings import CONFIG; from laomedo.agents.providers.codex.settings import SECCOMP; from laomedo.agents.providers.codex.settings import MEDIATION_CLIENT
         from laomedo.host.publication.bundle.settings import SCRIPT
         paths = [CONFIG, SECCOMP, MEDIATION_CLIENT, SCRIPT,
                  MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs"), MEDIATION_CLIENT.with_name("agent_git_remote.mjs"),
@@ -38,14 +38,14 @@ class PackageLayoutTests(unittest.TestCase):
                  package_root() / "host/credentials/git_credential_helper.py"]
         for path in paths:
             self.assertEqual(path.read_bytes(), (ROOT / "src/laomedo" / path.relative_to(package_root())).read_bytes())
-        self.assertEqual(CONFIG.parent, package_root() / "agents/resources")
+        self.assertEqual(CONFIG.parent, package_root() / "agents/providers/codex/resources")
         self.assertEqual(SECCOMP.parent, CONFIG.parent)
-        self.assertEqual(MEDIATION_CLIENT.parent, CONFIG.parent / "mediation")
+        self.assertEqual(MEDIATION_CLIENT.parent, package_root() / "agents/resources/mediation")
         self.assertEqual(SCRIPT.parent, package_root() / "host/publication/resources")
 
     def test_canonical_clis_work_outside_checkout(self):
         env = dict(os.environ, PYTHONPATH=str(import_root()))
-        modules = ["laomedo.host.managed_service", "laomedo.agents.runtime.cli", "laomedo.agents.providers.claude.cli",
+        modules = ["laomedo.host.managed_service", "laomedo.agents.providers.codex.cli", "laomedo.agents.providers.claude.cli",
                    "laomedo.host.leases.process_cli", "laomedo.host.leases.service_cli", "laomedo.work_graph"]
         with tempfile.TemporaryDirectory() as cwd:
             for module in modules:

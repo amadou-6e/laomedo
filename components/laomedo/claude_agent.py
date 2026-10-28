@@ -4,7 +4,7 @@ from copy import deepcopy
 import json
 import os
 
-from laomedo.codex_agent import LaomedoCodexAgent as Component
+from laomedo.integrations.langflow.agent.component import AgentComponent as Component
 from laomedo.agents.providers.claude.catalog import EFFORTS
 from langflow.io import IntInput
 
@@ -13,7 +13,16 @@ class LaomedoClaudeAgent(Component):
     display_name = "Laomedo Claude Agent"
     description = "Run Claude Code in an isolated container with optional pinned skills and validated operations."
     name = "LaomedoClaudeAgent"
+    provider_id = "claude"
     activity_provider = "claude-code"
+    discover_models_on_upgrade = True
+    supports_output_requirements = True
+    supports_join_bridge = True
+    present_native_models = True
+    catalog_timeout_seconds = 75
+    catalog_provider = "claude"
+    bridge_url_env = "LAOMEDO_CLAUDE_BRIDGE_URL"
+    bridge_token_env = "LAOMEDO_CLAUDE_BRIDGE_TOKEN_FILE"
     inputs = [deepcopy(item) for item in Component.inputs if item.name != 'handoff_reference']
     for _field in inputs:
         if _field.name == 'model':

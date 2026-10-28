@@ -1,6 +1,7 @@
 """Prepare isolated OpenCode commands and normalize native messages."""
 
 from __future__ import annotations
+import laomedo.agents.providers.codex.settings as _codex_settings
 
 from pathlib import Path
 import hashlib
@@ -103,7 +104,7 @@ def worker_command(name, workspace, canonical, store, command):
         f"type=bind,source={store},target=/store,readonly",
         "--workdir",
         "/draft",
-        _runtime_settings.IMAGE,
+        _codex_settings.IMAGE,
         "sh",
         "-c",
         command,

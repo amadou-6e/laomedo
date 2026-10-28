@@ -6,7 +6,7 @@ import subprocess
 
 from experiments.exp139.prepare import ROOT; from experiments.exp139.prepare import IDENTITY; from experiments.exp139.prepare import LANGFLOW; from experiments.exp139.prepare import save
 from experiments.exp139.runtime import configuration
-from laomedo.agents.runtime.settings import GIT_IMAGE_ID
+from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
 
 
 def freeze(root):

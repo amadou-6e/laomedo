@@ -13,8 +13,8 @@ from unittest.mock import patch
 from urllib import error as http_error; from urllib import request as http_request
 from uuid import uuid4
 
-from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.serving import RunnerServer as serve
-import laomedo.agents.runtime.cli as runner_module
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.serving import RunnerServer as serve
+import laomedo.agents.providers.codex.cli as runner_module
 from laomedo.agents.handoffs.transport import RunnerAdapter
 from laomedo.activity.runner.trace_bridge import RunnerTraceBridge
 from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore

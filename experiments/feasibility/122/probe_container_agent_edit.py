@@ -31,7 +31,7 @@ def docker_prefix(draft: Path, canonical: Path, store: Path) -> list[str]:
         "--mount", f"type=bind,source={draft},target=/draft",
         "--mount", f"type=bind,source={canonical},target=/canonical,readonly",
         "--mount", f"type=bind,source={store},target=/store",
-        "--mount", f"type=bind,source={config / 'agents/resources/runner-config.toml'},target=/config.toml,readonly",
+        "--mount", f"type=bind,source={config / 'agents/providers/codex/resources/runner-config.toml'},target=/config.toml,readonly",
         "--workdir", "/draft", IMAGE, "sh", "-c",
         "cp /config.toml /home/runner/.codex/config.toml && exec codex \"$@\"",
         "bootstrap",

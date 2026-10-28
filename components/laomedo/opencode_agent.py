@@ -1,10 +1,10 @@
-"""OpenCode ports reuse the Codex client lifecycle; install the whole category."""
+"""OpenCode graph adapter over the provider-neutral Agent lifecycle."""
 
 from copy import deepcopy
 import json
 import os
 
-from laomedo.codex_agent import LaomedoCodexAgent as Component
+from laomedo.integrations.langflow.agent.component import AgentComponent as Component
 from lfx.io import DropdownInput; from lfx.io import StrInput
 
 
@@ -12,6 +12,7 @@ class LaomedoOpenCodeAgent(Component):
     display_name = "Laomedo OpenCode Agent"
     description = "Run pinned skills with OpenCode through its isolated local Docker runner."
     name = "LaomedoOpenCodeAgent"
+    provider_id = "opencode"
     activity_provider = "opencode"
     inputs = [deepcopy(item) for item in Component.inputs if item.name not in
               {"model", "effort", "runner_url", "bridge_url", "output_requirements",
@@ -26,7 +27,7 @@ class LaomedoOpenCodeAgent(Component):
                  value="http://host.docker.internal:8768", real_time_refresh=True),
     ]
 
-    # Keep the current Codex layout: task/operation, model/variant, skill port,
+    # Keep the shared Agent layout: task/operation, model/variant, skill port,
     # then node-owned advanced settings. Hidden compatibility fields stay hidden.
     inputs.sort(key=lambda item: next((index for index, field in enumerate(Component.inputs)
                                       if field.name == item.name), len(Component.inputs)))
