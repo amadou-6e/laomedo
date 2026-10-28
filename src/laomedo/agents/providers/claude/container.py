@@ -33,8 +33,14 @@ class ClaudeContainer:
             r"laomedo-claude-[a-z0-9-]+", profile
         ):
             raise _runtime_errors.RunnerError("claude_container_configuration_invalid")
+        from py_docker import Client
+        with Client(environment=_claude_utils.docker_environment()) as docker:
+            self.docker_endpoint = docker.connection.endpoint
+        self.docker_environment = dict(_claude_utils.docker_environment(), DOCKER_HOST=self.docker_endpoint)
+        self.docker_environment.pop("DOCKER_CONTEXT", None)
         checked = _claude_utils.run_docker(
-            ["image", "inspect", image], text=True, timeout=20
+            env=self.docker_environment,
+            args=["image", "inspect", image], text=True, timeout=20
         )
         try:
             self.image_id = json.loads(checked.stdout)[0]["Id"]
@@ -49,11 +55,13 @@ class ClaudeContainer:
         self.profile, self.lease_service = profile, lease_service
         self.check_supervisor()
         volume = _claude_utils.run_docker(
-            ["volume", "inspect", profile], text=True, timeout=15
+            env=self.docker_environment,
+            args=["volume", "inspect", profile], text=True, timeout=15
         )
         if volume.returncode:
             created = _claude_utils.run_docker(
-                ["volume", "create", "--label", "laomedo.provider=claude", profile],
+            env=self.docker_environment,
+                args=["volume", "create", "--label", "laomedo.provider=claude", profile],
                 text=True,
                 timeout=15,
             )
@@ -62,7 +70,8 @@ class ClaudeContainer:
                     "claude_container_profile_unavailable"
                 )
             volume = _claude_utils.run_docker(
-                ["volume", "inspect", profile], text=True, timeout=15
+            env=self.docker_environment,
+                args=["volume", "inspect", profile], text=True, timeout=15
             )
         try:
             if (
@@ -170,7 +179,7 @@ class ClaudeContainer:
             "claude",
             *args,
         ]
-        return _claude_utils.run_docker(prefix, input=input, timeout=timeout + 10)
+        return _claude_utils.run_docker(prefix, env=self.docker_environment, input=input, timeout=timeout + 10)
 
     def bounded_command(self, command, deadline):
         remaining = deadline - time.monotonic()
@@ -195,6 +204,7 @@ class ClaudeContainer:
             return _leases_client.LeaseClient(
                 self.lease_service,
                 run_id=run_id,
+                docker_endpoint=self.docker_endpoint,
                 name=name,
                 token=token,
                 cancelled=cancelled,
@@ -288,7 +298,8 @@ class CommandService:
             try:
                 worker_deadline = min(self.deadline, time.monotonic() + 120)
                 result = _claude_utils.run_docker(
-                    prefix
+                    env=getattr(self.runtime, "docker_environment", None),
+                    args=prefix
                     + self.runtime.bounded_command(
                         ["sh", "-c", value["command"]], worker_deadline
                     ),
@@ -303,7 +314,7 @@ class CommandService:
             finally:
                 verified, _ = _leases_utils.cleanup_exact(
                     _leases_models.ContainerIdentity(
-                        name=name, run_id=self.record["run_id"], token=token
+                        name=name, run_id=self.record["run_id"], token=token, docker_endpoint=self.runtime.docker_endpoint
                     )
                 )
                 if verified:
@@ -312,7 +323,7 @@ class CommandService:
                     except RuntimeError:
                         _leases_utils.cleanup_exact(
                             _leases_models.ContainerIdentity(
-                                name=name, run_id=self.record["run_id"], token=token
+                                name=name, run_id=self.record["run_id"], token=token, docker_endpoint=self.runtime.docker_endpoint
                             )
                         )
                         verified = False
@@ -372,7 +383,7 @@ class CommandService:
         for name, token in active:
             verified, _ = _leases_utils.cleanup_exact(
                 _leases_models.ContainerIdentity(
-                    name=name, run_id=self.record["run_id"], token=token
+                    name=name, run_id=self.record["run_id"], token=token, docker_endpoint=self.runtime.docker_endpoint
                 )
             )
             if not verified:

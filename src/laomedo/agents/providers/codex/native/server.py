@@ -182,32 +182,19 @@ class AppServer(BaseNativeServer):
         if not self._reader_done.is_set():
             return False
         try:
-            state = self.session.state()
+            if self._reader_failed:
+                raise RunnerError("runner_transport_failed")
+            return self.session.exited()
         except (DockerOperationError, OSError):
             raise RunnerError("runner_transport_failed") from None
-        if self._reader_failed or state.running:
-            raise RunnerError("runner_transport_failed")
-        return state.removed or state.exit_code is not None
 
     def _read_frames(self) -> None:
-        """Buffer bytes until complete lines so UTF-8 can span Docker frames."""
+        """Decode and record complete native lines supplied by the owned session."""
         from py_docker.errors import DockerOperationError
 
-        buffers = {"stdout": bytearray(), "stderr": bytearray()}
         try:
-            while True:
-                frame = self.session.read_frame()
-                if frame is None:
-                    break
-                buffer = buffers[frame.channel]
-                buffer.extend(frame.data)
-                while b"\n" in buffer:
-                    line, _, remainder = buffer.partition(b"\n")
-                    buffers[frame.channel] = buffer = bytearray(remainder)
-                    self._record_line(frame.channel, line.decode("utf-8") + "\n")
-            for channel, remaining in buffers.items():
-                if remaining:
-                    self._record_line(channel, remaining.decode("utf-8"))
+            while (line := self.session.read_line()) is not None:
+                self._record_line(line.channel, line.data.decode("utf-8"))
         except (
             DockerOperationError,
             OSError,

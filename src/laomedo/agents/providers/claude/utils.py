@@ -35,10 +35,10 @@ def docker_environment():
     return {k: v for k, v in os.environ.items() if k.upper() in keys}
 
 
-def run_docker(args, **kwargs):
+def run_docker(args, *, env=None, **kwargs):
     try:
         return subprocess.run(
-            ["docker", *args], env=docker_environment(), capture_output=True, **kwargs
+            ["docker", *args], env=docker_environment() if env is None else env, capture_output=True, **kwargs
         )
     except (OSError, subprocess.SubprocessError):
         raise _runtime_errors.RunnerError("claude_container_unavailable") from None

@@ -175,7 +175,7 @@ class CodexRunner(Runner):
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
                 _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"]))
+                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
@@ -570,6 +570,7 @@ class CodexRunner(Runner):
                 launch_token = uuid4().hex
                 record["container_ownership"] = {
                     "name": name,
+                    "docker_endpoint": (self.docker_environment or {}).get("DOCKER_HOST"),
                     "launch_token": launch_token,
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False,
@@ -591,6 +592,7 @@ class CodexRunner(Runner):
                         self.lease_service,
                         run_id=run_id,
                         name=name,
+                        docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"),
                         token=launch_token,
                         cancelled=cancelled,
                         mediation_request=record.get("github_scope"),
@@ -1093,7 +1095,7 @@ class CodexRunner(Runner):
                     elif record is not None and self.supervise_containers:
                         verified, detail = _leases_utils.cleanup_exact(
                             _leases_models.ContainerIdentity(
-                                name=name, run_id=run_id, token=launch_token
+                                name=name, run_id=run_id, token=launch_token, docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST")
                             )
                         )
                         if lease is not None:
@@ -1138,7 +1140,7 @@ class CodexRunner(Runner):
                         if not verified:
                             verified, detail = _leases_utils.cleanup_exact(
                                 _leases_models.ContainerIdentity(
-                                    name=name, run_id=run_id, token=launch_token
+                                    name=name, run_id=run_id, token=launch_token, docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST")
                                 )
                             )
                         record["container_ownership"]["cleanup_verified"] = verified

@@ -308,14 +308,14 @@ class LeaseClientTests(unittest.TestCase):
 
     def test_client_refuses_missing_or_stale_service(self):
         with self.assertRaisesRegex(RuntimeError, "lease_service_unavailable"):
-            LeaseClient(self.state, run_id="r", name="n", token="t",
+            LeaseClient(self.state, docker_endpoint="unix:///unit-test.sock", run_id="r", name="n", token="t",
                         cancelled=threading.Event())
         self.state.mkdir(parents=True)
         (self.state / "service.json").write_text(json.dumps(
             {"pid": -1, "port": 1, "instance": "i"}), encoding="utf-8")
         (self.state / "service.alive").write_text(repr(time.time() - 60), encoding="utf-8")
         with self.assertRaisesRegex(RuntimeError, "lease_service_unavailable"):
-            LeaseClient(self.state, run_id="r", name="n", token="t",
+            LeaseClient(self.state, docker_endpoint="unix:///unit-test.sock", run_id="r", name="n", token="t",
                         cancelled=threading.Event())
 
     def test_client_registers_heartbeats_and_finishes_with_live_service(self):
@@ -327,7 +327,7 @@ class LeaseClientTests(unittest.TestCase):
         cancelled = threading.Event()
         # The service runs in-thread here; production refuses a same-process service.
         with patch("laomedo.host.leases.service.os.getpid", return_value=-2):
-            client = LeaseClient(self.state, run_id="run-one", name="exact-name",
+            client = LeaseClient(self.state, docker_endpoint="unix:///unit-test.sock", run_id="run-one", name="exact-name",
                                  token="token-one", cancelled=cancelled)
         self.assertTrue(client.grant_id.startswith("grant-"))
         self.assertTrue(service.book.check(client.grant_secret())[0])
@@ -362,7 +362,7 @@ class LeaseClientTests(unittest.TestCase):
 
         with patch("laomedo.host.leases.utils._write_json", side_effect=checked_write), \
                 patch("laomedo.host.leases.service.os.getpid", return_value=-2):
-            client = LeaseClient(self.state, run_id="run-race", name="exact-name",
+            client = LeaseClient(self.state, docker_endpoint="unix:///unit-test.sock", run_id="run-race", name="exact-name",
                                  token="token-race", cancelled=threading.Event())
         self.assertEqual(saw_staged_registration, [True])
         self.assertFalse((client.dir / "result.json").exists())
@@ -390,7 +390,7 @@ class LeaseClientTests(unittest.TestCase):
             with patch("laomedo.host.leases.service.os.getpid", return_value=-2):
                 with self.assertRaisesRegex(
                         RuntimeError, "lease_service_refused:mediated_lease_not_authorized"):
-                    LeaseClient(self.state, run_id="r", name="n", token="t",
+                    LeaseClient(self.state, docker_endpoint="unix:///unit-test.sock", run_id="r", name="n", token="t",
                                 cancelled=threading.Event(),
                                 mediation_request={"invocation_id": "i",
                                                    "repository": "example/disposable",

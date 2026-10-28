@@ -24,11 +24,17 @@ class LeaseClient:
         name: str,
         token: str,
         cancelled: threading.Event,
+        docker_endpoint: str | None = None,
         accept_timeout: float = 5.0,
         mediation_request: dict | None = None,
     ):
+        if docker_endpoint is None:
+            from py_docker import Client
+
+            with Client() as docker:
+                docker_endpoint = docker.connection.endpoint
         identity = _leases_models.ContainerIdentity(
-            name=name, run_id=run_id, token=token
+            name=name, run_id=run_id, token=token, docker_endpoint=docker_endpoint
         )
         self.state = Path(service_state).resolve()
         info = _leases_utils._read_json(self.state / "service.json")

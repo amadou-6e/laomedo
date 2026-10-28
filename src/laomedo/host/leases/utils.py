@@ -37,69 +37,17 @@ def _detached_process_options() -> dict:
 
 
 def inspect_exact(identity: _leases_models.ContainerIdentity) -> tuple[str, str | None]:
-    """Return (absent|owned|conflict|unknown, container ID)."""
+    """Inspect on the original endpoint; legacy missing endpoint stays unknown."""
     try:
-        result = subprocess.run(
-            ["docker", "inspect", identity.name],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ("unknown", None)
-    if result.returncode:
-        if (
-            "no such object:" in result.stderr.lower()
-            or "no such container:" in result.stderr.lower()
-        ):
-            return ("absent", None)
-        return ("unknown", None)
-    try:
-        entry = json.loads(result.stdout)[0]
-        labels = entry["Config"]["Labels"] or {}
-        if (
-            entry["Name"].lstrip("/") != identity.name
-            or labels.get(_leases_settings.LABEL_RUN) != identity.run_id
-            or labels.get(_leases_settings.LABEL_TOKEN)
-            != identity.token.get_secret_value()
-        ):
-            return ("conflict", entry.get("Id"))
-        return ("owned", entry["Id"])
-    except (KeyError, IndexError, TypeError, ValueError):
-        return ("unknown", None)
+        with identity.client() as client:
+            return client.containers.watch(identity.reservation()).inspect()
+    except (ImportError, OSError, ValueError, RuntimeError):
+        return "unknown", None
 
 
 def cleanup_exact(identity: _leases_models.ContainerIdentity) -> tuple[bool, str]:
-    """Stop only the exact labelled reservation, then prove it is absent."""
-    state, container_id = inspect_exact(identity)
-    if state == "unknown":
-        state, container_id = inspect_exact(identity)
-    if state == "absent":
-        return (True, "absent")
-    if state != "owned":
-        return (False, state)
-    try:
-        result = subprocess.run(
-            ["docker", "rm", "-f", container_id],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        result = None
-    after, _ = inspect_exact(identity)
-    if after == "unknown":
-        after, _ = inspect_exact(identity)
-    if after == "absent":
-        return (True, "removed")
-    return (
-        False,
-        (
-            "remove_unknown"
-            if result is None
-            else "remove_failed" if result.returncode else "still_present"
-        ),
-    )
+    """Delegate exact removal and confirmation to the endpoint-bound runtime."""
+    return cleanup_after_loss(identity, watch_seconds=0)
 
 
 def cleanup_after_loss(
@@ -107,33 +55,15 @@ def cleanup_after_loss(
     *,
     watch_seconds: float = _leases_settings.POST_LOSS_WATCH_SECONDS,
 ) -> tuple[bool, str]:
-    """Keep watching for a container created after the runner disappeared.
-
-    Absence throughout the watch is *not* proof that a delayed Docker client
-    cannot create it later. Report that case as unverified; never assert safe
-    termination merely because the first inspection found nothing.
-    """
-    deadline = time.monotonic() + watch_seconds
-    observed = False
-    while True:
-        state, _ = inspect_exact(identity)
-        if state in {"conflict", "unknown"}:
-            return (False, state)
-        if state == "owned":
-            observed = True
-            verified, detail = cleanup_exact(identity)
-            if not verified:
-                return (False, detail)
-        if time.monotonic() >= deadline:
-            state, _ = inspect_exact(identity)
-            if state == "absent":
-                return (
-                    (True, "removed_after_loss")
-                    if observed
-                    else (False, "never_observed")
-                )
-            return (False, "late_" + state)
-        time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+    """Revoke in Laomedo first; delegate Docker's delayed-create watch to runtime."""
+    try:
+        with identity.client() as client:
+            result = client.containers.watch(identity.reservation()).cleanup(
+                watch_seconds=watch_seconds
+            )
+            return result.verified, result.detail
+    except (ImportError, OSError, ValueError, RuntimeError):
+        return False, "unknown"
 
 
 def supervise(
@@ -173,7 +103,12 @@ def supervise(
         if event == "DONE":
             # The parent must have stopped and verified the container first.
             state, _ = inspect_exact(
-                _leases_models.ContainerIdentity(name=name, run_id=run_id, token=token)
+                _leases_models.ContainerIdentity(
+                    name=name,
+                    run_id=run_id,
+                    token=token,
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
             )
             result_path.write_text(
                 json.dumps({"reason": "done", "state": state}) + "\n", encoding="utf-8"
@@ -181,7 +116,12 @@ def supervise(
             return 0 if state == "absent" else 3
         if event in {"EOF", "EXPIRED"}:
             verified, state = cleanup_after_loss(
-                _leases_models.ContainerIdentity(name=name, run_id=run_id, token=token)
+                _leases_models.ContainerIdentity(
+                    name=name,
+                    run_id=run_id,
+                    token=token,
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
             )
             result_path.write_text(
                 json.dumps(

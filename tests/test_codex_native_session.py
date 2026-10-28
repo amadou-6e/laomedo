@@ -51,11 +51,9 @@ class NativeSessionTests(unittest.TestCase):
             root=Path(temp)
             launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
             session=Mock()
-            session.read_frame.side_effect=[
-                Frame(channel="stdout",data=b'{"method":"notice","params":{"text":"caf\xc3'),
-                Frame(channel="stderr",data=b'private-'),
-                Frame(channel="stdout",data=b'\xa9"}}\n'),
-                Frame(channel="stderr",data=b'token\n'),None]
+            session.read_line.side_effect=[
+                Frame(channel="stdout",data='{"method":"notice","params":{"text":"caf\u00e9"}}\n'.encode()),
+                Frame(channel="stderr",data=b'private-token\n'),None]
             session.state.return_value=ContainerState(running=False,exit_code=0,removed=False)
             with patch("py_docker.Client") as client, patch("subprocess.Popen") as cli:
                 client.return_value.sessions.open.return_value=session
@@ -108,7 +106,7 @@ class NativeSessionTests(unittest.TestCase):
             root=Path(temp)
             launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
             with patch("py_docker.Client") as client:
-                client.return_value.sessions.open.return_value.read_frame.side_effect=late_read
+                client.return_value.sessions.open.return_value.read_line.side_effect=late_read
                 server=AppServer(launch,root)
                 self.assertTrue(entered.wait(timeout=1))
                 with patch.object(server.reader,"join"):

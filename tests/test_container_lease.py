@@ -14,91 +14,35 @@ from laomedo.host.leases.utils import cleanup_after_loss; from laomedo.host.leas
 
 
 class ContainerLeaseTests(unittest.TestCase):
-    def test_transient_unknown_only_rechecks_read_only_and_never_guesses_cleanup(self):
-        with patch('laomedo.host.leases.utils.inspect_exact', side_effect=[('unknown', None), ('absent', None)]), \
-             patch('laomedo.host.leases.utils.subprocess.run') as remove:
-            self.assertEqual(cleanup_exact(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one')), (True, 'absent'))
-            remove.assert_not_called()
-        with patch('laomedo.host.leases.utils.inspect_exact', return_value=('unknown', None)) as inspect, \
-             patch('laomedo.host.leases.utils.subprocess.run') as remove:
-            self.assertEqual(cleanup_exact(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one')), (False, 'unknown'))
-            self.assertEqual(inspect.call_count, 2)
-            remove.assert_not_called()
+    def test_cleanup_uses_original_endpoint_and_runtime_ownership(self):
+        identity=ContainerIdentity(name="exact",run_id="run",token="private",docker_endpoint="unix:///original.sock")
+        with patch("py_docker.Client") as client:
+            watch=client.return_value.__enter__.return_value.containers.watch.return_value
+            watch.inspect.return_value=("owned","a"*64)
+            watch.cleanup.return_value.verified=True
+            watch.cleanup.return_value.detail="removed"
+            self.assertEqual(inspect_exact(identity),("owned","a"*64))
+            self.assertEqual(cleanup_exact(identity),(True,"removed"))
+            client.assert_called_with(environment={"DOCKER_HOST":"unix:///original.sock"})
+            reservation=client.return_value.__enter__.return_value.containers.watch.call_args.args[0]
+            self.assertEqual(reservation.labels["laomedo.launch_token"].get_secret_value(),"private")
+            watch.cleanup.assert_called_once_with(watch_seconds=0)
 
-    def test_concurrent_cleanup_accepts_proven_absence_after_other_remover(self):
-        with patch('laomedo.host.leases.utils.inspect_exact',
-                   side_effect=[('owned', 'exact-id'), ('absent', None)]), \
-             patch('laomedo.host.leases.utils.subprocess.run',
-                   return_value=subprocess.CompletedProcess([], 1, '', 'already removed')):
-            self.assertEqual(cleanup_exact(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one')), (True, 'removed'))
-        with patch('laomedo.host.leases.utils.inspect_exact', return_value=('absent', None)), \
-             patch('laomedo.host.leases.utils.subprocess.run') as remove:
-            self.assertEqual(cleanup_exact(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one')), (True, 'absent'))
-            remove.assert_not_called()
+    def test_missing_legacy_endpoint_cannot_claim_absence(self):
+        identity=ContainerIdentity(name="exact",run_id="run",token="private")
+        with patch("py_docker.Client") as client:
+            self.assertEqual(inspect_exact(identity),("unknown",None))
+            self.assertEqual(cleanup_exact(identity),(False,"unknown"))
+            client.assert_not_called()
 
-    def test_absence_accepts_docker_casing_but_not_control_failures(self):
-        for message, expected in (
-                ("Error: No such object: exact-name", "absent"),
-                ("error: no such object: exact-name", "absent"),
-                ("Error response from daemon: No such container: exact-name", "absent"),
-                ("error: no such container: exact-name", "absent"),
-                ("permission denied connecting to Docker", "unknown"),
-                ("cannot connect to the Docker daemon", "unknown")):
-            with self.subTest(message=message), patch(
-                    "laomedo.host.leases.utils.subprocess.run", return_value=
-                    subprocess.CompletedProcess([], 1, "", message)):
-                self.assertEqual(inspect_exact(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one')),
-                                 (expected, None))
-
-    def test_supervisor_is_detached_from_runner_group(self):
-        options = _detached_process_options()
-        if "creationflags" in options:
-            self.assertTrue(options["creationflags"] & subprocess.CREATE_NEW_PROCESS_GROUP)
-            self.assertTrue(options["creationflags"] & subprocess.CREATE_BREAKAWAY_FROM_JOB)
-        else:
-            self.assertEqual(options, {"start_new_session": True})
-
-    def test_delayed_container_creation_is_removed(self):
-        observations = iter([("absent", None), ("owned", "exact-id")])
-        def observe(*_):
-            return next(observations, ("absent", None))
-        with patch("laomedo.host.leases.utils.inspect_exact", side_effect=observe) as inspect, \
-                patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "removed")) as cleanup:
-            self.assertEqual(cleanup_after_loss(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one'), watch_seconds=0.01),
-                             (True, "removed_after_loss"))
-        self.assertGreaterEqual(inspect.call_count, 3)
-        cleanup.assert_called_once_with(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one'))
-
-    def test_never_observed_does_not_claim_cleanup(self):
-        with patch("laomedo.host.leases.utils.inspect_exact", return_value=("absent", None)):
-            self.assertEqual(cleanup_after_loss(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one'), watch_seconds=0.001),
-                             (False, "never_observed"))
-
-    def test_exact_identity_refuses_lookalike_container(self):
-        entry = {"Id": "sha256:unrelated", "Name": "/laomedo-codex-looks-similar",
-                 "Config": {"Labels": {"laomedo.run_id": "other",
-                                       "laomedo.launch_token": "other"}}}
-        with patch("laomedo.host.leases.utils.subprocess.run", return_value=
-                   subprocess.CompletedProcess([], 0, json.dumps([entry]), "")) as docker:
-            self.assertEqual(inspect_exact(ContainerIdentity(name='laomedo-codex-looks-similar', run_id='run-one', token='token-one')),
-                             ("conflict", "sha256:unrelated"))
-            self.assertEqual(cleanup_exact(ContainerIdentity(name='laomedo-codex-looks-similar', run_id='run-one', token='token-one')),
-                             (False, "conflict"))
-            self.assertEqual(docker.call_count, 2)
-            self.assertTrue(all(call.args[0][1] == "inspect" for call in docker.call_args_list))
-
-    def test_cleanup_removes_container_id_not_name(self):
-        entry = {"Id": "sha256:owned", "Name": "/exact-name",
-                 "Config": {"Labels": {"laomedo.run_id": "run-one",
-                                       "laomedo.launch_token": "token-one"}}}
-        responses = [subprocess.CompletedProcess([], 0, json.dumps([entry]), ""),
-                     subprocess.CompletedProcess([], 0, "", ""),
-                     subprocess.CompletedProcess([], 1, "", "No such object: exact-name")]
-        with patch("laomedo.host.leases.utils.subprocess.run", side_effect=responses) as docker:
-            self.assertEqual(cleanup_exact(ContainerIdentity(name='exact-name', run_id='run-one', token='token-one')),
-                             (True, "removed"))
-            self.assertEqual(docker.call_args_list[1].args[0],
-                             ["docker", "rm", "-f", "sha256:owned"])
+    def test_loss_watch_delegates_configured_duration(self):
+        identity=ContainerIdentity(name="exact",run_id="run",token="private",docker_endpoint="unix:///original.sock")
+        with patch("py_docker.Client") as client:
+            watch=client.return_value.__enter__.return_value.containers.watch.return_value
+            watch.cleanup.return_value.verified=False
+            watch.cleanup.return_value.detail="never_observed"
+            self.assertEqual(cleanup_after_loss(identity,watch_seconds=.2),(False,"never_observed"))
+            watch.cleanup.assert_called_once_with(watch_seconds=.2)
 
     def test_eof_runs_cleanup_after_ready_marker(self):
         with tempfile.TemporaryDirectory() as temp:

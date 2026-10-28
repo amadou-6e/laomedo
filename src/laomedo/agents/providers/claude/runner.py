@@ -68,7 +68,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
                 _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"]))
+                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
@@ -466,6 +466,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         name, token = "laomedo-claude-" + uuid4().hex, uuid4().hex
         record["container_ownership"] = {
             "name": name,
+            "docker_endpoint": getattr(self.container, "docker_endpoint", None),
             "launch_token": token,
             "supervised": True,
             "cleanup_verified": False,
@@ -549,7 +550,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=errors,
-                    env=_agents_providers_claude_utils.docker_environment(),
+                    env=getattr(self.container, "docker_environment", None),
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 self.processes[record["run_id"]] = process
@@ -621,7 +622,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                     service_error = True
             verified, detail = _leases_utils.cleanup_exact(
                 _leases_models.ContainerIdentity(
-                    name=name, run_id=record["run_id"], token=token
+                    name=name, run_id=record["run_id"], token=token, docker_endpoint=getattr(self.container, "docker_endpoint", None)
                 )
             )
             if process is not None and process.poll() is None:
@@ -634,7 +635,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 except RuntimeError:
                     rechecked, recheck_detail = _leases_utils.cleanup_exact(
                         _leases_models.ContainerIdentity(
-                            name=name, run_id=record["run_id"], token=token
+                            name=name, run_id=record["run_id"], token=token, docker_endpoint=getattr(self.container, "docker_endpoint", None)
                         )
                     )
                     record["container_ownership"][
