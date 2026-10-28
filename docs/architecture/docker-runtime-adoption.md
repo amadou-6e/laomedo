@@ -3,7 +3,8 @@
 This is the migration record for Laomedo issues #196–202. The first local trial replaces normal, non-split Codex image/version preflight
 with the merged `py-docker` runtime. It is stacked on provider-neutral PR #211
 head 8ff5a27; fetched develop remains 6069ac9. The visible checkout is kept
-unchanged. The optional `runner` extra pins Git merge 212e24d before PyPI;
+unchanged. The optional `runner` extra pins the local-trial jobs feature from
+py-docker PR #11 before PyPI; that package PR remains unmerged.
 this trial is not ready to merge into develop until the published dependency is
 hash-pinned and the owner reviews the working graph.
 
@@ -62,6 +63,15 @@ and approves. Library CI or a package reviewer verdict does not satisfy that gat
 
 
 ## First local slice: normal Codex preflight
+
+The generic one-shot lifecycle is now delegated to `client.jobs.run` and
+`client.jobs.recover`. Laomedo no longer implements private receipt writing,
+reconciliation, frame collection, exit waiting or cleanup for this probe.
+It retains only the image/version authorization, hardened probe policy, state
+path, endpoint snapshot and mapping to the existing descriptive error codes.
+Generic fault controls live in py-docker; Laomedo's controls guard delegation and
+policy. A native receipt lock prevents another caller from recovering a live job.
+The empty sibling `.lock` file is normal and must not be deleted during use.
 
 The host-only `runner` extra loads py-docker lazily. Core Laomedo, Langflow
 components and stage-worker imports do not require the Docker SDK. Split Codex,
