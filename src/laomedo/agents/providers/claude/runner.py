@@ -464,8 +464,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         deadline = record.get(
             "_attempt_deadline", time.monotonic() + record["turn_timeout"]
         )
-        service, telemetry, watcher, session = None, None, None, None
-        watch_stop = threading.Event()
+        service, telemetry, session = None, None, None
         input_path = root.joinpath("controller-input-" + uuid4().hex)
         native_completed = False
         output_only = record.get("output_correction_count", 0) > 0
@@ -550,24 +549,11 @@ class ClaudeRunner(_runtime_runner.Runner):
                 spec,
                 self.container.receipts.joinpath("claude-" + name + ".json"),
                 max(1, deadline - time.monotonic()) + 10,
-            ) as session:
-
-                def stop_when_requested():
-                    """Terminate the exact owned ID; creator-thread close owns the receipt."""
-                    while not watch_stop.wait(0.1):
-                        if (
-                            flag.is_set()
-                            or time.monotonic() >= deadline
-                            or service.error_code
-                        ):
-                            try:
-                                session.terminate()
-                            except Exception:
-                                pass  # Creator close and the independent lease must verify cleanup.
-                            return
-
-                watcher = threading.Thread(target=stop_when_requested, daemon=True)
-                watcher.start()
+            ) as session, session.stop_on(
+                lambda: (
+                    flag.is_set() or time.monotonic() >= deadline or bool(service.error_code)
+                )
+            ):
                 total, stderr_size, result = 0, 0, None
                 while True:
                     if flag.is_set():
@@ -618,7 +604,6 @@ class ClaudeRunner(_runtime_runner.Runner):
                     service.close()
                 except Exception:
                     service_error = True
-            watch_stop.set()
             verified, detail = True, "removed"
             if session is not None and session.cleanup_confirmed is not True:
                 verified, detail = False, "sdk_cleanup_unverified"
@@ -635,9 +620,6 @@ class ClaudeRunner(_runtime_runner.Runner):
                 )
             if self.container.receipts.joinpath("claude-" + name + ".json").exists():
                 verified, detail = False, "pending_sdk_receipt"
-            if watcher is not None:
-                watcher.join(3)
-                verified = verified and not watcher.is_alive()
             input_path.unlink(missing_ok=True)
             if verified:
                 try:

@@ -78,6 +78,12 @@ active-worker cancellation completed in 2.00 seconds with verified removal and
 zero receipts. Pending SDK cleanup cannot be promoted by a secondary absence
 check; the independent lease remains responsible for host-loss supervision.
 
+Claude's controller and generic jobs also share `Session.stop_on`: Laomedo
+supplies its cancellation, turn-deadline and fatal-worker condition, while
+py-docker owns the monitor and exact-ID termination. Creator-thread close
+remains responsible for receipt cleanup. Provider status, native interrupts,
+grant revocation and independent host-loss supervision stay in Laomedo.
+
 ## Canonical paths
 
 Credential-free version checks use `client.jobs.run`. Normal and split Codex
