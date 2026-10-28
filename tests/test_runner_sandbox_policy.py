@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.providers.codex.settings import CLI_VERSION; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix
 from laomedo.agents.providers.codex.preflight.models import DockerSelection
 
 

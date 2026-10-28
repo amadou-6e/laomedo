@@ -49,6 +49,7 @@ assert 'docker' not in sys.modules
         original = builtins.__import__
 
         def without_runtime(name, *args, **kwargs):
+            """Inject only the missing optional dependency for this internal control."""
             if name == "docker.errors":
                 raise ImportError("external private diagnostic")
             return original(name, *args, **kwargs)
@@ -153,6 +154,8 @@ class PreflightControls(unittest.TestCase):
         self.assertEqual(spec.image, self.expected)
         self.assertEqual(spec.user, "10001:10001")
         self.assertEqual(spec.network_mode, "none")
+        self.assertEqual(spec.cap_drop, ["ALL"])
+        self.assertEqual(spec.security_opt, ["no-new-privileges:true"])
         self.assertTrue(spec.read_only)
         self.assertFalse(spec.volumes)
         calls = [str(call) for call in self.client.mock_calls]
