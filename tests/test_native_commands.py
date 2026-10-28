@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class NativeCommandsTests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("LAOMEDO_TEST_NATIVE_DOCKER") == "1", "opt-in Docker development fixture")
     def test_native_git_and_gh_protocol_in_pinned_image(self):
-        from laomedo.agents.runtime.constants import GIT_IMAGE_ID
+        from laomedo.agents.runtime.settings import GIT_IMAGE_ID
         with tempfile.TemporaryDirectory() as temporary:
             wrappers = prepare_commands(Path(temporary), REPO, "run-branch")
             name = "laomedo-native-dev-" + uuid4().hex

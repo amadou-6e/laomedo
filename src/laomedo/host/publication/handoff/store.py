@@ -9,7 +9,7 @@ from contextlib import closing
 from hashlib import sha256
 import json
 import laomedo.agents.contracts.output as _contracts_output
-import laomedo.host.publication.handoff.constants as _handoff_constants
+import laomedo.host.publication.handoff.settings as _handoff_settings
 import laomedo.host.publication.handoff.utils as _handoff_utils
 import math
 import re
@@ -31,7 +31,7 @@ class HandoffStore:
             or self.monotonic() >= row["deadline_monotonic"]
         ):
             _handoff_utils._deny("handoff_expired")
-        if row["phase"] in _handoff_constants.TERMINAL:
+        if row["phase"] in _handoff_settings.TERMINAL:
             _handoff_utils._deny("handoff_terminal")
         if handoff_id is None:
             if row["phase"] != "agent_active":
@@ -174,7 +174,7 @@ class HandoffStore:
         )
 
     def end_publication_handoff(self, handoff_id, phase="cancelled"):
-        if phase not in _handoff_constants.TERMINAL:
+        if phase not in _handoff_settings.TERMINAL:
             _handoff_utils._deny("handoff_terminal_required")
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")

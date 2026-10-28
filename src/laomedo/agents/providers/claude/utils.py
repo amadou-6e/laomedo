@@ -6,7 +6,7 @@ from uuid import UUID
 import hashlib
 import json
 import laomedo.agents.providers.claude.catalog as _claude_catalog
-import laomedo.agents.providers.claude.constants as _claude_constants
+import laomedo.agents.providers.claude.settings as _claude_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import re
 import subprocess
@@ -148,7 +148,7 @@ def command(
         "none",
         *([] if output_only else ["--plugin-dir", "/run/laomedo/pinned-skills"]),
         "--append-system-prompt",
-        _claude_constants.SYSTEM,
+        _claude_settings.SYSTEM,
         "--resume" if resume else "--session-id",
         thread,
     ]

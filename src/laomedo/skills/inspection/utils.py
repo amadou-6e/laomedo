@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 import base64
 import json
-import laomedo.skills.inspection.constants as _inspection_constants
+import laomedo.skills.inspection.settings as _inspection_settings
 import laomedo.skills.inspection.errors as _inspection_errors
-import laomedo.skills.registry.constants as _registry_constants
+import laomedo.skills.registry.settings as _registry_settings
 import laomedo.skills.registry.errors as _registry_errors
 import laomedo.skills.registry.utils as _registry_utils
 import os
@@ -40,11 +40,11 @@ def _read_regular(path: Path, limit: int) -> bytes:
 def inspect_skill(
     root: Path, skill_id: str, revision_id: str, *, include_images: bool = False
 ) -> dict:
-    if not isinstance(skill_id, str) or not _registry_constants.NAME.fullmatch(
+    if not isinstance(skill_id, str) or not _registry_settings.NAME.fullmatch(
         skill_id
     ):
         raise _inspection_errors.InspectionError("invalid_skill_id")
-    if not isinstance(revision_id, str) or not _registry_constants.HASH.fullmatch(
+    if not isinstance(revision_id, str) or not _registry_settings.HASH.fullmatch(
         revision_id
     ):
         raise _inspection_errors.InspectionError("immutable_skill_revision_required")
@@ -73,9 +73,9 @@ def inspect_skill(
         for parent, directories, names in os.walk(bundle, followlinks=False):
             directory_count += len(directories)
             if (
-                directory_count > _inspection_constants.MAX_DIRECTORIES
+                directory_count > _inspection_settings.MAX_DIRECTORIES
                 or len(Path(parent).relative_to(bundle).parts)
-                > _inspection_constants.MAX_DEPTH
+                > _inspection_settings.MAX_DEPTH
             ):
                 raise _inspection_errors.InspectionError("skill_revision_too_large")
             for name in directories:
@@ -83,11 +83,11 @@ def inspect_skill(
                     raise _inspection_errors.InspectionError("skill_revision_unsafe")
             for name in names:
                 path = Path(parent) / name
-                if len(contents) >= _inspection_constants.MAX_FILES:
+                if len(contents) >= _inspection_settings.MAX_FILES:
                     raise _inspection_errors.InspectionError("skill_revision_too_large")
-                data = _read_regular(path, _inspection_constants.MAX_FILE_BYTES)
+                data = _read_regular(path, _inspection_settings.MAX_FILE_BYTES)
                 total += len(data)
-                if total > _inspection_constants.MAX_BUNDLE_BYTES:
+                if total > _inspection_settings.MAX_BUNDLE_BYTES:
                     raise _inspection_errors.InspectionError("skill_revision_too_large")
                 contents[path.relative_to(bundle).as_posix()] = data
         if (

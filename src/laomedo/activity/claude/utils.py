@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import laomedo.activity.claude.constants as _claude_constants
+import laomedo.activity.claude.settings as _claude_settings
 
 
 def safe_attributes(values):
     result = {}
     for pair in values:
-        if pair.key not in _claude_constants.SAFE:
+        if pair.key not in _claude_settings.SAFE:
             continue
         kind = pair.value.WhichOneof("value")
         if kind in {"string_value", "int_value", "double_value", "bool_value"}:

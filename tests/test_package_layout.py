@@ -30,8 +30,8 @@ class PackageLayoutTests(unittest.TestCase):
                 self.assertNotIn("alias_module", Path(module.__file__).read_text())
 
     def test_resource_owners_and_bytes(self):
-        from laomedo.agents.runtime.constants import CONFIG; from laomedo.agents.runtime.constants import SECCOMP; from laomedo.agents.runtime.constants import MEDIATION_CLIENT
-        from laomedo.host.publication.bundle.constants import SCRIPT
+        from laomedo.agents.runtime.settings import CONFIG; from laomedo.agents.runtime.settings import SECCOMP; from laomedo.agents.runtime.settings import MEDIATION_CLIENT
+        from laomedo.host.publication.bundle.settings import SCRIPT
         paths = [CONFIG, SECCOMP, MEDIATION_CLIENT, SCRIPT,
                  MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs"), MEDIATION_CLIENT.with_name("agent_git_remote.mjs"),
                  package_root() / "skills/resources/skill-summary/SKILL.md",

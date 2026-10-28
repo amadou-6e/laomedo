@@ -6,7 +6,7 @@ Nothing here reads an agent checkout, provider credential, or remote."""
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.github.transport.git.constants as _git_constants
+import laomedo.github.transport.git.settings as _git_settings
 import laomedo.github.transport.git.utils as _git_utils
 import laomedo.host.publication.verified.errors as _verified_errors
 import laomedo.host.publication.verified.models as _verified_models
@@ -40,7 +40,7 @@ class VerifiedGitStage:
                 ["git", "-C", str(self.bare), *args],
                 capture_output=True,
                 check=False,
-                timeout=_git_constants.GIT_COMMAND_TIMEOUT_SECONDS,
+                timeout=_git_settings.GIT_COMMAND_TIMEOUT_SECONDS,
                 env=env,
             )
 

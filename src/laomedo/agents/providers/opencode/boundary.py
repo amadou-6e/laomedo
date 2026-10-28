@@ -11,9 +11,9 @@ from uuid import uuid4
 import base64
 import http.client
 import json
-import laomedo.agents.providers.opencode.constants as _opencode_constants
+import laomedo.agents.providers.opencode.settings as _opencode_settings
 import laomedo.agents.providers.opencode.utils as _opencode_utils
-import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
 import secrets
@@ -182,7 +182,7 @@ class IsolatedOpenCode:
         configure_agents=None,
     ):
         self.termination_verified = False
-        selected_worker_id = worker_image_id or _runtime_constants.IMAGE_ID
+        selected_worker_id = worker_image_id or _runtime_settings.IMAGE_ID
         self.profile = _runtime_utils._private(Path(profile))
         if not (self.profile / "auth.json").is_file():
             raise _runtime_errors.RunnerError("opencode_private_auth_required")
@@ -192,17 +192,17 @@ class IsolatedOpenCode:
             _runtime_utils._json(identity_path, {"profile_id": str(uuid4())})
         self.runtime_identity = {
             "provider": "opencode",
-            "runtime_version": _opencode_constants.CLI_VERSION,
+            "runtime_version": _opencode_settings.CLI_VERSION,
             "image": image,
             "image_id": image_id,
             "profile_id": json.loads(identity_path.read_text())["profile_id"],
-            "worker_image": _runtime_constants.IMAGE,
+            "worker_image": _runtime_settings.IMAGE,
             "worker_image_id": selected_worker_id,
             "credential_binding": _opencode_utils._credential_binding(self.profile),
         }
         for label, expected in (
             (image, image_id),
-            (_runtime_constants.IMAGE, selected_worker_id),
+            (_runtime_settings.IMAGE, selected_worker_id),
         ):
             actual = subprocess.run(
                 ["docker", "image", "inspect", label, "--format", "{{.Id}}"],

@@ -14,7 +14,7 @@ from uuid import uuid4
 import json
 import laomedo._paths as _package_paths
 import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.work_graph.constants as _work_graph_constants
+import laomedo.work_graph.settings as _work_graph_settings
 import laomedo.work_graph.serialization as _work_graph_serialization
 import subprocess
 
@@ -116,7 +116,7 @@ class DockerLangflowStage:
             "HOME=/tmp",
             "--entrypoint",
             "python",
-            _work_graph_constants.IMAGE,
+            _work_graph_settings.IMAGE,
             "-m",
             "laomedo.work_graph.stage_worker",
             mode,
@@ -155,7 +155,7 @@ class DockerLangflowStage:
             try:
                 while chunk := process.stdout.read(4096):
                     size += len(chunk)
-                    if size > _work_graph_constants.MAX_RESULT_CHARS:
+                    if size > _work_graph_settings.MAX_RESULT_CHARS:
                         queue.put((False, "stage_output_limit"))
                         return
                     parts.append(chunk)
@@ -205,7 +205,7 @@ class DockerLangflowStage:
             self._validate(flow_dir)
             config = {
                 **resolved_config,
-                "stage_image": _work_graph_constants.IMAGE,
+                "stage_image": _work_graph_settings.IMAGE,
                 "stage_input_digest": self.flow_digest,
                 "stage_control": "host-owned-v2",
             }

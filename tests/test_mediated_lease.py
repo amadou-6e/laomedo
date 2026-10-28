@@ -11,7 +11,7 @@ import unittest
 from urllib import error; from urllib import request
 
 from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
-from laomedo.host.leases.constants import GRANT_TTL_SECONDS; from laomedo.host.leases.constants import LOSS_SECONDS; from laomedo.host.leases.service import LeaseService
+from laomedo.host.leases.settings import GRANT_TTL_SECONDS; from laomedo.host.leases.settings import LOSS_SECONDS; from laomedo.host.leases.service import LeaseService
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.host.mediation.service import MediationHTTPService
 

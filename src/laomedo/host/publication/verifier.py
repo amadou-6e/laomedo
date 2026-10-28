@@ -10,12 +10,12 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import laomedo._paths as _package_paths
-import laomedo.host.publication.bundle.constants as _bundle_constants
+import laomedo.host.publication.bundle.settings as _bundle_settings
 import laomedo.host.publication.bundle.errors as _bundle_errors
 import laomedo.host.publication.bundle.ownership as _bundle_ownership
 import laomedo.host.publication.bundle.stage as _bundle_stage
 import laomedo.host.publication.status as _publication_status
-import laomedo.skills.ingestion.constants as _ingestion_constants
+import laomedo.skills.ingestion.settings as _ingestion_settings
 import laomedo.skills.ingestion.errors as _ingestion_errors
 import laomedo.skills.ingestion.utils as _ingestion_utils
 import os
@@ -88,7 +88,7 @@ class BundleVerifier:
                 baseline_bundle=self.baseline,
                 expected_baseline_sha256=self.baseline_sha256,
                 commit=frozen["advertised_commit"],
-                image_id=_bundle_constants.PINNED_IMAGE_ID,
+                image_id=_bundle_settings.PINNED_IMAGE_ID,
             )
         except Exception as failure:
             journal = attempt / "verification.json"
@@ -131,14 +131,14 @@ class BundleVerifier:
             if (
                 _ingestion_utils._redirected(run)
                 or not run.is_dir()
-                or not _ingestion_constants._IDENTITY.fullmatch(run.name)
+                or not _ingestion_settings._IDENTITY.fullmatch(run.name)
             ):
                 continue
             for attempt in run.iterdir():
                 if (
                     _ingestion_utils._redirected(attempt)
                     or not attempt.is_dir()
-                    or not _ingestion_constants._IDENTITY.fullmatch(attempt.name)
+                    or not _ingestion_settings._IDENTITY.fullmatch(attempt.name)
                 ):
                     continue
                 # Claimed attempts remain one-shot, but orphan lookup/cleanup

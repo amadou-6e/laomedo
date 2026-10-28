@@ -7,13 +7,13 @@ from pathlib import Path
 import hashlib
 import json
 import laomedo.github.transport.git.utils as _git_utils
-import laomedo.host.publication.bundle.constants as _bundle_constants
+import laomedo.host.publication.bundle.settings as _bundle_settings
 import laomedo.host.publication.bundle.errors as _bundle_errors
 import laomedo.host.publication.bundle.stage as _bundle_stage
-import laomedo.host.publication.verified.constants as _verified_constants
+import laomedo.host.publication.verified.settings as _verified_settings
 import laomedo.host.publication.verified.errors as _verified_errors
 import laomedo.host.publication.verified.models as _verified_models
-import laomedo.skills.ingestion.constants as _ingestion_constants
+import laomedo.skills.ingestion.settings as _ingestion_settings
 import laomedo.skills.ingestion.errors as _ingestion_errors
 import laomedo.skills.ingestion.utils as _ingestion_utils
 import os
@@ -145,8 +145,8 @@ def stage_verified_git(
 
     if (
         not isinstance(snapshot, _verified_models.VerifiedStage)
-        or not _verified_constants._COMMIT.fullmatch(snapshot.commit)
-        or not _verified_constants._COMMIT.fullmatch(snapshot.baseline)
+        or not _verified_settings._COMMIT.fullmatch(snapshot.commit)
+        or not _verified_settings._COMMIT.fullmatch(snapshot.baseline)
         or hashlib.sha256(snapshot.bundle).hexdigest() != snapshot.bundle_sha256
     ):
         raise _verified_errors.VerifiedGitStageError("stage_snapshot_invalid")
@@ -241,7 +241,7 @@ def resolve_verified_stage(
     """
     if not isinstance(
         stage_attempt_id, str
-    ) or not _ingestion_constants._IDENTITY.fullmatch(stage_attempt_id):
+    ) or not _ingestion_settings._IDENTITY.fullmatch(stage_attempt_id):
         raise _verified_errors.VerifiedStageError("stage_identity_invalid")
     try:
         runner_state, private_root = _ingestion_utils._bound_roots(
@@ -272,7 +272,7 @@ def resolve_verified_stage(
     ):
         raise _verified_errors.VerifiedStageError("stage_scope_mismatch")
     raw = _read_regular(
-        attempt / "verification.json", _ingestion_constants.MAX_RECORD_BYTES
+        attempt / "verification.json", _ingestion_settings.MAX_RECORD_BYTES
     )
     try:
         verification = json.loads(raw)
@@ -291,7 +291,7 @@ def resolve_verified_stage(
         or verification.get("source_bundle_sha256") != frozen["bundle_sha256"]
         or verification.get("baseline") != binding["baseline"]
         or verification.get("commit") != commit
-        or verification.get("image_id") != _bundle_constants.PINNED_IMAGE_ID
+        or verification.get("image_id") != _bundle_settings.PINNED_IMAGE_ID
         or not isinstance(verification.get("baseline_bundle_sha256"), str)
         or len(verification["baseline_bundle_sha256"]) != 64
         or any(
@@ -307,7 +307,7 @@ def resolve_verified_stage(
     ):
         raise _verified_errors.VerifiedStageError("stage_verification_invalid")
     bundle = _read_regular(
-        attempt / "verified.bundle", _bundle_constants.MAX_OUTPUT_BYTES
+        attempt / "verified.bundle", _bundle_settings.MAX_OUTPUT_BYTES
     )
     digest = hashlib.sha256(bundle).hexdigest()
     if (

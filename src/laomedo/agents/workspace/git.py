@@ -7,7 +7,7 @@ The existing file-snapshot runner path remains unchanged."""
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.agents.workspace.constants as _workspace_constants
+import laomedo.agents.workspace.settings as _workspace_settings
 import laomedo.agents.workspace.errors as _workspace_errors
 import os
 import shutil
@@ -56,7 +56,7 @@ def _bounded_git(args: list[str], env: dict[str, str]):
     process = subprocess.Popen(args, **options)
     try:
         stdout, stderr = process.communicate(
-            timeout=_workspace_constants.GIT_COMMAND_TIMEOUT_SECONDS
+            timeout=_workspace_settings.GIT_COMMAND_TIMEOUT_SECONDS
         )
     except subprocess.TimeoutExpired as error:
         cleanup_verified = False
@@ -119,7 +119,7 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
         baseline = command(
             "rev-parse", "--verify", "HEAD", cwd=source, source_side=True
         )
-        if baseline.returncode or not _workspace_constants._SHA.fullmatch(
+        if baseline.returncode or not _workspace_settings._SHA.fullmatch(
             baseline.stdout.strip()
         ):
             raise _workspace_errors.GitWorkspaceError("source_commit_invalid")

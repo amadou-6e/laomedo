@@ -6,7 +6,7 @@ from pathlib import Path
 import hashlib
 import laomedo.agents.workspace.errors as _agents_workspace_errors
 import laomedo.agents.workspace.git as _workspace_git
-import laomedo.skills.registry.constants as _registry_constants
+import laomedo.skills.registry.settings as _registry_settings
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.errors as _skills_workspace_errors
 import os
@@ -114,7 +114,7 @@ def remove_owned_tree(path: Path, state: Path) -> None:
 
 def install(workspace: Path, skills: list[dict]) -> dict:
     for skill in skills:
-        if not _registry_constants.NAME.fullmatch(skill["skill_id"]):
+        if not _registry_settings.NAME.fullmatch(skill["skill_id"]):
             raise _skills_workspace_errors.WorkspaceSkillError("invalid_skill_id")
     exclude = _exclude(workspace)
     if exclude is None:
@@ -145,7 +145,7 @@ def verify(workspace: Path, skills: list[dict], exclusion: dict) -> None:
             "unexpected_materialized_skill"
         )
     for skill in skills:
-        if not _registry_constants.NAME.fullmatch(skill["skill_id"]):
+        if not _registry_settings.NAME.fullmatch(skill["skill_id"]):
             raise _skills_workspace_errors.WorkspaceSkillError("invalid_skill_id")
         if (
             _registry_utils.tree_hash(

@@ -90,7 +90,7 @@ Implementation files introduce classes or standalone functions, never both.
 Request-handler classes may be nested in their owning server constructor.
 Exceptions live in class-only `errors.py`. Helpers that belong to an object become
 methods; independent helpers stay in that feature's function-only `utils.py` or a
-focused module such as `serialization.py`. `constants.py` owns genuinely shared
+focused module such as `serialization.py`. `settings.py` owns genuinely shared
 constants and mutable locks exactly once. Initializers expose only deliberate
 package APIs. Feature imports use explicit module owners; distinct dependencies
 must never rebind the same module alias.

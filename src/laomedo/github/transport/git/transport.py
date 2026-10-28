@@ -10,7 +10,7 @@ from __future__ import annotations
 from contextlib import ExitStack
 from pathlib import Path
 import base64
-import laomedo.github.transport.git.constants as _git_constants
+import laomedo.github.transport.git.settings as _git_settings
 import laomedo.github.transport.git.errors as _git_errors
 import laomedo.github.transport.git.utils as _git_utils
 import laomedo.host.mediation.errors as _mediation_errors
@@ -41,11 +41,11 @@ class GitHubGitTransport:
         run=subprocess.run,
         require_verified_stage: bool = False,
     ):
-        if not isinstance(repository, str) or not _git_constants._REPOSITORY.fullmatch(
+        if not isinstance(repository, str) or not _git_settings._REPOSITORY.fullmatch(
             repository
         ):
             raise ValueError("repository_invalid")
-        if not isinstance(baseline, str) or not _git_constants._SHA.fullmatch(baseline):
+        if not isinstance(baseline, str) or not _git_settings._SHA.fullmatch(baseline):
             raise ValueError("baseline_invalid")
         checkout = Path(checkout).resolve()
         if not checkout.is_dir() or checkout.is_symlink():
@@ -78,7 +78,7 @@ class GitHubGitTransport:
                 ["git", "-C", str(directory), *args],
                 capture_output=True,
                 check=False,
-                timeout=_git_constants.GIT_COMMAND_TIMEOUT_SECONDS,
+                timeout=_git_settings.GIT_COMMAND_TIMEOUT_SECONDS,
                 env=isolated,
             )
 
@@ -86,7 +86,7 @@ class GitHubGitTransport:
         return self._run_git(self.checkout, *args, env=env)
 
     def _valid_commit(self, commit: str) -> bool:
-        if not isinstance(commit, str) or not _git_constants._SHA.fullmatch(commit):
+        if not isinstance(commit, str) or not _git_settings._SHA.fullmatch(commit):
             return False
         result = self._git("cat-file", "-t", commit)
         return result.returncode == 0 and result.stdout.strip() == b"commit"
@@ -197,7 +197,7 @@ class GitHubGitTransport:
         if (
             repository != self.repository
             or not isinstance(commit, str)
-            or not _git_constants._SHA.fullmatch(commit)
+            or not _git_settings._SHA.fullmatch(commit)
         ):
             return None
         with tempfile.TemporaryDirectory(prefix="laomedo-git-check-") as scratch:
@@ -235,7 +235,7 @@ class GitHubGitTransport:
         if not isinstance(branch, str) or not branch or branch.startswith("refs/"):
             raise _mediation_errors.KnownRejected("push_branch_invalid")
         ref = "refs/heads/" + branch
-        if not isinstance(commit, str) or not _git_constants._SHA.fullmatch(commit):
+        if not isinstance(commit, str) or not _git_settings._SHA.fullmatch(commit):
             raise _mediation_errors.KnownRejected("push_commit_unverified")
         if expected_remote_commit is not None and (
             not isinstance(expected_remote_commit, str)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import laomedo.activity.opencode.constants as _opencode_constants
+import laomedo.activity.opencode.settings as _opencode_settings
 import laomedo.activity.opencode.utils as _opencode_utils
 import laomedo.activity.runner.feed as _runner_feed
 import threading
@@ -50,7 +50,7 @@ class NativeCapture:
         if kind == "server.connected":
             self.ready.set()
             return
-        if kind not in _opencode_constants.ALLOWED:
+        if kind not in _opencode_settings.ALLOWED:
             return
         props = native.get("properties") or {}
         if not isinstance(props, dict):

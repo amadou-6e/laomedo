@@ -1,10 +1,10 @@
-"""Constants shared by the owning feature; mutable state has one owner."""
+"""Feature settings and fixed protocol values; mutable state has one owner."""
 
 from __future__ import annotations
 
-import laomedo.activity.runner.constants as _runner_constants
+import laomedo.activity.runner.settings as _runner_settings
 
-SAFE = _runner_constants.ALLOWED | frozenset(
+SAFE = _runner_settings.ALLOWED | frozenset(
     {
         "session.id",
         "event.sequence",

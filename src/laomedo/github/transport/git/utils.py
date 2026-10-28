@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import laomedo._paths as _package_paths
-import laomedo.github.transport.git.constants as _git_constants
+import laomedo.github.transport.git.settings as _git_settings
 import os
 import shlex
 import signal
@@ -52,7 +52,7 @@ def _run_bounded_tree(
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     check=False,
-                    timeout=_git_constants.GIT_TREE_CLEANUP_SECONDS,
+                    timeout=_git_settings.GIT_TREE_CLEANUP_SECONDS,
                 )
                 cleanup_verified = killed.returncode == 0
             except (OSError, subprocess.TimeoutExpired):
@@ -69,14 +69,14 @@ def _run_bounded_tree(
             except ProcessLookupError:
                 pass
         try:
-            process.communicate(timeout=_git_constants.GIT_TREE_CLEANUP_SECONDS)
+            process.communicate(timeout=_git_settings.GIT_TREE_CLEANUP_SECONDS)
         except subprocess.TimeoutExpired:
             # Do not wait forever for a child that inherited an output pipe.
             for pipe in (process.stdout, process.stderr):
                 if pipe is not None:
                     pipe.close()
             try:
-                process.wait(timeout=_git_constants.GIT_TREE_CLEANUP_SECONDS)
+                process.wait(timeout=_git_settings.GIT_TREE_CLEANUP_SECONDS)
             except subprocess.TimeoutExpired:
                 cleanup_verified = False
         raise _git_transport.GitTreeTimeout(args, timeout, cleanup_verified) from None

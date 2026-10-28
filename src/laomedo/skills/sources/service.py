@@ -10,12 +10,12 @@ from urllib.parse import unquote
 from urllib.parse import urlsplit
 import hashlib
 import json
-import laomedo.skills.inspection.constants as _inspection_constants
+import laomedo.skills.inspection.settings as _inspection_settings
 import laomedo.skills.inspection.utils as _inspection_utils
 import laomedo.skills.registry.errors as _registry_errors
 import laomedo.skills.registry.store as _registry_store
 import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.sources.constants as _sources_constants
+import laomedo.skills.sources.settings as _sources_settings
 import laomedo.skills.sources.errors as _sources_errors
 import laomedo.skills.sources.utils as _sources_utils
 import os
@@ -277,7 +277,7 @@ class SkillSources:
                 if path in result:
                     raise _sources_errors.SourceError("source_bundle_unsafe")
                 result[path] = (mode, kind, oid)
-            if len(result) > _sources_constants.MAX_ENTRIES:
+            if len(result) > _sources_settings.MAX_ENTRIES:
                 raise _sources_errors.SourceError("source_limit_exceeded")
         return result
 
@@ -287,11 +287,11 @@ class SkillSources:
             raise _sources_errors.SourceError("source_bundle_unsafe")
         if (
             int(self._git(repo, ["cat-file", "-s", oid], 128))
-            > _inspection_constants.MAX_FILE_BYTES
+            > _inspection_settings.MAX_FILE_BYTES
         ):
             raise _sources_errors.SourceError("source_limit_exceeded")
         return self._git(
-            repo, ["cat-file", "blob", oid], _inspection_constants.MAX_FILE_BYTES
+            repo, ["cat-file", "blob", oid], _inspection_settings.MAX_FILE_BYTES
         )
 
     def _local_skills(self, root):
@@ -303,7 +303,7 @@ class SkillSources:
             dirs[:] = [d for d in dirs if not _sources_utils._excluded((d,))]
             count += len(dirs) + len(files)
             if (
-                count > _sources_constants.MAX_ENTRIES
+                count > _sources_settings.MAX_ENTRIES
                 or len(Path(parent).relative_to(root).parts) > 16
             ):
                 raise _sources_errors.SourceError("source_limit_exceeded")
@@ -313,7 +313,7 @@ class SkillSources:
                 relative = Path(parent).relative_to(root).as_posix()
                 name = _sources_utils._name(
                     _inspection_utils._read_regular(
-                        Path(parent) / "SKILL.md", _inspection_constants.MAX_FILE_BYTES
+                        Path(parent) / "SKILL.md", _inspection_settings.MAX_FILE_BYTES
                     ),
                     Path(parent).name,
                 )
@@ -476,17 +476,17 @@ class SkillSources:
                     ):
                         raise _sources_errors.SourceError("local_source_unsafe")
                     for name in names:
-                        if len(files) >= _inspection_constants.MAX_FILES:
+                        if len(files) >= _inspection_settings.MAX_FILES:
                             raise _sources_errors.SourceError("source_limit_exceeded")
                         path = Path(parent) / name
                         _sources_utils._bundle_path(path.relative_to(folder).as_posix())
                         files[path.relative_to(folder).as_posix()] = (
                             _inspection_utils._read_regular(
-                                path, _inspection_constants.MAX_FILE_BYTES
+                                path, _inspection_settings.MAX_FILE_BYTES
                             )
                         )
                         total += len(files[path.relative_to(folder).as_posix()])
-                        if total > _inspection_constants.MAX_BUNDLE_BYTES:
+                        if total > _inspection_settings.MAX_BUNDLE_BYTES:
                             raise _sources_errors.SourceError("source_limit_exceeded")
                 if (
                     _sources_utils._name(files["SKILL.md"], folder.name)
@@ -522,13 +522,13 @@ class SkillSources:
                     for path, entry in entries.items():
                         if path.startswith(prefix):
                             _sources_utils._bundle_path(path[len(prefix) :])
-                            if len(files) >= _inspection_constants.MAX_FILES:
+                            if len(files) >= _inspection_settings.MAX_FILES:
                                 raise _sources_errors.SourceError(
                                     "source_limit_exceeded"
                                 )
                             content = self._blob(repo, entry)
                             total += len(content)
-                            if total > _inspection_constants.MAX_BUNDLE_BYTES:
+                            if total > _inspection_settings.MAX_BUNDLE_BYTES:
                                 raise _sources_errors.SourceError(
                                     "source_limit_exceeded"
                                 )

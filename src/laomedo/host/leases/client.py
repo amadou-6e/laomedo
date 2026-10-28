@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import logging
@@ -42,8 +42,8 @@ class LeaseClient:
             or alive is None
             or alive_monotonic is None
             or alive_monotonic > now_monotonic + 1
-            or now_monotonic - alive_monotonic > _leases_constants.SERVICE_STALE_SECONDS
-            or time.time() - alive > _leases_constants.SERVICE_STALE_SECONDS
+            or now_monotonic - alive_monotonic > _leases_settings.SERVICE_STALE_SECONDS
+            or time.time() - alive > _leases_settings.SERVICE_STALE_SECONDS
             or info.get("pid") == os.getpid()
         ):
             raise RuntimeError("lease_service_unavailable")
@@ -113,8 +113,8 @@ class LeaseClient:
                     or alive_monotonic is None
                     or alive_monotonic > now_monotonic + 1
                     or now_monotonic - alive_monotonic
-                    > _leases_constants.SERVICE_STALE_SECONDS
-                    or time.time() - alive_at > _leases_constants.SERVICE_STALE_SECONDS
+                    > _leases_settings.SERVICE_STALE_SECONDS
+                    or time.time() - alive_at > _leases_settings.SERVICE_STALE_SECONDS
                     or current is None
                     or current.get("instance") != self.instance
                 ):

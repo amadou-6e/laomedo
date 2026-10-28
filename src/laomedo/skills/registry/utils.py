@@ -8,7 +8,7 @@ from uuid import uuid4
 import difflib
 import hashlib
 import json
-import laomedo.skills.registry.constants as _registry_constants
+import laomedo.skills.registry.settings as _registry_settings
 import laomedo.skills.registry.errors as _registry_errors
 import os
 import stat
@@ -23,7 +23,7 @@ def _canonical_json(value: dict) -> bytes:
 
 
 def _safe_name(value: str) -> str:
-    if not isinstance(value, str) or not _registry_constants.NAME.fullmatch(value):
+    if not isinstance(value, str) or not _registry_settings.NAME.fullmatch(value):
         raise _registry_errors.SkillStoreError("invalid_skill_id")
     return value
 

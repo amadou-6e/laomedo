@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from uuid import uuid4
 import json
-import laomedo.activity.claude.constants as _claude_constants
+import laomedo.activity.claude.settings as _claude_settings
 import laomedo.activity.claude.utils as _claude_utils
 import re
 import secrets
@@ -272,7 +272,7 @@ class ClaudeTelemetry:
                             event = record.body.string_value
                         if (
                             event.removeprefix("claude_code.")
-                            not in _claude_constants.EVENTS
+                            not in _claude_settings.EVENTS
                         ):
                             event = "claude_code.event"
                         append(

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.constants import CLI_VERSION; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import cli_environment; from laomedo.agents.providers.claude.utils import activity_usage
+from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.settings import CLI_VERSION; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import cli_environment; from laomedo.agents.providers.claude.utils import activity_usage
 from laomedo.activity.agent_activity.projection import project
 from laomedo.agents.runtime.errors import RunnerError
 from laomedo.agents.contracts.output import requirements

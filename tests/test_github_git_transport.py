@@ -10,7 +10,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.errors import PushOutcomeUnknown; from laomedo.github.transport.git.constants import GIT_COMMAND_TIMEOUT_SECONDS; from laomedo.github.transport.git.transport import GitTreeTimeout; from laomedo.github.transport.git.utils import _credential_environment; from laomedo.github.transport.git.utils import _run_bounded_tree
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.errors import PushOutcomeUnknown; from laomedo.github.transport.git.settings import GIT_COMMAND_TIMEOUT_SECONDS; from laomedo.github.transport.git.transport import GitTreeTimeout; from laomedo.github.transport.git.utils import _credential_environment; from laomedo.github.transport.git.utils import _run_bounded_tree
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.service import JournaledTransport

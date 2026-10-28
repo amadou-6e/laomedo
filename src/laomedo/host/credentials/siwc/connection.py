@@ -14,7 +14,7 @@ from uuid import uuid4
 import base64
 import hashlib
 import json
-import laomedo.host.credentials.siwc.constants as _siwc_constants
+import laomedo.host.credentials.siwc.settings as _siwc_settings
 import laomedo.host.credentials.siwc.errors as _siwc_errors
 import laomedo.host.credentials.siwc.utils as _siwc_utils
 import os
@@ -88,8 +88,8 @@ class ChatGPTConnection:
             "ext_agent_host_id": self.host_id,
             "response_type": "code",
             "redirect_uri": redirect_uri,
-            "scope": _siwc_constants.SCOPES,
-            "resource": _siwc_constants.RESOURCE,
+            "scope": _siwc_settings.SCOPES,
+            "resource": _siwc_settings.RESOURCE,
             "state": state,
             "nonce": nonce,
             "code_challenge_method": "S256",
@@ -109,7 +109,7 @@ class ChatGPTConnection:
             if previous.get("email"):
                 params["login_hint"] = previous["email"]
         return {
-            "url": _siwc_constants.AUTH_ORIGIN
+            "url": _siwc_settings.AUTH_ORIGIN
             + "/api/accounts/authorize?"
             + urlencode(params),
             "state": state,
@@ -149,14 +149,14 @@ class ChatGPTConnection:
         if not isinstance(code, str) or not code:
             raise _siwc_errors.AuthError("auth_code_missing")
         response = exchange(
-            _siwc_constants.AUTH_ORIGIN + "/api/accounts/oauth/token",
+            _siwc_settings.AUTH_ORIGIN + "/api/accounts/oauth/token",
             fields={
                 "grant_type": "authorization_code",
                 "client_id": client_id,
                 "code": code,
                 "code_verifier": attempt["verifier"],
                 "redirect_uri": attempt["redirect_uri"],
-                "resource": _siwc_constants.RESOURCE,
+                "resource": _siwc_settings.RESOURCE,
             },
         )
         claims = verify(response.get("id_token"), client_id, attempt["nonce"])
@@ -166,7 +166,7 @@ class ChatGPTConnection:
         ):
             raise _siwc_errors.AuthError("auth_account_mismatch")
         scopes = set(str(response.get("scope", "")).split())
-        if not _siwc_constants.NEEDED.issubset(scopes):
+        if not _siwc_settings.NEEDED.issubset(scopes):
             raise _siwc_errors.AuthError("auth_scope_missing")
         if not all(
             isinstance(response.get(key), str) and response[key]
@@ -227,9 +227,9 @@ class ChatGPTConnection:
                     if account.get("state") in {"refresh_unknown", "refresh_in_flight"}
                     else "auth_revoked"
                 )
-            if not _siwc_constants.NEEDED.issubset(set(account.get("scopes", []))):
+            if not _siwc_settings.NEEDED.issubset(set(account.get("scopes", []))):
                 raise _siwc_errors.AuthError("auth_scope_missing")
-            if account["expires_at"] > time.time() + _siwc_constants.MIN_DISPATCH_TTL:
+            if account["expires_at"] > time.time() + _siwc_settings.MIN_DISPATCH_TTL:
                 return account["access_token"], self.summary(account)
             # Persist uncertainty before sending a rotating refresh token.
             # A crash or malformed success response must never replay it.
@@ -237,12 +237,12 @@ class ChatGPTConnection:
             _siwc_utils._atomic_private(self._path(account["client_id"]), account)
             try:
                 response = refresh(
-                    _siwc_constants.AUTH_ORIGIN + "/api/accounts/oauth/token",
+                    _siwc_settings.AUTH_ORIGIN + "/api/accounts/oauth/token",
                     fields={
                         "grant_type": "refresh_token",
                         "client_id": account["client_id"],
                         "refresh_token": account["refresh_token"],
-                        "resource": _siwc_constants.RESOURCE,
+                        "resource": _siwc_settings.RESOURCE,
                     },
                 )
                 scopes = (
@@ -250,7 +250,7 @@ class ChatGPTConnection:
                     if "scope" in response
                     else set(account["scopes"])
                 )
-                if not _siwc_constants.NEEDED.issubset(scopes):
+                if not _siwc_settings.NEEDED.issubset(scopes):
                     raise _siwc_errors.AuthError("auth_scope_missing")
                 if not all(
                     isinstance(response.get(key), str) and response[key]

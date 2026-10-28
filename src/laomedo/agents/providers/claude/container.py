@@ -6,11 +6,11 @@ from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from uuid import uuid4
 import json
-import laomedo.agents.providers.claude.constants as _claude_constants
+import laomedo.agents.providers.claude.settings as _claude_settings
 import laomedo.agents.providers.claude.utils as _claude_utils
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.host.leases.client as _leases_client
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import math
@@ -23,8 +23,8 @@ import time
 class ClaudeContainer:
     def __init__(
         self,
-        image=_claude_constants.IMAGE,
-        profile=_claude_constants.PROFILE,
+        image=_claude_settings.IMAGE,
+        profile=_claude_settings.PROFILE,
         lease_service=None,
     ):
         if not isinstance(image, str) or not re.fullmatch(r"[A-Za-z0-9_./:@-]+", image):
@@ -78,7 +78,7 @@ class ClaudeContainer:
         if (
             version.returncode
             or version.stdout.decode().strip()
-            != _claude_constants.CLI_VERSION + " (Claude Code)"
+            != _claude_settings.CLI_VERSION + " (Claude Code)"
         ):
             raise _runtime_errors.RunnerError("unsupported_claude_cli_version")
 
@@ -105,9 +105,9 @@ class ClaudeContainer:
                 "--name",
                 name,
                 "--label",
-                _leases_constants.LABEL_RUN + "=" + run_id,
+                _leases_settings.LABEL_RUN + "=" + run_id,
                 "--label",
-                _leases_constants.LABEL_TOKEN + "=" + token,
+                _leases_settings.LABEL_TOKEN + "=" + token,
             ]
         if worker:
             args += [
@@ -148,10 +148,10 @@ class ClaudeContainer:
                 or not math.isfinite(monotonic)
                 or not -1
                 <= time.time() - wall
-                <= _leases_constants.SERVICE_STALE_SECONDS
+                <= _leases_settings.SERVICE_STALE_SECONDS
                 or not -1
                 <= time.monotonic() - monotonic
-                <= _leases_constants.SERVICE_STALE_SECONDS
+                <= _leases_settings.SERVICE_STALE_SECONDS
             ):
                 raise ValueError()
         except (OSError, ValueError, TypeError, AttributeError):
@@ -182,7 +182,7 @@ class ClaudeContainer:
             "-i",
             self.image_id,
             "-c",
-            _claude_constants.EXECUTION_GUARD,
+            _claude_settings.EXECUTION_GUARD,
             str(time.time() + remaining),
             str(remaining),
             *command,

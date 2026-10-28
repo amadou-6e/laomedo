@@ -16,7 +16,7 @@ from unittest.mock import patch
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from laomedo.host.credentials.siwc.errors import AuthError; from laomedo.host.credentials.siwc.connection import ChatGPTConnection; from laomedo.host.credentials.siwc.constants import NEEDED; from laomedo.host.credentials.siwc.utils import _https_json; from laomedo.host.credentials.siwc.utils import _tls_context; from laomedo.host.credentials.siwc.utils import _verify_id_token
+from laomedo.host.credentials.siwc.errors import AuthError; from laomedo.host.credentials.siwc.connection import ChatGPTConnection; from laomedo.host.credentials.siwc.settings import NEEDED; from laomedo.host.credentials.siwc.utils import _https_json; from laomedo.host.credentials.siwc.utils import _tls_context; from laomedo.host.credentials.siwc.utils import _verify_id_token
 
 
 class ChatGPTConnectionTests(unittest.TestCase):

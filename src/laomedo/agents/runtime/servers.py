@@ -7,10 +7,10 @@ from uuid import uuid4
 import hashlib
 import json
 import laomedo.agents.contracts.output as _contracts_output
-import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import os
@@ -59,9 +59,9 @@ class AppServer:
             for index, item in enumerate(command[:-1])
             if item == "--label"
         ):
-            if value.startswith(_leases_constants.LABEL_RUN + "="):
+            if value.startswith(_leases_settings.LABEL_RUN + "="):
                 self.run_id = value.split("=", 1)[1]
-            elif value.startswith(_leases_constants.LABEL_TOKEN + "="):
+            elif value.startswith(_leases_settings.LABEL_TOKEN + "="):
                 self.launch_token = value.split("=", 1)[1]
         self.active_thread_id = None
         self.interrupt_acknowledged = False
@@ -340,9 +340,9 @@ class SplitAppServer(AppServer):
         self._executor_started = False
         if (
             _runtime_utils._docker_checked(
-                "image", "inspect", _runtime_constants.IMAGE, "--format", "{{.Id}}"
+                "image", "inspect", _runtime_settings.IMAGE, "--format", "{{.Id}}"
             )
-            != _runtime_constants.IMAGE_ID
+            != _runtime_settings.IMAGE_ID
         ):
             raise _runtime_errors.RunnerError("docker_image_digest_changed")
         executor = [
@@ -370,7 +370,7 @@ class SplitAppServer(AppServer):
             "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
             "--workdir",
             "/draft",
-            _runtime_constants.IMAGE,
+            _runtime_settings.IMAGE,
             "codex",
             "exec-server",
             "--listen",
@@ -387,7 +387,7 @@ class SplitAppServer(AppServer):
                 workspace, canonical, store_mount, nested_sandbox=False
             )
             command[command.index("--network") + 1] = "container:" + self.executor_name
-            old_mount = f"type=volume,source={_runtime_constants.VOLUME},target=/home/runner/.codex"
+            old_mount = f"type=volume,source={_runtime_settings.VOLUME},target=/home/runner/.codex"
             index = command.index(old_mount)
             del command[index - 1 : index + 1]
             command[command.index("--workdir") : command.index("--workdir")] = [
@@ -469,7 +469,7 @@ class SplitAppServer(AppServer):
             _runtime_utils._docker_checked(
                 "exec", self.container_name, "codex", "--version", timeout=5
             )
-            != _runtime_constants.CLI_VERSION
+            != _runtime_settings.CLI_VERSION
         ):
             raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
         if (
@@ -488,7 +488,7 @@ class SplitAppServer(AppServer):
                 _runtime_utils._docker_checked(
                     "inspect", name, "--format", "{{.Image}}", timeout=5
                 )
-                != _runtime_constants.IMAGE_ID
+                != _runtime_settings.IMAGE_ID
             ):
                 raise _runtime_errors.RunnerError("running_image_digest_changed")
 

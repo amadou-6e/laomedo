@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from uuid import UUID
 import hashlib
-import laomedo.agents.artifacts.constants as _artifacts_constants
+import laomedo.agents.artifacts.settings as _artifacts_settings
 import laomedo.agents.artifacts.errors as _artifacts_errors
 
 
@@ -67,7 +67,7 @@ def selections(items):
         for field in ("snapshot_hash", "content_hash"):
             if not isinstance(
                 item[field], str
-            ) or not _artifacts_constants.HASH.fullmatch(item[field]):
+            ) or not _artifacts_settings.HASH.fullmatch(item[field]):
                 raise _artifacts_errors.ArtifactError("invalid_artifact_hash")
         relative_path(item["path"])
         destination = relative_path(item["destination"])

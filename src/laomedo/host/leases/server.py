@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import json
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.mediation.errors as _mediation_errors
 import laomedo.host.mediation.store as _mediation_store

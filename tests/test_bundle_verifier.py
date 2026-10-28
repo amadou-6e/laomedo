@@ -8,7 +8,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.constants import HANDOFF_NAME; from laomedo.skills.ingestion.utils import _durable_json
+from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.ingestion.utils import _durable_json
 from laomedo.host.publication.verifier import BundleVerifier; from laomedo.host.publication.status import _publish_status
 from laomedo.host.publication.bundle.errors import BundleStageError
 

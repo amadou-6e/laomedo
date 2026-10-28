@@ -11,7 +11,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Callable
 import json
-import laomedo.host.mediation.constants as _mediation_constants
+import laomedo.host.mediation.settings as _mediation_settings
 import laomedo.host.mediation.errors as _mediation_errors
 import laomedo.host.mediation.utils as _mediation_utils
 import laomedo.host.publication.handoff.store as _handoff_store
@@ -174,7 +174,7 @@ class MediationStore(_handoff_store.HandoffStore):
                 approval_identity is not None
                 and (not isinstance(approval_identity, str) or not approval_identity)
             )
-            or not operations <= _mediation_constants.OPERATIONS
+            or not operations <= _mediation_settings.OPERATIONS
             or not 0 < ttl_seconds <= 60
             or (operations & {"git_push", "git_fetch", "pr_create"} and not branch)
             or (branch is not None and (not isinstance(branch, str) or not branch))
@@ -512,7 +512,7 @@ class MediationStore(_handoff_store.HandoffStore):
         transport: Callable[[str, str, dict], dict],
         _handoff_id=None,
     ) -> dict:
-        if operation not in _mediation_constants.OPERATIONS and operation not in {
+        if operation not in _mediation_settings.OPERATIONS and operation not in {
             "bundle_freeze",
             "bundle_status",
         }:
@@ -633,7 +633,7 @@ class MediationStore(_handoff_store.HandoffStore):
             if frozen.get("status") == "refused":
                 return {"state": "rejected", "error": frozen.get("reason")}
             return {"state": "unknown", "resent": False}
-        if operation in _mediation_constants.WRITES:
+        if operation in _mediation_settings.WRITES:
             if not isinstance(effect_id, str) or not 0 < len(effect_id) <= 128:
                 raise _mediation_errors.MediationError("effect_id_required")
         payload_hash = _mediation_utils._request_hash(repository, operation, payload)
@@ -722,11 +722,11 @@ class MediationStore(_handoff_store.HandoffStore):
                 handoff_id=_handoff_id,
                 payload=payload,
             )
-            if operation in _mediation_constants.READS:
+            if operation in _mediation_settings.READS:
                 _mediation_utils._validate_read(
                     operation, payload, repository, grant, db
                 )
-            if operation in _mediation_constants.WRITES:
+            if operation in _mediation_settings.WRITES:
                 _mediation_utils._validate_effect(
                     operation, payload, grant, db, changes_workflow
                 )
@@ -859,7 +859,7 @@ class MediationStore(_handoff_store.HandoffStore):
             return {"state": "unknown", "resent": False}
         else:
             state, error_code = "confirmed", None
-        if operation in _mediation_constants.READS:
+        if operation in _mediation_settings.READS:
             if state == "rejected":
                 return {"state": "rejected", "error": error_code}
             if operation == "git_fetch":

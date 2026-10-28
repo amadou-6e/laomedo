@@ -6,8 +6,8 @@ from pathlib import Path
 import hashlib
 import hmac
 import json
-import laomedo.agents.providers.opencode.constants as _opencode_constants
-import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.providers.opencode.settings as _opencode_settings
+import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import secrets
 import subprocess
@@ -43,7 +43,7 @@ def check_auth_fresh(profile):
         or isinstance(expiry, bool)
     ):
         raise _runtime_errors.RunnerError("opencode_auth_validity_invalid")
-    if expiry <= int(time.time() * 1000) + _opencode_constants.MIN_TOKEN_REMAINING_MS:
+    if expiry <= int(time.time() * 1000) + _opencode_settings.MIN_TOKEN_REMAINING_MS:
         raise _runtime_errors.RunnerError("opencode_console_token_refresh_required")
 
 
@@ -103,7 +103,7 @@ def worker_command(name, workspace, canonical, store, command):
         f"type=bind,source={store},target=/store,readonly",
         "--workdir",
         "/draft",
-        _runtime_constants.IMAGE,
+        _runtime_settings.IMAGE,
         "sh",
         "-c",
         command,

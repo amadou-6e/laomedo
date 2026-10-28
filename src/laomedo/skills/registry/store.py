@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from pathlib import PurePosixPath
 from uuid import uuid4
-import laomedo.skills.registry.constants as _registry_constants
+import laomedo.skills.registry.settings as _registry_settings
 import laomedo.skills.registry.errors as _registry_errors
 import laomedo.skills.registry.utils as _registry_utils
 import os
@@ -58,7 +58,7 @@ class SkillStore:
         return self.draft_root / draft_id
 
     def _revision_dir(self, skill_id: str, revision_id: str) -> Path:
-        if not _registry_constants.HASH.fullmatch(revision_id):
+        if not _registry_settings.HASH.fullmatch(revision_id):
             raise _registry_errors.SkillStoreError("invalid_revision_id")
         return self._skill(skill_id) / "revisions" / revision_id[7:]
 

@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 import json
 import laomedo.agents.artifacts.errors as _artifacts_errors
-import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.skills.registry.errors as _registry_errors
@@ -50,7 +50,7 @@ class RunnerServer(ThreadingHTTPServer):
                 ):
                     raise _runtime_errors.RunnerError("json_content_type_required")
                 length = int(self.headers.get("Content-Length", "0"))
-                if length < 1 or length > _runtime_constants.MAX_BODY:
+                if length < 1 or length > _runtime_settings.MAX_BODY:
                     raise _runtime_errors.RunnerError("invalid_body_size")
                 return json.loads(self.rfile.read(length))
 

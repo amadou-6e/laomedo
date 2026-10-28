@@ -6,7 +6,7 @@ import time
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
-from laomedo.host.credentials.claude.utils import mirror_login; from laomedo.host.credentials.claude.errors import LocalClaudeLoginError; from laomedo.host.credentials.claude.constants import CODES
+from laomedo.host.credentials.claude.utils import mirror_login; from laomedo.host.credentials.claude.errors import LocalClaudeLoginError; from laomedo.host.credentials.claude.settings import CODES
 
 IMAGE = 'sha256:' + 'a' * 64
 

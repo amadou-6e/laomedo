@@ -10,10 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import json
-import laomedo.host.publication.bundle.constants as _bundle_constants
+import laomedo.host.publication.bundle.settings as _bundle_settings
 import laomedo.host.publication.bundle.errors as _bundle_errors
 import laomedo.host.publication.bundle.ownership as _bundle_ownership
-import laomedo.skills.ingestion.constants as _ingestion_constants
+import laomedo.skills.ingestion.settings as _ingestion_settings
 import laomedo.skills.ingestion.errors as _ingestion_errors
 import laomedo.skills.ingestion.utils as _ingestion_utils
 import os
@@ -44,7 +44,7 @@ def _single_bundle_commit(data: bytes, expected_ref: str) -> str:
     ):
         raise _bundle_errors.BundleStageError("bundle_version_unsupported")
     for line in lines[1:]:
-        if line.startswith(b"-") and not _bundle_constants._OBJECT_ID.fullmatch(
+        if line.startswith(b"-") and not _bundle_settings._OBJECT_ID.fullmatch(
             line[1:].split(b" ", 1)[0]
         ):
             raise _bundle_errors.BundleStageError("bundle_header_invalid")
@@ -56,7 +56,7 @@ def _single_bundle_commit(data: bytes, expected_ref: str) -> str:
     if (
         len(refs) != 1
         or len(refs[0]) != 2
-        or not _bundle_constants._OBJECT_ID.fullmatch(refs[0][0])
+        or not _bundle_settings._OBJECT_ID.fullmatch(refs[0][0])
         or refs[0][1] != expected_ref.encode("ascii")
     ):
         raise _bundle_errors.BundleStageError("bundle_ref_invalid")
@@ -94,8 +94,8 @@ def _export_binary(args: list[str], destination: Path, timeout: float = 30) -> d
     watchdog.start()
     try:
         assert process.stdout is not None
-        payload = process.stdout.read(_bundle_constants.MAX_OUTPUT_BYTES + 1)
-        if len(payload) > _bundle_constants.MAX_OUTPUT_BYTES:
+        payload = process.stdout.read(_bundle_settings.MAX_OUTPUT_BYTES + 1)
+        if len(payload) > _bundle_settings.MAX_OUTPUT_BYTES:
             if process.poll() is None:
                 process.kill()
             process.wait(timeout=5)
@@ -129,9 +129,9 @@ def _read_frozen(
     )
     if (
         not isinstance(run_id, str)
-        or not _ingestion_constants._IDENTITY.fullmatch(run_id)
+        or not _ingestion_settings._IDENTITY.fullmatch(run_id)
         or not isinstance(attempt_id, str)
-        or not _ingestion_constants._IDENTITY.fullmatch(attempt_id)
+        or not _ingestion_settings._IDENTITY.fullmatch(attempt_id)
     ):
         raise _bundle_errors.BundleStageError("identity_invalid")
     _, binding = _ingestion_utils._record(runner_state, run_id)
@@ -163,7 +163,7 @@ def _read_frozen(
         or any(frozen.get(key) != value for key, value in binding.items())
         or frozen.get("attempt_id") != attempt_id
         or not isinstance(frozen.get("bundle_sha256"), str)
-        or not _bundle_constants._SHA.fullmatch(frozen["bundle_sha256"])
+        or not _bundle_settings._SHA.fullmatch(frozen["bundle_sha256"])
     ):
         raise _bundle_errors.BundleStageError("frozen_attempt_invalid")
     source = attempt / "input.bundle"
@@ -188,7 +188,7 @@ def _inspect_limits(config: dict, image_id: str) -> bool:
             config["Image"] == image_id
             and host["NetworkMode"] == "none"
             and host["ReadonlyRootfs"] is True
-            and host["Memory"] == _bundle_constants.MEMORY_BYTES
+            and host["Memory"] == _bundle_settings.MEMORY_BYTES
             and host["PidsLimit"] == 32
             and all(
                 flag in host["Tmpfs"]["/stage"]
@@ -232,8 +232,8 @@ def _locked_container_stage(
     # Git's clean checkout status does not attest effective line endings.
     # Normalize only the trusted resource, hash-check it, and mount a private
     # LF copy rather than a mutable checkout path or an agent-selected script.
-    script = _bundle_constants.SCRIPT.read_bytes().replace(b"\r\n", b"\n")
-    if hashlib.sha256(script).hexdigest() != _bundle_constants.SCRIPT_LF_SHA256:
+    script = _bundle_settings.SCRIPT.read_bytes().replace(b"\r\n", b"\n")
+    if hashlib.sha256(script).hexdigest() != _bundle_settings.SCRIPT_LF_SHA256:
         raise _bundle_errors.BundleStageError("stage_script_changed")
     staged_script = attempt / "verify.sh"
     with staged_script.open("xb") as file:
@@ -366,15 +366,15 @@ def _locked_container_stage(
             _ingestion_utils._redirected(pending)
             or not stat.S_ISREG(metadata.st_mode)
             or metadata.st_nlink != 1
-            or metadata.st_size > _bundle_constants.MAX_OUTPUT_BYTES
+            or metadata.st_size > _bundle_settings.MAX_OUTPUT_BYTES
         ):
             result["status"] = "output_invalid"
             return result
         with pending.open("rb") as source:
-            payload = source.read(_bundle_constants.MAX_OUTPUT_BYTES + 1)
+            payload = source.read(_bundle_settings.MAX_OUTPUT_BYTES + 1)
         if (
             len(payload) != metadata.st_size
-            or len(payload) > _bundle_constants.MAX_OUTPUT_BYTES
+            or len(payload) > _bundle_settings.MAX_OUTPUT_BYTES
         ):
             result["status"] = "output_invalid"
             return result
@@ -437,12 +437,12 @@ def verify_frozen_bundle(
     """One-shot verify/export from already frozen bytes; no provider write."""
     if (
         not isinstance(image_id, str)
-        or not _bundle_constants._IMAGE.fullmatch(image_id)
-        or image_id != _bundle_constants.PINNED_IMAGE_ID
+        or not _bundle_settings._IMAGE.fullmatch(image_id)
+        or image_id != _bundle_settings.PINNED_IMAGE_ID
         or not isinstance(commit, str)
-        or not _bundle_constants._COMMIT.fullmatch(commit)
+        or not _bundle_settings._COMMIT.fullmatch(commit)
         or not isinstance(expected_baseline_sha256, str)
-        or not _bundle_constants._SHA.fullmatch(expected_baseline_sha256)
+        or not _bundle_settings._SHA.fullmatch(expected_baseline_sha256)
     ):
         raise _bundle_errors.BundleStageError("stage_identity_invalid")
     attempt, frozen = _read_frozen(

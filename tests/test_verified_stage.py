@@ -9,8 +9,8 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.skills.ingestion.constants import HANDOFF_NAME; from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.utils import _record
-from laomedo.host.publication.bundle.constants import PINNED_IMAGE_ID
+from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.utils import _record
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
 from laomedo.host.publication.verified.errors import VerifiedStageError; from laomedo.host.publication.verified.utils import resolve_verified_stage
 from laomedo.host.publication.verified.errors import VerifiedGitStageError; from laomedo.host.publication.verified.utils import stage_verified_git
 from laomedo.github.transport.git.utils import _run_bounded_tree

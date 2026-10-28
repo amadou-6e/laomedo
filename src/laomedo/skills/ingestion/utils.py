@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import json
-import laomedo.skills.ingestion.constants as _ingestion_constants
+import laomedo.skills.ingestion.settings as _ingestion_settings
 import laomedo.skills.ingestion.errors as _ingestion_errors
 import os
 import stat
@@ -53,7 +53,7 @@ def _bound_roots(runner_state: Path, private_root: Path) -> tuple[Path, Path]:
 
 
 def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
-    if not isinstance(run_id, str) or not _ingestion_constants._IDENTITY.fullmatch(
+    if not isinstance(run_id, str) or not _ingestion_settings._IDENTITY.fullmatch(
         run_id
     ):
         raise _ingestion_errors.BundleIngestError("run_identity_invalid")
@@ -71,8 +71,8 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
         raise _ingestion_errors.BundleIngestError("run_binding_invalid")
     try:
         with source.open("rb") as stream:
-            record_bytes = stream.read(_ingestion_constants.MAX_RECORD_BYTES + 1)
-        if len(record_bytes) > _ingestion_constants.MAX_RECORD_BYTES:
+            record_bytes = stream.read(_ingestion_settings.MAX_RECORD_BYTES + 1)
+        if len(record_bytes) > _ingestion_settings.MAX_RECORD_BYTES:
             raise _ingestion_errors.BundleIngestError("run_binding_invalid")
         record = json.loads(record_bytes)
     except (OSError, ValueError) as error:
@@ -91,13 +91,13 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
         or (status != "running" and status != "completed")
         or record.get("workspace_mode") != "git"
         or not isinstance(branch, str)
-        or not _ingestion_constants._BRANCH.fullmatch(branch)
+        or not _ingestion_settings._BRANCH.fullmatch(branch)
         or branch.startswith("/")
         or ".." in branch
         or not isinstance(repository, str)
-        or not _ingestion_constants._REPOSITORY.fullmatch(repository)
+        or not _ingestion_settings._REPOSITORY.fullmatch(repository)
         or not isinstance(baseline, str)
-        or not _ingestion_constants._SHA.fullmatch(baseline)
+        or not _ingestion_settings._SHA.fullmatch(baseline)
     ):
         raise _ingestion_errors.BundleIngestError("run_binding_invalid")
     workspace = run_dir / "workspace"
@@ -124,7 +124,7 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
             or owner.get("cleanup_verified") is not False
             or any(
                 not isinstance(owner.get(key), str)
-                or not _ingestion_constants._IDENTITY.fullmatch(owner[key])
+                or not _ingestion_settings._IDENTITY.fullmatch(owner[key])
                 for key in ("name", "launch_token", "grant_id")
             )
         ):
@@ -161,15 +161,15 @@ def _bundle_bytes(path: Path) -> bytes:
             if (
                 not stat.S_ISREG(before.st_mode)
                 or before.st_nlink != 1
-                or before.st_size > _ingestion_constants.MAX_BUNDLE_BYTES
+                or before.st_size > _ingestion_settings.MAX_BUNDLE_BYTES
             ):
                 raise _ingestion_errors.BundleIngestError("bundle_size_or_type")
-            payload = source.read(_ingestion_constants.MAX_BUNDLE_BYTES + 1)
+            payload = source.read(_ingestion_settings.MAX_BUNDLE_BYTES + 1)
             after = os.fstat(source.fileno())
             current = path.lstat()
             if (
                 len(payload) != before.st_size
-                or len(payload) > _ingestion_constants.MAX_BUNDLE_BYTES
+                or len(payload) > _ingestion_settings.MAX_BUNDLE_BYTES
                 or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
                 != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
                 or (before.st_dev, before.st_ino) != (current.st_dev, current.st_ino)
@@ -208,8 +208,8 @@ def _require_reconciled_prior_attempts(
             raise _ingestion_errors.BundleIngestError("attempt_unreconciled")
         try:
             with outcome.open("rb") as stream:
-                raw = stream.read(_ingestion_constants.MAX_RECORD_BYTES + 1)
-            if len(raw) > _ingestion_constants.MAX_RECORD_BYTES:
+                raw = stream.read(_ingestion_settings.MAX_RECORD_BYTES + 1)
+            if len(raw) > _ingestion_settings.MAX_RECORD_BYTES:
                 raise _ingestion_errors.BundleIngestError("attempt_unreconciled")
             result = json.loads(raw)
         except (OSError, ValueError) as error:
@@ -249,7 +249,7 @@ def freeze_run_bundle(
     """
     runner_state, private_root = _bound_roots(Path(runner_state), Path(private_root))
     run_dir, binding = _record(runner_state, run_id)
-    if not isinstance(attempt_id, str) or not _ingestion_constants._IDENTITY.fullmatch(
+    if not isinstance(attempt_id, str) or not _ingestion_settings._IDENTITY.fullmatch(
         attempt_id
     ):
         raise _ingestion_errors.BundleIngestError("attempt_identity_invalid")
@@ -290,7 +290,7 @@ def freeze_run_bundle(
         _durable_json(attempt / "result.json", result)
         try:
             payload = _bundle_bytes(
-                run_dir / "workspace" / _ingestion_constants.HANDOFF_NAME
+                run_dir / "workspace" / _ingestion_settings.HANDOFF_NAME
             )
             frozen = attempt / "input.bundle"
             with frozen.open("xb") as output:

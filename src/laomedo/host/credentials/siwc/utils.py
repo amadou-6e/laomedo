@@ -15,7 +15,7 @@ from uuid import uuid4
 import csv
 import json
 import jwt
-import laomedo.host.credentials.siwc.constants as _siwc_constants
+import laomedo.host.credentials.siwc.settings as _siwc_settings
 import laomedo.host.credentials.siwc.errors as _siwc_errors
 import os
 import secrets
@@ -82,7 +82,7 @@ def _https_json(url: str, *, fields: dict | None = None) -> dict:
 def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
     try:
         discovery = _https_json(
-            _siwc_constants.AUTH_ORIGIN + "/.well-known/openid-configuration"
+            _siwc_settings.AUTH_ORIGIN + "/.well-known/openid-configuration"
         )
         jwks_uri = discovery.get("jwks_uri")
         parts = urlsplit(jwks_uri)
@@ -104,7 +104,7 @@ def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
             key,
             algorithms=["RS256"],
             audience=client_id,
-            issuer=_siwc_constants.AUTH_ORIGIN,
+            issuer=_siwc_settings.AUTH_ORIGIN,
             options={"require": ["exp", "iss", "aud", "sub"]},
         )
         if not isinstance(claims.get("sub"), str) or not secrets.compare_digest(
@@ -122,7 +122,7 @@ def _revoke(refresh_token: str, client_id: str) -> bool:
     import laomedo.host.credentials.siwc.connection as _siwc_connection
 
     discovery = _https_json(
-        _siwc_constants.AUTH_ORIGIN + "/.well-known/openid-configuration"
+        _siwc_settings.AUTH_ORIGIN + "/.well-known/openid-configuration"
     )
     endpoint = discovery.get("revocation_endpoint")
     parts = urlsplit(endpoint)

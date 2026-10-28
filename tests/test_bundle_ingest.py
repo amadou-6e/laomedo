@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.ingestion.errors import BundleIngestError; from laomedo.skills.ingestion.constants import HANDOFF_NAME; from laomedo.skills.ingestion.constants import MAX_BUNDLE_BYTES; from laomedo.skills.ingestion.utils import _record; from laomedo.skills.ingestion.utils import freeze_run_bundle
+from laomedo.skills.ingestion.errors import BundleIngestError; from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.ingestion.settings import MAX_BUNDLE_BYTES; from laomedo.skills.ingestion.utils import _record; from laomedo.skills.ingestion.utils import freeze_run_bundle
 
 
 class BundleIngestTests(unittest.TestCase):

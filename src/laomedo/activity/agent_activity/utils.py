@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from datetime import timezone
 from laomedo.agents.contracts.models import RunnerRequest
-import laomedo.activity.agent_activity.constants as _agent_activity_constants
+import laomedo.activity.agent_activity.settings as _agent_activity_settings
 import os
 
 
@@ -33,7 +33,7 @@ def dispatch_with_capture(component, prepared):
             reference.get("error_category") if isinstance(reference, dict) else None
         )
         refused = (
-            isinstance(category, str) and category in _agent_activity_constants.REFUSALS
+            isinstance(category, str) and category in _agent_activity_settings.REFUSALS
         )
         raise
     finally:

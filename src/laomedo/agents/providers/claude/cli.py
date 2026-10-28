@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.agents.providers.claude.constants as _claude_constants
+import laomedo.agents.providers.claude.settings as _claude_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import threading
 
@@ -17,8 +17,8 @@ def main():
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--skill-store", type=Path, required=True)
     parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument("--image", default=_claude_constants.IMAGE)
-    parser.add_argument("--profile-volume", default=_claude_constants.PROFILE)
+    parser.add_argument("--image", default=_claude_settings.IMAGE)
+    parser.add_argument("--profile-volume", default=_claude_settings.PROFILE)
     parser.add_argument("--lease-service", type=Path, required=True)
     parser.add_argument("--turn-timeout", type=int, default=180)
     parser.add_argument("--port", type=int, default=8769)

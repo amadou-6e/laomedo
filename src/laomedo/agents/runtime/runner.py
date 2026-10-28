@@ -10,7 +10,7 @@ import json
 import laomedo.agents.artifacts.errors as _artifacts_errors
 import laomedo.agents.artifacts.utils as _artifacts_utils
 import laomedo.agents.contracts.output as _contracts_output
-import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.servers as _runtime_servers
 import laomedo.agents.runtime.utils as _runtime_utils
@@ -64,12 +64,12 @@ class LocalRunner:
         self.source = source_workspace.expanduser().resolve()
         self.git_workspace = git_workspace
         self.image = (
-            _runtime_constants.GIT_IMAGE if git_workspace else _runtime_constants.IMAGE
+            _runtime_settings.GIT_IMAGE if git_workspace else _runtime_settings.IMAGE
         )
         self.image_id = (
-            _runtime_constants.GIT_IMAGE_ID
+            _runtime_settings.GIT_IMAGE_ID
             if git_workspace
-            else _runtime_constants.IMAGE_ID
+            else _runtime_settings.IMAGE_ID
         )
         if image_id is not None:
             if (
@@ -181,7 +181,7 @@ class LocalRunner:
         self.profile = (
             _runtime_utils._split_profile(self.state)
             if split_executor
-            else _runtime_constants.VOLUME
+            else _runtime_settings.VOLUME
         )
         if split_executor and transport is not _runtime_servers.AppServer:
             raise _runtime_errors.RunnerError(
@@ -197,9 +197,9 @@ class LocalRunner:
         self.cancel_flags = {}
         # The checked-in policy is LF on Linux and CRLF in Windows worktrees.
         # Accept only these two reviewed byte representations of the same policy.
-        if hashlib.sha256(_runtime_constants.CONFIG.read_bytes()).hexdigest() not in {
-            _runtime_constants.CONFIG_SHA256,
-            _runtime_constants.CONFIG_LF_SHA256,
+        if hashlib.sha256(_runtime_settings.CONFIG.read_bytes()).hexdigest() not in {
+            _runtime_settings.CONFIG_SHA256,
+            _runtime_settings.CONFIG_LF_SHA256,
         }:
             raise _runtime_errors.RunnerError("permission_config_changed")
         if check_docker:
@@ -235,11 +235,11 @@ class LocalRunner:
                 text=True,
                 timeout=20,
             )
-            if version.stdout.strip() != _runtime_constants.CLI_VERSION:
+            if version.stdout.strip() != _runtime_settings.CLI_VERSION:
                 raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
             if not split_executor:
                 subprocess.run(
-                    ["docker", "volume", "inspect", _runtime_constants.VOLUME],
+                    ["docker", "volume", "inspect", _runtime_settings.VOLUME],
                     check=True,
                     capture_output=True,
                     timeout=15,
@@ -322,7 +322,7 @@ class LocalRunner:
     def model_catalog(self) -> dict:
         """Serialize and briefly cache metadata discovery; never submit a turn."""
         # Lazy initialization also supports existing host-created runner objects.
-        with _runtime_constants._CATALOG_INIT_LOCK:
+        with _runtime_settings._CATALOG_INIT_LOCK:
             if not hasattr(self, "_catalog_lock"):
                 self._catalog_lock = threading.Lock()
                 self._catalog_cached = None
@@ -467,9 +467,9 @@ class LocalRunner:
                 "models": models,
                 "image": self.image,
                 "image_id": self.image_id,
-                "cli_version": _runtime_constants.CLI_VERSION,
+                "cli_version": _runtime_settings.CLI_VERSION,
                 "profile": self.profile,
-                "config_sha256": _runtime_constants.CONFIG_SHA256,
+                "config_sha256": _runtime_settings.CONFIG_SHA256,
                 "permission_checks": checks,
                 "submitted_turns": 0,
             }
@@ -789,8 +789,8 @@ class LocalRunner:
                 "execution_mode": "split" if self.split_executor else "legacy",
                 "image": self.image,
                 "image_id": self.image_id,
-                "cli_version": _runtime_constants.CLI_VERSION,
-                "config_sha256": _runtime_constants.CONFIG_SHA256,
+                "cli_version": _runtime_settings.CLI_VERSION,
+                "config_sha256": _runtime_settings.CONFIG_SHA256,
                 "thread_id": None,
                 "credential": (
                     {
@@ -1018,8 +1018,8 @@ class LocalRunner:
             != ("split" if self.split_executor else "legacy")
             or record["image"] != self.image
             or record["image_id"] != self.image_id
-            or record["cli_version"] != _runtime_constants.CLI_VERSION
-            or record["config_sha256"] != _runtime_constants.CONFIG_SHA256
+            or record["cli_version"] != _runtime_settings.CLI_VERSION
+            or record["config_sha256"] != _runtime_settings.CONFIG_SHA256
         ):
             raise _runtime_errors.RunnerError("resume_binding_mismatch")
         run_dir = self._run_dir(run_id)

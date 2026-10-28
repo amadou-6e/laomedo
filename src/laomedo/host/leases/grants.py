@@ -5,7 +5,7 @@ from __future__ import annotations
 from hashlib import sha256
 from pathlib import Path
 import json
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import secrets
 import threading
 import time
@@ -34,11 +34,11 @@ class GrantBook:
                 "grant_id": grant_id,
                 "lease_token": token,
                 "expires_at": min(
-                    now + _leases_constants.GRANT_TTL_SECONDS, expires_not_after
+                    now + _leases_settings.GRANT_TTL_SECONDS, expires_not_after
                 ),
                 "issued_monotonic": issued_monotonic,
                 "expires_monotonic": min(
-                    issued_monotonic + _leases_constants.GRANT_TTL_SECONDS,
+                    issued_monotonic + _leases_settings.GRANT_TTL_SECONDS,
                     expires_not_after_monotonic,
                 ),
                 "revoked_at": None,
@@ -61,10 +61,10 @@ class GrantBook:
                     and grant["expires_monotonic"] > now_monotonic
                 ):
                     grant["expires_at"] = min(
-                        now + _leases_constants.GRANT_TTL_SECONDS, expires_not_after
+                        now + _leases_settings.GRANT_TTL_SECONDS, expires_not_after
                     )
                     grant["expires_monotonic"] = min(
-                        now_monotonic + _leases_constants.GRANT_TTL_SECONDS,
+                        now_monotonic + _leases_settings.GRANT_TTL_SECONDS,
                         expires_not_after_monotonic,
                     )
 

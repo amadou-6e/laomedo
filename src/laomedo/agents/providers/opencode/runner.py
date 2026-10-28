@@ -10,7 +10,7 @@ import hashlib
 import json
 import laomedo.activity.agent_activity.utils as _agent_activity_utils
 import laomedo.activity.runner.feed as _runner_feed
-import laomedo.agents.providers.opencode.constants as _opencode_constants
+import laomedo.agents.providers.opencode.settings as _opencode_settings
 import laomedo.agents.providers.opencode.utils as _opencode_utils
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.runner as _runtime_runner
@@ -101,7 +101,7 @@ class OpenCodeRunner(_runtime_runner.LocalRunner):
                 backend = self.transport_factory(root / "workspace", root)
                 health = backend.call("GET", "/global/health")
                 if (
-                    health.get("version") != _opencode_constants.CLI_VERSION
+                    health.get("version") != _opencode_settings.CLI_VERSION
                     or health.get("healthy") is not True
                 ):
                     raise _runtime_errors.RunnerError("opencode_runtime_pin_mismatch")
@@ -149,14 +149,14 @@ class OpenCodeRunner(_runtime_runner.LocalRunner):
         if self.transport_factory is None:
             return {
                 "provider": "opencode",
-                "cli_version": _opencode_constants.CLI_VERSION,
+                "cli_version": _opencode_settings.CLI_VERSION,
                 "status": "blocked",
                 "error_category": "opencode_isolated_transport_required",
                 "submitted_turns": 0,
             }
         return {
             "provider": "opencode",
-            "cli_version": _opencode_constants.CLI_VERSION,
+            "cli_version": _opencode_settings.CLI_VERSION,
             "status": "transport_configured",
             "submitted_turns": 0,
         }
@@ -235,7 +235,7 @@ class OpenCodeRunner(_runtime_runner.LocalRunner):
         record = self.status(run_id)
         if (
             record.get("provider") != "opencode"
-            or record.get("runtime_version") != _opencode_constants.CLI_VERSION
+            or record.get("runtime_version") != _opencode_settings.CLI_VERSION
             or record["status"] != "completed"
             or record["thread_id"] != expected_thread_id
             or record["post_run_hash"] != expected_post_run_hash
@@ -325,11 +325,11 @@ class OpenCodeRunner(_runtime_runner.LocalRunner):
                 )
                 record.update(
                     provider="opencode",
-                    runtime_version=_opencode_constants.CLI_VERSION,
+                    runtime_version=_opencode_settings.CLI_VERSION,
                     profile=None,
                     image=None,
                     image_id=None,
-                    cli_version="opencode " + _opencode_constants.CLI_VERSION,
+                    cli_version="opencode " + _opencode_settings.CLI_VERSION,
                     config_sha256=None,
                     status="running",
                 )
@@ -345,7 +345,7 @@ class OpenCodeRunner(_runtime_runner.LocalRunner):
                 "runtime_identity",
                 {
                     "provider": "opencode",
-                    "runtime_version": _opencode_constants.CLI_VERSION,
+                    "runtime_version": _opencode_settings.CLI_VERSION,
                 },
             )
             if resume and record.get("provider_runtime") != identity:
@@ -354,7 +354,7 @@ class OpenCodeRunner(_runtime_runner.LocalRunner):
             health = backend.call("GET", "/global/health")
             if health.get(
                 "version"
-            ) != _opencode_constants.CLI_VERSION or not health.get("healthy"):
+            ) != _opencode_settings.CLI_VERSION or not health.get("healthy"):
                 raise _runtime_errors.RunnerError("opencode_runtime_pin_mismatch")
             provider, model = record["requested_model"].split("/", 1)
             catalog = backend.call("GET", "/provider")

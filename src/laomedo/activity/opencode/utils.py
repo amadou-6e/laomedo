@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import laomedo.activity.opencode.constants as _opencode_constants
+import laomedo.activity.opencode.settings as _opencode_settings
 import re
 
 
@@ -12,7 +12,7 @@ def sanitized(value):
         return {
             key: (
                 "[redacted]"
-                if key.lower() in _opencode_constants.SECRET_KEYS
+                if key.lower() in _opencode_settings.SECRET_KEYS
                 else sanitized(item)
             )
             for key, item in value.items()

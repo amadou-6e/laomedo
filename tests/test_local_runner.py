@@ -353,7 +353,7 @@ class LocalRunnerTests(unittest.TestCase):
                         supervise_containers=True)
 
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.agents.runtime.constants import GIT_IMAGE; from laomedo.agents.runtime.constants import GIT_IMAGE_ID
+        from laomedo.agents.runtime.settings import GIT_IMAGE; from laomedo.agents.runtime.settings import GIT_IMAGE_ID
         args = (self.root / "source", self.root / "source", self.runner.state)
         command = _docker_prefix(*args, image=GIT_IMAGE)
         entries = [command[index + 1] for index, item in enumerate(command[:-1])

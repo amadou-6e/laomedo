@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import laomedo.host.leases.server as _leases_server
 from pathlib import Path
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.grants as _leases_grants
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
@@ -23,7 +23,7 @@ class LeaseService:
         *,
         port: int = 0,
         host: str = "127.0.0.1",
-        loss_seconds: float = _leases_constants.LOSS_SECONDS,
+        loss_seconds: float = _leases_settings.LOSS_SECONDS,
         cleanup=_leases_utils.cleanup_after_loss,
         mediator: _mediation_store.MediationStore | None = None,
         mediation_authority=None,
@@ -79,10 +79,10 @@ class LeaseService:
             or now - beat > self.loss_seconds
         ):
             raise RuntimeError("lease_heartbeat_invalid")
-        expiry_cap = min(beat, now) + _leases_constants.MAX_FROM_HEARTBEAT_SECONDS
+        expiry_cap = min(beat, now) + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS
         expiry_cap_monotonic = (
             min(beat_monotonic, now_monotonic)
-            + _leases_constants.MAX_FROM_HEARTBEAT_SECONDS
+            + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS
         )
         if self.mediator is None:
             grant_id, secret = self.book.issue(
@@ -122,7 +122,7 @@ class LeaseService:
                 connection_generation=scope.get("connection_generation"),
                 target_prs=scope.get("target_prs", {}),
                 base_branch=scope.get("base_branch", "main"),
-                ttl_seconds=_leases_constants.GRANT_TTL_SECONDS,
+                ttl_seconds=_leases_settings.GRANT_TTL_SECONDS,
                 lease_token=lease["token"],
                 lease_scope=self.lease_scope,
                 service_instance=self.instance,
@@ -295,20 +295,20 @@ class LeaseService:
             self.book.renew(
                 lease["token"],
                 now,
-                min(beat, now) + _leases_constants.MAX_FROM_HEARTBEAT_SECONDS,
+                min(beat, now) + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS,
                 min(beat_monotonic, now_monotonic)
-                + _leases_constants.MAX_FROM_HEARTBEAT_SECONDS,
+                + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS,
             )
         elif not self.mediator.renew_lease(
             run_id=lease["run_id"],
             lease_token=lease["token"],
             lease_scope=self.lease_scope,
-            ttl_seconds=_leases_constants.GRANT_TTL_SECONDS,
+            ttl_seconds=_leases_settings.GRANT_TTL_SECONDS,
             expires_not_after=min(beat, now)
-            + _leases_constants.MAX_FROM_HEARTBEAT_SECONDS,
+            + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS,
             expires_not_after_monotonic=(
                 min(beat_monotonic, now_monotonic)
-                + _leases_constants.MAX_FROM_HEARTBEAT_SECONDS
+                + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS
             ),
         ):
             self._finish(lease_dir, lease, "grant_expired", now)
@@ -426,7 +426,7 @@ class LeaseService:
         try:
             while not self.stopping.is_set():
                 self.tick()
-                self.stopping.wait(_leases_constants.POLL_SECONDS)
+                self.stopping.wait(_leases_settings.POLL_SECONDS)
         finally:
             self.server.shutdown()
             self.server.server_close()

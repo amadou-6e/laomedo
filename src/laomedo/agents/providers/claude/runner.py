@@ -14,7 +14,7 @@ import laomedo.activity.agent_activity.utils as _agent_activity_utils
 import laomedo.activity.runner.feed as _runner_feed
 import laomedo.agents.contracts.output as _contracts_output
 import laomedo.agents.providers.claude.catalog as _claude_catalog
-import laomedo.agents.providers.claude.constants as _claude_constants
+import laomedo.agents.providers.claude.settings as _claude_settings
 import laomedo.agents.providers.claude.container as _claude_container
 import laomedo.agents.providers.claude.utils as _agents_providers_claude_utils
 import laomedo.agents.runtime.errors as _runtime_errors
@@ -150,8 +150,8 @@ class ClaudeRunner(_runtime_runner.LocalRunner):
         skill_store,
         source_workspace,
         *,
-        image=_claude_constants.IMAGE,
-        profile_volume=_claude_constants.PROFILE,
+        image=_claude_settings.IMAGE,
+        profile_volume=_claude_settings.PROFILE,
         lease_service=None,
         turn_timeout=180,
         container=None,
@@ -233,7 +233,7 @@ class ClaudeRunner(_runtime_runner.LocalRunner):
         self._check_auth()
         return {
             "provider": self.provider,
-            "cli_version": _claude_constants.CLI_VERSION,
+            "cli_version": _claude_settings.CLI_VERSION,
             "status": "ready",
             "native_tools": ["Skill", "mcp__laomedo__exec_command"],
             "profile": self.profile,
@@ -352,12 +352,12 @@ class ClaudeRunner(_runtime_runner.LocalRunner):
         record = super()._prepare(request, **kwargs)
         record.update(
             provider=self.provider,
-            runtime_version=_claude_constants.CLI_VERSION,
+            runtime_version=_claude_settings.CLI_VERSION,
             execution_mode="claude_container",
             profile=self.profile,
             image=self.image,
             image_id=self.image_id,
-            cli_version="Claude Code " + _claude_constants.CLI_VERSION,
+            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
             config_sha256=_agents_providers_claude_utils.configuration_hash(
                 choice["resolved_model"], request["effort"], record["skills"]
             ),
@@ -1182,7 +1182,7 @@ class ClaudeRunner(_runtime_runner.LocalRunner):
         root = self._run_dir(run_id)
         if (
             record.get("provider") != self.provider
-            or record.get("runtime_version") != _claude_constants.CLI_VERSION
+            or record.get("runtime_version") != _claude_settings.CLI_VERSION
             or record.get("image_id") != self.image_id
             or record.get("profile") != self.profile
             or record.get("config_sha256")

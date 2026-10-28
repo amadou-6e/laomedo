@@ -7,10 +7,10 @@ from uuid import UUID
 from uuid import uuid4
 import hashlib
 import json
-import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.host.credentials.siwc.errors as _siwc_errors
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import os
 import shutil
 import stat
@@ -91,9 +91,9 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
                     total_bytes += item.stat().st_size
                     if (
                         total_bytes
-                        > _runtime_constants.MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
+                        > _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
                         or len(files) + len(directories)
-                        >= _runtime_constants.MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
+                        >= _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
                     ):
                         raise _runtime_errors.RunnerError(
                             "git_workspace_snapshot_limit"
@@ -104,7 +104,7 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
                 if (
                     exclude_root_git
                     and len(files) + len(directories)
-                    > _runtime_constants.MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
+                    > _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
                 ):
                     raise _runtime_errors.RunnerError("git_workspace_snapshot_limit")
     digest = hashlib.sha256()
@@ -164,15 +164,15 @@ def _native_error_summary(events: list[dict], turn_id: str) -> dict:
         error = params.get("error")
         info = error.get("codexErrorInfo") if isinstance(error, dict) else None
         kind = "unknown"
-        if isinstance(info, str) and info in _runtime_constants.NATIVE_ERROR_KINDS:
+        if isinstance(info, str) and info in _runtime_settings.NATIVE_ERROR_KINDS:
             kind = info
         elif isinstance(info, dict) and len(info) == 1:
             candidate, details = next(iter(info.items()))
-            if candidate in _runtime_constants.NATIVE_ERROR_KINDS and isinstance(
+            if candidate in _runtime_settings.NATIVE_ERROR_KINDS and isinstance(
                 details, dict
             ):
                 kind = candidate
-                if candidate in _runtime_constants.NATIVE_HTTP_ERROR_KINDS:
+                if candidate in _runtime_settings.NATIVE_HTTP_ERROR_KINDS:
                     status = details.get("httpStatusCode")
                     if type(status) is int and 100 <= status <= 599:
                         statuses.add(status)
@@ -216,7 +216,7 @@ def _docker_prefix(
     canonical: Path,
     store_mount: Path,
     *,
-    image: str = _runtime_constants.IMAGE,
+    image: str = _runtime_settings.IMAGE,
     name: str | None = None,
     run_id: str | None = None,
     launch_token: str | None = None,
@@ -234,17 +234,17 @@ def _docker_prefix(
     seccomp = []
     if nested_sandbox:
         if (
-            hashlib.sha256(_runtime_constants.SECCOMP.read_bytes()).hexdigest()
-            != _runtime_constants.SECCOMP_SHA256
+            hashlib.sha256(_runtime_settings.SECCOMP.read_bytes()).hexdigest()
+            != _runtime_settings.SECCOMP_SHA256
         ):
             raise _runtime_errors.RunnerError("seccomp_profile_changed")
-        seccomp = ["--security-opt", "seccomp=" + str(_runtime_constants.SECCOMP)]
+        seccomp = ["--security-opt", "seccomp=" + str(_runtime_settings.SECCOMP)]
     labels = (
         [
             "--label",
-            f"{_leases_constants.LABEL_RUN}={run_id}",
+            f"{_leases_settings.LABEL_RUN}={run_id}",
             "--label",
-            f"{_leases_constants.LABEL_TOKEN}={launch_token}",
+            f"{_leases_settings.LABEL_TOKEN}={launch_token}",
         ]
         if run_id and launch_token
         else []
@@ -254,7 +254,7 @@ def _docker_prefix(
             "--mount",
             f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
             "--mount",
-            f"type=bind,source={_runtime_constants.MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
+            f"type=bind,source={_runtime_settings.MEDIATION_CLIENT},target=/run/laomedo/mediate.mjs,readonly",
             "--env",
             "LAOMEDO_MEDIATOR_URL=" + mediator_url,
             "--env",
@@ -281,9 +281,9 @@ def _docker_prefix(
             "--mount",
             f"type=bind,source={command_directory},target=/run/laomedo/bin,readonly",
             "--mount",
-            f"type=bind,source={_runtime_constants.MEDIATION_CLIENT.with_name('agent_gh_adapter.mjs')},target=/run/laomedo/gh.mjs,readonly",
+            f"type=bind,source={_runtime_settings.MEDIATION_CLIENT.with_name('agent_gh_adapter.mjs')},target=/run/laomedo/gh.mjs,readonly",
             "--mount",
-            f"type=bind,source={_runtime_constants.MEDIATION_CLIENT.with_name('agent_git_remote.mjs')},target=/run/laomedo/git-remote.mjs,readonly",
+            f"type=bind,source={_runtime_settings.MEDIATION_CLIENT.with_name('agent_git_remote.mjs')},target=/run/laomedo/git-remote.mjs,readonly",
             "--env",
             "LAOMEDO_REPOSITORY=" + repository,
             "--env",
@@ -304,7 +304,7 @@ def _docker_prefix(
             "--env",
             "GIT_CONFIG_VALUE_0=/draft",
         ]
-        if image in {_runtime_constants.GIT_IMAGE, _runtime_constants.GIT_IMAGE_ID}
+        if image in {_runtime_settings.GIT_IMAGE, _runtime_settings.GIT_IMAGE_ID}
         else []
     )
     return [
@@ -329,7 +329,7 @@ def _docker_prefix(
         "--user",
         "10001:10001",
         "--mount",
-        f"type=volume,source={_runtime_constants.VOLUME},target=/home/runner/.codex",
+        f"type=volume,source={_runtime_settings.VOLUME},target=/home/runner/.codex",
         "--mount",
         f"type=bind,source={workspace},target=/draft",
         "--mount",
@@ -337,7 +337,7 @@ def _docker_prefix(
         "--mount",
         f"type=bind,source={store_mount},target=/store",
         "--mount",
-        f"type=bind,source={_runtime_constants.CONFIG},target=/config.toml,readonly",
+        f"type=bind,source={_runtime_settings.CONFIG},target=/config.toml,readonly",
         *mediation,
         *git_config,
         "--workdir",
@@ -393,7 +393,7 @@ def _ensure_split_profile(name: str) -> None:
             "CHOWN",
             "--mount",
             f"type=volume,source={name},target=/home/runner/.codex",
-            _runtime_constants.IMAGE,
+            _runtime_settings.IMAGE,
             "chown",
             "10001:10001",
             "/home/runner/.codex",

@@ -5,7 +5,7 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import json
-import laomedo.host.leases.constants as _leases_constants
+import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.mediation.errors as _mediation_errors
 import laomedo.host.mediation.store as _mediation_store
@@ -59,8 +59,8 @@ def inspect_exact(identity: _leases_models.ContainerIdentity) -> tuple[str, str 
         labels = entry["Config"]["Labels"] or {}
         if (
             entry["Name"].lstrip("/") != identity.name
-            or labels.get(_leases_constants.LABEL_RUN) != identity.run_id
-            or labels.get(_leases_constants.LABEL_TOKEN)
+            or labels.get(_leases_settings.LABEL_RUN) != identity.run_id
+            or labels.get(_leases_settings.LABEL_TOKEN)
             != identity.token.get_secret_value()
         ):
             return ("conflict", entry.get("Id"))
@@ -105,7 +105,7 @@ def cleanup_exact(identity: _leases_models.ContainerIdentity) -> tuple[bool, str
 def cleanup_after_loss(
     identity: _leases_models.ContainerIdentity,
     *,
-    watch_seconds: float = _leases_constants.POST_LOSS_WATCH_SECONDS,
+    watch_seconds: float = _leases_settings.POST_LOSS_WATCH_SECONDS,
 ) -> tuple[bool, str]:
     """Keep watching for a container created after the runner disappeared.
 
@@ -161,14 +161,14 @@ def supervise(
     ):
         return 2
     ready_path.write_text(token, encoding="utf-8")
-    deadline = time.monotonic() + _leases_constants.LEASE_SECONDS
+    deadline = time.monotonic() + _leases_settings.LEASE_SECONDS
     while True:
         try:
             event = events.get(timeout=min(0.5, max(0.01, deadline - time.monotonic())))
         except queue.Empty:
             event = "EXPIRED" if time.monotonic() >= deadline else ""
         if event == "HEARTBEAT":
-            deadline = time.monotonic() + _leases_constants.LEASE_SECONDS
+            deadline = time.monotonic() + _leases_settings.LEASE_SECONDS
             continue
         if event == "DONE":
             # The parent must have stopped and verified the container first.

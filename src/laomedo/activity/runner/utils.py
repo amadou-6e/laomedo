@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import laomedo.activity.runner.constants as _runner_constants
+import laomedo.activity.runner.settings as _runner_settings
 
 
 def attributes(values):
     result = {}
     for pair in values:
-        if pair.key not in _runner_constants.ALLOWED:
+        if pair.key not in _runner_settings.ALLOWED:
             continue
         kind = pair.value.WhichOneof("value")
         if kind in {"string_value", "int_value", "double_value", "bool_value"}:

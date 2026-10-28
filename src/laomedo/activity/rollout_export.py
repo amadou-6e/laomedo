@@ -8,7 +8,7 @@ from uuid import UUID
 from uuid import uuid4
 import argparse
 import json
-import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
 import os
@@ -34,8 +34,8 @@ def export_rollout(state: Path, run_id: str, *, docker_run=subprocess.run) -> Pa
         "--user",
         "10001:10001",
         "--mount",
-        f"type=volume,source={_runtime_constants.VOLUME},target=/home/runner/.codex,readonly",
-        _runtime_constants.IMAGE,
+        f"type=volume,source={_runtime_settings.VOLUME},target=/home/runner/.codex,readonly",
+        _runtime_settings.IMAGE,
     ]
     listing = docker_run(
         [
