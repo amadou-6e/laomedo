@@ -18,6 +18,18 @@ class NativeFlowTests(unittest.TestCase):
             self.assertEqual(agent["data"]["node"]["template"]["code"]["value"],
                              (root / "components/laomedo/opencode_agent.py").read_text())
 
+    def test_current_claude_templates_embed_the_neutral_adapter_and_optional_skills(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root/'components/laomedo/claude_agent.py').read_text()
+        for relative in ('examples/claude-agent/current-template-flow.json','examples/claude-agent/flow.json'):
+            flow = json.loads((root/relative).read_text())
+            agents = [node for node in flow['data']['nodes'] if node['data']['type']=='LaomedoClaudeAgent']
+            self.assertTrue(agents)
+            for agent in agents:
+                fields = agent['data']['node']['template']
+                self.assertEqual(fields['code']['value'],source)
+                self.assertFalse(fields['skill_reference']['required'])
+
     def test_connection_handles_match_serialized_port_schemas(self):
         root = Path(__file__).resolve().parents[1]
         flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
