@@ -15,7 +15,7 @@ import time
 from urllib import error; from urllib import request
 from uuid import uuid4
 
-from laomedo.host.leases.constants import LABEL_RUN; from laomedo.host.leases.constants import LABEL_TOKEN; from laomedo.host.leases.utils import inspect_exact
+from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN; from laomedo.host.leases.utils import inspect_exact
 from laomedo.host.leases.client import LeaseClient
 
 

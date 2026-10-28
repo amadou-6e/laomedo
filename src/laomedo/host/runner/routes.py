@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+import laomedo.host.runner.settings as _runner_settings
 
 
 def install_runner_service_routes(app, authenticate, service=None):
@@ -13,7 +13,7 @@ def install_runner_service_routes(app, authenticate, service=None):
     from starlette.concurrency import run_in_threadpool
 
     service = service or _runner_service.RunnerService(
-        os.environ.get("LAOMEDO_RUNNER_SERVICE_FILE")
+        _runner_settings.Settings().service_file
     )
 
     async def respond(action, url):

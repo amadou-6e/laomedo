@@ -12,9 +12,9 @@ import shutil
 import subprocess
 import tempfile
 
-from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.constants import SPLIT_TOOLS; from laomedo.agents.runtime.utils import _split_profile
+from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.settings import SPLIT_TOOLS; from laomedo.agents.runtime.utils import _split_profile
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.host.credentials.siwc.connection import ChatGPTConnection; from laomedo.host.credentials.siwc.constants import NEEDED
+from laomedo.host.credentials.siwc.connection import ChatGPTConnection; from laomedo.host.credentials.siwc.settings import NEEDED
 from laomedo.skills.registry.store import SkillStore
 from probe_mock_responses import MockResponses
 

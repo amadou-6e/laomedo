@@ -7,11 +7,12 @@ from urllib.parse import urlsplit
 import json
 import laomedo.github.issues.contract as _issues_contract
 import laomedo.skills.sources.transport as _sources_transport
-import os
+import laomedo.github.issues.settings as _issues_settings
 
 
 def issue_request(action, **payload):
-    base = os.environ.get("LAOMEDO_GITHUB_ISSUE_URL", "")
+    settings = _issues_settings.Settings()
+    base = settings.url
     url = urlsplit(base)
     if (
         url.scheme != "http"
@@ -27,10 +28,7 @@ def issue_request(action, **payload):
     try:
         token = (
             Path(
-                os.environ.get(
-                    "LAOMEDO_GITHUB_ISSUE_TOKEN_FILE",
-                    "/run/secrets/laomedo-runner-token",
-                )
+                settings.token_file
             )
             .read_text(encoding="utf-8")
             .strip()

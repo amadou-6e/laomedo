@@ -95,6 +95,24 @@ constants and mutable locks exactly once. Initializers expose only deliberate
 package APIs. Feature imports use explicit module owners; distinct dependencies
 must never rebind the same module alias.
 
+Use `settings.py`, not `constants.py`. Externally supplied feature configuration
+lives in a feature-owned Pydantic `Settings` object in that file, constructed at
+the point of use. Preserve existing environment names, empty/missing semantics
+and exact `"1"` flags. Do not read dotenv files or secret directories implicitly.
+Token file paths may be settings; credential values must not become settings
+fields, logs or serialized configuration. Child-process environment allowlists,
+dynamic credential lookups and the standard-library-only Git helper retain their
+explicit boundary handling.
+
+Fixed protocol values, image and integrity pins, safety bounds and shared locks
+remain module-owned values, never environment fields. General domain payloads
+remain in `models.py`; configuration is the explicit `settings.py` exception.
+Domain exceptions document their meaning and outcome guarantees, expose the
+stable `code`, and retain `str(error) == code` and existing inheritance. A
+specialized exception may inherit its constructor, but must state its distinct
+contract. Recovery and user-facing explanations remain in the shared error
+catalogue; an internal code is not a human-readable error message.
+
 Recurring values travel as canonical Pydantic models in the feature's `models.py`:
 
 | Owner | Models and purpose |

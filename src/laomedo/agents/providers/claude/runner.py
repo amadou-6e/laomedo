@@ -27,6 +27,7 @@ import laomedo.host.leases.utils as _leases_utils
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.utils as workspace_skills
 import os
+import laomedo.host.credentials.claude.settings as _host_claude_settings
 import queue
 import re
 import signal
@@ -185,7 +186,7 @@ class ClaudeRunner(_runtime_runner.LocalRunner):
         self.image, self.image_id = image, self.container.image_id
 
     def _mirror_host_login(self, *, minimum_validity_seconds=None):
-        if os.environ.get("LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN") == "1":
+        if _host_claude_settings.Settings().mirror_host_login == "1":
             try:
                 _host_credentials_claude_utils.mirror_login(
                     self.container.profile,

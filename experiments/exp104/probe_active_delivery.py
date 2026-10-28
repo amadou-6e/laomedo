@@ -16,10 +16,10 @@ import time
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(CHECKOUT))
-from laomedo.host.publication.bundle.constants import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
 from laomedo.host.publication.bundle.ownership import _inspect; from laomedo.host.publication.bundle.ownership import reconcile_orphan
 from laomedo.host.publication.verifier import BundleVerifier
-from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.constants import LABEL_RUN; from laomedo.host.leases.constants import LABEL_TOKEN
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
 from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.github.transport.rest.transport import GitHubRestTransport
 from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError

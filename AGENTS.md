@@ -39,6 +39,22 @@
   regression checks so mixed class/function files and retired imports cannot
   quietly return.
 
+## Settings and exception contracts
+
+- Name feature configuration modules `settings.py`, never `constants.py`.
+  Externally supplied configuration belongs to a feature-owned Pydantic settings
+  object in that file. Load it at the point of use; preserve existing environment
+  names, missing/empty behavior and flag semantics. Fixed protocol/security values
+  and mutable locks remain single-owner values, not configurable fields.
+- Keep credentials out of settings serialization and representations. Preserve
+  explicit child-process environment filtering, dynamic credential lookups and
+  standard-library-only credential helpers.
+- Exceptions in `errors.py` must document their distinct domain and outcome
+  guarantees and expose the existing stable machine `code`. Preserve inheritance,
+  exception arguments and boundary categories. Specialized subclasses may inherit
+  the implementation but must document their contract; do not leave pass-only
+  placeholders. User-facing explanations/recovery belong to the shared catalogue.
+
 ## Commit and push checkpoints
 
 - After each coherent, reviewable block of work, commit and push the task branch

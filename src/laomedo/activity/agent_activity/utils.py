@@ -6,7 +6,6 @@ from datetime import datetime
 from datetime import timezone
 from laomedo.agents.contracts.models import RunnerRequest
 import laomedo.activity.agent_activity.settings as _agent_activity_settings
-import os
 
 
 def dispatch_with_capture(component, prepared):
@@ -48,7 +47,7 @@ def capture_for(component):
     """Opt-in host configuration; refuse dispatch if configured capture cannot reserve."""
     import laomedo.activity.agent_activity.store as _agent_activity_store
 
-    path = os.environ.get("LAOMEDO_AGENT_ACTIVITY_DB")
+    path = _agent_activity_settings.Settings().database
     if not path:
         return None
     graph = component.graph

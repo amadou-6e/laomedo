@@ -7,7 +7,7 @@ No runner/provider credentials are used by this route.
 from pathlib import Path
 import laomedo.skills.inspection.errors as _inspection_errors
 import laomedo.skills.inspection.utils as _inspection_utils
-import os
+import laomedo.integrations.langflow.settings as _langflow_settings
 
 
 def install_routes(app, root: Path, authenticate):
@@ -206,8 +206,9 @@ def create_app():
     from langflow.main import setup_static_files
     from langflow.services.auth.utils import get_current_active_user
 
-    root = Path(os.environ["LAOMEDO_SKILL_STORE"])
-    frontend = Path(os.environ["LANGFLOW_FRONTEND_PATH"])
+    settings = _langflow_settings.Settings()
+    root = Path(settings.required_path("skill_store"))
+    frontend = Path(settings.required_path("frontend"))
     app = upstream_app()
     install_routes(app, root, get_current_active_user)
     # Register the API before the installed runtime's catch-all SPA routes.

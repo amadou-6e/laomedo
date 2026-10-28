@@ -11,15 +11,15 @@ import laomedo.skills.registry.errors as _registry_errors
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.sources.settings as _sources_settings
 import laomedo.skills.sources.errors as _sources_errors
-import os
 import re
 import urllib.error
 
 
 def source_request(action, **body):
+    settings = _sources_settings.Settings()
     import laomedo.skills.sources.transport as _sources_transport
 
-    url = os.environ.get("LAOMEDO_SKILL_SOURCE_URL", "")
+    url = settings.url
     parsed = urlsplit(url)
     if (
         parsed.scheme != "http"
@@ -35,9 +35,7 @@ def source_request(action, **body):
         raise ValueError("invalid_source_operation")
     try:
         path = Path(
-            os.environ.get(
-                "LAOMEDO_SKILL_SOURCE_TOKEN_FILE", "/run/secrets/laomedo-runner-token"
-            )
+            settings.token_file
         )
         token = path.read_text(encoding="utf-8").strip()
         if not 32 <= len(token) <= 512:

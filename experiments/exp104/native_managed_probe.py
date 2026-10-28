@@ -18,7 +18,7 @@ from laomedo.host.mediation.agent_cli import configure_remote
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
 from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.host.credentials.token.connection import HostTokenConnection
-from laomedo.agents.runtime.constants import GIT_IMAGE_ID
+from laomedo.agents.runtime.settings import GIT_IMAGE_ID
 from laomedo.host.mediation.authority import RunGrantAuthority
 
 CHECKOUT = Path(__file__).resolve().parents[2]
@@ -252,7 +252,7 @@ def run(root, token_file, source, review_record, approval):
         git("bundle", "create", bundle, "refs/heads/main", cwd=trusted)
         if bundle.stat().st_size > 256 * 1024:
             raise ValueError("native_fetch_base_bundle_limit")
-        from laomedo.host.publication.bundle.constants import PINNED_IMAGE_ID
+        from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
         for image in (GIT_IMAGE_ID, PINNED_IMAGE_ID):
             inspected = subprocess.run(["docker", "image", "inspect", image, "--format", "{{.Id}}"],
                                        capture_output=True, timeout=15)

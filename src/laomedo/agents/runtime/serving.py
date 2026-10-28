@@ -14,7 +14,7 @@ import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.skills.registry.errors as _registry_errors
-import os
+import laomedo.agents.runtime.settings as _runtime_settings
 import secrets
 import threading
 
@@ -309,7 +309,7 @@ class RunnerServer(ThreadingHTTPServer):
                     if response_gate is not None:
                         response_gate.set()
 
-        gate = os.environ.get("LAOMEDO_STARTUP_GATE")
+        gate = _runtime_settings.Settings().startup_gate
         if gate:
             import laomedo.host.runner.startup as _runner_startup
 

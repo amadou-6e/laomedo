@@ -25,11 +25,11 @@ from experiments.exp100.paired_provider import Provider; from experiments.exp100
 from experiments.exp104.probe_active_delivery import git; from experiments.exp104.probe_active_delivery import stage_cleanup
 from laomedo.host.mediation.agent_cli import configure_remote; from laomedo.host.mediation.agent_cli import prepare_commands
 from laomedo.host.publication.verifier import BundleVerifier
-from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.constants import LABEL_RUN; from laomedo.host.leases.constants import LABEL_TOKEN
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
 from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.github.transport.rest.transport import GitHubRestTransport
 from laomedo.host.mediation.store import MediationStore
-from laomedo.agents.runtime.constants import GIT_IMAGE_ID
+from laomedo.agents.runtime.settings import GIT_IMAGE_ID
 from laomedo.host.mediation.service import MediationHTTPService
 from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
 

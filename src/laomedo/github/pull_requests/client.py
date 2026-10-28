@@ -7,12 +7,13 @@ from urllib.parse import urlsplit
 import json
 import laomedo.github.pull_requests.contract as _pull_requests_contract
 import laomedo.skills.sources.transport as _sources_transport
-import os
+import laomedo.github.pull_requests.settings as _pull_requests_settings
 import re
 
 
 def pr_request(action, **payload):
-    base = os.environ.get("LAOMEDO_GITHUB_PR_URL", "")
+    settings = _pull_requests_settings.Settings()
+    base = settings.url
     url = urlsplit(base)
     if (
         url.scheme != "http"
@@ -28,9 +29,7 @@ def pr_request(action, **payload):
     try:
         token = (
             Path(
-                os.environ.get(
-                    "LAOMEDO_GITHUB_PR_TOKEN_FILE", "/run/secrets/laomedo-runner-token"
-                )
+                settings.token_file
             )
             .read_text(encoding="utf-8")
             .strip()

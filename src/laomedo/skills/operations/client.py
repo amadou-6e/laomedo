@@ -5,11 +5,12 @@ from urllib import request
 from urllib.parse import urlsplit
 import json
 import laomedo.skills.sources.transport as _sources_transport
-import os
+import laomedo.skills.operations.settings as _operations_settings
 
 
 def skill_request(action, **body):
-    base = os.environ.get("LAOMEDO_SKILL_OPERATION_URL", "").rstrip("/")
+    settings = _operations_settings.Settings()
+    base = settings.url.rstrip("/")
     parsed = urlsplit(base)
     if (
         parsed.scheme != "http"
@@ -24,7 +25,7 @@ def skill_request(action, **body):
         raise ValueError("skill_operation_service_not_configured")
     try:
         token = (
-            Path(os.environ["LAOMEDO_SKILL_OPERATION_TOKEN_FILE"]).read_text().strip()
+            Path(settings.token_file).read_text().strip()
         )
         if not 32 <= len(token) <= 512:
             raise ValueError()

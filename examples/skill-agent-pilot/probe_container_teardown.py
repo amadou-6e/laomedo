@@ -8,7 +8,7 @@ import time
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from laomedo.agents.runtime.servers import AppServer; from laomedo.agents.runtime.constants import IMAGE
+from laomedo.agents.runtime.servers import AppServer; from laomedo.agents.runtime.settings import IMAGE
 
 
 def main():

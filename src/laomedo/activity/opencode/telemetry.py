@@ -3,11 +3,11 @@
 from datetime import datetime
 from datetime import timezone
 import laomedo.activity.runner.feed as _runner_feed
-import os
+import laomedo.activity.runner.settings as _runner_settings
 
 
 def export_attempt(root, start, session, model):
-    if os.environ.get("LAOMEDO_RUNNER_OTEL") != "1":
+    if _runner_settings.Settings().otel != "1":
         return False
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor

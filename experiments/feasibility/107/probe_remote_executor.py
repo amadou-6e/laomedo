@@ -20,7 +20,7 @@ import threading
 import time
 from uuid import uuid4
 
-from laomedo.agents.runtime.servers import AppServer; from laomedo.agents.runtime.constants import CLI_VERSION; from laomedo.agents.runtime.constants import IMAGE; from laomedo.agents.runtime.constants import IMAGE_ID; from laomedo.agents.runtime.constants import VOLUME; from laomedo.agents.runtime.utils import _docker_prefix
+from laomedo.agents.runtime.servers import AppServer; from laomedo.agents.runtime.settings import CLI_VERSION; from laomedo.agents.runtime.settings import IMAGE; from laomedo.agents.runtime.settings import IMAGE_ID; from laomedo.agents.runtime.settings import VOLUME; from laomedo.agents.runtime.utils import _docker_prefix
 from probe_mock_responses import MockResponses
 
 

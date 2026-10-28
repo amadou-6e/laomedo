@@ -29,6 +29,7 @@ import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.errors as _skills_workspace_errors
 import laomedo.skills.workspace.utils as workspace_skills
 import os
+import laomedo.host.credentials.claude.settings as _host_claude_settings
 import re
 import secrets
 import shutil
@@ -834,7 +835,7 @@ class LocalRunner:
     def _mirror_host_login(self):
         if (
             getattr(self, "provider", None) == "claude"
-            and os.environ.get("LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN") == "1"
+            and _host_claude_settings.Settings().mirror_host_login == "1"
         ):
             import laomedo.host.credentials.claude.utils as _claude_utils
             import laomedo.host.credentials.claude.errors as _claude_errors

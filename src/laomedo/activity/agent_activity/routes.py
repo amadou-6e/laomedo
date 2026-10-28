@@ -7,12 +7,12 @@ from fastapi.responses import JSONResponse
 from pathlib import Path
 from starlette.concurrency import run_in_threadpool
 import laomedo.activity.agent_activity.store as _agent_activity_store
-import os
+import laomedo.activity.agent_activity.settings as _agent_activity_settings
 
 
 def install_activity_routes(app, authenticate, store=None):
     def configured():
-        path = os.environ.get("LAOMEDO_AGENT_ACTIVITY_DB")
+        path = _agent_activity_settings.Settings().database
         if store is None and not path:
             raise HTTPException(503, detail={"code": "agent_activity_not_configured"})
         if store is None and not Path(path).is_file():

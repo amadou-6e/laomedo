@@ -14,6 +14,7 @@ import laomedo.host.leases.settings as _leases_settings
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import os
+import laomedo.activity.runner.settings as _runner_settings
 import queue
 import re
 import secrets
@@ -27,13 +28,13 @@ class AppServer:
         self, command: list[str], evidence: Path, *, env=None, secret_redactions=()
     ):
         self.telemetry = None
-        if os.environ.get("LAOMEDO_RUNNER_OTEL") == "1":
+        if _runner_settings.Settings().otel == "1":
             import laomedo.activity.runner.telemetry as _runner_telemetry
 
             self.telemetry = _runner_telemetry.LaunchTelemetry(evidence)
             index = command.index("app-server")
             command = command[:index] + self.telemetry.arguments() + command[index:]
-        if os.environ.get("LAOMEDO_RUNNER_MULTI_AGENT") == "1":
+        if _runtime_settings.Settings().multi_agent == "1":
             index = command.index("app-server")
             command = (
                 command[:index]

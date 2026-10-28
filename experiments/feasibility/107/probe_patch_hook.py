@@ -1,7 +1,7 @@
 """Credential-free disposable check of a proposed Codex patch-deny hook."""
 
-from laomedo.agents.runtime.constants import CONFIG as _owned_runner_CONFIG
-from laomedo.agents.runtime.constants import IMAGE as _owned_runner_IMAGE
+from laomedo.agents.runtime.settings import CONFIG as _owned_runner_CONFIG
+from laomedo.agents.runtime.settings import IMAGE as _owned_runner_IMAGE
 from laomedo.agents.runtime.servers import SplitAppServer as _owned_runner_SplitAppServer
 from laomedo.agents.runtime.utils import _ensure_split_profile as _owned_runner__ensure_split_profile
 from laomedo.agents.runtime.utils import _split_profile as _owned_runner__split_profile

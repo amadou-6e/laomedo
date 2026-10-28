@@ -18,11 +18,11 @@ from urllib import parse; from urllib import request
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from laomedo.host.mediation.agent_cli import prepare_commands
-from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.constants import LABEL_RUN; from laomedo.host.leases.constants import LABEL_TOKEN
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
 from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.utils import _request_hash
 from laomedo.github.transport.rest.transport import GitHubRestTransport; from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY; from laomedo.github.transport.rest.transport import _NoRedirect
 from laomedo.host.credentials.token.connection import HostTokenConnection
-from laomedo.agents.runtime.constants import GIT_IMAGE_ID
+from laomedo.agents.runtime.settings import GIT_IMAGE_ID
 from laomedo.host.mediation.service import MediationHTTPService
 
 IDENTITY = 'exp100-live-s12-20261010-a'
