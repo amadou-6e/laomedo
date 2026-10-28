@@ -177,6 +177,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         self.assertLess(source.index("transport_settings = _native_settings.Settings.load()"), source.index("launch_attempted = True"))
 
 
+    @unittest.skipUnless(find_spec("py_docker"),"Requires optional Docker runtime")
     def test_executor_receipt_is_recovered_and_unresolved_intent_is_retained(self):
         from laomedo.agents.providers.codex.preflight.service import CodexPreflight
         from laomedo.agents.providers.codex.runner import CodexRunner

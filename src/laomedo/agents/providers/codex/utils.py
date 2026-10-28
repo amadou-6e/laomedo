@@ -115,8 +115,6 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
                 raise _runtime_errors.RunnerError("docker_control_failed")
     except CleanupUnconfirmedError:
         raise _runtime_errors.RunnerError("container_termination_unverified") from None
-    except CleanupUnconfirmedError:
-        raise _runtime_errors.RunnerError("container_termination_unverified") from None
     except (RuntimeError, DockerException):
         raise _runtime_errors.RunnerError("docker_control_failed") from None
 

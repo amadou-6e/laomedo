@@ -48,6 +48,14 @@ class ContainerLeaseTests(unittest.TestCase):
             self.assertEqual(cleanup_after_loss(identity,watch_seconds=.2),(False,"never_observed"))
             watch.cleanup.assert_called_once_with(watch_seconds=.2)
 
+    def test_supervisor_is_detached_from_runner_group(self):
+        options = _detached_process_options()
+        if "creationflags" in options:
+            self.assertTrue(options["creationflags"] & subprocess.CREATE_NEW_PROCESS_GROUP)
+            self.assertTrue(options["creationflags"] & subprocess.CREATE_BREAKAWAY_FROM_JOB)
+        else:
+            self.assertEqual(options, {"start_new_session": True})
+
     def test_eof_runs_cleanup_after_ready_marker(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

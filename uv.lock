@@ -433,7 +433,7 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'observability'", specifier = "==1.45.1" },
     { name = "opentelemetry-proto", marker = "extra == 'observability'", specifier = "==1.45.1" },
     { name = "opentelemetry-sdk", marker = "extra == 'observability'", specifier = "==1.45.1" },
-    { name = "py-docker", marker = "extra == 'runner'", git = "https://github.com/amadou-6e/py-docker.git?rev=c5cbf3bf1fa134a02d328da068b29c50cf1f240d" },
+    { name = "py-docker", marker = "extra == 'runner'", git = "https://github.com/amadou-6e/py-docker.git?rev=264ed3eac23406ebb37ea9665f4b51a6dcb5b4cd" },
     { name = "pydantic", specifier = ">=2.13,<2.14" },
     { name = "pydantic-settings", specifier = ">=2.14.2,<2.16" },
     { name = "pyjwt", extras = ["crypto"], specifier = "==2.15.1" },
@@ -571,7 +571,7 @@ wheels = [
 [[package]]
 name = "py-docker"
 version = "0.1.0a3"
-source = { git = "https://github.com/amadou-6e/py-docker.git?rev=c5cbf3bf1fa134a02d328da068b29c50cf1f240d#c5cbf3bf1fa134a02d328da068b29c50cf1f240d" }
+source = { git = "https://github.com/amadou-6e/py-docker.git?rev=264ed3eac23406ebb37ea9665f4b51a6dcb5b4cd#264ed3eac23406ebb37ea9665f4b51a6dcb5b4cd" }
 dependencies = [
     { name = "docker" },
     { name = "filelock" },

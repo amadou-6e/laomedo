@@ -268,6 +268,7 @@ class LocalRunnerTests(unittest.TestCase):
                 transport=FakeServer, check_docker=False,
                 supervise_containers=True, lease_service=host_state / "lease",
                 github_authority=authority, mediator_state=host_state / "mediator")
+            mediated.docker_environment = {"DOCKER_HOST":"unix:///internal-lease-control.sock"}
 
             def prepare(number):
                 reference = authority.approve(
