@@ -46,6 +46,7 @@ class CodexLaunch(BaseModel):
     capability: Path | None = Field(
         default=None,
         repr=False,
+        exclude=True,
         description="Read-only host grant file for mediated operations.",
     )
     mediator_url: str | None = Field(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 import laomedo.agents.providers.codex.settings as _codex_settings
 import laomedo.agents.providers.codex.utils as _codex_utils
+import laomedo.agents.providers.codex.native.settings as _native_settings
 
 from pathlib import Path
 from uuid import uuid4
@@ -235,7 +236,8 @@ class CodexRunner(Runner):
         if name is not None:
             values["name"] = name
         launch = CodexLaunch(**values)
-        if self.transport is _runtime_servers.AppServer:
+        from laomedo.agents.providers.codex.native.base import BaseNativeServer
+        if isinstance(self.transport, type) and issubclass(self.transport, BaseNativeServer):
             return self.transport(launch, root,
                 env=getattr(self, "docker_environment", None),
                 lifetime_seconds=lifetime_seconds,
@@ -264,7 +266,7 @@ class CodexRunner(Runner):
                 # may be account-specific. No thread or turn is requested.
                 token = self.auth.access_token()[0] if self.auth else None
                 server = self._open_server(root, access_token=token,
-                    lifetime_seconds=60 + _codex_settings.Settings().stream_startup_margin)
+                    lifetime_seconds=60 + _native_settings.Settings.load().startup_margin)
                 initialized = server.request(
                     "initialize",
                     {
@@ -311,7 +313,7 @@ class CodexRunner(Runner):
         try:
             token = self.auth.access_token()[0] if self.auth else None
             server = self._open_server(root, access_token=token,
-                lifetime_seconds=160 + _codex_settings.Settings().stream_startup_margin)
+                lifetime_seconds=160 + _native_settings.Settings.load().startup_margin)
             initialized = server.request(
                 "initialize",
                 {
@@ -631,7 +633,7 @@ class CodexRunner(Runner):
             server = self._open_server(
                 run_dir,
                 lifetime_seconds=(_codex_settings.NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
-                                  + _codex_settings.Settings().stream_startup_margin),
+                                  + _native_settings.Settings.load().startup_margin),
                 access_token=access_token,
                 name=name,
                 run_id=run_id,

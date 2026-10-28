@@ -1,8 +1,13 @@
 {
+  "runner_transport_configuration_invalid": {
+    "title": "The local Agent transport settings are invalid",
+    "description": "The local runner could not validate its stream limits. The Agent was not started.",
+    "recovery": "Check the local runner stream byte limit and startup margin. Both must be positive, finite numbers, and the byte limit must be a whole number."
+  },
   "request_timeout": {
     "title": "The Agent did not respond in time",
     "description": "The runner did not receive a response to an Agent request before its deadline. The request may still be active.",
-    "recovery": "Check the existing run status before starting another run. Do not repeat the operation until its outcome and cleanup are confirmed."
+    "recovery": "If a run started, confirm its status and cleanup before starting another. For metadata-only requests, check the runner is ready before refreshing."
   },
   "incomplete_mediator_mount": {
     "title": "The GitHub connection setup is incomplete",
@@ -473,7 +478,7 @@
   "protected_mount_changed": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
+    "recovery": "Check the local runner cleanup details, and the run status if one exists. Do not start or retry execution until the container and workspace state are confirmed."
   },
   "container_termination_unverified": {
     "title": "Execution cleanup or isolation could not be verified",

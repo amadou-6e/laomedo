@@ -1147,6 +1147,7 @@ class LocalRunnerTests(unittest.TestCase):
         app.request = Mock(return_value={"result": {}})
         app._reader_done = threading.Event()
         app._closed = False
+        app._resources_failed = False
         app.session = Mock()
         app.reader = Mock()
         app.reader.is_alive.return_value = False
@@ -1168,6 +1169,7 @@ class LocalRunnerTests(unittest.TestCase):
         from py_docker.errors import CleanupUnconfirmedError
         app = AppServer.__new__(AppServer)
         app._closed = False
+        app._resources_failed = False
         app.session = Mock()
         app.session.close.side_effect = CleanupUnconfirmedError("internal cleanup control")
         app.reader = Mock()

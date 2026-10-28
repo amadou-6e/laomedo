@@ -6,7 +6,8 @@ test("native request timeout keeps its safe method code and descriptive recovery
  const failure=describeNodeFailure(`Laomedo run 11111111-1111-4111-8111-111111111111 failed: ${code}`,undefined,{nodeId:"agent"});
  expect(failure.title).toBe("The Agent did not respond in time");
  expect(failure.diagnostics.code).toBe(code);
- expect(failure.recovery).toContain("existing run");
+ expect(failure.recovery).toContain("If a run started");
+ expect(failure.recovery).toContain("metadata-only");
  expect(isKnownNodeError(code,true)).toBe(true);
 });
 

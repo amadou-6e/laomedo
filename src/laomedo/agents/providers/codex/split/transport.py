@@ -18,7 +18,7 @@ from laomedo.agents.providers.codex.native.base import BaseNativeServer
 
 
 class SplitTransport(BaseNativeServer):
-    """Explicit CLI transport used only by the split controller."""
+    """Explicit CLI transport for split controllers and historical CLI probes."""
 
     def __init__(
         self,

@@ -15,6 +15,7 @@ jobs:
           python -m unittest discover -s tests -p test_codex_native_session.py -v
           python -m unittest discover -s tests -p test_runner_sandbox_policy.py -v
           python -m unittest discover -s tests -p test_local_runner.py -v
+          python -m unittest discover -s tests -p test_live_workgraph_bindings.py -v
   package-and-test:
     runs-on: ubuntu-latest
     strategy:

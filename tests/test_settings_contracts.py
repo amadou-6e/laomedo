@@ -72,9 +72,10 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_native_stream_settings_validate_positive_numeric_environment(self):
         from pydantic import ValidationError
-        from laomedo.agents.providers.codex.settings import Settings
-        for field, alias in (("stream_max_bytes","LAOMEDO_CODEX_STREAM_MAX_BYTES"),
-                             ("stream_startup_margin","LAOMEDO_CODEX_STREAM_STARTUP_MARGIN")):
+        from laomedo.agents.providers.codex.native.settings import Settings
+        from laomedo.agents.runtime.errors import RunnerError
+        for field, alias in (("max_bytes","LAOMEDO_CODEX_STREAM_MAX_BYTES"),
+                             ("startup_margin","LAOMEDO_CODEX_STREAM_STARTUP_MARGIN")):
             with self.subTest(field=field), patch.dict(os.environ, {}, clear=True):
                 os.environ[alias]="1024"
                 self.assertEqual(getattr(Settings(),field),1024)
@@ -82,6 +83,11 @@ class SettingsContractTests(unittest.TestCase):
                     os.environ[alias]=invalid
                     with self.assertRaises(ValidationError):
                         Settings()
+                    with self.assertRaisesRegex(RunnerError,"runner_transport_configuration_invalid"):
+                        Settings.load()
+        with patch.dict(os.environ,{"LAOMEDO_CODEX_STREAM_STARTUP_MARGIN":"inf"}):
+            with self.assertRaisesRegex(RunnerError,"runner_transport_configuration_invalid"):
+                Settings.load()
 
     def test_fixed_protocol_pins_are_not_environment_fields(self):
         for module, cls in self.classes():

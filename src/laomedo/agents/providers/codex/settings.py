@@ -124,5 +124,3 @@ class Settings(BaseSettings):
         return init_settings, env_settings
 
     multi_agent: str | None = Field(default=None, validation_alias='LAOMEDO_RUNNER_MULTI_AGENT', repr=False, exclude=True)
-    stream_max_bytes: int = Field(default=64*1024*1024, gt=0, validation_alias='LAOMEDO_CODEX_STREAM_MAX_BYTES', description="Combined native stdout/stderr byte ceiling per controller attachment.")
-    stream_startup_margin: float = Field(default=120, gt=0, validation_alias='LAOMEDO_CODEX_STREAM_STARTUP_MARGIN', description="Additional attachment seconds for initialization, catalogue and shutdown around allowed native turns.")

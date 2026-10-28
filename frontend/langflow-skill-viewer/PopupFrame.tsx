@@ -39,8 +39,8 @@ export default function PopupFrame({ label, heading, children, footer, onClose, 
   return createPortal(<section ref={root} tabIndex={-1} role="region" aria-label={label} data-error-code={code} data-error-node={nodeId} data-error-operation={operation} style={{ maxHeight: "inherit", borderLeftColor: recovered ? "#4ADE80" : "#F87171" }}
     onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}
     className="flex min-h-0 shrink-0 flex-col overflow-hidden border border-slate-300 border-l-4 border-l-[#F87171] bg-background text-foreground shadow-sm focus:outline-none">
-    <header className={`relative flex shrink-0 flex-wrap items-baseline gap-x-1 gap-y-1 px-5 pb-2 pt-5 ${tools ? "pr-12" : ""}`}>{heading}{tools && <div className="absolute right-3 top-3">{tools}</div>}</header>
-    <div className="min-h-0 overflow-y-auto overscroll-contain px-5" data-testid="recovery-popup-body">{children}</div>
-    <footer className="flex shrink-0 flex-wrap gap-3 px-5 pb-5 pt-3">{footer}</footer>
+    <header className={`relative flex shrink-0 flex-wrap items-baseline gap-x-1 gap-y-1 px-5 pb-2 pt-5 [@media(max-height:300px)]:pb-1 [@media(max-height:300px)]:pt-3 ${tools ? "pr-12" : ""}`}>{heading}{tools && <div className="absolute right-3 top-3">{tools}</div>}</header>
+    <div tabIndex={0} role="group" aria-label="Error explanation and recovery" style={{ scrollbarWidth: "thin", scrollbarGutter: "stable", scrollbarColor: "hsl(var(--muted-foreground)) transparent" }} className="min-h-0 overflow-y-auto overscroll-contain px-5" data-testid="recovery-popup-body">{children}</div>
+    <footer className="flex shrink-0 flex-wrap gap-3 px-5 pb-5 pt-3 [@media(max-height:300px)]:pb-3 [@media(max-height:300px)]:pt-2">{footer}</footer>
   </section>, host);
 }

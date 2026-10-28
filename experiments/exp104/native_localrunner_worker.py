@@ -51,10 +51,10 @@ def run(root, side):
 
     class HeldInitialize(AppServer):
         """Only instrument the native response boundary, never the launch args."""
-        def __init__(self, command, evidence):
+        def __init__(self, command, evidence, **kwargs):
             owner = json.loads((evidence / "record.json").read_bytes())["container_ownership"]
             capability = (root / "host/lease/leases" / owner["launch_token"] / "grant.secret").read_text().strip()
-            super().__init__(command, evidence, secret_redactions=(capability,))
+            super().__init__(command, evidence, secret_redactions=tuple(kwargs.pop("secret_redactions", ())) + (capability,), **kwargs)
 
         def request(self, method, params, timeout=30):
             if method != "initialize":

@@ -59,7 +59,7 @@ def main(with_hook=True):
                     'model_providers.laomedo_mock.requires_openai_auth=false',
                     'model_providers.laomedo_mock.supports_websockets=false',
                 )
-                server = _owned_runner_SplitAppServer(root / "workspace",
+                server = _owned_runner_SplitSplitTransport(root / "workspace",
                     root / "canonical", root / "store", root / "evidence",
                     profile, provider_config=provider,
                     access_token="SYNTHETIC_ONLY")

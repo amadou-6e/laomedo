@@ -8,7 +8,7 @@ import time
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.settings import IMAGE
+from laomedo.agents.providers.codex.split.transport import SplitTransport; from laomedo.agents.providers.codex.settings import IMAGE
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     command = ["docker", "run", "--rm", "-i", "--name", name, "--pull=never",
                IMAGE, "sh", "-c", "sleep 60"]
     with tempfile.TemporaryDirectory(prefix="laomedo-teardown-") as directory:
-        app = AppServer(command, Path(directory))
+        app = SplitTransport(command, Path(directory))
         try:
             for _ in range(50):
                 state = subprocess.run(["docker", "inspect", "--format", "{{.State.Running}}", name],

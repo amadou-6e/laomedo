@@ -20,7 +20,7 @@ import threading
 import time
 from uuid import uuid4
 
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.settings import CLI_VERSION; from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.settings import IMAGE_ID; from laomedo.agents.providers.codex.settings import VOLUME; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.split.transport import SplitTransport; from laomedo.agents.providers.codex.settings import CLI_VERSION; from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.settings import IMAGE_ID; from laomedo.agents.providers.codex.settings import VOLUME; from laomedo.agents.providers.codex.utils import _docker_prefix
 from probe_mock_responses import MockResponses
 
 
@@ -242,7 +242,7 @@ def probe(*, disconnect_executor=False, patch_target=None,
                 "-c", 'model_providers.laomedo_mock.requires_openai_auth=false',
                 "-c", 'model_providers.laomedo_mock.supports_websockets=false',
             ])
-            server = AppServer(["docker", *prefix], root)
+            server = SplitTransport(["docker", *prefix], root)
             _result(server, "initialize", {"clientInfo": {
                 "name": "laomedo_107_probe", "title": "Laomedo 107 Probe",
                 "version": "0.1.0"}, "capabilities": {"experimentalApi": True}})
@@ -376,7 +376,7 @@ def probe(*, disconnect_executor=False, patch_target=None,
                              "script-env.txt", "script-pid1.txt",
                              "script-file.txt", "agent-marker.txt"):
                     (workspace / name).unlink(missing_ok=True)
-                server = AppServer(["docker", *prefix], root)
+                server = SplitTransport(["docker", *prefix], root)
                 _result(server, "initialize", {"clientInfo": {
                     "name": "laomedo_107_probe", "title": "Laomedo 107 Probe",
                     "version": "0.1.0"}, "capabilities": {"experimentalApi": True}})

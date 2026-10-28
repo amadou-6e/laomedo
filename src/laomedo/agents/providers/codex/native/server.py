@@ -8,6 +8,7 @@ from pathlib import Path
 from laomedo.agents.providers.codex import settings
 from laomedo.agents.providers.codex.native.base import BaseNativeServer
 from laomedo.agents.providers.codex.native.models import CodexLaunch
+from laomedo.agents.providers.codex.native.settings import Settings as TransportSettings
 from laomedo.agents.runtime.errors import RunnerError
 
 
@@ -44,6 +45,9 @@ class AppServer(BaseNativeServer):
         self._reader_done = threading.Event()
         self._reader_failed = False
         self._closed = False
+        self._resource_lock = threading.Lock()
+        self._resources_closed = False
+        self._resources_failed = False
         self.events = []
         self.messages = queue.Queue()
         self.container_name = launch.name
@@ -99,7 +103,7 @@ class AppServer(BaseNativeServer):
                     spec=spec,
                     limits=StreamLimits(
                         seconds=lifetime_seconds,
-                        max_bytes=settings.Settings().stream_max_bytes,
+                        max_bytes=TransportSettings.load().max_bytes,
                     ),
                     receipt_path=evidence.joinpath(settings.NATIVE_RECEIPT_FILENAME),
                 )
@@ -151,12 +155,14 @@ class AppServer(BaseNativeServer):
         except (DockerOperationError, OSError):
             error = RunnerError("container_termination_unverified")
         finally:
+            self._closed = True
             self.reader.join(timeout=5)
             if self.reader.is_alive():
                 error = error or RunnerError("runner_transport_failed")
             else:
                 self._close_resources()
-            self._closed = True
+                if self._resources_failed:
+                    error = error or RunnerError("runner_transport_failed")
         if error is not None:
             raise error
 
@@ -214,6 +220,8 @@ class AppServer(BaseNativeServer):
             self._reader_failed = True
         finally:
             self._reader_done.set()
+            if self._closed:
+                self._close_resources()
 
     def _record_line(self, channel: str, line: str) -> None:
         """Redact complete native lines before writing logs or activity events."""
@@ -240,10 +248,20 @@ class AppServer(BaseNativeServer):
 
     def _close_resources(self) -> None:
         """Close local evidence, telemetry and the owned client after transport use."""
-        self.log.close()
-        self.activity_log.close()
-        self.stderr.close()
-        if self.telemetry is not None:
-            self.telemetry.close()
-        if self._client is not None:
-            self._client.close()
+        with self._resource_lock:
+            if self._resources_closed:
+                return
+            self._resources_closed = True
+            for resource in (
+                self.log,
+                self.activity_log,
+                self.stderr,
+                self.telemetry,
+                self._client,
+            ):
+                if resource is None:
+                    continue
+                try:
+                    resource.close()
+                except (OSError, RuntimeError, ValueError):
+                    self._resources_failed = True

@@ -24,7 +24,8 @@ class NativeSessionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             launch = CodexLaunch(workspace=root,canonical=root,store_mount=root,
-                                image="sha256:"+"a"*64,run_id="run",launch_token="private")
+                                image="sha256:"+"a"*64,run_id="run",launch_token="private",
+                                capability=root.joinpath("private/grant.secret"),mediator_url="http://127.0.0.1",mediator_instance="internal")
             spec = launch.to_container_spec()
             self.assertEqual((spec.user,spec.network_mode,spec.working_dir),("10001:10001","bridge","/draft"))
             self.assertFalse(spec.read_only)
@@ -95,6 +96,31 @@ class NativeSessionTests(unittest.TestCase):
                 client.return_value.sessions.open.return_value.close.assert_called_once_with()
                 client.return_value.close.assert_called_once_with()
 
+    def test_late_reader_completion_releases_deferred_resources_once(self):
+        """A reported slow-reader failure does not leak resources after it exits."""
+        import threading
+        entered,release=threading.Event(),threading.Event()
+        def late_read():
+            entered.set()
+            release.wait(timeout=2)
+            return None
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
+            with patch("py_docker.Client") as client:
+                client.return_value.sessions.open.return_value.read_frame.side_effect=late_read
+                server=AppServer(launch,root)
+                self.assertTrue(entered.wait(timeout=1))
+                with patch.object(server.reader,"join"):
+                    with self.assertRaisesRegex(RunnerError,"runner_transport_failed"):
+                        server.close()
+                self.assertFalse(server.log.closed)
+                release.set()
+                server.reader.join(timeout=2)
+                self.assertFalse(server.reader.is_alive())
+                self.assertTrue(server.log.closed)
+                client.return_value.close.assert_called_once_with()
+
 
 class RetirementAndCatalogueTests(unittest.TestCase):
     """Keep retired imports out and catalogue coverage on the new producer."""
@@ -115,7 +141,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         catalogue=json.loads(root.joinpath("frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         codes=set()
-        for module in ("server.py","models.py","base.py"):
+        for module in ("server.py","models.py","base.py","settings.py"):
             tree=ast.parse(root.joinpath("src/laomedo/agents/providers/codex/native",module).read_text())
             for node in ast.walk(tree):
                 if isinstance(node,ast.Call) and getattr(node.func,"id",getattr(node.func,"attr",""))=="RunnerError" and node.args:
@@ -123,3 +149,20 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         self.assertTrue(codes)
         self.assertEqual(codes-set(catalogue),set())
         self.assertNotIn("operator",catalogue["container_termination_unverified"]["recovery"])
+
+    def test_recovered_metadata_is_removed_but_run_history_is_preserved(self):
+        """Only successfully reconciled metadata folders are disposable."""
+        from laomedo.agents.providers.codex.preflight.service import CodexPreflight
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            for folder in ("runs","catalog","preflight"):
+                directory=root.joinpath(folder,"identity")
+                directory.mkdir(parents=True)
+                directory.joinpath(settings.NATIVE_RECEIPT_FILENAME).write_text("internal control")
+                directory.joinpath("history.json").write_text("retained execution evidence")
+            client=Mock()
+            client.sessions.recover.side_effect=lambda pending:pending.unlink()
+            CodexPreflight(root)._recover_sessions(client)
+            self.assertTrue(root.joinpath("runs/identity/history.json").exists())
+            self.assertFalse(root.joinpath("catalog/identity").exists())
+            self.assertFalse(root.joinpath("preflight/identity").exists())

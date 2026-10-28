@@ -11,7 +11,7 @@ from pathlib import Path
 import secrets
 import tempfile
 
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.settings import VOLUME; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.split.transport import SplitTransport; from laomedo.agents.providers.codex.settings import VOLUME; from laomedo.agents.providers.codex.utils import _docker_prefix
 
 
 def probe():
@@ -33,7 +33,7 @@ def probe():
             "--tmpfs", "/home/runner/.codex:rw,uid=10001,gid=10001,mode=0700",
             "--env", "ACCESS_TOKEN=" + canary,
         ]
-        server = AppServer(["docker", *prefix], root)
+        server = SplitTransport(["docker", *prefix], root)
         try:
             response = server.request("initialize", {"clientInfo": {
                 "name": "laomedo_107_probe", "title": "Laomedo 107 Probe",

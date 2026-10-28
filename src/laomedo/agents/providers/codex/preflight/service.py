@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -82,11 +83,7 @@ class CodexPreflight:
                 environment=snapshot,
             ) as client:
                 client.jobs.recover(self.receipt_path)
-                for folder in ("runs", "catalog", "preflight"):
-                    for pending in self.receipt_path.parent.joinpath(folder).glob(
-                        "*/" + codex_settings.NATIVE_RECEIPT_FILENAME
-                    ):
-                        client.sessions.recover(pending)
+                self._recover_sessions(client)
                 self._probe(client, image, expected_id)
                 pinned = {
                     key: value
@@ -117,6 +114,30 @@ class CodexPreflight:
             AttributeError,
         ):
             raise RunnerError("runner_docker_check_unconfirmed") from None
+
+    def _recover_sessions(self, client: Client) -> None:
+        """Recover observed controllers and remove only recovered metadata folders.
+
+        Parameters
+        ----------
+        client : Client
+            Client on the original preflight-selected endpoint.
+        """
+        for folder in ("runs", "catalog", "preflight"):
+            root = self.receipt_path.parent.joinpath(folder).resolve()
+            for pending in root.glob("*/" + codex_settings.NATIVE_RECEIPT_FILENAME):
+                client.sessions.recover(pending)
+                if folder == "runs":
+                    continue  # Execution history is never catalogue cleanup.
+                parent = pending.parent.resolve()
+                if pending.parent.is_symlink() or parent.parent != root:
+                    continue  # Never recursively remove an escaped/junction target.
+                try:
+                    shutil.rmtree(parent)
+                except OSError:
+                    logging.getLogger(__name__).warning(
+                        "Recovered controller metadata could not be removed."
+                    )
 
     def _probe(self, client: Client, image: str, expected_id: str) -> None:
         """Delegate the hardened version probe and enforce Codex output policy.

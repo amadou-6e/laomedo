@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-from experiments.exp139.bindings import PROFILE_OVERRIDES
+from experiments.exp139.settings import PROFILE_OVERRIDES
 from experiments.exp139.helper_control import IMAGE; from experiments.exp139.helper_control import ROOT
 
 SCRIPT = r'''

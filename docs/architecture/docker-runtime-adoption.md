@@ -99,6 +99,13 @@ Credentials remain in the existing dedicated local volume; this migration does
 not copy or export login data. Activity redaction happens after complete byte
 lines are assembled, including UTF-8 characters split across Docker frames.
 
+Maintained native subclasses receive the canonical launch plus the selected
+endpoint and lifetime. The existing Git/relay experiment projects typed policy
+subclasses rather than parsing a Docker command; its run identity and capability
+redaction survive that projection. The obsolete CLI-rewriter startup control is
+removed. Earlier control output remains historical evidence, not acceptance of
+the new SDK path. Explicit CLI-only diagnostic probes use the split transport.
+
 The independent lease supervisor remains authoritative for application ownership
 and runner-loss cleanup. SDK containers carry its existing run/token labels plus
 the library's private ownership token. Per-run `container-receipt.json` first
@@ -107,6 +114,10 @@ recovers receipts under runs/catalog/preflight on the preflight-selected endpoin
 after base recovery and before a new probe. An observed ID removed by the lease
 supervisor can safely be confirmed absent; an unobserved create remains uncertain.
 Catalogue cleanup preserves a directory containing an unresolved receipt.
+After recovery confirms removal, disposable catalogue/preflight folders are
+removed with resolved-path containment checks; execution history under runs is
+preserved. An observation-write failure is distinct from cleanup uncertainty:
+only failed removal or reconciliation reports unverified cleanup.
 
 Stream lifetime covers the existing 180-second native turn allowance for each
 permitted output-correction turn, plus startup/shutdown margin. Catalogue and
@@ -115,6 +126,9 @@ turn cap. `LAOMEDO_CODEX_STREAM_MAX_BYTES` defaults to 64 MiB per attachment and
 `LAOMEDO_CODEX_STREAM_STARTUP_MARGIN` to 120 seconds; both are validated host
 settings. Byte-budget or transport failure maps to existing descriptive errors
 after exact cleanup. Output EOF alone never confirms execution success.
+If a reader outlives the bounded close join, the run fails conservatively. Its
+logs, telemetry and client stay open while still in use, then close once when
+that reader exits. They are not reported as successfully finalized beforehand.
 
 The optional runner extra pins the unpublished interactive feature revision for
 local verification. Internal controls cover policy, redaction, delegation,
