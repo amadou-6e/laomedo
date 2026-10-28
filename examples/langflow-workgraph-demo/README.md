@@ -66,3 +66,12 @@ For interactive inspection, import `flow.json` into the pinned Langflow editor.
 The exported runner URL is a loopback fixture endpoint, not a live configured
 service. Do not point the demo at a real runner and treat simulated publication
 as production acceptance.
+
+## Provider-neutral template refresh
+
+Current Agent templates use the shared provider-neutral component and refreshed
+Langflow metadata. Graph/node identities, connections and configured values are
+retained. These refreshed exports were loaded for structural validation; they
+were not rerun against a model/provider. Earlier execution receipts remain
+historical. The pre-refactor exports are retained at Git revision
+`735e4171266bd47afe56f685d93f2faba1c885f2`.

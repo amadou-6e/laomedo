@@ -197,3 +197,12 @@ starting another inference.
 
 Normal services do not inherit the historical verification ceilings below.
 Those are archived experiment allowances, not runtime configuration.
+
+## Provider-neutral template refresh
+
+Current Agent templates use the shared provider-neutral component and refreshed
+Langflow metadata. Graph/node identities, connections and configured values are
+retained. These refreshed exports were loaded for structural validation; they
+were not rerun against a model/provider. Earlier execution receipts remain
+historical. The pre-refactor exports are retained at Git revision
+`735e4171266bd47afe56f685d93f2faba1c885f2`.
