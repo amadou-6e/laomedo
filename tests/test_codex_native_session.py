@@ -166,3 +166,20 @@ class RetirementAndCatalogueTests(unittest.TestCase):
             self.assertTrue(root.joinpath("runs/identity/history.json").exists())
             self.assertFalse(root.joinpath("catalog/identity").exists())
             self.assertFalse(root.joinpath("preflight/identity").exists())
+
+
+    def test_split_diagnostic_constructor_is_bound(self):
+        """Catch mechanical renames without running the historical fake provider."""
+        root=Path(__file__).resolve().parents[1]
+        path=root.joinpath("experiments/feasibility/107/probe_patch_hook.py")
+        tree=ast.parse(path.read_text())
+        imported={alias.asname or alias.name for node in ast.walk(tree) if isinstance(node,ast.ImportFrom) for alias in node.names}
+        called={node.func.id for node in ast.walk(tree) if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id.startswith("_owned_runner_")}
+        self.assertTrue(called)
+        self.assertFalse(called-imported)
+
+    def test_host_budgets_validate_before_launch_attempt_marker(self):
+        """An invalid host setting must not be recorded as dispatch."""
+        root=Path(__file__).resolve().parents[1]
+        source=root.joinpath("src/laomedo/agents/providers/codex/runner.py").read_text()
+        self.assertLess(source.index("transport_settings = _native_settings.Settings.load()"), source.index("launch_attempted = True"))

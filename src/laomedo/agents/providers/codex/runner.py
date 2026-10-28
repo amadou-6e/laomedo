@@ -629,11 +629,12 @@ class CodexRunner(Runner):
                     raise _runtime_errors.RunnerError("resume_auth_identity_mismatch")
             record["credential"] = auth_summary
             _runtime_utils._json(run_dir / "record.json", record)
+            transport_settings = _native_settings.Settings.load()
             launch_attempted = True
             server = self._open_server(
                 run_dir,
                 lifetime_seconds=(_codex_settings.NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
-                                  + _native_settings.Settings.load().startup_margin),
+                                  + transport_settings.startup_margin),
                 access_token=access_token,
                 name=name,
                 run_id=run_id,

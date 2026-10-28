@@ -215,3 +215,7 @@ checked-in image or approve changing its pin. The local wheel hash, merged sourc
 revision, installed module origin and module-byte comparison are retained in the
 ignored trial evidence. PyPI publication, hash-pinned production adoption and
 owner graph review remain separate pending steps.
+
+### Conservative observations
+
+Mount readback currently requires the engine to preserve explicit mount order. A reordered equivalent list is refused rather than accepted; matching by target is a future compatibility improvement. A container that is created but neither running nor terminal has no confirmed exit code. EOF in that state waits for the bounded request deadline rather than inventing a successful exit or a known failure.

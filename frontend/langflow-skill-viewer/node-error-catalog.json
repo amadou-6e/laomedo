@@ -483,22 +483,22 @@
   "container_termination_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
+    "recovery": "Check the local runner cleanup details and the run status if one exists. Do not start new work until the container and workspace state are confirmed."
   },
   "executor_termination_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
+    "recovery": "Check the local runner cleanup details and the run status if one exists. Do not start new work until the container and workspace state are confirmed."
   },
   "run_preparation_cleanup_unverified": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
+    "recovery": "Check the local runner cleanup details and the run status if one exists. Do not start new work until the container and workspace state are confirmed."
   },
   "opencode_transport_cleanup_failed": {
     "title": "Execution cleanup or isolation could not be verified",
     "description": "The application could not establish a clean, safe execution boundary.",
-    "recovery": "Check the existing run and its cleanup details. Do not start another run until its container and workspace state are confirmed."
+    "recovery": "Check the local runner cleanup details and the run status if one exists. Do not start new work until the container and workspace state are confirmed."
   },
   "opencode_provider_error": {
     "title": "The provider did not produce a completed answer",
