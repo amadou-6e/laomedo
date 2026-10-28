@@ -56,6 +56,8 @@ class SplitAppServer(AppServer):
         self.authorization_probe = None
         self._controller_started = False
         self.executor = None
+        self._executor_reader = None
+        self._executor_read_failed = False
         self._executor_client = Client(environment=docker_environment)
         try:
             image = self._executor_client.images.resolve(
@@ -89,6 +91,10 @@ class SplitAppServer(AppServer):
                     receipt_path=evidence.joinpath("executor-receipt.json"),
                 )
             )
+            self._executor_reader = threading.Thread(
+                target=self._drain_executor, daemon=True
+            )
+            self._executor_reader.start()
             launch = SplitLaunch(
                 workspace=workspace,
                 canonical=canonical,
@@ -184,7 +190,7 @@ class SplitAppServer(AppServer):
             != _codex_settings.CLI_VERSION
         ):
             raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
-        if not self.executor.state().running:
+        if self._executor_read_failed or not self.executor.state().running:
             raise _runtime_errors.RunnerError("executor_not_running")
         for session in (self.session, self.executor):
             container = self._executor_client.containers.inspect(session.identity)
@@ -270,7 +276,7 @@ class SplitAppServer(AppServer):
                 self.interrupt(turn_id)
                 return "unknown", "auth_revoked_during_turn"
             try:
-                if not self.executor.state().running:
+                if self._executor_read_failed or not self.executor.state().running:
                     return "unknown", "executor_lost"
             except RuntimeError:
                 return "unknown", "executor_lost"
@@ -299,6 +305,16 @@ class SplitAppServer(AppServer):
         if error is not None:
             raise error
 
+    def _drain_executor(self) -> None:
+        """Consume binary output under the session budget without retaining secrets."""
+        from py_docker.errors import DockerOperationError
+
+        try:
+            while self.executor.read_frame() is not None:
+                pass
+        except (DockerOperationError, OSError):
+            self._executor_read_failed = True
+
     def _close_executor(self) -> None:
         """Keep an unresolved executor receipt and report cleanup uncertainty."""
         from py_docker.errors import DockerOperationError
@@ -306,6 +322,13 @@ class SplitAppServer(AppServer):
         try:
             if self.executor is not None:
                 self.executor.close()
+            if (
+                self._executor_reader is not None
+                and self._executor_reader.ident is not None
+            ):
+                self._executor_reader.join(timeout=5)
+                if self._executor_reader.is_alive():
+                    raise DockerOperationError("confirm executor reader shutdown")
         except DockerOperationError:
             raise _runtime_errors.RunnerError(
                 "executor_termination_unverified"
