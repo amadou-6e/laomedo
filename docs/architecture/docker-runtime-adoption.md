@@ -98,6 +98,43 @@ Keep unresolved receipts on the original endpoint; never delete one merely to
 permit a retry. Resolve the original outstanding create before reusing its name.
 Receipt locks prevent recovery from stealing an active lifecycle.
 
+### Reconciling a receipt from an older draft
+
+Older drafts did not save the endpoint in the receipt. Stop the affected local
+runner process and keep its private state. Establish the original local endpoint
+from its persisted run ownership or independent lease registration, rather than
+the current default Docker context. If that original endpoint is unknown, retain
+the receipt and do not launch replacement work under the same ownership name.
+
+For an observed immutable ID, explicit host reconciliation can use the existing
+owned-cleanup API below. This is a maintenance step after verifying the endpoint,
+not an automatic migration or a graph input. It checks the recorded private
+ownership labels and clears the receipt only after confirmed removal. Never print
+the private record or its labels, and never add an endpoint just to bypass refusal.
+
+```python
+import json
+from pathlib import Path
+from py_docker import Client
+from py_docker.containers.models import ContainerReceipt
+from py_docker.containers.receipts import ReceiptStore
+
+receipt_path = Path("<existing private receipt path>")
+original_endpoint = "<verified original local endpoint>"
+with Client(environment={"DOCKER_HOST": original_endpoint}) as docker:
+    with ReceiptStore(receipt_path) as store:
+        saved = ContainerReceipt.from_private_record(
+            json.loads(receipt_path.read_text(encoding="utf-8")))
+        if saved.identity is None:
+            raise RuntimeError("Resolve the original uncertain create first")
+        store.cleanup(docker.containers, saved.reservation, saved.identity)
+```
+
+An intent-only receipt cannot establish that a delayed create will never arrive.
+Resolve that original request before cleaning or replacing it. Do not delete its
+file merely because the name is currently absent. Current receipts with matching
+endpoint provenance use normal `sessions.recover` or `jobs.recover` instead.
+
 Session close removes the exact owned ID before detaching and unblocking readers.
 EOF alone is not execution success. A still-running process after EOF is a
 transport failure; a nonterminal created state waits for the bounded deadline.
