@@ -95,7 +95,7 @@ class SettingsContractTests(unittest.TestCase):
             'agents/providers/claude/utils.py': 'os.environ.items()',
             'host/credentials/claude/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
-            'agents/providers/codex/servers.py': 'dict(os.environ, ACCESS_TOKEN=access_token)',
+            'agents/providers/codex/servers.py': 'os.environ if docker_environment is None else docker_environment',
             'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',

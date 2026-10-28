@@ -220,10 +220,10 @@ def _docker_prefix(
     ]
 
 
-def _docker_checked(*args: str, timeout: float = 15) -> str:
+def _docker_checked(*args: str, timeout: float = 15, env=None) -> str:
     try:
         result = subprocess.run(
-            ["docker", *args], capture_output=True, text=True, timeout=timeout
+            ["docker", *args], capture_output=True, text=True, timeout=timeout, env=env
         )
     except (OSError, subprocess.TimeoutExpired):
         raise _runtime_errors.RunnerError("docker_control_unavailable") from None
@@ -239,13 +239,13 @@ def _split_profile(state: Path) -> str:
     )
 
 
-def _ensure_split_profile(name: str) -> None:
+def _ensure_split_profile(name: str, *, env=None) -> None:
     found = subprocess.run(
-        ["docker", "volume", "inspect", name], capture_output=True, timeout=10
+        ["docker", "volume", "inspect", name], capture_output=True, timeout=10, env=env
     )
     if found.returncode == 0:
         return
-    _docker_checked("volume", "create", name)
+    _docker_checked("volume", "create", name, env=env)
     try:
         _docker_checked(
             "run",
@@ -266,9 +266,10 @@ def _ensure_split_profile(name: str) -> None:
             "10001:10001",
             "/home/runner/.codex",
             timeout=30,
+            env=env,
         )
     except Exception:
-        _docker_checked("volume", "rm", name)
+        _docker_checked("volume", "rm", name, env=env)
         raise
 
 

@@ -18,6 +18,11 @@ and feature guides.
 ## Source layout
 
 Install this checkout with `python -m pip install -e .` (or install its wheel).
+For Codex Docker runners (normal and split), install `python -m pip install -e '.[runner]'`
+in the Python environment used by its launcher, or use `uv sync --extra runner`.
+The optional extra currently pins the py-docker jobs feature revision for the
+pre-PyPI local trial; core/Langflow installations do not need it. See the
+[trial setup and recovery](docs/architecture/docker-runtime-adoption.md#local-installation-and-recovery).
 Python implementation lives in `src/laomedo`; `agents` owns execution, with
 `skills`, `github`, `host`, `activity`, `integrations/langflow` and `work_graph`
 providing the other domains. Components, frontend, tests and docs remain at the

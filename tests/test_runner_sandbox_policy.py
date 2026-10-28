@@ -3,12 +3,114 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from laomedo.agents.providers.codex.settings import CLI_VERSION; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.preflight.models import DockerSelection
 
 
 class RunnerSandboxPolicyTests(unittest.TestCase):
+    def test_split_controller_token_is_not_a_control_environment(self):
+        """The real constructor keeps launch-only credentials out of cleanup."""
+        from laomedo.agents.providers.codex.servers import SplitAppServer
+        from laomedo.agents.providers.codex.settings import IMAGE_ID
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            selected = {"DOCKER_HOST": "unix:///selected.sock"}
+            server = SplitAppServer.__new__(SplitAppServer)
+            with patch("laomedo.agents.providers.codex.utils._docker_checked", return_value=IMAGE_ID) as control, patch(
+                "subprocess.Popen", side_effect=OSError("launch unavailable")
+            ) as launch, patch("subprocess.run") as cleanup:
+                with self.assertRaises(OSError):
+                    server.__init__(root, root, root, root, "profile",
+                                    access_token="internal-test-token", docker_environment=selected)
+                self.assertEqual(launch.call_args.kwargs["env"]["ACCESS_TOKEN"], "internal-test-token")
+                self.assertEqual(cleanup.call_args.kwargs["env"], selected)
+                server._docker_checked("inspect", "owned")
+                self.assertEqual(control.call_args.kwargs["env"], selected)
+                self.assertNotIn("ACCESS_TOKEN", server.docker_environment)
+
+    def test_split_permission_checks_use_selected_endpoint(self):
+        """All executor permission probes use the preflight-selected environment."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            runner = LocalRunner(root / "state", root / "skills", source,
+                                 split_executor=True, check_docker=False)
+            runner.docker_environment = {"DOCKER_HOST": "unix:///selected.sock"}
+            server = MagicMock()
+            server.request.return_value = {"result": {}}
+            with patch.object(runner, "_open_server", return_value=server), patch(
+                "laomedo.agents.providers.codex.utils._advertised_models", return_value=[]
+            ), patch("subprocess.run", side_effect=[
+                subprocess.CompletedProcess([], 1) for _ in range(4)
+            ]) as command:
+                with self.assertRaisesRegex(RunnerError, "permission_preflight_failed"):
+                    runner.preflight()
+                self.assertEqual(command.call_count, 4)
+                for call in command.call_args_list:
+                    self.assertEqual(call.kwargs["env"], runner.docker_environment)
+
+    def test_split_profile_failure_cleanup_keeps_endpoint(self):
+        """Failed profile initialization removes its volume on the same daemon."""
+        from laomedo.agents.providers.codex.utils import _ensure_split_profile
+        selected = {"DOCKER_HOST": "unix:///selected.sock"}
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 1)), patch(
+            "laomedo.agents.providers.codex.utils._docker_checked",
+            side_effect=["", RunnerError("docker_control_failed"), ""],
+        ) as command:
+            with self.assertRaisesRegex(RunnerError, "docker_control_failed"):
+                _ensure_split_profile("profile", env=selected)
+            self.assertEqual(command.call_args.args, ("volume", "rm", "profile"))
+            for call in command.call_args_list:
+                self.assertEqual(call.kwargs["env"], selected)
+
+    def test_both_modes_use_one_preflight_before_profile_access(self):
+        """The SDK check replaces the CLI version probe in both execution modes."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            selection = DockerSelection(image_id="sha256:" + "a" * 64,
+                                        environment={"DOCKER_HOST": "unix:///selected.sock"})
+            for split in (False, True):
+                with self.subTest(split=split), patch(
+                    "laomedo.agents.providers.codex.preflight.service.CodexPreflight.check",
+                    return_value=selection,
+                ) as checked, patch(
+                    "laomedo.agents.providers.codex.utils._ensure_split_profile"
+                ) as profile, patch("subprocess.run") as command:
+                    runner = LocalRunner(root / str(split), root / "skills", source,
+                                         split_executor=split)
+                    checked.assert_called_once_with(runner.image, runner.image_id)
+                    if split:
+                        command.assert_not_called()
+                        profile.assert_called_once_with(runner.profile, env=selection.environment)
+                        with patch("laomedo.agents.providers.codex.servers.SplitAppServer") as server:
+                            runner._open_server(root)
+                            self.assertEqual(server.call_args.kwargs["docker_environment"], selection.environment)
+                    else:
+                        profile.assert_not_called()
+                        self.assertEqual(command.call_args.args[0][:3], ["docker", "volume", "inspect"])
+                        self.assertEqual(command.call_args.kwargs["env"], selection.environment)
+
+    def test_split_control_calls_keep_the_selected_endpoint(self):
+        """Subsequent split operations use the same endpoint as preflight."""
+        from laomedo.agents.providers.codex.servers import SplitAppServer
+        server = SplitAppServer.__new__(SplitAppServer)
+        server.docker_environment = {"DOCKER_HOST": "unix:///selected.sock"}
+        with patch("laomedo.agents.providers.codex.utils._docker_checked") as checked:
+            server._docker_checked("inspect", "owned", timeout=9)
+            checked.assert_called_once_with("inspect", "owned", timeout=9,
+                                            env=server.docker_environment)
+
+    def test_retired_cli_version_probe_cannot_return(self):
+        """One implementation owns Codex startup image/version validation."""
+        import inspect
+        source = inspect.getsource(LocalRunner.__init__)
+        self.assertNotIn('"--version"', source)
+        self.assertNotIn('"{{.Id}}"', source)
+        self.assertEqual(source.count("CodexPreflight(self.state).check("), 1)
+
     def test_changed_or_missing_packaged_profile_refuses_launch(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -41,17 +143,16 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             class Capture:
                 def __init__(self, command, evidence):
                     commands.append(command)
-            with patch("subprocess.run", side_effect=[
-                    subprocess.CompletedProcess([], 0, approved, ""),
-                    subprocess.CompletedProcess([], 0, CLI_VERSION, ""),
-                    subprocess.CompletedProcess([], 0, "", "")]):
+            selection = DockerSelection(image_id=approved, environment={"DOCKER_HOST": "unix:///local-test.sock"})
+            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", return_value=selection) as checked, patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as docker:
                 runner = LocalRunner(root / "state", root / "skills", source,
                                      image_id=approved, transport=Capture)
+                checked.assert_called_once_with(runner.image, approved)
+                self.assertEqual(docker.call_args.kwargs["env"], selection.environment)
             runner._open_server(root)
             self.assertIn(approved, commands[0])
             self.assertNotIn(runner.image, commands[0])
-            with patch("subprocess.run", return_value=
-                       subprocess.CompletedProcess([], 0, "sha256:" + "b" * 64, "")):
+            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", side_effect=RunnerError("docker_image_digest_changed")):
                 with self.assertRaisesRegex(RunnerError, "docker_image_digest_changed"):
                     LocalRunner(root / "mismatch", root / "skills", source,
                                 image_id=approved)
@@ -61,14 +162,10 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             source = Path(__file__).resolve().parents[1] / "examples/github-pr"
             approved = "sha256:" + "a" * 64
-            with patch("subprocess.run", side_effect=[
-                    subprocess.CompletedProcess([], 0, approved, ""),
-                    subprocess.CompletedProcess([], 0, "codex-cli unexpected", "")]) as docker:
+            with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
                 with self.assertRaisesRegex(RunnerError, "unsupported_codex_cli_version"):
                     LocalRunner(root / "state", root / "skills", source, image_id=approved)
-            version_command = docker.call_args.args[0]
-            self.assertIn("none", version_command)
-            self.assertNotIn("--mount", version_command)
+            docker.assert_not_called()
             self.assertFalse((root / "state/turn-ledger.json").exists())
 
     def test_local_image_override_rejects_tags_git_and_split_mode(self):

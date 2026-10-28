@@ -2,6 +2,11 @@
 
 Install with `python -m pip install -e .`, or install the wheel. Python 3.10
 remains the minimum. Import and launch canonical domain modules directly.
+Normal Codex host runners additionally require `python -m pip install -e '.[runner]'`
+(or `uv sync --extra runner`) in their launcher environment. This host-only extra
+is optional for Langflow/core and stage-worker installations. The pre-PyPI Git
+dependency and retained-receipt recovery are described in
+[Docker runtime adoption](docker-runtime-adoption.md#local-installation-and-recovery).
 The package root contains only `__init__.py` and `_paths.py`; there are no
 forwarding modules, import hooks or checkout bridge.
 
