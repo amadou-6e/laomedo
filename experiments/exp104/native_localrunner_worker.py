@@ -10,7 +10,7 @@ import time
 
 from laomedo.host.leases.utils import inspect_exact
 from laomedo.github.transport.git.utils import _base_git_environment
-from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.runtime.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.mediation.authority import RunGrantAuthority
 import laomedo.skills.workspace.utils as workspace_skills

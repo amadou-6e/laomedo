@@ -20,7 +20,7 @@ import threading
 import time
 from uuid import uuid4
 
-from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.settings import CLI_VERSION; from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.settings import IMAGE_ID; from laomedo.agents.providers.codex.settings import VOLUME; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.settings import CLI_VERSION; from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.settings import IMAGE_ID; from laomedo.agents.providers.codex.settings import VOLUME; from laomedo.agents.providers.codex.utils import _docker_prefix
 from probe_mock_responses import MockResponses
 
 

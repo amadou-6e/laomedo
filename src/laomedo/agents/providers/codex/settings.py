@@ -15,6 +15,8 @@ GIT_IMAGE_ID = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee085
 
 
 CLI_VERSION = "codex-cli 0.159.2"
+NATIVE_TURN_SECONDS = 180
+NATIVE_RECEIPT_FILENAME = "container-receipt.json"
 
 
 VOLUME = "laomedo-122-docker-auth"
@@ -122,3 +124,5 @@ class Settings(BaseSettings):
         return init_settings, env_settings
 
     multi_agent: str | None = Field(default=None, validation_alias='LAOMEDO_RUNNER_MULTI_AGENT', repr=False, exclude=True)
+    stream_max_bytes: int = Field(default=64*1024*1024, gt=0, validation_alias='LAOMEDO_CODEX_STREAM_MAX_BYTES', description="Combined native stdout/stderr byte ceiling per controller attachment.")
+    stream_startup_margin: float = Field(default=120, gt=0, validation_alias='LAOMEDO_CODEX_STREAM_STARTUP_MARGIN', description="Additional attachment seconds for initialization, catalogue and shutdown around allowed native turns.")

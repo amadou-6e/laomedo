@@ -12,7 +12,7 @@ from laomedo.agents.providers.codex.preflight.models import DockerSelection
 class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_split_controller_token_is_not_a_control_environment(self):
         """The real constructor keeps launch-only credentials out of cleanup."""
-        from laomedo.agents.providers.codex.servers import SplitAppServer
+        from laomedo.agents.providers.codex.split.server import SplitAppServer
         from laomedo.agents.providers.codex.settings import IMAGE_ID
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -85,7 +85,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                     if split:
                         command.assert_not_called()
                         profile.assert_called_once_with(runner.profile, env=selection.environment)
-                        with patch("laomedo.agents.providers.codex.servers.SplitAppServer") as server:
+                        with patch("laomedo.agents.providers.codex.split.server.SplitAppServer") as server:
                             runner._open_server(root)
                             self.assertEqual(server.call_args.kwargs["docker_environment"], selection.environment)
                     else:
@@ -95,7 +95,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
 
     def test_split_control_calls_keep_the_selected_endpoint(self):
         """Subsequent split operations use the same endpoint as preflight."""
-        from laomedo.agents.providers.codex.servers import SplitAppServer
+        from laomedo.agents.providers.codex.split.server import SplitAppServer
         server = SplitAppServer.__new__(SplitAppServer)
         server.docker_environment = {"DOCKER_HOST": "unix:///selected.sock"}
         with patch("laomedo.agents.providers.codex.utils._docker_checked") as checked:
@@ -150,8 +150,8 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                 checked.assert_called_once_with(runner.image, approved)
                 self.assertEqual(docker.call_args.kwargs["env"], selection.environment)
             runner._open_server(root)
-            self.assertIn(approved, commands[0])
-            self.assertNotIn(runner.image, commands[0])
+            self.assertEqual(approved, commands[0].image)
+            self.assertNotEqual(runner.image, commands[0].image)
             with patch("laomedo.agents.providers.codex.preflight.service.CodexPreflight.check", side_effect=RunnerError("docker_image_digest_changed")):
                 with self.assertRaisesRegex(RunnerError, "docker_image_digest_changed"):
                     LocalRunner(root / "mismatch", root / "skills", source,

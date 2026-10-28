@@ -81,6 +81,49 @@ Generic fault controls live in py-docker; Laomedo's controls guard delegation an
 policy. A native receipt lock prevents another caller from recovering a live job.
 The empty sibling `.lock` file is normal and must not be deleted during use.
 
+## Normal Codex interactive lifecycle replacement
+
+The next migration replaces normal Codex `docker run`/`Popen` and CLI removal
+with `client.sessions.open(ContainerSession)`. `native/models.py` owns the
+application launch policy; `native/server.py` handles native JSON-RPC over the
+library's bounded binary session. `native/base.py` shares native protocol and
+turn interruption with the explicitly separate `split` package. The former
+mixed `servers.py` is removed and callers migrate to defining modules. There is
+no normal-mode CLI fallback after an SDK failure. Split's controller and executor
+still use their explicit CLI transport; their migration remains separate.
+
+The normal SDK spec preserves writable rootfs, bridge networking, UID/GID
+10001:10001, capability dropping, no-new-privileges, memory/process limits,
+dedicated named auth volume, workspace and skill mounts, read-only canonical
+snapshot/configuration, mediated grants/shims and Git safe-directory policy.
+The reviewed seccomp bytes are checksum-verified and sent inline to Docker.
+Credentials remain in the existing dedicated local volume; this migration does
+not copy or export login data. Activity redaction happens after complete byte
+lines are assembled, including UTF-8 characters split across Docker frames.
+
+The independent lease supervisor remains authoritative for application ownership
+and runner-loss cleanup. SDK containers carry its existing run/token labels plus
+the library's private ownership token. Per-run `container-receipt.json` first
+records intent, then atomically records the observed immutable ID. Startup
+recovers receipts under runs/catalog/preflight on the preflight-selected endpoint,
+after base recovery and before a new probe. An observed ID removed by the lease
+supervisor can safely be confirmed absent; an unobserved create remains uncertain.
+Catalogue cleanup preserves a directory containing an unresolved receipt.
+
+Stream lifetime covers the existing 180-second native turn allowance for each
+permitted output-correction turn, plus startup/shutdown margin. Catalogue and
+permission checks supply their own operation lifetime. This introduces no model
+turn cap. `LAOMEDO_CODEX_STREAM_MAX_BYTES` defaults to 64 MiB per attachment and
+`LAOMEDO_CODEX_STREAM_STARTUP_MARGIN` to 120 seconds; both are validated host
+settings. Byte-budget or transport failure maps to existing descriptive errors
+after exact cleanup. Output EOF alone never confirms execution success.
+
+The optional runner extra pins the unpublished interactive feature revision for
+local verification. Internal controls cover policy, redaction, delegation,
+retirement and error-catalogue coverage. Real Docker interactive and real Codex
+checks are recorded separately; this checkpoint does not establish graph/UI
+acceptance, a published dependency, or completion of the full Docker migration.
+
 The host-only `runner` extra loads py-docker lazily. Core Laomedo, Langflow
 components and stage-worker imports do not require the Docker SDK. Split Codex's
 main protocol, Claude, OpenCode, host readiness classification, login mirroring, volumes,

@@ -7,7 +7,7 @@ import queue
 import unittest
 
 from laomedo.agents.contracts.output import requirements; from laomedo.agents.contracts.output import evaluate; from laomedo.agents.contracts.output import evaluate_envelope; from laomedo.agents.contracts.output import verify_requirements; from laomedo.agents.contracts.output import precheck_response; from laomedo.agents.contracts.output import dynamic_tool
-from laomedo.agents.providers.codex.servers import AppServer
+from laomedo.agents.providers.codex.native.server import AppServer
 
 
 FORM = {"schema_version": 1, "fields": [{"name": "report", "type": "string",
@@ -72,6 +72,7 @@ class OutputContractTests(unittest.TestCase):
         app = AppServer.__new__(AppServer)
         app.events, app.output_requirements, app.active_thread_id = [], pin, "thread"
         app.process = type("Process", (), {"stdin": io.StringIO()})()
+        app._write = app.process.stdin.write
         for index, submission in enumerate(({}, {"report": "valid"})):
             app._observe({"id": index, "method": "item/tool/call", "params": {
                 "threadId": "thread", "turnId": "turn", "callId": str(index),
@@ -103,6 +104,7 @@ class OutputContractTests(unittest.TestCase):
         app.seq, app.events, app.messages = 0, [], queue.Queue()
         app.output_requirements, app.active_thread_id = pin, "thread"
         app.process = type("Process", (), {"stdin": io.StringIO(), "poll": lambda _: None})()
+        app._write = app.process.stdin.write
         app.messages.put({"id": "server-request", "method": "item/tool/call", "params": {
             "threadId": "thread", "turnId": "turn", "callId": "call",
             "namespace": None, "tool": "laomedo_output_precheck", "arguments": {

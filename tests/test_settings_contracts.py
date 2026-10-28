@@ -54,7 +54,7 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/providers/codex/servers.py': {'otel', 'multi_agent'},
+            'agents/providers/codex/split/server.py': {'otel', 'multi_agent'},
             'agents/providers/claude/runner.py': {'mirror_host_login'},
             'activity/opencode/telemetry.py': {'otel'},
         }
@@ -95,7 +95,7 @@ class SettingsContractTests(unittest.TestCase):
             'agents/providers/claude/utils.py': 'os.environ.items()',
             'host/credentials/claude/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
-            'agents/providers/codex/servers.py': 'os.environ if docker_environment is None else docker_environment',
+            'agents/providers/codex/split/server.py': 'os.environ if docker_environment is None else docker_environment',
             'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',

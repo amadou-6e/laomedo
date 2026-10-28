@@ -43,7 +43,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_catalog_does_not_dispatch_or_claim_model_execution(self):
         before=(self.runner.state/'turn-ledger.json').exists()
         with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \
-             patch('laomedo.agents.providers.codex.servers.AppServer',side_effect=AssertionError('no Codex RPC')):
+             patch('laomedo.agents.providers.codex.native.server.AppServer',side_effect=AssertionError('no Codex RPC')):
             catalog=self.runner.model_catalog()
         self.assertEqual([item['id'] for item in catalog['models']],['sonnet','opus','haiku'])
         self.assertEqual(catalog['account_availability'],'cli_reported')

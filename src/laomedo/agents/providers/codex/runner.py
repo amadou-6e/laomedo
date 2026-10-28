@@ -10,7 +10,8 @@ import hashlib
 import json
 import laomedo.agents.contracts.output as _contracts_output
 import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.providers.codex.servers as _runtime_servers
+import laomedo.agents.providers.codex.native.server as _runtime_servers
+import laomedo.agents.providers.codex.split.server as _split_servers
 import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.host.credentials.siwc.connection as _siwc_connection
 import laomedo.host.credentials.siwc.errors as _siwc_errors
@@ -183,6 +184,7 @@ class CodexRunner(Runner):
         root: Path,
         *,
         access_token=None,
+        lifetime_seconds: float = 60,
         name: str | None = None,
         run_id: str | None = None,
         launch_token: str | None = None,
@@ -197,7 +199,7 @@ class CodexRunner(Runner):
             root / name for name in ("workspace", "canonical", "store")
         )
         if self.split_executor:
-            return _runtime_servers.SplitAppServer(
+            return _split_servers.SplitAppServer(
                 workspace,
                 canonical,
                 store_mount,
@@ -223,40 +225,23 @@ class CodexRunner(Runner):
             # The checkout was prepared without a provider remote. This is a
             # credential-free helper URL, not an HTTPS fallback.
             _mediation_agent_cli.configure_remote(workspace, repository)
-        # Launch the opt-in image by its verified ID, not a mutable local tag.
-        command = [
-            "docker",
-            *_codex_utils._docker_prefix(
-                workspace,
-                canonical,
-                store_mount,
-                image=self.image_id,
-                name=name,
-                run_id=run_id,
-                launch_token=launch_token,
-                capability=capability,
-                mediator_url=mediator_url,
-                mediator_instance=mediator_instance,
-                command_directory=command_directory,
-                repository=repository,
-                branch=branch,
-                base_branch=base_branch,
-            ),
-        ]
-        if capability is not None and self.transport is _runtime_servers.AppServer:
-            return self.transport(
-                command,
-                root,
-                env=getattr(self, "docker_environment", None),
-                docker_environment=getattr(self, "docker_environment", None),
-                secret_redactions=(capability.read_text(encoding="utf-8").strip(),),
-            )
+        from laomedo.agents.providers.codex.native.models import CodexLaunch
+
+        values = dict(workspace=workspace, canonical=canonical, store_mount=store_mount,
+                      image=self.image_id, profile=self.profile, run_id=run_id, launch_token=launch_token,
+                      capability=capability, mediator_url=mediator_url,
+                      mediator_instance=mediator_instance, command_directory=command_directory,
+                      repository=repository, branch=branch, base_branch=base_branch)
+        if name is not None:
+            values["name"] = name
+        launch = CodexLaunch(**values)
         if self.transport is _runtime_servers.AppServer:
-            return self.transport(
-                command, root, env=getattr(self, "docker_environment", None),
-                docker_environment=getattr(self, "docker_environment", None),
-            )
-        return self.transport(command, root)
+            return self.transport(launch, root,
+                env=getattr(self, "docker_environment", None),
+                lifetime_seconds=lifetime_seconds,
+                secret_redactions=((capability.read_text(encoding="utf-8").strip(),)
+                                   if capability is not None else ()))
+        return self.transport(launch, root)
 
 
     def model_catalog(self) -> dict:
@@ -278,7 +263,8 @@ class CodexRunner(Runner):
                 # Deliberately use runner authentication when configured: metadata
                 # may be account-specific. No thread or turn is requested.
                 token = self.auth.access_token()[0] if self.auth else None
-                server = self._open_server(root, access_token=token)
+                server = self._open_server(root, access_token=token,
+                    lifetime_seconds=60 + _codex_settings.Settings().stream_startup_margin)
                 initialized = server.request(
                     "initialize",
                     {
@@ -307,7 +293,8 @@ class CodexRunner(Runner):
                     if server is not None:
                         server.close()
                 finally:
-                    shutil.rmtree(root, ignore_errors=True)
+                    if not root.joinpath(_codex_settings.NATIVE_RECEIPT_FILENAME).exists():
+                        shutil.rmtree(root, ignore_errors=True)
 
 
     def preflight(self) -> dict:
@@ -323,7 +310,8 @@ class CodexRunner(Runner):
         server = None
         try:
             token = self.auth.access_token()[0] if self.auth else None
-            server = self._open_server(root, access_token=token)
+            server = self._open_server(root, access_token=token,
+                lifetime_seconds=160 + _codex_settings.Settings().stream_startup_margin)
             initialized = server.request(
                 "initialize",
                 {
@@ -642,6 +630,8 @@ class CodexRunner(Runner):
             launch_attempted = True
             server = self._open_server(
                 run_dir,
+                lifetime_seconds=(_codex_settings.NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
+                                  + _codex_settings.Settings().stream_startup_margin),
                 access_token=access_token,
                 name=name,
                 run_id=run_id,
@@ -863,7 +853,7 @@ class CodexRunner(Runner):
             if not turn_id:
                 raise _runtime_errors.RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
-            status, error = server.wait_turn(turn_id, 180, cancelled)
+            status, error = server.wait_turn(turn_id, _codex_settings.NATIVE_TURN_SECONDS, cancelled)
             # Correction is a continuation of this native thread, never a new
             # dispatch of the original task. Any mediated scope or tool effect
             # blocks automatic continuation because safe repetition is unknown.
@@ -949,7 +939,7 @@ class CodexRunner(Runner):
                 turn_id = ((next_turn.get("result") or {}).get("turn") or {}).get("id")
                 if not turn_id:
                     raise _runtime_errors.RunnerError("turn_dispatch_rejected")
-                status, error = server.wait_turn(turn_id, 180, cancelled)
+                status, error = server.wait_turn(turn_id, _codex_settings.NATIVE_TURN_SECONDS, cancelled)
             native_status = status
             commands = _codex_utils._command_summary(server.events, turn_id)
             record["native_turn_status"] = native_status
@@ -1117,12 +1107,14 @@ class CodexRunner(Runner):
                                     record["turns"][attempt_turn_offset:],
                                     resumed=resume,
                                     streams_closed=(
-                                        server is not None
-                                        and getattr(server, "reader", None) is not None
-                                        and getattr(server, "stderr_reader", None)
-                                        is not None
-                                        and server.reader.is_alive() is False
-                                        and server.stderr_reader.is_alive() is False
+                                        server is not None and (
+                                            server.streams_closed if hasattr(server, "streams_closed") else (
+                                                getattr(server, "reader", None) is not None
+                                                and getattr(server, "stderr_reader", None) is not None
+                                                and not server.reader.is_alive()
+                                                and not server.stderr_reader.is_alive()
+                                            )
+                                        )
                                     ),
                                 )
                             )

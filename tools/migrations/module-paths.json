@@ -38,7 +38,7 @@
   "laomedo.agents.providers.opencode_runner": "laomedo.agents.providers.opencode.runner",
   "laomedo.agents.runtime.cli": "laomedo.agents.providers.codex.cli",
   "laomedo.agents.runtime.constants": "laomedo.agents.runtime.settings",
-  "laomedo.agents.runtime.servers": "laomedo.agents.providers.codex.servers",
+  "laomedo.agents.runtime.servers": "laomedo.agents.providers.codex.native.server",
   "laomedo.agents.workflow_run_store": "laomedo.agents.workflow.store",
   "laomedo.agents.workspace.constants": "laomedo.agents.workspace.settings",
   "laomedo.artifacts": "laomedo.agents.artifacts.utils",

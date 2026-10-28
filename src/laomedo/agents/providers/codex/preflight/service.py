@@ -82,6 +82,11 @@ class CodexPreflight:
                 environment=snapshot,
             ) as client:
                 client.jobs.recover(self.receipt_path)
+                for folder in ("runs", "catalog", "preflight"):
+                    for pending in self.receipt_path.parent.joinpath(folder).glob(
+                        "*/" + codex_settings.NATIVE_RECEIPT_FILENAME
+                    ):
+                        client.sessions.recover(pending)
                 self._probe(client, image, expected_id)
                 pinned = {
                     key: value
