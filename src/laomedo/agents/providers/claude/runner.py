@@ -47,24 +47,15 @@ class ClaudeRunner(_runtime_runner.Runner):
             if type(value) is not int or not 1 <= value <= 86400:
                 raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
             extra["run_timeout_seconds"] = value
-        required = (
-            extra.get("run_timeout_seconds")
-            if extra
-            else self.status(run_id).get("turn_timeout", self.turn_timeout)
-        )
+        required = extra.get("run_timeout_seconds") if extra else self.status(run_id).get("turn_timeout", self.turn_timeout)
         self._mirror_host_login(minimum_validity_seconds=required)
         return extra
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider,
-            profile=self.profile,
-            image=self.image,
-            image_id=self.image_id,
-            execution_mode="claude_container",
-            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
-            config_sha256=None,
-        )
+            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
+            execution_mode="claude_container", cli_version="Claude Code " + _claude_settings.CLI_VERSION,
+            config_sha256=None)
 
     def recover_interrupted(self, record):
         # The independent lease supervisor owns controller/worker lifetimes.
@@ -72,13 +63,8 @@ class ClaudeRunner(_runtime_runner.Runner):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(
-                    name=owner["name"],
-                    run_id=record["run_id"],
-                    token=owner["launch_token"],
-                    docker_endpoint=owner.get("docker_endpoint"),
-                )
-            )
+                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
+                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
@@ -628,7 +614,9 @@ class ClaudeRunner(_runtime_runner.Runner):
                     service_error = True
             watch_stop.set()
             verified, detail = True, "removed"
-            if session is None or session.cleanup_confirmed is not True:
+            if session is not None and session.cleanup_confirmed is not True:
+                verified, detail = False, "sdk_cleanup_unverified"
+            elif session is None:
                 verified, detail = _leases_utils.cleanup_exact(
                     _leases_models.ContainerIdentity(
                         name=name,
@@ -639,6 +627,8 @@ class ClaudeRunner(_runtime_runner.Runner):
                         ),
                     )
                 )
+            if self.container.receipts.joinpath("claude-" + name + ".json").exists():
+                verified, detail = False, "pending_sdk_receipt"
             if watcher is not None:
                 watcher.join(3)
                 verified = verified and not watcher.is_alive()
@@ -689,9 +679,9 @@ class ClaudeRunner(_runtime_runner.Runner):
                 # its completed snapshot, or invite replay of effects already done.
             if service is not None and service.error_code:
                 raise _runtime_errors.RunnerError("workspace_command_output_too_large")
-            if flag.is_set():
+            if not native_completed and flag.is_set():
                 raise _runtime_errors.RunnerError("claude_cancelled")
-            if time.monotonic() >= deadline:
+            if not native_completed and time.monotonic() >= deadline:
                 raise _runtime_errors.RunnerError("claude_turn_timeout")
 
     def _native_event(self, root, record, event):

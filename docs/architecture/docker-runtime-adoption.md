@@ -56,6 +56,12 @@ correction it completed in 1.59 seconds with confirmed cleanup. This is provider
 evidence, not a graph acceptance or a universal timing guarantee. In-container
 deadlines still bound host-loss cases where no caller can signal cancellation.
 
+Claude workers now use the same cancellable job path. The application no longer
+races a separate foreground remover against the SDK journal owner. A real
+active-worker cancellation completed in 2.00 seconds with verified removal and
+zero receipts. Pending SDK cleanup cannot be promoted by a secondary absence
+check; the independent lease remains responsible for host-loss supervision.
+
 ## Canonical paths
 
 Credential-free version checks use `client.jobs.run`. Normal and split Codex

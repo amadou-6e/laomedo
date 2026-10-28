@@ -18,8 +18,6 @@ from laomedo.agents.providers.claude import settings as _claude_settings
 from laomedo.agents.runtime import errors as _runtime_errors
 from laomedo.host.leases import client as _leases_client
 from laomedo.host.leases import settings as _leases_settings
-from laomedo.host.leases import models as _leases_models
-from laomedo.host.leases import utils as _leases_utils
 
 
 class ClaudeContainer:
@@ -71,7 +69,9 @@ class ClaudeContainer:
                         "claude_container_profile_unavailable"
                     )
         except CleanupUnconfirmedError:
-            raise _runtime_errors.RunnerError("container_termination_unverified") from None
+            raise _runtime_errors.RunnerError(
+                "container_termination_unverified"
+            ) from None
         except ConnectionConfigurationError:
             raise _runtime_errors.RunnerError(
                 "claude_container_configuration_invalid"
@@ -92,6 +92,7 @@ class ClaudeContainer:
         from py_docker import Client
         from py_docker.errors import (
             CleanupUnconfirmedError,
+            JobCancelledError,
             DeadlineError,
             DockerOperationError,
             OutputLimitError,
@@ -104,6 +105,8 @@ class ClaudeContainer:
             raise _runtime_errors.RunnerError(
                 "container_termination_unverified"
             ) from None
+        except JobCancelledError:
+            raise _runtime_errors.RunnerError("claude_cancelled") from None
         except OutputLimitError:
             raise _runtime_errors.RunnerError(output_code) from None
         except DeadlineError:
@@ -189,7 +192,7 @@ class ClaudeContainer:
             *command,
         ]
 
-    def job(self, spec, *, timeout):
+    def job(self, spec, *, timeout, cancelled=None):
         """Collect one bounded binary result only after exact cleanup is confirmed."""
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
@@ -205,7 +208,8 @@ class ClaudeContainer:
                         "claude-" + spec.name + ".json"
                     ),
                     wait_timeout_seconds=10.0,
-                )
+                ),
+                cancelled=cancelled,
             )
 
     @contextmanager
@@ -304,8 +308,7 @@ class CommandService:
         self.lock = threading.Lock()
         self.cleanup_failed = False
         self.error_code = None
-        self.active_lock = threading.Lock()
-        self.active = {}
+        self.stopping = threading.Event()
         self.closed = False
         owner = self
 
@@ -366,8 +369,6 @@ class CommandService:
             lease = self.runtime.lease(
                 self.record["run_id"], name, token, self.cancelled
             )
-            with self.active_lock:
-                self.active[name] = token
             cleanup_confirmed = job_started = False
             try:
                 worker_deadline = min(self.deadline, time.monotonic() + 120)
@@ -383,7 +384,9 @@ class CommandService:
                 )
                 job_started = True
                 result = self.runtime.job(
-                    spec, timeout=max(1, worker_deadline - time.monotonic())
+                    spec,
+                    timeout=max(1, worker_deadline - time.monotonic()),
+                    cancelled=self.stopping,
                 )
                 cleanup_confirmed = True
                 return {
@@ -401,15 +404,6 @@ class CommandService:
                 raise
             finally:
                 verified = cleanup_confirmed
-                if not verified:
-                    verified, _ = _leases_utils.cleanup_exact(
-                        _leases_models.ContainerIdentity(
-                            name=name,
-                            run_id=self.record["run_id"],
-                            token=token,
-                            docker_endpoint=self.runtime.docker_endpoint,
-                        )
-                    )
                 if verified:
                     try:
                         lease.finish()
@@ -417,8 +411,6 @@ class CommandService:
                         verified = False
                 else:
                     lease.stop_heartbeats()
-                with self.active_lock:
-                    self.active.pop(name, None)
                 if not verified:
                     self.cleanup_failed = True
                     self.cancelled.set()
@@ -465,25 +457,13 @@ class CommandService:
             ) from None
 
     def close(self):
+        """Cancel the owned job and await its journal cleanup before freezing files."""
         self.closed = True
-        with self.active_lock:
-            active = list(self.active.items())
-        for name, token in active:
-            verified, _ = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(
-                    name=name,
-                    run_id=self.record["run_id"],
-                    token=token,
-                    docker_endpoint=self.runtime.docker_endpoint,
-                )
-            )
-            if not verified:
-                self.cleanup_failed = True
+        self.stopping.set()
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=3)
-        # Wait for any command's exact cleanup before freezing the workspace.
         with self.lock:
             self.secret_path.unlink(missing_ok=True)
-        if self.cleanup_failed:
+        if self.cleanup_failed or self.thread.is_alive():
             raise _runtime_errors.RunnerError("container_termination_unverified")

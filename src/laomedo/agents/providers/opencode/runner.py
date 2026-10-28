@@ -76,20 +76,9 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     provider = "opencode"
 
-    def __init__(
-        self,
-        state,
-        skill_store,
-        source_workspace,
-        *,
-        transport_factory=None,
-        lease_service=None,
-        github_authority=None,
-        mediator_state=None,
-        git_workspace=False,
-        publication_controller=None,
-        artifact_sources=None,
-    ):
+    def __init__(self, state, skill_store, source_workspace, *, transport_factory=None,
+                 lease_service=None, github_authority=None, mediator_state=None,
+                 git_workspace=False, publication_controller=None, artifact_sources=None):
         self.transport_factory = transport_factory
         self.active_backends = {}
         self._opencode_catalog_lock = threading.Lock()
@@ -109,14 +98,9 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider,
-            profile=None,
-            image=None,
-            image_id=None,
-            execution_mode="opencode_http",
-            cli_version="opencode " + _opencode_settings.CLI_VERSION,
-            config_sha256=None,
-        )
+            provider=self.provider, profile=None, image=None, image_id=None,
+            execution_mode="opencode_http", cli_version="opencode " + _opencode_settings.CLI_VERSION,
+            config_sha256=None)
 
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""
@@ -618,9 +602,10 @@ class OpenCodeRunner(_runtime_runner.Runner):
             record.update(
                 status="cancelled" if flag is not None and flag.is_set() else "failed",
                 error_category=(
-                    str(exc)
-                    if isinstance(exc, _runtime_errors.RunnerError)
-                    else type(exc).__name__
+                    None if flag is not None and flag.is_set() else (
+                        str(exc) if isinstance(exc, _runtime_errors.RunnerError)
+                        else type(exc).__name__
+                    )
                 ),
             )
         finally:

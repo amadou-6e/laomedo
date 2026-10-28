@@ -196,6 +196,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         session = self.runner.container.session.return_value.__enter__.return_value
         session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
         session.wait.return_value = 0
+        session.cleanup_confirmed = True
         with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
              patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
@@ -204,6 +205,15 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual(record['telemetry_capture']['records'],0)
         self.assertFalse(list(root.glob('telemetry-environment-*')))
         self.assertFalse(list(root.glob('command-capability-*')))
+
+        # A secondary absence check must never promote failed SDK cleanup.
+        session.cleanup_confirmed = False
+        session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
+        with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')) as secondary:
+            with self.assertRaisesRegex(RunnerError,'container_termination_unverified'):
+                self.runner._invoke(root,record,'task',threading.Event(),resume=False)
+        secondary.assert_not_called()
+        self.assertFalse(record['container_ownership']['cleanup_verified'])
 
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
     def test_unexpected_receiver_cleanup_failure_preserves_native_result(self):
@@ -227,6 +237,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         session = self.runner.container.session.return_value.__enter__.return_value
         session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
         session.wait.return_value = 0
+        session.cleanup_confirmed = True
         with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
              patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')), \
              patch.object(ClaudeTelemetry,'close',broken_close):

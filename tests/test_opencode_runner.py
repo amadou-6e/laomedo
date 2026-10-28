@@ -300,6 +300,7 @@ class OpenCodeTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
         self.assertEqual(result['status'], 'cancelled')
         self.assertEqual(self.runner.status(result['run_id'])['status'], 'cancelled')
+        self.assertIsNone(result['error_category'])
 
     def setUp(self):
         # Reuse only the fixture setup, not the Codex provider test cases.
