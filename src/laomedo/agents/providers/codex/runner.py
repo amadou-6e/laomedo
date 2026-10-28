@@ -139,62 +139,21 @@ class CodexRunner(Runner):
         }:
             raise _runtime_errors.RunnerError("permission_config_changed")
         self.docker_environment = None
-        if check_docker and not split_executor:
+        if check_docker:
             from laomedo.agents.providers.codex.preflight.service import CodexPreflight
 
             selected = CodexPreflight(self.state).check(self.image, self.image_id)
             self.docker_environment = selected.environment
-            subprocess.run(
-                ["docker", "volume", "inspect", _codex_settings.VOLUME],
-                check=True,
-                capture_output=True,
-                timeout=15,
-                env=self.docker_environment,
-            )
-        elif check_docker:
-            found = subprocess.run(
-                ["docker", "image", "inspect", self.image, "--format", "{{.Id}}"],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            if found.stdout.strip() != self.image_id:
-                raise _runtime_errors.RunnerError("docker_image_digest_changed")
-            version = subprocess.run(
-                [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "--pull=never",
-                    "--network",
-                    "none",
-                    "--cap-drop",
-                    "ALL",
-                    "--security-opt",
-                    "no-new-privileges",
-                    "--user",
-                    "10001:10001",
-                    self.image_id,
-                    "codex",
-                    "--version",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=20,
-            )
-            if version.stdout.strip() != _codex_settings.CLI_VERSION:
-                raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
             if not split_executor:
                 subprocess.run(
                     ["docker", "volume", "inspect", _codex_settings.VOLUME],
                     check=True,
                     capture_output=True,
                     timeout=15,
+                    env=self.docker_environment,
                 )
             else:
-                _codex_utils._ensure_split_profile(self.profile)
+                _codex_utils._ensure_split_profile(self.profile, env=self.docker_environment)
 
 
     def runtime_binding(self):
@@ -245,6 +204,7 @@ class CodexRunner(Runner):
                 root,
                 self.profile,
                 provider_config=self.split_provider_config,
+                docker_environment=self.docker_environment,
                 access_token=(
                     access_token
                     if access_token is not None

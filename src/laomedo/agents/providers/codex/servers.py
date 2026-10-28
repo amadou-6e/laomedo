@@ -335,7 +335,9 @@ class SplitAppServer(AppServer):
         *,
         provider_config=(),
         access_token=None,
+        docker_environment=None,
     ):
+        self.docker_environment = docker_environment
         self.executor_name = "laomedo-executor-" + uuid4().hex
         self.environment_id = "laomedo-executor-" + uuid4().hex
         self.executor_token = secrets.token_hex(32)
@@ -344,7 +346,7 @@ class SplitAppServer(AppServer):
         self._controller_started = False
         self._executor_started = False
         if (
-            _codex_utils._docker_checked(
+            self._docker_checked(
                 "image", "inspect", _codex_settings.IMAGE, "--format", "{{.Id}}"
             )
             != _codex_settings.IMAGE_ID
@@ -386,7 +388,7 @@ class SplitAppServer(AppServer):
             hashlib.sha256(self.executor_token.encode()).hexdigest(),
         ]
         try:
-            _codex_utils._docker_checked(*executor, timeout=30)
+            self._docker_checked(*executor, timeout=30)
             self._executor_started = True
             command = _codex_utils._docker_prefix(
                 workspace, canonical, store_mount, nested_sandbox=False
@@ -407,7 +409,7 @@ class SplitAppServer(AppServer):
             ]
             for setting in provider_config:
                 command += ["-c", setting]
-            environment = None
+            environment = docker_environment
             if access_token is not None:
                 if not isinstance(access_token, str) or not access_token:
                     raise _runtime_errors.RunnerError("invalid_controller_token")
@@ -415,21 +417,44 @@ class SplitAppServer(AppServer):
                     "--env",
                     "ACCESS_TOKEN",
                 ]
-                environment = dict(os.environ, ACCESS_TOKEN=access_token)
+                environment = dict(
+                    os.environ if docker_environment is None else docker_environment,
+                    ACCESS_TOKEN=access_token,
+                )
             super().__init__(["docker", *command], evidence, env=environment)
             self._controller_started = True
         except Exception:
             if self._executor_started:
                 subprocess.run(
                     ["docker", "rm", "-f", self.executor_name],
+                    env=self.docker_environment,
                     capture_output=True,
                     timeout=15,
                 )
             raise
 
+    def _docker_checked(self, *args: str, timeout: float = 15) -> str:
+        """Run a split control operation on the preflight-selected Docker endpoint.
+
+        Parameters
+        ----------
+        *args : str
+            Docker CLI arguments supplied by the split controller.
+        timeout : float
+            Maximum seconds allowed for this control request.
+
+        Returns
+        -------
+        str
+            Stripped output; existing Docker control errors propagate unchanged.
+        """
+        return _codex_utils._docker_checked(
+            *args, timeout=timeout, env=self.docker_environment
+        )
+
     def _controller_listeners(self) -> set[str]:
         """Reject controller-owned listening TCP/Unix and any UDP socket."""
-        fds = _codex_utils._docker_checked(
+        fds = self._docker_checked(
             "exec",
             self.container_name,
             "sh",
@@ -447,7 +472,7 @@ class SplitAppServer(AppServer):
             ("udp", "udp"),
             ("udp6", "udp"),
         ):
-            rows = _codex_utils._docker_checked(
+            rows = self._docker_checked(
                 "exec", self.container_name, "cat", "/proc/net/" + table, timeout=5
             )
             for row in rows.splitlines()[1:]:
@@ -458,7 +483,7 @@ class SplitAppServer(AppServer):
                     and (kind == "udp" or fields[3] == "0A")
                 ):
                     found.add(kind)
-        rows = _codex_utils._docker_checked(
+        rows = self._docker_checked(
             "exec", self.container_name, "cat", "/proc/net/unix", timeout=5
         )
         for row in rows.splitlines()[1:]:
@@ -471,14 +496,14 @@ class SplitAppServer(AppServer):
         if self._controller_listeners():
             raise _runtime_errors.RunnerError("controller_listener_gate_failed")
         if (
-            _codex_utils._docker_checked(
+            self._docker_checked(
                 "exec", self.container_name, "codex", "--version", timeout=5
             )
             != _codex_settings.CLI_VERSION
         ):
             raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
         if (
-            _codex_utils._docker_checked(
+            self._docker_checked(
                 "inspect",
                 self.executor_name,
                 "--format",
@@ -490,7 +515,7 @@ class SplitAppServer(AppServer):
             raise _runtime_errors.RunnerError("executor_not_running")
         for name in (self.container_name, self.executor_name):
             if (
-                _codex_utils._docker_checked(
+                self._docker_checked(
                     "inspect", name, "--format", "{{.Image}}", timeout=5
                 )
                 != _codex_settings.IMAGE_ID
@@ -574,7 +599,7 @@ class SplitAppServer(AppServer):
                 return "unknown", "auth_revoked_during_turn"
             try:
                 if (
-                    _codex_utils._docker_checked(
+                    self._docker_checked(
                         "inspect",
                         self.executor_name,
                         "--format",
@@ -606,11 +631,12 @@ class SplitAppServer(AppServer):
         finally:
             try:
                 if self._executor_started:
-                    _codex_utils._docker_checked(
+                    self._docker_checked(
                         "rm", "-f", self.executor_name, timeout=15
                     )
                     check = subprocess.run(
                         ["docker", "inspect", self.executor_name],
+                        env=self.docker_environment,
                         capture_output=True,
                         timeout=10,
                     )

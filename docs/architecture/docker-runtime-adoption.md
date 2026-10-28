@@ -1,8 +1,6 @@
 # Docker runtime adoption
 
-This is the migration record for Laomedo issues #196–202. The first local trial replaces normal, non-split Codex image/version preflight
-with the merged `py-docker` runtime. It is stacked on provider-neutral PR #211
-head 8ff5a27; fetched develop remains 6069ac9. The visible checkout is kept
+This is the migration record for Laomedo issues #196–202. This PR replaces Codex startup image/version preflight in normal and split execution with py-docker. It is stacked on provider-neutral PR #211 at b703590. The visible checkout is kept
 unchanged. The optional `runner` extra pins the local-trial jobs feature from
 py-docker PR #11 before PyPI; that package PR remains unmerged.
 this trial is not ready to merge into develop until the published dependency is
@@ -62,11 +60,16 @@ Do not merge Laomedo into develop until the owner reviews the real working graph
 and approves. Library CI or a package reviewer verdict does not satisfy that gate.
 
 
-## First local slice: normal Codex preflight
+## Codex preflight replacement
 
 The generic one-shot lifecycle is now delegated to `client.jobs.run` and
 `client.jobs.recover`. Laomedo no longer implements private receipt writing,
 reconciliation, frame collection, exit waiting or cleanup for this probe.
+Both normal and split execution use this same preflight. The former inline
+Docker CLI image/version probe is removed in this PR, with no fallback branch.
+Split profile preparation, executor controls and cleanup receive the same
+endpoint snapshot selected by preflight. Skipping Docker checks remains an
+explicit internal constructor option; it is not a fallback after a failed check.
 It retains only the image/version authorization, hardened probe policy, state
 path, endpoint snapshot and mapping to the existing descriptive error codes.
 Generic fault controls live in py-docker; Laomedo's controls guard delegation and
@@ -74,8 +77,8 @@ policy. A native receipt lock prevents another caller from recovering a live job
 The empty sibling `.lock` file is normal and must not be deleted during use.
 
 The host-only `runner` extra loads py-docker lazily. Core Laomedo, Langflow
-components and stage-worker imports do not require the Docker SDK. Split Codex,
-Claude, OpenCode, host readiness classification, login mirroring, volumes,
+components and stage-worker imports do not require the Docker SDK. Split Codex's
+main protocol, Claude, OpenCode, host readiness classification, login mirroring, volumes,
 publication/export and independent lease supervision retain their existing paths.
 
 One scoped Client receives the exact host environment snapshot and explicit

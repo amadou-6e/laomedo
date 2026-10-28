@@ -10,6 +10,52 @@ from laomedo.agents.providers.codex.preflight.models import DockerSelection
 
 
 class RunnerSandboxPolicyTests(unittest.TestCase):
+    def test_both_modes_use_one_preflight_before_profile_access(self):
+        """The SDK check replaces the CLI version probe in both execution modes."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            selection = DockerSelection(image_id="sha256:" + "a" * 64,
+                                        environment={"DOCKER_HOST": "unix:///selected.sock"})
+            for split in (False, True):
+                with self.subTest(split=split), patch(
+                    "laomedo.agents.providers.codex.preflight.service.CodexPreflight.check",
+                    return_value=selection,
+                ) as checked, patch(
+                    "laomedo.agents.providers.codex.utils._ensure_split_profile"
+                ) as profile, patch("subprocess.run") as command:
+                    runner = LocalRunner(root / str(split), root / "skills", source,
+                                         split_executor=split)
+                    checked.assert_called_once_with(runner.image, runner.image_id)
+                    if split:
+                        command.assert_not_called()
+                        profile.assert_called_once_with(runner.profile, env=selection.environment)
+                        with patch("laomedo.agents.providers.codex.servers.SplitAppServer") as server:
+                            runner._open_server(root)
+                            self.assertEqual(server.call_args.kwargs["docker_environment"], selection.environment)
+                    else:
+                        profile.assert_not_called()
+                        self.assertEqual(command.call_args.args[0][:3], ["docker", "volume", "inspect"])
+                        self.assertEqual(command.call_args.kwargs["env"], selection.environment)
+
+    def test_split_control_calls_keep_the_selected_endpoint(self):
+        """Subsequent split operations use the same endpoint as preflight."""
+        from laomedo.agents.providers.codex.servers import SplitAppServer
+        server = SplitAppServer.__new__(SplitAppServer)
+        server.docker_environment = {"DOCKER_HOST": "unix:///selected.sock"}
+        with patch("laomedo.agents.providers.codex.utils._docker_checked") as checked:
+            server._docker_checked("inspect", "owned", timeout=9)
+            checked.assert_called_once_with("inspect", "owned", timeout=9,
+                                            env=server.docker_environment)
+
+    def test_retired_cli_version_probe_cannot_return(self):
+        """One implementation owns Codex startup image/version validation."""
+        import inspect
+        source = inspect.getsource(LocalRunner.__init__)
+        self.assertNotIn('"--version"', source)
+        self.assertNotIn('"{{.Id}}"', source)
+        self.assertEqual(source.count("CodexPreflight(self.state).check("), 1)
+
     def test_changed_or_missing_packaged_profile_refuses_launch(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
