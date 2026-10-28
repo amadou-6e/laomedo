@@ -1,7 +1,7 @@
 """Credential-free native Windows network boundary check for issue 122."""
 
 import argparse
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import HTTPServer
 import json
 from pathlib import Path
 import sys
@@ -9,7 +9,7 @@ import tempfile
 from threading import Thread
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer, construct_env, inside_git_tree
+from _shared import AppServer; from _shared import construct_env; from _shared import inside_git_tree
 
 
 class FixtureHandler(BaseHTTPRequestHandler):

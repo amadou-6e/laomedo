@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 try:
     from experiments.exp19 import live_e2e
-    from experiments.exp19.probe import _graph, _pages
+    from experiments.exp19.probe import _graph; from experiments.exp19.probe import _pages
 except ModuleNotFoundError as error:
     if error.name != "experiments":
         raise
@@ -59,8 +59,7 @@ class LocalExp19Tests(unittest.TestCase):
         graph = _graph(_pages())
         item = next(item for item in graph.items if item.key == "github:I_2")
         plan = {"issue_signature": live_e2e._issue_signature(graph, item)}
-        changed = replace(item, body=item.body + " altered",
-                          updated_at="2026-10-02T07:00:00Z")
+        changed = type(item).model_validate({**item.model_dump(), 'body': item.body + ' altered', 'updated_at': '2026-10-02T07:00:00Z'})
         with patch.object(live_e2e, "_issue_and_graph", return_value=({}, graph, changed)):
             with self.assertRaisesRegex(ValueError, "selected_issue_changed_before_dispatch"):
                 live_e2e._gate(plan)

@@ -38,8 +38,8 @@ examples under the current user's private application data directory:
 $pilot = Join-Path $env:LOCALAPPDATA 'Laomedo'
 $store = Join-Path $pilot 'pilot-skills'
 $state = Join-Path $pilot 'pilot-runner'
-python -c "from pathlib import Path; import sys; from laomedo.skills.skill_store import SkillStore; print(SkillStore(Path(sys.argv[1])).import_skill('laomedo-pilot', Path(sys.argv[2]))['revision_id'])" $store examples/skill-agent-pilot/skill
-python -m laomedo.agents.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source --preflight
+python -c "from pathlib import Path; import sys; from laomedo.skills.registry.store import SkillStore; print(SkillStore(Path(sys.argv[1])).import_skill('laomedo-pilot', Path(sys.argv[2]))['revision_id'])" $store examples/skill-agent-pilot/skill
+python -m laomedo.agents.runtime.cli --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source --preflight
 ```
 
 The import is a one-time operation. A second import of the same skill ID is
@@ -50,7 +50,7 @@ experiment-wide turn ceiling. Bound any verification campaign with the separate
 experiment harness, not a persistent user service:
 
 ```powershell
-python -m laomedo.agents.local_runner --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source
+python -m laomedo.agents.runtime.cli --state $state --skill-store $store --source-workspace examples/skill-agent-pilot/source
 ```
 
 Historical `turn-ledger.json` stays untouched evidence. Current ceiling-free

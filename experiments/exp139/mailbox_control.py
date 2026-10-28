@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 from experiments.exp139.bindings import PROFILE_OVERRIDES
-from experiments.exp139.helper_control import IMAGE, ROOT
+from experiments.exp139.helper_control import IMAGE; from experiments.exp139.helper_control import ROOT
 
 SCRIPT = r'''
 const fs=require('fs'), cp=require('child_process'), http=require('http');

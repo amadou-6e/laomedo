@@ -10,7 +10,7 @@ import difflib
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path; from pathlib import PurePosixPath
 import shutil
 import tempfile
 from typing import Callable

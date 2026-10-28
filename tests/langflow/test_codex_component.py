@@ -1,5 +1,7 @@
 """Run inside the pinned Langflow image; all runner traffic is synthetic."""
 
+from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
+
 import asyncio
 from copy import deepcopy
 import importlib.util
@@ -12,7 +14,7 @@ from types import SimpleNamespace
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch; from unittest.mock import PropertyMock
 from urllib import error
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "components/laomedo/codex_agent.py"
@@ -75,7 +77,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             node = component(bridge_url='http://localhost:8766')
             with patch.dict(os.environ, {'LAOMEDO_RUNNER_TOKEN_FILE': str(runner_path),
                     'LAOMEDO_BRIDGE_TOKEN_FILE': str(bridge_path)}), \
-                    patch('laomedo.activity.agent_activity.capture.capture_for', return_value=(object(), 'internal')):
+                    patch('laomedo.activity.agent_activity.utils.capture_for', return_value=ActivityInvocation.model_construct(store=object(), invocation_id='internal')):
                 capture = RunnerCapture(node)
                 self.assertEqual(node._token_file_path(), str(bridge_path))
                 self.assertEqual(node._runner_token_file_path(), str(runner_path))
@@ -83,7 +85,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(capture.base, node.runner_url)
 
     def test_static_output_requirements_reach_request_and_reject_conflicts(self):
-        from laomedo.agents.output_contract import requirements
+        from laomedo.agents.contracts.output import requirements
         from lfx.schema import Data
         pin = requirements({"schema_version": 1, "fields": [
             {"name": "action", "type": "string", "required": True, "checks": {"enum": ["modify"]}}]})

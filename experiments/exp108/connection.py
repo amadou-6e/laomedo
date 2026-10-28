@@ -1,13 +1,13 @@
 """Synthetic #108 broker boundary; not production credential storage."""
 
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime; from datetime import timezone
 import json
 from pathlib import Path
 import secrets
 import sqlite3
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
+from urllib.request import Request; from urllib.request import urlopen
+from urllib.error import HTTPError; from urllib.error import URLError
 from urllib.parse import urlsplit
 
 

@@ -1,6 +1,7 @@
 """Migrate an actual archived pre-src graph before loading its component."""
 import ast
 import importlib.util
+import sys
 import json
 from pathlib import Path
 import unittest
@@ -10,7 +11,11 @@ from lfx.custom.utils import build_custom_component_template
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location("saved_module_migration", ROOT / "tools/migrations/migrate_module_paths.py")
 migration = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(migration)
+sys.path.insert(0, str(ROOT / 'tools/migrations'))
+try:
+    _spec.loader.exec_module(migration)
+finally:
+    sys.path.pop(0)
 
 
 class SavedFlowMigrationTests(unittest.TestCase):
@@ -20,7 +25,7 @@ class SavedFlowMigrationTests(unittest.TestCase):
         self.assertEqual(migrated["id"], original["id"])
         node = next(n for n in migrated["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent")
         code = node["data"]["node"]["template"]["code"]["value"]
-        self.assertIn("from laomedo.agents.output_contract import", code)
+        self.assertIn("from laomedo.agents.contracts.output import", code)
         return code
 
     def test_archived_component_loads_after_explicit_migration(self):

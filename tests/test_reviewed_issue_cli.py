@@ -6,9 +6,9 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.host.mediation.github_mediation import MediationStore, MediationError
-from laomedo.host.mediation.mediation_authority import RunGrantAuthority
-from laomedo.github.transport.github_rest_transport import ISSUE_GRAPHQL_QUERY
+from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
 
 ROOT = Path(__file__).resolve().parents[1]
 

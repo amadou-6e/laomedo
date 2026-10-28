@@ -1,6 +1,6 @@
 """Credential-free mock Responses stream for a Codex app-server tool probe."""
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 import threading
 import time

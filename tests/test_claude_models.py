@@ -8,8 +8,8 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from laomedo.agents.providers.claude_runner import ClaudeRunner, command, normalize_models
-from laomedo.agents.local_runner import RunnerError
+from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import normalize_models
+from laomedo.agents.runtime.errors import RunnerError
 
 
 def native(model='fable', levels=None):

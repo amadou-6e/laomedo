@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, IntInput, Output, StrInput
+from lfx.io import DataInput; from lfx.io import IntInput; from lfx.io import Output; from lfx.io import StrInput
 from lfx.schema import Data
 
 

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import unittest
 
-from laomedo.skills.skill_store import tree_hash
+from laomedo.skills.registry.utils import tree_hash
 
 
 class PilotFlowTests(unittest.TestCase):

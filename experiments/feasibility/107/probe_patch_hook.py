@@ -1,5 +1,11 @@
 """Credential-free disposable check of a proposed Codex patch-deny hook."""
 
+from laomedo.agents.runtime.constants import CONFIG as _owned_runner_CONFIG
+from laomedo.agents.runtime.constants import IMAGE as _owned_runner_IMAGE
+from laomedo.agents.runtime.servers import SplitAppServer as _owned_runner_SplitAppServer
+from laomedo.agents.runtime.utils import _ensure_split_profile as _owned_runner__ensure_split_profile
+from laomedo.agents.runtime.utils import _split_profile as _owned_runner__split_profile
+
 import json
 from pathlib import Path
 import secrets
@@ -10,7 +16,7 @@ import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-import laomedo.agents.local_runner as runner
+import laomedo.agents.runtime.cli as runner
 from probe_mock_responses import MockResponses
 
 
@@ -27,7 +33,7 @@ def main(with_hook=True):
             "\"PreToolUse\",\"permissionDecision\":\"deny\","
             "\"permissionDecisionReason\":\"Controller patch route blocked\"}}'\n")
         config = root / "config.toml"
-        config_text = runner.CONFIG.read_text()
+        config_text = _owned_runner_CONFIG.read_text()
         if with_hook:
             config_text = config_text.replace(
                 '"/home/runner/.codex/auth.json" = "deny"',
@@ -37,10 +43,10 @@ def main(with_hook=True):
                 "[[hooks.PreToolUse.hooks]]\ntype = 'command'\n"
                 "command = 'sh /store/deny_patch.sh'\ntimeout = 5\n")
         config.write_text(config_text)
-        profile = runner._split_profile(root.resolve())
-        runner._ensure_split_profile(profile)
-        original_config = runner.CONFIG
-        runner.CONFIG = config
+        profile = _owned_runner__split_profile(root.resolve())
+        _owned_runner__ensure_split_profile(profile)
+        original_config = _owned_runner_CONFIG
+        _owned_runner_CONFIG = config
         server = None
         try:
             with MockResponses(tool_input=None) as mock:
@@ -53,7 +59,7 @@ def main(with_hook=True):
                     'model_providers.laomedo_mock.requires_openai_auth=false',
                     'model_providers.laomedo_mock.supports_websockets=false',
                 )
-                server = runner.SplitAppServer(root / "workspace",
+                server = _owned_runner_SplitAppServer(root / "workspace",
                     root / "canonical", root / "store", root / "evidence",
                     profile, provider_config=provider,
                     access_token="SYNTHETIC_ONLY")
@@ -97,19 +103,19 @@ def main(with_hook=True):
                 archive = subprocess.run(["docker", "run", "--rm",
                     "--pull=never", "--network", "none", "--user", "10001:10001",
                     "--mount", f"type=volume,source={profile},target=/profile,readonly",
-                    runner.IMAGE, "tar", "-cf", "-", "-C", "/", "profile"],
+                    _owned_runner_IMAGE, "tar", "-cf", "-", "-C", "/", "profile"],
                     capture_output=True, timeout=15)
                 if archive.returncode:
                     raise RuntimeError("profile_scan_failed")
                 control_file = subprocess.run(["docker", "run", "--rm",
                     "--pull=never", "--network", "none", "--user", "10001:10001",
                     "--mount", f"type=volume,source={profile},target=/profile,readonly",
-                    runner.IMAGE, "cat", "/profile/controller-control.txt"],
+                    _owned_runner_IMAGE, "cat", "/profile/controller-control.txt"],
                     capture_output=True, timeout=15)
                 patch_file = subprocess.run(["docker", "run", "--rm",
                     "--pull=never", "--network", "none", "--user", "10001:10001",
                     "--mount", f"type=volume,source={profile},target=/profile,readonly",
-                    runner.IMAGE, "cat", "/profile/patch-sentinel.txt"],
+                    _owned_runner_IMAGE, "cat", "/profile/patch-sentinel.txt"],
                     capture_output=True, timeout=15)
                 executor_file = subprocess.run(["docker", "exec",
                     server.executor_name, "cat",
@@ -160,7 +166,7 @@ def main(with_hook=True):
                         result["fake_responses_requests"] != 2):
                     raise RuntimeError("patch_route_probe_failed")
         finally:
-            runner.CONFIG = original_config
+            _owned_runner_CONFIG = original_config
             if server is not None:
                 server.close()
             subprocess.run(["docker", "volume", "rm", profile],

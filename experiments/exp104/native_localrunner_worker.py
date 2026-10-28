@@ -1,4 +1,6 @@
 """S13 production LocalRunner fixture held at native initialize; zero turns."""
+
+from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from hashlib import sha256
 import json
@@ -6,12 +8,12 @@ import os
 from pathlib import Path
 import time
 
-from laomedo.host.leases.container_lease import inspect_exact
-from laomedo.github.transport.github_git_transport import _base_git_environment
-from laomedo.agents.local_runner import AppServer, RunnerError
+from laomedo.host.leases.utils import inspect_exact
+from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.agents.runtime.servers import AppServer; from laomedo.agents.runtime.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.host.mediation.mediation_authority import RunGrantAuthority
-from laomedo.skills import workspace_skills
+from laomedo.host.mediation.authority import RunGrantAuthority
+import laomedo.skills.workspace.utils as workspace_skills
 
 IDENTITY = "exp104-localrunner-s13-20261010-a"
 
@@ -61,7 +63,7 @@ def run(root, side):
             if "result" not in response:
                 raise RunnerError("fixture_initialize_rejected")
             selected = identities(side, root)
-            state, container_id = inspect_exact(selected["name"], selected["run_id"], selected["token"])
+            state, container_id = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
             if state != "owned":
                 raise RunnerError("fixture_container_not_owned")
             record = runner.status(selected["run_id"])

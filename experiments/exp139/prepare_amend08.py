@@ -7,10 +7,10 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import tempfile
-from experiments.exp139.prepare import ROOT, IDENTITY, BRANCH, LANGFLOW, save
-from laomedo.agents.git_workspace import _git_environment, _bounded_git
-from laomedo.skills.skill_store import SkillStore
-from laomedo.host.credentials.siwc_auth import _outside_git
+from experiments.exp139.prepare import ROOT; from experiments.exp139.prepare import IDENTITY; from experiments.exp139.prepare import BRANCH; from experiments.exp139.prepare import LANGFLOW; from experiments.exp139.prepare import save
+from laomedo.agents.workspace.git import _git_environment; from laomedo.agents.workspace.git import _bounded_git
+from laomedo.skills.registry.store import SkillStore
+from laomedo.host.credentials.siwc.utils import _outside_git
 
 
 def prepare(root):

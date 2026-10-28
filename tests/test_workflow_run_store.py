@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from laomedo.agents.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
+from laomedo.agents.workflow.errors import ExternalOutcomeUnknown; from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.json"

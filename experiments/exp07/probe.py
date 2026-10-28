@@ -8,7 +8,7 @@ import secrets
 import subprocess
 import sys
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
 
 ROOT = Path(__file__).resolve().parents[2]

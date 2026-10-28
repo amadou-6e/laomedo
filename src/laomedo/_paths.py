@@ -1,4 +1,5 @@
 """Installed paths independent of domain module nesting depth."""
+
 from pathlib import Path
 
 

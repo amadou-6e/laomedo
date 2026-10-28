@@ -6,9 +6,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import (BudgetLedger, fingerprint, prepare_state_dir,
-                     redact_message, restore_workspace_snapshot,
-                     snapshot_workspace)
+from _shared import BudgetLedger; from _shared import fingerprint; from _shared import prepare_state_dir; from _shared import redact_message; from _shared import restore_workspace_snapshot; from _shared import snapshot_workspace
 
 
 class ProbeGuardTests(unittest.TestCase):

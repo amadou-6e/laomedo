@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 from laomedo.work_graph.github import import_pages
-from laomedo.work_graph.model import GraphSnapshot
+from laomedo.work_graph.models import GraphSnapshot
 
 
 HERE = Path(__file__).resolve().parent

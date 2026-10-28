@@ -5,8 +5,8 @@ import threading
 import json
 
 import test_local_runner as fixtures
-from laomedo.agents.providers.opencode_runner import OpenCodeRunner, RunnerError, normalize_message, turn_parts
-from laomedo.agents.local_runner import _hash_tree, _json
+from laomedo.agents.providers.opencode.runner import OpenCodeRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.opencode.utils import normalize_message; from laomedo.agents.providers.opencode.utils import turn_parts
+from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _json
 
 
 
@@ -342,7 +342,7 @@ class OpenCodeTests(unittest.TestCase):
         self.assertTrue(second["snapshot_ready"])
         attempt = json.loads((root/"activity-attempts"/(selected+".json")).read_text())
         self.assertEqual(attempt["native_start"],initial["native_end"])
-        from laomedo.activity.runner_activity import read_feed
+        from laomedo.activity.runner.feed import read_feed
         events=read_feed(root/"activity-events.jsonl",after=attempt["native_start"],before=attempt["native_end"])["events"]
         texts=[part["text"] for event in events for message in event["event"]["params"]["messages"]
                for part in message["parts"] if part.get("type")=="text"]
@@ -355,12 +355,12 @@ class OpenCodeTests(unittest.TestCase):
     def test_otel_attempt_boundaries_isolate_resume_feed(self):
         from unittest.mock import patch
         from uuid import uuid4
-        from laomedo.activity.runner_activity import read_feed, receipt
+        from laomedo.activity.runner.feed import read_feed; from laomedo.activity.runner.feed import receipt
         def export(root, start, session, model):
             with (root/'otel-events.jsonl').open('a') as stream:
                 stream.write(json.dumps(receipt({'method':'otel/record','params':{'attributes':{'conversation.id':session},'marker':start}}))+'\n')
             return True
-        with patch('laomedo.activity.opencode_telemetry.export_attempt', side_effect=export):
+        with patch('laomedo.activity.opencode.telemetry.export_attempt', side_effect=export):
             first=self.runner.start(self.payload)
             root=self.runner._run_dir(first['run_id'])
             initial=json.loads((root/'activity-attempts'/(first['activity_initial_attempt_id']+'.json')).read_text())
@@ -375,7 +375,7 @@ class OpenCodeTests(unittest.TestCase):
 
     def test_snapshot_capture_failure_does_not_change_execution_success(self):
         from unittest.mock import patch
-        with patch('laomedo.activity.opencode_activity.retain_messages',side_effect=OSError('capture unavailable')):
+        with patch('laomedo.activity.opencode.projection.retain_messages',side_effect=OSError('capture unavailable')):
             result=self.runner.start(self.payload)
         self.assertEqual(result['status'],'completed')
         self.assertTrue(result['snapshot_ready'])

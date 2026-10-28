@@ -7,7 +7,7 @@ import sys
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer, construct_env, inside_git_tree
+from _shared import AppServer; from _shared import construct_env; from _shared import inside_git_tree
 
 
 def main() -> None:

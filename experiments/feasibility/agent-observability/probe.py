@@ -1,7 +1,7 @@
 """Real native App Server + OTLP feasibility probe. Never invokes a PR agent."""
 from collections import Counter
-from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from datetime import datetime; from datetime import timezone
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import argparse
 import hashlib
 import json

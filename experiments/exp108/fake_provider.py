@@ -1,7 +1,7 @@
 """Loopback-only synthetic GitHub identity endpoint for EXP-108."""
 
-from datetime import datetime, timedelta, timezone
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from datetime import datetime; from datetime import timedelta; from datetime import timezone
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 from threading import Thread
 

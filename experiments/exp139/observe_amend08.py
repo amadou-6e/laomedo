@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 import socket
 import sqlite3
-from laomedo.agents.output_contract import precheck_response
-from laomedo.host.credentials.siwc_auth import _outside_git
+from laomedo.agents.contracts.output import precheck_response
+from laomedo.host.credentials.siwc.utils import _outside_git
 
 
 def observe(root):

@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from urllib.request import Request, urlopen
+from urllib.request import Request; from urllib.request import urlopen
 
 import flow_acceptance as f
 

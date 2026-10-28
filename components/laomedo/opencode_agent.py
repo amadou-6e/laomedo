@@ -5,7 +5,7 @@ import json
 import os
 
 from laomedo.codex_agent import LaomedoCodexAgent as Component
-from lfx.io import DropdownInput, StrInput
+from lfx.io import DropdownInput; from lfx.io import StrInput
 
 
 class LaomedoOpenCodeAgent(Component):

@@ -11,7 +11,7 @@ import tempfile
 
 SHARED = Path(__file__).resolve().parents[1] / "feasibility" / "120"
 sys.path.insert(0, str(SHARED))
-from _shared import AppServer, codex_version, construct_env, hash_path
+from _shared import AppServer; from _shared import codex_version; from _shared import construct_env; from _shared import hash_path
 
 
 NAME = "fixture-native-78"

@@ -1,4 +1,6 @@
 """S11 one-shot direct/mediated synthetic comparison. Never consumes a real token."""
+
+from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from copy import deepcopy
 from hashlib import sha256
@@ -18,18 +20,18 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from experiments.exp100.paired_cases import IDENTITY, MARKER, PROPOSAL, REVIEWED_ISSUE, GRAPHQL_INPUT, check
-from experiments.exp100.paired_provider import Provider, REPOSITORY, TOKEN
-from experiments.exp104.probe_active_delivery import git, stage_cleanup
-from laomedo.host.mediation.agent_cli import configure_remote, prepare_commands
-from laomedo.host.publication.bundle_verifier import BundleVerifier
-from laomedo.host.leases.container_lease import cleanup_exact, inspect_exact, LABEL_RUN, LABEL_TOKEN
-from laomedo.github.transport.github_git_transport import GitHubGitTransport, GitHubMediatedTransport, _base_git_environment
-from laomedo.github.transport.github_rest_transport import GitHubRestTransport
-from laomedo.host.mediation.github_mediation import MediationStore
-from laomedo.agents.local_runner import GIT_IMAGE_ID
-from laomedo.host.mediation.mediation_service import MediationHTTPService
-from laomedo.host.publication.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
+from experiments.exp100.paired_cases import IDENTITY; from experiments.exp100.paired_cases import MARKER; from experiments.exp100.paired_cases import PROPOSAL; from experiments.exp100.paired_cases import REVIEWED_ISSUE; from experiments.exp100.paired_cases import GRAPHQL_INPUT; from experiments.exp100.paired_cases import check
+from experiments.exp100.paired_provider import Provider; from experiments.exp100.paired_provider import REPOSITORY; from experiments.exp100.paired_provider import TOKEN
+from experiments.exp104.probe_active_delivery import git; from experiments.exp104.probe_active_delivery import stage_cleanup
+from laomedo.host.mediation.agent_cli import configure_remote; from laomedo.host.mediation.agent_cli import prepare_commands
+from laomedo.host.publication.verifier import BundleVerifier
+from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.constants import LABEL_RUN; from laomedo.host.leases.constants import LABEL_TOKEN
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.mediation.store import MediationStore
+from laomedo.agents.runtime.constants import GIT_IMAGE_ID
+from laomedo.host.mediation.service import MediationHTTPService
+from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
 
 SPEC = '193fdfb2c31e71745943039c05e14d5d72e8309e'
 
@@ -221,7 +223,7 @@ def run(private, source_sha, review_record):
                     for key, grant in grants.items():
                         if key in revoked: continue
                         owner = containers[key]
-                        state, _ = inspect_exact(owner['name'], owner['run_id'], owner['token'])
+                        state, _ = inspect_exact(ContainerIdentity(name=owner['name'], run_id=owner['run_id'], token=owner['token']))
                         if state != 'owned' or not store.renew_grant(grant, 60):
                             stopped.set(); return
         threading.Thread(target=renew, daemon=True).start()
@@ -454,7 +456,7 @@ def run(private, source_sha, review_record):
         reports = []
         for key, owner in containers.items():
             try:
-                verified, _ = cleanup_exact(owner['name'], owner['run_id'], owner['token'])
+                verified, _ = cleanup_exact(ContainerIdentity(name=owner['name'], run_id=owner['run_id'], token=owner['token']))
                 reports.append({'run': key, 'verified': verified})
             except Exception: reports.append({'run': key, 'verified': False})
         for worker in verifiers: worker.join(timeout=30)

@@ -1,16 +1,17 @@
 """Import/fetch snapshots, then inspect a filtered projection."""
 
-import argparse
-from datetime import datetime, timedelta, timezone
-import json
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from pathlib import Path
+import argparse
+import json
+import laomedo.work_graph.github as _work_graph_github
+import laomedo.work_graph.grants as _work_graph_grants
+import laomedo.work_graph.launch as _work_graph_launch
+import laomedo.work_graph.local_launch as _work_graph_local_launch
+import laomedo.work_graph.models as _work_graph_models
 import sys
-
-from laomedo.work_graph.github import fetch, import_pages
-from laomedo.work_graph.grants import LocalGrantAuthority
-from laomedo.work_graph.launch import relevant_content_digest
-from laomedo.work_graph.local_launch import launch_local_saved_flow
-from laomedo.work_graph.model import GraphSnapshot
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,8 +22,12 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--repo", required=True)
         command.add_argument("--output-dir", type=Path, required=True)
         if name == "import":
-            command.add_argument("--file", type=Path, required=True,
-                                 help="JSON array of captured GraphQL response pages")
+            command.add_argument(
+                "--file",
+                type=Path,
+                required=True,
+                help="JSON array of captured GraphQL response pages",
+            )
     inspect = commands.add_parser("inspect")
     inspect.add_argument("snapshot", type=Path)
     inspect.add_argument("--state", choices=("all", "open", "closed"), default="all")
@@ -47,47 +52,94 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "launch":
-            print(json.dumps(launch_local_saved_flow(
-                snapshot_path=args.snapshot, work_key=args.work_key,
-                flow_id=args.flow_id, langflow_base=args.langflow_base,
-                grant_store=args.grant_store, grant_ref=args.grant_ref,
-                run_store=args.run_store, task=args.task, choice=args.choice)))
+            print(
+                json.dumps(
+                    _work_graph_local_launch.launch_local_saved_flow(
+                        snapshot_path=args.snapshot,
+                        work_key=args.work_key,
+                        flow_id=args.flow_id,
+                        langflow_base=args.langflow_base,
+                        grant_store=args.grant_store,
+                        grant_ref=args.grant_ref,
+                        run_store=args.run_store,
+                        task=args.task,
+                        choice=args.choice,
+                    )
+                )
+            )
         elif args.command == "issue-grant":
-            snapshot = GraphSnapshot.from_dict(json.loads(args.snapshot.read_text(encoding="utf-8")))
-            if not snapshot.source_complete or args.work_key not in {item.key for item in snapshot.items}:
-                raise ValueError("A complete snapshot containing the selected work is required")
+            snapshot = _work_graph_models.GraphSnapshot.from_dict(
+                json.loads(args.snapshot.read_text(encoding="utf-8"))
+            )
+            if not snapshot.source_complete or args.work_key not in {
+                item.key for item in snapshot.items
+            }:
+                raise ValueError(
+                    "A complete snapshot containing the selected work is required"
+                )
             if not 1 <= args.expires_in_minutes <= 60:
                 raise ValueError("Grant expiry must be within 1 to 60 minutes")
             if not sys.stdin.isatty():
-                raise ValueError("Interactive host terminal required for grant confirmation")
-            content_digest = relevant_content_digest(snapshot, args.work_key)
+                raise ValueError(
+                    "Interactive host terminal required for grant confirmation"
+                )
+            content_digest = _work_graph_launch.relevant_content_digest(
+                snapshot, args.work_key
+            )
             confirmation = input(
-                f"Selected content {content_digest}. Type {args.work_key} to confirm a local zero-turn grant: ")
+                f"Selected content {content_digest}. Type {args.work_key} to confirm a local zero-turn grant: "
+            )
             if confirmation != args.work_key:
                 raise ValueError("Operator confirmation did not match selected work")
-            authority = LocalGrantAuthority(args.grant_store)
-            expiry = (datetime.now(timezone.utc) + timedelta(
-                minutes=args.expires_in_minutes)).isoformat()
-            ref = authority.issue(work_key=args.work_key,
+            authority = _work_graph_grants.LocalGrantAuthority(args.grant_store)
+            expiry = (
+                datetime.now(timezone.utc) + timedelta(minutes=args.expires_in_minutes)
+            ).isoformat()
+            ref = authority.issue(
+                work_key=args.work_key,
                 graph_snapshot=snapshot,
                 expires_at=expiry,
-                timeout_seconds=args.timeout_seconds, max_turns=args.max_turns)
-            print(json.dumps({"grant_ref": ref, "work_key": args.work_key,
-                "graph_snapshot_id": snapshot.snapshot_id,
-                "content_digest": content_digest,
-                "expires_at": expiry, "timeout_seconds": args.timeout_seconds,
-                "max_turns": args.max_turns}))
+                timeout_seconds=args.timeout_seconds,
+                max_turns=args.max_turns,
+            )
+            print(
+                json.dumps(
+                    {
+                        "grant_ref": ref,
+                        "work_key": args.work_key,
+                        "graph_snapshot_id": snapshot.snapshot_id,
+                        "content_digest": content_digest,
+                        "expires_at": expiry,
+                        "timeout_seconds": args.timeout_seconds,
+                        "max_turns": args.max_turns,
+                    }
+                )
+            )
         elif args.command == "inspect":
-            snapshot = GraphSnapshot.from_dict(json.loads(args.snapshot.read_text(encoding="utf-8")))
+            snapshot = _work_graph_models.GraphSnapshot.from_dict(
+                json.loads(args.snapshot.read_text(encoding="utf-8"))
+            )
             print(json.dumps(snapshot.project(args.state, tuple(args.label)), indent=2))
         else:
-            snapshot = fetch(args.repo) if args.command == "fetch" else import_pages(
-                args.repo, json.loads(args.file.read_text(encoding="utf-8")))
+            snapshot = (
+                _work_graph_github.fetch(args.repo)
+                if args.command == "fetch"
+                else _work_graph_github.import_pages(
+                    args.repo, json.loads(args.file.read_text(encoding="utf-8"))
+                )
+            )
             path = snapshot.save(args.output_dir)
-            print(json.dumps({"snapshot_id": snapshot.snapshot_id, "path": str(path),
-                              "source_complete": snapshot.source_complete,
-                              "items": len(snapshot.items),
-                              "dependencies": len(snapshot.dependencies)}))
+            print(
+                json.dumps(
+                    {
+                        "snapshot_id": snapshot.snapshot_id,
+                        "path": str(path),
+                        "source_complete": snapshot.source_complete,
+                        "items": len(snapshot.items),
+                        "dependencies": len(snapshot.dependencies),
+                    }
+                )
+            )
         return 0
     except (ValueError, KeyError, TypeError, OSError, RuntimeError) as error:
         parser.exit(2, f"Work Graph: {error}\n")

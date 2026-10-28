@@ -1,3 +1,5 @@
+
+from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
 import tempfile
 import unittest
 import os
@@ -6,7 +8,7 @@ from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
 try:
-    from fastapi import FastAPI,Header,HTTPException
+    from fastapi import FastAPI; from fastapi import Header; from fastapi import HTTPException
     from fastapi.testclient import TestClient
     from laomedo.activity.agent_activity.routes import install_activity_routes
 except ImportError:
@@ -16,11 +18,12 @@ from laomedo.activity.agent_activity.store import ActivityStore
 
 class ActivityTests(unittest.TestCase):
     def test_capture_records_visible_name_without_changing_node_identity(self):
-        from laomedo.activity.agent_activity.store import capture_for
+        from laomedo.activity.agent_activity.utils import capture_for
         component=SimpleNamespace(_user_id='alice',graph=SimpleNamespace(run_id='execution',flow_id='flow'),
                                   _vertex=SimpleNamespace(id='stable-node',display_name='Review PR'))
         with patch.dict(os.environ,{'LAOMEDO_AGENT_ACTIVITY_DB':str(self.store.path)}):
-            store,run=capture_for(component)
+            invocation=capture_for(component)
+            store,run=invocation.store,invocation.invocation_id
         component._vertex.display_name='Renamed later'
         summary=store.graph_runs('alice','flow')[0]
         self.assertEqual(summary['node'],'stable-node')
@@ -30,7 +33,7 @@ class ActivityTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.store=ActivityStore(Path(self.temp.name)/'activity.db')
-        self.run=self.store.start('alice','flow','agent')
+        self.run=self.store.start(CaptureIdentity.from_values('alice', 'flow', 'agent'))
         if FastAPI is None:return
         app=FastAPI()
         def authenticate(authorization:str=Header(default='')):
@@ -73,7 +76,7 @@ class ActivityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'agent_activity_closed'):self.store.append(self.run,{'type':'late'})
 
     def test_separate_invocations_and_empty_history(self):
-        second=self.store.start('alice','flow','agent')
+        second=self.store.start(CaptureIdentity.from_values('alice', 'flow', 'agent'))
         self.assertNotEqual(second,self.run)
         self.assertEqual(len(self.store.runs('alice','flow','agent')),2)
         self.assertEqual(self.store.runs('alice','other-flow','agent'),[])
@@ -87,7 +90,7 @@ class ActivityTests(unittest.TestCase):
             self.assertEqual(self.client.get(self.base+'/'+self.run+query,headers={'Authorization':'alice'}).status_code,422)
 
     def test_reservation_requires_durable_identity(self):
-        with self.assertRaisesRegex(ValueError,'agent_activity_identity_required'):self.store.start('','flow','node')
+        with self.assertRaisesRegex(ValueError,'agent_activity_identity_required'):self.store.start(CaptureIdentity.from_values('', 'flow', 'node'))
 
     @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
     def test_graph_routes_preserve_owner_scope_and_node_identity(self):
@@ -123,7 +126,7 @@ class ActivityTests(unittest.TestCase):
         reader=ActivityStore(self.store.path,read_only=True)
         self.assertEqual(len(reader.runs('alice','flow','agent')),1)
         self.assertEqual(self.store.path.read_bytes(),original)
-        with self.assertRaises(sqlite3.OperationalError):reader.start('alice','flow','agent')
+        with self.assertRaises(sqlite3.OperationalError):reader.start(CaptureIdentity.from_values('alice', 'flow', 'agent'))
 
     @unittest.skipIf(FastAPI is None,'optional FastAPI integration is not installed')
     def test_get_does_not_create_uninitialized_database_or_directory(self):

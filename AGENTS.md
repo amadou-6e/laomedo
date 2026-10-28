@@ -20,3 +20,21 @@
   Bound experiments in a separate harness. Retain historical evidence without
   letting its counters restrict normal user runs. Do not spend model turns solely
   to verify removal of a cap; use explicitly approved live checks when needed.
+
+## Python module cohesion
+
+- Group cohesive features into packages; do not stop at a fixed nesting depth.
+  Repeated filename prefixes are a signal to review the package boundary.
+- A Python implementation file introduces classes or standalone functions, never
+  both. Put class-only exceptions in errors.py. Keep package initializers small.
+- Make a function a method when its responsibility belongs to an object. Keep
+  independent helpers in the owning feature's utils.py (or a focused function-only
+  module); do not create a cross-domain dumping ground of utilities.
+- When values repeatedly travel together as one concept, define a canonical
+  Pydantic model in that feature's models.py and pass that model internally.
+  Put constructors, validation and projections on the model where appropriate.
+  Preserve existing external payloads, persisted schemas and error behavior at
+  explicit boundaries; do not silently coerce input or duplicate domain models.
+- Migrate callers to defining modules and remove obsolete files. Add structural
+  regression checks so mixed class/function files and retired imports cannot
+  quietly return.

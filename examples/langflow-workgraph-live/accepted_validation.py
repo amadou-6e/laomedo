@@ -1,6 +1,6 @@
 """Unwrap the success route for the publisher; this supplies no authority."""
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, Output
+from lfx.io import DataInput; from lfx.io import Output
 from lfx.schema import Data
 
 

@@ -3,7 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
-from test_workgraph_demo import run_case, records
+from test_workgraph_demo import run_case; from test_workgraph_demo import records
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("legacy_migration", ROOT / "examples/langflow-contract-routing/migrate_legacy.py")

@@ -5,12 +5,12 @@ import json
 import asyncio
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, DropdownInput, Output, StrInput
-from lfx.schema import Data, Message
-from laomedo.skills.skill_source_client import source_request
-from laomedo.skills.skill_operation_client import skill_request
-from laomedo.skills.skill_operations import proposal
-from laomedo.agents.pr_agent_loop import feedback_edge, bind_feedback_parameters, agent_operation
+from lfx.io import DataInput; from lfx.io import DropdownInput; from lfx.io import Output; from lfx.io import StrInput
+from lfx.schema import Data; from lfx.schema import Message
+from laomedo.skills.sources.client import source_request
+from laomedo.skills.operations.client import skill_request
+from laomedo.skills.operations.utils import proposal
+from laomedo.agents.feedback.pr import feedback_edge; from laomedo.agents.feedback.pr import bind_feedback_parameters; from laomedo.agents.feedback.pr import agent_operation
 
 
 class LaomedoSkill(Component):

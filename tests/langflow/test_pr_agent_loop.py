@@ -10,10 +10,10 @@ from unittest.mock import patch
 from lfx.graph.graph.base import Graph
 from lfx.schema import Message
 from lfx.custom.custom_component.component import Component
-from laomedo.github.pull_requests.github_pr_gateway import GitHubPRGateway
-from laomedo.host.mediation.github_mediation import MediationStore
-from laomedo.github.transport.github_rest_transport import GitHubRestTransport
-from laomedo.agents.pr_agent_loop import operation_value
+from laomedo.github.pull_requests.gateway import GitHubPRGateway
+from laomedo.host.mediation.store import MediationStore
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.agents.feedback.pr import operation_value
 import test_live_github_pr as fixtures
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -49,7 +49,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
                 self.operations += 1
                 if self.before_apply: self.before_apply()
             return getattr(self.gateway,action.replace('-','_'))(**body)
-        self.client = patch('laomedo.github.pull_requests.github_pr_client.pr_request',side_effect=request)
+        self.client = patch('laomedo.github.pull_requests.client.pr_request',side_effect=request)
         self.client.start(); self.addCleanup(self.client.stop)
 
     async def execute(self, action='modify', flow=None):
@@ -154,7 +154,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         async def pending_agent(component, seed):
             started.set()
             await asyncio.Future()
-        with patch('laomedo.agents.pr_agent_loop.agent_operation',new=pending_agent):
+        with patch('laomedo.agents.feedback.pr.agent_operation',new=pending_agent):
             run = asyncio.create_task(self.execute())
             await asyncio.wait_for(started.wait(),timeout=10)
             run.cancel()

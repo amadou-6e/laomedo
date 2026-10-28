@@ -12,14 +12,14 @@ import subprocess
 import tempfile
 from urllib.request import Request
 
-from laomedo.github.transport.github_git_transport import GitHubGitTransport
-from laomedo.github.transport.github_rest_transport import GitHubRestTransport
-from laomedo.agents.git_workspace import _git_environment, _bounded_git
-from laomedo.host.credentials.host_token_connection import HostTokenConnection
-from laomedo.github.issues.issue_context import fetch_context
-from laomedo.agents.local_runner import GIT_IMAGE_ID
-from laomedo.host.credentials.siwc_auth import _outside_git
-from laomedo.skills.skill_store import SkillStore
+from laomedo.github.transport.git.transport import GitHubGitTransport
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.agents.workspace.git import _git_environment; from laomedo.agents.workspace.git import _bounded_git
+from laomedo.host.credentials.token.connection import HostTokenConnection
+from laomedo.github.issues.utils import fetch_context
+from laomedo.agents.runtime.constants import GIT_IMAGE_ID
+from laomedo.host.credentials.siwc.utils import _outside_git
+from laomedo.skills.registry.store import SkillStore
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "ga84jog/laomedo-exp104-disposable-20261007"

@@ -3,6 +3,7 @@ from copy import deepcopy
 import argparse
 import json
 import importlib.util
+import sys
 from pathlib import Path
 from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
@@ -10,7 +11,11 @@ from lfx.custom.utils import build_custom_component_template
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location("module_path_migration", ROOT / "tools/migrations/migrate_module_paths.py")
 _module_paths = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_module_paths)
+sys.path.insert(0, str(ROOT / 'tools/migrations'))
+try:
+    _spec.loader.exec_module(_module_paths)
+finally:
+    sys.path.pop(0)
 
 
 def migrate(flow):

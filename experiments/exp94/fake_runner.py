@@ -1,9 +1,9 @@
 """Authenticated, loopback-only fake runner for visible Stop integration tests."""
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime; from datetime import timezone
 import hashlib
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
 import secrets

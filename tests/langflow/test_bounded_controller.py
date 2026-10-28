@@ -13,7 +13,7 @@ from lfx.graph.graph.base import Graph
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-handoff_http = importlib.import_module("laomedo.agents.handoff_http")
+handoff_http = importlib.import_module("laomedo.agents.handoffs.transport")
 spec = importlib.util.spec_from_file_location("controller_component", ROOT / "components/laomedo/bounded_controller.py")
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module

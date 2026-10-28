@@ -12,7 +12,7 @@ write access to revision, policy, or review records.
 
 ```python
 from pathlib import Path
-from laomedo.skills.skill_store import SkillStore
+from laomedo.skills.registry.store import SkillStore
 
 store = SkillStore(Path(r"C:\private\laomedo-store"))  # outside Git
 base = store.import_skill("my-skill", Path("source-skill"))
@@ -90,7 +90,7 @@ skill into the private store:
 
 ```powershell
 $private = Join-Path $env:LOCALAPPDATA 'Laomedo'
-python -m laomedo.agents.local_runner --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
+python -m laomedo.agents.runtime.cli --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
 ```
 
 The HTTP runner binds only to `127.0.0.1:8765`. It requires `Authorization: Bearer <token>` for every status and

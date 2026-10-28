@@ -5,7 +5,7 @@ import json
 import os
 
 from laomedo.codex_agent import LaomedoCodexAgent as Component
-from laomedo.agents.providers.claude_models import EFFORTS
+from laomedo.agents.providers.claude.catalog import EFFORTS
 from langflow.io import IntInput
 
 

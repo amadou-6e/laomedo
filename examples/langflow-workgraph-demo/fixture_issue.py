@@ -2,9 +2,9 @@
 import hashlib
 import json
 from lfx.custom.custom_component.component import Component
-from lfx.io import Output, StrInput
-from lfx.schema import Data, Message
-from laomedo.github.issues.issue_context import fetch_context
+from lfx.io import Output; from lfx.io import StrInput
+from lfx.schema import Data; from lfx.schema import Message
+from laomedo.github.issues.utils import fetch_context
 
 
 class FixtureIssue(Component):

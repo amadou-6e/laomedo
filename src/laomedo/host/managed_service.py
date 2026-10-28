@@ -6,20 +6,30 @@ The host service retains custody of its explicitly selected token file.
 
 from __future__ import annotations
 
+from pathlib import Path
 import argparse
 import json
-from pathlib import Path
 import sys
-
 
 _OPTIONS = {
     "host-services": {
-        "state", "repository", "checkout", "baseline", "agent_mount",
-        "runner_state", "private_stage", "connection_id",
-        "connection_generation", "token_file", "token_key",
+        "state",
+        "repository",
+        "checkout",
+        "baseline",
+        "agent_mount",
+        "runner_state",
+        "private_stage",
+        "connection_id",
+        "connection_generation",
+        "token_file",
+        "token_key",
     },
     "bundle-verifier": {
-        "runner_state", "private_root", "agent_mount", "baseline_bundle",
+        "runner_state",
+        "private_root",
+        "agent_mount",
+        "baseline_bundle",
         "baseline_sha256",
     },
 }
@@ -36,8 +46,12 @@ def configuration_arguments(service: str, path: Path) -> list[str]:
         raise ValueError("managed_configuration_fields_invalid")
     arguments = []
     for key, item in value.items():
-        if (not isinstance(item, (str, int)) or isinstance(item, bool) or
-                not str(item) or any(c in str(item) for c in "\r\n\0")):
+        if (
+            not isinstance(item, (str, int))
+            or isinstance(item, bool)
+            or not str(item)
+            or any(c in str(item) for c in "\r\n\0")
+        ):
             raise ValueError("managed_configuration_value_invalid")
         arguments.extend(("--" + key.replace("_", "-"), str(item)))
     return arguments
@@ -52,9 +66,13 @@ def main() -> None:
     # Run in the Scheduler-owned process, not as a runner child. Argparse in
     # the concrete service still checks required fields before any startup.
     if args.service == "host-services":
-        from laomedo.host.host_services import main as start
+        import laomedo.host.host_services as _host_host_services
+
+        start = _host_host_services.main
     else:
-        from laomedo.host.publication.bundle_verifier import main as start
+        import laomedo.host.publication.cli as _publication_cli
+
+        start = _publication_cli.main
     sys.argv = [sys.argv[0], *argv]
     start()
 

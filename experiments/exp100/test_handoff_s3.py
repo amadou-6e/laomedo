@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from experiments.exp100 import bundle_transfer as verifier_module
 from experiments.exp100 import handoff_s3 as handoff_module
-from experiments.exp100.handoff_s3 import HANDOFF_NAME, _plain_file, transfer
+from experiments.exp100.handoff_s3 import HANDOFF_NAME; from experiments.exp100.handoff_s3 import _plain_file; from experiments.exp100.handoff_s3 import transfer
 from experiments.exp100.probe_s3 import record_once
 
 

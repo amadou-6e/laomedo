@@ -1,13 +1,12 @@
 """Read-only native GitHub dependencies through the user's existing gh login."""
 
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
+from typing import Callable
 import json
+import laomedo.work_graph.models as _work_graph_models
 import re
 import subprocess
-from typing import Callable
-
-from laomedo.work_graph.model import Dependency, GraphSnapshot, WorkItem
-
 
 QUERY = """
 query($owner: String!, $name: String!, $cursor: String) {
@@ -39,17 +38,30 @@ def validate_repository(repository: str) -> tuple[str, str]:
 
 
 def _gh_page(owner: str, name: str, cursor: str | None) -> dict:
-    command = ["gh", "api", "graphql", "-f", f"query={QUERY}",
-               "-f", f"owner={owner}", "-f", f"name={name}"]
+    command = [
+        "gh",
+        "api",
+        "graphql",
+        "-f",
+        f"query={QUERY}",
+        "-f",
+        f"owner={owner}",
+        "-f",
+        f"name={name}",
+    ]
     if cursor is not None:
         command.extend(["-f", f"cursor={cursor}"])
     try:
-        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", timeout=60)
+        result = subprocess.run(
+            command, capture_output=True, text=True, encoding="utf-8", timeout=60
+        )
     except subprocess.TimeoutExpired as error:
         raise RuntimeError("GitHub fetch timed out") from error
     # gh stderr may contain account or transport detail; it is not snapshot data.
     if result.returncode:
-        raise RuntimeError("GitHub fetch failed; check gh authentication and connectivity")
+        raise RuntimeError(
+            "GitHub fetch failed; check gh authentication and connectivity"
+        )
     return json.loads(result.stdout)
 
 
@@ -62,7 +74,9 @@ def _connection(page: dict, repository: str) -> dict | None:
     return source.get("issues")
 
 
-def fetch(repository: str, request: Callable = _gh_page) -> GraphSnapshot:
+def fetch(
+    repository: str, request: Callable = _gh_page
+) -> _work_graph_models.GraphSnapshot:
     owner, name = validate_repository(repository)
     pages, seen, cursor = [], set(), None
     while True:
@@ -87,7 +101,9 @@ def fetch(repository: str, request: Callable = _gh_page) -> GraphSnapshot:
     return import_pages(repository, pages)
 
 
-def import_pages(repository: str, pages: list[dict], fetched_at: str | None = None) -> GraphSnapshot:
+def import_pages(
+    repository: str, pages: list[dict], fetched_at: str | None = None
+) -> _work_graph_models.GraphSnapshot:
     """Import captured GraphQL pages without credentials or network access."""
     validate_repository(repository)
     fetched_at = fetched_at or datetime.now(timezone.utc).isoformat()
@@ -126,11 +142,17 @@ def import_pages(repository: str, pages: list[dict], fetched_at: str | None = No
                 complete = False
                 warnings.add("labels_incomplete")
             blockers = node["blockedBy"]
-            item = WorkItem(
-                key, repository, node["number"], node["url"], node["title"], node["body"],
-                node["state"], node["updatedAt"],
-                tuple(sorted({label["name"] for label in labels["nodes"]})),
-                blockers["totalCount"] == len(blockers["nodes"]),
+            item = _work_graph_models.WorkItem(
+                key=key,
+                repository=repository,
+                number=node["number"],
+                url=node["url"],
+                title=node["title"],
+                body=node["body"],
+                state=node["state"],
+                updated_at=node["updatedAt"],
+                labels=tuple(sorted({label["name"] for label in labels["nodes"]})),
+                blockers_complete=blockers["totalCount"] == len(blockers["nodes"]),
             )
             if key in items:
                 # Concurrent updates or repeated pages prevent a coherent source snapshot.
@@ -150,12 +172,25 @@ def import_pages(repository: str, pages: list[dict], fetched_at: str | None = No
                         warnings.add("unavailable_dependency")
                         continue
                     other = "github:" + ref["id"]
-                    prerequisite, dependent = (other, key) if relation == "blockedBy" else (key, other)
-                    urls = (ref["url"], item.url) if relation == "blockedBy" else (item.url, ref["url"])
+                    prerequisite, dependent = (
+                        (other, key) if relation == "blockedBy" else (key, other)
+                    )
+                    urls = (
+                        (ref["url"], item.url)
+                        if relation == "blockedBy"
+                        else (item.url, ref["url"])
+                    )
                     repositories = (ref["repository"]["nameWithOwner"], repository)
                     if relation == "blocking":
                         repositories = repositories[::-1]
-                    edge = Dependency(prerequisite, dependent, *urls, *repositories)
+                    edge = _work_graph_models.Dependency(
+                        prerequisite=prerequisite,
+                        dependent=dependent,
+                        prerequisite_url=urls[0],
+                        dependent_url=urls[1],
+                        prerequisite_repository=repositories[0],
+                        dependent_repository=repositories[1],
+                    )
                     pair = (prerequisite, dependent)
                     if pair in edges and edges[pair] != edge:
                         raise ValueError("Conflicting dependency identities")
@@ -165,6 +200,11 @@ def import_pages(repository: str, pages: list[dict], fetched_at: str | None = No
     if counts != {len(items)}:
         warnings.add("item_count_mismatch")
     complete = complete and finished and counts == {len(items)}
-    return GraphSnapshot(repository, fetched_at, complete,
-                         tuple(sorted(items.values(), key=lambda item: item.key)),
-                         tuple(sorted(edges.values())), tuple(sorted(warnings)))
+    return _work_graph_models.GraphSnapshot(
+        repository=repository,
+        fetched_at=fetched_at,
+        source_complete=complete,
+        items=tuple(sorted(items.values(), key=lambda item: item.key)),
+        dependencies=tuple(sorted(edges.values())),
+        source_warnings=tuple(sorted(warnings)),
+    )

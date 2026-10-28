@@ -8,17 +8,71 @@ import tempfile
 import unittest
 
 TOOL = Path(__file__).resolve().parents[1] / "tools/migrations/migrate_module_paths.py"
+sys.path.insert(0, str(TOOL.parent))
 _spec = importlib.util.spec_from_file_location("module_path_migration_test", TOOL)
 migration = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(migration)
 
 
 class ModuleMigrationTests(unittest.TestCase):
-    def test_inline_import_with_unicode_keeps_statement_structure(self):
-        source = "label = 'λ'; from laomedo import local_runner, skill_store\n"
+    def test_renamed_server_symbol_in_its_final_module_is_migrated(self):
+        source = "import laomedo.skill_operation_server as api\nvalue = api.server(ops, token)\n"
+        result = migration.migrate_source(source)
+        self.assertIn('SkillOperationServer', result)
+        self.assertNotIn('api.server(', result)
+        with self.assertRaises(migration.ManualMigrationRequired):
+            migration.migrate_source('from laomedo.lease_service import _handler\nvalue = _handler(book)\n')
+
+    def test_all_published_generations_reach_defining_symbols_in_one_pass(self):
+        for module in ('laomedo.local_runner', 'laomedo.agents.local_runner'):
+            with self.subTest(module=module):
+                source = f'from {module} import LocalRunner, RunnerError, _hash_tree\n'
+                migrated = migration.migrate_source(source)
+                self.assertEqual(migration.migrate_source(migrated), migrated)
+                namespace = {}
+                exec(migrated, namespace)
+                self.assertEqual(namespace['LocalRunner'].__module__, 'laomedo.agents.runtime.runner')
+                self.assertEqual(namespace['RunnerError'].__module__, 'laomedo.agents.runtime.errors')
+                self.assertEqual(namespace['_hash_tree'].__module__, 'laomedo.agents.runtime.utils')
+
+    def test_moved_module_attributes_keep_aliases(self):
+        source = 'import laomedo.agents.local_runner as runner\nerror = runner.RunnerError\n'
         namespace = {}
         exec(migration.migrate_source(source), namespace)
-        self.assertEqual(namespace["label"], "λ")
+        self.assertEqual(namespace['error'].__module__, 'laomedo.agents.runtime.errors')
+
+    def test_physical_line_offsets_ignore_unicode_text_separators(self):
+        source = '"""First\u2028second\fthird"""\nimport laomedo.local_runner as runner\nerror = runner.RunnerError\n'
+        namespace = {}
+        exec(migration.migrate_source(source), namespace)
+        self.assertEqual(namespace['error'].__module__, 'laomedo.agents.runtime.errors')
+        source = 'from laomedo.local_runner import LocalRunner\r'
+        self.assertEqual(migration.migrate_source(source), 'from laomedo.agents.runtime.runner import LocalRunner\r')
+
+    def test_changed_typed_interfaces_require_explicit_manual_migration(self):
+        sources = [
+            'from laomedo.container_lease import cleanup_exact\ncleanup_exact("n", "r", "t")',
+            'from laomedo.agent_activity import capture_for\nstore, invocation = capture_for(component)',
+            'from laomedo.agent_activity import ActivityStore\nstore.start("owner", "flow", "node")',
+            'from laomedo.local_runner import unknown_retired_symbol',
+            'import laomedo.local_runner as runner\ngetattr(runner, "RunnerError")',
+            'from laomedo.work_graph.model import GraphSnapshot\nfrom dataclasses import asdict\nasdict(snapshot)',
+            'from laomedo.work_graph.model import Dependency\nDependency("a", "b")',
+        ]
+        for source in sources:
+            with self.subTest(source=source), self.assertRaises(migration.ManualMigrationRequired):
+                migration.migrate_source(source)
+
+    def test_cli_and_object_imports_use_distinct_final_modules(self):
+        self.assertIn('runtime.runner', migration.migrate_source('from laomedo.local_runner import LocalRunner'))
+        self.assertEqual(migration.migrate_source('python -m laomedo.local_runner'), 'python -m laomedo.agents.runtime.cli')
+        self.assertEqual(migration.migrate_value({'module': 'laomedo.local_runner'}), {'module': 'laomedo.agents.runtime.cli'})
+
+    def test_inline_import_with_unicode_keeps_statement_structure(self):
+        source = "label = 'ÃƒÅ½Ã‚Â»'; from laomedo import local_runner, skill_store\n"
+        namespace = {}
+        exec(migration.migrate_source(source), namespace)
+        self.assertEqual(namespace["label"], "ÃƒÅ½Ã‚Â»")
         self.assertTrue(hasattr(namespace["local_runner"], "LocalRunner"))
         self.assertTrue(hasattr(namespace["skill_store"], "SkillStore"))
 
@@ -26,7 +80,7 @@ class ModuleMigrationTests(unittest.TestCase):
         source = "from laomedo import (agent_activity, local_runner as runner)\n"
         rewritten = migration.migrate_source(source)
         self.assertIn("from laomedo.activity.agent_activity import store as agent_activity", rewritten)
-        self.assertIn("from laomedo.agents import local_runner as runner", rewritten)
+        self.assertIn("from laomedo.agents.runtime import runner", rewritten)
         namespace = {}
         exec(rewritten, namespace)
         self.assertTrue(hasattr(namespace["agent_activity"], "ActivityStore"))
@@ -52,7 +106,7 @@ class ModuleMigrationTests(unittest.TestCase):
             applied = subprocess.run([sys.executable, str(TOOL), str(path), "--apply"], capture_output=True, timeout=30)
             self.assertEqual(applied.returncode, 0, applied.stderr)
             self.assertEqual(path.with_name(path.name + ".before-module-migration").read_bytes(), original)
-            self.assertIn("laomedo.agents.local_runner", path.read_text())
+            self.assertIn("laomedo.agents.runtime.runner", path.read_text())
             changed = json.dumps({"code": "import laomedo.skill_store"}).encode()
             path.write_bytes(changed)
             refused = subprocess.run([sys.executable, str(TOOL), str(path), "--apply"], capture_output=True, timeout=30)

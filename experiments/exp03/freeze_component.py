@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput, Output, StrInput
+from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io import StrInput
 from lfx.schema.message import Message
 
 

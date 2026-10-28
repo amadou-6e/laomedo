@@ -4,9 +4,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from experiments.exp05.evidence import EvidenceError, EvidenceStore
-from experiments.exp05.probe import PHASES, parent
-from laomedo.agents.workflow_run_store import WorkflowRunStore
+from experiments.exp05.evidence import EvidenceError; from experiments.exp05.evidence import EvidenceStore
+from experiments.exp05.probe import PHASES; from experiments.exp05.probe import parent
+from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 class EvidenceStoreTests(unittest.TestCase):

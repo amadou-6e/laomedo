@@ -2,10 +2,10 @@
 import asyncio
 import re
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput
-from lfx.schema import Data, Message
-from laomedo.github.issues.github_issue_client import issue_request
-from laomedo.github.issues.github_issue_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS
+from lfx.io import DataInput; from lfx.io import DropdownInput; from lfx.io import MultiselectInput; from lfx.io import Output; from lfx.io import StrInput
+from lfx.schema import Data; from lfx.schema import Message
+from laomedo.github.issues.client import issue_request
+from laomedo.github.issues.contract import repository_from_url; from laomedo.github.issues.contract import ERROR_CODES; from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
 
 
 class LaomedoGitHubIssue(Component):

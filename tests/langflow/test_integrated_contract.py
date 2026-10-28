@@ -3,7 +3,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import unittest
-from test_workgraph_demo import run_case, records
+from test_workgraph_demo import run_case; from test_workgraph_demo import records
 
 FLOW = Path(__file__).resolve().parents[2] / 'examples/langflow-contract-routing/flow.json'
 

@@ -7,23 +7,25 @@ forwarding modules, import hooks or checkout bridge.
 
 ```text
 src/laomedo/
+  activity/{agent_activity,claude,opencode,runner}/
   agents/
-    providers/
-    resources/               # Config, seccomp and agent-side MJS adapters
-  skills/resources/          # Bundled skill instructions
-  github/{issues,pull_requests,transport}/
+    {artifacts,contracts,feedback,handoffs,runtime,workflow,workspace}/
+    providers/{claude,opencode}/
+    resources/
+  skills/{authoring,ingestion,inspection,operations,registry,sources,workspace}/
+  skills/resources/
+  github/{issues,pull_requests,transport/{git,rest}}/
   host/
-    credentials/             # Standalone Git credential helper
-    mediation/
-    leases/
-    publication/resources/   # Pinned staging script
-  activity/agent_activity/   # store, capture, cost, projection, routes
-  integrations/langflow/
+    credentials/{claude,opencode,siwc,token}/
+    {leases,mediation,runner}/
+    publication/{bundle,handoff,verified}/
+    publication/resources/
+  integrations/langflow/join/
   work_graph/
 ```
 
-Each implementation has one owner. Use `laomedo.agents.local_runner`,
-`laomedo.skills.skill_store` and `laomedo.activity.agent_activity.capture`.
+Each implementation has one owner. Use `laomedo.agents.runtime.runner`,
+`laomedo.skills.registry.store` and `laomedo.activity.agent_activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
 live in `containers/`; registry documentation is in `docs/skill-registry.md`.
@@ -31,13 +33,13 @@ live in `containers/`; registry documentation is in `docs/skill-registry.md`.
 Launchers use canonical names:
 
 ```text
-python -m laomedo.agents.local_runner ...
-python -m laomedo.agents.providers.claude_runner ...
-python -m laomedo.host.leases.lease_service serve ...
+python -m laomedo.agents.runtime.cli ...
+python -m laomedo.agents.providers.claude.cli ...
+python -m laomedo.host.leases.service_cli serve ...
 python -m laomedo.host.managed_service ...
 ```
 
-The app factory is `laomedo.integrations.langflow.langflow_skill_viewer:create_app`.
+The app factory is `laomedo.integrations.langflow.viewer:create_app`.
 Credentials and persisted runner/activity state stay outside the package.
 Resource bytes, image pins, schemas, request acknowledgement and cleanup
 behavior stay unchanged. Resource paths follow their owning package.
@@ -75,3 +77,47 @@ a copy when needed for a new graph. Validation covers installed discovery,
 resources, canonical CLIs, migration idempotence and migrated graph loading.
 Real Agent and managed-service acceptance are recorded separately; internal
 tests do not establish a live workflow.
+
+## Cohesion and typed internal data
+
+Package boundaries follow a feature's responsibilities and dependencies, with no
+fixed nesting depth. Repeated filename prefixes trigger an ownership review.
+Implementation files introduce classes or standalone functions, never both.
+Exceptions live in class-only `errors.py`. Helpers that belong to an object become
+methods; independent helpers stay in that feature's function-only `utils.py` or a
+focused module such as `serialization.py`. `constants.py` owns genuinely shared
+constants and mutable locks exactly once. Initializers expose only deliberate
+package APIs. Feature imports use explicit module owners; distinct dependencies
+must never rebind the same module alias.
+
+Recurring values travel as canonical Pydantic models in the feature's `models.py`:
+
+| Owner | Models and purpose |
+| --- | --- |
+| agents/contracts | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
+| work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
+| skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
+| host/publication/verified | VerifiedStage carries the immutable verified bundle and its provenance |
+| host/leases | ContainerIdentity carries exact name, run ID and a secret launch token |
+| activity/agent_activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
+
+Models own validation, constructors and explicit projections. HTTP/provider JSON
+and persisted records retain their existing fields and identities. Strict models
+do not coerce invalid values. Secret-bearing models hide values in representations
+and validation text; only the named private registration projection extracts a
+lease capability. Model construction never replaces host authorization checks.
+The standalone Git credential helper remains stdlib-only.
+
+Migration maps distinguish module names, moved symbols and CLI entrypoints. Every
+published generation resolves directly to final owners in one pass. Ambiguous
+symbols, dynamic access to retired modules and changed typed call signatures
+require manual migration before any selected file is written. In particular,
+container cleanup takes `ContainerIdentity`; `ActivityStore.start` takes
+`CaptureIdentity`; `capture_for` returns `ActivityInvocation` with `.store` and
+`.invocation_id`, rather than a tuple. Historical execution records are retained.
+
+Structural checks reject mixed class/function files, module/package shadowing and
+conflicting module aliases. Regression checks preserve model serialization,
+existing snapshot bytes/hashes, operation error codes and secret redaction. Error
+catalogue checks follow feature error producers after extraction. Installed-wheel,
+pinned-stage-image and real graph evidence remain separate from internal tests.

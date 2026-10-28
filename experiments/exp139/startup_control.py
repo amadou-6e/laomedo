@@ -5,8 +5,8 @@ import subprocess
 import tempfile
 from unittest.mock import patch
 from experiments.exp139.bindings import MailboxAppServer
-from experiments.exp139.helper_control import IMAGE, ROOT
-from laomedo.agents.local_runner import AppServer
+from experiments.exp139.helper_control import IMAGE; from experiments.exp139.helper_control import ROOT
+from laomedo.agents.runtime.servers import AppServer
 
 
 def probe():

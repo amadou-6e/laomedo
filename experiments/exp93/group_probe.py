@@ -12,7 +12,7 @@ import threading
 import time
 from uuid import uuid4
 
-from laomedo.host.leases.container_lease import LeaseProcess
+from laomedo.host.leases.process import LeaseProcess
 
 
 OUTPUT = Path(__file__).with_name("group-observation.json")
@@ -66,7 +66,7 @@ def main() -> None:
                 str(root) not in command_line(process.pid)):
             raise RuntimeError("child_command_mismatch")
         supervisor_pid = identities["supervisor_pid"]
-        if ("laomedo.host.leases.container_lease" not in command_line(supervisor_pid) or
+        if ("laomedo.host.leases.process_cli" not in command_line(supervisor_pid) or
                 identities["token"] not in command_line(supervisor_pid)):
             raise RuntimeError("supervisor_command_mismatch")
         killed_at = time.monotonic()
@@ -79,7 +79,7 @@ def main() -> None:
             time.sleep(.1)
         report = json.loads(result.read_text(encoding="utf-8")) if result.exists() else None
         supervisor_command = command_line(supervisor_pid)
-        still_running = ("laomedo.host.leases.container_lease" in supervisor_command and
+        still_running = ("laomedo.host.leases.process_cli" in supervisor_command and
                          identities["token"] in supervisor_command)
         if still_running:
             subprocess.run(["taskkill", "/PID", str(supervisor_pid), "/F"],

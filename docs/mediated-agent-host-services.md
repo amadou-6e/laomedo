@@ -65,7 +65,7 @@ request `bundle_freeze` with only an `attempt_id`, capturing the fixed
 `.laomedo-handoff.bundle` while the run and grant remain active. Host roots
 come from `--runner-state` and `--private-stage`, never from the agent.
 This capture does not verify Git objects or authorize a push. A separate
-credential-free foreground worker, `python -m laomedo.host.publication.bundle_verifier`, now
+credential-free foreground worker, `python -m laomedo.host.publication.cli`, now
 scans frozen attempts under trusted host roots. Configure `--runner-state`,
 `--private-root`, `--agent-mount`, `--baseline-bundle` and its trusted
 `--baseline-sha256`; none comes from an agent request. Its baseline must not

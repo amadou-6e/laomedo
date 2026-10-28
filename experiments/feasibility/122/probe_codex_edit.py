@@ -16,13 +16,8 @@ import time
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import (AppServer, RequestTimeout, codex_version, compare_personal_roots,
-                     construct_env, credential_gate, hash_personal_roots,
-                     model_efforts, read_turn_context, select_supported_pair,
-                     validate_pair)
-from probe_draft_guards import (BASE_SKILL, fixed_case_evaluation,
-                                inventory, patch_for, policy_ref, restore,
-                                snapshot, structural_validation, tree_hash)
+from _shared import AppServer; from _shared import RequestTimeout; from _shared import codex_version; from _shared import compare_personal_roots; from _shared import construct_env; from _shared import credential_gate; from _shared import hash_personal_roots; from _shared import model_efforts; from _shared import read_turn_context; from _shared import select_supported_pair; from _shared import validate_pair
+from probe_draft_guards import BASE_SKILL; from probe_draft_guards import fixed_case_evaluation; from probe_draft_guards import inventory; from probe_draft_guards import patch_for; from probe_draft_guards import policy_ref; from probe_draft_guards import restore; from probe_draft_guards import snapshot; from probe_draft_guards import structural_validation; from probe_draft_guards import tree_hash
 from inspect_private_turn_policy import inspect_turn_policy
 
 

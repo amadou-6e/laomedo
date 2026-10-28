@@ -1,7 +1,7 @@
 """Checks that the pinned post-408 observation cannot hide a late effect."""
 
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime; from datetime import timedelta
 import json
 from pathlib import Path
 import unittest

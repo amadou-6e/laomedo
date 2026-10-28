@@ -9,10 +9,10 @@ import json
 import os
 from pathlib import Path
 import re
-from urllib import error, request
+from urllib import error; from urllib import request
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput, StrInput, Output
+from lfx.io import MessageTextInput; from lfx.io import StrInput; from lfx.io import Output
 from lfx.schema import Data
 
 

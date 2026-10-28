@@ -3,8 +3,8 @@ from pathlib import Path
 import unittest
 from uuid import uuid4
 
-from laomedo.agents.artifacts import ArtifactError, selections
-from laomedo.agents.local_runner import LocalRunner
+from laomedo.agents.artifacts.errors import ArtifactError; from laomedo.agents.artifacts.utils import selections
+from laomedo.agents.runtime.runner import LocalRunner
 import test_local_runner as fixtures
 
 
@@ -64,7 +64,7 @@ class ArtifactTests(unittest.TestCase):
             self.runner.start({**self.fixture.request(), "artifact_refs": [self.ref]})
 
     def test_shared_workspace_and_hardlinks_are_not_imported(self):
-        from laomedo.agents.local_runner import RunnerError
+        from laomedo.agents.runtime.errors import RunnerError
         request = {**self.fixture.request(), "handoff": {"execution_id": str(uuid4()),
             "step": 1, "source": None, "workspace_policy": "shared"}}
         with self.assertRaisesRegex(RunnerError, "invalid_handoff"):

@@ -1,5 +1,7 @@
 """Credential-free, opt-in whole-repository workspace preparation."""
 
+from laomedo.agents.workspace.git import _bounded_git as _owned_git_workspace__bounded_git
+
 from pathlib import Path
 import os
 import subprocess
@@ -7,8 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents import git_workspace
-from laomedo.agents.git_workspace import GitWorkspaceError, prepare_git_workspace
+import laomedo.agents.workspace.git as git_workspace
+from laomedo.agents.workspace.errors import GitWorkspaceError; from laomedo.agents.workspace.git import prepare_git_workspace
 
 
 class GitWorkspaceTests(unittest.TestCase):
@@ -79,7 +81,7 @@ class GitWorkspaceTests(unittest.TestCase):
 
     def test_partial_clone_is_removed_on_failure(self):
         destination = self.root / "workspace"
-        original = git_workspace._bounded_git
+        original = _owned_git_workspace__bounded_git
 
         def fail_after_clone(args, env):
             if "clone" in args:
@@ -94,7 +96,7 @@ class GitWorkspaceTests(unittest.TestCase):
 
     def test_racing_destination_is_not_removed(self):
         destination = self.root / "workspace"
-        original = git_workspace._bounded_git
+        original = _owned_git_workspace__bounded_git
 
         def claim_destination_after_status(args, env):
             result = original(args, env)

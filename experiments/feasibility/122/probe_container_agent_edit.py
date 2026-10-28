@@ -12,8 +12,8 @@ import time
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer, inside_git_tree, reserve_model_turn, select_supported_pair
-from probe_codex_edit import await_turn, event_summary
+from _shared import AppServer; from _shared import inside_git_tree; from _shared import reserve_model_turn; from _shared import select_supported_pair
+from probe_codex_edit import await_turn; from probe_codex_edit import event_summary
 from probe_draft_guards import BASE_SKILL
 
 

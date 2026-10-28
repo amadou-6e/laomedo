@@ -25,7 +25,7 @@ class NativeSkillOperationTests(unittest.IsolatedAsyncioTestCase):
         def service(action, **body):
             self.calls += 1
             return getattr(self.control.service, action)(**body)
-        self.client = patch('laomedo.skills.skill_operation_client.skill_request', side_effect=service)
+        self.client = patch('laomedo.skills.operations.client.skill_request', side_effect=service)
         self.client.start()
         self.addCleanup(self.client.stop)
 
@@ -104,7 +104,7 @@ class LaomedoCodexAgent(Component):
             value = getattr(self.control.service, action)(**body)
             if action == 'apply': raise OSError('internal lost response control')
             return value
-        with patch('laomedo.skills.skill_operation_client.skill_request', side_effect=lost_reply):
+        with patch('laomedo.skills.operations.client.skill_request', side_effect=lost_reply):
             result = await asyncio.wait_for(Graph.from_payload(flow).arun(inputs=[{}], outputs=['skill']), timeout=20)
         self.assertIn('unknown', str(result))
         self.assertEqual(len(self.control.service.history('internal-test', self.control.initial['revision_id'])['commits']), 2)

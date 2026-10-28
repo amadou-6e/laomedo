@@ -9,9 +9,9 @@ import unittest
 import urllib.request
 import urllib.error
 
-from laomedo.skills.skill_sources import SkillSources, SourceError, _bundle
-from laomedo.skills.skill_source_server import server
-from laomedo.skills.skill_source_client import source_request
+from laomedo.skills.sources.service import SkillSources; from laomedo.skills.sources.errors import SourceError; from laomedo.skills.sources.utils import _bundle
+from laomedo.skills.sources.server import SkillSourceServer as server
+from laomedo.skills.sources.client import source_request
 
 
 class SkillSourceTests(unittest.TestCase):

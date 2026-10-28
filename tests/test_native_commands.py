@@ -8,11 +8,11 @@ import tempfile
 import unittest
 from uuid import uuid4
 
-from laomedo.host.mediation.agent_cli import prepare_commands, configure_remote
-from laomedo.github.transport.github_git_transport import GitHubGitTransport, _base_git_environment
-from laomedo.host.mediation.github_mediation import MediationStore, MediationError, KnownRejected
-from laomedo.agents.local_runner import _docker_prefix
-from laomedo.host.mediation.mediation_authority import RunGrantAuthority, FIRST_SLICE_OPERATIONS
+from laomedo.host.mediation.agent_cli import prepare_commands; from laomedo.host.mediation.agent_cli import configure_remote
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.errors import KnownRejected
+from laomedo.agents.runtime.utils import _docker_prefix
+from laomedo.host.mediation.authority import RunGrantAuthority; from laomedo.host.mediation.authority import FIRST_SLICE_OPERATIONS
 
 
 REPO = "example/disposable"
@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class NativeCommandsTests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("LAOMEDO_TEST_NATIVE_DOCKER") == "1", "opt-in Docker development fixture")
     def test_native_git_and_gh_protocol_in_pinned_image(self):
-        from laomedo.agents.local_runner import GIT_IMAGE_ID
+        from laomedo.agents.runtime.constants import GIT_IMAGE_ID
         with tempfile.TemporaryDirectory() as temporary:
             wrappers = prepare_commands(Path(temporary), REPO, "run-branch")
             name = "laomedo-native-dev-" + uuid4().hex

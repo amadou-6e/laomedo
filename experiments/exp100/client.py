@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import Request; from urllib.request import urlopen
 
 
 def main():

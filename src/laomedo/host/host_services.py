@@ -8,86 +8,131 @@ their work. Production service-manager installation remains deployment work.
 
 from __future__ import annotations
 
+from pathlib import Path
 import argparse
 import json
+import laomedo._paths as _package_paths
+import laomedo.github.transport.git.transport as _git_transport
+import laomedo.github.transport.rest.transport as _rest_transport
+import laomedo.host.credentials.token.connection as _token_connection
+import laomedo.host.leases.service as _leases_service
+import laomedo.host.mediation.authority as _mediation_authority
+import laomedo.host.mediation.service as _mediation_service
+import laomedo.host.mediation.store as _mediation_store
+import laomedo.host.publication.verified.utils as _verified_utils
 import os
-from pathlib import Path
 import threading
 import time
 
-from laomedo._paths import package_root
-from laomedo.github.transport.github_git_transport import GitHubGitTransport, GitHubMediatedTransport
-from laomedo.host.mediation.github_mediation import MediationStore
-from laomedo.github.transport.github_rest_transport import GitHubRestTransport
-from laomedo.host.credentials.host_token_connection import HostTokenConnection
-from laomedo.host.leases.lease_service import LeaseService
-from laomedo.host.mediation.mediation_authority import RunGrantAuthority
-from laomedo.host.mediation.mediation_service import JournaledTransport, MediationHTTPService
-from laomedo.host.publication.verified_git_stage import make_grant_stage_resolver, make_grant_bundle_freezer, classify_verified_workflow
 
-
-def build_services(*, state: Path, repository: str, checkout: Path,
-                   baseline: str, agent_mount: Path, connection_id: str,
-                   connection_generation: int, token_file: Path,
-                   token_key: str = "GH", runner_state: Path | None = None,
-                   private_stage: Path | None = None) -> tuple[LeaseService, MediationHTTPService]:
+def build_services(
+    *,
+    state: Path,
+    repository: str,
+    checkout: Path,
+    baseline: str,
+    agent_mount: Path,
+    connection_id: str,
+    connection_generation: int,
+    token_file: Path,
+    token_key: str = "GH",
+    runner_state: Path | None = None,
+    private_stage: Path | None = None,
+) -> tuple[_leases_service.LeaseService, _mediation_service.MediationHTTPService]:
     state = state.expanduser().resolve()
     state.mkdir(parents=True, exist_ok=True)
     (state / "mediator").mkdir(exist_ok=True)
-    connection = HostTokenConnection(
-        connection_id=connection_id, generation=connection_generation,
-        repository=repository, token_file=token_file, key=token_key,
-        forbidden_mount=agent_mount)
+    connection = _token_connection.HostTokenConnection(
+        connection_id=connection_id,
+        generation=connection_generation,
+        repository=repository,
+        token_file=token_file,
+        key=token_key,
+        forbidden_mount=agent_mount,
+    )
     if (runner_state is None) != (private_stage is None):
         raise ValueError("verified_stage_roots_incomplete")
-    resolver = (make_grant_stage_resolver(runner_state, private_stage,
-                                         agent_mount)
-                if runner_state is not None else None)
-    freezer = (make_grant_bundle_freezer(runner_state, private_stage,
-                                        agent_mount, confirmed_stage_authorizer=lambda grant, snapshot:
-                                            store.confirmed_stage(grant, snapshot))
-               if runner_state is not None else None)
-    git_transport = GitHubGitTransport(repository, checkout, baseline,
-                                       connection.token,
-                                       require_verified_stage=True)
-    rest_transport = GitHubRestTransport(repository, connection.token)
-    store = MediationStore(
+    resolver = (
+        _verified_utils.make_grant_stage_resolver(
+            runner_state, private_stage, agent_mount
+        )
+        if runner_state is not None
+        else None
+    )
+    freezer = (
+        _verified_utils.make_grant_bundle_freezer(
+            runner_state,
+            private_stage,
+            agent_mount,
+            confirmed_stage_authorizer=lambda grant, snapshot: store.confirmed_stage(
+                grant, snapshot
+            ),
+        )
+        if runner_state is not None
+        else None
+    )
+    git_transport = _git_transport.GitHubGitTransport(
+        repository, checkout, baseline, connection.token, require_verified_stage=True
+    )
+    rest_transport = _rest_transport.GitHubRestTransport(repository, connection.token)
+    store = _mediation_store.MediationStore(
         state / "mediator" / "mediator.sqlite",
         verified_stage_resolver=resolver,
         stage_freezer=freezer,
-        verified_workflow_classifier=(classify_verified_workflow
-                                      if resolver is not None else None),
-        connection_is_current=connection.current)
-    authority = RunGrantAuthority(state / "authority.sqlite",
-                                  connection_authorizer=connection.authorize)
-    lease = LeaseService(state / "lease", mediator=store,
-                         mediation_authority=authority.authorize_lease)
-    transport = JournaledTransport(
-        GitHubMediatedTransport(git_transport, rest_transport),
+        verified_workflow_classifier=(
+            _verified_utils.classify_verified_workflow if resolver is not None else None
+        ),
+        connection_is_current=connection.current,
+    )
+    authority = _mediation_authority.RunGrantAuthority(
+        state / "authority.sqlite", connection_authorizer=connection.authorize
+    )
+    lease = _leases_service.LeaseService(
+        state / "lease", mediator=store, mediation_authority=authority.authorize_lease
+    )
+    transport = _mediation_service.JournaledTransport(
+        _git_transport.GitHubMediatedTransport(git_transport, rest_transport),
         state / "mediator" / "provider-attempts.jsonl",
-        state / "mediator" / "push-diagnostics.jsonl")
-    mediator = MediationHTTPService(store, transport)
+        state / "mediator" / "push-diagnostics.jsonl",
+    )
+    mediator = _mediation_service.MediationHTTPService(store, transport)
     return lease, mediator
 
 
-def serve_services(lease: LeaseService, mediator: MediationHTTPService,
-                   state: Path, *, repository: str, connection_id: str,
-                   connection_generation: int) -> None:
+def serve_services(
+    lease: _leases_service.LeaseService,
+    mediator: _mediation_service.MediationHTTPService,
+    state: Path,
+    *,
+    repository: str,
+    connection_id: str,
+    connection_generation: int,
+) -> None:
     """Publish mediator identity, then keep both host services alive together."""
     mediator_state = state / "mediator"
     mediator_state.mkdir(parents=True, exist_ok=True)
     status = mediator_state / "mediator.json"
     pending = status.with_suffix(".pending")
-    pending.write_text(json.dumps({
-        "pid": os.getpid(), "port": mediator.port,
-        "module_root": str(package_root()),
-        "instance": mediator.instance, "started_at": time.time(),
-        "connection_id": connection_id,
-        "generation": connection_generation,
-        "repository": repository}) + "\n", encoding="utf-8")
+    pending.write_text(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "port": mediator.port,
+                "module_root": str(_package_paths.package_root()),
+                "instance": mediator.instance,
+                "started_at": time.time(),
+                "connection_id": connection_id,
+                "generation": connection_generation,
+                "repository": repository,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     os.replace(pending, status)
-    thread = threading.Thread(target=mediator.serve, daemon=True,
-                              name="laomedo-mediator")
+    thread = threading.Thread(
+        target=mediator.serve, daemon=True, name="laomedo-mediator"
+    )
     thread.start()
     try:
         lease.serve()
@@ -110,9 +155,14 @@ def main() -> None:
     parser.add_argument("--token-key", default="GH")
     args = parser.parse_args()
     lease, mediator = build_services(**vars(args))
-    serve_services(lease, mediator, args.state.resolve(),
-                   repository=args.repository, connection_id=args.connection_id,
-                   connection_generation=args.connection_generation)
+    serve_services(
+        lease,
+        mediator,
+        args.state.resolve(),
+        repository=args.repository,
+        connection_id=args.connection_id,
+        connection_generation=args.connection_generation,
+    )
 
 
 if __name__ == "__main__":

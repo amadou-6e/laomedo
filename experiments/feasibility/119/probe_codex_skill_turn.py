@@ -15,7 +15,7 @@ import subprocess
 import threading
 import time
 
-from probe_codex_discovery import fingerprint, read_lines
+from probe_codex_discovery import fingerprint; from probe_codex_discovery import read_lines
 from check_private_auth import require_outside_git_worktree
 
 

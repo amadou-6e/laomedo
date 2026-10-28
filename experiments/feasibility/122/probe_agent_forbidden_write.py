@@ -12,8 +12,7 @@ import sys
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import (AppServer, construct_env, credential_gate, inside_git_tree,
-                     select_supported_pair, validate_pair)
+from _shared import AppServer; from _shared import construct_env; from _shared import credential_gate; from _shared import inside_git_tree; from _shared import select_supported_pair; from _shared import validate_pair
 from probe_codex_edit import run_turn
 
 

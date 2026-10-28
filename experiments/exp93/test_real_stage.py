@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from experiments.exp93.real_stage_support import IDENTITY, reserve, validate
+from experiments.exp93.real_stage_support import IDENTITY; from experiments.exp93.real_stage_support import reserve; from experiments.exp93.real_stage_support import validate
 
 
 def good():

@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 import subprocess
 
-from experiments.exp139.prepare import ROOT, IDENTITY, LANGFLOW, save
+from experiments.exp139.prepare import ROOT; from experiments.exp139.prepare import IDENTITY; from experiments.exp139.prepare import LANGFLOW; from experiments.exp139.prepare import save
 from experiments.exp139.runtime import configuration
-from laomedo.agents.local_runner import GIT_IMAGE_ID
+from laomedo.agents.runtime.constants import GIT_IMAGE_ID
 
 
 def freeze(root):

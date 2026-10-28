@@ -1,7 +1,7 @@
 """Synthetic checker controls, never S12 campaign evidence or live execution."""
 from copy import deepcopy
 import unittest
-from experiments.exp104.native_managed_checks import BASELINE, IDENTITY, REPOSITORY, validate
+from experiments.exp104.native_managed_checks import BASELINE; from experiments.exp104.native_managed_checks import IDENTITY; from experiments.exp104.native_managed_checks import REPOSITORY; from experiments.exp104.native_managed_checks import validate
 
 
 def observation():

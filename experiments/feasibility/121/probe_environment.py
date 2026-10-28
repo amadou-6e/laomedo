@@ -22,9 +22,7 @@ def main():
                         help="reset the scratch directory before running")
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _shared import (compare_personal_roots, ensure_clean, hash_personal_roots,
-                          options_env, personal_roots, resettable_dir,
-                          resolve_cli, cli_version, runner_versions)
+    from _shared import compare_personal_roots; from _shared import ensure_clean; from _shared import hash_personal_roots; from _shared import options_env; from _shared import personal_roots; from _shared import resettable_dir; from _shared import resolve_cli; from _shared import cli_version; from _shared import runner_versions
 
     summary = dict(runner_versions())
     state, leftovers = resettable_dir(
@@ -46,8 +44,8 @@ def main():
     # cannot produce a billable model call. This exercises session start in the
     # private profile without touching any real account.
     try:
-        from claude_agent_sdk import ClaudeAgentOptions, query
-        from claude_agent_sdk._errors import CLINotFoundError, CLIConnectionError, ProcessError
+        from claude_agent_sdk import ClaudeAgentOptions; from claude_agent_sdk import query
+        from claude_agent_sdk._errors import CLINotFoundError; from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import ProcessError
 
         async def attempt():
             options = ClaudeAgentOptions(

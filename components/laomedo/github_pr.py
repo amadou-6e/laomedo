@@ -2,11 +2,11 @@
 import asyncio
 import re
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, DropdownInput, MultiselectInput, Output, StrInput
-from lfx.schema import Data, Message
-from laomedo.github.pull_requests.github_pr_client import pr_request
-from laomedo.github.pull_requests.github_pr_contract import repository_from_url, ERROR_CODES, PRE_DISPATCH_ERRORS
-from laomedo.agents.pr_agent_loop import feedback_edge, agent_operation, bind_feedback_parameters, operation_value
+from lfx.io import DataInput; from lfx.io import DropdownInput; from lfx.io import MultiselectInput; from lfx.io import Output; from lfx.io import StrInput
+from lfx.schema import Data; from lfx.schema import Message
+from laomedo.github.pull_requests.client import pr_request
+from laomedo.github.issues.contract import repository_from_url; from laomedo.github.pull_requests.contract import ERROR_CODES; from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
+from laomedo.agents.feedback.pr import feedback_edge; from laomedo.agents.feedback.pr import agent_operation; from laomedo.agents.feedback.pr import bind_feedback_parameters; from laomedo.agents.feedback.pr import operation_value
 
 
 class LaomedoGitHubPR(Component):

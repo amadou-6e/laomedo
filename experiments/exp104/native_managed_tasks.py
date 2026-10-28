@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import time
 
-from experiments.exp104.probe_managed_startup import powershell, processes, quote
+from experiments.exp104.probe_managed_startup import powershell; from experiments.exp104.probe_managed_startup import processes; from experiments.exp104.probe_managed_startup import quote
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 SERVICES = ("host-services", "bundle-verifier")

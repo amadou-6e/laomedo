@@ -7,7 +7,7 @@ import os
 import sqlite3
 import subprocess
 from contextlib import closing
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import HTTPServer
 from pathlib import Path
 
 

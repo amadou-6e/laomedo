@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.local_runner import LocalRunner, RunnerError
-from laomedo.skills.skill_store import SkillStore
-from laomedo.skills.workspace_skills import remove_owned_tree
+from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.skills.registry.store import SkillStore
+from laomedo.skills.workspace.utils import remove_owned_tree
 from test_local_runner import FakeServer
 
 
@@ -120,8 +120,8 @@ class WorkspaceSkillGitTests(unittest.TestCase):
 
     def test_preparation_cleanup_failure_is_not_reported_clean(self):
         runner = self.runner()
-        with patch('laomedo.agents.local_runner.workspace_skills.install', side_effect=RuntimeError), patch(
-                'laomedo.agents.local_runner.workspace_skills.remove_owned_tree', side_effect=PermissionError):
+        with patch('laomedo.skills.workspace.utils.install', side_effect=RuntimeError), patch(
+                'laomedo.skills.workspace.utils.remove_owned_tree', side_effect=PermissionError):
             with self.assertRaisesRegex(RunnerError, 'run_preparation_cleanup_unverified'):
                 runner._prepare(self.request())
         self.assertTrue(list((runner.state/'runs').iterdir()))
@@ -142,9 +142,9 @@ class WorkspaceSkillGitTests(unittest.TestCase):
     def test_linked_parent_refuses_before_any_skill_read(self):
         runner = self.runner()
         record = runner._prepare(self.request())
-        with patch('laomedo.skills.workspace_skills._is_link',
+        with patch('laomedo.skills.registry.utils._is_link',
                    side_effect=lambda path: path.name == '.agents'), patch(
-                'laomedo.skills.workspace_skills.inventory') as read, patch.object(
+                'laomedo.skills.registry.utils.inventory') as read, patch.object(
                 runner, '_open_server') as server:
             result = runner._execute(record['run_id'], 'fixture', resume=False)
         read.assert_not_called()
@@ -166,7 +166,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
 
     def test_git_initialization_failure_does_not_dispatch(self):
         runner = self.runner()
-        with patch('laomedo.skills.workspace_skills._bounded_git', side_effect=FileNotFoundError), patch.object(
+        with patch('laomedo.agents.workspace.git._bounded_git', side_effect=FileNotFoundError), patch.object(
                 runner, '_open_server') as server:
             with self.assertRaisesRegex(ValueError, 'workspace_git_initialization_failed'):
                 runner.start(self.request())
@@ -176,7 +176,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
     def test_linked_git_root_refuses_without_reading_metadata(self):
         runner = self.runner()
         record = runner._prepare(self.request())
-        with patch('laomedo.skills.workspace_skills._is_link',
+        with patch('laomedo.skills.registry.utils._is_link',
                    side_effect=lambda path: path.name == '.git'), patch.object(
                 runner, '_open_server') as server:
             result = runner._execute(record['run_id'], 'fixture', resume=False)

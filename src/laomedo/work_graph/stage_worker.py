@@ -4,14 +4,14 @@ The host owns run and status decisions. Anything this process writes to stdout
 is untrusted result data, never a control or attestation message.
 """
 
-import asyncio
-from contextlib import contextmanager, redirect_stdout
-import json
-import os
+from contextlib import contextmanager
+from contextlib import redirect_stdout
 from pathlib import Path
+import asyncio
+import json
+import laomedo.integrations.langflow.stage_adapter as _langflow_stage_adapter
+import os
 import sys
-
-from laomedo.integrations.langflow.langflow_stage_adapter import FrozenLangflowStage
 
 
 @contextmanager
@@ -36,15 +36,20 @@ def main(argv=None):
     try:
         exported = json.loads(Path("/flow/flow.json").read_text(encoding="utf-8"))
         with _component_output():
-            stage = FrozenLangflowStage(exported)
+            stage = _langflow_stage_adapter.FrozenLangflowStage(exported)
         if arguments == ["validate"]:
             return 0
         command = json.loads(sys.stdin.readline())
         if not isinstance(command, dict) or command.get("type") != "execute":
             return 2
         with _component_output():
-            result = asyncio.run(stage.graph.arun(inputs=command.get("inputs"),
-                types=command.get("types"), outputs=command.get("outputs")))
+            result = asyncio.run(
+                stage.graph.arun(
+                    inputs=command.get("inputs"),
+                    types=command.get("types"),
+                    outputs=command.get("outputs"),
+                )
+            )
         print(str(result), flush=True)
     except Exception:
         return 1

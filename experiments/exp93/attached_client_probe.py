@@ -1,6 +1,8 @@
 """Single-use, credential-free diagnostic; no model or native agent invocation."""
 from __future__ import annotations
 
+from laomedo.host.leases.models import ContainerIdentity
+
 import argparse
 from hashlib import sha256
 import json
@@ -13,7 +15,7 @@ import tempfile
 import threading
 import time
 
-from laomedo.host.leases.container_lease import inspect_exact, cleanup_exact
+from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.utils import cleanup_exact
 
 IDENTITY = "exp93-attached-client-d1-20261011"
 IMAGE = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78"
@@ -89,7 +91,7 @@ def main() -> None:
         if time.monotonic() - started > 120:
             raise ValueError("procedure_deadline_exceeded")
     try:
-        if inspect_exact(name, IDENTITY, nonce)[0] != "absent":
+        if inspect_exact(ContainerIdentity(name=name, run_id=IDENTITY, token=nonce))[0] != "absent":
             raise ValueError("name_not_absent")
         environment = {key: value for key, value in os.environ.items()
                        if not key.upper().startswith(("GH", "GITHUB", "ANTHROPIC", "OPENAI"))}
@@ -104,7 +106,7 @@ def main() -> None:
         if lines.get(timeout=30) != "READY":
             raise ValueError("fixture_not_ready")
         row["ready_at"] = time.monotonic()
-        state, container_id = inspect_exact(name, IDENTITY, nonce)
+        state, container_id = inspect_exact(ContainerIdentity(name=name, run_id=IDENTITY, token=nonce))
         if state != "owned" or not container_id or process.poll() is not None:
             raise ValueError("owned_live_fixture_missing")
         row["container_id"] = container_id
@@ -132,7 +134,7 @@ def main() -> None:
         row["error_class"] = type(error).__name__
         row["error_code"] = str(error) if isinstance(error, ValueError) else "diagnostic_error"
     finally:
-        verified, detail = cleanup_exact(name, IDENTITY, nonce)
+        verified, detail = cleanup_exact(ContainerIdentity(name=name, run_id=IDENTITY, token=nonce))
         row["cleanup"] = {"container_verified": verified, "state": detail}
         if process is not None:
             if process.poll() is None:

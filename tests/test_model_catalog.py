@@ -1,7 +1,7 @@
 """Internal protocol tests, not live Codex acceptance."""
 import unittest
 from unittest.mock import Mock
-from laomedo.agents.local_runner import _advertised_models, RunnerError, LocalRunner
+from laomedo.agents.runtime.utils import _advertised_models; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.runner import LocalRunner
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from concurrent.futures import ThreadPoolExecutor

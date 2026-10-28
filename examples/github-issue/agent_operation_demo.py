@@ -8,13 +8,13 @@ from contextlib import closing
 import json
 from pathlib import Path
 from uuid import uuid4
-from laomedo.agents.local_runner import LocalRunner, _private
+from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.utils import _private
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.github.issues.github_issue_gateway import GitHubIssueGateway
-from laomedo.github.issues.github_issue_contract import issue_digest
-from laomedo.host.mediation.github_mediation import MediationStore, KnownRejected
-from laomedo.github.transport.github_rest_transport import GitHubRestTransport
-from laomedo.host.credentials.host_token_connection import HostTokenConnection
+from laomedo.github.issues.gateway import GitHubIssueGateway
+from laomedo.github.issues.contract import issue_digest
+from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import KnownRejected
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.host.credentials.token.connection import HostTokenConnection
 
 REPOSITORY="ga84jog/laomedo-exp104-disposable-20261007"
 SOURCE=Path(__file__).resolve().parent / "demo-workspace"

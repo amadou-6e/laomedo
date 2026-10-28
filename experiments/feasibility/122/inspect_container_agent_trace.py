@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from probe_codex_edit import validate_draft
-from probe_draft_guards import inventory, tree_hash
+from probe_draft_guards import inventory; from probe_draft_guards import tree_hash
 
 
 def main() -> None:

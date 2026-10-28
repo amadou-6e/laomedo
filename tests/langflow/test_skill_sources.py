@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import sys
 
-from laomedo.skills.skill_sources import SkillSources
+from laomedo.skills.sources.service import SkillSources
 
 ROOT = Path(__file__).resolve().parents[2]
 

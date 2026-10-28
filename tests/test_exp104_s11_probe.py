@@ -11,12 +11,12 @@ import threading
 import time
 from types import ModuleType
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock; from unittest.mock import patch
 
-from laomedo.host.mediation.github_mediation import MediationStore
-from laomedo.host.leases.lease_service import LeaseService
-from laomedo.host.mediation.mediation_authority import RunGrantAuthority
-from laomedo.host.mediation.mediation_service import MediationHTTPService
+from laomedo.host.mediation.store import MediationStore
+from laomedo.host.leases.service import LeaseService
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.host.mediation.service import MediationHTTPService
 
 _probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s11_probe.py"
 _probe_spec = importlib.util.spec_from_file_location("exp104_s11_probe", _probe_path)

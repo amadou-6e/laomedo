@@ -2,7 +2,7 @@
 import importlib.util
 import json
 from pathlib import Path
-from uuid import uuid5, NAMESPACE_URL
+from uuid import uuid5; from uuid import NAMESPACE_URL
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent

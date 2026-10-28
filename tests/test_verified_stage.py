@@ -9,17 +9,14 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.skills.bundle_ingest import HANDOFF_NAME, freeze_run_bundle, _record
-from laomedo.host.publication.bundle_stage import PINNED_IMAGE_ID
-from laomedo.host.publication.verified_stage import VerifiedStageError, resolve_verified_stage
-from laomedo.host.publication.verified_git_stage import (VerifiedGitStageError,
-                                        stage_verified_git)
-from laomedo.github.transport.github_git_transport import _run_bounded_tree
-from laomedo.github.transport.github_git_transport import GitHubGitTransport
-from laomedo.host.mediation.github_mediation import MediationStore, MediationError, KnownRejected
-from laomedo.host.publication.verified_git_stage import (make_grant_stage_resolver,
-                                        make_grant_bundle_freezer,
-                                        classify_verified_workflow)
+from laomedo.skills.ingestion.constants import HANDOFF_NAME; from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.utils import _record
+from laomedo.host.publication.bundle.constants import PINNED_IMAGE_ID
+from laomedo.host.publication.verified.errors import VerifiedStageError; from laomedo.host.publication.verified.utils import resolve_verified_stage
+from laomedo.host.publication.verified.errors import VerifiedGitStageError; from laomedo.host.publication.verified.utils import stage_verified_git
+from laomedo.github.transport.git.utils import _run_bounded_tree
+from laomedo.github.transport.git.transport import GitHubGitTransport
+from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.errors import KnownRejected
+from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
 
 
 class VerifiedStageTests(unittest.TestCase):
@@ -405,27 +402,23 @@ class VerifiedStageTests(unittest.TestCase):
         changed_bundle = self.root / "changed.bundle"
         self.git("bundle", "create", str(changed_bundle), "refs/heads/validated")
         payload = changed_bundle.read_bytes()
-        changed = replace(snapshot, commit=changed_commit, bundle=payload,
-                          bundle_sha256=hashlib.sha256(payload).hexdigest())
+        changed = type(snapshot).model_validate({**snapshot.model_dump(), 'commit': changed_commit, 'bundle': payload, 'bundle_sha256': hashlib.sha256(payload).hexdigest()})
         with stage_verified_git(changed) as staged:
             self.assertTrue(staged.classify_workflow_change())
-        with stage_verified_git(replace(snapshot, baseline="0" * 40)) as staged:
+        with stage_verified_git(type(snapshot).model_validate({**snapshot.model_dump(), 'baseline': '0' * 40})) as staged:
             with self.assertRaises(VerifiedGitStageError):
                 staged.classify_workflow_change()
 
     def test_bad_bundle_identity_or_integrity_refuses(self):
         snapshot = self.resolve()
         invalid = [
-            replace(snapshot, commit="0" * 40),
-            replace(snapshot, bundle=snapshot.bundle + b"tamper"),
-            replace(snapshot, bundle=snapshot.bundle[:-20],
-                    bundle_sha256=hashlib.sha256(
-                        snapshot.bundle[:-20]).hexdigest()),
+            type(snapshot).model_validate({**snapshot.model_dump(), 'commit': '0' * 40}),
+            type(snapshot).model_validate({**snapshot.model_dump(), 'bundle': snapshot.bundle + b'tamper'}),
+            type(snapshot).model_validate({**snapshot.model_dump(), 'bundle': snapshot.bundle[:-20], 'bundle_sha256': hashlib.sha256(snapshot.bundle[:-20]).hexdigest()}),
         ]
         alternate = snapshot.bundle.replace(b"refs/heads/validated",
                                             b"refs/heads/untrusted", 1)
-        invalid.append(replace(snapshot, bundle=alternate,
-                               bundle_sha256=hashlib.sha256(alternate).hexdigest()))
+        invalid.append(type(snapshot).model_validate({**snapshot.model_dump(), 'bundle': alternate, 'bundle_sha256': hashlib.sha256(alternate).hexdigest()}))
         for changed in invalid:
             with self.subTest(commit=changed.commit,
                               length=len(changed.bundle)), self.assertRaises(
@@ -449,7 +442,7 @@ class VerifiedStageTests(unittest.TestCase):
                 "grant_id": grant_id, "supervised": True,
                 "cleanup_verified": False})
             self.record.write_text(json.dumps(record), encoding="utf-8")
-            from laomedo.skills.bundle_ingest import _record
+            from laomedo.skills.ingestion.utils import _record
             binding = _record(self.runner, "run-a")[1]
             frozen = json.loads((self.attempt / "result.json").read_text())
             frozen.pop("run_record_sha256")
@@ -565,8 +558,7 @@ class VerifiedStageTests(unittest.TestCase):
         changed_bundle = self.root / "changed.bundle"
         self.git("bundle", "create", str(changed_bundle), "refs/heads/validated")
         bytes_ = changed_bundle.read_bytes()
-        changed = replace(snapshot, commit=changed_commit, bundle=bytes_,
-                          bundle_sha256=hashlib.sha256(bytes_).hexdigest())
+        changed = type(snapshot).model_validate({**snapshot.model_dump(), 'commit': changed_commit, 'bundle': bytes_, 'bundle_sha256': hashlib.sha256(bytes_).hexdigest()})
         credentials = []
         transport = GitHubGitTransport("example/disposable", self.repo,
             self.baseline, lambda *_args: credentials.append(1) or "unused",

@@ -8,9 +8,9 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.bundle_ingest import freeze_run_bundle, HANDOFF_NAME, _durable_json
-from laomedo.host.publication.bundle_verifier import BundleVerifier, _publish_status
-from laomedo.host.publication.bundle_stage import BundleStageError
+from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.constants import HANDOFF_NAME; from laomedo.skills.ingestion.utils import _durable_json
+from laomedo.host.publication.verifier import BundleVerifier; from laomedo.host.publication.cli import _publish_status
+from laomedo.host.publication.bundle.errors import BundleStageError
 
 
 class BundleVerifierTests(unittest.TestCase):
@@ -177,7 +177,7 @@ class BundleVerifierTests(unittest.TestCase):
                 raise PermissionError("synthetic-reader-lock")
             return original(source, target)
 
-        with patch("laomedo.host.publication.bundle_verifier.os.replace", replace):
+        with patch("laomedo.host.publication.cli.os.replace", replace):
             _publish_status(path, {"phase": "idle"})
         self.assertEqual(json.loads(path.read_bytes()), {"phase": "idle"})
         self.assertEqual(len(calls), 2)

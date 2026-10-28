@@ -11,12 +11,12 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.agents.local_runner import _json, _private
-from laomedo.agents.providers.opencode_boundary import IsolatedOpenCode
-from laomedo.agents.providers.opencode_runner import OpenCodeRunner
+from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.utils import _private
+from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.providers.opencode.runner import OpenCodeRunner
 from experiments.turn_harness import VerificationOpenCodeRunner as OpenCodeRunner
-from laomedo.host.credentials.opencode_auth import console_provider
-from laomedo.skills.skill_store import SkillStore, ConflictError, inventory, tree_hash
+from laomedo.host.credentials.opencode.utils import console_provider
+from laomedo.skills.registry.store import SkillStore; from laomedo.skills.registry.errors import ConflictError; from laomedo.skills.registry.utils import inventory; from laomedo.skills.registry.utils import tree_hash
 
 IMAGE = "laomedo-opencode-controller:1.18.33"
 IMAGE_ID = "sha256:73313fbaf91940471244ff0efb2442a333de119389875765a63bc168fec181fd"
@@ -143,7 +143,7 @@ def main():
     elif args.phase == "auth":
         auth()
     elif args.phase == "serve":
-        from laomedo.agents.local_runner import serve
+        from laomedo.agents.runtime.serving import RunnerServer as serve
         obj, _ = runner(args.max_model_turns)
         serve(obj, port=args.port).serve_forever()
     else:

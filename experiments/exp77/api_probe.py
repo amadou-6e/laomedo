@@ -12,8 +12,8 @@ from threading import Thread
 import time
 from urllib import request
 
-from laomedo.integrations.langflow.langflow_stage_adapter import FrozenLangflowStage
-from laomedo.agents.workflow_run_store import WorkflowRunStore
+from laomedo.integrations.langflow.stage_adapter import FrozenLangflowStage
+from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 BASE = "http://127.0.0.1:7860"

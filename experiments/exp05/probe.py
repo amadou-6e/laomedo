@@ -11,7 +11,7 @@ from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.agents.workflow_run_store import WorkflowRunStore  # noqa: E402
+from laomedo.agents.workflow.store import WorkflowRunStore  # noqa: E402
 from experiments.exp05.evidence import EvidenceStore  # noqa: E402
 
 

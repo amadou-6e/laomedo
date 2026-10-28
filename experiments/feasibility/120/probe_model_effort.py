@@ -12,10 +12,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import (AppServer, RequestTimeout, codex_version, construct_env,
-                      hash_personal_roots, compare_personal_roots,
-                      resettable_dir, summarize_methods, validate_pair,
-                      write_skill)
+from _shared import AppServer; from _shared import RequestTimeout; from _shared import codex_version; from _shared import construct_env; from _shared import hash_personal_roots; from _shared import compare_personal_roots; from _shared import resettable_dir; from _shared import summarize_methods; from _shared import validate_pair; from _shared import write_skill
 
 
 def thread_start_effective(server, model):

@@ -8,9 +8,9 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 
-from laomedo.agents.local_runner import LocalRunner, RunnerError
+from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
-from laomedo.skills.skill_store import SkillStore, SkillStoreError, inventory, tree_hash
+from laomedo.skills.registry.store import SkillStore; from laomedo.skills.registry.errors import SkillStoreError; from laomedo.skills.registry.utils import inventory; from laomedo.skills.registry.utils import tree_hash
 
 
 SKILL_ID = "exp08-sample"

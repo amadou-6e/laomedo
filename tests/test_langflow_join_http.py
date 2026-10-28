@@ -1,17 +1,17 @@
 """Credential-free tests of the opt-in local HTTP boundary."""
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
-from urllib import error, request
-from uuid import UUID, uuid4
+from urllib import error; from urllib import request
+from uuid import UUID; from uuid import uuid4
 
-from laomedo.integrations.langflow.langflow_join import LangflowJoinController
-from laomedo.integrations.langflow.langflow_join_http import RunnerHTTPTransport, serve_langflow_join
-from laomedo.agents.workflow_run_store import WorkflowRunStore
+from laomedo.integrations.langflow.join.controller import LangflowJoinController
+from laomedo.integrations.langflow.join.transport import RunnerHTTPTransport; from laomedo.integrations.langflow.join.server import JoinServer as serve_langflow_join
+from laomedo.agents.workflow.store import WorkflowRunStore
 from test_langflow_join_controller import FakeRunner
 
 

@@ -5,8 +5,8 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from laomedo.integrations.langflow.langflow_join_service import build_service
-from laomedo.agents.workflow_run_store import LaunchError
+from laomedo.integrations.langflow.join.service import build_service
+from laomedo.agents.workflow.errors import LaunchError
 
 
 class LangflowJoinServiceTests(unittest.TestCase):
@@ -17,7 +17,7 @@ class LangflowJoinServiceTests(unittest.TestCase):
             runner = root / "runner.token"
             bridge.write_text("synthetic-bridge", encoding="utf-8")
             runner.write_text("synthetic-runner", encoding="utf-8")
-            with patch("laomedo.integrations.langflow.langflow_join_service.LangflowLocalClient") as client:
+            with patch("laomedo.work_graph.client.LangflowLocalClient") as client:
                 server = build_service(
                     store_path=root / "runs.sqlite3",
                     bridge_token_file=bridge, runner_token_file=runner,

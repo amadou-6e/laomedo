@@ -3,9 +3,9 @@ import asyncio
 import json
 import time
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput, Output
+from lfx.io import MessageTextInput; from lfx.io import Output
 from lfx.schema import Message
-from experiments.exp123.runtime import fetch_observation, node_event
+from experiments.exp123.runtime import fetch_observation; from experiments.exp123.runtime import node_event
 
 
 class Exp123Gate(Component):

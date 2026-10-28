@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.host.credentials.host_token_connection import HostTokenConnection
+from laomedo.host.credentials.token.connection import HostTokenConnection
 
 
 class HostTokenConnectionTests(unittest.TestCase):

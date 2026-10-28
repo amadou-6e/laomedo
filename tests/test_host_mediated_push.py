@@ -5,9 +5,9 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.github.transport.github_git_transport import GitHubGitTransport
-from laomedo.host.mediation.github_mediation import MediationError, MediationStore
-from laomedo.host.credentials.host_token_connection import HostTokenConnection
+from laomedo.github.transport.git.transport import GitHubGitTransport
+from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
+from laomedo.host.credentials.token.connection import HostTokenConnection
 
 
 class HostMediatedPushTests(unittest.TestCase):

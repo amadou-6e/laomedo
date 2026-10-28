@@ -1,7 +1,7 @@
 """Use Langflow branch exclusion to route failure to a distinct agent vertex."""
 import json
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput, Output
+from lfx.io import MessageTextInput; from lfx.io import Output
 from lfx.schema import Message
 from experiments.exp123.runtime import node_event
 

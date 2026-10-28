@@ -10,7 +10,7 @@ import time
 
 from experiments.exp10 import probe as base
 from experiments.exp65 import probe as status_probe
-from laomedo.agents.workflow_run_store import WorkflowRunStore
+from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 HERE = Path(__file__).resolve().parent

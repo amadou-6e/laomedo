@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.local_runner import CLI_VERSION, LocalRunner, RunnerError, _docker_prefix
+from laomedo.agents.runtime.constants import CLI_VERSION; from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _docker_prefix
 
 
 class RunnerSandboxPolicyTests(unittest.TestCase):
@@ -14,7 +14,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             policy = root / "policy.json"
             policy.write_text('{"defaultAction":"SCMP_ACT_ALLOW"}')
-            with patch("laomedo.agents.local_runner.SECCOMP", policy):
+            with patch("laomedo.agents.runtime.constants.SECCOMP", policy):
                 with self.assertRaisesRegex(RunnerError, "seccomp_profile_changed"):
                     _docker_prefix(root, root, root)
                 policy.unlink()
@@ -41,7 +41,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             class Capture:
                 def __init__(self, command, evidence):
                     commands.append(command)
-            with patch("laomedo.agents.local_runner.subprocess.run", side_effect=[
+            with patch("subprocess.run", side_effect=[
                     subprocess.CompletedProcess([], 0, approved, ""),
                     subprocess.CompletedProcess([], 0, CLI_VERSION, ""),
                     subprocess.CompletedProcess([], 0, "", "")]):
@@ -50,7 +50,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             runner._open_server(root)
             self.assertIn(approved, commands[0])
             self.assertNotIn(runner.image, commands[0])
-            with patch("laomedo.agents.local_runner.subprocess.run", return_value=
+            with patch("subprocess.run", return_value=
                        subprocess.CompletedProcess([], 0, "sha256:" + "b" * 64, "")):
                 with self.assertRaisesRegex(RunnerError, "docker_image_digest_changed"):
                     LocalRunner(root / "mismatch", root / "skills", source,
@@ -61,7 +61,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             source = Path(__file__).resolve().parents[1] / "examples/github-pr"
             approved = "sha256:" + "a" * 64
-            with patch("laomedo.agents.local_runner.subprocess.run", side_effect=[
+            with patch("subprocess.run", side_effect=[
                     subprocess.CompletedProcess([], 0, approved, ""),
                     subprocess.CompletedProcess([], 0, "codex-cli unexpected", "")]) as docker:
                 with self.assertRaisesRegex(RunnerError, "unsupported_codex_cli_version"):

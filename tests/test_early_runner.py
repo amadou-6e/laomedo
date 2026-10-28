@@ -1,5 +1,7 @@
 """Credential-free falsifiers for issue #22's durable early identity."""
 
+from laomedo.agents.runtime.utils import _json as _owned_runner_module__json
+
 import json
 from pathlib import Path
 import shutil
@@ -8,16 +10,16 @@ import threading
 import time
 import unittest
 from unittest.mock import patch
-from urllib import error as http_error, request as http_request
+from urllib import error as http_error; from urllib import request as http_request
 from uuid import uuid4
 
-from laomedo.agents.local_runner import LocalRunner, RunnerError, _json, serve
-import laomedo.agents.local_runner as runner_module
-from laomedo.agents.handoff_http import RunnerAdapter
-from laomedo.activity.runner_trace_bridge import RunnerTraceBridge
-from laomedo.agents.workflow_run_store import LaunchError, WorkflowRunStore
-from laomedo.agents.handoffs import HandoffError, envelope
-from laomedo.skills.skill_store import SkillStore
+from laomedo.agents.runtime.runner import LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.serving import RunnerServer as serve
+import laomedo.agents.runtime.cli as runner_module
+from laomedo.agents.handoffs.transport import RunnerAdapter
+from laomedo.activity.runner.trace_bridge import RunnerTraceBridge
+from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.agents.handoffs.errors import HandoffError; from laomedo.agents.handoffs.utils import envelope
+from laomedo.skills.registry.store import SkillStore
 from test_local_runner import FakeServer
 
 
@@ -484,7 +486,7 @@ class EarlyRunnerTests(unittest.TestCase):
         run_id = self.runner.start_async(self.body)["run_id"]
         self.assertTrue(BlockingServer.entered.wait(2))
         write_paused, release = threading.Event(), threading.Event()
-        original_json = runner_module._json
+        original_json = _owned_runner_module__json
         result = {}
         def delayed_json(path, value):
             if (path.name == "record.json" and value.get("status") == "running"
@@ -494,7 +496,7 @@ class EarlyRunnerTests(unittest.TestCase):
             return original_json(path, value)
         def cancel():
             result["cancel"] = self.runner.cancel(run_id)
-        with patch.object(runner_module, "_json", side_effect=delayed_json):
+        with patch("laomedo.agents.runtime.utils._json", side_effect=delayed_json):
             caller = threading.Thread(target=cancel)
             caller.start()
             try:

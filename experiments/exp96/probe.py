@@ -5,9 +5,9 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 
-from experiments.exp82.docker_stage_probe import ROOT, no_model_flow
-from laomedo.work_graph.docker_stage import DockerLangflowStage, IMAGE
-from laomedo.agents.workflow_run_store import LaunchError, WorkflowRunStore
+from experiments.exp82.docker_stage_probe import ROOT; from experiments.exp82.docker_stage_probe import no_model_flow
+from laomedo.work_graph.docker_stage import DockerLangflowStage; from laomedo.work_graph.constants import IMAGE
+from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 FORGE = '''

@@ -5,10 +5,10 @@ import json
 import os
 from pathlib import Path
 import sys
-from urllib import error, request
+from urllib import error; from urllib import request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from laomedo.agents.local_runner import _private
+from laomedo.agents.runtime.utils import _private
 
 
 HERE = Path(__file__).resolve().parent

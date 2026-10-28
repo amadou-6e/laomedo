@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from laomedo._paths import import_root, package_root
+from laomedo._paths import import_root; from laomedo._paths import package_root
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,8 +30,8 @@ class PackageLayoutTests(unittest.TestCase):
                 self.assertNotIn("alias_module", Path(module.__file__).read_text())
 
     def test_resource_owners_and_bytes(self):
-        from laomedo.agents.local_runner import CONFIG, SECCOMP, MEDIATION_CLIENT
-        from laomedo.host.publication.bundle_stage import SCRIPT
+        from laomedo.agents.runtime.constants import CONFIG; from laomedo.agents.runtime.constants import SECCOMP; from laomedo.agents.runtime.constants import MEDIATION_CLIENT
+        from laomedo.host.publication.bundle.constants import SCRIPT
         paths = [CONFIG, SECCOMP, MEDIATION_CLIENT, SCRIPT,
                  MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs"), MEDIATION_CLIENT.with_name("agent_git_remote.mjs"),
                  package_root() / "skills/resources/skill-summary/SKILL.md",
@@ -45,8 +45,8 @@ class PackageLayoutTests(unittest.TestCase):
 
     def test_canonical_clis_work_outside_checkout(self):
         env = dict(os.environ, PYTHONPATH=str(import_root()))
-        modules = ["laomedo.host.managed_service", "laomedo.agents.local_runner", "laomedo.agents.providers.claude_runner",
-                   "laomedo.host.leases.container_lease", "laomedo.host.leases.lease_service", "laomedo.work_graph"]
+        modules = ["laomedo.host.managed_service", "laomedo.agents.runtime.cli", "laomedo.agents.providers.claude.cli",
+                   "laomedo.host.leases.process_cli", "laomedo.host.leases.service_cli", "laomedo.work_graph"]
         with tempfile.TemporaryDirectory() as cwd:
             for module in modules:
                 with self.subTest(module=module):

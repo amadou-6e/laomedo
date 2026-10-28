@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer; from http.server import BaseHTTPRequestHandler
 from experiments.exp139.bindings import PROFILE_OVERRIDES
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -19,7 +19,7 @@ the first node's Issue output as its reference, avoiding a workflow cycle.
 
 ## Host connection
 
-Run `python -m laomedo.github.issues.github_issue_server --repository owner/repo
+Run `python -m laomedo.github.issues.cli --repository owner/repo
 --github-token-file <existing-host-connection-file> --github-token-key GH_LAOMEDO
 --connection-id <registered-id> --connection-generation <generation>
 --api-token-file <existing-control-token-file> --mediation-store <private-ledger>

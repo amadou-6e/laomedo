@@ -42,9 +42,8 @@ async def run_query(project, private_home, config_dir, state, prompt, summary,
                     label, setting_sources, skills, model=None, effort=None,
                     max_turns=1, budget=0.25, ledger=None):
     from claude_agent_sdk import ClaudeAgentOptions
-    from claude_agent_sdk._errors import (CLIConnectionError, CLINotFoundError,
-                                          ProcessError, ResultError)
-    from _shared import collect_events, count_attempted_turn, options_env
+    from claude_agent_sdk._errors import CLIConnectionError; from claude_agent_sdk._errors import CLINotFoundError; from claude_agent_sdk._errors import ProcessError; from claude_agent_sdk._errors import ResultError
+    from _shared import collect_events; from _shared import count_attempted_turn; from _shared import options_env
 
     options = ClaudeAgentOptions(
         cwd=str(project),
@@ -124,9 +123,7 @@ def main():
                         help="existing private parent shared with the stream probe")
     args = parser.parse_args()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _shared import (BudgetLedger, compare_personal_roots, credential_gate,
-                          hash_personal_roots, prepare_state_dir,
-                          runner_versions, write_skill)
+    from _shared import BudgetLedger; from _shared import compare_personal_roots; from _shared import credential_gate; from _shared import hash_personal_roots; from _shared import prepare_state_dir; from _shared import runner_versions; from _shared import write_skill
 
     state = args.state_dir.resolve()
     summary = dict(runner_versions())

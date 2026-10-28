@@ -5,8 +5,8 @@ import json
 import unittest
 from urllib import error
 
-from laomedo.host.mediation.github_mediation import KnownRejected
-from laomedo.github.transport.github_rest_transport import GitHubRestTransport, ISSUE_GRAPHQL_QUERY
+from laomedo.host.mediation.errors import KnownRejected
+from laomedo.github.transport.rest.transport import GitHubRestTransport; from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
 
 
 class _Response(io.BytesIO):

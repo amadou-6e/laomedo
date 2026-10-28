@@ -9,7 +9,7 @@ import threading
 import time
 import unittest
 
-from laomedo.host.mediation.github_mediation import KnownRejected, MediationError, MediationStore
+from laomedo.host.mediation.errors import KnownRejected; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
 
 
 REPO = "example/disposable"

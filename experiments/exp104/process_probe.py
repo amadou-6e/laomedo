@@ -17,12 +17,12 @@ import sqlite3
 import subprocess
 import threading
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
-from laomedo.host.mediation.github_mediation import MediationStore
-from laomedo.host.leases.lease_service import LeaseService
-from laomedo.host.mediation.mediation_authority import RunGrantAuthority
-from laomedo.host.mediation.mediation_service import MediationHTTPService
+from laomedo.host.mediation.store import MediationStore
+from laomedo.host.leases.service import LeaseService
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.host.mediation.service import MediationHTTPService
 
 
 REPOSITORY = "example/disposable"

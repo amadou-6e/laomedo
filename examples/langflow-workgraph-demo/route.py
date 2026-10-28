@@ -1,6 +1,6 @@
 """Conditional graph routing. Inactive branches are stopped by Langflow."""
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, Output
+from lfx.io import DataInput; from lfx.io import Output
 from lfx.schema import Data
 
 

@@ -1,14 +1,14 @@
 """Probe outer-client, component HTTP and Langflow server timeout boundaries."""
 
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone
+from datetime import datetime; from datetime import timedelta; from datetime import timezone
 from pathlib import Path
 import json
 import socket
 import subprocess
 import sys
 import time
-from urllib import error, request
+from urllib import error; from urllib import request
 
 
 ROOT = Path(__file__).resolve().parents[2]

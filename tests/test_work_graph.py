@@ -1,14 +1,14 @@
 """Behavioral tests for source integrity and dependency inspection."""
 
 import copy
-from dataclasses import FrozenInstanceError, replace
+from pydantic import ValidationError
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-from laomedo.work_graph.github import fetch, import_pages
-from laomedo.work_graph.model import Dependency, GraphSnapshot
+from laomedo.work_graph.github import fetch; from laomedo.work_graph.github import import_pages
+from laomedo.work_graph.models import Dependency; from laomedo.work_graph.models import GraphSnapshot
 
 
 FIXTURE = Path(__file__).parents[1] / "examples/work-graph/github-pages.json"
@@ -44,7 +44,7 @@ class WorkGraphTests(unittest.TestCase):
             self.assertEqual(first_path.read_bytes(), original)
             self.assertEqual(first.save(Path(directory)), first_path)
         self.assertEqual(first.items[0].key, second.items[0].key)
-        with self.assertRaises(FrozenInstanceError):
+        with self.assertRaises(ValidationError):
             first.items[0].title = "overwrite"
 
     def test_existing_corrupt_artifact_is_not_overwritten(self):
@@ -96,18 +96,14 @@ class WorkGraphTests(unittest.TestCase):
 
     def test_cycles_and_downstream_nodes_are_distinguished(self):
         graph = import_pages("example/work", pages(), NOW)
-        items = tuple(replace(item, state="OPEN") for item in graph.items)
+        items = tuple(type(item).model_validate({**item.model_dump(), 'state': 'OPEN'}) for item in graph.items)
         def edge(start, end):
-            return Dependency(f"github:I_{start}", f"github:I_{end}",
-                              f"https://github.com/example/work/issues/{start}",
-                              f"https://github.com/example/work/issues/{end}",
-                              "example/work", "example/work")
-        graph = replace(graph, items=items, dependencies=tuple(sorted(
-            (edge(1, 2), edge(2, 1), edge(2, 3)))))
+            return Dependency(prerequisite=f'github:I_{start}', dependent=f'github:I_{end}', prerequisite_url=f'https://github.com/example/work/issues/{start}', dependent_url=f'https://github.com/example/work/issues/{end}', prerequisite_repository='example/work', dependent_repository='example/work')
+        graph = type(graph).model_validate({**graph.model_dump(), 'items': items, 'dependencies': tuple(sorted((edge(1, 2), edge(2, 1), edge(2, 3))))})
         self.assertEqual(graph.cycle_keys(), frozenset(("github:I_1", "github:I_2")))
         self.assertEqual(graph.readiness()["github:I_3"], "blocked")
         self.assertEqual(graph.readiness()["github:I_1"], "cyclic")
-        self_loop = replace(graph, dependencies=(edge(3, 3),))
+        self_loop = type(graph).model_validate({**graph.model_dump(), 'dependencies': (edge(3, 3),)})
         self.assertEqual(self_loop.cycle_keys(), frozenset(("github:I_3",)))
 
     def test_connector_fetches_all_pages(self):

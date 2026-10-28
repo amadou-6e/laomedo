@@ -5,17 +5,17 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-from test_module_path_migration import TOOL, migration
+from test_module_path_migration import TOOL; from test_module_path_migration import migration
 
 
 class MigrationFileTests(unittest.TestCase):
     def test_json_splicing_preserves_unrelated_bytes(self):
-        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"Café λ", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode('utf-8')
+        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃƒÂ© ÃŽÂ»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode('utf-8')
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'graph.json'; path.write_bytes(source)
             result = subprocess.run([sys.executable, str(TOOL), str(path), '--apply'], capture_output=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(path.read_bytes(), source.replace(b'from laomedo.skill_store import', b'from laomedo.skills.skill_store import'))
+            self.assertEqual(path.read_bytes(), source.replace(b'from laomedo.skill_store import', b'from laomedo.skills.registry.store import'))
             self.assertEqual(path.with_name(path.name + '.before-module-migration').read_bytes(), source)
 
     def test_python_bom_and_lf_are_preserved(self):
@@ -24,7 +24,7 @@ class MigrationFileTests(unittest.TestCase):
             path = Path(directory) / 'launch.py'; path.write_bytes(source)
             result = subprocess.run([sys.executable, str(TOOL), str(path), '--apply'], capture_output=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(path.read_bytes(), source.replace(b'laomedo.local_runner', b'laomedo.agents.local_runner'))
+            self.assertEqual(path.read_bytes(), source.replace(b'laomedo.local_runner', b'laomedo.agents.runtime.runner'))
 
     def test_unparseable_import_requires_manual_migration(self):
         source = 'from laomedo import local_runner\nif (\n'
@@ -44,9 +44,9 @@ class MigrationFileTests(unittest.TestCase):
         migrated = migration.migrate_value(graph); data = migrated['nodes'][0]['data']
         self.assertEqual(data['module'], old); self.assertEqual(data['args'], [old])
         self.assertEqual(data['node']['template']['task']['value'], old)
-        self.assertEqual(data['node']['template']['code']['value'], 'import laomedo.agents.local_runner')
+        self.assertEqual(data['node']['template']['code']['value'], 'import laomedo.agents.runtime.runner')
         launcher = {'command': 'python -m ' + old, 'nested': {'command': old}}
-        self.assertEqual(migration.migrate_value(launcher), {'command': 'python -m laomedo.agents.local_runner', 'nested': {'command': old}})
+        self.assertEqual(migration.migrate_value(launcher), {'command': 'python -m laomedo.agents.runtime.cli', 'nested': {'command': old}})
 
     def test_removed_intermediate_import_is_migrated(self):
         source = 'from laomedo.activity import agent_activity_capture as capture\n'

@@ -1,7 +1,7 @@
 """Synthetic agent vertex: record one invocation and return a fixed PR head."""
 import json
 from lfx.custom.custom_component.component import Component
-from lfx.io import IntInput, MessageTextInput, Output
+from lfx.io import IntInput; from lfx.io import MessageTextInput; from lfx.io import Output
 from lfx.schema import Message
 from experiments.exp123.runtime import node_event
 

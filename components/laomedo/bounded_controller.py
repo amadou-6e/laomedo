@@ -3,8 +3,8 @@ import asyncio
 import json
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput
-from lfx.schema import Data, Message
+from lfx.io import DataInput; from lfx.io import DropdownInput; from lfx.io import IntInput; from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io import StrInput
+from lfx.schema import Data; from lfx.schema import Message
 
 
 class LaomedoBoundedController(Component):
@@ -37,8 +37,8 @@ class LaomedoBoundedController(Component):
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
-            from laomedo.agents.handoffs import BoundedController
-            from laomedo.agents.handoff_http import RunnerAdapter
+            from laomedo.agents.handoffs.controller import BoundedController
+            from laomedo.agents.handoffs.transport import RunnerAdapter
             targets = json.loads(self.targets_json)
             if not isinstance(targets, list) or not 1 <= len(targets) <= 16:
                 raise ValueError("one_to_sixteen_targets_required")

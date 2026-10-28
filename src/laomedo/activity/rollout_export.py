@@ -2,59 +2,89 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from pathlib import PurePosixPath
+from uuid import UUID
+from uuid import uuid4
 import argparse
 import json
+import laomedo.agents.runtime.constants as _runtime_constants
+import laomedo.agents.runtime.errors as _runtime_errors
+import laomedo.agents.runtime.utils as _runtime_utils
 import os
-from pathlib import Path, PurePosixPath
 import subprocess
-from uuid import UUID, uuid4
-
-from laomedo.agents.local_runner import IMAGE, VOLUME, RunnerError, _id, _private, _read
-
 
 SESSIONS = PurePosixPath("/home/runner/.codex/sessions")
 
 
 def export_rollout(state: Path, run_id: str, *, docker_run=subprocess.run) -> Path:
-    run_dir = _private(state) / "runs" / _id(run_id)
-    record = _read(run_dir / "record.json")
+    run_dir = _runtime_utils._private(state) / "runs" / _runtime_utils._id(run_id)
+    record = _runtime_utils._read(run_dir / "record.json")
     thread_id = record.get("thread_id")
     try:
         if str(UUID(thread_id)) != thread_id:
             raise ValueError()
     except (ValueError, TypeError, AttributeError):
-        raise RunnerError("invalid_native_thread_id") from None
-    prefix = ["docker", "run", "--rm", "--pull=never", "--user", "10001:10001",
-              "--mount", f"type=volume,source={VOLUME},target=/home/runner/.codex,readonly",
-              IMAGE]
-    listing = docker_run([*prefix, "find", str(SESSIONS), "-type", "f", "-links", "1",
-                          "-name", f"*{thread_id}*.jsonl"], capture_output=True,
-                         check=True, timeout=30)
+        raise _runtime_errors.RunnerError("invalid_native_thread_id") from None
+    prefix = [
+        "docker",
+        "run",
+        "--rm",
+        "--pull=never",
+        "--user",
+        "10001:10001",
+        "--mount",
+        f"type=volume,source={_runtime_constants.VOLUME},target=/home/runner/.codex,readonly",
+        _runtime_constants.IMAGE,
+    ]
+    listing = docker_run(
+        [
+            *prefix,
+            "find",
+            str(SESSIONS),
+            "-type",
+            "f",
+            "-links",
+            "1",
+            "-name",
+            f"*{thread_id}*.jsonl",
+        ],
+        capture_output=True,
+        check=True,
+        timeout=30,
+    )
     paths = listing.stdout.decode("utf-8").splitlines()
     if len(paths) != 1:
-        raise RunnerError("native_rollout_not_unique")
+        raise _runtime_errors.RunnerError("native_rollout_not_unique")
     path = PurePosixPath(paths[0])
     if not path.is_relative_to(SESSIONS) or ".." in path.parts:
-        raise RunnerError("native_rollout_path_invalid")
-    size_raw = docker_run([*prefix, "stat", "-c", "%s", str(path)],
-                          capture_output=True, check=True, timeout=30).stdout
+        raise _runtime_errors.RunnerError("native_rollout_path_invalid")
+    size_raw = docker_run(
+        [*prefix, "stat", "-c", "%s", str(path)],
+        capture_output=True,
+        check=True,
+        timeout=30,
+    ).stdout
     try:
         size = int(size_raw.strip())
     except ValueError:
-        raise RunnerError("native_rollout_size_invalid") from None
+        raise _runtime_errors.RunnerError("native_rollout_size_invalid") from None
     if not 0 < size <= 64 * 1024 * 1024:
-        raise RunnerError("native_rollout_size_invalid")
-    content = docker_run([*prefix, "cat", str(path)], capture_output=True,
-                         check=True, timeout=30).stdout
+        raise _runtime_errors.RunnerError("native_rollout_size_invalid")
+    content = docker_run(
+        [*prefix, "cat", str(path)], capture_output=True, check=True, timeout=30
+    ).stdout
     if len(content) != size:
-        raise RunnerError("native_rollout_size_invalid")
+        raise _runtime_errors.RunnerError("native_rollout_size_invalid")
     lines = content.splitlines()
     for line in lines:
         json.loads(line)
     first = json.loads(lines[0])
-    if (first.get("type") != "session_meta" or
-            (first.get("payload") or {}).get("id") != thread_id):
-        raise RunnerError("native_rollout_identity_mismatch")
+    if (
+        first.get("type") != "session_meta"
+        or (first.get("payload") or {}).get("id") != thread_id
+    ):
+        raise _runtime_errors.RunnerError("native_rollout_identity_mismatch")
     output = run_dir / "native-rollout.jsonl"
     pending = run_dir / ("native-rollout.pending-" + uuid4().hex)
     pending.write_bytes(content)

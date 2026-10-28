@@ -1,8 +1,8 @@
 """Dispatch decisions from complete Work Graph evidence, never a filtered view."""
 
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
-from contextlib import closing, redirect_stdout
+from datetime import datetime; from datetime import timedelta; from datetime import timezone
+from contextlib import closing; from contextlib import redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
@@ -14,8 +14,8 @@ from unittest.mock import patch
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.__main__ import main as work_graph_main
-from laomedo.work_graph.launch import launch_github_work_stage, launch_work_stage, preflight, relevant_content_digest
-from laomedo.agents.workflow_run_store import ExternalOutcomeUnknown, LaunchError, WorkflowRunStore
+from laomedo.work_graph.launch import launch_github_work_stage; from laomedo.work_graph.launch import launch_work_stage; from laomedo.work_graph.launch import preflight; from laomedo.work_graph.launch import relevant_content_digest
+from laomedo.agents.workflow.errors import ExternalOutcomeUnknown; from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
 
 
 CORPUS = Path(__file__).resolve().parents[1] / "experiments" / "exp16" / "corpus.json"
@@ -88,7 +88,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
 
     def test_reordered_edges_do_not_make_unchanged_content_stale(self):
         refetched = snapshot(self.corpus, "base", "2026-10-05T10:01:00+00:00")
-        reordered = replace(refetched, dependencies=tuple(reversed(refetched.dependencies)))
+        reordered = type(refetched).model_validate({**refetched.model_dump(), 'dependencies': tuple(reversed(refetched.dependencies))})
         decision = preflight(self.frozen, reordered, WORK)
         self.assertEqual(decision["source_choice"], "unchanged")
         self.assertEqual(decision["frozen_content_digest"],
@@ -237,7 +237,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
             graph_snapshot=self.frozen,
             expires_at=expiry,
             timeout_seconds=30, max_turns=0)
-        with patch("laomedo.work_graph.grants._host_principal", return_value="other-user"):
+        with patch("laomedo.work_graph.grant_utils._host_principal", return_value="other-user"):
             with self.assertRaisesRegex(LaunchError, "grant_operator_mismatch"):
                 authority(ref, binding)
         record, result = launch_work_stage(frozen=self.frozen,

@@ -1,0 +1,64 @@
+{
+  "repository": "example/work",
+  "fetched_at": "2026-10-01T08:00:00+00:00",
+  "source_complete": true,
+  "items": [
+    {
+      "key": "github:I_1",
+      "repository": "example/work",
+      "number": 1,
+      "url": "https://github.com/example/work/issues/1",
+      "title": "Define the input contract",
+      "body": "A synthetic completed prerequisite.",
+      "state": "CLOSED",
+      "updated_at": "2026-10-01T07:00:00Z",
+      "labels": [
+        "contract"
+      ],
+      "blockers_complete": true
+    },
+    {
+      "key": "github:I_2",
+      "repository": "example/work",
+      "number": 2,
+      "url": "https://github.com/example/work/issues/2",
+      "title": "Build the adapter",
+      "body": "A synthetic dependent work item.",
+      "state": "OPEN",
+      "updated_at": "2026-10-01T07:00:00Z",
+      "labels": [
+        "adapter"
+      ],
+      "blockers_complete": true
+    },
+    {
+      "key": "github:I_3",
+      "repository": "example/work",
+      "number": 3,
+      "url": "https://github.com/example/work/issues/3",
+      "title": "Write standalone notes",
+      "body": "A synthetic isolated match.",
+      "state": "OPEN",
+      "updated_at": "2026-10-01T07:00:00Z",
+      "labels": [
+        "notes"
+      ],
+      "blockers_complete": true
+    }
+  ],
+  "dependencies": [
+    {
+      "prerequisite": "github:I_1",
+      "dependent": "github:I_2",
+      "prerequisite_url": "https://github.com/example/work/issues/1",
+      "dependent_url": "https://github.com/example/work/issues/2",
+      "prerequisite_repository": "example/work",
+      "dependent_repository": "example/work",
+      "provenance": "github-native-blocker"
+    }
+  ],
+  "source_warnings": [],
+  "connector_version": "github-gh-v1",
+  "schema_version": 1,
+  "snapshot_id": "sha256:9f16758508a72ed163d87b938e5a6ad5c492db5a205878501e55593f700b5424"
+}
