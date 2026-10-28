@@ -55,7 +55,7 @@ def component(**values):
     if values.get("request_id") == RUN:
         node._generated_request_id = RUN
     if "skill_reference" not in values:
-        node.skill_reference = module.Data(data={"skill_id": node.skill_id,
+        node.skill_reference = shared_module.Data(data={"skill_id": node.skill_id,
             "revision_id": node.revision_id, "tree_hash": node.revision_id})
     return node
 
@@ -457,7 +457,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(environment.stop)
 
     async def test_multiple_skill_inputs_and_repeated_ids(self):
-        refs = [module.Data(data={"skill_id": name, "revision_id": HASH, "tree_hash": HASH})
+        refs = [shared_module.Data(data={"skill_id": name, "revision_id": HASH, "tree_hash": HASH})
                 for name in ("first", "second")]
         node = component(skill_reference=refs, skill_id="", revision_id="")
         payload = node._prepare()[1]
@@ -649,7 +649,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             await node.run_output()
             self.assertNotEqual(seen[0], seen[1])
         ignored = component(operation="start", request_id="not-a-uuid")._prepare_request()[1]
-        self.assertEqual(str(module.UUID(ignored["request_id"])), ignored["request_id"])
+        self.assertEqual(str(shared_module.UUID(ignored["request_id"])), ignored["request_id"])
 
     async def test_uncertain_start_error_retains_retry_identity(self):
         node = component(operation="start")
@@ -678,7 +678,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(payload["expected_post_run_hash"], HASH)
             return Response(json.dumps(result()).encode())
         with patch.object(shared_module.request, "urlopen", side_effect=respond) as http:
-            await component(operation="resume", run_reference=module.Data(data=prior)).run_output()
+            await component(operation="resume", run_reference=shared_module.Data(data=prior)).run_output()
             with self.assertRaisesRegex(ValueError, "resume_model_effort_mismatch"):
                 await component(operation="resume", run_reference=prior, effort="high").run_output()
             self.assertEqual(http.call_count, 1)
@@ -817,34 +817,34 @@ class AgentControlOwnershipTests(unittest.TestCase):
         self.assertTrue(fields["skill_reference"]["show"])
 
     def test_request_identity_is_generated_and_stable_within_build(self):
-        node = component(skill_id="", revision_id="", skill_reference=module.Data(data={
+        node = component(skill_id="", revision_id="", skill_reference=shared_module.Data(data={
             "skill_id": "connected-skill", "revision_id": HASH, "tree_hash": HASH}))
         first = node._prepare_request()[1]
         second = node._prepare_request()[1]
         self.assertEqual(first["request_id"], second["request_id"])
-        self.assertEqual(str(module.UUID(first["request_id"])), first["request_id"])
+        self.assertEqual(str(shared_module.UUID(first["request_id"])), first["request_id"])
         self.assertEqual(first["skill_ref"]["skill_id"], "connected-skill")
 
 
 class ObsoleteAgentControlTests(unittest.TestCase):
     def test_global_codex_bridge_does_not_route_lifecycle_or_other_providers(self):
-        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+        with patch.dict(shared_module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
             for operation in ("resume", "status", "cancel"):
                 self.assertEqual(component(operation=operation)._bridge_base(), "")
             node = component(operation="fresh")
-            node.name = "LaomedoOpenCodeAgent"
+            node.supports_join_bridge = False
             self.assertEqual(node._bridge_base(), "")
 
     def test_backend_bridge_configuration_overrides_legacy_node_value(self):
         node = component(bridge_url="http://localhost:8766")
-        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
+        with patch.dict(shared_module.os.environ, {"LAOMEDO_BRIDGE_URL": "http://localhost:8767"}):
             self.assertEqual(node._bridge_base(), "http://localhost:8767")
-        with patch.dict(module.os.environ, {"LAOMEDO_BRIDGE_URL": ""}):
+        with patch.dict(shared_module.os.environ, {"LAOMEDO_BRIDGE_URL": ""}):
             self.assertEqual(node._bridge_base(), "")
 
 
     def test_hidden_overrides_cannot_drive_execution(self):
-        node = component(request_id="legacy-id", skill_reference=module.Data(data={
+        node = component(request_id="legacy-id", skill_reference=shared_module.Data(data={
             "skill_id": "authoritative", "revision_id": HASH, "tree_hash": HASH}),
             skill_id="old-skill", revision_id="old-revision")
         payload = node._prepare_request()[1]
@@ -909,7 +909,7 @@ class AgentDropdownTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_codex_callback_does_not_modify_opencode_settings(self):
         node = component()
-        node.name = "LaomedoOpenCodeAgent"
+        node.discover_models_on_upgrade = False
         config = {"model": {"value": "provider/model"}, "effort": {"value": "default"}}
         self.assertEqual(await node.update_build_config(deepcopy(config), "other", "model"), config)
 
@@ -951,7 +951,7 @@ class ModelCatalogCredentialTests(unittest.TestCase):
             runner=Path(directory)/'runner-token';runner.write_text('fixture-runner')
             bridge=Path(directory)/'bridge-token';bridge.write_text('fixture-bridge')
             payload=json.dumps({'models':[{'id':'test-model','efforts':['low']}]}).encode()
-            with patch.dict(module.os.environ,{'LAOMEDO_BRIDGE_URL':'http://localhost:8766',
+            with patch.dict(shared_module.os.environ,{'LAOMEDO_BRIDGE_URL':'http://localhost:8766',
                     'LAOMEDO_RUNNER_TOKEN_FILE':str(runner),'LAOMEDO_BRIDGE_TOKEN_FILE':str(bridge)}), \
                  patch.object(shared_module._HTTP,'open',return_value=io.BytesIO(payload)) as opened:
                 node=component(operation='fresh')

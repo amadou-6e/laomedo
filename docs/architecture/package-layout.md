@@ -59,6 +59,7 @@ src/laomedo/
 |       `-- resources/
 |-- integrations/
 |   `-- langflow/
+|       |-- agent/
 |       `-- join/
 `-- work_graph/
 ```
@@ -158,6 +159,7 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 
 | Owner | Models and purpose |
 | --- | --- |
+| agents/runtime | RuntimeBinding groups provider-owned public record metadata |
 | agents/contracts | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |

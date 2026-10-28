@@ -16,6 +16,44 @@ _spec.loader.exec_module(migration)
 
 
 class ModuleMigrationTests(unittest.TestCase):
+    def test_embedded_provider_nodes_migrate_to_neutral_base_without_overwriting_custom_methods(self):
+        for provider in ('Claude', 'OpenCode'):
+            source = ('from laomedo.codex_agent import LaomedoCodexAgent as Component\n'
+                      f'class Laomedo{provider}Agent(Component):\n'
+                      '    name = "custom-visible-name"\n'
+                      '    def custom_method(self):\n        return "preserve-me"\n')
+            result = migration.migrate_source(source)
+            self.assertIn('AgentComponent as Component', result)
+            self.assertNotIn('laomedo.codex_agent', result)
+            self.assertIn('return "preserve-me"', result)
+            self.assertIn('supports_output_requirements = ' + str(provider == 'Claude'), result)
+            self.assertEqual(migration.migrate_source(result), result)
+        source = 'from laomedo.codex_agent import LaomedoCodexAgent\nnode = LaomedoCodexAgent()'
+        self.assertEqual(migration.migrate_source(source), source)
+
+    def test_legacy_agent_migration_retains_class_docstring_and_line_endings(self):
+        source = ('from laomedo.codex_agent import LaomedoCodexAgent as Component\r\n'
+                  'class LaomedoClaudeAgent(Component):\r\n'
+                  '    """Keep this class documentation."""\r\n'
+                  '    name = "custom"\r\n')
+        result = migration.migrate_source(source)
+        self.assertNotIn('\n', result.replace('\r\n', ''))
+        tree = ast.parse(result)
+        cls = next(node for node in tree.body if isinstance(node, ast.ClassDef))
+        self.assertEqual(ast.get_docstring(cls), 'Keep this class documentation.')
+        self.assertEqual(migration.migrate_source(result), result)
+
+    def test_intermediate_runtime_symbols_reach_final_owner(self):
+        source = 'from laomedo.agents.runtime.runner import LocalRunner\n'
+        result = migration.migrate_source(source)
+        self.assertIn('providers.codex.runner import CodexRunner as LocalRunner', result)
+        self.assertEqual(migration.migrate_source(result), result)
+        source = 'import laomedo.agents.runtime.runner as runtime\nrunner = runtime.LocalRunner\n'
+        result = migration.migrate_source(source)
+        namespace = {}
+        exec(result, namespace)
+        self.assertEqual(namespace['runner'].__module__, 'laomedo.agents.providers.codex.runner')
+
     def test_constants_generation_migrates_symbols_and_aliases_in_one_pass(self):
         renamed = {old: new for old, new in migration.MODULE_PATHS.items()
                    if old.endswith('.constants')}

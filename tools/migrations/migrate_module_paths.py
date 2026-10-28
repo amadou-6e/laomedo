@@ -258,9 +258,18 @@ def migrate_source(source: str) -> str:
             declared = {target.id for node in legacy_agent.body if isinstance(node, ast.Assign)
                         for target in node.targets if isinstance(target, ast.Name)}
             indent = " " * (legacy_agent.col_offset + 4)
-            block = "".join(indent + key + " = " + repr(value) + "\n"
+            newline = re.search(r"\r\n|\r|\n", source)
+            newline = newline.group() if newline else "\n"
+            block = "".join(indent + key + " = " + repr(value) + newline
                             for key, value in capabilities.items() if key not in declared)
             first = legacy_agent.body[0]
+            if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                    and isinstance(first.value.value, str)):
+                if len(legacy_agent.body) < 2:
+                    raise ManualMigrationRequired("A docstring-only legacy Agent requires manual migration")
+                first = legacy_agent.body[1]
+            if first.lineno == legacy_agent.lineno:
+                raise ManualMigrationRequired("An inline legacy Agent class requires manual migration")
             insertion = position(first.lineno, 0)
             replacements.append((insertion, insertion, block))
         for node in ast.walk(tree):
