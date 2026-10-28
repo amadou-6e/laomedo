@@ -39,6 +39,32 @@ class BoundaryTests(unittest.TestCase):
         evidence.mkdir()
         return profile, workspace, evidence
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
+    def test_startup_failure_codes_distinguish_configuration_images_and_recovery(self):
+        from py_docker.errors import ConnectionConfigurationError, OwnershipConflictError
+        cases = [
+            ('client', ConnectionConfigurationError('internal selection'), 'opencode_container_configuration_invalid'),
+            ('client', DockerOperationError('internal connection'), 'opencode_controller_startup_failed'),
+            ('images', OwnershipConflictError('internal pin'), 'opencode_image_pin_mismatch'),
+            ('images', DockerOperationError('internal image inspection'), 'opencode_controller_image_unavailable'),
+            ('recover', CleanupUnconfirmedError('internal receipt'), 'opencode_container_cleanup_unverified'),
+        ]
+        for stage, error, expected in cases:
+            with self.subTest(stage=stage, code=expected), tempfile.TemporaryDirectory() as temporary:
+                profile, workspace, evidence = self.fixture(Path(temporary), mode='provider_key')
+                receipts = evidence.joinpath('docker-receipts')
+                receipts.mkdir()
+                receipts.joinpath('pending.json').write_text('internal control',encoding='utf-8')
+                with patch('py_docker.Client') as client:
+                    selected = client.return_value.__enter__.return_value
+                    selected.connection.endpoint = ENDPOINT
+                    if stage == 'client': client.side_effect = error
+                    elif stage == 'images': selected.images.resolve.side_effect = error
+                    else: selected.sessions.recover.side_effect = error
+                    with self.assertRaisesRegex(RunnerError, expected):
+                        IsolatedOpenCode(workspace,evidence,profile=profile,image='controller',image_id=CONTROLLER_ID)
+                    client.return_value.sessions.open.assert_not_called()
+
     def test_console_token_expiry_and_key_binding(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

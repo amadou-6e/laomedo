@@ -81,6 +81,46 @@ class ProviderRecoveryTests(unittest.TestCase):
             self.assertFalse(service.cleanup_failed)
             runtime.lease.return_value.finish.assert_called_once()
 
+    def test_claude_close_signals_the_active_job_before_returning(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = Mock()
+            entered = threading.Event()
+            def run_job(spec, *, timeout, cancelled):
+                entered.set()
+                if not cancelled.wait(3):
+                    raise AssertionError('Job never received its cancellation signal')
+                raise RunnerError('claude_cancelled')
+            runtime.job.side_effect = run_job
+            service = CommandService(runtime,Path(temporary),{'run_id':'internal-cancel'},threading.Event(),time.monotonic()+10)
+            outcome = {}
+            def command():
+                try: service.execute({'command':'pwd'})
+                except RunnerError as error: outcome['code'] = str(error)
+            worker = threading.Thread(target=command)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(2))
+                service.close()
+            finally:
+                service.stopping.set()
+                worker.join(4)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(outcome['code'],'claude_cancelled')
+            self.assertFalse(service.cleanup_failed)
+            runtime.lease.return_value.finish.assert_called_once()
+
+    def test_claude_pre_dispatch_timeout_does_not_claim_uncertain_cleanup(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = Mock()
+            runtime.guarded.side_effect = RunnerError('claude_turn_timeout')
+            service = CommandService(runtime,Path(temporary),{'run_id':'internal-deadline'},threading.Event(),time.monotonic()+10)
+            self.addCleanup(service.close)
+            with self.assertRaisesRegex(RunnerError,'claude_turn_timeout'):
+                service.execute({'command':'pwd'})
+            runtime.job.assert_not_called()
+            runtime.lease.return_value.finish.assert_called_once()
+            self.assertFalse(service.cleanup_failed)
+
     def test_retired_cli_paths_and_dynamic_codes_are_guarded(self):
         root = Path(__file__).resolve().parents[1]
         for relative in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py"):

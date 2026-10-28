@@ -21,6 +21,8 @@ from lfx.schema import Data; from lfx.schema import Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    'opencode_controller_image_unavailable',
+    'opencode_container_configuration_invalid',
     'workspace_command_output_too_large',
     'opencode_workspace_command_failed',
     'opencode_command_service_closed',

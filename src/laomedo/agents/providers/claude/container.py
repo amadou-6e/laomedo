@@ -362,9 +362,10 @@ class CommandService:
             if (
                 self.closed
                 or self.cancelled.is_set()
-                or time.monotonic() >= self.deadline
             ):
                 raise _runtime_errors.RunnerError("claude_cancelled")
+            if time.monotonic() >= self.deadline:
+                raise _runtime_errors.RunnerError("claude_turn_timeout")
             name, token = "laomedo-claude-command-" + uuid4().hex, uuid4().hex
             lease = self.runtime.lease(
                 self.record["run_id"], name, token, self.cancelled
@@ -399,7 +400,7 @@ class CommandService:
                 if str(error) == "workspace_command_output_too_large":
                     self.error_code = "workspace_command_output_too_large"
                 cleanup_confirmed = (
-                    job_started and str(error) != "container_termination_unverified"
+                    not job_started or str(error) != "container_termination_unverified"
                 )
                 raise
             finally:
