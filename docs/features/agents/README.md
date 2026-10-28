@@ -1,5 +1,8 @@
 # Agents
 
+[User stories and visuals](user-stories.md) describe the implemented experience
+and clearly labelled proposals.
+
 Agent nodes dispatch provider work through runners and retain run identity and
 activity. Domain operations remain with the Skills and GitHub features.
 

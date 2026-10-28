@@ -1,5 +1,8 @@
 # Skills
 
+[User stories and visuals](user-stories.md) describe the implemented experience
+and clearly labelled proposals.
+
 Skills provide versioned instruction files and controlled multi-file editing.
 
 - [Architecture](architecture.md): component and package ownership.

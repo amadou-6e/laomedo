@@ -1,5 +1,8 @@
 # GitHub
 
+[User stories and visuals](user-stories.md) describe the implemented experience
+and clearly labelled proposals.
+
 GitHub nodes select repository work and perform scoped operations while the
 host keeps provider credentials outside the agent runtime.
 
