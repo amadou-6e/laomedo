@@ -114,7 +114,7 @@ class BoundaryTests(unittest.TestCase):
             broker=CommandBroker(root,root,root,root,docker_endpoint=ENDPOINT)
             self.addCleanup(broker.close)
             entered,release=threading.Event(),threading.Event()
-            def run(job):
+            def run(job, **kwargs):
                 entered.set()
                 self.assertTrue(release.wait(3))
                 return CommandResult(exit_code=0,stdout=b'ok',stderr=b'')

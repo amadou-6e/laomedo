@@ -49,6 +49,13 @@ not graph acceptance. The host credential mirror still uses its existing CLI
 transport; its credential policy and transport are outside this increment.
 Graph, publication and LOC acceptance remain outstanding.
 
+OpenCode abort and shutdown signal the active py-docker job, which stops only its
+observed owned container and confirms cleanup through the shared Session lifecycle.
+A real active-worker cancellation originally waited 45.27 seconds; after this
+correction it completed in 1.59 seconds with confirmed cleanup. This is provider
+evidence, not a graph acceptance or a universal timing guarantee. In-container
+deadlines still bound host-loss cases where no caller can signal cancellation.
+
 ## Canonical paths
 
 Credential-free version checks use `client.jobs.run`. Normal and split Codex
@@ -131,7 +138,8 @@ cancellation and abrupt-loss recovery, exact cleanup, descriptive failure
 presentation, final-head CI and full substantive Claude review. Live graph review
 and owner merge approval remain separate. Local checks with image73ad do not
 validate checked-in image7b79 or establish the local image's build provenance.
-No credentials are copied by this migration. Actual login-only mirroring remains
-subject to the owner's existing dedicated-local-volume authorization.
+Credentials are never committed or returned in graph payloads. Live Claude checks
+used the existing access-only mirror under the owner's dedicated-local-volume
+authorization; the host retains rotating refresh credentials and refresh ownership.
 
 Real stream/EOF checks currently cover the runtime transport; a Codex-level EOF failure is not claimed as accepted. A split model turn remains unverified: only split initialize, registration and catalogue have real evidence.

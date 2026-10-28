@@ -39,6 +39,7 @@ class CommandBroker:
         self.token = secrets.token_hex(32)
         self.closed = self.cleanup_failed = False
         self.error_code = None
+        self.stopping = threading.Event()
         self.worker_image_id = worker_image_id or _opencode_settings.WORKER_IMAGE_ID
         self.docker_endpoint = docker_endpoint
         self.receipts = (
@@ -153,6 +154,7 @@ class CommandBroker:
             from py_docker.jobs.models import ContainerJob
             from py_docker.streams.models import StreamLimits
             from py_docker.errors import (
+                JobCancelledError,
                 CleanupUnconfirmedError,
                 DeadlineError,
                 DockerOperationError,
@@ -198,7 +200,8 @@ class CommandBroker:
                             limits=StreamLimits(seconds=70, max_bytes=1024 * 1024),
                             wait_timeout_seconds=10.0,
                             receipt_path=self.receipts.joinpath(name + ".json"),
-                        )
+                        ),
+                        cancelled=self.stopping,
                     )
                 value = {
                     "exit_code": result.exit_code,
@@ -210,6 +213,8 @@ class CommandBroker:
                 raise _runtime_errors.RunnerError(
                     "opencode_container_cleanup_unverified"
                 ) from None
+            except JobCancelledError:
+                value = {"exit_code": 130, "stdout": "", "stderr": "worker_cancelled"}
             except DeadlineError:
                 value = {"exit_code": 124, "stdout": "", "stderr": "worker_timeout"}
             except OutputLimitError:
@@ -232,10 +237,15 @@ class CommandBroker:
         finally:
             self.capacity.release()
 
-    def close(self):
-        """Refuse new requests and await the bounded active job's exact cleanup."""
+    def stop(self):
+        """Reject new work and signal exact-ID cancellation of the active job."""
         with self.lock:
             self.closed = True
+            self.stopping.set()
+
+    def close(self):
+        """Cancel the active job and await its confirmed cleanup before returning."""
+        self.stop()
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=5)
@@ -544,6 +554,8 @@ class IsolatedOpenCode:
             raise _runtime_errors.RunnerError(self.broker.error_code)
 
     def call(self, method, path, payload=None):
+        if method == "POST" and path.endswith("/abort") and self.broker is not None:
+            self.broker.stop()
         self.check_transport()
         basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
         req = request.Request(
