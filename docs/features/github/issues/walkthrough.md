@@ -49,7 +49,7 @@ repository and host service; do not treat the failure as an empty issue.
 ## 3. Read the node's outputs
 
 Leave **Operation** unconnected and run the Issue node once to fetch its current
-data. This read does not run an Agent. Inspect **Issue Data**, **Task Message**
+data. This read does not run an Agent. Inspect **Issue**, **Task**
 and **Operation Result** in the node outputs.
 
 Expected operation state: **not_requested**. The readable task message provides

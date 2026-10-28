@@ -43,7 +43,8 @@ neither belongs in the graph. If that host setup is absent, stop after inspectio
 
 The unmodified **pr-feedback-title** skill requests the exact title
 **Original Codex Agent feedback verified**, preserving the description and labels.
-Read it before using it. To request a different title, first create and review
+That title is fixed example text from the Skill, even when Claude makes the
+proposal. Read it before using it. To request a different title, first create and review
 a new Skill revision; editing the Agent Task in this feedback topology will not
 replace the PR controller's seeded task.
 

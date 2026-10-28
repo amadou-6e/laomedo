@@ -69,6 +69,11 @@ Then run the same app bootstrap from the quickstart. These are backend transport
 credentials and URLs, distinct from the GitHub provider connection. No graph
 export needs either credential. Do not change the existing runner or supervisor.
 
+This local recipe reuses one transport token across the configured services:
+holding it permits calls to each of them. For separate service credentials,
+configure a distinct API token file on each service and the matching backend
+token-file setting. The provider connection remains separate in either case.
+
 Continue with [the Issue walkthrough](issues/walkthrough.md) or
 [the PR walkthrough](pull-requests/walkthrough.md). Successful discovery should
 show real choices for your exact configured repository, rather than an invented

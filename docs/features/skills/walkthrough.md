@@ -61,13 +61,18 @@ policy = {
 
 Keep the printed hashes for exact selection. This policy permits only those two
 Markdown paths; it does not authorize scripts, Git publication or promotion.
-Use a separate registry for a fresh repetition if this skill already has edit
-history: an empty Base Commit is valid only at the initial imported revision.
+For another edit, select the candidate revision and Base Commit from its existing
+history. For a fresh installation, use a separate private runtime root for all
+registry, journal and service paths together; an empty Base Commit is valid only
+at the initial imported revision.
 
 ## 2. Start discovery and history services
 
 Start each command in its own terminal, with the same quickstart variables.
 They reuse the existing host transport-token file; it never enters the graph.
+A process holding that shared token can call the other services configured to
+use it. Separate per-service token files are supported for stronger isolation,
+provided each backend token-file setting matches its owning service.
 
 **Source service:**
 

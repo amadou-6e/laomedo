@@ -11,7 +11,7 @@ to open, with closed/all under advanced parameters. It fetches current content
 on each build; all outputs in one build share one execution. Changing an issue
 title refreshes its display label without replacing its number.
 
-Outputs: Issue Data, readable Task Message and Operation Result. Result states
+Outputs: Issue, Task (the readable message) and Operation Result. Result states
 are not_requested/succeeded/failed/unknown. Failed or uncertain results stop the
 Task branch, so unavailable issue data is not sent as an agent prompt. Wire the
 result to a condition when handling failures. A second Issue node can receive

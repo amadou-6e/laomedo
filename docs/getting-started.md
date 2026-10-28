@@ -15,7 +15,9 @@ If your local app and Claude runner are already configured, go straight to
 
 ## 1. Install the Python application
 
-Open PowerShell at the implementation repository root: the folder containing
+Use a checkout of the same Laomedo revision as this guide; the current review
+branch and an older default-branch checkout may have different layouts. Open
+PowerShell at the implementation repository root: the folder containing
 `pyproject.toml`, `components/` and `docker/`. In this workspace that is
 `implementation/`; a standalone clone uses its repository root.
 
@@ -194,9 +196,13 @@ There is currently no node-local run selector; a missing binding produces a
 descriptive error. The [Agent walkthrough](features/agents/walkthrough.md) explains
 the distinction and the next task.
 
+The first result to check is the conversation and terminal outcome. Usage or
+OpenTelemetry sections can be absent or incomplete depending on capture settings;
+the existing Activity illustration includes telemetry from its recorded run.
+
 | Where you are blocked | What to do |
 | --- | --- |
-| Docker command is missing | Install Docker Desktop, then reopen the terminal |
+| Docker command is missing | [Install Docker Desktop](https://docs.docker.com/get-started/get-docker/), then reopen the terminal |
 | Docker is installed but its engine is stopped | Start Docker Desktop and wait for `docker info` to succeed |
 | Runner is offline | Restart Terminal B's exact runner command; managed installations may offer Start local runner in the recovery panel |
 | Model list or subscription is unavailable | Check the configured runner and its dedicated login; a working host Claude session alone does not prove this separate volume is signed in |
