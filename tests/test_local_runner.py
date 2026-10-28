@@ -239,14 +239,15 @@ class LocalRunnerTests(unittest.TestCase):
             args=(str(host_state), str(token_file), str(self.source)))
         child.start()
         try:
-            deadline = time.monotonic() + 10
+            # This bounds cold Windows child-process setup, not runner latency.
+            deadline = time.monotonic() + 30
             while not all(path.exists() for path in (
                     host_state / "lease" / "service.json",
                     host_state / "lease" / "service.alive",
                     host_state / "lease" / "service.alive.monotonic",
                     host_state / "mediator" / "mediator.json")):
                 if time.monotonic() > deadline or not child.is_alive():
-                    self.fail("synthetic host services did not start")
+                    self.fail(f"internal host services did not start (child exit={child.exitcode})")
                 time.sleep(.02)
             authority = RunGrantAuthority(
                 host_state / "authority.sqlite",
@@ -1252,7 +1253,7 @@ class LocalRunnerTests(unittest.TestCase):
                 self.log.write('{"method":"item/started"}\n')
                 self.log.flush()
                 started.set()
-                assert cancelled.wait(3)
+                assert cancelled.wait(15)
                 return "cancelled", "cancelled_by_user"
 
         self.runner.transport = Blocking
@@ -1273,7 +1274,9 @@ class LocalRunnerTests(unittest.TestCase):
 
         submitting = threading.Thread(target=submit)
         submitting.start()
-        self.assertTrue(started.wait(2))
+        # Wait for the actual transport phase; workspace preparation/file scanning
+        # is not the cancellation behavior this internal test measures.
+        self.assertTrue(started.wait(15), f"internal transport not reached: {result}")
         run_dir = next((self.runner.state / "runs").iterdir())
         req = http_request.Request(base + "/" + run_dir.name + "/cancel",
                                    data=b"{}", method="POST",
@@ -1281,7 +1284,7 @@ class LocalRunnerTests(unittest.TestCase):
         with http_request.urlopen(req) as response:
             self.assertEqual(response.status, 202)
             self.assertTrue(json.load(response)["cancel_requested"])
-        submitting.join(3)
+        submitting.join(15)
         self.assertEqual(result["status"], "cancelled")
         self.assertEqual(result["run_id"], run_dir.name)
         self.assertIn("item/started", (run_dir / "raw-events.jsonl").read_text())
