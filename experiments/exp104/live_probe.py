@@ -121,7 +121,10 @@ def _runner(state: Path, run_id: str, lease_token: str, name: str,
             branch: str, ready: Path) -> None:
     # This process is the only one killed in the runner-loss case. The
     # mediator and lease service are siblings launched by the controller.
-    client = LeaseClient(state, run_id=run_id, name=name, token=lease_token,
+    from py_docker import Client as _DockerClient
+    with _DockerClient() as _lease_docker:
+        _lease_endpoint = _lease_docker.connection.endpoint
+    client = LeaseClient(state, docker_endpoint=_lease_endpoint, run_id=run_id, name=name, token=lease_token,
                          cancelled=threading.Event(), mediation_request={
                              "invocation_id": "invocation-" + run_id,
                              "repository": REPOSITORY, "branch": branch})

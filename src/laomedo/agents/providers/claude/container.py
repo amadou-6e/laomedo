@@ -33,9 +33,18 @@ class ClaudeContainer:
             r"laomedo-claude-[a-z0-9-]+", profile
         ):
             raise _runtime_errors.RunnerError("claude_container_configuration_invalid")
-        from py_docker import Client
-        with Client(environment=_claude_utils.docker_environment()) as docker:
-            self.docker_endpoint = docker.connection.endpoint
+        try:
+            from py_docker import Client
+            from py_docker.errors import ConnectionConfigurationError, DockerOperationError
+        except ImportError:
+            raise _runtime_errors.RunnerError("claude_container_unavailable") from None
+        try:
+            with Client(environment=_claude_utils.docker_environment()) as docker:
+                self.docker_endpoint = docker.connection.endpoint
+        except ConnectionConfigurationError:
+            raise _runtime_errors.RunnerError("claude_container_configuration_invalid") from None
+        except DockerOperationError:
+            raise _runtime_errors.RunnerError("claude_container_unavailable") from None
         self.docker_environment = dict(_claude_utils.docker_environment(), DOCKER_HOST=self.docker_endpoint)
         self.docker_environment.pop("DOCKER_CONTEXT", None)
         checked = _claude_utils.run_docker(

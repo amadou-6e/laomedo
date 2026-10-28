@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -116,28 +115,22 @@ class CodexPreflight:
             raise RunnerError("runner_docker_check_unconfirmed") from None
 
     def _recover_sessions(self, client: Client) -> None:
-        """Recover observed controllers and remove only recovered metadata folders.
+        """Recover controller and executor receipts without discarding evidence.
 
         Parameters
         ----------
         client : Client
             Client on the original preflight-selected endpoint.
         """
+        for pending in self.receipt_path.parent.joinpath("receipts").glob("*.json"):
+            client.sessions.recover(pending)
+        # Reconcile both old receipt names. Never recursively delete legacy
+        # evidence directories: another unresolved receipt may still be there.
         for folder in ("runs", "catalog", "preflight"):
-            root = self.receipt_path.parent.joinpath(folder).resolve()
-            for pending in root.glob("*/" + codex_settings.NATIVE_RECEIPT_FILENAME):
+            for pending in self.receipt_path.parent.joinpath(folder).glob(
+                "*/*receipt*.json"
+            ):
                 client.sessions.recover(pending)
-                if folder == "runs":
-                    continue  # Execution history is never catalogue cleanup.
-                parent = pending.parent.resolve()
-                if pending.parent.is_symlink() or parent.parent != root:
-                    continue  # Never recursively remove an escaped/junction target.
-                try:
-                    shutil.rmtree(parent)
-                except OSError:
-                    logging.getLogger(__name__).warning(
-                        "Recovered controller metadata could not be removed."
-                    )
 
     def _probe(self, client: Client, image: str, expected_id: str) -> None:
         """Delegate the hardened version probe and enforce Codex output policy.

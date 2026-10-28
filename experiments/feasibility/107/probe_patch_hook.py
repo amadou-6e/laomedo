@@ -44,7 +44,7 @@ def main(with_hook=True):
                 "command = 'sh /store/deny_patch.sh'\ntimeout = 5\n")
         config.write_text(config_text)
         profile = _owned_runner__split_profile(root.resolve())
-        _owned_runner__ensure_split_profile(profile)
+        _owned_runner__ensure_split_profile(profile, state=root)
         original_config = _owned_runner_CONFIG
         _owned_runner_CONFIG = config
         server = None

@@ -48,7 +48,10 @@ def docker_json(name: str) -> dict | None:
 def child(root: Path, service_state: Path) -> None:
     run_id, token = uuid4().hex, uuid4().hex
     name = "laomedo-codex-" + uuid4().hex
-    lease = LeaseClient(service_state, run_id=run_id, name=name, token=token,
+    from py_docker import Client as _DockerClient
+    with _DockerClient() as _lease_docker:
+        _lease_endpoint = _lease_docker.connection.endpoint
+    lease = LeaseClient(service_state, docker_endpoint=_lease_endpoint, run_id=run_id, name=name, token=token,
                         cancelled=threading.Event())
     info = json.loads((service_state / "service.json").read_text(encoding="utf-8"))
     subprocess.run(["docker", "run", "-d", "--name", name, "--pull=never",

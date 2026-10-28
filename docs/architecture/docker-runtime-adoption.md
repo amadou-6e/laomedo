@@ -1,233 +1,113 @@
 # Docker runtime adoption
 
-This records the migration for Laomedo issues #196–202. The preflight replacement merged in PR #212 at develop 5ffab075, and its py-docker dependency merged in PR #11 at a084711. The owner authorized those merges using the reviewed Git pin before PyPI publication. The visible checkout remains unchanged.
+Laomedo uses the optional `runner` extra to consume `py-docker` (`py_docker`),
+which builds on the official Docker SDK. The dependency is currently pinned to
+an unpublished Git revision for local verification. PyPI publication, an accepted
+image build and owner graph approval are separate requirements before release.
+The preflight migration merged in PR212; the normal/split migration remains draft.
 
-The normal and split Codex lifecycle replacement is a separate draft on develop. Its optional runner extra pins the unpublished py-docker #12 feature revision. Publication/hash locking, real graph acceptance and owner approval for this new migration remain separate pending steps.
+## Boundary
 
-## Ownership
+The runtime owns endpoint/context resolution, immutable resource identity,
+launch readback, creation/attachment/start/removal, bounded binary transport,
+line framing, EOF/state confirmation and durable ownership receipts. It never
+pulls, builds, recreates or retries an uncertain create implicitly.
 
-The general `py-docker` distribution imports as `py_docker` and uses the official
-Docker SDK. Laomedo retains provider authorization, image and CLI-version pins,
-mount policy, configuration hashes, credential selection/mirroring, independent
-lease supervision, publication verification and descriptive error presentation.
-The runtime must not acquire application credentials or decide whether a graph
-operation is authorized. Database drivers are a separate package dependency.
+Laomedo owns approved image/CLI/config/seccomp pins, mount and sandbox policy,
+credential selection, native protocol, decoding, redaction, evidence, telemetry,
+turn budgets, grants and the independent supervisor process. Database drivers
+remain in the separate database package. No Codex, GitHub or graph authorization
+policy belongs in py-docker.
 
-Pin the adopted version and artifact hashes in the lockfile. Review runtime
-upgrades as changes to Laomedo's container security boundary. Stage-worker imports
-and the standard-library Git credential helper must remain independent of the
-runtime package. Verify the installed wheel, supported Python versions, Pydantic
-ranges and pinned Langflow stage before adoption.
+One `Client` selects a daemon from the explicit host environment snapshot.
+Subsequent launches and supervision use that endpoint; graph inputs cannot
+select it. Ambiguous, remote and TLS configurations fail closed in this local
+integration. Core imports and stage workers remain SDK-independent. Actual
+Claude container startup also requires the runner extra for endpoint binding;
+missing dependencies and unsupported configuration map to Claude error codes.
+The remaining Claude/OpenCode lifecycle is not yet migrated.
 
-## Migration slices
+## Canonical paths
 
-| Issue | Existing owners | Runtime surface and remaining requirement |
-| --- | --- | --- |
-| #196 connection/readiness | host/runner/prerequisites.py, provider environment helpers | Client and ResolvedConnection; retain installation-vs-stopped-vs-unknown distinctions and resolve one endpoint for SDK and remaining CLI calls. |
-| #197 image/CLI checks | agents/providers/codex/runner.py, provider containers | Images.resolve plus restricted credential-free verification container; exact expected image ID and native CLI version remain Laomedo policy. |
-| #198 volumes/login copy | agents/runtime/utils.py, host/credentials/claude/utils.py | Volumes inspection/creation receipts; preserve existing named-volume labels and local-only login restrictions. Unique-volume helper alone does not migrate existing fixed auth volumes. |
-| #199 launch | provider/runtime launch helpers, work_graph/docker_stage.py, publication bundle stage | ContainerSpec, reserve/create/reconcile and launch readback; compare every existing launch option before switching. No implicit pulls/builds or force replacement. |
-| #200 interactive protocol | agents/providers/codex/servers.py, provider consumers | Execution.attach binary frames and stdin; prove real agent JSON-RPC, activity, cancellation and shutdown parity. SDK socket closure is not container termination; stdin half-close is not guaranteed. |
-| #201 exec/export | command workers, publication bundle/stage.py and verified/git.py | Execution.run supports bounded binary output; archive streaming and a total end-to-end deadline are not supplied by the first prerelease. Keep the current verified export until those contracts are implemented and reviewed. |
-| #202 cleanup/supervision | host/leases and publication/bundle/ownership.py | Exact immutable-ID removal and receipts; preserve absent/owned/conflict/unknown results, name replacement checks, ownership locks and independent supervisor lifetime. Never prune by prefix or port. |
+Credential-free version checks use `client.jobs.run`. Normal and split Codex
+controllers use `client.sessions.open`. A typed `CodexLaunch` projects app policy
+into `ContainerSpec`; `SplitLaunch` supplies controller-specific deferred-tool
+configuration. There is no Docker CLI transport fallback, command-list parser,
+`SplitTransport`, `_docker_prefix` or `_docker_checked` in the Codex path.
 
-The first prerelease has per-request API timeouts and a separate stream deadline.
-It is not a substitute for an existing total execution deadline. Closing a stream
-on timeout leaves the remote outcome uncertain until inspected and reconciled.
-Generic Docker volume deletion is not exposed because volumes lack immutable IDs;
-Laomedo must retain its own serialized named-volume lifecycle where required.
+The normal controller retains its reviewed seccomp checksum, UID10001,
+capability dropping, no-new-privileges, resource limits and scoped mounts.
+The split controller joins the observed executor ID's network. Its launch-only
+OAuth credential never enters the Docker control environment or executor. The
+executor mounts only its writable workspace and a temporary credential-free home.
+Both output channels are drained under validated stream budgets. SDK exec probes
+preserve listener isolation, CLI-version and executor-selection checks.
 
-## Evidence and adoption gates
+Profile preparation recovers its previous job receipt before dispatch. Newly
+created volumes receive bounded root+CHOWN initialization; reused profiles get
+an unprivileged read-only UID check. Failure never removes a mutable volume name
+or silently accepts an unprepared profile. Known existing profile names are
+explicit host selections, not implicit library ownership adoption.
 
-The library has credential-free local Windows named-pipe and Unix-socket checks.
-These establish library behavior only. Internal fault-injection checks establish
-recovery logic, not a real daemon failure or a working agent graph. The local trial records the merged Git revision and built-wheel hash. Runtime CI,
-reviewed release artifacts and PyPI name/publisher acceptance precede production
-dependency locking; each migration then needs its own affected checks and real agent path.
+## Recovery and shutdown
 
-All existing public error codes and actual UI recovery controls stay intact.
-Explicitly cover new producer paths in the shared error catalogue guard. A Docker
-SDK failure cannot turn an unknown remote outcome into absence or justify a blind
-graph retry. Docker stopped, missing and runner-offline states must keep their
-distinct recovery actions from the local runner recovery contract.
+Active controller and executor receipts live in private `state/receipts/`,
+outside disposable metadata. Both central receipt kinds and legacy controller/
+executor receipt names are recovered. Legacy evidence directories are retained.
+Catalogue evidence is retained while either lifecycle remains unresolved.
 
-The SDK owns Docker HTTP transport. The separate implementation-wide HTTPX issue
-#203 concerns first-party HTTP clients; it must not monkeypatch Docker SDK internals.
+A receipt records intent before creation, then the observed immutable ID.
+Recovery can confirm that ID's absence after independent removal. Intent-only
+absence cannot prove that a delayed daemon request will not create the container.
+Keep unresolved receipts on the original endpoint; never delete one merely to
+permit a retry. Resolve the original outstanding create before reusing its name.
+Receipt locks prevent recovery from stealing an active lifecycle.
 
-Do not merge Laomedo into develop until the owner reviews the real working graph
-and approves. Library CI or a package reviewer verdict does not satisfy that gate.
+Session close removes the exact owned ID before detaching and unblocking readers.
+EOF alone is not execution success. A still-running process after EOF is a
+transport failure; a nonterminal created state waits for the bounded deadline.
+Reader resources close only after their actual users finish.
 
+Lease registrations and persisted run ownership record the selected endpoint.
+Legacy records without it stay unknown. `Containers.watch` implements exact
+inspection/removal and delayed-create observation; the Laomedo supervisor owns
+heartbeat loss, grant revocation and authority. A loss watch that never observes
+creation remains unverified. Zero-window cleanup is only for an already resolved
+operation, not evidence that an unknown create cannot arrive later.
 
-## Codex preflight replacement
+Confirmed SDK close replaces redundant normal cleanup. Independent lease
+completion remains required; its failure cannot be promoted to success by
+another container-absence check. Split shutdown reports unresolved executor
+cleanup separately and preserves its receipt.
 
-The generic one-shot lifecycle is now delegated to `client.jobs.run` and
-`client.jobs.recover`. Laomedo no longer implements private receipt writing,
-reconciliation, frame collection, exit waiting or cleanup for this probe.
-Both normal and split execution use this same preflight. The former inline
-Docker CLI image/version probe is removed in this PR, with no fallback branch.
-Split profile preparation, executor controls and cleanup receive the same
-endpoint snapshot selected by preflight. Skipping Docker checks remains an
-explicit internal constructor option; it is not a fallback after a failed check.
-Split startup now requires the `runner` extra and runs the same hardened,
-credential-free read-only version probe as normal startup. A failure in this
-probe precedes profile access and must not be diagnosed as a login failure.
-The controller's launch-only access token is kept separate from the Docker
-control environment, including initialization-failure cleanup.
-It retains only the image/version authorization, hardened probe policy, state
-path, endpoint snapshot and mapping to the existing descriptive error codes.
-Generic fault controls live in py-docker; Laomedo's controls guard delegation and
-policy. A native receipt lock prevents another caller from recovering a live job.
-The empty sibling `.lock` file is normal and must not be deleted during use.
+## Configuration and errors
 
-## Normal Codex interactive lifecycle replacement
+Existing native-turn allowances and correction retries determine stream lifetime.
+Host settings `LAOMEDO_CODEX_STREAM_MAX_BYTES` (64MiB default) and
+`LAOMEDO_CODEX_STREAM_STARTUP_MARGIN` (120s default) are validated at use. They
+introduce no model-turn cap. API, stream and wait deadlines remain distinct;
+there is no claimed total wall-clock deadline across all Docker calls.
 
-The next migration replaces normal Codex `docker run`/`Popen` and CLI removal
-with `client.sessions.open(ContainerSession)`. `native/models.py` owns the
-application launch policy; `native/server.py` handles native JSON-RPC over the
-library's bounded binary session. `native/base.py` shares native protocol and
-turn interruption with the explicitly separate `split` package. The former
-mixed `servers.py` is removed and callers migrate to defining modules. There is
-no CLI transport fallback after an SDK failure. Split controller and executor
-now use exact SDK sessions, with shared native protocol and separate credential scopes.
+Stable user-visible codes and the shared error catalogue remain authoritative.
+Cleanup uncertainty outranks ordinary failure. Errors expose safe codes and
+identifiers, never daemon text, raw output, credentials or private receipt labels.
 
-The normal SDK spec preserves writable rootfs, bridge networking, UID/GID
-10001:10001, capability dropping, no-new-privileges, memory/process limits,
-dedicated named auth volume, workspace and skill mounts, read-only canonical
-snapshot/configuration, mediated grants/shims and Git safe-directory policy.
-The reviewed seccomp bytes are checksum-verified and sent inline to Docker.
-Credentials remain in the existing dedicated local volume; this migration does
-not copy or export login data. Activity redaction happens after complete byte
-lines are assembled, including UTF-8 characters split across Docker frames.
+## Acceptance and LOC
 
-Maintained native subclasses receive the canonical launch plus the selected
-endpoint and lifetime. The existing Git/relay experiment projects typed policy
-subclasses rather than parsing a Docker command; its run identity and capability
-redaction survive that projection. The obsolete CLI-rewriter startup control is
-removed. Earlier control output remains historical evidence, not acceptance of
-the new SDK path. Maintained diagnostics use typed SDK policies; the obsolete CLI-only EXP107 entrypoints are retired.
+The pre-offloading baseline is develop
+`975d13cf2d8a62c50acef2b1eb4835c6040d9bee`, before PR212. Compare production
+`src` physical lines separately from tests, documentation and experiments; also
+report the full diff. The owner expects parity. If it is not met, reinvestigate
+and report the gap. Historical script retirement is not production savings.
 
-The independent lease supervisor remains authoritative for application ownership
-and runner-loss cleanup. SDK containers carry its existing run/token labels plus
-the library's private ownership token. Per-run `container-receipt.json` first
-records intent, then atomically records the observed immutable ID. Startup
-recovers receipts under runs/catalog/preflight on the preflight-selected endpoint,
-after base recovery and before a new probe. An observed ID removed by the lease
-supervisor can safely be confirmed absent; an unobserved create remains uncertain.
-Catalogue cleanup preserves a directory containing an unresolved receipt.
-After recovery confirms removal, disposable catalogue/preflight folders are
-removed with resolved-path containment checks; execution history under runs is
-preserved. An observation-write failure is distinct from cleanup uncertainty:
-only failed removal or reconciliation reports unverified cleanup.
+The obsolete CLI-specific EXP107 entrypoints are retired with their reports and
+Git history retained. Maintained diagnostics use the SDK. Tests with internal
+controls do not establish integration acceptance.
 
-Stream lifetime covers the existing 180-second native turn allowance for each
-permitted output-correction turn, plus startup/shutdown margin. Catalogue and
-permission checks supply their own operation lifetime. This introduces no model
-turn cap. `LAOMEDO_CODEX_STREAM_MAX_BYTES` defaults to 64 MiB per attachment and
-`LAOMEDO_CODEX_STREAM_STARTUP_MARGIN` to 120 seconds; both are validated host
-settings. Byte-budget or transport failure maps to existing descriptive errors
-after exact cleanup. Output EOF alone never confirms execution success.
-If a reader outlives the bounded close join, the run fails conservatively. Its
-logs, telemetry and client stay open while still in use, then close once when
-that reader exits. They are not reported as successfully finalized beforehand.
-
-The optional runner extra pins the unpublished interactive feature revision for
-local verification. Internal controls cover policy, redaction, delegation,
-retirement and error-catalogue coverage. Real Docker interactive and real Codex
-checks are recorded separately; this checkpoint does not establish graph/UI
-acceptance, a published dependency, or completion of the full Docker migration.
-
-The host-only `runner` extra loads py-docker lazily. Core Laomedo, Langflow
-components and stage-worker imports do not require the Docker SDK. Split Codex's
-main protocol, Claude, OpenCode, host readiness classification, login mirroring, volumes,
-publication/export and independent lease supervision retain their existing paths.
-
-One scoped Client receives the exact host environment snapshot and explicit
-15-second request settings. PY_DOCKER_* endpoint overrides are deliberately not
-adopted. Ambiguous DOCKER_HOST/DOCKER_CONTEXT, remote and TLS configurations now
-fail closed for this local trial. Image inspection checks the host pin; creation
-uses that immutable ID, never the mutable tag. The real codex --version probe
-has no volumes or login, runs as 10001:10001 with no networking, no capabilities
-and no-new-privileges. Read-only rootfs, 128 processes and 1g memory intentionally
-tighten the previous probe and require real-image verification.
-
-Attach happens before start; combined binary output is limited to 64 KiB and a
-20-second stream lifetime. Exit-status wait is bounded separately to 20 seconds.
-These are per-operation limits, not the former single 20-second process deadline.
-The private runner state retains a canonical ownership receipt before create;
-unknown create outcomes retain it and block another probe until exact cleanup
-can be confirmed. Cleanup failure takes precedence over version/pin errors.
-
-The remaining normal-mode CLI volume check, launch and fallback cleanup receive
-the same snapshot pinned with DOCKER_HOST and without DOCKER_CONTEXT. Independent
-lease cleanup remains on its existing host CLI configuration. Therefore changing
-Docker host/context configuration while a runner or lease service is alive is
-unsupported; restart/reconcile services first. This pre-existing lease risk is
-not claimed fixed by the trial and blocks general endpoint migration (#196/#202).
-
-Error mapping uses existing catalogue entries: image pin mismatch becomes
-docker_image_digest_changed; nonzero/invalid UTF-8/version mismatch becomes
-unsupported_codex_cli_version; SDK, connection, import and stream failures become
-runner_docker_check_unconfirmed; cleanup uncertainty becomes
-container_termination_unverified. Missing image is not inferred from a generic
-SDK failure. No external exception text, output or receipt labels cross the boundary.
-
-## Local installation and recovery
-
-For a Codex host runner (normal or split), install `python -m pip install -e '.[runner]'`
-or `uv sync --extra runner` in the same environment used by
-`python -m laomedo.agents.providers.codex.cli`. A managed launcher must point to
-that environment; installing into the app's different Python does not update it.
-The constructor checks the optional runtime before starting Docker work, for
-both manual and managed launchers. Its host startup log distinguishes a missing
-runner extra from rejected ambiguous/TLS/remote endpoint settings using fixed
-diagnostics, without logging environment values or raw external exceptions.
-The shared public code remains runner_docker_check_unconfirmed.
-
-If startup reports container_termination_unverified, stop that runner and retain
-`<runner-state>/docker-preflight-receipt.json`. This is private ownership data;
-do not copy its labels into a graph, issue, transcript or shared log. A later
-startup automatically reconciles an observed matching container and removes
-only its immutable ID. A corrupt receipt, conflicting resource, unknown daemon
-response or absent never-observed create leaves the receipt in place and blocks
-another probe. Even failure to delete the receipt after container removal is
-reported conservatively as cleanup-unverified.
-
-For a never-observed reservation, immediate absence is insufficient: an old
-daemon request might still complete. Do not simply delete the receipt to retry.
-Keep the original host/context unchanged, stop the original runner/client, and
-resolve the original daemon's outstanding create request first. If that cannot
-be established, restart the local Docker engine at a suitable time, after
-reconciling other active local work. Once the old request cannot execute, inspect
-the saved name and ownership label privately on that same endpoint. Remove only
-a matching owned immutable ID if present; a conflict requires investigation.
-Only after confirmed absence and no outstanding create may you remove the saved
-receipt and start the runner again. There is no automatic timed-absence shortcut
-and no new graph retry or model request is needed for this recovery.
-
-## Local trial evidence limits
-
-The installed local image is sha256:73ad6bbdfa6a8c14ecb50cf4276c013184b0befa75bb7facdab38977e37bd738,
-not the checked-in sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239.
-The trial confirms the default pin is refused, then uses the existing trusted-host
-image_id override. This is local integration evidence for that explicitly selected
-image, whose build provenance is not established here; it does not validate the
-checked-in image or approve changing its pin. The local wheel hash, merged source
-revision, installed module origin and module-byte comparison are retained in the
-ignored trial evidence. PyPI publication, hash-pinned production adoption and
-owner graph review remain separate pending steps.
-
-### Conservative observations
-
-Mount readback currently requires the engine to preserve explicit mount order. A reordered equivalent list is refused rather than accepted; matching by target is a future compatibility improvement. A container that is created but neither running nor terminal has no confirmed exit code. EOF in that state waits for the bounded request deadline rather than inventing a successful exit or a known failure.
-
-## Consolidation and LOC acceptance
-
-The pre-offloading implementation baseline is develop `975d13cf2d8a62c50acef2b1eb4835c6040d9bee`, before PR212. Compare production code under `src` separately from tests, documents, and historical experiments. The owner expects at least parity; if production remains larger, reinvestigate and report the remaining gap. Historical script retirement does not establish production parity.
-
-Both Codex modes now use owned py-docker sessions. The CLI `SplitTransport`, `_docker_prefix`, and `_docker_checked` are retired; maintained callers use typed launch projections. The two obsolete CLI-only EXP107 feasibility entrypoints are retired with their reports and Git history retained. Pydantic models describe application policy, not another Docker framework.
-
-The runtime owns binary line framing, EOF/state confirmation, exact reservation observation/removal and delayed-create watches. Laomedo owns decoding, Codex protocol, telemetry, evidence, reader workers, grant revocation and the independent supervisor process. Lease registrations and run ownership now record the pinned Docker endpoint; legacy records without it cannot claim cleanup against an ambient daemon. Claude's shared lease caller pins its Docker CLI environment to the same endpoint. This does not migrate the remaining Claude/OpenCode container lifecycle.
-
-Normal close confirmation replaces a redundant container cleanup call; independent lease completion still verifies revocation and cleanup. A failed lease completion remains unverified rather than being promoted to success by another absence check. Split controller and executor close their exact sessions and retain unresolved receipts. Profile preparation recovers its one-shot receipt before dispatch and initializes the explicitly selected volume with bounded SDK jobs; a failure never deletes a mutable volume name.
-
-Real no-model checks have verified split initialize/registration, an eight-model catalogue and clean removal of both containers, plus exact cleanup while ambient Docker configuration deliberately selected an unavailable endpoint. These are source checks using the explicitly selected local image with a harness-only pin override, not acceptance of the checked-in image, model execution, graph acceptance or publication. Final installed-wheel, model/cancel, reviewer and CI evidence remains required for the final revision.
+Required acceptance includes installed-wheel/source provenance, real completion,
+cancellation, EOF and abrupt-loss recovery, exact cleanup, descriptive failure
+presentation, final-head CI and full substantive Claude review. Live graph review
+and owner merge approval remain separate. Local checks with image73ad do not
+validate checked-in image7b79 or establish the local image's build provenance.
+No credentials are copied by this migration. Actual login-only mirroring remains
+subject to the owner's existing dedicated-local-volume authorization.

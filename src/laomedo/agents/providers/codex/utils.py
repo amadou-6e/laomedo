@@ -90,7 +90,7 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
     Failed initialization retains the volume rather than deleting a mutable name.
     The one-shot container keeps its own durable cleanup receipt in runner state.
     """
-    from docker.errors import NotFound, DockerException
+    from docker.errors import DockerException
     from py_docker import Client
     from py_docker.containers.models import ContainerSpec, Mount
     from py_docker.jobs.models import ContainerJob
@@ -99,19 +99,22 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
     try:
         with Client(environment=env) as client:
             client.jobs.recover(state.joinpath("profile-init.json"))
-            try:
-                client.sdk.volumes.get(name)  # Explicit host-selected existing profile.
-            except NotFound:
-                client.volumes.create(name=name)
             image=client.images.resolve(_codex_settings.IMAGE, expected_id=_codex_settings.IMAGE_ID)
+            created=False
+            if not client.volumes.exists(name):
+                client.volumes.create(name=name)
+                created=True
             result=client.jobs.run(ContainerJob(
                 spec=ContainerSpec(image=image,name="laomedo-profile-"+uuid4().hex,
-                    user="0:0",cap_add=["CHOWN"],command=["chown","10001:10001","/home/runner/.codex"],
-                    mounts=[Mount(type="volume",source=name,target="/home/runner/.codex")]),
+                    user="0:0" if created else "10001:10001",cap_add=["CHOWN"] if created else [],
+                    command=["chown","10001:10001","/home/runner/.codex"] if created else ["stat","-c","%u","/home/runner/.codex"],
+                    mounts=[Mount(type="volume",source=name,target="/home/runner/.codex",read_only=not created)]),
                 limits=StreamLimits(seconds=30,max_bytes=65536),wait_timeout_seconds=30,
                 receipt_path=state.joinpath("profile-init.json")))
-            if result.exit_code:
+            if result.exit_code or (not created and result.stdout.strip()!=b"10001"):
                 raise _runtime_errors.RunnerError("docker_control_failed")
+    except CleanupUnconfirmedError:
+        raise _runtime_errors.RunnerError("container_termination_unverified") from None
     except CleanupUnconfirmedError:
         raise _runtime_errors.RunnerError("container_termination_unverified") from None
     except (RuntimeError, DockerException):

@@ -1,4 +1,29 @@
 {
+  "invalid_controller_token": {
+    "title": "The Agent controller credential is invalid",
+    "description": "The local runner received an empty or unsupported credential for the Agent controller. The controller was not started.",
+    "recovery": "Check the local Agent account configuration before starting a run. Keep credentials out of the graph and its inputs."
+  },
+  "controller_listener_gate_failed": {
+    "title": "The Agent controller failed an isolation check",
+    "description": "The controller opened a listening socket outside the supported execution boundary. The runner refused to use it.",
+    "recovery": "Check the local runner configuration and confirm existing containers have stopped before starting new work."
+  },
+  "executor_selection_mismatch": {
+    "title": "The Agent selected a different tool environment",
+    "description": "The requested tool environment did not match the executor assigned to this run. The runner refused that selection.",
+    "recovery": "Check the existing run status and cleanup, then check the local runner configuration before starting new work."
+  },
+  "executor_registration_rejected": {
+    "title": "The Agent could not confirm its tool executor",
+    "description": "The controller did not confirm registration of the tool executor. Tool execution is not ready.",
+    "recovery": "Confirm the run status and container cleanup before starting new work. Check the local runner configuration if this persists."
+  },
+  "executor_not_registered": {
+    "title": "The Agent tool executor is not ready",
+    "description": "The runner requested a tool environment before its executor registration was confirmed.",
+    "recovery": "Check the existing run status and local runner configuration. Confirm cleanup before starting another run."
+  },
   "runner_transport_configuration_invalid": {
     "title": "The local Agent transport settings are invalid",
     "description": "The local runner could not validate its stream limits. The Agent was not started.",

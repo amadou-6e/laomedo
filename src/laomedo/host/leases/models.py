@@ -54,7 +54,11 @@ class ContainerIdentity(BaseModel):
             "name": self.name,
             "run_id": self.run_id,
             "token": self.token.get_secret_value(),
-            "docker_endpoint": self.docker_endpoint,
+            **(
+                {"docker_endpoint": self.docker_endpoint}
+                if self.docker_endpoint is not None
+                else {}
+            ),
             "runner_pid": runner_pid,
             "created_at": created_at,
             "mediation": mediation,

@@ -43,7 +43,10 @@ def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -
 
 
 class FakeServer:
-    streams_closed = False
+    @property
+    def streams_closed(self):
+        return (getattr(self,"reader",None) is not None and getattr(self,"stderr_reader",None) is not None
+                and not self.reader.is_alive() and not self.stderr_reader.is_alive())
     calls = []
     turn_inputs = []
 
@@ -304,6 +307,7 @@ class LocalRunnerTests(unittest.TestCase):
                 return (f"http://host.docker.internal:{status['port']}/v1/mediate",
                         status["instance"])
 
+            mediated.docker_environment = {"DOCKER_HOST":"unix:///internal-lease-control.sock"}
             route_check = (nullcontext() if os.name == "nt" else
                            patch.object(mediated, "_mediator_route", side_effect=ci_route))
             with route_check:

@@ -56,7 +56,6 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/providers/codex/split/transport.py': {'otel', 'multi_agent'},
             'agents/providers/codex/native/server.py': {'otel', 'multi_agent'},
             'agents/providers/claude/runner.py': {'mirror_host_login'},
             'activity/opencode/telemetry.py': {'otel'},
@@ -117,14 +116,16 @@ class SettingsContractTests(unittest.TestCase):
             'agents/providers/claude/utils.py': 'os.environ.items()',
             'host/credentials/claude/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
-            'agents/providers/codex/split/server.py': 'os.environ if docker_environment is None else docker_environment',
-            'host/publication/cli.py': 'key in os.environ',
+                        'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',
             'agents/handoffs/transport.py': '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+        split=(SOURCE / 'agents/providers/codex/split/server.py').read_text()
+        self.assertNotIn('os.environ',split)
+        self.assertIn('environment=docker_environment',split)
         helper = (SOURCE / 'host/credentials/git_credential_helper.py').read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn('pydantic', helper)

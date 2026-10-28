@@ -35,6 +35,7 @@ class SplitAppServer(AppServer):
         access_token=None,
         docker_environment=None,
         lifetime_seconds: float = 300,
+        receipt_path: Path | None = None,
     ):
         """Open both exact-ID sessions on the preflight-selected endpoint."""
         from py_docker import Client
@@ -48,6 +49,10 @@ class SplitAppServer(AppServer):
             not isinstance(access_token, str) or not access_token
         ):
             raise _runtime_errors.RunnerError("invalid_controller_token")
+        from laomedo.agents.providers.codex.native.settings import (
+            Settings as TransportSettings,
+        )
+
         self.docker_environment = docker_environment
         self.executor_name = "laomedo-executor-" + uuid4().hex
         self.environment_id = "laomedo-executor-" + uuid4().hex
@@ -87,8 +92,15 @@ class SplitAppServer(AppServer):
             self.executor = self._executor_client.sessions.open(
                 ContainerSession(
                     spec=spec,
-                    limits=StreamLimits(seconds=lifetime_seconds, max_bytes=65536),
-                    receipt_path=evidence.joinpath("executor-receipt.json"),
+                    limits=StreamLimits(
+                        seconds=lifetime_seconds,
+                        max_bytes=TransportSettings.load().max_bytes,
+                    ),
+                    receipt_path=(
+                        receipt_path.with_name(receipt_path.stem + "-executor.json")
+                        if receipt_path is not None
+                        else evidence.joinpath("executor-receipt.json")
+                    ),
                 )
             )
             self._executor_reader = threading.Thread(
@@ -110,6 +122,7 @@ class SplitAppServer(AppServer):
                 evidence,
                 env=docker_environment,
                 lifetime_seconds=lifetime_seconds,
+                receipt_path=receipt_path,
                 secret_redactions=((access_token,) if access_token else ()),
             )
             self._controller_started = True
@@ -181,6 +194,14 @@ class SplitAppServer(AppServer):
             if len(fields) > 6 and fields[6] in owned and int(fields[3], 16) & 0x10000:
                 found.add("unix")
         return found
+
+    def exec_probe(self, command: list[str]):
+        """Run a bounded readiness probe only inside the credential-free executor."""
+        from py_docker.streams.models import StreamLimits
+
+        return self._executor_client.execution.run(
+            self.executor.identity, command, StreamLimits(seconds=15, max_bytes=65536)
+        )
 
     def assert_controller_isolated(self) -> None:
         if self._controller_listeners():

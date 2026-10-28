@@ -150,7 +150,8 @@ class CodexRunner(Runner):
             else:
                 from py_docker import Client
                 with Client(environment=self.docker_environment) as docker:
-                    docker.sdk.volumes.get(_codex_settings.VOLUME)
+                    if not docker.volumes.exists(_codex_settings.VOLUME):
+                        raise _runtime_errors.RunnerError("docker_control_failed")
 
 
 
@@ -175,6 +176,17 @@ class CodexRunner(Runner):
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
+
+    def _receipt_path(self, root: Path) -> Path:
+        """Keep lifecycle intent outside disposable metadata and evidence folders."""
+        directory=self.state.joinpath("receipts")
+        directory.mkdir(mode=0o700,exist_ok=True)
+        return directory.joinpath(root.name+"-controller.json")
+
+    def _pending_receipts(self, root: Path) -> bool:
+        """Retain evidence for either unresolved controller or executor cleanup."""
+        return (any(self.state.joinpath("receipts").glob(root.name+"-*.json"))
+                or any(root.glob("*receipt*.json")))
 
     def _open_server(
         self,
@@ -205,6 +217,7 @@ class CodexRunner(Runner):
                 provider_config=self.split_provider_config,
                 docker_environment=self.docker_environment,
                 lifetime_seconds=lifetime_seconds,
+                receipt_path=self._receipt_path(root),
                 access_token=(
                     access_token
                     if access_token is not None
@@ -238,6 +251,7 @@ class CodexRunner(Runner):
             return self.transport(launch, root,
                 env=getattr(self, "docker_environment", None),
                 lifetime_seconds=lifetime_seconds,
+                receipt_path=self._receipt_path(root),
                 secret_redactions=((capability.read_text(encoding="utf-8").strip(),)
                                    if capability is not None else ()))
         return self.transport(launch, root)
@@ -292,7 +306,7 @@ class CodexRunner(Runner):
                     if server is not None:
                         server.close()
                 finally:
-                    if not root.joinpath(_codex_settings.NATIVE_RECEIPT_FILENAME).exists():
+                    if not self._pending_receipts(root):
                         shutil.rmtree(root, ignore_errors=True)
 
 
@@ -342,10 +356,7 @@ class CodexRunner(Runner):
                     ("store_write", "printf FORBIDDEN > /store/sentinel.txt"),
                     ("auth_read", "cat /home/runner/.codex/auth.json >/dev/null"),
                 ):
-                    from py_docker.streams.models import StreamLimits
-                    response = server._executor_client.execution.run(
-                        server.executor.identity, ["sh", "-c", command],
-                        StreamLimits(seconds=15,max_bytes=65536))
+                    response = server.exec_probe(["sh", "-c", command])
                     checks[label] = response.exit_code
             else:
                 for label, command in (
@@ -1053,12 +1064,14 @@ class CodexRunner(Runner):
                         record["controller_cleanup"] = "confirmed"
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
-            except Exception:
+            except Exception as close_failure:
                 close_error = True
                 if record is not None:
                     record.update(
                         status="failed",
-                        error_category="container_termination_unverified",
+                        error_category=(close_failure.code if isinstance(close_failure,_runtime_errors.RunnerError)
+                                        and close_failure.code in {"executor_termination_unverified","container_termination_unverified","runner_transport_failed"}
+                                        else "container_termination_unverified"),
                     )
                     record["controller_cleanup"] = "unverified"
             finally:
@@ -1088,7 +1101,7 @@ class CodexRunner(Runner):
                                 error_category="container_termination_unverified",
                             )
                     elif record is not None and self.supervise_containers:
-                        verified, detail = ((True, "absent") if getattr(server,"cleanup_confirmed",False) else
+                        verified, detail = ((True, "removed") if getattr(server,"cleanup_confirmed",False) else
                             _leases_utils.cleanup_exact(_leases_models.ContainerIdentity(
                                 name=name,run_id=run_id,token=launch_token,
                                 docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"))))

@@ -37,6 +37,7 @@ class AppServer(BaseNativeServer):
         env=None,
         secret_redactions=(),
         lifetime_seconds: float = 60,
+        receipt_path: Path | None = None,
     ):
         """Create one SDK session with no Docker CLI or subprocess fallback."""
         self.telemetry = None
@@ -106,7 +107,9 @@ class AppServer(BaseNativeServer):
                         seconds=lifetime_seconds,
                         max_bytes=TransportSettings.load().max_bytes,
                     ),
-                    receipt_path=evidence.joinpath(settings.NATIVE_RECEIPT_FILENAME),
+                    receipt_path=receipt_path
+                    if receipt_path is not None
+                    else evidence.joinpath(settings.NATIVE_RECEIPT_FILENAME),
                 )
             )
             self.reader = threading.Thread(target=self._read_frames, daemon=True)

@@ -19,6 +19,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root=Path(temp); selected={"DOCKER_HOST":"unix:///selected.sock"}
             client.return_value.images.resolve.return_value=IMAGE_ID
             client.return_value.sessions.open.return_value.identity.id="a"*64
+            client.return_value.sessions.open.return_value.read_frame.return_value=None
             with self.assertRaises(OSError):
                 SplitAppServer(root,root,root,root,"profile",access_token="internal-test-token",docker_environment=selected)
             policy=launch.call_args.args[0]
@@ -33,21 +34,21 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root=Path(temp); source=Path(__file__).resolve().parents[1] / "examples/github-pr"
             runner=LocalRunner(root / "state",root / "skills",source,split_executor=True,check_docker=False)
             server=MagicMock(); server.request.return_value={"result":{}}
-            server._executor_client.execution.run.return_value.exit_code=1
+            server.exec_probe.return_value.exit_code=1
             with patch.object(runner,"_open_server",return_value=server), patch(
                     "laomedo.agents.providers.codex.utils._advertised_models",return_value=[]):
                 with self.assertRaisesRegex(RunnerError,"permission_preflight_failed"):
                     runner.preflight()
-            self.assertEqual(server._executor_client.execution.run.call_count,4)
-            for call in server._executor_client.execution.run.call_args_list:
-                self.assertEqual(call.args[0],server.executor.identity)
+            self.assertEqual(server.exec_probe.call_count,4)
+            for call in server.exec_probe.call_args_list:
+                self.assertEqual(call.args[0][:2],["sh","-c"])
 
     def test_split_profile_failure_cleanup_keeps_endpoint(self):
         from docker.errors import NotFound
         from laomedo.agents.providers.codex.utils import _ensure_split_profile
         with tempfile.TemporaryDirectory() as temp, patch("py_docker.Client") as client:
             selected={"DOCKER_HOST":"unix:///selected.sock"}; docker=client.return_value.__enter__.return_value
-            docker.sdk.volumes.get.side_effect=NotFound("absent")
+            docker.volumes.exists.return_value=False
             docker.images.resolve.return_value="sha256:"+"a"*64
             docker.jobs.run.return_value.exit_code=1
             with self.assertRaisesRegex(RunnerError,"docker_control_failed"):
@@ -69,7 +70,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                         profile.assert_called_once_with(runner.profile,state=runner.state,env=selection.environment)
                     else:
                         client.assert_called_once_with(environment=selection.environment)
-                        client.return_value.__enter__.return_value.sdk.volumes.get.assert_called_once()
+                        client.return_value.__enter__.return_value.volumes.exists.assert_called_once()
 
     def test_split_control_calls_keep_the_selected_endpoint(self):
         from laomedo.agents.providers.codex.split.server import SplitAppServer
@@ -158,3 +159,11 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(RunnerError, "invalid_local_image_id"):
                 LocalRunner(root / "state", root / "skills", source,
                             image_id="sha256:" + "a" * 64, split_executor=True)
+
+
+    def test_claude_endpoint_configuration_maps_to_descriptive_code(self):
+        from laomedo.agents.providers.claude.container import ClaudeContainer
+        from py_docker.errors import ConnectionConfigurationError
+        with patch("py_docker.Client",side_effect=ConnectionConfigurationError("select local endpoint")):
+            with self.assertRaisesRegex(RunnerError,"claude_container_configuration_invalid"):
+                ClaudeContainer()

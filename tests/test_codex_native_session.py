@@ -166,8 +166,8 @@ class RetirementAndCatalogueTests(unittest.TestCase):
             client.sessions.recover.side_effect=lambda pending:pending.unlink()
             CodexPreflight(root)._recover_sessions(client)
             self.assertTrue(root.joinpath("runs/identity/history.json").exists())
-            self.assertFalse(root.joinpath("catalog/identity").exists())
-            self.assertFalse(root.joinpath("preflight/identity").exists())
+            self.assertTrue(root.joinpath("catalog/identity/history.json").exists())
+            self.assertTrue(root.joinpath("preflight/identity/history.json").exists())
 
 
     def test_host_budgets_validate_before_launch_attempt_marker(self):
@@ -175,3 +175,24 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         source=root.joinpath("src/laomedo/agents/providers/codex/runner.py").read_text()
         self.assertLess(source.index("transport_settings = _native_settings.Settings.load()"), source.index("launch_attempted = True"))
+
+
+    def test_executor_receipt_is_recovered_and_unresolved_intent_is_retained(self):
+        from laomedo.agents.providers.codex.preflight.service import CodexPreflight
+        from laomedo.agents.providers.codex.runner import CodexRunner
+        from py_docker.errors import CleanupUnconfirmedError
+        with tempfile.TemporaryDirectory() as temp:
+            state=Path(temp); root=state.joinpath("catalog","metadata"); root.mkdir(parents=True)
+            runner=CodexRunner.__new__(CodexRunner); runner.state=state
+            controller=runner._receipt_path(root)
+            executor=controller.with_name(controller.stem+"-executor.json")
+            executor.write_text("internal control")
+            self.assertTrue(runner._pending_receipts(root))
+            client=Mock(); client.sessions.recover.side_effect=CleanupUnconfirmedError("internal cleanup")
+            with self.assertRaises(CleanupUnconfirmedError):
+                CodexPreflight(state)._recover_sessions(client)
+            self.assertTrue(executor.exists()); self.assertTrue(root.exists())
+            client.sessions.recover.side_effect=lambda pending:pending.unlink()
+            CodexPreflight(state)._recover_sessions(client)
+            self.assertFalse(runner._pending_receipts(root))
+            client.sessions.recover.assert_called_with(executor)

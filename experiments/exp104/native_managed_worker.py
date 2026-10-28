@@ -66,7 +66,10 @@ def run(root, side):
     selected = identities(side)
     scope = {"invocation_id": selected["invocation_id"], "repository": REPOSITORY,
              "branch": selected["branch"], "base_branch": "main"}
-    lease = LeaseClient(root / "host" / "lease", run_id=selected["run_id"],
+    from py_docker import Client as _DockerClient
+    with _DockerClient() as _lease_docker:
+        _lease_endpoint = _lease_docker.connection.endpoint
+    lease = LeaseClient(root / "host" / "lease", docker_endpoint=_lease_endpoint, run_id=selected["run_id"],
         name=selected["name"], token=selected["token"], cancelled=threading.Event(),
         mediation_request=scope)
     mediator = json.loads((root / "host/mediator/mediator.json").read_bytes())
