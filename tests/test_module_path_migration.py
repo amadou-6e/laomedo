@@ -15,6 +15,24 @@ _spec.loader.exec_module(migration)
 
 
 class ModuleMigrationTests(unittest.TestCase):
+    def test_constants_generation_migrates_symbols_and_aliases_in_one_pass(self):
+        renamed = {old: new for old, new in migration.MODULE_PATHS.items()
+                   if old.endswith('.constants')}
+        self.assertEqual(len(renamed), 22)
+        for old, new in renamed.items():
+            symbols = {key.rsplit('.', 1)[1]: value
+                       for key, value in migration.SYMBOL_PATHS.items()
+                       if key.rsplit('.', 1)[0] == old}
+            self.assertTrue(symbols, old)
+            for name, target in symbols.items():
+                for source in (f'from {old} import {name}\nvalue = {name}\n',
+                               f'import {old} as settings\nvalue = settings.{name}\n'):
+                    with self.subTest(module=old, name=name, source=source):
+                        result = migration.migrate_source(source)
+                        self.assertIn(new, result)
+                        self.assertNotIn(old, result)
+                        self.assertEqual(migration.migrate_source(result), result)
+
     def test_all_current_module_imports_are_current_even_under_reused_packages(self):
         for path in (TOOL.parents[2] / 'src/laomedo').rglob('*.py'):
             if path.name == '__init__.py':
