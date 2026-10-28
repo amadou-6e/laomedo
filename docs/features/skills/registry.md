@@ -125,4 +125,4 @@ and persist the import manifest. `POST /v1/runs/<run-id>/artifacts` with `paths`
 returns pinned manifest references, never file contents or arbitrary host paths.
 Cross-provider files require an explicit host-configured `--artifact-source
 PROVIDER=STATE` mapping. The source record provider, run and selected-file hashes
-are verified; requests cannot supply arbitrary host state paths. See [handoff examples](../examples/agent-handoffs/README.md).
+are verified; requests cannot supply arbitrary host state paths. See [handoff examples](../../../examples/agent-handoffs/README.md).

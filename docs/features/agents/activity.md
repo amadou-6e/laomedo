@@ -186,7 +186,7 @@ charge. No Claude prices are invented for the shared verified price catalog.
 Usage semantics: https://code.claude.com/docs/en/agent-sdk/cost-tracking
 The original proposal verification precedes this capture extension. Its receipts
 verify normalization. The separately approved one-turn
-[activity proof](../examples/claude-agent/activity-proof.json) verifies fresh
+[activity proof](../../../examples/claude-agent/activity-proof.json) verifies fresh
 successful capture through the real Langflow graph; live correction, failed-turn
 and resumed-capture scenarios remain outside that additional verification.
 
@@ -201,7 +201,7 @@ executions and source revisions are recorded separately. Other providers, OTLP
 metrics, historical-image parity, hard-crash recovery and cross-machine collector
 setups remain outside this verified implementation.
 
-The real [competing-resume check](../examples/agent-activity/resume-contention-evidence.json)
+The real [competing-resume check](../../../examples/agent-activity/resume-contention-evidence.json)
 adds the adversarial case: two original nodes target one completed run, one resume
 is accepted and the refused node has zero events/turns and unassigned usage/cost.
 The source hashes identify the tested controller mechanism. This is separate from

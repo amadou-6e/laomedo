@@ -96,7 +96,7 @@ It refuses arbitrary REST writes, GraphQL, credential export and unsupported
 commands. Local editing remains ordinary container activity. The mediation
 JSON client is not itself a `git` or `gh` executable. In opt-in Git workspace
 mode, native Git uses the installed remote helper and the supported partial
-`gh` adapter is on PATH; see [exact command scope](mediated-agent-commands.md).
+`gh` adapter is on PATH; see [exact command scope](commands.md).
 Body-file/stdin forms are supported, but broader issue/API-write/pagination,
 formatting and full parity remain #100 work. An agent must not fall back to
 ambient credentials.
@@ -146,11 +146,11 @@ installed by default. The separately frozen task S1 diagnostic passed and
 removed its two exact tasks; see `experiments/exp104/MANAGED-STARTUP-RESULTS.md`.
 This does not establish production, logout or in-flight verifier cleanup.
 
-Later [S12 B](../experiments/exp104/NATIVE-MANAGED-S12-B-RESULTS.md)
+Later [S12 B](../../../../experiments/exp104/NATIVE-MANAGED-S12-B-RESULTS.md)
 composed these exact per-user tasks with real native Git/PR operations,
 independent revocation within 4.985 seconds and B-run continuity. Its workers
 were scripted container fixtures, not production LocalRunner/model turns.
-[S10 B](../experiments/exp100/S10-B-RESULTS.md) supplies the separate local
+[S10 B](../../../../experiments/exp100/S10-B-RESULTS.md) supplies the separate local
 two-push and PR-body-correction checks. Neither proves full capability parity,
 logout/double-manager survival, Linux or Q11 acceptance.
 

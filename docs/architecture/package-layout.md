@@ -28,7 +28,7 @@ Each implementation has one owner. Use `laomedo.agents.runtime.runner`,
 `laomedo.skills.registry.store` and `laomedo.activity.agent_activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
-live in `docker/`; registry documentation is in `docs/skill-registry.md`.
+live in `docker/`; registry documentation is in [the Skills registry guide](../features/skills/registry.md).
 
 Launchers use canonical names:
 

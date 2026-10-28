@@ -1,23 +1,26 @@
 # laomedo
 Design, inspect, and experiment with Codex and Claude Code agent workflows
 
+Browse the [implementation documentation](docs/README.md) for vision, architecture
+and feature guides.
+
 ## Source layout
 
 Install this checkout with `python -m pip install -e .` (or install its wheel).
 Python implementation lives in `src/laomedo`; `agents` owns execution, with
 `skills`, `github`, `host`, `activity`, `integrations/langflow` and `work_graph`
 providing the other domains. Components, frontend, tests and docs remain at the
-repository root. See [package layout and migration](docs/package-layout.md).
+repository root. See [package layout and migration](docs/architecture/package-layout.md).
 Imports and service commands use their owning domain modules. Older saved
 graphs and launchers have an explicit one-time migration; forwarding modules
 and the checkout-only import bridge are removed.
 
 The [agent observability feasibility study](experiments/feasibility/agent-observability/README.md)
 assesses native App Server events and OpenTelemetry for the original Codex agent.
-The [earlier activity prototype](docs/agent-activity.md) is historical preparation,
+The [earlier activity prototype](docs/features/agents/activity.md) is historical preparation,
 not completed original-agent integration.
 
-The [Work Graph foundation](docs/work-graph.md) imports GitHub work and native
+The [Work Graph foundation](docs/architecture/work-graph.md) imports GitHub work and native
 blocker relationships using an existing `gh` login. It stores verified,
 immutable snapshots and inspects filtered projections with dependency
 readiness calculated from the full graph. This slice provides a Python
@@ -42,7 +45,7 @@ three-turn spike reported a no-go for the proposed local MVP on its evidence.
 
 The [issue 122 Skill Draft proof](experiments/feasibility/122/README.md)
 records versioned editing rules, deterministic draft guards, agent edits, and
-native resume. The [local skill core](docs/skill-registry.md) implements immutable
+native resume. The [local skill core](docs/features/skills/registry.md) implements immutable
 revisions and human-reviewed draft promotion separately from agent execution.
 
 The [issue 121 Claude probes](experiments/feasibility/121/README.md) pin the
