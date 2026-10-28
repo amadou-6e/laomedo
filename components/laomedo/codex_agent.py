@@ -15,6 +15,12 @@ class LaomedoCodexAgent(AgentComponent):
     bridge_token_env = "LAOMEDO_BRIDGE_TOKEN_FILE"
     runner_token_env = "LAOMEDO_RUNNER_TOKEN_FILE"
     runner_token_default = "/run/secrets/laomedo-runner-token"
+    def _validate_adapter(self):
+        # A concrete adapter is a leaf. Old saved Claude/OpenCode code must
+        # migrate its base before inheriting provider routing capabilities.
+        if type(self) is not __class__:
+            raise ValueError("agent_component_migration_required")
+
     inputs = [deepcopy(item) for item in AgentComponent.inputs]
     for _field in inputs:
         if _field.name == "runner_url":

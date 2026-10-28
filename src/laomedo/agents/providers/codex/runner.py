@@ -189,8 +189,8 @@ class CodexRunner(Runner):
             provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
             execution_mode="split" if self.split_executor else "legacy",
             cli_version=_codex_settings.CLI_VERSION, config_sha256=_codex_settings.CONFIG_SHA256,
-            credential=({"credential_mode": "chatgpt_plan_oauth", "credential_ref": None,
-                         "auth_outcome": "not_checked"} if self.auth else None))
+            credential=(_runtime_models.CredentialBinding(credential_mode="chatgpt_plan_oauth", credential_ref=None,
+                         auth_outcome="not_checked") if self.auth else None))
 
     @property
     def supports_mediated_github(self):

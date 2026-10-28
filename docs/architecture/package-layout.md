@@ -230,3 +230,10 @@ needed. Current source templates are distinct from historical execution evidence
 Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
 Git ownership, mediation server extraction and frontend feature directories remain
 separate follow-ups (#206?#210).
+
+Concrete Codex components reject stale subclass inheritance before model discovery,
+bridge selection or dispatch with `agent_component_migration_required`. The shared
+error catalogue explains updating the node or explicitly migrating saved source;
+unmigrated Claude/OpenCode code cannot silently route through Codex configuration.
+OpenCode owns its worker image pin independently in its settings. It initially uses
+the same reviewed sandbox bytes as Codex, without importing Codex configuration.

@@ -957,7 +957,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent\u2019s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent’s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -1428,5 +1428,10 @@
     "title": "Some Claude telemetry could not be recorded",
     "description": "The local telemetry receiver could not decode or persist an export. The agent may already have performed work; its captured native activity remains available.",
     "recovery": "Inspect the existing run and any effects before starting new work. Check the local runner observability setup and available disk space. Do not blindly repeat the task."
+  },
+  "agent_component_migration_required": {
+    "title": "This saved Agent node needs an update",
+    "description": "This node inherits an older provider component. It was stopped before sending a request because its provider routing could be incorrect.",
+    "recovery": "Replace the node with its current provider component, or migrate a copy of the saved flow with the module migration tool before loading it. Custom Agent subclasses must extend the shared AgentComponent."
   }
 }

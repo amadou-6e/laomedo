@@ -14,7 +14,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             policy = root / "policy.json"
             policy.write_text('{"defaultAction":"SCMP_ACT_ALLOW"}')
-            with patch("laomedo.agents.runtime.settings.SECCOMP", policy):
+            with patch("laomedo.agents.providers.codex.settings.SECCOMP", policy):
                 with self.assertRaisesRegex(RunnerError, "seccomp_profile_changed"):
                     _docker_prefix(root, root, root)
                 policy.unlink()

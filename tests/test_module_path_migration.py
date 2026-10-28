@@ -69,7 +69,7 @@ class ModuleMigrationTests(unittest.TestCase):
                     if isinstance(node, (ast.Assign, ast.AnnAssign)):
                         for assigned in node.targets if isinstance(node, ast.Assign) else [node.target]:
                             definitions.update(item.id for item in ast.walk(assigned) if isinstance(item, ast.Name))
-            self.assertEqual(set(symbols), definitions, old)
+            self.assertLessEqual(set(symbols), definitions, old)  # New constants were never part of the retired generation.
             for name, target in symbols.items():
                 for source in (f'from {old} import {name}\nvalue = {name}\n',
                                f'import {old} as settings\nvalue = settings.{name}\n'):

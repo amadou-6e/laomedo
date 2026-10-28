@@ -21,6 +21,7 @@ from lfx.schema import Data; from lfx.schema import Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    'agent_component_migration_required',
     'langflow_loopback_required', 'langflow_local_login_unavailable',
     'saved_flow_identity_unavailable', 'saved_flow_fetch_failed',
     'run_and_grant_store_must_differ',
@@ -156,6 +157,9 @@ class AgentComponent(Component):
                method="submission_output", group_outputs=True),
     ]
 
+    def _validate_adapter(self):
+        """Concrete adapters may reject stale inheritance before routing or discovery."""
+
     async def update_build_config(self, build_config, field_value, field_name=None):
         # OpenCode has a separate provider/model and variant contract.
         if not self.discover_models_on_upgrade:
@@ -201,6 +205,7 @@ class AgentComponent(Component):
         return self._runner_token_file_path()
 
     def _model_catalog(self, build_config):
+        self._validate_adapter()
         base = str(build_config.get("runner_url", {}).get("value") or self.runner_url).rstrip("/")
         parsed = urlsplit(base)
         if (parsed.scheme != "http" or parsed.hostname not in
@@ -260,6 +265,7 @@ class AgentComponent(Component):
         return updated
 
     def _pre_run_setup(self):
+        self._validate_adapter()
         # Langflow invokes this once per build. Both output methods share dispatch.
         self._dispatch_task = None
         self._generated_request_id = None
@@ -276,6 +282,7 @@ class AgentComponent(Component):
         self._downstream_contract_binding = None
 
     def _prepare(self):
+        self._validate_adapter()
         endpoint, payload, method = self._prepare_request()
         connected = getattr(self, "output_requirements", None)
         static = str(getattr(self, "output_requirements_json", "") or "").strip()
@@ -416,6 +423,7 @@ class AgentComponent(Component):
             "expected_post_run_hash": snapshot, "expected_thread_id": thread}, "POST"
 
     def _bridge_base(self):
+        self._validate_adapter()
         # Provider configuration must not redirect unrelated lifecycle
         # operations. Stop handling during a fresh/start invocation still uses
         # the bridge so its in-flight request can be reconciled correctly.
@@ -570,6 +578,7 @@ class AgentComponent(Component):
             self.status = f"Laomedo Stop: {exc}; remote outcome unknown"
 
     def _http(self, endpoint, payload, method):
+        self._validate_adapter()
         token = self._token()
         req = request.Request(endpoint,
             data=None if payload is None else json.dumps(payload).encode(),

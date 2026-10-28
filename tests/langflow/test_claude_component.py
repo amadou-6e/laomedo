@@ -14,6 +14,28 @@ from laomedo.agents.contracts.output import requirements
 
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
+    def test_unmigrated_provider_subclasses_fail_before_routing_or_http(self):
+        import laomedo.codex_agent as concrete
+        from laomedo.integrations.langflow.agent import component as common
+        from lfx.custom.custom_component.component import Component
+        from lfx.custom.utils import build_custom_component_template
+        for provider in ('Claude', 'OpenCode'):
+            legacy = ('from laomedo.codex_agent import LaomedoCodexAgent as Component\n'
+                      f'class Laomedo{provider}Agent(Component):\n'
+                      f'    name = "Laomedo{provider}Agent"\n')
+            namespace = {}
+            exec(legacy, namespace)
+            node = namespace['Laomedo' + provider + 'Agent'](_code=legacy)
+            with patch.dict(os.environ, {'LAOMEDO_BRIDGE_URL': 'http://localhost:8767'}), patch.object(common._HTTP, 'open') as http:
+                for action in (node._pre_run_setup, node._bridge_base, node._prepare,
+                               lambda: node._model_catalog({}), lambda: node._http('http://localhost', {}, 'POST')):
+                    with self.assertRaisesRegex(ValueError, 'agent_component_migration_required'):
+                        action()
+                http.assert_not_called()
+            # The actual loader can still parse/instantiate the legacy node; its build is guarded.
+            template, _ = build_custom_component_template(Component(_code=legacy))
+            self.assertEqual(template['display_name'], 'Laomedo Codex Agent')
+
     def test_resume_payload_contains_visible_execution_timeout(self):
         prior={'provider':'claude','run_id':'11111111-1111-4111-8111-111111111111',
                'status':'completed','post_run_hash':'sha256:'+'a'*64,'thread_id':'native-thread',

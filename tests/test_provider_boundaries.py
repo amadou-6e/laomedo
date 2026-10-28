@@ -1,4 +1,4 @@
-﻿"""Internal architecture and record-binding regressions; no real provider acceptance."""
+"""Internal architecture and record-binding regressions; no real provider acceptance."""
 import ast
 import inspect
 from pathlib import Path
@@ -36,6 +36,15 @@ class ProviderBoundaryTests(unittest.TestCase):
                      'split_provider_config', 'split_access_token', 'auth_store', 'image_id'}
         self.assertFalse(forbidden & set(inspect.signature(Runner).parameters))
         self.assertFalse(forbidden & set(inspect.signature(OpenCodeRunner).parameters))
+
+    def test_concrete_providers_never_import_a_sibling_provider(self):
+        for path in (ROOT / 'src/laomedo/agents/providers').rglob('*.py'):
+            owner = path.relative_to(ROOT / 'src/laomedo/agents/providers').parts[0]
+            for node in ast.walk(ast.parse(path.read_text())):
+                names = [item.name for item in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else []
+                for name in names:
+                    if name.startswith('laomedo.agents.providers.'):
+                        self.assertEqual(name.split('.')[3], owner, (path.name, node.lineno, name))
 
     def test_graph_adapters_do_not_inherit_each_other(self):
         for provider in ('codex', 'claude', 'opencode'):
@@ -104,6 +113,42 @@ class ProviderBoundaryTests(unittest.TestCase):
                     control.runner._prepare({**control.payload, 'github_authorization_ref':'untrusted'})
                 authority.bind_run.assert_not_called()
                 self.assertEqual(list((control.runner.state/'runs').iterdir()), [])
+
+    def test_provider_restart_reconciles_only_the_persisted_identity(self):
+        from laomedo.agents.runtime.utils import _json
+        for fixture_type in (test_local_runner.LocalRunnerTests, test_claude_runner.ClaudeRunnerTests):
+            control = self.fixture(fixture_type)
+            request = control.request() if fixture_type is test_local_runner.LocalRunnerTests else control.payload
+            record = control.runner._prepare(request)
+            owner = {'supervised':True, 'name':'laomedo-exact-unit', 'launch_token':'unit-capability'}
+            record.update(status='running', container_ownership=owner)
+            _json(control.runner._run_dir(record['run_id'])/'record.json', record)
+            with patch('laomedo.host.leases.utils.cleanup_exact', return_value=(False,'identity mismatch')) as cleanup:
+                if fixture_type is test_local_runner.LocalRunnerTests:
+                    restarted = CodexRunner(control.runner.state, control.runner.store.root, control.source, check_docker=False)
+                else:
+                    restarted = ClaudeRunner(control.runner.state, control.runner.store.root, control.source,
+                                             container=control.runner.container)
+            identity = cleanup.call_args.args[0]
+            self.assertEqual((identity.name,identity.run_id,identity.token.get_secret_value()),
+                             (owner['name'],record['run_id'],owner['launch_token']))
+            result = restarted.status(record['run_id'])
+            self.assertEqual(result['status'],'interrupted')
+            self.assertEqual(result['error_category'],'container_cleanup_unverified')
+            self.assertFalse(result['container_ownership']['cleanup_verified'])
+
+    def test_opencode_restart_reads_historical_metadata_without_codex_cleanup(self):
+        from laomedo.agents.runtime.utils import _json
+        control = self.fixture(test_opencode_runner.OpenCodeTests)
+        record = control.runner._prepare(control.payload)
+        record.update(status='running', image=codex_settings.IMAGE, cli_version=codex_settings.CLI_VERSION)
+        _json(control.runner._run_dir(record['run_id'])/'record.json',record)
+        with patch('laomedo.host.leases.utils.cleanup_exact',side_effect=AssertionError('no owned controller')):
+            restarted = OpenCodeRunner(control.runner.state,control.runner.store.root,control.source)
+        historical = restarted.status(record['run_id'])
+        self.assertEqual(historical['image'],codex_settings.IMAGE)
+        self.assertEqual(historical['cli_version'],codex_settings.CLI_VERSION)
+        self.assertEqual(historical['error_category'],'runner_restarted')
 
     def test_claude_and_opencode_do_not_validate_codex_policy(self):
         control = self.fixture(test_local_runner.LocalRunnerTests)

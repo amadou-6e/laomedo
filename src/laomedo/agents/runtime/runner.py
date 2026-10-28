@@ -96,7 +96,10 @@ class Runner(ABC):
 
     @abstractmethod
     def recover_interrupted(self, record: dict) -> None:
-        """Clean up only the exact resources owned by an interrupted provider run."""
+        """Clean up exact interrupted resources using only base state/module helpers.
+
+        Called during base construction, before concrete initialization finishes.
+        """
 
     @abstractmethod
     def model_catalog(self) -> dict:
