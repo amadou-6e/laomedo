@@ -5,7 +5,7 @@ Git executable. This derivative adds Git only for `--git-workspace`; it does
 not include `gh`, a GitHub token, or a credential helper.
 
 Build from the pinned local base image, then check the result against
-`GIT_IMAGE_ID` in `laomedo/local_runner.py`:
+`GIT_IMAGE_ID` in `src/laomedo/agents/runtime/settings.py`:
 
 ```sh
 docker build --provenance=false --tag laomedo-codex-git:0.159.2 docker/codex-git

@@ -1,4 +1,5 @@
 """Offline migration preserves behavior, identities and original files."""
+import ast
 import importlib.util
 import json
 from pathlib import Path
@@ -23,7 +24,14 @@ class ModuleMigrationTests(unittest.TestCase):
             symbols = {key.rsplit('.', 1)[1]: value
                        for key, value in migration.SYMBOL_PATHS.items()
                        if key.rsplit('.', 1)[0] == old}
-            self.assertTrue(symbols, old)
+            path = TOOL.parents[2].joinpath('src', *new.split('.')).with_suffix('.py')
+            definitions = set()
+            for node in ast.parse(path.read_text()).body:
+                if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    for target in node.targets if isinstance(node, ast.Assign) else [node.target]:
+                        definitions.update(item.id for item in ast.walk(target)
+                                           if isinstance(item, ast.Name))
+            self.assertEqual(set(symbols), definitions, old)
             for name, target in symbols.items():
                 for source in (f'from {old} import {name}\nvalue = {name}\n',
                                f'import {old} as settings\nvalue = settings.{name}\n'):
