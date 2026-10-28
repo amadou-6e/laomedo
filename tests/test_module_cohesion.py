@@ -1,5 +1,6 @@
 """Structural policy and published migration reachability, not live acceptance."""
 import ast
+import hashlib
 import json
 from pathlib import Path
 import unittest
@@ -9,6 +10,12 @@ SOURCE = ROOT / 'src' / 'laomedo'
 
 
 class ModuleCohesionTests(unittest.TestCase):
+    def test_historical_graph_inputs_keep_their_original_bytes(self):
+        # Baseline:6069ac99998af97acd314bb2c56c08d4bc2c3f29; migrate copies only.
+        expected = {'examples/github-pr/original-agent/historical-flow-before-skill-input.json': '3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f', 'examples/skill-operations/historical-flow-before-skill-input.json': '45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf'}
+        for relative, digest in expected.items():
+            self.assertEqual(hashlib.sha256((ROOT / relative).read_bytes()).hexdigest(), digest, relative)
+
     def test_symbol_map_targets_have_a_declared_definition_or_submodule(self):
         targets = set(json.loads((ROOT / 'tools/migrations/symbol-paths.json').read_text()).values())
         for target in targets:
