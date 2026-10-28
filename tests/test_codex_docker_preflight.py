@@ -113,190 +113,100 @@ assert 'docker' not in sys.modules
     importlib.util.find_spec("py_docker"), "Install the optional runner dependency"
 )
 class PreflightControls(unittest.TestCase):
-    """Inject only internal control faults, never a demonstration provider."""
+    """Verify Codex policy and delegation, not the library's lifecycle internals."""
 
     def setUp(self):
-        """Create private temporary state and canonical runtime ownership records."""
-        from py_docker.containers.models import ContainerIdentity, ContainerReservation
-        from py_docker.streams.models import Frame
+        """Allocate private state and inject the actual library service boundary."""
+        from py_docker.execution.models import CommandResult
 
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.preflight = CodexPreflight(Path(self.temp.name))
         self.expected = "sha256:" + "a" * 64
-        self.receipt = ContainerReservation(
-            name="private-probe", labels={"py_docker.owner": "private-token"}
-        )
-        self.identity = ContainerIdentity(
-            id="b" * 64, name=self.receipt.name, labels=self.receipt.labels
-        )
         self.client = MagicMock()
-        self.client.containers.reserve.return_value = self.receipt
-        self.client.containers.create.return_value = self.identity
-        self.client.containers.reconcile.return_value = self.identity
-        self.client.sdk.containers.get.return_value.wait.return_value = {
-            "StatusCode": 0
-        }
-        self.stream = self.client.execution.attach.return_value.__enter__.return_value
-        self.stream.read_frame.side_effect = [
-            Frame(channel="stderr", data=b"ignored"),
-            Frame(channel="stdout", data=b"codex-cli 0.159.2\n"),
-            None,
-        ]
+        self.client.__enter__.return_value = self.client
+        self.client.jobs.run.return_value = CommandResult(
+            exit_code=0, stdout=b"codex-cli 0.159.2\n", stderr=b""
+        )
 
-    def test_valid_version_attaches_before_start_and_cleans_exact_identity(self):
-        """Check command policy, ordering and deterministic ownership cleanup."""
+    def test_version_policy_delegates_the_hardened_job_to_the_library(self):
+        """Keep application security choices explicit at the reusable job boundary."""
         self.preflight._probe(self.client, "local-image", self.expected)
         self.client.images.resolve.assert_called_once_with(
             "local-image", expected_id=self.expected
         )
-        spec = self.client.containers.reserve.call_args.args[0]
-        self.assertEqual(spec.image, self.expected)
-        self.assertEqual(spec.user, "10001:10001")
-        self.assertEqual(spec.network_mode, "none")
-        self.assertEqual(spec.cap_drop, ["ALL"])
-        self.assertEqual(spec.security_opt, ["no-new-privileges:true"])
-        self.assertTrue(spec.read_only)
-        self.assertFalse(spec.volumes)
-        calls = [str(call) for call in self.client.mock_calls]
-        self.assertLess(
-            next(
-                i for i, c in enumerate(calls) if c.startswith("call.execution.attach(")
-            ),
-            next(
-                i for i, c in enumerate(calls) if c.startswith("call.containers.start(")
-            ),
-        )
-        self.client.containers.remove.assert_called_once_with(self.identity, force=True)
-        self.assertFalse(self.preflight.receipt_path.exists())
+        job = self.client.jobs.run.call_args.args[0]
+        self.assertEqual(job.spec.image, self.expected)
+        self.assertEqual(job.spec.user, "10001:10001")
+        self.assertEqual(job.spec.network_mode, "none")
+        self.assertEqual(job.spec.cap_drop, ["ALL"])
+        self.assertEqual(job.spec.security_opt, ["no-new-privileges:true"])
+        self.assertTrue(job.spec.read_only)
+        self.assertFalse(job.spec.volumes)
+        self.assertEqual(job.receipt_path, self.preflight.receipt_path)
+        self.assertEqual(job.limits.max_bytes, 65536)
+        self.client.containers.create.assert_not_called()
+        self.client.execution.attach.assert_not_called()
 
-    def test_image_mismatch_never_creates_a_probe(self):
-        """Retain the stable pin code and discard external exception context."""
+    def test_image_mismatch_never_dispatches_a_job(self):
+        """Keep the stable pin refusal without generic lifecycle work in Laomedo."""
         from py_docker.errors import OwnershipConflictError
 
-        self.client.images.resolve.side_effect = OwnershipConflictError(
-            "private diagnostic"
-        )
-        with self.assertRaisesRegex(
-            RunnerError, "^docker_image_digest_changed$"
-        ) as caught:
-            self.preflight._probe(self.client, "local-image", self.expected)
-        self.assertTrue(caught.exception.__suppress_context__)
-        self.client.containers.create.assert_not_called()
+        self.client.images.resolve.side_effect = OwnershipConflictError("safe phase")
+        with self.assertRaisesRegex(RunnerError, "^docker_image_digest_changed$"):
+            self.preflight._probe(self.client, "image", self.expected)
+        self.client.jobs.run.assert_not_called()
 
-    def test_invalid_utf8_is_a_version_error_after_cleanup(self):
-        """Do not leak undecodable native output into the public error."""
-        from py_docker.streams.models import Frame
+    def test_wrong_version_nonzero_exit_and_invalid_utf8_are_version_failures(self):
+        """Interpret only a completed library result against the pinned Codex version."""
+        from py_docker.execution.models import CommandResult
 
-        self.stream.read_frame.side_effect = [
-            Frame(channel="stdout", data=b"\xff"),
-            None,
-        ]
-        with self.assertRaisesRegex(RunnerError, "^unsupported_codex_cli_version$"):
-            self.preflight._probe(self.client, "local-image", self.expected)
-        self.client.containers.remove.assert_called_once()
-
-    def test_wrong_version_and_nonzero_exit_each_refuse_after_cleanup(self):
-        """Validate both native version failures inside the actual preflight owner."""
-        from py_docker.streams.models import Frame
-
-        for output, status in ((b"codex-cli unexpected", 0), (b"codex-cli 0.159.2", 7)):
+        for output, status in (
+            (b"codex-cli unexpected", 0),
+            (b"codex-cli 0.159.2", 7),
+            (b"\xff", 0),
+        ):
             with self.subTest(output=output, status=status):
-                self.stream.read_frame.side_effect = [
-                    Frame(channel="stdout", data=output),
-                    None,
-                ]
-                self.client.sdk.containers.get.return_value.wait.return_value = {
-                    "StatusCode": status
-                }
+                self.client.jobs.run.return_value = CommandResult(
+                    exit_code=status, stdout=output, stderr=b"private ignored output"
+                )
                 with self.assertRaisesRegex(
                     RunnerError, "^unsupported_codex_cli_version$"
                 ):
                     self.preflight._probe(self.client, "image", self.expected)
-                self.assertFalse(self.preflight.receipt_path.exists())
 
-    def test_cleanup_failure_wins_and_retains_private_receipt(self):
-        """Unverified resources take precedence over a failed version check."""
+    def test_cleanup_uncertainty_maps_to_existing_error_before_policy_or_dispatch(self):
+        """Startup recovery is explicit and blocks another job when it is unconfirmed."""
+        from py_docker.errors import CleanupUnconfirmedError
+
+        self.client.jobs.recover.side_effect = CleanupUnconfirmedError(
+            "recover owned job"
+        )
+        with (
+            patch("py_docker.Client", return_value=self.client),
+            self.assertRaisesRegex(RunnerError, "^container_termination_unverified$") as caught,
+        ):
+            self.preflight.check("image", self.expected)
+        self.assertTrue(caught.exception.__suppress_context__)
+        self.client.images.resolve.assert_not_called()
+        self.client.jobs.run.assert_not_called()
+
+    def test_library_failure_stays_safe_and_does_not_claim_missing_image(self):
+        """Preserve uncertainty rather than inferring a cause from an SDK failure."""
         from py_docker.errors import DockerOperationError
 
-        self.client.sdk.containers.get.return_value.wait.return_value = {
-            "StatusCode": 7
-        }
-        self.client.containers.remove.side_effect = DockerOperationError(
-            "private error"
-        )
-        with self.assertRaisesRegex(RunnerError, "^container_termination_unverified$"):
-            self.preflight._probe(self.client, "local-image", self.expected)
-        self.assertTrue(self.preflight.receipt_path.exists())
-
-    def test_absence_after_uncertain_create_does_not_authorize_another_probe(self):
-        """A delayed daemon create cannot be ruled out by immediate absence."""
-        from py_docker.errors import CreationUnconfirmedError
-
-        self.client.containers.create.side_effect = CreationUnconfirmedError(
-            "create", self.receipt
-        )
-        self.client.containers.reconcile.return_value = None
-        with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
-            self.preflight._probe(self.client, "local-image", self.expected)
-        self.assertTrue(self.preflight.receipt_path.exists())
-        with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
-            self.preflight._recover(self.client)
-        self.client.containers.remove.assert_not_called()
-        self.assertEqual(self.client.containers.create.call_count, 1)
-
-    def test_retained_receipt_recovers_only_observed_owned_container(self):
-        """Reconcile and remove the owned ID before clearing the private record."""
-        self.preflight._save(self.receipt)
-        self.preflight._recover(self.client)
-        self.client.containers.reconcile.assert_called_once_with(self.receipt)
-        self.client.containers.remove.assert_called_once_with(self.identity, force=True)
-        self.assertFalse(self.preflight.receipt_path.exists())
-
-    def test_receipt_cannot_be_replaced_by_a_second_probe(self):
-        """Exclusive creation preserves an outstanding reservation until recovery."""
-        self.preflight._save(self.receipt)
-        before = self.preflight.receipt_path.read_bytes()
-        with self.assertRaises(FileExistsError):
-            self.preflight._save(self.receipt)
-        self.assertEqual(self.preflight.receipt_path.read_bytes(), before)
-
-    def test_malformed_sdk_status_is_translated_and_owned_probe_is_removed(self):
-        """Unexpected SDK result shapes do not escape the descriptive error boundary."""
-        self.client.__enter__.return_value = self.client
-        self.client.sdk.containers.get.return_value.wait.return_value = None
+        self.client.jobs.run.side_effect = DockerOperationError("read owned job")
         with (
             patch("py_docker.Client", return_value=self.client),
             self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
         ):
             self.preflight.check("image", self.expected)
-        self.client.containers.remove.assert_called_once_with(self.identity, force=True)
-        self.assertFalse(self.preflight.receipt_path.exists())
-
-    def test_rejected_endpoint_diagnostic_never_logs_configuration_values(self):
-        """Help local setup without exposing raw errors or endpoint credentials."""
-        from py_docker.errors import ConnectionConfigurationError
-
-        with (
-            patch(
-                "py_docker.Client",
-                side_effect=ConnectionConfigurationError("private endpoint"),
-            ),
-            self.assertLogs(
-                "laomedo.agents.providers.codex.preflight.service", level="WARNING"
-            ) as logs,
-            self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
-        ):
-            self.preflight.check("image", self.expected)
-        self.assertIn("DOCKER_HOST", logs.output[0])
-        self.assertNotIn("private endpoint", logs.output[0])
 
     def test_selected_endpoint_pins_cli_snapshot_and_ignores_library_env_overrides(
         self,
     ):
-        """Prevent SDK and subsequent CLI calls selecting different engines."""
+        """Keep reusable jobs and subsequent CLI calls on the selected local engine."""
         self.client.connection.endpoint = "npipe:////./pipe/docker_engine"
-        self.client.__enter__.return_value = self.client
         snapshot = {
             "DOCKER_CONTEXT": "desktop-linux",
             "PY_DOCKER_ENDPOINT": "tcp://untrusted:2375",
@@ -308,13 +218,18 @@ class PreflightControls(unittest.TestCase):
                 return_value=snapshot,
             ),
             patch("py_docker.Client", return_value=self.client) as factory,
-            patch.object(self.preflight, "_probe"),
         ):
             selected = self.preflight.check("image", self.expected)
         self.assertEqual(
             selected.environment["DOCKER_HOST"], self.client.connection.endpoint
         )
         self.assertNotIn("DOCKER_CONTEXT", selected.environment)
-        self.assertEqual(factory.call_args.kwargs["environment"], snapshot)
         self.assertIsNone(factory.call_args.kwargs["settings"].endpoint)
-        self.assertEqual(factory.call_args.kwargs["settings"].timeout_seconds, 15)
+        self.client.jobs.recover.assert_called_once_with(self.preflight.receipt_path)
+
+    def test_generic_lifecycle_implementation_does_not_return_to_the_policy_adapter(
+        self,
+    ):
+        """Guard the outsourcing boundary instead of retaining duplicate implementations."""
+        methods = set(CodexPreflight.__dict__)
+        self.assertFalse(methods & {"_save", "_recover", "_cleanup"})

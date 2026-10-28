@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -16,11 +14,10 @@ from laomedo.agents.runtime.errors import RunnerError
 
 if TYPE_CHECKING:
     from py_docker import Client
-    from py_docker.containers.models import ContainerIdentity, ContainerReservation
 
 
 class CodexPreflight:
-    """Own a credential-free probe and its private uncertain-create receipt.
+    """Apply Codex image/version policy while py-docker owns the probe lifecycle.
 
     Parameters
     ----------
@@ -63,6 +60,7 @@ class CodexPreflight:
             from py_docker import Client
             from py_docker.connection.settings import ConnectionSettings
             from py_docker.errors import (
+                CleanupUnconfirmedError,
                 ConnectionConfigurationError,
                 DockerOperationError,
             )
@@ -83,7 +81,7 @@ class CodexPreflight:
                 ),
                 environment=snapshot,
             ) as client:
-                self._recover(client)
+                client.jobs.recover(self.receipt_path)
                 self._probe(client, image, expected_id)
                 pinned = {
                     key: value
@@ -94,6 +92,8 @@ class CodexPreflight:
                 return DockerSelection(image_id=expected_id, environment=pinned)
         except RunnerError:
             raise
+        except CleanupUnconfirmedError:
+            raise RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:
             logging.getLogger(__name__).warning(
                 "Docker endpoint selection was rejected: use one unambiguous local "
@@ -114,7 +114,7 @@ class CodexPreflight:
             raise RunnerError("runner_docker_check_unconfirmed") from None
 
     def _probe(self, client: Client, image: str, expected_id: str) -> None:
-        """Attach before starting the bounded, non-root version probe.
+        """Delegate the hardened version probe and enforce Codex output policy.
 
         Parameters
         ----------
@@ -132,6 +132,7 @@ class CodexPreflight:
         """
         from py_docker.containers.models import ContainerSpec
         from py_docker.errors import OwnershipConflictError
+        from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
 
         try:
@@ -145,110 +146,19 @@ class CodexPreflight:
             command=["codex", "--version"],
             user="10001:10001",
         )
-        reservation = client.containers.reserve(spec)
-        self._save(reservation)
-        identity = None
-        try:
-            identity = client.containers.create(spec, reservation)
-            stdout = bytearray()
-            limits = StreamLimits(
-                seconds=settings.STREAM_SECONDS, max_bytes=settings.MAX_OUTPUT_BYTES
+        result = client.jobs.run(
+            ContainerJob(
+                spec=spec,
+                limits=StreamLimits(
+                    seconds=settings.STREAM_SECONDS, max_bytes=settings.MAX_OUTPUT_BYTES
+                ),
+                receipt_path=self.receipt_path,
+                wait_timeout_seconds=settings.WAIT_SECONDS,
             )
-            with client.execution.attach(identity, limits) as stream:
-                client.containers.start(identity)
-                while frame := stream.read_frame():
-                    if frame.channel == "stdout":
-                        stdout.extend(frame.data)
-            status = client.sdk.containers.get(identity.id).wait(
-                timeout=settings.WAIT_SECONDS
-            )
-            try:
-                version = stdout.decode("utf-8").strip()
-            except UnicodeDecodeError:
-                raise RunnerError("unsupported_codex_cli_version") from None
-            if status.get("StatusCode") != 0 or version != codex_settings.CLI_VERSION:
-                raise RunnerError("unsupported_codex_cli_version")
-        finally:
-            self._cleanup(client, reservation, identity)
-
-    def _save(self, reservation: ContainerReservation) -> None:
-        """Persist ownership before create without logging private label values.
-
-        Parameters
-        ----------
-        reservation : ContainerReservation
-            Canonical library ownership intent for uncertain-outcome recovery.
-        """
-        value = {
-            "name": reservation.name,
-            "labels": {
-                key: token.get_secret_value()
-                for key, token in reservation.labels.items()
-            },
-        }
-        descriptor = os.open(
-            self.receipt_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
         )
-        with os.fdopen(descriptor, "w", encoding="utf-8") as target:
-            json.dump(value, target)
-
-    def _recover(self, client: Client) -> None:
-        """Reconcile a retained receipt before allowing a new probe.
-
-        Parameters
-        ----------
-        client : Client
-            Scoped session used to inspect the prior exact reservation.
-
-        Raises
-        ------
-        RunnerError
-            The private receipt is corrupt or its creation/cleanup remains unknown.
-        """
-        from py_docker.containers.models import ContainerReservation
-
-        if not self.receipt_path.exists():
-            return
         try:
-            receipt = ContainerReservation.model_validate_json(
-                self.receipt_path.read_text(encoding="utf-8")
-            )
-        except (OSError, ValueError):
-            raise RunnerError("container_termination_unverified") from None
-        self._cleanup(client, receipt, None)
-
-    def _cleanup(
-        self,
-        client: Client,
-        reservation: ContainerReservation,
-        identity: ContainerIdentity | None,
-    ) -> None:
-        """Remove an observed owned ID; retain intent when creation is uncertain.
-
-        Parameters
-        ----------
-        client : Client
-            Scoped session on the original selected endpoint.
-        reservation : ContainerReservation
-            Private pre-create intent, retained if reconciliation cannot finish.
-        identity : ContainerIdentity or None
-            Observed immutable ID, or None after an uncertain create.
-
-        Raises
-        ------
-        RunnerError
-            Cleanup is unconfirmed. Immediate absence after an uncertain create
-            cannot prove that a delayed daemon request will not create it later.
-        """
-        try:
-            owned = (
-                identity
-                if identity is not None
-                else client.containers.reconcile(reservation)
-            )
-            if owned is None:
-                raise RunnerError("container_termination_unverified")
-            client.containers.remove(owned, force=True)
-            self.receipt_path.unlink()
-        except Exception:  # noqa: BLE001 - Any cleanup fault must retain the receipt and fail closed.
-            raise RunnerError("container_termination_unverified") from None
+            version = result.stdout.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            raise RunnerError("unsupported_codex_cli_version") from None
+        if result.exit_code != 0 or version != codex_settings.CLI_VERSION:
+            raise RunnerError("unsupported_codex_cli_version")
