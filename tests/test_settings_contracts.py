@@ -37,6 +37,8 @@ class SettingsContractTests(unittest.TestCase):
             self.assertIsNone(cls.model_config['secrets_dir'])
             self.assertFalse(cls.model_config['enable_decoding'])
             for name, field in cls.model_fields.items():
+                if field.annotation in (int, float):
+                    continue  # Numeric host settings have explicit validation below.
                 with self.subTest(module=module.__name__, field=name):
                     alias = field.validation_alias
                     with patch.dict(os.environ, {}, clear=True):
@@ -54,7 +56,7 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/providers/codex/servers.py': {'otel', 'multi_agent'},
+            'agents/providers/codex/native/server.py': {'otel', 'multi_agent'},
             'agents/providers/claude/runner.py': {'mirror_host_login'},
             'activity/opencode/telemetry.py': {'otel'},
         }
@@ -66,6 +68,25 @@ class SettingsContractTests(unittest.TestCase):
                         and isinstance(node.comparators[0], ast.Constant) and node.comparators[0].value == '1'
                         and isinstance(node.ops[0], (ast.Eq, ast.NotEq))}
             self.assertEqual(compared, fields, relative)
+
+    def test_native_stream_settings_validate_positive_numeric_environment(self):
+        from pydantic import ValidationError
+        from laomedo.agents.providers.codex.native.settings import Settings
+        from laomedo.agents.runtime.errors import RunnerError
+        for field, alias in (("max_bytes","LAOMEDO_CODEX_STREAM_MAX_BYTES"),
+                             ("startup_margin","LAOMEDO_CODEX_STREAM_STARTUP_MARGIN")):
+            with self.subTest(field=field), patch.dict(os.environ, {}, clear=True):
+                os.environ[alias]="1024"
+                self.assertEqual(getattr(Settings(),field),1024)
+                for invalid in ("", "0", "-1", "not-a-number"):
+                    os.environ[alias]=invalid
+                    with self.assertRaises(ValidationError):
+                        Settings()
+                    with self.assertRaisesRegex(RunnerError,"runner_transport_configuration_invalid"):
+                        Settings.load()
+        with patch.dict(os.environ,{"LAOMEDO_CODEX_STREAM_STARTUP_MARGIN":"inf"}):
+            with self.assertRaisesRegex(RunnerError,"runner_transport_configuration_invalid"):
+                Settings.load()
 
     def test_fixed_protocol_pins_are_not_environment_fields(self):
         for module, cls in self.classes():
@@ -92,17 +113,21 @@ class SettingsContractTests(unittest.TestCase):
             'host/runner/utils.py': 'os.environ.items()',
             'agents/workspace/git.py': 'os.environ.items()',
             'github/transport/git/utils.py': 'os.environ.items()',
-            'agents/providers/claude/utils.py': 'os.environ.items()',
             'host/credentials/claude/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
-            'agents/providers/codex/servers.py': 'os.environ if docker_environment is None else docker_environment',
-            'host/publication/cli.py': 'key in os.environ',
+                        'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',
             'agents/handoffs/transport.py': '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+        claude=(SOURCE / 'agents/providers/claude/container.py').read_text(encoding='utf-8')
+        self.assertNotIn('os.environ', claude)
+        self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
+        split=(SOURCE / 'agents/providers/codex/split/server.py').read_text()
+        self.assertNotIn('os.environ',split)
+        self.assertIn('environment=docker_environment',split)
         helper = (SOURCE / 'host/credentials/git_credential_helper.py').read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn('pydantic', helper)

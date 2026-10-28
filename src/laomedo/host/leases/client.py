@@ -24,11 +24,14 @@ class LeaseClient:
         name: str,
         token: str,
         cancelled: threading.Event,
+        docker_endpoint: str,
         accept_timeout: float = 5.0,
         mediation_request: dict | None = None,
     ):
+        if not isinstance(docker_endpoint, str) or not docker_endpoint:
+            raise RuntimeError("lease_service_unavailable")
         identity = _leases_models.ContainerIdentity(
-            name=name, run_id=run_id, token=token
+            name=name, run_id=run_id, token=token, docker_endpoint=docker_endpoint
         )
         self.state = Path(service_state).resolve()
         info = _leases_utils._read_json(self.state / "service.json")

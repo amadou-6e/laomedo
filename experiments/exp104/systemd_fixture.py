@@ -95,7 +95,10 @@ def service():
 
 
 def runner(side):
-    client = LeaseClient(STATE / 'lease', run_id='s14-' + side, name='synthetic-' + side,
+    from py_docker import Client as _DockerClient
+    with _DockerClient() as _lease_docker:
+        _lease_endpoint = _lease_docker.connection.endpoint
+    client = LeaseClient(STATE / 'lease', docker_endpoint=_lease_endpoint, run_id='s14-' + side, name='synthetic-' + side,
                          token='s14-lease-' + side, cancelled=threading.Event(),
                          mediation_request={'invocation_id': 's14-' + side,
                                             'repository': REPOSITORY, 'branch': 's14-' + side})

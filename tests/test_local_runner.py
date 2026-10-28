@@ -3,6 +3,7 @@
 from pathlib import Path
 from laomedo.host.leases.models import ContainerIdentity
 from contextlib import nullcontext
+from importlib.util import find_spec
 import io
 import json
 import multiprocessing
@@ -16,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.servers import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.split.server import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.native.models import CodexLaunch; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.host.mediation.authority import RunGrantAuthority
@@ -42,8 +43,16 @@ def _serve_synthetic_host_services(state: str, token_file: str, checkout: str) -
 
 
 class FakeServer:
+    @property
+    def streams_closed(self):
+        return (getattr(self,"reader",None) is not None and getattr(self,"stderr_reader",None) is not None
+                and not self.reader.is_alive() and not self.stderr_reader.is_alive())
     calls = []
     turn_inputs = []
+
+    def _write(self, data):
+        self.process.stdin.write(data)
+        self.process.stdin.flush()
 
     def __init__(self, command, evidence):
         self.command = command
@@ -259,6 +268,7 @@ class LocalRunnerTests(unittest.TestCase):
                 transport=FakeServer, check_docker=False,
                 supervise_containers=True, lease_service=host_state / "lease",
                 github_authority=authority, mediator_state=host_state / "mediator")
+            mediated.docker_environment = {"DOCKER_HOST":"unix:///internal-lease-control.sock"}
 
             def prepare(number):
                 reference = authority.approve(
@@ -298,6 +308,7 @@ class LocalRunnerTests(unittest.TestCase):
                 return (f"http://host.docker.internal:{status['port']}/v1/mediate",
                         status["instance"])
 
+            mediated.docker_environment = {"DOCKER_HOST":"unix:///internal-lease-control.sock"}
             route_check = (nullcontext() if os.name == "nt" else
                            patch.object(mediated, "_mediator_route", side_effect=ci_route))
             with route_check:
@@ -306,10 +317,10 @@ class LocalRunnerTests(unittest.TestCase):
                     result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
                 self.assertEqual(result["status"], "completed", result.get("error_category"))
                 self.assertEqual(len(FakeServer.calls), 1)
-                command = " ".join(FakeServer.calls[0])
-                self.assertIn("target=/run/laomedo/capability,readonly", command)
-                self.assertIn("host.docker.internal", command)
-                self.assertNotIn("synthetic-provider-secret", command)
+                launch = FakeServer.calls[0]
+                self.assertTrue(launch.capability.is_file())
+                self.assertIn("host.docker.internal", launch.mediator_url)
+                self.assertNotIn("synthetic-provider-secret", launch.model_dump_json())
                 self.assertIn("node /run/laomedo/mediate.mjs", FakeServer.turn_inputs[0])
                 lease_dir = host_state / "lease" / "leases" / result["container_ownership"]["launch_token"]
                 self.assertEqual(json.loads((lease_dir / "result.json").read_text())["reason"], "done")
@@ -329,23 +340,21 @@ class LocalRunnerTests(unittest.TestCase):
         finally:
             child.terminate()
             child.join(timeout=5)
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_mediator_mount_contains_capability_not_provider_token(self):
-        capability = self.runner.state / "grant.secret"
-        capability.write_text("synthetic-run-capability", encoding="utf-8")
-        command = _docker_prefix(self.root / "source", self.root / "source",
-                                 self.runner.state, capability=capability,
-                                 mediator_url="http://host.docker.internal:1234/v1/mediate",
-                                 mediator_instance="a" * 32)
-        joined = " ".join(command)
-        self.assertIn("source=" + str(capability), joined)
-        self.assertIn("target=/run/laomedo/capability,readonly", joined)
-        self.assertIn("LAOMEDO_MEDIATOR_URL=http://host.docker.internal:1234/v1/mediate",
-                      joined)
-        self.assertIn("LAOMEDO_MEDIATOR_INSTANCE=" + "a" * 32, joined)
-        self.assertNotIn("synthetic-run-capability", joined)
-        self.assertNotIn("GH_TOKEN", joined)
-        with self.assertRaisesRegex(RunnerError, "incomplete_mediator_mount"):
-            _docker_prefix(self.root, self.root, self.root, capability=capability)
+        capability=self.runner.state / "grant.secret"
+        capability.write_text("synthetic-run-capability")
+        spec=CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.runner.state,
+            image="sha256:"+"a"*64,capability=capability,mediator_url="http://host.docker.internal:1234/v1/mediate",
+            mediator_instance="a"*32).to_container_spec()
+        mount=next(m for m in spec.mounts if m.target=="/run/laomedo/capability")
+        self.assertEqual(mount.source,str(capability)); self.assertTrue(mount.read_only)
+        self.assertEqual(spec.environment["LAOMEDO_MEDIATOR_INSTANCE"].get_secret_value(),"a"*32)
+        self.assertNotIn("synthetic-run-capability",spec.model_dump_json())
+        self.assertNotIn("GH_TOKEN",spec.environment)
+        with self.assertRaisesRegex(RunnerError,"incomplete_mediator_mount"):
+            CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.root,
+                        image="sha256:"+"a"*64,capability=capability).to_container_spec()
 
     def test_split_executor_cannot_claim_legacy_container_lease(self):
         with self.assertRaisesRegex(RunnerError, "split_executor_lease_unavailable"):
@@ -353,20 +362,15 @@ class LocalRunnerTests(unittest.TestCase):
                         check_docker=False, split_executor=True,
                         supervise_containers=True)
 
+    @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.agents.providers.codex.settings import GIT_IMAGE; from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
-        args = (self.root / "source", self.root / "source", self.runner.state)
-        command = _docker_prefix(*args, image=GIT_IMAGE)
-        entries = [command[index + 1] for index, item in enumerate(command[:-1])
-                   if item == "--env" and command[index + 1].startswith("GIT_CONFIG_")]
-        self.assertEqual(entries, ["GIT_CONFIG_COUNT=1",
-                                  "GIT_CONFIG_KEY_0=safe.directory",
-                                  "GIT_CONFIG_VALUE_0=/draft"])
-        self.assertNotIn("GIT_CONFIG_COUNT=1", _docker_prefix(*args))
-        pinned = _docker_prefix(*args, image=GIT_IMAGE_ID)
-        self.assertEqual([pinned[index + 1] for index, item in enumerate(pinned[:-1])
-                          if item == "--env" and pinned[index + 1].startswith("GIT_CONFIG_")],
-                         entries)
+        from laomedo.agents.providers.codex.settings import GIT_IMAGE, GIT_IMAGE_ID
+        for image in (GIT_IMAGE,GIT_IMAGE_ID):
+            spec=CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.root,image=image).to_container_spec()
+            values={k:v.get_secret_value() for k,v in spec.environment.items() if k.startswith("GIT_CONFIG_")}
+            self.assertEqual(values,{"GIT_CONFIG_COUNT":"1","GIT_CONFIG_KEY_0":"safe.directory","GIT_CONFIG_VALUE_0":"/draft"})
+        spec=CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.root,image="sha256:"+"a"*64).to_container_spec()
+        self.assertNotIn("GIT_CONFIG_COUNT",spec.environment)
 
     def test_container_identity_is_saved_before_transport_launch(self):
         class InspectReservation(FakeServer):
@@ -374,9 +378,9 @@ class LocalRunnerTests(unittest.TestCase):
                 saved = json.loads((evidence / "record.json").read_text(encoding="utf-8"))
                 owner = saved["container_ownership"]
                 assert saved["status"] == "running"
-                assert command[command.index("--name") + 1] == owner["name"]
-                assert "laomedo.run_id=" + saved["run_id"] in command
-                assert "laomedo.launch_token=" + owner["launch_token"] in command
+                assert command.name == owner["name"]
+                assert command.run_id == saved["run_id"]
+                assert command.launch_token.get_secret_value() == owner["launch_token"]
                 super().__init__(command, evidence)
 
         self.runner.transport = InspectReservation
@@ -726,7 +730,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["workspace_mode"], "git")
         self.assertEqual(result["image"], "laomedo-codex-git:0.159.2")
-        self.assertIn("sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78", FakeServer.calls[-1])
+        self.assertEqual(FakeServer.calls[-1].image, "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78")
         self.assertEqual(result["git_baseline"], baseline)
         self.assertTrue(result["skill_git_exclusion"]["enabled"])
         self.assertEqual(result["post_run_hash_scope"], "working_files_only")
@@ -825,9 +829,8 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(first["skill"]["use_evidence"], "offered")
         self.assertEqual(first["answer"], "synthetic answer")
         command = FakeServer.calls[-1]
-        self.assertIn("type=volume,source=laomedo-122-docker-auth,target=/home/runner/.codex",
-                      command)
-        self.assertNotIn("auth.json", " ".join(command))
+        self.assertEqual(command.profile, "laomedo-122-docker-auth")
+        self.assertNotIn("auth.json", command.model_dump_json())
         output = self.runner._run_dir(first["run_id"]) / "post-run"
         self.assertEqual(_hash_tree(output), first["post_run_hash"])
         self.assertFalse((self.source / "agent.txt").exists())
@@ -1134,52 +1137,48 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertTrue(self.runner.lock.acquire(blocking=False))
         self.runner.lock.release()
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
     def test_app_server_interrupt_then_removes_named_container(self):
         app = AppServer.__new__(AppServer)
-        app.container_name = "laomedo-codex-test"
         app.active_thread_id = "thread-test"
         app.interrupt_acknowledged = False
-        app.events = []
-        app.messages = queue.Queue()
+        app.events, app.messages = [], queue.Queue()
         app.request = Mock(return_value={"result": {}})
-        app.process = Mock()
-        app.process.poll.return_value = None
+        app._reader_done = threading.Event()
+        app._closed = False
+        app._resources_failed = False
+        app.session = Mock()
         app.reader = Mock()
-        app.stderr_reader = Mock()
-        app.log = io.StringIO()
-        app.activity_log = io.StringIO()
-        app.telemetry = None
-        app.stderr = io.StringIO()
+        app.reader.is_alive.return_value = False
+        app._close_resources = Mock()
         cancelled = threading.Event()
         cancelled.set()
         self.assertEqual(app.wait_turn("turn-test", .05, cancelled),
                          ("cancelled", "cancel_native_unconfirmed"))
         app.request.assert_called_once_with("turn/interrupt", {
             "threadId": "thread-test", "turnId": "turn-test"}, timeout=5)
-        with patch("subprocess.run", side_effect=[
-                Mock(returncode=0), Mock(returncode=0),
-                Mock(returncode=1, stderr=b"error: no such object: laomedo-codex-test")]) as docker:
+        with patch("subprocess.run") as cli:
             app.close()
-        self.assertEqual(docker.call_args_list[0].args[0],
-                         ["docker", "rm", "-f", "laomedo-codex-test"])
-        self.assertEqual(docker.call_args_list[2].args[0],
-                         ["docker", "inspect", "laomedo-codex-test"])
+            cli.assert_not_called()
+        app.session.close.assert_called_once_with()
+        app._close_resources.assert_called_once_with()
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
     def test_unverified_container_removal_fails_closed(self):
+        from py_docker.errors import CleanupUnconfirmedError
         app = AppServer.__new__(AppServer)
-        app.container_name = "laomedo-codex-test"
-        app.process = Mock()
-        app.process.poll.return_value = None
+        app._closed = False
+        app._resources_failed = False
+        app.session = Mock()
+        app.session.close.side_effect = CleanupUnconfirmedError("internal cleanup control")
         app.reader = Mock()
-        app.stderr_reader = Mock()
-        app.log = io.StringIO()
-        app.activity_log = io.StringIO()
-        app.telemetry = None
-        app.stderr = io.StringIO()
-        with patch("subprocess.run", side_effect=[
-                Mock(returncode=1), Mock(returncode=1), Mock(returncode=0)]):
+        app.reader.is_alive.return_value = False
+        app._close_resources = Mock()
+        with patch("subprocess.run") as cli:
             with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
                 app.close()
+            cli.assert_not_called()
+        app.session.close.assert_called_once_with()
 
     def test_http_rejects_simple_cross_origin_content_type(self):
         server = serve(self.runner, port=0)

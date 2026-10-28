@@ -3,14 +3,17 @@
 from __future__ import annotations
 import laomedo.agents.providers.codex.settings as _codex_settings
 import laomedo.agents.providers.codex.utils as _codex_utils
+import laomedo.agents.providers.codex.native.settings as _native_settings
 
 from pathlib import Path
 from uuid import uuid4
 import hashlib
+import logging
 import json
 import laomedo.agents.contracts.output as _contracts_output
 import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.providers.codex.servers as _runtime_servers
+import laomedo.agents.providers.codex.native.server as _runtime_servers
+import laomedo.agents.providers.codex.split.server as _split_servers
 import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.host.credentials.siwc.connection as _siwc_connection
 import laomedo.host.credentials.siwc.errors as _siwc_errors
@@ -22,7 +25,6 @@ import laomedo.host.mediation.authority as _mediation_authority
 import laomedo.skills.workspace.utils as workspace_skills
 import re
 import shutil
-import subprocess
 import threading
 import time
 
@@ -140,21 +142,144 @@ class CodexRunner(Runner):
             raise _runtime_errors.RunnerError("permission_config_changed")
         self.docker_environment = None
         if check_docker:
-            from laomedo.agents.providers.codex.preflight.service import CodexPreflight
-
-            selected = CodexPreflight(self.state).check(self.image, self.image_id)
-            self.docker_environment = selected.environment
-            if not split_executor:
-                subprocess.run(
-                    ["docker", "volume", "inspect", _codex_settings.VOLUME],
-                    check=True,
-                    capture_output=True,
-                    timeout=15,
-                    env=self.docker_environment,
-                )
+            self.docker_environment = self._check_container()
+            if split_executor:
+                _codex_utils._ensure_split_profile(self.profile, state=self.state, env=self.docker_environment)
             else:
-                _codex_utils._ensure_split_profile(self.profile, env=self.docker_environment)
+                from py_docker import Client
+                with Client(environment=self.docker_environment) as docker:
+                    if not docker.volumes.exists(_codex_settings.VOLUME):
+                        raise _runtime_errors.RunnerError("docker_control_failed")
 
+    def _check_container(self) -> dict[str, str]:
+        """Recover and verify the Docker runtime without credentials or model work.
+
+        Returns
+        -------
+        dict[str, str]
+            Private host environment with the selected local daemon pinned.
+
+        Raises
+        ------
+        RunnerError
+            Existing image, CLI, configuration or cleanup refusal. Cleanup
+            uncertainty wins and retains the receipt; no implicit retry occurs.
+        """
+        try:
+            from docker.errors import DockerException
+            from requests.exceptions import RequestException
+            from py_docker import Client
+            from py_docker.connection.settings import ConnectionSettings
+            from py_docker.containers.models import ContainerSpec
+            from py_docker.errors import (
+                CleanupUnconfirmedError,
+                ConnectionConfigurationError,
+                DockerOperationError,
+                OwnershipConflictError,
+            )
+            from py_docker.jobs.models import ContainerJob
+            from py_docker.streams.models import StreamLimits
+        except ImportError:
+            logging.getLogger(__name__).warning(
+                "Local Docker runtime dependencies are missing. Install Laomedo's "
+                "runner extra in the Python environment used to start this runner "
+                "(python -m pip install -e '.[runner]')."
+            )
+            raise _runtime_errors.RunnerError(
+                "runner_docker_check_unconfirmed"
+            ) from None
+        snapshot = ConnectionSettings.environment_snapshot(None)
+        try:
+            with Client(
+                settings=ConnectionSettings(
+                    timeout_seconds=_codex_settings.PREFLIGHT_API_TIMEOUT_SECONDS
+                ),
+                environment=snapshot,
+            ) as client:
+                receipt = self.state.joinpath(
+                    _codex_settings.PREFLIGHT_RECEIPT_FILENAME
+                )
+                client.jobs.recover(receipt)
+                self._recover_containers(client)
+                try:
+                    client.images.resolve(self.image, expected_id=self.image_id)
+                except OwnershipConflictError:
+                    raise _runtime_errors.RunnerError(
+                        "docker_image_digest_changed"
+                    ) from None
+                result = client.jobs.run(
+                    ContainerJob(
+                        spec=ContainerSpec(
+                            image=self.image_id,
+                            name="laomedo-codex-preflight-" + uuid4().hex,
+                            command=["codex", "--version"],
+                            user="10001:10001",
+                        ),
+                        limits=StreamLimits(
+                            seconds=_codex_settings.PREFLIGHT_STREAM_SECONDS,
+                            max_bytes=_codex_settings.PREFLIGHT_MAX_OUTPUT_BYTES,
+                        ),
+                        receipt_path=receipt,
+                        wait_timeout_seconds=_codex_settings.PREFLIGHT_WAIT_SECONDS,
+                    )
+                )
+                try:
+                    version = result.stdout.decode("utf-8").strip()
+                except UnicodeDecodeError:
+                    raise _runtime_errors.RunnerError(
+                        "unsupported_codex_cli_version"
+                    ) from None
+                if result.exit_code != 0 or version != _codex_settings.CLI_VERSION:
+                    raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
+                pinned = {
+                    key: value
+                    for key, value in snapshot.items()
+                    if key.upper() not in {"DOCKER_HOST", "DOCKER_CONTEXT"}
+                }
+                pinned["DOCKER_HOST"] = client.connection.endpoint
+                return pinned
+        except _runtime_errors.RunnerError:
+            raise
+        except CleanupUnconfirmedError:
+            raise _runtime_errors.RunnerError(
+                "container_termination_unverified"
+            ) from None
+        except ConnectionConfigurationError:
+            logging.getLogger(__name__).warning(
+                "Docker endpoint selection was rejected: use one unambiguous local "
+                "DOCKER_HOST or DOCKER_CONTEXT; TLS and remote endpoints are unsupported "
+                "by this local trial. No configuration values are logged."
+            )
+            raise _runtime_errors.RunnerError(
+                "runner_docker_check_unconfirmed"
+            ) from None
+        except (
+            DockerOperationError,
+            DockerException,
+            RequestException,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
+            raise _runtime_errors.RunnerError(
+                "runner_docker_check_unconfirmed"
+            ) from None
+
+    def _recover_containers(self, client) -> None:
+        """Recover central and legacy receipts on the selected client.
+
+        Parameters
+        ----------
+        client : py_docker.Client
+            Endpoint-bound client; recovery refuses uncertain or active receipts.
+        """
+        for pending in self.state.joinpath("receipts").glob("*.json"):
+            client.sessions.recover(pending)
+        for folder in ("runs", "catalog", "preflight"):
+            for pending in self.state.joinpath(folder).glob("*/*receipt*.json"):
+                client.sessions.recover(pending)
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
@@ -173,16 +298,28 @@ class CodexRunner(Runner):
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
                 _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"]))
+                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
+
+    def _receipt_path(self, root: Path) -> Path:
+        """Keep lifecycle intent outside disposable metadata and evidence folders."""
+        directory=self.state.joinpath("receipts")
+        directory.mkdir(mode=0o700,exist_ok=True)
+        return directory.joinpath(root.name+"-controller.json")
+
+    def _pending_receipts(self, root: Path) -> bool:
+        """Retain evidence for either unresolved controller or executor cleanup."""
+        return (any(self.state.joinpath("receipts").glob(root.name+"-*.json"))
+                or any(root.glob("*receipt*.json")))
 
     def _open_server(
         self,
         root: Path,
         *,
         access_token=None,
+        lifetime_seconds: float = 60,
         name: str | None = None,
         run_id: str | None = None,
         launch_token: str | None = None,
@@ -197,7 +334,7 @@ class CodexRunner(Runner):
             root / name for name in ("workspace", "canonical", "store")
         )
         if self.split_executor:
-            return _runtime_servers.SplitAppServer(
+            return _split_servers.SplitAppServer(
                 workspace,
                 canonical,
                 store_mount,
@@ -205,6 +342,8 @@ class CodexRunner(Runner):
                 self.profile,
                 provider_config=self.split_provider_config,
                 docker_environment=self.docker_environment,
+                lifetime_seconds=lifetime_seconds,
+                receipt_path=self._receipt_path(root),
                 access_token=(
                     access_token
                     if access_token is not None
@@ -223,40 +362,25 @@ class CodexRunner(Runner):
             # The checkout was prepared without a provider remote. This is a
             # credential-free helper URL, not an HTTPS fallback.
             _mediation_agent_cli.configure_remote(workspace, repository)
-        # Launch the opt-in image by its verified ID, not a mutable local tag.
-        command = [
-            "docker",
-            *_codex_utils._docker_prefix(
-                workspace,
-                canonical,
-                store_mount,
-                image=self.image_id,
-                name=name,
-                run_id=run_id,
-                launch_token=launch_token,
-                capability=capability,
-                mediator_url=mediator_url,
-                mediator_instance=mediator_instance,
-                command_directory=command_directory,
-                repository=repository,
-                branch=branch,
-                base_branch=base_branch,
-            ),
-        ]
-        if capability is not None and self.transport is _runtime_servers.AppServer:
-            return self.transport(
-                command,
-                root,
+        from laomedo.agents.providers.codex.native.models import CodexLaunch
+
+        values = dict(workspace=workspace, canonical=canonical, store_mount=store_mount,
+                      image=self.image_id, profile=self.profile, run_id=run_id, launch_token=launch_token,
+                      capability=capability, mediator_url=mediator_url,
+                      mediator_instance=mediator_instance, command_directory=command_directory,
+                      repository=repository, branch=branch, base_branch=base_branch)
+        if name is not None:
+            values["name"] = name
+        launch = CodexLaunch(**values)
+        from laomedo.agents.providers.codex.native.base import BaseNativeServer
+        if isinstance(self.transport, type) and issubclass(self.transport, BaseNativeServer):
+            return self.transport(launch, root,
                 env=getattr(self, "docker_environment", None),
-                docker_environment=getattr(self, "docker_environment", None),
-                secret_redactions=(capability.read_text(encoding="utf-8").strip(),),
-            )
-        if self.transport is _runtime_servers.AppServer:
-            return self.transport(
-                command, root, env=getattr(self, "docker_environment", None),
-                docker_environment=getattr(self, "docker_environment", None),
-            )
-        return self.transport(command, root)
+                lifetime_seconds=lifetime_seconds,
+                receipt_path=self._receipt_path(root),
+                secret_redactions=((capability.read_text(encoding="utf-8").strip(),)
+                                   if capability is not None else ()))
+        return self.transport(launch, root)
 
 
     def model_catalog(self) -> dict:
@@ -278,7 +402,8 @@ class CodexRunner(Runner):
                 # Deliberately use runner authentication when configured: metadata
                 # may be account-specific. No thread or turn is requested.
                 token = self.auth.access_token()[0] if self.auth else None
-                server = self._open_server(root, access_token=token)
+                server = self._open_server(root, access_token=token,
+                    lifetime_seconds=60 + _native_settings.Settings.load().startup_margin)
                 initialized = server.request(
                     "initialize",
                     {
@@ -307,11 +432,17 @@ class CodexRunner(Runner):
                     if server is not None:
                         server.close()
                 finally:
-                    shutil.rmtree(root, ignore_errors=True)
+                    if not self._pending_receipts(root):
+                        shutil.rmtree(root, ignore_errors=True)
 
 
     def preflight(self) -> dict:
-        """Check the existing Docker app-server and advertised models without a turn."""
+        """Launch native handshake, model and permission probes without a model turn.
+
+        This active check starts a controller and uses a disposable workspace.
+        Provider-neutral Docker startup validation is performed separately by
+        the constructor; this method checks the Codex protocol and permissions.
+        """
         root = self.state / "preflight" / str(uuid4())
         root.mkdir(parents=True)
         for name in ("workspace", "canonical", "store"):
@@ -323,7 +454,8 @@ class CodexRunner(Runner):
         server = None
         try:
             token = self.auth.access_token()[0] if self.auth else None
-            server = self._open_server(root, access_token=token)
+            server = self._open_server(root, access_token=token,
+                lifetime_seconds=160 + _native_settings.Settings.load().startup_margin)
             initialized = server.request(
                 "initialize",
                 {
@@ -355,13 +487,8 @@ class CodexRunner(Runner):
                     ("store_write", "printf FORBIDDEN > /store/sentinel.txt"),
                     ("auth_read", "cat /home/runner/.codex/auth.json >/dev/null"),
                 ):
-                    response = subprocess.run(
-                        ["docker", "exec", server.executor_name, "sh", "-c", command],
-                        env=self.docker_environment,
-                        capture_output=True,
-                        timeout=15,
-                    )
-                    checks[label] = response.returncode
+                    response = server.exec_probe(["sh", "-c", command])
+                    checks[label] = response.exit_code
             else:
                 for label, command in (
                     ("workspace_write", "printf CANARY > /draft/canary.txt"),
@@ -580,6 +707,7 @@ class CodexRunner(Runner):
                 launch_token = uuid4().hex
                 record["container_ownership"] = {
                     "name": name,
+                    "docker_endpoint": (self.docker_environment or {}).get("DOCKER_HOST"),
                     "launch_token": launch_token,
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False,
@@ -601,6 +729,7 @@ class CodexRunner(Runner):
                         self.lease_service,
                         run_id=run_id,
                         name=name,
+                        docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"),
                         token=launch_token,
                         cancelled=cancelled,
                         mediation_request=record.get("github_scope"),
@@ -639,9 +768,12 @@ class CodexRunner(Runner):
                     raise _runtime_errors.RunnerError("resume_auth_identity_mismatch")
             record["credential"] = auth_summary
             _runtime_utils._json(run_dir / "record.json", record)
+            transport_settings = _native_settings.Settings.load()
             launch_attempted = True
             server = self._open_server(
                 run_dir,
+                lifetime_seconds=(_codex_settings.NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
+                                  + transport_settings.startup_margin),
                 access_token=access_token,
                 name=name,
                 run_id=run_id,
@@ -863,7 +995,7 @@ class CodexRunner(Runner):
             if not turn_id:
                 raise _runtime_errors.RunnerError("turn_dispatch_rejected")
             server.active_thread_id = native_id
-            status, error = server.wait_turn(turn_id, 180, cancelled)
+            status, error = server.wait_turn(turn_id, _codex_settings.NATIVE_TURN_SECONDS, cancelled)
             # Correction is a continuation of this native thread, never a new
             # dispatch of the original task. Any mediated scope or tool effect
             # blocks automatic continuation because safe repetition is unknown.
@@ -949,7 +1081,7 @@ class CodexRunner(Runner):
                 turn_id = ((next_turn.get("result") or {}).get("turn") or {}).get("id")
                 if not turn_id:
                     raise _runtime_errors.RunnerError("turn_dispatch_rejected")
-                status, error = server.wait_turn(turn_id, 180, cancelled)
+                status, error = server.wait_turn(turn_id, _codex_settings.NATIVE_TURN_SECONDS, cancelled)
             native_status = status
             commands = _codex_utils._command_summary(server.events, turn_id)
             record["native_turn_status"] = native_status
@@ -1063,12 +1195,14 @@ class CodexRunner(Runner):
                         record["controller_cleanup"] = "confirmed"
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
-            except Exception:
+            except Exception as close_failure:
                 close_error = True
                 if record is not None:
                     record.update(
                         status="failed",
-                        error_category="container_termination_unverified",
+                        error_category=(close_failure.code if isinstance(close_failure,_runtime_errors.RunnerError)
+                                        and close_failure.code in {"executor_termination_unverified","container_termination_unverified","runner_transport_failed"}
+                                        else "container_termination_unverified"),
                     )
                     record["controller_cleanup"] = "unverified"
             finally:
@@ -1098,11 +1232,10 @@ class CodexRunner(Runner):
                                 error_category="container_termination_unverified",
                             )
                     elif record is not None and self.supervise_containers:
-                        verified, detail = _leases_utils.cleanup_exact(
-                            _leases_models.ContainerIdentity(
-                                name=name, run_id=run_id, token=launch_token
-                            )
-                        )
+                        verified, detail = ((True, "removed") if getattr(server,"cleanup_confirmed",False) else
+                            _leases_utils.cleanup_exact(_leases_models.ContainerIdentity(
+                                name=name,run_id=run_id,token=launch_token,
+                                docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"))))
                         if lease is not None:
                             # The executor is already removed. Only a trusted
                             # controller can keep its SAME lease through output
@@ -1117,12 +1250,9 @@ class CodexRunner(Runner):
                                     record["turns"][attempt_turn_offset:],
                                     resumed=resume,
                                     streams_closed=(
-                                        server is not None
-                                        and getattr(server, "reader", None) is not None
-                                        and getattr(server, "stderr_reader", None)
-                                        is not None
-                                        and server.reader.is_alive() is False
-                                        and server.stderr_reader.is_alive() is False
+                                        server is not None and (
+                                            server.streams_closed
+                                        )
                                     ),
                                 )
                             )
@@ -1138,14 +1268,6 @@ class CodexRunner(Runner):
                                 except Exception:
                                     verified = False
                                     detail = "lease_service_unverified"
-                        # A failed normal close may have been completed by the
-                        # independent supervisor after its pipe closed.
-                        if not verified:
-                            verified, detail = _leases_utils.cleanup_exact(
-                                _leases_models.ContainerIdentity(
-                                    name=name, run_id=run_id, token=launch_token
-                                )
-                            )
                         record["container_ownership"]["cleanup_verified"] = verified
                         record["container_ownership"]["cleanup_detail"] = detail
                         if not verified:

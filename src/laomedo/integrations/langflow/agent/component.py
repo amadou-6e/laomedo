@@ -21,6 +21,12 @@ from lfx.schema import Data; from lfx.schema import Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    'opencode_controller_image_unavailable',
+    'opencode_container_configuration_invalid',
+    'workspace_command_output_too_large',
+    'opencode_workspace_command_failed',
+    'opencode_command_service_closed',
+    'opencode_controller_output_failed',
     'agent_component_migration_required',
     'langflow_loopback_required', 'langflow_local_login_unavailable',
     'saved_flow_identity_unavailable', 'saved_flow_fetch_failed',

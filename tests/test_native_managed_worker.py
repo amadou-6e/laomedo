@@ -37,7 +37,7 @@ class NativeManagedWorkerTests(unittest.TestCase):
                 patch.object(worker.subprocess, "Popen", return_value=child), \
                 patch.object(worker, "inspect_exact", return_value=("owned", "d" * 64)), \
                 patch.object(worker, "cleanup_exact", return_value=(True, "absent")):
-            worker.run(tmp_path, "a")
+            worker.run(tmp_path, "a",docker_endpoint="unix:///internal-worker-control.sock")
         ready = json.loads((tmp_path / "a-ready.json").read_bytes())
         assert ready["container_id"] == "d" * 64
         assert ready["grant_id"] == "exact-grant"

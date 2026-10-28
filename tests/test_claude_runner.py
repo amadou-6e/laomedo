@@ -1,15 +1,16 @@
 """Internal controls only: simulated CLI receipts are not live acceptance."""
+from importlib.util import find_spec
 import json
 import subprocess
 import sys
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from types import SimpleNamespace
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.settings import CLI_VERSION; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import cli_environment; from laomedo.agents.providers.claude.utils import activity_usage
+from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.settings import CLI_VERSION; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import activity_usage
 from laomedo.activity.agent_activity.projection import project
 from laomedo.agents.runtime.errors import RunnerError
 from laomedo.agents.contracts.output import requirements
@@ -43,7 +44,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_catalog_does_not_dispatch_or_claim_model_execution(self):
         before=(self.runner.state/'turn-ledger.json').exists()
         with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \
-             patch('laomedo.agents.providers.codex.servers.AppServer',side_effect=AssertionError('no Codex RPC')):
+             patch('laomedo.agents.providers.codex.native.server.AppServer',side_effect=AssertionError('no Codex RPC')):
             catalog=self.runner.model_catalog()
         self.assertEqual([item['id'] for item in catalog['models']],['sonnet','opus','haiku'])
         self.assertEqual(catalog['account_availability'],'cli_reported')
@@ -180,20 +181,26 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual((after['otel_start'],after['otel_end']),(3,5))
 
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_successful_native_receipt_without_exports_preserves_result_and_warns(self):
         import io; import threading
         from unittest.mock import Mock
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
         self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
-        self.runner.container.prefix = Mock(return_value=[])
-        self.runner.container.bounded_command = Mock(return_value=[])
+        self.runner.container.spec = Mock(return_value=object())
+        self.runner.container.guarded = Mock(return_value=[])
+        self.runner.container.receipts = self.runner.state
+        self.runner.container.session = MagicMock()
         root = self.runner._run_dir(record['run_id'])
         receipt = {"type":"result","subtype":"success","session_id":record['thread_id'],"result":"done","is_error":False}
-        process = SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO((json.dumps(receipt)+'\n').encode()),
-                                  returncode=0,wait=lambda **kwargs:0,poll=lambda:0)
+        from py_docker.streams.models import Line
+        session = self.runner.container.session.return_value.__enter__.return_value
+        session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
+        session.wait.return_value = 0
+        session.cleanup_confirmed = True
         with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
-             patch('subprocess.Popen',return_value=process):
+             patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         self.assertEqual(result['result'],'done')
         self.assertEqual(record['telemetry_capture']['error_category'],'claude_telemetry_capture_failed')
@@ -201,7 +208,17 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertFalse(list(root.glob('telemetry-environment-*')))
         self.assertFalse(list(root.glob('command-capability-*')))
 
+        # A secondary absence check must never promote failed SDK cleanup.
+        session.cleanup_confirmed = False
+        session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
+        with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')) as secondary:
+            with self.assertRaisesRegex(RunnerError,'container_termination_unverified'):
+                self.runner._invoke(root,record,'task',threading.Event(),resume=False)
+        secondary.assert_not_called()
+        self.assertFalse(record['container_ownership']['cleanup_verified'])
+
     @unittest.skipUnless(OBSERVABILITY_AVAILABLE,"observability optional dependencies are not installed")
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_unexpected_receiver_cleanup_failure_preserves_native_result(self):
         import io; import threading
         from unittest.mock import Mock
@@ -213,14 +230,19 @@ class ClaudeRunnerTests(unittest.TestCase):
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
         self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
-        self.runner.container.prefix = Mock(return_value=[])
-        self.runner.container.bounded_command = Mock(return_value=[])
+        self.runner.container.spec = Mock(return_value=object())
+        self.runner.container.guarded = Mock(return_value=[])
+        self.runner.container.receipts = self.runner.state
+        self.runner.container.session = MagicMock()
         root = self.runner._run_dir(record['run_id'])
         receipt = {"type":"result","subtype":"success","session_id":record['thread_id'],"result":"done","is_error":False}
-        process = SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO((json.dumps(receipt)+'\n').encode()),
-                                  returncode=0,wait=lambda **kwargs:0,poll=lambda:0)
+        from py_docker.streams.models import Line
+        session = self.runner.container.session.return_value.__enter__.return_value
+        session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
+        session.wait.return_value = 0
+        session.cleanup_confirmed = True
         with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
-             patch('subprocess.Popen',return_value=process), \
+             patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')), \
              patch.object(ClaudeTelemetry,'close',broken_close):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         self.assertEqual(result['result'],'done')
@@ -251,7 +273,10 @@ class ClaudeRunnerTests(unittest.TestCase):
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
         self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
-        self.runner.container.prefix = Mock(return_value=[])
+        self.runner.container.spec = Mock(return_value=object())
+        self.runner.container.guarded = Mock(return_value=[])
+        self.runner.container.receipts = self.runner.state
+        self.runner.container.session = MagicMock()
         root = self.runner._run_dir(record['run_id'])
         with patch('laomedo.activity.claude.telemetry.ClaudeTelemetry',side_effect=OSError('private detail')), \
              patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
@@ -337,14 +362,16 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertEqual(refused['status'], 'completed')
         self.assertEqual(json.loads(ledger.read_text()), {'attempted_turns': 500, 'max_authorized_turns': 1})
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_environment_excludes_host_service_credentials(self):
-        with patch.dict('os.environ', {'GITHUB_TOKEN': 'internal-secret',
-                'LAOMEDO_RUNNER_TOKEN_FILE': '/private/runner', 'PATH': '/tools'}):
-            env = cli_environment()
-        self.assertNotIn('GITHUB_TOKEN', env)
-        self.assertNotIn('LAOMEDO_RUNNER_TOKEN_FILE', env)
-        self.assertEqual(env['PATH'], '/tools')
-        self.assertNotIn('ANTHROPIC_API_KEY', env)
+        from laomedo.agents.providers.claude.container import ClaudeContainer
+        runtime = ClaudeContainer.__new__(ClaudeContainer)
+        runtime.profile, runtime.image_id = 'laomedo-claude-unit', 'sha256:'+'a'*64
+        with patch.dict('os.environ', {'GITHUB_TOKEN':'internal-secret', 'ANTHROPIC_API_KEY':'internal-secret'}):
+            spec = runtime.spec(['claude'])
+        self.assertEqual(spec.environment, {})
+        self.assertNotIn('internal-secret', spec.model_dump_json())
+
 
     def test_trailing_data_has_specific_feedback_without_parser_repair(self):
         pin = requirements({'schema_version': 1, 'fields': []})

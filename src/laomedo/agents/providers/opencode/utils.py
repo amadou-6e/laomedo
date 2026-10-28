@@ -7,10 +7,8 @@ import hashlib
 import hmac
 import json
 import laomedo.agents.providers.opencode.settings as _opencode_settings
-import laomedo.agents.runtime.settings as _runtime_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import secrets
-import subprocess
 import time
 
 
@@ -61,53 +59,6 @@ def _credential_binding(profile):
         "credential_sha256"
     ]
     return hmac.new(binding_key, fingerprint.encode(), hashlib.sha256).hexdigest()
-
-
-def _remove_owned(name):
-    result = subprocess.run(
-        ["docker", "rm", "-f", name], capture_output=True, text=True, timeout=15
-    )
-    if result.returncode:
-        probe = subprocess.run(
-            ["docker", "inspect", name], capture_output=True, text=True, timeout=15
-        )
-        if probe.returncode == 0 or "no such" not in probe.stderr.lower():
-            raise _runtime_errors.RunnerError("opencode_container_cleanup_unverified")
-
-
-def worker_command(name, workspace, canonical, store, command):
-    return [
-        "docker",
-        "run",
-        "--rm",
-        "--name",
-        name,
-        "--pull=never",
-        "--network",
-        "none",
-        "--cap-drop",
-        "ALL",
-        "--security-opt",
-        "no-new-privileges",
-        "--pids-limit",
-        "128",
-        "--memory",
-        "1g",
-        "--user",
-        "10001:10001",
-        "--mount",
-        f"type=bind,source={workspace},target=/draft",
-        "--mount",
-        f"type=bind,source={canonical},target=/canonical,readonly",
-        "--mount",
-        f"type=bind,source={store},target=/store,readonly",
-        "--workdir",
-        "/draft",
-        _opencode_settings.WORKER_IMAGE,
-        "sh",
-        "-c",
-        command,
-    ]
 
 
 def normalize_message(message, skills):

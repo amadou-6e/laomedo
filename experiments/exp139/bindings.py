@@ -11,7 +11,7 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from laomedo.agents.providers.codex.servers import AppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
 
 
 def request_digest(request):
@@ -91,52 +91,28 @@ class BoundRunner(LocalRunner):
 # The CLI's dotted-key override parser splits the literal `.git` path, and a
 # partial permissions table loses the default profile. Supply the complete
 # original policy plus the sole approved Git-metadata rule as an inline table.
-GIT_OVERRIDE = ('permissions={container-edit={filesystem={":root"="read",'
-    '":workspace_roots"="write","/home/runner/.codex/auth.json"="deny",'
-    '"/draft/.git"="write"},network={enabled=false}}}')
-PROFILE_OVERRIDES = ["-c", 'default_permissions="container-edit"',
-                     "-c", 'approval_policy="never"', "-c", GIT_OVERRIDE]
 
 
 class GitMetadataAppServer(AppServer):
-    """Invocation-only approved rule; original config and auth denial remain."""
-    def __init__(self, command, evidence, **kwargs):
-        if command[-2:] != ["app-server", "--stdio"]:
-            raise RunnerError("experiment_app_server_invocation_changed")
+    """Apply the same approved invocation rule to a typed SDK launch."""
+
+    def __init__(self, launch, evidence, **kwargs):
+        """Preserve run-capability redaction while forwarding native transport limits."""
+        from experiments.exp139.models import GitMetadataLaunch
         redactions = list(kwargs.pop("secret_redactions", ()))
-        for position, value in enumerate(command[:-1]):
-            if value == "--mount":
-                mount = dict(item.split("=", 1) for item in command[position + 1].split(",") if "=" in item)
-                if mount.get("target") == "/run/laomedo/capability":
-                    redactions.append(Path(mount["source"]).read_text().strip())
-        super().__init__([*command[:-2], *PROFILE_OVERRIDES, *command[-2:]], evidence,
+        if launch.capability is not None:
+            value = launch.capability.read_text().strip()
+            if value not in redactions:
+                redactions.append(value)
+        super().__init__(GitMetadataLaunch.from_launch(launch), evidence,
                          secret_redactions=tuple(redactions), **kwargs)
 
 
+
 class MailboxAppServer(GitMetadataAppServer):
-    """Prospective invocation-only relay; not activated by importing this module."""
-    def __init__(self, command, evidence, **kwargs):
-        command = list(command)
-        client = Path(__file__).with_name("mailbox_client.mjs")
-        relay = client.with_name("mailbox_relay.mjs")
-        client_index = next((index for index, item in enumerate(command)
-            if item == "--mount" and "target=/run/laomedo/mediate.mjs," in command[index + 1]), None)
-        if client_index is not None:
-            # Replace only the trusted client mount; the graph never chooses it.
-            command[client_index + 1] = f"type=bind,source={client},target=/run/laomedo/mediate.mjs,readonly"
-            bootstrap = command.index("bootstrap")
-            image_index = command.index("--workdir") + 2
-            command[image_index:image_index] = ["--mount",
-                f"type=bind,source={relay},target=/run/laomedo/relay.mjs,readonly",
-                "--env", "GIT_EXEC_PATH=/run/laomedo/bin",
-                "--env", "LAOMEDO_MEDIATION_FILE_STDIO=1"]
-            bootstrap = command.index("bootstrap")
-            command[bootstrap - 1] = (
-                'cp /config.toml /home/runner/.codex/config.toml && '
-                'node /run/laomedo/relay.mjs & relay=$!; '
-                'for n in $(seq 1 100); do '
-                'test -f /draft/.git/laomedo-mediation/ready && break; '
-                'kill -0 "$relay" 2>/dev/null || exit 2; sleep 0.05; done; '
-                'test -f /draft/.git/laomedo-mediation/ready || exit 2; '
-                'exec codex "$@"')
-        super().__init__(command, evidence, **kwargs)
+    """Prospective SDK relay policy; importing it never activates a connection."""
+
+    def __init__(self, launch, evidence, **kwargs):
+        """Select only host-owned relay files and preserve the canonical launch."""
+        from experiments.exp139.models import MailboxLaunch
+        super().__init__(MailboxLaunch.from_launch(launch), evidence, **kwargs)

@@ -1,7 +1,9 @@
 """Internal controls; actual Docker/agent/graph evidence is recorded separately."""
+from importlib.util import find_spec
 import json
 import threading
 import time
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -17,6 +19,37 @@ import test_claude_runner as controls
 
 
 class ClaudeContainerParityTests(unittest.TestCase):
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
+    def test_constructor_classifies_images_configuration_and_cleanup(self):
+        """Preserve provider codes while using shared typed Docker failures."""
+        from unittest.mock import MagicMock
+        from py_docker.errors import CleanupUnconfirmedError, ConnectionConfigurationError, DockerOperationError, ImageResolutionError
+        cases = (
+            ("client", ConnectionConfigurationError("private connection"), "claude_container_configuration_invalid"),
+            ("client", DockerOperationError("private daemon"), "claude_container_unavailable"),
+            ("image", ImageResolutionError("private inspection"), "claude_container_image_missing"),
+            ("receipt", CleanupUnconfirmedError("private receipt"), "container_termination_unverified"),
+        )
+        for stage, failure, code in cases:
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                receipts = root.joinpath("receipts")
+                receipts.mkdir()
+                receipts.joinpath("claude-pending.json").write_text("internal control", encoding="utf-8")
+                client = MagicMock()
+                selected = client.return_value.__enter__.return_value
+                if stage == "client":
+                    client.side_effect = failure
+                elif stage == "image":
+                    selected.images.resolve.side_effect = failure
+                else:
+                    selected.sessions.recover.side_effect = failure
+                with patch("py_docker.Client", client), patch.object(ClaudeContainer, "check_supervisor"), patch.object(ClaudeContainer, "control") as control:
+                    with self.assertRaisesRegex(RunnerError, "^" + code + "$") as caught:
+                        ClaudeContainer("local-image", "laomedo-claude-test", root.joinpath("lease"))
+                    self.assertNotIn("private", str(caught.exception))
+                    control.assert_not_called()
+
     def setUp(self):
         controls.ClaudeRunnerTests.setUp(self)
 
@@ -25,12 +58,12 @@ class ClaudeContainerParityTests(unittest.TestCase):
     def test_controller_command_is_bounded_inside_container(self):
         runtime = object.__new__(ClaudeContainer)
         runtime.image_id = 'sha256:' + 'a' * 64
-        args = runtime.bounded_command(['claude', '--print'], time.monotonic() + 20)
-        self.assertEqual(args[:4], ['--entrypoint', 'python3', '-i', runtime.image_id])
-        self.assertIn('--kill-after=5s', args[5])
+        args = runtime.guarded(['claude', '--print'], time.monotonic() + 20)
+        self.assertEqual(args[:2], ['python3', '-c'])
+        self.assertIn('--kill-after=5s', args[2])
         self.assertEqual(args[-2:], ['claude', '--print'])
         with self.assertRaisesRegex(RunnerError, 'claude_turn_timeout'):
-            runtime.bounded_command(['claude'], time.monotonic() - 1)
+            runtime.guarded(['claude'], time.monotonic() - 1)
 
     def test_resume_honors_explicit_execution_timeout(self):
         with self.invoke():
@@ -231,14 +264,17 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertTrue(result['cancel_requested'])
         self.assertFalse(result['cancel_confirmed'])
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_command_worker_has_neither_profile_nor_network(self):
-        runtime = object.__new__(ClaudeContainer)
-        runtime.profile = 'laomedo-claude-internal'
-        flags = runtime.prefix(worker=True)
-        self.assertIn('--network=none', flags)
-        self.assertNotIn('type=volume,source=laomedo-claude-internal,target=/profile', flags)
-        self.assertIn('--read-only', flags)
-        self.assertIn('--cap-drop=ALL', flags)
+        runtime = ClaudeContainer.__new__(ClaudeContainer)
+        runtime.profile, runtime.image_id = 'laomedo-claude-internal', 'sha256:'+'a'*64
+        spec = runtime.spec(['sh', '-c', 'pwd'], worker=True)
+        self.assertEqual(spec.network_mode, 'none')
+        self.assertEqual(spec.mounts, [])
+        self.assertTrue(spec.read_only)
+        self.assertEqual(spec.cap_drop, ['ALL'])
+        self.assertEqual(spec.environment['HOME'].get_secret_value(), '/tmp')
+
 
     def test_optional_skills_and_claude_handoff_are_accepted(self):
         result = envelope(None, {'provider': 'claude', 'model': 'sonnet', 'effort': 'low'},

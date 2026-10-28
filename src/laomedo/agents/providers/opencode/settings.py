@@ -11,3 +11,8 @@ CLI_VERSION = "1.18.33"
 # by Codex; updating the Codex controller must not silently update this worker.
 WORKER_IMAGE = "laomedo-codex-boundary:0.159.2"
 WORKER_IMAGE_ID = "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239"
+
+
+# Covers the maximum validated Agent turn plus startup/teardown margin.
+CONTROLLER_LIFETIME_SECONDS = 86400 + 120
+CONTROLLER_LOG_TAIL_BYTES = 65536

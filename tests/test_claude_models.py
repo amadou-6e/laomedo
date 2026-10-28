@@ -40,7 +40,7 @@ class ClaudeModelTests(unittest.TestCase):
             value={'type':'control_response','response':{'subtype':'success',
                 'request_id':sent[0]['request_id'],'response':{'models':items or [native()]}}}
             if mutate: mutate(value)
-            return subprocess.CompletedProcess(args,0,stdout=(json.dumps(value)+'\n').encode())
+            return __import__('types').SimpleNamespace(exit_code=0, stdout=(json.dumps(value)+'\n').encode())
         return patch.object(self.runner.container,'control',side_effect=run)
 
     def test_native_catalog_has_account_labels_exact_ids_efforts_and_no_user_message(self):

@@ -6,7 +6,6 @@ from datetime import datetime
 from datetime import timezone
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
-from uuid import uuid4
 import json
 import laomedo.activity.claude.settings as _claude_settings
 import laomedo.activity.claude.utils as _claude_utils
@@ -33,7 +32,6 @@ class ClaudeTelemetry:
         self.count = 0
         self.failed = False
         self.output = (directory / "otel-events.jsonl").open("a", encoding="utf-8")
-        self.environment = directory / ("telemetry-environment-" + uuid4().hex)
         owner = self
         types = {
             "/v1/logs": ExportLogsServiceRequest,
@@ -124,11 +122,7 @@ class ClaudeTelemetry:
                 "OTEL_LOG_TOOL_CONTENT": "0",
                 "OTEL_METRICS_INCLUDE_ACCOUNT_UUID": "false",
             }
-            self.environment.write_text(
-                "".join(key + "=" + value + "\n" for key, value in settings.items()),
-                encoding="utf-8",
-            )
-            self.environment.chmod(0o600)
+            self.environment = settings
             self.thread = threading.Thread(
                 target=self.server.serve_forever, daemon=True
             )
@@ -137,7 +131,6 @@ class ClaudeTelemetry:
             if hasattr(self, "server"):
                 self.server.server_close()
             self.output.close()
-            self.environment.unlink(missing_ok=True)
             raise
 
     def record(self, attributes, **value):
@@ -287,10 +280,8 @@ class ClaudeTelemetry:
                         )
         return result
 
-    def docker_arguments(self):
-        return ["--env-file", str(self.environment)]
-
     def close(self):
+        """Join the receiver and bounded uploads before closing the event writer."""
         try:
             self.server.shutdown()
         finally:
@@ -298,10 +289,7 @@ class ClaudeTelemetry:
                 self.server.server_close()
                 self.thread.join(5)
             finally:
-                try:
-                    with self.lock:
-                        self.output.close()
-                finally:
-                    self.environment.unlink(missing_ok=True)
+                with self.lock:
+                    self.output.close()
         if self.thread.is_alive():
             raise RuntimeError("receiver_close_unconfirmed")

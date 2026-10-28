@@ -1,34 +1,52 @@
 """No-model host dispatch identity controls for the prospective live graph."""
 import unittest
+from importlib.util import find_spec
+from laomedo.agents.providers.codex.native.models import CodexLaunch
 import tempfile
 from pathlib import Path
 import sys
 from unittest.mock import patch
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from experiments.exp139.bindings import BoundRunner; from experiments.exp139.bindings import GitMetadataAppServer; from experiments.exp139.bindings import MailboxAppServer; from experiments.exp139.bindings import GIT_OVERRIDE; from experiments.exp139.bindings import PROFILE_OVERRIDES; from experiments.exp139.bindings import request_digest
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.servers import AppServer
+from experiments.exp139.models import GitMetadataLaunch, MailboxLaunch
+from experiments.exp139.bindings import BoundRunner; from experiments.exp139.bindings import GitMetadataAppServer; from experiments.exp139.bindings import MailboxAppServer; from experiments.exp139.settings import GIT_OVERRIDE; from experiments.exp139.settings import PROFILE_OVERRIDES; from experiments.exp139.bindings import request_digest
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.native.server import AppServer
 
 
 class BindingTests(unittest.TestCase):
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
     def test_mailbox_only_replaces_trusted_mediator_mount_and_bootstrap(self):
-        command=['docker','run','--mount','type=bind,source=original,target=/run/laomedo/mediate.mjs,readonly',
-                 '--workdir','/draft','image','sh','-c','original startup','bootstrap','app-server','--stdio']
-        with patch.object(GitMetadataAppServer,'__init__',return_value=None) as parent:
-            MailboxAppServer(command,Path('evidence'))
-        invoked=parent.call_args.args[0]
-        self.assertEqual(command[-4], 'original startup')
-        self.assertIn('GIT_EXEC_PATH=/run/laomedo/bin',invoked)
-        self.assertIn('node /run/laomedo/relay.mjs',invoked[invoked.index('bootstrap')-1])
-        self.assertEqual(invoked[-2:],['app-server','--stdio'])
-        self.assertIn('image',invoked)
-        self.assertTrue(any('mailbox_client.mjs' in value and 'target=/run/laomedo/mediate.mjs,readonly' in value for value in invoked))
-        self.assertFalse(any('auth.json' in value for value in invoked))
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64,
+                capability=root.joinpath("capability"),mediator_url="http://127.0.0.1",mediator_instance="internal",
+                run_id="run",launch_token="private-owner")
+            with patch.object(GitMetadataAppServer,"__init__",return_value=None) as parent:
+                MailboxAppServer(launch,root)
+            prepared=parent.call_args.args[0]
+            self.assertIsInstance(prepared,MailboxLaunch)
+            spec=prepared.to_container_spec()
+            self.assertEqual(spec.command[-2:],["app-server","--stdio"])
+            self.assertIn("node /run/laomedo/relay.mjs",spec.command[2])
+            self.assertEqual(spec.environment["GIT_EXEC_PATH"].get_secret_value(),"/run/laomedo/bin")
+            self.assertEqual(spec.image,launch.image)
+            self.assertEqual(prepared.launch_token,launch.launch_token)
+            mounts={mount.target:mount for mount in spec.mounts}
+            self.assertTrue(mounts["/run/laomedo/mediate.mjs"].source.endswith("mailbox_client.mjs"))
+            self.assertTrue(mounts["/run/laomedo/mediate.mjs"].read_only)
+            self.assertTrue(mounts["/run/laomedo/relay.mjs"].read_only)
+            self.assertNotIn("auth.json",prepared.model_dump_json())
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
     def test_mailbox_does_not_start_for_no_mediator_request(self):
-        command=['docker','run','--workdir','/draft','image','sh','-c','original','bootstrap','app-server','--stdio']
-        with patch.object(GitMetadataAppServer,'__init__',return_value=None) as parent:
-            MailboxAppServer(command,Path('evidence'))
-        self.assertEqual(parent.call_args.args[0],command)
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
+            with patch.object(GitMetadataAppServer,"__init__",return_value=None) as parent:
+                MailboxAppServer(launch,root)
+            spec=parent.call_args.args[0].to_container_spec()
+            self.assertEqual(spec.command,GitMetadataLaunch.from_launch(launch).to_container_spec().command)
+            self.assertFalse(any(mount.target=="/run/laomedo/relay.mjs" for mount in spec.mounts))
+            self.assertNotIn("LAOMEDO_MEDIATION_FILE_STDIO",spec.environment)
 
     def make_runner(self, request, case="success"):
         calls = []
@@ -110,14 +128,22 @@ class BindingTests(unittest.TestCase):
 
     def test_permission_override_preserves_capability_redaction(self):
         with tempfile.TemporaryDirectory() as directory:
-            capability = Path(directory)/"capability"
+            root=Path(directory)
+            capability=root.joinpath("capability")
             capability.write_text("dummy-private-value")
-            command = ["docker", "run", "--mount", f"type=bind,source={capability},target=/run/laomedo/capability,readonly",
-                       "image", "bootstrap", "app-server", "--stdio"]
-            with patch.object(AppServer, "__init__", return_value=None) as parent:
-                GitMetadataAppServer(command, Path(directory))
-                self.assertEqual(parent.call_args.args[0][-8:], [*PROFILE_OVERRIDES, "app-server", "--stdio"])
-                self.assertEqual(parent.call_args.kwargs["secret_redactions"], ("dummy-private-value",))
+            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64,
+                capability=capability,mediator_url="http://127.0.0.1",mediator_instance="internal",
+                run_id="run",launch_token="private-owner")
+            with patch.object(AppServer,"__init__",return_value=None) as parent:
+                GitMetadataAppServer(launch,root)
+                self.assertIsInstance(parent.call_args.args[0],GitMetadataLaunch)
+                self.assertEqual(parent.call_args.kwargs["secret_redactions"],("dummy-private-value",))
+                MailboxAppServer(launch,root,lifetime_seconds=321,env={"DOCKER_HOST":"unix:///selected.sock"})
+                prepared=parent.call_args.args[0]
+                self.assertIsInstance(prepared,MailboxLaunch)
+                self.assertEqual(prepared.launch_token,launch.launch_token)
+                self.assertEqual(parent.call_args.kwargs["lifetime_seconds"],321)
+                self.assertEqual(parent.call_args.kwargs["env"],{"DOCKER_HOST":"unix:///selected.sock"})
 
     def test_effective_override_keeps_original_policy_plus_only_git_rule(self):
         # Parse the literal table, not the CLI's dotted-key parser.

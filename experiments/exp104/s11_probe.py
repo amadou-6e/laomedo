@@ -25,7 +25,7 @@ from urllib import error; from urllib import request
 from laomedo.host.leases.utils import inspect_exact
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.host.leases.client import LeaseClient; from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
-from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.utils import _docker_prefix
+from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.native.models import CodexLaunch
 from laomedo.host.mediation.authority import RunGrantAuthority
 
 _helper_spec = importlib.util.spec_from_file_location(
@@ -205,43 +205,27 @@ def _container_call(name: str, operation: str, payload: dict,
 
 
 def _agent_runner(state: Path, side: str, ready: Path) -> None:
+    from py_docker import Client
+    from py_docker.sessions.models import ContainerSession
+    from py_docker.streams.models import StreamLimits
     run_id, token, name = RUNS[side], LEASES[side], NAMES[side]
-    lease = LeaseClient(state / "lease", run_id=run_id, name=name, token=token,
-                        cancelled=threading.Event(), mediation_request={
-                            "invocation_id": "invocation-" + run_id,
-                            "repository": REPOSITORY, "branch": BRANCHES[side]})
-    info = json.loads((state / "mediator" / "mediator.json").read_text(encoding="utf-8"))
-    workspace = state / ("agent-" + side)
-    for child in (workspace, workspace / "canonical", workspace / "store"):
-        child.mkdir(parents=True, exist_ok=True)
-    prefix = _docker_prefix(workspace, workspace / "canonical", workspace / "store",
-                            name=name, run_id=run_id, launch_token=token,
-                            capability=lease.dir / "grant.secret",
-                            mediator_url=f"http://host.docker.internal:{info['port']}/v1/mediate",
-                            mediator_instance=info["instance"])
-    command = ["docker", *prefix[:prefix.index(IMAGE) + 1], "sh", "-c", "sleep 180"]
-    container = subprocess.Popen(command, stdin=subprocess.DEVNULL,
-                                 stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL,
-                                 env=_agent_environment())
-    try:
-        deadline = time.monotonic() + 20
-        while time.monotonic() < deadline:
-            owned, _ = inspect_exact(ContainerIdentity(name=name, run_id=run_id, token=token))
-            if owned == "owned":
-                ready.write_text(json.dumps({"pid": os.getpid(), "name": name,
-                                             "run_id": run_id, "grant_id": lease.grant_id}) + "\n",
-                                 encoding="utf-8", newline="\n")
-                break
-            if container.poll() is not None:
-                raise RuntimeError("agent_container_exited_early")
-            time.sleep(.1)
-        else:
-            raise RuntimeError("agent_container_not_ready")
-        container.wait(timeout=180)
-    finally:
-        if container.poll() is not None:
-            lease.finish()
+    with Client(environment=_agent_environment()) as client:
+        lease = LeaseClient(state / "lease", run_id=run_id, name=name, token=token,
+            docker_endpoint=client.connection.endpoint, cancelled=threading.Event(), mediation_request={
+                "invocation_id":"invocation-"+run_id,"repository":REPOSITORY,"branch":BRANCHES[side]})
+        info=json.loads((state / "mediator" / "mediator.json").read_text(encoding="utf-8"))
+        workspace=state / ("agent-"+side)
+        for child in (workspace,workspace / "canonical",workspace / "store"):
+            child.mkdir(parents=True,exist_ok=True)
+        spec=CodexLaunch(workspace=workspace,canonical=workspace / "canonical",store_mount=workspace / "store",
+            image=client.images.resolve(IMAGE),name=name,run_id=run_id,launch_token=token,
+            capability=lease.dir / "grant.secret",mediator_url=f"http://host.docker.internal:{info['port']}/v1/mediate",
+            mediator_instance=info["instance"]).to_container_spec().model_copy(update={"command":["sh","-c","sleep 180"]})
+        with client.sessions.open(ContainerSession(spec=spec,limits=StreamLimits(seconds=190,max_bytes=65536),
+                receipt_path=workspace / "container-receipt.json")) as container:
+            ready.write_text(json.dumps({"pid":os.getpid(),"name":name,"run_id":run_id,"grant_id":lease.grant_id})+"\n",encoding="utf-8",newline="\n")
+            container.wait(180)
+        lease.finish()
 
 
 def _journal_count(state: Path) -> int:
@@ -422,7 +406,10 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                                     connection_id=CONNECTION_ID,
                                     connection_generation=GENERATION)
             authority.bind_run(ref, setup_run)
-            setup = LeaseClient(state / "lease", run_id=setup_run,
+            from py_docker import Client as _DockerClient
+            with _DockerClient() as _lease_docker:
+                _lease_endpoint = _lease_docker.connection.endpoint
+            setup = LeaseClient(state / "lease", docker_endpoint=_lease_endpoint, run_id=setup_run,
                                 name="laomedo-" + setup_run, token=setup_lease,
                                 cancelled=threading.Event(), mediation_request={
                                     "invocation_id": "invocation-" + setup_run,

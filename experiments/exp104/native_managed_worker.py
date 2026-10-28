@@ -62,11 +62,11 @@ def command(root, side, lease, mediator):
     return args + [GIT_IMAGE_ID, "sh", "-c", "sleep 600"]
 
 
-def run(root, side):
+def run(root, side, *, docker_endpoint):
     selected = identities(side)
     scope = {"invocation_id": selected["invocation_id"], "repository": REPOSITORY,
              "branch": selected["branch"], "base_branch": "main"}
-    lease = LeaseClient(root / "host" / "lease", run_id=selected["run_id"],
+    lease = LeaseClient(root / "host" / "lease", docker_endpoint=docker_endpoint, run_id=selected["run_id"],
         name=selected["name"], token=selected["token"], cancelled=threading.Event(),
         mediation_request=scope)
     mediator = json.loads((root / "host/mediator/mediator.json").read_bytes())
@@ -78,15 +78,15 @@ def run(root, side):
     record = {"run_id": selected["run_id"], "status": "running", "workspace_mode": "git",
         "git_baseline": BASELINE, "github_scope": scope,
         "container_ownership": {"name": selected["name"], "launch_token": selected["token"],
-            "grant_id": lease.grant_id, "supervised": True, "cleanup_verified": False}}
+            "grant_id": lease.grant_id, "docker_endpoint":docker_endpoint, "supervised": True, "cleanup_verified": False}}
     record_path.write_text(json.dumps(record), encoding="utf-8", newline="\n")
     child = None
     try:
         child = subprocess.Popen(command(root, side, lease, mediator),
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=_base_git_environment())
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dict(_base_git_environment(), DOCKER_HOST=docker_endpoint, DOCKER_CONTEXT=""))
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
-            state, metadata = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
+            state, metadata = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token'],docker_endpoint=docker_endpoint))
             if state == "owned":
                 ready = {"pid": os.getpid(), "run_id": selected["run_id"],
                          "grant_id": lease.grant_id, "container_id": metadata}
@@ -106,7 +106,7 @@ def run(root, side):
         if child.poll() is None:
             raise RuntimeError("scripted_container_deadline")
     finally:
-        verified, _ = cleanup_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
+        verified, _ = cleanup_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token'],docker_endpoint=docker_endpoint))
         if child is not None:
             child.wait(timeout=10)
         record["status"] = "completed" if verified else "interrupted"
@@ -121,7 +121,10 @@ if __name__ == "__main__":
     parser.add_argument("--side", required=True, choices=("a", "b"))
     args = parser.parse_args()
     try:
-        run(args.root.resolve(), args.side)
+        from py_docker import Client
+        with Client() as docker:
+            endpoint = docker.connection.endpoint
+        run(args.root.resolve(), args.side, docker_endpoint=endpoint)
     except Exception as failure:
         # Never emit raw paths, lease capabilities or provider diagnostics.
         print(json.dumps({"status": "fixture_failed", "error_class": type(failure).__name__}))

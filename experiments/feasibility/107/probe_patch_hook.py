@@ -2,7 +2,7 @@
 
 from laomedo.agents.providers.codex.settings import CONFIG as _owned_runner_CONFIG
 from laomedo.agents.providers.codex.settings import IMAGE as _owned_runner_IMAGE
-from laomedo.agents.providers.codex.servers import SplitAppServer as _owned_runner_SplitAppServer
+from laomedo.agents.providers.codex.split.server import SplitAppServer as _owned_runner_SplitAppServer
 from laomedo.agents.providers.codex.utils import _ensure_split_profile as _owned_runner__ensure_split_profile
 from laomedo.agents.providers.codex.utils import _split_profile as _owned_runner__split_profile
 
@@ -44,7 +44,7 @@ def main(with_hook=True):
                 "command = 'sh /store/deny_patch.sh'\ntimeout = 5\n")
         config.write_text(config_text)
         profile = _owned_runner__split_profile(root.resolve())
-        _owned_runner__ensure_split_profile(profile)
+        _owned_runner__ensure_split_profile(profile, state=root)
         original_config = _owned_runner_CONFIG
         _owned_runner_CONFIG = config
         server = None

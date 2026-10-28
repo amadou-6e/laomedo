@@ -15,6 +15,8 @@ GIT_IMAGE_ID = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee085
 
 
 CLI_VERSION = "codex-cli 0.159.2"
+NATIVE_TURN_SECONDS = 180
+NATIVE_RECEIPT_FILENAME = "container-receipt.json"
 
 
 VOLUME = "laomedo-122-docker-auth"
@@ -122,3 +124,10 @@ class Settings(BaseSettings):
         return init_settings, env_settings
 
     multi_agent: str | None = Field(default=None, validation_alias='LAOMEDO_RUNNER_MULTI_AGENT', repr=False, exclude=True)
+
+# Credential-free startup probe; these bound I/O, not total Docker wall time.
+PREFLIGHT_API_TIMEOUT_SECONDS = 15
+PREFLIGHT_STREAM_SECONDS = 20
+PREFLIGHT_MAX_OUTPUT_BYTES = 65536
+PREFLIGHT_WAIT_SECONDS = 20
+PREFLIGHT_RECEIPT_FILENAME = "docker-preflight-receipt.json"

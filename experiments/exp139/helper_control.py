@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import threading
 from http.server import HTTPServer; from http.server import BaseHTTPRequestHandler
-from experiments.exp139.bindings import PROFILE_OVERRIDES
+from experiments.exp139.settings import PROFILE_OVERRIDES
 
 ROOT = Path(__file__).resolve().parents[2]
 IMAGE = 'sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78'

@@ -201,20 +201,12 @@ class LeaseService:
             try:
                 if reason == "done":
                     state, _ = _leases_utils.inspect_exact(
-                        _leases_models.ContainerIdentity(
-                            name=lease["name"],
-                            run_id=lease["run_id"],
-                            token=lease["token"],
-                        )
+                        _leases_models.ContainerIdentity.from_registration(lease)
                     )
                     verified, detail = state == "absent", state
                 else:
                     verified, detail = self.cleanup(
-                        _leases_models.ContainerIdentity(
-                            name=lease["name"],
-                            run_id=lease["run_id"],
-                            token=lease["token"],
-                        )
+                        _leases_models.ContainerIdentity.from_registration(lease)
                     )
             except Exception:
                 verified, detail = False, "cleanup_error"
@@ -370,11 +362,7 @@ class LeaseService:
                 if valid:
                     try:
                         cleanup_verified, detail = self.cleanup(
-                            _leases_models.ContainerIdentity(
-                                name=lease["name"],
-                                run_id=lease["run_id"],
-                                token=lease["token"],
-                            )
+                            _leases_models.ContainerIdentity.from_registration(lease)
                         )
                     except Exception:
                         detail = "cleanup_error"
