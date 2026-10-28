@@ -227,5 +227,5 @@ class CodexPreflight:
                 raise RunnerError("container_termination_unverified")
             client.containers.remove(owned, force=True)
             self.receipt_path.unlink()
-        except Exception:
+        except Exception:  # noqa: BLE001 - Any cleanup fault must retain the receipt and fail closed.
             raise RunnerError("container_termination_unverified") from None
