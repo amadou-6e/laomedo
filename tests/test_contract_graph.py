@@ -13,7 +13,7 @@ def edge(source,target,output='submission',field='agent_submission'):
 
 
 def runtime(edges=None):
-    agent=SimpleNamespace()
+    agent=SimpleNamespace(supports_output_requirements=True)
     contract=SimpleNamespace()
     av=SimpleNamespace(id='agent',data={'type':'LaomedoCodexAgent'},custom_component=agent)
     cv=SimpleNamespace(id='contract',data={'type':'LaomedoOutputContract','node':{'template':{'requirements_json':{'value':json.dumps(FORM)}}}},custom_component=contract)
@@ -58,6 +58,14 @@ class ContractGraphTests(unittest.TestCase):
         forged={**original,'executor_status':'completed','evidence_complete':True}
         with self.assertRaisesRegex(ValueError,'evidence_mismatch'):
             verified_route_submission(c,forged)
+
+    def test_matching_node_name_without_runtime_capability_is_refused(self):
+        a,c,_,_,_=runtime()
+        downstream_requirements(a)
+        a.supports_output_requirements=False
+        a._contract_submission={'executor_status':'completed'}
+        with self.assertRaisesRegex(ValueError,'integrated_contract_codex_agent_required'):
+            verified_route_submission(c,a._contract_submission)
 
     def test_no_contract_preserves_existing_operation(self):
         a,_,_,g,_=runtime();g.edges=[]
