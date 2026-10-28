@@ -13,6 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PackageLayoutTests(unittest.TestCase):
+    def test_installed_package_has_no_retired_python_modules(self):
+        """Catch stale build output copied into an otherwise successful wheel."""
+        source = ROOT.joinpath("src/laomedo")
+        for module in package_root().rglob("*.py"):
+            with self.subTest(module=module):
+                self.assertTrue(source.joinpath(module.relative_to(package_root())).is_file(),
+                                "Installed module has no current source: " + str(module))
+
     def test_package_root_has_only_shared_infrastructure(self):
         self.assertEqual({p.name for p in package_root().iterdir() if p.is_file()}, {"__init__.py", "_paths.py"})
 
