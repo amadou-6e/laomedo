@@ -15,6 +15,15 @@ _spec.loader.exec_module(migration)
 
 
 class ModuleMigrationTests(unittest.TestCase):
+    def test_all_current_module_imports_are_current_even_under_reused_packages(self):
+        for path in (TOOL.parents[2] / 'src/laomedo').rglob('*.py'):
+            if path.name == '__init__.py':
+                continue
+            module = '.'.join(path.relative_to(TOOL.parents[2] / 'src').with_suffix('').parts)
+            source = f'import {module}\n'
+            with self.subTest(module=module):
+                self.assertEqual(migration.migrate_source(source), source)
+
     def test_reused_package_names_accept_flat_intermediate_and_current_inputs(self):
         cases = [
             ('laomedo.handoffs', 'BoundedController', 'laomedo.agents.handoffs.controller'),

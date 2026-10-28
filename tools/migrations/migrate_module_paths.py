@@ -47,8 +47,24 @@ FINAL_FILE_MODULES = {
 }
 
 
+# This is a checkout-owned offline tool. Discover canonical source modules too,
+# so new children of a reused package need not appear in an old-symbol map.
+SOURCE_ROOT = Path(__file__).resolve().parents[2] / "src"
+FINAL_FILE_MODULES.update(
+    ".".join(path.relative_to(SOURCE_ROOT).with_suffix("").parts)
+    for path in (SOURCE_ROOT / "laomedo").rglob("*.py")
+    if path.name != "__init__.py"
+)
+FINAL_PACKAGES = {
+    ".".join(path.parent.relative_to(SOURCE_ROOT).parts)
+    for path in (SOURCE_ROOT / "laomedo").rglob("__init__.py")
+}
+
+
 def _is_retired_dotted_reference(reference):
     """Old module names may now be packages containing valid final modules."""
+    if reference in FINAL_PACKAGES:
+        return False
     if any(
         reference == module or reference.startswith(module + ".")
         for module in FINAL_FILE_MODULES
