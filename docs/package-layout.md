@@ -115,7 +115,8 @@ symbols, dynamic access to retired modules and changed typed call signatures
 require manual migration before any selected file is written. Detection is
 conservative and best-effort; manually review changed call signatures and dynamic
 references even after a successful migration preview. In particular,
-container cleanup takes `ContainerIdentity`; `ActivityStore.start` takes
+container cleanup takes `ContainerIdentity` (including injected `LeaseService`
+cleanup callbacks, whose signatures the tool cannot always infer); `ActivityStore.start` takes
 `CaptureIdentity`; `capture_for` returns `ActivityInvocation` with `.store` and
 `.invocation_id`, rather than a tuple. Historical execution records are retained.
 

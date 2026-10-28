@@ -15,6 +15,24 @@ _spec.loader.exec_module(migration)
 
 
 class ModuleMigrationTests(unittest.TestCase):
+    def test_reused_package_names_accept_flat_intermediate_and_current_inputs(self):
+        cases = [
+            ('laomedo.handoffs', 'BoundedController', 'laomedo.agents.handoffs.controller'),
+            ('laomedo.agents.handoffs', 'BoundedController', 'laomedo.agents.handoffs.controller'),
+            ('laomedo.artifacts', 'ArtifactError', 'laomedo.agents.artifacts.errors'),
+            ('laomedo.agents.artifacts', 'ArtifactError', 'laomedo.agents.artifacts.errors'),
+        ]
+        for old, symbol, current in cases:
+            with self.subTest(old=old):
+                result = migration.migrate_source(f'from {old} import {symbol}\n')
+                self.assertIn(current, result)
+                self.assertEqual(migration.migrate_source(result), result)
+                canonical = f'import {current}\nvalue = {current}.{symbol}\n'
+                self.assertEqual(migration.migrate_source(canonical), canonical)
+        path = TOOL.parents[2] / 'examples/agent-handoffs/loop-flow.json'
+        result = subprocess.run([sys.executable, str(TOOL), str(path), '--check'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_unsafe_dotted_and_keyword_forms_require_manual_migration(self):
         sources = [
             'patch("laomedo.local_runner.subprocess.run")',

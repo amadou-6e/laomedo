@@ -34,6 +34,29 @@ MODULE_PATTERN = re.compile(
     + r")(?![\w.])"
 )
 
+FINAL_MODULES = (
+    set(MODULE_PATHS.values())
+    | set(CLI_PATHS.values())
+    | {target.rsplit(".", 1)[0] for target in SYMBOL_PATHS.values()}
+)
+
+FINAL_FILE_MODULES = {
+    module
+    for module in FINAL_MODULES
+    if not any(other.startswith(module + ".") for other in FINAL_MODULES)
+}
+
+
+def _is_retired_dotted_reference(reference):
+    """Old module names may now be packages containing valid final modules."""
+    if any(
+        reference == module or reference.startswith(module + ".")
+        for module in FINAL_FILE_MODULES
+    ):
+        return False
+    return any(reference.startswith(old + ".") for old in MODULE_PATHS)
+
+
 LAUNCH_FIELDS = {
     "module",
     "factory",
@@ -189,8 +212,8 @@ def migrate_source(source: str) -> str:
             ):
                 replace(node.args[0], repr(CLI_PATHS[node.args[0].value]))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and any(
-                ast.unparse(node).startswith(old + ".") for old in MODULE_PATHS
+            if isinstance(node, ast.Attribute) and _is_retired_dotted_reference(
+                ast.unparse(node)
             ):
                 raise ManualMigrationRequired(
                     "Retired fully qualified attributes require manual migration and explicit imports"
@@ -379,8 +402,8 @@ def migrate_source(source: str) -> str:
         )
     source = MODULE_PATTERN.sub(lambda match: MODULE_PATHS[match.group()], source)
     if any(
-        re.search(r"(?<![\w.])" + re.escape(old) + r"\.", source)
-        for old in MODULE_PATHS
+        _is_retired_dotted_reference(match.group())
+        for match in re.finditer(r"(?<![\w.])laomedo(?:\.[A-Za-z_]\w*)+", source)
     ):
         raise ManualMigrationRequired(
             "A retired module attribute remains; manual migration is required"

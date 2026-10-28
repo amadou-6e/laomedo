@@ -9,6 +9,29 @@ SOURCE = ROOT / 'src' / 'laomedo'
 
 
 class ModuleCohesionTests(unittest.TestCase):
+    def test_symbol_map_targets_have_a_declared_definition_or_submodule(self):
+        targets = set(json.loads((ROOT / 'tools/migrations/symbol-paths.json').read_text()).values())
+        for target in targets:
+            if not target.startswith('laomedo.'):
+                continue
+            full = ROOT.joinpath('src', *target.split('.'))
+            if full.with_suffix('.py').is_file() or (full / '__init__.py').is_file():
+                continue  # from package import submodule
+            module, symbol = target.rsplit('.', 1)
+            path = ROOT.joinpath('src', *module.split('.'))
+            path = path.with_suffix('.py') if path.with_suffix('.py').exists() else path / '__init__.py'
+            self.assertTrue(path.is_file(), target)
+            bindings = set()
+            for node in ast.parse(path.read_text(encoding='utf-8-sig')).body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    bindings.add(node.name)
+                elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                    bindings.update(item.asname or (item.name.split('.')[0] if isinstance(node, ast.Import) else item.name) for item in node.names)
+                elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    for assigned in node.targets if isinstance(node, ast.Assign) else [node.target]:
+                        bindings.update(item.id for item in ast.walk(assigned) if isinstance(item, ast.Name))
+            self.assertIn(symbol, bindings, target)
+
     def test_files_introduce_classes_or_standalone_functions(self):
         mixed = []
         for path in SOURCE.rglob('*.py'):
