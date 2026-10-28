@@ -25,9 +25,10 @@ import time
 
 class AppServer:
     def __init__(
-        self, command: list[str], evidence: Path, *, env=None, secret_redactions=()
+        self, command: list[str], evidence: Path, *, env=None, secret_redactions=(),
+        docker_environment=None,
     ):
-        self.docker_environment = env
+        self.docker_environment = docker_environment
         self.telemetry = None
         if _runner_settings.Settings().otel == "1":
             import laomedo.activity.runner.telemetry as _runner_telemetry
@@ -421,7 +422,10 @@ class SplitAppServer(AppServer):
                     os.environ if docker_environment is None else docker_environment,
                     ACCESS_TOKEN=access_token,
                 )
-            super().__init__(["docker", *command], evidence, env=environment)
+            super().__init__(
+                ["docker", *command], evidence, env=environment,
+                docker_environment=docker_environment,
+            )
             self._controller_started = True
         except Exception:
             if self._executor_started:

@@ -3,7 +3,7 @@
 This is the migration record for Laomedo issues #196–202. This PR replaces Codex startup image/version preflight in normal and split execution with py-docker. It is stacked on provider-neutral PR #211 at b703590. The visible checkout is kept
 unchanged. The optional `runner` extra pins the local-trial jobs feature from
 py-docker PR #11 before PyPI; that package PR remains unmerged.
-this trial is not ready to merge into develop until the published dependency is
+This replacement is not ready to merge into develop until the published dependency is
 hash-pinned and the owner reviews the working graph.
 
 ## Ownership
@@ -70,6 +70,11 @@ Docker CLI image/version probe is removed in this PR, with no fallback branch.
 Split profile preparation, executor controls and cleanup receive the same
 endpoint snapshot selected by preflight. Skipping Docker checks remains an
 explicit internal constructor option; it is not a fallback after a failed check.
+Split startup now requires the `runner` extra and runs the same hardened,
+credential-free read-only version probe as normal startup. A failure in this
+probe precedes profile access and must not be diagnosed as a login failure.
+The controller's launch-only access token is kept separate from the Docker
+control environment, including initialization-failure cleanup.
 It retains only the image/version authorization, hardened probe policy, state
 path, endpoint snapshot and mapping to the existing descriptive error codes.
 Generic fault controls live in py-docker; Laomedo's controls guard delegation and

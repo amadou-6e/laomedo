@@ -3,13 +3,68 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.utils import _docker_prefix
 from laomedo.agents.providers.codex.preflight.models import DockerSelection
 
 
 class RunnerSandboxPolicyTests(unittest.TestCase):
+    def test_split_controller_token_is_not_a_control_environment(self):
+        """The real constructor keeps launch-only credentials out of cleanup."""
+        from laomedo.agents.providers.codex.servers import SplitAppServer
+        from laomedo.agents.providers.codex.settings import IMAGE_ID
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            selected = {"DOCKER_HOST": "unix:///selected.sock"}
+            server = SplitAppServer.__new__(SplitAppServer)
+            with patch("laomedo.agents.providers.codex.utils._docker_checked", return_value=IMAGE_ID) as control, patch(
+                "subprocess.Popen", side_effect=OSError("launch unavailable")
+            ) as launch, patch("subprocess.run") as cleanup:
+                with self.assertRaises(OSError):
+                    server.__init__(root, root, root, root, "profile",
+                                    access_token="internal-test-token", docker_environment=selected)
+                self.assertEqual(launch.call_args.kwargs["env"]["ACCESS_TOKEN"], "internal-test-token")
+                self.assertEqual(cleanup.call_args.kwargs["env"], selected)
+                server._docker_checked("inspect", "owned")
+                self.assertEqual(control.call_args.kwargs["env"], selected)
+                self.assertNotIn("ACCESS_TOKEN", server.docker_environment)
+
+    def test_split_permission_checks_use_selected_endpoint(self):
+        """All executor permission probes use the preflight-selected environment."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = Path(__file__).resolve().parents[1] / "examples/github-pr"
+            runner = LocalRunner(root / "state", root / "skills", source,
+                                 split_executor=True, check_docker=False)
+            runner.docker_environment = {"DOCKER_HOST": "unix:///selected.sock"}
+            server = MagicMock()
+            server.request.return_value = {"result": {}}
+            with patch.object(runner, "_open_server", return_value=server), patch(
+                "laomedo.agents.providers.codex.utils._advertised_models", return_value=[]
+            ), patch("subprocess.run", side_effect=[
+                subprocess.CompletedProcess([], 1) for _ in range(4)
+            ]) as command:
+                with self.assertRaisesRegex(RunnerError, "permission_preflight_failed"):
+                    runner.preflight()
+                self.assertEqual(command.call_count, 4)
+                for call in command.call_args_list:
+                    self.assertEqual(call.kwargs["env"], runner.docker_environment)
+
+    def test_split_profile_failure_cleanup_keeps_endpoint(self):
+        """Failed profile initialization removes its volume on the same daemon."""
+        from laomedo.agents.providers.codex.utils import _ensure_split_profile
+        selected = {"DOCKER_HOST": "unix:///selected.sock"}
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 1)), patch(
+            "laomedo.agents.providers.codex.utils._docker_checked",
+            side_effect=["", RunnerError("docker_control_failed"), ""],
+        ) as command:
+            with self.assertRaisesRegex(RunnerError, "docker_control_failed"):
+                _ensure_split_profile("profile", env=selected)
+            self.assertEqual(command.call_args.args, ("volume", "rm", "profile"))
+            for call in command.call_args_list:
+                self.assertEqual(call.kwargs["env"], selected)
+
     def test_both_modes_use_one_preflight_before_profile_access(self):
         """The SDK check replaces the CLI version probe in both execution modes."""
         with tempfile.TemporaryDirectory() as temp:

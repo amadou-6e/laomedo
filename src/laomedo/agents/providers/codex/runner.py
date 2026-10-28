@@ -248,10 +248,14 @@ class CodexRunner(Runner):
                 command,
                 root,
                 env=getattr(self, "docker_environment", None),
+                docker_environment=getattr(self, "docker_environment", None),
                 secret_redactions=(capability.read_text(encoding="utf-8").strip(),),
             )
         if self.transport is _runtime_servers.AppServer:
-            return self.transport(command, root, env=getattr(self, "docker_environment", None))
+            return self.transport(
+                command, root, env=getattr(self, "docker_environment", None),
+                docker_environment=getattr(self, "docker_environment", None),
+            )
         return self.transport(command, root)
 
 
@@ -353,6 +357,7 @@ class CodexRunner(Runner):
                 ):
                     response = subprocess.run(
                         ["docker", "exec", server.executor_name, "sh", "-c", command],
+                        env=self.docker_environment,
                         capture_output=True,
                         timeout=15,
                     )
