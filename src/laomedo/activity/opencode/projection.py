@@ -9,36 +9,7 @@ from datetime import timezone
 from decimal import Decimal
 import json
 import laomedo.activity.agent_activity.cost as _agent_activity_cost
-import laomedo.activity.opencode.utils as _opencode_utils
-import laomedo.activity.runner.feed as _runner_feed
 import math
-
-
-def retain_messages(root, session, messages, parent=None, writer=None):
-    event = {
-        "method": "opencode/messageSnapshot",
-        "params": {
-            "sessionID": session,
-            "messages": _opencode_utils.sanitized(messages),
-            "parentSessionID": parent,
-        },
-    }
-    retained = (
-        len(
-            (json.dumps(_runner_feed.receipt(event), ensure_ascii=False) + "\n").encode(
-                "utf8"
-            )
-        )
-        <= 1024 * 1024
-    )
-    if not retained:
-        event = {"method": "opencode/captureLimit", "params": {"sessionID": session}}
-    if writer is None:
-        import laomedo.activity.opencode.events as _opencode_events
-
-        writer = _opencode_events.NativeCapture(root, session)
-    writer.append(event)
-    return retained
 
 
 def _at(value, fallback):

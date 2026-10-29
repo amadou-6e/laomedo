@@ -207,7 +207,7 @@ pre-dispatch authentication, cancellation and exact restart cleanup.
 `RuntimeBinding` in `agents/runtime/models.py` groups the public record fields;
 it never carries an access token. Credential identity metadata is distinct from
 login material. The record key set remains stable, including explicit nulls.
-OpenCode prepared records now report its own CLI and `opencode_http` mode, with
+OpenCode prepared records now report its own CLI and `opencode_acp` mode, with
 null image/profile/config fields, rather than inherited Codex metadata. Historical
 records remain readable; the migration does not rewrite execution history.
 

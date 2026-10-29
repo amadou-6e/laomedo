@@ -537,7 +537,9 @@ class IsolatedOpenCode:
         """Validate agent identity, load the same native session and await its prompt."""
         from laomedo.agents.protocol.acp.session import AcpSession
 
-        client = AcpSession(self.session, on_update=capture.update)
+        # Loading may replay earlier native history. Subscribe only after the
+        # current attempt is bound so it cannot be mistaken for new activity.
+        client = AcpSession(self.session)
         try:
             initialized = await client.initialize()
             if initialized.agent_info.version != _opencode_settings.CLI_VERSION:
@@ -552,7 +554,10 @@ class IsolatedOpenCode:
             await client.configure(picker.id, model)
             on_session(client.session_id)
             capture.begin(client.session_id, task)
+            client.on_update = capture.update
             outcome = await client.prompt(task, cancelled=cancelled, seconds=180)
+            if not cancelled.is_set():
+                self.check_transport()
             status = (
                 "cancelled"
                 if cancelled.is_set() or outcome.stop_reason == "cancelled"

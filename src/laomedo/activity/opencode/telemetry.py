@@ -35,7 +35,7 @@ def export_attempt(root, start, session, model):
     projection = _activity_projection.project(records, root_thread=session, model=model)
     before = _runner_feed.line_count(root / "otel-events.jsonl")
     receiver = _runner_telemetry.LaunchTelemetry(
-        root, provenance="adapter-observed OpenCode native records"
+        root, provenance="adapter-observed OpenCode activity"
     )
     provider = TracerProvider()
     http = requests.Session()

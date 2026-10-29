@@ -385,6 +385,9 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 record["communication_protocol"] = "acp.v1"
                 _runtime_utils._json(root / "record.json", record)
 
+            # Discovery can take long enough for a bounded credential to expire.
+            # Recheck before charging or submitting a turn.
+            backend.check_auth_fresh()
             record["attempt_number"] = self._reserve_turn()
             _runtime_utils._json(root / "record.json", record)
             outcome = backend.run(
@@ -401,12 +404,24 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 "usage": outcome.usage,
                 "tools": outcome.tool_calls(),
             }
+            if not flag.is_set():
+                if outcome.stop_reason != "end_turn":
+                    raise _runtime_errors.RunnerError("opencode_response_not_terminal")
+                if any(
+                    tool["status"] not in {"completed", "failed"}
+                    for tool in normalized["tools"]
+                ):
+                    raise _runtime_errors.RunnerError("opencode_outstanding_tool")
             if not normalized["answer"] and not flag.is_set():
                 raise _runtime_errors.RunnerError("completed_without_agent_message")
             for tool in normalized["tools"]:
                 if tool["tool"] == "skill" and tool["status"] == "completed":
+                    inputs = tool.get("input")
                     for skill in record["skills"]:
-                        if (tool.get("input") or {}).get("name") == skill["skill_id"]:
+                        if (
+                            isinstance(inputs, dict)
+                            and inputs.get("name") == skill["skill_id"]
+                        ):
                             skill["use_evidence"] = "native_skill_tool_completed"
             record["skill"] = (
                 record["skills"][0] if len(record["skills"]) == 1 else None

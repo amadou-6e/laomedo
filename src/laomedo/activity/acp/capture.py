@@ -1,9 +1,11 @@
 """Project observed ACP updates into Laomedo's existing activity vocabulary."""
 
 import json
+import threading
 
 from laomedo.activity.runner.feed import receipt
-from laomedo.activity.opencode.utils import sanitized
+from laomedo.activity.redaction.utils import sanitized
+from laomedo.activity.acp.settings import MAX_ATTEMPT_BYTES, MAX_RECORD_BYTES
 
 
 class AcpCapture:
@@ -24,19 +26,36 @@ class AcpCapture:
         self.items = {}
         self.message = 0
         self.message_id = None
+        self.message_kind = None
+        self.session_id = None
+        self.sealed = False
+        self.bytes = 0
+        self.lock = threading.RLock()
 
     def append(self, method, params):
         """Persist a sanitized observation; normalized records are never native claims."""
-        with self.root.joinpath("activity-events.jsonl").open(
-            "a", encoding="utf-8"
-        ) as log:
-            log.write(
-                json.dumps(receipt({"method": method, "params": sanitized(params)}))
-                + "\n"
-            )
+        raw = (
+            json.dumps(receipt({"method": method, "params": sanitized(params)})) + "\n"
+        )
+        size = len(raw.encode("utf-8"))
+        with self.lock:
+            if self.sealed:
+                return
+            if size > MAX_RECORD_BYTES or self.bytes + size > MAX_ATTEMPT_BYTES:
+                # Capture failure propagates through the ACP client. Do not
+                # silently claim complete evidence after discarding a record.
+                raise ValueError("ACP activity retention limit exceeded")
+            with self.root.joinpath("activity-events.jsonl").open(
+                "a", encoding="utf-8"
+            ) as log:
+                log.write(raw)
+            self.bytes += size
 
     def begin(self, session_id, task):
         """Record the actual session binding and the host-submitted prompt."""
+        if self.session_id is not None:
+            raise ValueError("ACP capture already bound")
+        self.session_id = session_id
         self.append(
             "thread/started",
             {"thread": {"id": session_id}, "provenance": "ACP session binding"},
@@ -65,6 +84,10 @@ class AcpCapture:
 
     def update(self, session_id, update):
         """Retain the ACP payload and derive display deltas using observed tool IDs."""
+        if session_id != self.session_id:
+            raise ValueError("ACP capture session mismatch")
+        if self.sealed:
+            return
         self.append(
             "acp/sessionUpdate",
             {"sessionId": session_id, "turnId": self.turn_id, "update": update},
@@ -75,10 +98,15 @@ class AcpCapture:
             content = update.get("content", {})
             if content.get("type") != "text":
                 return
-            if self.message_id is None:
+            if self.message_id is None or self.message_kind != kind:
                 self.message += 1
                 self.message_id = self.turn_id + ":text:" + str(self.message)
-            identity = update.get("messageId", self.message_id)
+            self.message_kind = kind
+            # Providers may use the same native message ID for text and
+            # reasoning. Keep their display items distinct without altering
+            # the original identity retained above.
+            native_id = update.get("messageId")
+            identity = kind + ":" + native_id if native_id else self.message_id
             item = self.items.setdefault(
                 identity,
                 {
@@ -135,6 +163,10 @@ class AcpCapture:
 
     def finish(self, session_id, status, usage=None):
         """Retain terminal ACP usage without guessing cache or reasoning semantics."""
+        if session_id != self.session_id:
+            raise ValueError("ACP capture session mismatch")
+        if self.sealed:
+            return
         self.append(
             "acp/promptCompleted",
             {
@@ -162,3 +194,4 @@ class AcpCapture:
                 "identity_source": "host_attempt",
             },
         )
+        self.sealed = True
