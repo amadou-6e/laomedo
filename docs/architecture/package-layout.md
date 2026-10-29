@@ -70,8 +70,8 @@ src/laomedo/
 ```
 
 Each implementation has one owner. The neutral lifecycle is
-`laomedo.agents.agents.base.agent.Runner`; Codex execution is
-`laomedo.agents.agents.codex.agent.CodexRunner`. Use
+`laomedo.agents.agents.base.agent.BaseAgent`; Codex execution is
+`laomedo.agents.agents.codex.agent.CodexAgent`. Use
 `laomedo.skills.registry.store` and `laomedo.agents.activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
@@ -92,6 +92,12 @@ Resource bytes, image pins, schemas, request acknowledgement and cleanup
 behavior stay unchanged. Resource paths follow their owning package.
 
 ## One-time migration
+
+Recognized Langflow component source hashes are refreshed with migrated code so
+the graph does not retain an obsolete component cache key. IDs, connections,
+settings, pinned skills and existing run references remain unchanged. Unknown
+hash formats require manual component-revision migration. This operation does
+not run or retry the graph; retain its exclusive backups.
 
 Old flat imports are removed. Migrate older saved graph component code and
 external launcher commands before running them with this version:

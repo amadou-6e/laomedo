@@ -355,7 +355,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_skill",
-              "code_hash": "0f9b9816482c",
+              "code_hash": "5cd7860368c5",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -881,7 +881,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_codex_agent",
-              "code_hash": "b92cb7777c87",
+              "code_hash": "32fd23598889",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -1247,7 +1247,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_skill",
-              "code_hash": "0f9b9816482c",
+              "code_hash": "5cd7860368c5",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [

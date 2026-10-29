@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import ast
 import codecs
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -500,12 +501,54 @@ def _selected_field(path: tuple, graph: bool) -> bool:
     )
 
 
+def _component_hash_updates(value):
+    """Refresh recognized Langflow source hashes without changing graph identity.
+
+    Langflow 1.12 uses the first twelve SHA-256 hex characters of UTF-8 component
+    source. Unknown formats are not rewritten under an assumed revision scheme.
+    """
+    if not _is_graph(value):
+        return {}
+    prefix = () if isinstance(value.get("nodes"), list) else ("data",)
+    nodes = value["nodes"] if not prefix else value["data"]["nodes"]
+    updates = {}
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            continue
+        data = node.get("data")
+        if not isinstance(data, dict):
+            continue
+        definition = data.get("node", {})
+        if not isinstance(definition, dict):
+            continue
+        metadata = definition.get("metadata")
+        template = definition.get("template")
+        code_field = template.get("code") if isinstance(template, dict) else None
+        code = code_field.get("value") if isinstance(code_field, dict) else None
+        if not isinstance(metadata, dict) or "code_hash" not in metadata or not isinstance(code, str) or not code:
+            continue
+        migrated = migrate_source(code)
+        existing = metadata["code_hash"]
+        if not isinstance(existing, str) or not re.fullmatch(r"[0-9a-f]{12}", existing):
+            if migrated != code:
+                raise ManualMigrationRequired(
+                    "Unknown component code hash format; manual component-revision migration is required"
+                )
+            continue
+        path = prefix + ("nodes", index, "data", "node", "metadata", "code_hash")
+        updates[path] = sha256(migrated.encode("utf-8")).hexdigest()[:12]
+    return updates
+
+
 def migrate_value(value):
-    """Migrate graph code or explicit launcher fields, leaving other values alone."""
+    """Migrate code, recognized derived code hashes and explicit launcher fields."""
     graph = _is_graph(value)
+    hashes = _component_hash_updates(value)
 
     def walk(item, path):
         if isinstance(item, str):
+            if path in hashes:
+                return hashes[path]
             return (
                 _migrate_selected(item, path) if _selected_field(path, graph) else item
             )
@@ -519,8 +562,10 @@ def migrate_value(value):
 
 
 def migrate_json_source(source: str) -> str:
-    """Splice changed JSON string tokens only; preserve all other source bytes."""
-    graph = _is_graph(json.loads(source))
+    """Splice code/hash tokens only; preserve unrelated source bytes and values."""
+    parsed = json.loads(source)
+    graph = _is_graph(parsed)
+    hashes = _component_hash_updates(parsed)
     decoder = json.JSONDecoder()
     replacements = []
 
@@ -554,8 +599,8 @@ def migrate_json_source(source: str) -> str:
                 index = whitespace(index + 1)
                 count += 1
         item, end = decoder.raw_decode(source, index)
-        if isinstance(item, str) and _selected_field(path, graph):
-            migrated = _migrate_selected(item, path)
+        if isinstance(item, str) and (path in hashes or _selected_field(path, graph)):
+            migrated = hashes[path] if path in hashes else _migrate_selected(item, path)
             if migrated != item:
                 token = source[index:end]
                 replacements.append(

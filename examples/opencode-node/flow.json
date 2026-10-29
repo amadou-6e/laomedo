@@ -353,7 +353,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_skill",
-              "code_hash": "6233a427e36e",
+              "code_hash": "df40ff32d8a3",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [

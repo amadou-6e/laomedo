@@ -602,7 +602,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_claude_agent",
-              "code_hash": "32815c6bf954",
+              "code_hash": "4d31f9548c07",
               "dependencies": {
                 "total_dependencies": 1,
                 "dependencies": [

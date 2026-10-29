@@ -37,7 +37,7 @@
             "legacy": false,
             "lf_version": "1.7.0",
             "metadata": {
-              "code_hash": "45974e6b1909",
+              "code_hash": "e132528833f9",
               "dependencies": {
                 "dependencies": [
                   {
@@ -611,7 +611,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_skill",
-              "code_hash": "6233a427e36e",
+              "code_hash": "df40ff32d8a3",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -1201,7 +1201,7 @@
             "legacy": false,
             "lf_version": "1.7.0",
             "metadata": {
-              "code_hash": "84009527d08c",
+              "code_hash": "dca617672262",
               "dependencies": {
                 "dependencies": [
                   {
@@ -1480,7 +1480,7 @@
             "legacy": false,
             "lf_version": "1.7.0",
             "metadata": {
-              "code_hash": "84009527d08c",
+              "code_hash": "dca617672262",
               "dependencies": {
                 "dependencies": [
                   {

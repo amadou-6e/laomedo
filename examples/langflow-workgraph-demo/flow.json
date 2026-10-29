@@ -475,7 +475,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_skill",
-              "code_hash": "45c6e41ba031",
+              "code_hash": "df40ff32d8a3",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -635,7 +635,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_output_contract_legacy",
-              "code_hash": "e2ad73bf5db3",
+              "code_hash": "526f56ad4293",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -1335,7 +1335,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_output_contract_legacy",
-              "code_hash": "e2ad73bf5db3",
+              "code_hash": "526f56ad4293",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [

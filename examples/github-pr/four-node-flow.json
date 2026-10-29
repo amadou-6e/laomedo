@@ -292,7 +292,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.github_pr",
-              "code_hash": "a6f2c6229125",
+              "code_hash": "7fe9c9e204ee",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -678,7 +678,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.github_pr",
-              "code_hash": "a6f2c6229125",
+              "code_hash": "7fe9c9e204ee",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -791,7 +791,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.inspect_pr_operation_result",
-              "code_hash": "cc2be86f8ee0",
+              "code_hash": "312fef60bb72",
               "dependencies": {
                 "total_dependencies": 1,
                 "dependencies": [

@@ -1,5 +1,7 @@
 """Protect user-file bytes and safe failure behavior during offline migration."""
 from pathlib import Path
+from hashlib import sha256
+import json
 import subprocess
 import sys
 import tempfile
@@ -9,6 +11,32 @@ from test_module_path_migration import TOOL; from test_module_path_migration imp
 
 
 class MigrationFileTests(unittest.TestCase):
+    def test_component_revision_hash_follows_code_without_changing_graph_identity(self):
+        """Refresh the actual cache key along with imports, preserving saved user data."""
+        code = 'from laomedo.local_runner import LocalRunner\n'
+        original_hash = sha256(code.encode()).hexdigest()[:12]
+        graph = {'id': 'saved-flow', 'data': {'nodes': [{'id': 'agent', 'data': {'node': {
+            'metadata': {'code_hash': original_hash, 'custom': 'keep'},
+            'template': {'code': {'value': code}, 'task': {'value': 'laomedo.local_runner'},
+                         'run_reference_json': {'value': 'existing-run-reference'}},
+        }}}], 'edges': []}}
+        source = json.dumps(graph, indent=2)
+        result = migration.migrate_json_source(source)
+        updated = json.loads(result)
+        definition = updated['data']['nodes'][0]['data']['node']
+        migrated = definition['template']['code']['value']
+        self.assertEqual(definition['metadata']['code_hash'], sha256(migrated.encode()).hexdigest()[:12])
+        self.assertEqual(result, source.replace(json.dumps(code), json.dumps(migrated)).replace(original_hash, definition['metadata']['code_hash']))
+        self.assertEqual(migration.migrate_value(graph), updated)
+        self.assertEqual(migration.migrate_json_source(result), result)
+
+    def test_unknown_revision_format_requires_manual_migration(self):
+        """Do not assume an unknown component revision scheme is a source checksum."""
+        graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': 'other-format'},
+                 'template': {'code': {'value': 'import laomedo.local_runner\n'}}}}}]}
+        with self.assertRaisesRegex(migration.ManualMigrationRequired, 'Unknown component code hash format'):
+            migration.migrate_json_source(json.dumps(graph))
+
     def test_json_splicing_preserves_unrelated_bytes(self):
         source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃ© Î»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode('utf-8')
         with tempfile.TemporaryDirectory() as directory:

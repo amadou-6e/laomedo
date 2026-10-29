@@ -355,7 +355,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_skill",
-              "code_hash": "30747d083f4b",
+              "code_hash": "3136f150a2df",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
@@ -890,7 +890,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_codex_agent",
-              "code_hash": "bcb2778eb670",
+              "code_hash": "3dadf2f6fd7f",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
