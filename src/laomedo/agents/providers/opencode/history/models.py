@@ -84,6 +84,28 @@ class NativeExport(BaseModel):
                     children.add(child)
         return children
 
+    def tool_calls(self) -> list[dict]:
+        """Project native tool names and final states, never human ACP titles."""
+        calls = {}
+        for message in self.messages:
+            for part in message["parts"]:
+                if part.get("type") != "tool" or not isinstance(
+                    part.get("callID"), str
+                ):
+                    continue
+                state = part.get("state")
+                if not isinstance(state, dict):
+                    continue
+                calls[part["callID"]] = {
+                    "call_id": part["callID"],
+                    "tool": part.get("tool"),
+                    "status": state.get("status"),
+                    "input": state.get("input"),
+                    "output": state.get("output"),
+                    "error": state.get("error"),
+                }
+        return list(calls.values())
+
 
 class NativeHistory(BaseModel):
     """One verified parent-linked export batch from a consistent store snapshot."""
@@ -127,3 +149,74 @@ class NativeHistory(BaseModel):
             for message in self.sessions[session_id].messages
             if message["info"]["id"] not in ids
         ]
+
+    def record_fields(self, baseline: "NativeHistory | None") -> dict:
+        """Preserve the provider's public record fields from this attempt's native data."""
+        messages = self.attempt_messages(self.root_id, baseline)
+        recent = NativeExport(info=self.sessions[self.root_id].info, messages=messages)
+        fields = {"tools": recent.tool_calls()}
+        message = next(
+            (
+                message
+                for message in reversed(messages)
+                if message["info"].get("role") == "assistant"
+            ),
+            None,
+        )
+        if message is not None:
+            terminal = message["info"]
+            fields.update(native_turn_id=terminal["id"], usage=terminal.get("tokens"))
+            fields["answer"] = (
+                "\n".join(
+                    part["text"]
+                    for part in message["parts"]
+                    if part.get("type") == "text" and isinstance(part.get("text"), str)
+                )
+                if not terminal.get("error")
+                and terminal.get("time", {}).get("completed")
+                else None
+            )
+            if terminal.get("providerID") and terminal.get("modelID"):
+                fields["effective_model"] = (
+                    terminal["providerID"] + "/" + terminal["modelID"]
+                )
+        return fields
+
+    def attempt_sessions(self, baseline: "NativeHistory | None") -> set[str]:
+        """Exclude unchanged historical children while retaining observed ancestry."""
+        selected = {self.root_id}
+        for identity in self.sessions:
+            if not self.attempt_messages(identity, baseline):
+                continue
+            while identity not in selected:
+                selected.add(identity)
+                identity = self.sessions[identity].info.get("parentID")
+                if identity not in self.sessions:
+                    raise ValueError("Native history parent binding is incomplete")
+        return selected
+
+    def terminal_complete(self, baseline: "NativeHistory | None") -> bool:
+        """Require terminal native assistant/tool receipts for newly observed work."""
+        for identity in self.attempt_sessions(baseline):
+            messages = self.attempt_messages(identity, baseline)
+            if not messages and baseline and identity in baseline.sessions:
+                continue  # This native ancestor had no new work in the attempt.
+            assistant = [
+                message
+                for message in messages
+                if message["info"].get("role") == "assistant"
+            ]
+            if (
+                not assistant
+                or type(assistant[-1]["info"].get("time", {}).get("completed"))
+                is not int
+            ):
+                return False
+            if any(
+                call["status"] not in {"completed", "error"}
+                for call in NativeExport(
+                    info=self.sessions[identity].info, messages=messages
+                ).tool_calls()
+            ):
+                return False
+        return True

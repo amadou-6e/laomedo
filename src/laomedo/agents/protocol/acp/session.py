@@ -48,7 +48,13 @@ class AcpSession:
         self.capabilities = None
         self.cancel_sent = False
         self.protocol_failed = False
-        self.connection = connect_to_agent(self, DockerTransport(session))
+        self.connection = connect_to_agent(
+            self, DockerTransport(session, on_failure=self._fail_protocol)
+        )
+
+    def _fail_protocol(self):
+        """Invalidate success without exposing an SDK diagnostic traceback."""
+        self.protocol_failed = True
 
     async def initialize(self):
         """Negotiate ACP v1 without logging authentication or native payloads."""
@@ -201,15 +207,14 @@ class AcpSession:
         """Retain real updates and forward them to the owning activity capture."""
         if self.session_id is not None and session_id != self.session_id:
             self.protocol_failed = True
-            raise RunnerError("runner_transport_failed")
-        value = update.model_dump(mode="json", by_alias=True, exclude_none=True)
-        self.updates.append(value)
-        if self.on_update is not None:
-            try:
+            return
+        try:
+            value = update.model_dump(mode="json", by_alias=True, exclude_none=True)
+            self.updates.append(value)
+            if self.on_update is not None:
                 self.on_update(session_id, value)
-            except Exception:
-                self.protocol_failed = True
-                raise RunnerError("runner_transport_failed") from None
+        except Exception:
+            self.protocol_failed = True
 
     async def ext_method(self, method, params):
         """Allow only pure output validation; every execution extension is denied."""
@@ -228,7 +233,6 @@ class AcpSession:
                 self.on_extension(method, params)
             except Exception:
                 self.protocol_failed = True
-                raise RunnerError("runner_transport_failed") from None
 
     def _answer(self) -> str:
         """Return the final message only, retaining commentary in the update log.

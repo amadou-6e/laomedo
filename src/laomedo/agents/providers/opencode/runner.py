@@ -429,18 +429,6 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     raise _runtime_errors.RunnerError("opencode_outstanding_tool")
             if not normalized["answer"] and not flag.is_set():
                 raise _runtime_errors.RunnerError("completed_without_agent_message")
-            for tool in normalized["tools"]:
-                if tool["tool"] == "skill" and tool["status"] == "completed":
-                    inputs = tool.get("input")
-                    for skill in record["skills"]:
-                        if (
-                            isinstance(inputs, dict)
-                            and inputs.get("name") == skill["skill_id"]
-                        ):
-                            skill["use_evidence"] = "native_skill_tool_completed"
-            record["skill"] = (
-                record["skills"][0] if len(record["skills"]) == 1 else None
-            )
             if flag.is_set():
                 record["status"] = "cancelled"
             else:
@@ -510,32 +498,49 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     try:
                         history = reader.read(capture.session_id)
                         reader.retain(history, baseline, capture, catalog)
-                        messages = history.attempt_messages(history.root_id, baseline)
-                        terminal = next(
-                            (
-                                message["info"]
-                                for message in reversed(messages)
-                                if message["info"].get("role") == "assistant"
-                            ),
-                            None,
-                        )
-                        if terminal is not None:
-                            # Preserve the original provider record shape. Whole
-                            # attempt usage comes from the native activity view.
-                            record["native_turn_id"] = terminal["id"]
-                            record["usage"] = terminal.get("tokens")
-                            if terminal.get("providerID") and terminal.get("modelID"):
-                                record["effective_model"] = (
-                                    terminal["providerID"] + "/" + terminal["modelID"]
+                        record.update(history.record_fields(baseline))
+                        if record["status"] == "completed":
+                            if not record.get("answer"):
+                                record.update(
+                                    status="failed",
+                                    error_category="completed_without_agent_message",
                                 )
-                            if (
-                                record["turns"]
-                                and record["turns"][-1]["turn_id"] == attempt["id"]
+                            elif any(
+                                tool["status"] not in {"completed", "error"}
+                                for tool in record["tools"]
                             ):
-                                record["turns"][-1]["native_turn_id"] = terminal["id"]
-                        attempt["capture_complete"] = capture.finished
+                                record.update(
+                                    status="failed",
+                                    error_category="opencode_outstanding_tool",
+                                )
+                        for tool in record["tools"]:
+                            inputs = tool.get("input")
+                            if (
+                                tool["tool"] == "skill"
+                                and tool["status"] == "completed"
+                                and isinstance(inputs, dict)
+                            ):
+                                for skill in record["skills"]:
+                                    if inputs.get("name") == skill["skill_id"]:
+                                        skill["use_evidence"] = (
+                                            "native_skill_tool_completed"
+                                        )
+                        record["skill"] = (
+                            record["skills"][0] if len(record["skills"]) == 1 else None
+                        )
+                        if (
+                            record["turns"]
+                            and record["turns"][-1]["turn_id"] == attempt["id"]
+                        ):
+                            record["turns"][-1]["native_turn_id"] = record.get(
+                                "native_turn_id"
+                            )
+                        complete = capture.finished and history.terminal_complete(
+                            baseline
+                        )
+                        attempt["capture_complete"] = complete
                         record["evidence_complete"] = (
-                            "complete" if capture.finished else "partial"
+                            "complete" if complete else "partial"
                         )
                     except _runtime_errors.RunnerError:
                         backend.termination_verified = False

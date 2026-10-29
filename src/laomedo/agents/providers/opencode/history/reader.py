@@ -218,7 +218,10 @@ class HistoryReader:
                 },
             },
         )
+        selected = history.attempt_sessions(baseline)
         for identity, exported in history.sessions.items():
+            if identity not in selected:
+                continue
             events.append(
                 {
                     "method": "opencode/sessionSnapshot",

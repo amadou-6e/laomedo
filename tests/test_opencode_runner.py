@@ -639,9 +639,8 @@ class OpenCodeTests(unittest.TestCase):
     def test_fresh_restart_resume_and_evidence(self):
         run = self.runner.start(self.payload)
         self.assertEqual(run["status"], "completed")
-        self.assertEqual(
-            run["skills"][0]["use_evidence"], "native_skill_tool_completed"
-        )
+        # ACP titles are display text, not evidence that a native skill ran.
+        self.assertEqual(run["skills"][0]["use_evidence"], "offered")
         self.assertIsNone(run["usage"])
         restarted = OpenCodeRunner(
             self.runner.state,

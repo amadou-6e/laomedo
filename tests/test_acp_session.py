@@ -89,6 +89,16 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("private", str(caught.exception))
         self.assertTrue(self.client.protocol_failed)
 
+    async def test_notification_capture_failures_do_not_reach_sdk_logging(self):
+        self.client.session_id = "actual"
+        self.client.on_update = Mock(side_effect=ValueError("private payload"))
+        with self.assertNoLogs():
+            await self.client.session_update("actual", Mock())
+            await self.client.session_update("unrelated", Mock())
+            self.client.on_extension = Mock(side_effect=ValueError("secret"))
+            await self.client.ext_notification("codexEvent", {})
+        self.assertTrue(self.client.protocol_failed)
+
     async def test_resume_requires_advertised_support_and_never_creates_fresh(self):
         await self.client.initialize()
         self.client.capabilities.load_session = False
@@ -260,8 +270,39 @@ class DockerTransportTests(unittest.IsolatedAsyncioTestCase):
             session.read_line.return_value = SimpleNamespace(
                 channel="stdout", data=data
             )
-            with self.assertRaisesRegex(ValueError, "^runner_transport_failed$"):
-                await DockerTransport(session).receive()
+            failed = Mock()
+            with self.assertNoLogs():
+                self.assertIsNone(
+                    await DockerTransport(session, on_failure=failed).receive()
+                )
+            failed.assert_called_once_with()
+
+    async def test_sdk_bound_malformed_updates_disconnect_without_logging_input(self):
+        for message in (
+            {
+                "method": "session/update",
+                "params": {
+                    "sessionId": "s",
+                    "update": {
+                        "sessionUpdate": "agent_message_chunk",
+                        "content": {"type": "text", "text": {"secret": "private"}},
+                    },
+                },
+            },
+            {"method": "unknown-notification", "params": {"private": "payload"}},
+            {"id": [], "result": {}},
+            {"method": "_claude/sdkMessage", "params": "private"},
+        ):
+            session = Mock()
+            session.read_line.return_value = SimpleNamespace(
+                channel="stdout", data=json.dumps(message).encode()
+            )
+            failed = Mock()
+            with self.assertNoLogs():
+                self.assertIsNone(
+                    await DockerTransport(session, on_failure=failed).receive()
+                )
+            failed.assert_called_once_with()
 
     async def test_eof_is_not_claimed_as_success(self):
         session = Mock()

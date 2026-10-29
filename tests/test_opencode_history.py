@@ -95,6 +95,43 @@ class OpenCodeHistoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             exported.bind("ses_root", None)
 
+    def test_native_record_fields_use_final_message_and_actual_tool_name(self):
+        first = self.exported(message="commentary", text="I will do it")
+        last = self.exported(message="final", text="The actual final answer")
+        last.messages[0]["parts"].append(
+            {
+                "type": "tool",
+                "tool": "skill",
+                "callID": "call-native",
+                "state": {
+                    "status": "completed",
+                    "input": {"name": "pinned"},
+                    "output": "native skill content",
+                },
+            }
+        )
+        last.messages.insert(0, first.messages[0])
+        history = NativeHistory(root_id="ses_root", sessions={"ses_root": last})
+        fields = history.record_fields(None)
+        self.assertEqual(fields["answer"], "The actual final answer")
+        self.assertEqual(fields["native_turn_id"], "final")
+        self.assertEqual(fields["tools"][0]["tool"], "skill")
+        self.assertEqual(fields["tools"][0]["output"], "native skill content")
+
+    def test_unchanged_previous_child_is_excluded_from_resume_scope(self):
+        old = self.exported(message="old")
+        child = self.exported("ses_child", "ses_root", "child")
+        previous = NativeHistory(
+            root_id="ses_root", sessions={"ses_root": old, "ses_child": child}
+        )
+        new = self.exported(message="new")
+        new.messages.insert(0, old.messages[0])
+        current = NativeHistory(
+            root_id="ses_root", sessions={"ses_root": new, "ses_child": child}
+        )
+        self.assertEqual(current.attempt_sessions(previous), {"ses_root"})
+        self.assertTrue(current.terminal_complete(previous))
+
     def test_metadata_job_is_offline_and_only_sees_a_consistent_database_copy(self):
         from py_docker.execution.models import CommandResult
 
