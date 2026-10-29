@@ -76,9 +76,43 @@ Real child-agent preservation is still pending explicit delegation authorization
 and a real run. Native cancellation defaults of zero tokens are not accepted as
 known usage totals.
 
+### Bounded browser verification, 2026-10-29
+
+An isolated Windows/Docker Desktop preview used clean installed wheels and real
+provider logins. Fresh audited the project's `local-service.md`; Resume read
+`docker-sandbox.md` on the same native session. No skills were required. The
+browser inspected the actual answers, command records and retained activity.
+
+| Provider | Fresh observed terminal (s) | Resume observed terminal (s) | Stop during an observed command (s) |
+| --- | ---: | ---: | ---: |
+| Codex | 19.4 | 46.3 | 2.3 |
+| Claude | 56.6 | 46.2 | 2.6 |
+| OpenCode | 82.2 | 78.3 | 9.9 |
+
+These are click-to-terminal observations, including cleanup and browser waiting,
+not model-latency benchmarks. Fresh used `0470aaa`, same-session Resume used
+`00faea4`, and cancellation plus the corrected OpenCode capture view used
+`eeaae49`. Observed cancellation ended with native cancellation and confirmed
+owned cleanup; no ownership receipts remained for those runs.
+
+Failed verification attempts remain separate: an incomplete prepared reference
+was refused before dispatch; the cold test Claude API required metadata discovery;
+and an earlier Codex turn ended with an outstanding command before Stop arrived.
+That Codex result stayed explicitly unknown, with cleanup confirmed. It was not
+counted as successful cancellation. There is no node-local run picker: Resume
+references came from the actual completed run and were supplied in the saved flow.
+Owner inspection, the remaining integration contexts above and release acceptance
+are still required; this table does not authorize merging.
+
 The owner selected raw Codex event preservation via a bounded ACP adapter
 extension. Its raw notification channel must finish before the prompt response is
 accepted, apply existing secret redaction and preserve native terminal status.
+Retained raw events are allowlisted original native notifications. Protocol
+responses, account/auth/config frames and adapter stderr are excluded. The
+retired private `stderr.log` is no longer emitted: diagnostics are drained within
+stream limits and discarded to avoid retaining secret-bearing adapter output.
+This intentionally reduces private crash-diagnostic detail; it does not turn
+stderr into a user-visible error or a protocol result.
 Host-only extensions for prechecks, typed skills, metadata and the deferred
 executor must be allowlisted; no arbitrary native RPC tunnel is permitted.
 
