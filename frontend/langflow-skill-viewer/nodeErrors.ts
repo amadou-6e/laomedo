@@ -10,7 +10,7 @@ export type ErrorContext = {
 };
 export type NodeFailure = Description & { diagnostics: Record<string, string> };
 const entries: Record<string, Description> = catalog;
-const nativeTimeout = /^request_timeout:(?:initialize|model\/list|thread\/(?:start|resume)|turn\/(?:start|interrupt)|command\/exec|environment\/(?:add|status))$/;
+const nativeTimeout = /^request_timeout:(?:initialize|model\/list|thread\/(?:start|resume)|turn\/(?:start|interrupt)|command\/exec|environment\/(?:add|status)|session\/(?:new|load|set_config_option|cancel))$/;
 const catalogCode = (code: string) => nativeTimeout.test(code) ? "request_timeout" : code;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const operations = new Set(["fresh", "start", "resume", "status", "cancel", "modify", "close"]);

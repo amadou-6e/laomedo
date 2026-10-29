@@ -28,17 +28,21 @@ class AcpSession:
         Persist observed session updates; capture completeness belongs to its owner.
     on_extension : callable or None
         Optional provider telemetry extension receiver, never a tool executor.
+    on_precheck : callable or None
+        Pure output-contract validator for the one allowlisted request extension.
 
     The client advertises no host filesystem or terminal capabilities. It denies
-    every permission request and implements no host execution callbacks. Tool
+    every permission request and implements no host execution callbacks. Its only
+    optional request extension performs pure output-contract validation. Tool
     access must be configured explicitly in the controller and its MCP server.
     """
 
-    def __init__(self, session, *, on_update=None, on_extension=None):
+    def __init__(self, session, *, on_update=None, on_extension=None, on_precheck=None):
         """Connect the SDK to one session on the current asyncio event loop."""
         self.session = session
         self.on_update = on_update
         self.on_extension = on_extension
+        self.on_precheck = on_precheck
         self.updates = []
         self.session_id = None
         self.capabilities = None
@@ -88,9 +92,9 @@ class AcpSession:
         self.updates.clear()  # Replayed history belongs to the earlier prompt.
         return reply
 
-    async def configure(self, config_id: str, value: str) -> None:
-        """Set an agent-advertised config option; never silently use a default."""
-        await self._request(
+    async def configure(self, config_id: str, value: str):
+        """Set an advertised option and return the agent's observed config state."""
+        return await self._request(
             self.connection.set_config_option(
                 session_id=self.session_id, config_id=config_id, value=value
             ),
@@ -98,7 +102,9 @@ class AcpSession:
             30,
         )
 
-    async def prompt(self, text: str, *, cancelled, seconds: float) -> AcpTurn:
+    async def prompt(
+        self, text: str, *, cancelled, seconds: float, metadata=None
+    ) -> AcpTurn:
         """Await a terminal response, forwarding cancellation within 100 ms.
 
         Cancellation and timeout have a five-second protocol grace period. The
@@ -114,6 +120,7 @@ class AcpSession:
             self.connection.prompt(
                 session_id=self.session_id,
                 prompt=[TextContentBlock(type="text", text=text)],
+                **(metadata or {}),
             )
         )
         timed_out = False
@@ -177,7 +184,13 @@ class AcpSession:
                 raise RunnerError("runner_transport_failed") from None
 
     async def ext_method(self, method, params):
-        """Reject every extension request; none may become a host tool call."""
+        """Allow only pure output validation; every execution extension is denied."""
+        if method == "laomedo/outputPrecheck" and self.on_precheck is not None:
+            try:
+                return self.on_precheck(params)
+            except Exception:
+                self.protocol_failed = True
+                raise RequestError.internal_error() from None
         raise RequestError.method_not_found(method)
 
     async def ext_notification(self, method, params):

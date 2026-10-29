@@ -17,6 +17,22 @@ test("native timeout parsing rejects arbitrary method payloads", () => {
  expect(JSON.stringify(failure)).not.toContain("private-token");
 });
 
+test.each(["new", "load", "set_config_option", "cancel"])("ACP %s timeout preserves its code and existing descriptive recovery", method => {
+ const code=`request_timeout:session/${method}`;
+ const failure=describeNodeFailure(code,undefined,{nodeId:"agent"});
+ expect(failure.title).toBe("The Agent did not respond in time");
+ expect(failure.diagnostics.code).toBe(code);
+ expect(failure.recovery).toContain("If a run started");
+});
+
+test("ACP timeout method allowlist excludes execution tunnels and payload suffixes", () => {
+ for (const code of ["request_timeout:session/exec", "request_timeout:session/new?secret=private"]) {
+  const failure=describeNodeFailure(code,undefined,{nodeId:"agent"});
+  expect(failure.title).toBe("The node could not confirm completion");
+  expect(JSON.stringify(failure)).not.toContain("private");
+ }
+});
+
 const run = "11111111-1111-4111-8111-111111111111";
 const request = "22222222-2222-4222-8222-222222222222";
 test("Claude model failures retain their code and redact native payload details",()=>{

@@ -8,7 +8,8 @@ Provider-specific policy supplies the image, entry point, credential mounts and
 configuration. py-docker remains independent of agents and ACP.
 
 The client advertises no host filesystem or terminal capabilities, rejects every
-permission request and extension request, and cannot execute host commands. Model
+permission request and execution extension request, and cannot execute host commands.
+The one opt-in request extension performs pure output-contract validation. Model
 tools retain each provider's reviewed isolation policy. Claude and OpenCode use
 credential-free Docker workers through MCP. Codex retains its constrained native
 commands and optional deferred executor. Protocol cancellation is followed by exact container cleanup; an acknowledgement
@@ -55,7 +56,21 @@ regressions are separate supporting controls. Codex cutover, locked release imag
 pre-migration resume, skill/precheck coverage and final graph evidence remain open.
 OpenCode's ACP terminal usage describes the final assistant message rather than
 all tool-loop messages; do not present it as a full attempt/session total. Preserving
-complete usage and native child-session activity remains a migration requirement.
+complete usage and native child-session activity uses `opencode export` in separate
+credential-free, offline metadata jobs. The reader makes a bounded consistent
+SQLite backup, exports only the bound session and children attested by native task
+metadata plus the child's own parent ID, and removes the private copy after cleanup.
+Resume exports establish exact native-message baselines before controller startup.
+Final exports follow creator-owned controller cleanup, including cancellation and
+failure. Raw ACP usage remains inspectable but is never added to native totals.
+Export failure leaves partial evidence and unknown inclusive usage; metadata-job
+cleanup uncertainty fails the run. Historical HTTP/SSE snapshots remain readable.
+Native CLI snapshots name their source, retain native times separately from receipt
+times, and keep original before/after payloads in hash-addressed private evidence.
+Root text/tools stream over ACP; child detail appears after final native export.
+Real child-agent preservation is still pending explicit delegation authorization
+and a real run. Native cancellation defaults of zero tokens are not accepted as
+known usage totals.
 
 The owner selected raw Codex event preservation via a bounded ACP adapter
 extension. Its raw notification channel must finish before the prompt response is

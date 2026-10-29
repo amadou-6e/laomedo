@@ -34,6 +34,16 @@
     "description": "The runner did not receive a response to an Agent request before its deadline. The request may still be active.",
     "recovery": "If a run started, confirm its status and cleanup before starting another. For metadata-only requests, check the runner is ready before refreshing."
   },
+  "turn_timeout": {
+    "title": "The Agent did not finish before its deadline",
+    "description": "The runner reached the turn deadline and requested cancellation. A terminal Agent result was not confirmed in time.",
+    "recovery": "Check the existing run status and its cleanup result before starting another request. Do not assume the deadline means remote work stopped."
+  },
+  "cancel_native_unconfirmed": {
+    "title": "The Agent's cancellation is not confirmed",
+    "description": "The runner requested cancellation but did not receive a matching native interruption result before its deadline.",
+    "recovery": "Check the existing run and its owned-container cleanup result. Missing interruption evidence does not authorize repeating work that may already have taken effect."
+  },
   "incomplete_mediator_mount": {
     "title": "The GitHub connection setup is incomplete",
     "description": "A required part of the runner connection for GitHub operations is missing. The Agent was not started.",

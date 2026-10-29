@@ -513,6 +513,21 @@ class IsolatedOpenCode:
                 "opencode_controller_startup_failed"
             ) from None
 
+    def history_reader(self):
+        """Bind an offline metadata reader without mounting credentials or live state."""
+        from laomedo.agents.providers.opencode.history.models import HistorySource
+        from laomedo.agents.providers.opencode.history.reader import HistoryReader
+
+        return HistoryReader(
+            HistorySource(
+                store=self.profile / "sessions",
+                image_id=self.runtime_identity["image_id"],
+                endpoint=self.docker_endpoint,
+                receipts=self.receipts,
+            ),
+            self.evidence,
+        )
+
     def run(self, task, *, model, session_id, cancelled, capture, on_session):
         """Execute over shared ACP; no published port, password or SSE reader."""
         from py_docker.sessions.models import ContainerSession
@@ -551,7 +566,17 @@ class IsolatedOpenCode:
             )
             if picker is None:
                 raise _runtime_errors.RunnerError("opencode_model_not_connected")
-            await client.configure(picker.id, model)
+            configured = await client.configure(picker.id, model)
+            observed = next(
+                (
+                    option.current_value
+                    for option in configured.config_options
+                    if option.id == picker.id
+                ),
+                None,
+            )
+            if observed != model:
+                raise _runtime_errors.RunnerError("opencode_model_not_connected")
             on_session(client.session_id)
             capture.begin(client.session_id, task)
             client.on_update = capture.update

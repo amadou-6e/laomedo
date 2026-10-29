@@ -1,6 +1,7 @@
 """Observed OpenCode message snapshots, scoped to one accepted runner attempt.
 
-These are native HTTP records, not a claim that an SSE stream was captured.
+Native CLI snapshots retain their explicit source. Historical HTTP/SSE records
+remain readable; a CLI snapshot never claims to be an HTTP/SSE observation.
 """
 
 from copy import deepcopy
@@ -29,6 +30,8 @@ def project(events, *, root_thread=None, model=None):
     parents = {root_thread: None} if root_thread else {}
     native_events = []
     catalogs = {}
+    catalog_sources = {}
+    exports_started, exports_completed = set(), set()
     telemetry = []
     titles = {}
     for event in events:
@@ -61,12 +64,17 @@ def project(events, *, root_thread=None, model=None):
     for native, received in native_events:
         method = native.get("method")
         params = _object(native.get("params"))
+        if method == "opencode/exportStarted":
+            exports_started.add(params.get("snapshot_sha256"))
+        if method == "opencode/exportCompleted":
+            exports_completed.add(params.get("snapshot_sha256"))
         if method == "otel/record":
             if _object(params.get("attributes")).get("conversation.id") in parents:
                 telemetry.append(params)
             continue
         if method == "opencode/modelCatalog":
             catalogs[params.get("model")] = params.get("rates")
+            catalog_sources[params.get("model")] = params.get("source")
             continue
         if method == "opencode/messageSnapshot" and params.get("sessionID") in parents:
             checkpoints.append((params, received))
@@ -112,8 +120,8 @@ def project(events, *, root_thread=None, model=None):
                 p for p in message["parts"] if p.get("id") != props.get("partID")
             ]
         messages[identity] = (message, received)
-    # HTTP completion checkpoints are authoritative even if an older SSE frame
-    # was received later by the reader thread.
+    # Native completion/export checkpoints are authoritative even if an older
+    # historical SSE frame was received later by its reader thread.
     for params, received in checkpoints:
         for message in params.get("messages", []):
             if not isinstance(message, dict):
@@ -158,7 +166,14 @@ def project(events, *, root_thread=None, model=None):
             if ended:
                 turn.update(
                     ended=max(turn.get("ended") or ended, ended),
-                    status="failed" if info.get("error") else "completed",
+                    status=(
+                        "cancelled"
+                        if _object(info.get("error")).get("name")
+                        == "MessageAbortedError"
+                        else "failed"
+                        if info.get("error")
+                        else "completed"
+                    ),
                 )
         parts = message.get("parts", [])
         if not isinstance(parts, list):
@@ -239,6 +254,13 @@ def project(events, *, root_thread=None, model=None):
                 }
             )
         if role == "assistant":
+            if info.get("error") or not ended:
+                # Native error receipts can contain default zero counters even
+                # though a request started. Preserve them raw, not as a known total.
+                totals.append(None)
+                thread_totals.setdefault(thread, []).append(None)
+                turn_totals.setdefault((thread, turn_id), []).append(None)
+                continue
             tokens = info.get("tokens")
             cache = _object(tokens.get("cache")) if isinstance(tokens, dict) else {}
             values = (
@@ -277,7 +299,10 @@ def project(events, *, root_thread=None, model=None):
                 else (model if thread == root_thread else None)
             )
             item_cost = estimate_native(
-                models[thread], usage, catalogs.get(models[thread])
+                models[thread],
+                usage,
+                catalogs.get(models[thread]),
+                catalog_sources.get(models[thread]),
             )
             costs.append(item_cost)
             thread_costs.setdefault(thread, []).append(item_cost)
@@ -325,8 +350,11 @@ def project(events, *, root_thread=None, model=None):
         )
         for thread, values in thread_totals.items()
     }
-    if set(parents) - set(per_thread):
+    export_incomplete = exports_started != exports_completed
+    if set(parents) - set(per_thread) or export_incomplete:
         usage = None
+    if export_incomplete:
+        per_thread = dict.fromkeys(parents)
     cost = sum_costs(costs, model)
     if usage is None:
         cost.update(amount=None, reason="Inclusive token usage is incomplete.")
@@ -344,7 +372,9 @@ def project(events, *, root_thread=None, model=None):
         values = turn_totals.get((thread, turn_id), [])
         turn_usage = (
             {key: sum(value[key] for value in values) for key in values[0]}
-            if values and all(value is not None for value in values)
+            if not export_incomplete
+            and values
+            and all(value is not None for value in values)
             else None
         )
         turn_cost = (
@@ -380,7 +410,7 @@ def project(events, *, root_thread=None, model=None):
     }
 
 
-def estimate_native(model, usage, rates):
+def estimate_native(model, usage, rates, source=None):
     metadata = {
         "currency": "USD",
         "model": model,
@@ -393,6 +423,8 @@ def estimate_native(model, usage, rates):
             "provenance": "runtime-reported catalog",
         },
     }
+    if source:
+        metadata["source_record"] = {"runtime": "1.18.33", "provenance": source}
 
     def unknown(reason):
         return {**metadata, "amount": None, "reason": reason}

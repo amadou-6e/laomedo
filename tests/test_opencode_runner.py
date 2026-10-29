@@ -67,6 +67,9 @@ class Backend:
     def check_auth_fresh(self):
         pass
 
+    def history_reader(self):
+        return None
+
     def close(self):
         self.log.close()
         self.termination_verified = True

@@ -69,6 +69,26 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RequestError):
             await self.client.ext_method("terminal/create", {"command": "anything"})
 
+    async def test_precheck_is_opt_in_and_other_extensions_stay_denied(self):
+        with self.assertRaises(RequestError):
+            await self.client.ext_method("laomedo/outputPrecheck", {})
+        self.client.on_precheck = Mock(
+            return_value={"success": True, "contentItems": []}
+        )
+        params = {"threadId": "native-session", "callId": "native-call"}
+        response = await self.client.ext_method("laomedo/outputPrecheck", params)
+        self.assertTrue(response["success"])
+        self.client.on_precheck.assert_called_once_with(params)
+        with self.assertRaises(RequestError):
+            await self.client.ext_method("laomedo/exec", {"command": "anything"})
+
+    async def test_precheck_failure_is_safe_and_invalidates_protocol_success(self):
+        self.client.on_precheck = Mock(side_effect=ValueError("private native payload"))
+        with self.assertRaises(RequestError) as caught:
+            await self.client.ext_method("laomedo/outputPrecheck", {})
+        self.assertNotIn("private", str(caught.exception))
+        self.assertTrue(self.client.protocol_failed)
+
     async def test_resume_requires_advertised_support_and_never_creates_fresh(self):
         await self.client.initialize()
         self.client.capabilities.load_session = False

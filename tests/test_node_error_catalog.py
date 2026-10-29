@@ -31,6 +31,25 @@ def producer_path(filename):
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_shared_acp_timeout_methods_are_preserved_by_the_graph_boundary(self):
+        source=ast.parse((ROOT/'src/laomedo/agents/protocol/acp/session.py').read_text())
+        methods={node.args[1].value for node in ast.walk(source)
+                 if isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute)
+                 and node.func.attr=='_request' and len(node.args)>=2
+                 and isinstance(node.args[1],ast.Constant) and isinstance(node.args[1].value,str)}
+        tree=ast.parse((ROOT/'src/laomedo/integrations/langflow/agent/component.py').read_text())
+        routed=next(ast.literal_eval(node.value) for node in tree.body if isinstance(node,ast.Assign)
+                    and any(isinstance(target,ast.Name) and target.id=='_ROUTABLE_ERRORS' for target in node.targets))
+        self.assertTrue(methods)
+        self.assertFalse({'request_timeout:'+method for method in methods}-routed)
+
+    def test_opencode_catalogue_codes_survive_the_graph_boundary(self):
+        catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        tree=ast.parse((ROOT/'src/laomedo/integrations/langflow/agent/component.py').read_text())
+        routed=next(ast.literal_eval(node.value) for node in tree.body if isinstance(node,ast.Assign)
+                    and any(isinstance(target,ast.Name) and target.id=='_ROUTABLE_ERRORS' for target in node.targets))
+        self.assertFalse({code for code in catalogue if code.startswith('opencode_')}-routed)
+
     def test_handoff_selection_producer_has_catalogue_coverage(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
         source=ast.parse((ROOT/'components/laomedo/handoff.py').read_text())
@@ -204,9 +223,11 @@ class NodeErrorCatalogueTests(unittest.TestCase):
 
 OPENCODE_ERROR_PRODUCERS = tuple(sorted({'components/laomedo/opencode_agent.py'} | {
     path.relative_to(ROOT).as_posix()
-    for name in ('opencode_runner.py', 'opencode_boundary.py', 'opencode_events.py', 'opencode_telemetry.py', 'agent_activity_capture.py')
+    for name in ('opencode_runner.py', 'opencode_boundary.py', 'opencode_telemetry.py', 'agent_activity_capture.py')
     for path in producer_paths(name)
-}))
+} | {path.relative_to(ROOT).as_posix()
+     for folder in ('src/laomedo/agents/providers/opencode', 'src/laomedo/agents/protocol/acp', 'src/laomedo/activity/acp')
+     for path in ROOT.joinpath(folder).rglob('*.py')}))
 
 _ERROR_FIELDS = {"error", "error_category", "capture_error", "reason"}
 

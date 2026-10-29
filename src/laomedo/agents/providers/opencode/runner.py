@@ -297,6 +297,10 @@ class OpenCodeRunner(_runtime_runner.Runner):
             if not self.lock.acquire(blocking=False):
                 raise _runtime_errors.RunnerError("runner_busy")
         root, record, flag, backend, attempt = None, None, None, None, None
+        reader = capture = baseline = None
+        baseline_available = True
+        metadata_cleanup_unverified = False
+        catalog = []
         launch_attempted = False
         try:
             root, record = self._run_dir(run_id), self.status(run_id)
@@ -375,6 +379,17 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 raise _runtime_errors.RunnerError("opencode_model_not_connected")
             if flag.is_set():
                 raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
+            reader = backend.history_reader()
+            if resume and reader is not None:
+                try:
+                    baseline = reader.read(record["thread_id"])
+                except _runtime_errors.RunnerError:
+                    metadata_cleanup_unverified = True
+                    raise  # Owned metadata-job cleanup uncertainty remains fatal.
+                except Exception:
+                    baseline_available = False
+                    attempt["capture_error"] = "opencode_native_snapshot_unavailable"
+                    record["evidence_complete"] = "partial"
             from laomedo.activity.acp.capture import AcpCapture
 
             capture = AcpCapture(root, attempt_id)
@@ -480,6 +495,56 @@ class OpenCodeRunner(_runtime_runner.Runner):
             try:
                 if backend:
                     backend.close()
+                    if metadata_cleanup_unverified:
+                        backend.termination_verified = False
+                        raise _runtime_errors.RunnerError(
+                            "opencode_container_cleanup_unverified"
+                        )
+                if (
+                    reader is not None
+                    and capture is not None
+                    and capture.session_id is not None
+                    and baseline_available
+                ):
+                    capture.seal()
+                    try:
+                        history = reader.read(capture.session_id)
+                        reader.retain(history, baseline, capture, catalog)
+                        messages = history.attempt_messages(history.root_id, baseline)
+                        terminal = next(
+                            (
+                                message["info"]
+                                for message in reversed(messages)
+                                if message["info"].get("role") == "assistant"
+                            ),
+                            None,
+                        )
+                        if terminal is not None:
+                            # Preserve the original provider record shape. Whole
+                            # attempt usage comes from the native activity view.
+                            record["native_turn_id"] = terminal["id"]
+                            record["usage"] = terminal.get("tokens")
+                            if terminal.get("providerID") and terminal.get("modelID"):
+                                record["effective_model"] = (
+                                    terminal["providerID"] + "/" + terminal["modelID"]
+                                )
+                            if (
+                                record["turns"]
+                                and record["turns"][-1]["turn_id"] == attempt["id"]
+                            ):
+                                record["turns"][-1]["native_turn_id"] = terminal["id"]
+                        attempt["capture_complete"] = capture.finished
+                        record["evidence_complete"] = (
+                            "complete" if capture.finished else "partial"
+                        )
+                    except _runtime_errors.RunnerError:
+                        backend.termination_verified = False
+                        raise
+                    except Exception:
+                        attempt["capture_error"] = (
+                            "opencode_native_snapshot_unavailable"
+                        )
+                        record["evidence_complete"] = "partial"
                 if record is not None and attempt is not None:
                     try:
                         import laomedo.activity.opencode.telemetry as _opencode_telemetry
