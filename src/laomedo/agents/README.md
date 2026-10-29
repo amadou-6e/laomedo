@@ -25,7 +25,7 @@ Paths in this table are relative to `src/laomedo/` and describe the target.
 | Public Agent API | `agents/interface/` | `HttpAgentBridge`, `AgentRequest`, `AgentCapabilities`: the boundary used by the rest of the app |
 | Shared Agent implementation | `agents/agents/base/` | `BaseAgent`, `AcpRuntime`, `AgentRegistry`: inherited lifecycle, communication and trusted registration |
 | Concrete Agent implementations | `agents/agents/codex/`, `agents/agents/claude/`, `agents/agents/opencode/` | `CodexAgent`, `ClaudeAgent`, `OpenCodeAgent`: provider behavior and resources |
-| Agent working state | `agents/workspaces/` | `BaseWorkspace`, `DirectoryWorkspace`, `GitWorkspace`: prepare, verify, snapshot and restore Agent working state |
+| Agent working state | `agents/workspaces/` | `AgentWorkspace`, `WorkspaceSnapshot`: prepare, verify, snapshot and restore Agent working state; compose shared Git objects where needed |
 | Agent artifacts | `agents/artifacts/` | `ArtifactStore`, `ArtifactReference`: retain, select, verify and transfer files between Agent runs |
 | Agent run persistence | `agents/runs/` | `RunStore`, `RunRecord`, `RunReference`: Agent requests, attempts, state and recovery information |
 | Agent response requirements | `agents/output/` | `OutputValidator`, `OutputRequirements`, `OutputValidation`: describe and check Agent responses |
@@ -37,7 +37,7 @@ The following concerns stay outside the Agent module:
 
 | Concern | Owner outside `agents/` | Boundary |
 | --- | --- | --- |
-| Reusable Git mechanics | Shared Git code, with `repositories/git/` as a target after caller audit | `GitRepository` supplies controlled Git operations to Agent workspaces and other consumers |
+| Git mechanics | `git/` | `GitRepository`, `GitWorkingTree`, `GitCommandRunner`: one owner for repository operations, checked-out files and bounded Git invocation |
 | GitHub workflows and operations | Existing GitHub, work-graph and host publication/mediation owners | Issue/PR actions, repository authorization, workflow decisions and publishing are not Agent responsibilities |
 | Graph dispatch persistence | `work_graph/`, with a focused runs package if warranted | Graph launch reservations and invocation correlations are distinct from Agent run records |
 | General graph integration | `integrations/langflow/` | Cross-node PR/Skill feedback, downstream requirement discovery and graph routing stay with the graph integration |
@@ -51,12 +51,23 @@ Run-to-run handoff control through the public Agent interface belongs in
 `agents/orchestration/`. Graph-wired loops between Agent, PR, Skill or other nodes
 belong to the Langflow integration, including their scheduling and edge handling.
 
-`Workspace` is a behavioral object, not a namespace for filesystem helpers.
-`GitWorkspace` uses a `GitRepository` to prepare its working state. Reusable Git
-mechanics already have consumers in Skills and host-side operations. A caller
-audit must establish the exact shared operations and destination before moving
-them; do not copy them into a second Agent implementation. GitHub grants, remote
-selection and publication authorization stay with their non-Agent owners.
+`AgentWorkspace` is a behavioral object, not a namespace for filesystem helpers.
+It owns Agent-specific preparation, protected files, pinned skills and snapshots.
+It can use ordinary files or compose a `GitWorkingTree` managed by `GitRepository`.
+Do not introduce separate workspace subclasses solely for those storage choices.
+An abstract workspace base is warranted only if distinct behavioral contracts
+actually require it.
+
+All Git mechanics have one target owner: `laomedo/git/`. This replaces the earlier
+split across Agent workspaces, `github/transport/git/`, host publication helpers
+and the proposed `repositories/git/`. Other modules call Git objects rather than
+constructing Git commands, maintaining their own Git subprocess runner, or
+importing another feature's private Git helpers. The separate `repositories/`
+target is removed.
+
+`GitWorkingTree` is a reusable checked-out Git resource. `AgentWorkspace` is the
+Agent's working context. These objects have different responsibilities; there
+must not be a second Agent-local implementation of clone, checkout or commit.
 
 The owner's requested LangChain Agent integration belongs under
 `agents/interface/langchain/` when an actual adapter is implemented. The current
@@ -89,9 +100,7 @@ laomedo/
 │   │   ├── langflow/               # Agent-specific component adapter
 │   │   └── langchain/              # Only when an actual Agent adapter is added
 │   ├── workspaces/
-│   │   ├── base.py                 # BaseWorkspace
-│   │   ├── directory.py            # DirectoryWorkspace
-│   │   ├── git.py                  # GitWorkspace, using shared Git mechanics
+│   │   ├── workspace.py            # AgentWorkspace, composing shared Git objects
 │   │   └── models.py
 │   ├── artifacts/
 │   │   ├── store.py                # ArtifactStore
@@ -108,8 +117,15 @@ laomedo/
 │   ├── activity/                   # Common Agent activity only
 │   ├── errors.py                   # One shared Agent error hierarchy
 │   └── ADD_PROVIDER.md
-├── repositories/                   # Shared Git target, after caller audit
-│   └── git/
+├── git/                            # Sole owner of reusable Git mechanics
+│   ├── repository.py               # GitRepository
+│   ├── worktree.py                 # GitWorkingTree
+│   ├── command.py                  # GitCommandRunner
+│   ├── credentials/                # Git credential-helper protocol/mechanics
+│   ├── resources/                  # Required Git helper scripts
+│   ├── models.py                   # GitCommit, GitRemote, GitBundle, operation data
+│   ├── settings.py
+│   └── errors.py
 ├── github/                         # GitHub domain and workflow operations
 ├── work_graph/                     # Graph execution and dispatch persistence
 ├── host/                           # Shared host infrastructure/publication
@@ -124,6 +140,54 @@ Settings, errors and package initializers are omitted from parts of this tree
 for readability. Introduce them where the concern needs them. Do not create
 empty files or duplicate models solely to make folder contents identical.
 `ADD_PROVIDER.md` is a planned extension guide, not an existing runnable example.
+
+## Central Git ownership
+
+| Git concern | Owning object | Consumers |
+| --- | --- | --- |
+| Open/create repositories, clone, fetch, push and repository-level history operations | `GitRepository` | Agent workspaces, Skills and approved host publication |
+| Checkout, working-tree status, changes and commit operations | `GitWorkingTree` | Any owner of checked-out files, including `AgentWorkspace` |
+| Controlled command construction/execution, environment isolation, deadlines and process-tree cleanup | `GitCommandRunner` | Git objects inside `git/`; application callers use the domain methods |
+| Commit identities, remotes, bundles, requests and results | Canonical Pydantic models in `git/models.py` | Git objects and their callers |
+| Git credential-helper protocol and Git helper assets | `git/credentials/` and `git/resources/` | Approved Git operations; host services supply the authorized credential binding |
+
+The current code shows why consolidation is needed: Agent workspace preparation
+and the GitHub Git transport each implement Git process-tree timeout handling.
+Skills and mediation reuse private Agent workspace helpers, while verified
+publication imports Git environment/process helpers from the GitHub transport.
+Consolidate those mechanics with a caller and error-contract audit; do not merely
+relocate files while leaving multiple command paths.
+
+Policy stays with the caller:
+
+- `AgentWorkspace` decides which source and protected files an Agent may use.
+- GitHub operations own issue/PR behavior and GitHub-specific request decisions.
+- Host mediation owns grants, connection selection and allowed effects.
+- Publication owns provenance, verified-artifact admission and permission to
+  publish. It asks Git objects to inspect/import the admitted bundle and perform
+  an approved operation.
+
+`git/` must not import Agents, Skills, GitHub workflows or publication policy.
+Those consumers depend on the Git module. GitHub-specific transport wrappers may
+remain only as policy adapters; they must not contain a second Git executor.
+GitHub Actions workflow decisions remain outside `git/`, even when Git supplies
+the file diff they inspect.
+
+Preserve the existing host-controlled remote and credential scope. Centralizing
+credential-helper mechanics does not move credential ownership, copying rights
+or authorization into the Agent. Keep credentials out of logs, Git arguments,
+persisted configuration and model-visible resources. Preserve existing bounded
+execution, exact cleanup, bundle identity and uncertain-effect/no-blind-retry
+semantics. Do not broaden supported transports or authentication behavior as a
+side effect of this structural change.
+
+Before replacement, inventory Git entrypoints in workspace preparation, Skills,
+GitHub transport, verified publication and remote/credential helper resources.
+Move the common behavior and migrate its callers together, deleting the replaced
+Git command paths. Preserve actual standalone helper and installed-resource
+contracts. Add an import/command-ownership regression check so raw Git execution
+cannot quietly spread back into consumers. This is a target design; none of
+these runtime migrations has been performed by editing this README.
 
 ## Provider ownership
 
@@ -171,7 +235,7 @@ ClaudeAgent --+-- inherit BaseAgent
 OpenCodeAgent-+
 
 BaseAgent uses:
-  Workspace
+  AgentWorkspace
   AcpRuntime
   RunStore
   ArtifactStore
@@ -238,8 +302,11 @@ variants, and a final noun describing the responsibility.
 
 | Name | Meaning |
 | --- | --- |
-| `BaseAgent`, `BaseWorkspace` | Abstract classes with defined extension contracts |
-| `CodexAgent`, `GitWorkspace` | Concrete specializations |
+| `BaseAgent` | Abstract class with a defined extension contract |
+| `CodexAgent`, `ClaudeAgent`, `OpenCodeAgent` | Concrete Agent specializations |
+| `AgentWorkspace` | Agent-specific working context, composing reusable file/Git resources |
+| `GitRepository`, `GitWorkingTree` | Git repository and checked-out working-tree objects |
+| `GitCommandRunner` | Shared bounded Git invocation and cleanup mechanics |
 | `AcpRuntime` | Execution machinery communicating through ACP |
 | `HttpAgentBridge` | Connector across the application/runner boundary |
 | `ArtifactStore`, `RunStore` | Persistence and retrieval of entities |
@@ -281,8 +348,9 @@ Separate the work into reviewable replacements:
 
 1. **Separate ownership and relocate existing behavior.** Put concrete Agents and
    the base under `agents/agents/`; keep purely Agent-specific services beside that
-   package. Separate graph dispatch records, GitHub workflows and reusable Git
-   mechanics into their non-Agent owners. Move only Agent-specific framework
+   package. Separate graph dispatch records and GitHub workflows into their
+   non-Agent owners. Consolidate reusable Git mechanics under `git/`, replacing
+   the distributed Git execution/helper paths. Move only Agent-specific framework
    adapters into `agents/interface`. Initially `BaseAgent` is the current shared
    Runner renamed and relocated, with existing provider overrides retained. This
    step alone does not complete lifecycle consolidation.
