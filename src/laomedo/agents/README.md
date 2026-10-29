@@ -342,6 +342,30 @@ Keep one canonical Pydantic model per structured concept in its owning
 Pydantic settings objects in `settings.py`. Keep behavioral methods with their
 owning objects and standalone functions in focused function-only modules.
 
+### Python readability requirements
+
+- Import used symbols directly from their defining modules. Prefer
+  `from ...errors import HandoffError` and `HandoffError(...)` over importing an
+  alias such as `_handoffs_errors` and qualifying every use. Preserve actual
+  optional-dependency boundaries; use symbol aliases only for real collisions.
+- Replace large inline configuration definitions with canonical typed Pydantic
+  objects in the owning `models.py`. For example, an `OpenCodeConfig` takes the
+  permission rules, broker port and broker token, and produces the existing
+  external shape through `to_config()`. Keep validation and projections on that
+  object, preserving the provider's keys, defaults and current policy.
+- Keep tokens secret in representations, ordinary dumps and validation messages.
+  Only the deliberate private-native-config serializer may unwrap the token into
+  the required authorization header; never log or publicly export that result.
+- Define collaborating classes at module scope in focused files. A request
+  handler belongs in `http/handler.py`, with an explicitly bound server/owner
+  object. Do not define `class Handler(...)` inside `__init__`, another method or
+  a factory, and do not replace the closure with mutable global state.
+
+These conventions are recorded in the [contributor instructions](../../../AGENTS.md).
+The reusable coding skill contains before/after examples for owner inspection.
+This documentation update does not apply those examples to the runtime; review
+the examples before continuing the implementation refactor.
+
 ## Adding a provider
 
 The extension guide and shared conformance suite must make these steps explicit:
