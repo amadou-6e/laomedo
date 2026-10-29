@@ -1,28 +1,233 @@
+diff --git a/src/CodexAcpClient.ts b/src/CodexAcpClient.ts
+index ecdf1b8..7012b27 100644
+--- a/src/CodexAcpClient.ts
++++ b/src/CodexAcpClient.ts
+@@ -1,3 +1,4 @@
++import type {LaomedoExtension} from "./LaomedoExtension";
+ import {
+     type ApiKeyAuthRequest,
+     CODEX_API_KEY_ENV_VAR,
+@@ -141,7 +142,7 @@ export class CodexAcpClient {
+     private configPath: string | null = null;
+ 
+ 
+-    constructor(codexClient: CodexAppServerClient, codexConfig?: JsonObject, modelProvider?: string) {
++    constructor(codexClient: CodexAppServerClient, codexConfig?: JsonObject, modelProvider?: string, readonly laomedo?: LaomedoExtension) {
+         this.codexClient = codexClient;
+         this.config = codexConfig ?? {};
+         this.modelProvider = modelProvider ?? null;
+@@ -474,7 +475,7 @@ export class CodexAcpClient {
+ 
+     /**
+      * `providers/disable`: disables the custom gateway provider. Disabling an
+-     * unknown provider id is idempotent success (RFD behavior §7).
++     * unknown provider id is idempotent success (RFD behavior Â§7).
+      */
+     disableProvider(request: acp.DisableProviderRequest): void {
+         const overrideWasActive = this.gatewayConfig !== null;
+@@ -638,6 +639,7 @@ export class CodexAcpClient {
+     }
+ 
+     async loadSession(request: acp.LoadSessionRequest, onSubscribed?: () => void): Promise<SessionMetadataWithThread> {
++        const host = this.laomedo?.sessionParameters(request);
+         const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
+         await this.refreshSkills(request.cwd, additionalDirectories);
+ 
+@@ -647,7 +649,9 @@ export class CodexAcpClient {
+             cwd: request.cwd,
+             modelProvider: await this.getResumeModelProvider(),
+             threadId: request.sessionId,
++            ...host,
+         });
++        this.laomedo?.bind(request, response.thread.id);
+         onSubscribed?.();
+         // Resume cursors bound durable history; later turns arrive through live events.
+         // A null paginated cursor means there was no durable history at resume time.
+@@ -706,6 +710,7 @@ export class CodexAcpClient {
+     }
+ 
+     async newSession(request: acp.NewSessionRequest): Promise<SessionMetadata> {
++        const host = this.laomedo?.sessionParameters(request);
+         const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
+         await this.refreshSkills(request.cwd, additionalDirectories);
+ 
+@@ -713,8 +718,10 @@ export class CodexAcpClient {
+             config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers),
+             modelProvider: this.getModelProvider(),
+             cwd: request.cwd,
++            ...host,
+         });
+ 
++        this.laomedo?.bind(request, response.thread.id);
+         const codexModels = await this.fetchAvailableModels();
+         if (codexModels.length === 0) {
+             throw new Error("Codex did not return any models");
+@@ -1057,8 +1064,10 @@ export class CodexAcpClient {
+         onTurnStarted?: (turnId: string) => void,
+         shouldCancel?: () => boolean,
+     ): Promise<TurnCompletedNotification | null> {
+-        const input = buildPromptItems(request.prompt);
+-        const effort = modelId.effort as ReasoningEffort | null; //TODO remove unsafe conversion
++        const host = this.laomedo?.turnParameters(request);
++        const input = [...buildPromptItems(request.prompt), ...(host?.input ?? [])];
++        const effort = modelId.effort as ReasoningEffort | null;
++        this.laomedo?.assertSelection(request.sessionId, modelId.model, effort); //TODO remove unsafe conversion
+         await this.refreshSkills(cwd, additionalDirectories);
+         if (shouldCancel?.()) {
+             return null;
+@@ -1066,9 +1075,11 @@ export class CodexAcpClient {
+         return await this.codexClient.runTurn({
+             threadId: request.sessionId,
+             input: input,
+-            approvalPolicy: agentMode.approvalPolicy,
+-            approvalsReviewer: agentMode.approvalsReviewer,
+-            sandboxPolicy: addAdditionalDirectoriesToSandboxPolicy(agentMode.sandboxPolicy, additionalDirectories),
++            ...(host ? Object.fromEntries(Object.entries(host).filter(([key]) => key !== "input")) : {
++                approvalPolicy: agentMode.approvalPolicy,
++                approvalsReviewer: agentMode.approvalsReviewer,
++                sandboxPolicy: addAdditionalDirectoriesToSandboxPolicy(agentMode.sandboxPolicy, additionalDirectories),
++            }),
+             summary: disableSummary ? "none" : "auto",
+             effort: effort,
+             model: modelId.model,
+diff --git a/src/CodexAcpServer.ts b/src/CodexAcpServer.ts
+index a43f9ab..6a67e96 100644
+--- a/src/CodexAcpServer.ts
++++ b/src/CodexAcpServer.ts
+@@ -1286,7 +1286,7 @@ export class CodexAcpServer {
+      * Builds the agent-owned auth identity. Routing the client configured
+      * through the ACP `providers/*` API is invisible here: the reported state
+      * is what the agent itself is logged in with. `gateway` stays reserved for
+-     * agent-owned gateway state — the `gateway` auth method, or a provider the
++     * agent-owned gateway state â€” the `gateway` auth method, or a provider the
+      * user configured in Codex's own config.
+      */
+     private async readAgentAuthIdentity(): Promise<AuthStatus> {
+@@ -1323,7 +1323,7 @@ export class CodexAcpServer {
+         if (this.codexAcpClient.isClientConfiguredProvider(authProvider)) {
+             // The session routes through client-configured providers; the agent-owned
+             // login is a separate question, so read it instead of reporting the
+-            // override. A failed read means "nothing to report" — it must never
++            // override. A failed read means "nothing to report" â€” it must never
+             // take the session create down with it.
+             await this.publishAuthStatusRead();
+             return;
+@@ -1368,8 +1368,8 @@ export class CodexAcpServer {
+      * Stores `next` and pushes `_auth/status_update`.
+      *
+      * A push goes out only when the payload changed. The identity is read on
+-     * many occasions — `initialize`, each session create, each `account/updated`
+-     * — and almost all of them see the login already reported.
++     * many occasions â€” `initialize`, each session create, each `account/updated`
++     * â€” and almost all of them see the login already reported.
+      * Clients replace their whole state on each update and tolerate duplicates,
+      * so a repeat is harmless, but it is pure noise all the same.
+      *
+@@ -1555,7 +1555,7 @@ export class CodexAcpServer {
+      *
+      * Every session gets its own {@link SteeringQueue}: the request is enqueued
+      * and awaited, so concurrent steers for one session run strictly one at a
+-     * time, in arrival order, and can never race to inject into — or start —
++     * time, in arrival order, and can never race to inject into â€” or start â€”
+      * rival turns. Steers for different sessions use different queues and run
+      * concurrently. Once the queue drains to idle it is removed from the map,
+      * so no per-session entry leaks after the session goes quiet (the identity
+@@ -1675,7 +1675,7 @@ export class CodexAcpServer {
+      * inject into, and returns as soon as that turn is running.
+      *
+      * Waits for any previous prompt to drain first, then re-checks that the
+-     * session is not closing — the await above is a window during which a close
++     * session is not closing â€” the await above is a window during which a close
+      * request can arrive.
+      *
+      * @param params The target session id and the prompt to steer with.
+@@ -1754,7 +1754,7 @@ export class CodexAcpServer {
+                     if (turnStarted) {
+                         // The turn had already started, so the steer was already
+                         // answered "startedNewTurn". This is a failure of a turn running
+-                        // in the background — nothing to return, just log it.
++                        // in the background â€” nothing to return, just log it.
+                         logger.error(`${source} prompt for session ${params.sessionId} failed`, error);
+                     } else {
+                         // The prompt failed before the turn started. The steer never
+@@ -2968,7 +2968,7 @@ export class CodexAcpServer {
+                 return cancelledPromptResponse();
+             }
+ 
+-            const commandPromise = this.availableCommands.tryHandleCommand(params.prompt, sessionState, {
++            const commandPromise = this.availableCommands.tryHandleCommand(this.codexAcpClient.laomedo ? [] : params.prompt, sessionState, {
+                 onTurnStartPending: () => {
+                     sessionState.lastTokenUsage = null;
+                     ensurePendingTurnStart();
+@@ -3266,8 +3266,8 @@ export class CodexAcpServer {
+             );
+ 
+             // Fire-and-forget: generate an AI title from the first turn.
+-            // Never await — must not block the prompt response.
+-            // Note: turn.items contains only agent output, not the user message —
++            // Never await â€” must not block the prompt response.
++            // Note: turn.items contains only agent output, not the user message â€”
+             // extract prompt text from params instead.
+             if (sessionState.titleGen) {
+                 const promptText = params.prompt
 diff --git a/src/index.ts b/src/index.ts
-index 1975930..f3597fa 100644
+index 1975930..84cebf9 100644
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -117,6 +117,23 @@ function startAcpServer() {
+@@ -2,6 +2,7 @@
  
+ import * as acp from "@agentclientprotocol/sdk";
+ import {z} from "zod";
++import {LaomedoExtension, emptyParams, modelParams, probeParams, executorParams, statusParams} from "./LaomedoExtension";
+ import {startCodexConnection} from "./CodexJsonRpcConnection";
+ import {CodexAcpServer, type CodexProcessState} from "./CodexAcpServer";
+ import {createJsonStream} from "./StdUtils";
+@@ -115,9 +116,15 @@ function startAcpServer() {
+ 
+     const acpJsonStream = createJsonStream(process.stdin, process.stdout);
+ 
++    let laomedo: LaomedoExtension | undefined;
++
      function createAgent(connection: acp.AgentContext): CodexAcpServer {
          const appServerClient = new CodexAppServerClient(codexProcessState.connection.connection);
-+        // Laomedo extension: preserve native activity over the SAME ACP connection.
-+        // Requests, responses, account/auth/config records are never forwarded.
+-        const codexClient = new CodexAcpClient(appServerClient, config, modelProvider);
 +        if (process.env["LAOMEDO_CODEX_NATIVE_EVENTS"] === "1") {
-+            appServerClient.onClientTransportEvent((event) => {
-+                if (event.eventType !== "notification") return;
-+                const {method, params} = event;
-+                if (!(method === "thread/started" || method === "thread/tokenUsage/updated"
-+                    || method === "turn/started" || method === "turn/completed"
-+                    || method === "turn/failed" || method === "error"
-+                    || method.startsWith("item/") || method.startsWith("turn/plan/")
-+                    || method.startsWith("turn/diff/"))) return;
-+                void connection.notify("_laomedo/codexEvent", {method, params}).catch(() => {
-+                    // A lost evidence channel must not leave an executing agent detached.
-+                    codexProcessState.connection.process.kill("SIGTERM");
-+                });
-+            });
++            laomedo = new LaomedoExtension(appServerClient, codexProcessState.connection.connection,
++                connection, () => { codexProcessState.connection.process.kill("SIGTERM"); });
 +        }
-         const codexClient = new CodexAcpClient(appServerClient, config, modelProvider);
++        const codexClient = new CodexAcpClient(appServerClient, config, modelProvider, laomedo);
          return new CodexAcpServer(
              connection,
+             codexClient,
+@@ -136,6 +143,11 @@ function startAcpServer() {
+         return codexAcpServer;
+     };
+ 
++    const extension = () => {
++        if (!laomedo) throw acp.RequestError.methodNotFound("_laomedo");
++        return laomedo;
++    };
++
+     acp.agent({name: packageJson.name})
+         .onConnect((connection) => {
+             const agent = createAgent(connection.client);
+@@ -161,7 +173,7 @@ function startAcpServer() {
+         .onRequest(acp.methods.agent.providers.list, (ctx) => getAgent().listProviders(ctx.params))
+         .onRequest(acp.methods.agent.providers.set, (ctx) => getAgent().setProvider(ctx.params))
+         .onRequest(acp.methods.agent.providers.disable, (ctx) => getAgent().disableProvider(ctx.params))
+-        .onRequest(acp.methods.agent.session.prompt, (ctx) => getAgent().prompt(ctx.params, ctx.signal))
++        .onRequest(acp.methods.agent.session.prompt, (ctx) => laomedo ? laomedo.prompt(ctx.params.sessionId, () => getAgent().prompt(ctx.params, ctx.signal)) : getAgent().prompt(ctx.params, ctx.signal))
+         .onNotification(acp.methods.agent.session.cancel, (ctx) => getAgent().cancel(ctx.params))
+         .onRequest("authentication/status", emptyExtensionParamsParser, (ctx) => getAgent().extMethod("authentication/status", ctx.params))
+         .onRequest("authentication/logout", emptyExtensionParamsParser, (ctx) => getAgent().extMethod("authentication/logout", ctx.params))
+@@ -169,5 +181,10 @@ function startAcpServer() {
+         .onRequest(SESSION_STEERING_METHOD, sessionSteerParamsParser, (ctx) => getAgent().extMethod(SESSION_STEERING_METHOD, ctx.params))
+         .onRequest(ASYNC_TASK_STOP_METHOD, asyncTaskStopParamsParser, (ctx) => getAgent().extMethod(ASYNC_TASK_STOP_METHOD, ctx.params))
+         .onRequest(GOAL_CONTROL_METHOD, goalControlParamsParser, (ctx) => getAgent().extMethod(GOAL_CONTROL_METHOD, ctx.params))
++        .onRequest("_laomedo/codexModels", modelParams, (ctx) => extension().models(ctx.params))
++        .onRequest("_laomedo/codexSkills", emptyParams, () => extension().skills())
++        .onRequest("_laomedo/preflight", probeParams, (ctx) => extension().preflight(ctx.params))
++        .onRequest("_laomedo/registerExecutor", executorParams, (ctx) => extension().registerExecutor(ctx.params))
++        .onRequest("_laomedo/executorStatus", statusParams, (ctx) => extension().executorStatus(ctx.params))
+         .connect(acpJsonStream);
+ }
