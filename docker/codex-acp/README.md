@@ -21,6 +21,23 @@ permission profile without per-turn sandbox/approval overrides; split mode uses
 only its registered external executor. Typed skill items come from host metadata,
 never prompt parsing. ACP slash-command interception is disabled for these runs.
 
+`LAOMEDO_CODEX_ARGS` carries host-owned native configuration arguments into the
+Codex subprocess. The adapter validates alternating `-c`/`--enable`/`--disable`
+flags and bounded string values, passes argv directly without a shell, and fails
+closed for malformed data or a missing explicit Linux Codex executable. This
+preserves deferred-executor, telemetry and trusted provider routing configuration.
+It is not a model- or graph-supplied command interface.
+
+Bounded real probes established normal-mode permission preflight, pinned skill
+use, rejected-then-corrected prechecks, native-thread resume across the old Python
+wire and ACP, and cancellation with a raw native interrupted completion. The split
+prototype established executor registration, command execution in the observed
+credential-free executor, no controller listeners, executor-loss detection and
+cleanup. The executor required the existing checksum-verified Codex seccomp policy
+for Bubblewrap's namespace creation; Docker's default policy refused it. No host
+kernel setting or unconfined container was used. These prototype checks do not
+establish production-runner or graph acceptance; that cutover is still pending.
+
 Named extensions provide model/skill metadata, fixed-enum permission preflight,
 one pre-prompt executor registration/status and pure output precheck. They expose
 no arbitrary method/command passthrough. Requests outside their scope fail closed.

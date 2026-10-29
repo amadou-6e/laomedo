@@ -9,9 +9,11 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY native-events.patch /tmp/native-events.patch
 COPY LaomedoExtension.ts src/LaomedoExtension.ts
 COPY LaomedoExtension.test.ts src/LaomedoExtension.test.ts
+COPY LaomedoLaunch.ts src/LaomedoLaunch.ts
+COPY LaomedoLaunch.test.ts src/LaomedoLaunch.test.ts
 RUN git apply /tmp/native-events.patch && npm run typecheck \
-    && npx vitest run src/LaomedoExtension.test.ts --no-file-parallelism && npm run build \
-    && sha256sum /tmp/native-events.patch src/LaomedoExtension.ts dist/index.js > /tmp/adapter-checksums.txt
+    && npx vitest run src/LaomedoExtension.test.ts src/LaomedoLaunch.test.ts --no-file-parallelism && npm run build \
+    && sha256sum /tmp/native-events.patch src/LaomedoExtension.ts src/LaomedoLaunch.ts dist/index.js > /tmp/adapter-checksums.txt
 
 FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3 ripgrep \

@@ -103,7 +103,7 @@ class AcpSession:
         )
 
     async def prompt(
-        self, text: str, *, cancelled, seconds: float, metadata=None
+        self, text: str, *, cancelled, seconds: float, metadata=None, check_health=None
     ) -> AcpTurn:
         """Await a terminal response, forwarding cancellation within 100 ms.
 
@@ -124,25 +124,51 @@ class AcpSession:
             )
         )
         timed_out = False
+        health_error = None
+        next_health = 0.0
         try:
             while not pending.done():
-                if not self.cancel_sent and (
-                    cancelled.is_set() or time.monotonic() >= deadline
+                if (
+                    check_health is not None
+                    and not self.cancel_sent
+                    and not cancelled.is_set()
+                    and time.monotonic() >= next_health
                 ):
-                    timed_out = not cancelled.is_set()
-                    await self._request(
-                        self.connection.cancel(session_id=self.session_id),
-                        "session/cancel",
-                        5,
-                    )
+                    try:
+                        check_health()
+                    except RunnerError as failure:
+                        health_error = failure
+                    except Exception:
+                        health_error = RunnerError("runner_transport_failed")
+                    next_health = time.monotonic() + 0.25
+                if not self.cancel_sent and (
+                    cancelled.is_set()
+                    or time.monotonic() >= deadline
+                    or health_error is not None
+                ):
+                    timed_out = health_error is None and not cancelled.is_set()
+                    try:
+                        await self._request(
+                            self.connection.cancel(session_id=self.session_id),
+                            "session/cancel",
+                            5,
+                        )
+                    except RunnerError:
+                        if health_error is not None:
+                            raise health_error from None
+                        raise
                     self.cancel_sent = True
                     deadline = time.monotonic() + 5
                 elif self.cancel_sent and time.monotonic() >= deadline:
+                    if health_error is not None:
+                        raise health_error
                     raise RunnerError(
                         "turn_timeout" if timed_out else "cancel_native_unconfirmed"
                     )
                 await asyncio.wait({pending}, timeout=0.1)
             reply = await pending
+            if health_error is not None:
+                raise health_error
             if self.protocol_failed:
                 raise RunnerError("runner_transport_failed")
             if timed_out:
@@ -159,6 +185,8 @@ class AcpSession:
                 else None,
             )
         except RequestError:
+            if health_error is not None:
+                raise health_error from None
             raise RunnerError("runner_transport_failed") from None
         finally:
             if not pending.done():

@@ -28,7 +28,7 @@ const promptPolicy = z.object({
 export const emptyParams = z.object({}).strict();
 export const modelParams = z.object({cursor: z.string().nullable().optional()}).strict();
 export const probeParams = z.object({
-    check: z.enum(["workspace_write", "canonical_write", "store_write", "auth_read", "git_binary"]),
+    check: z.enum(["workspace_write", "canonical_write", "store_write", "auth_read", "git_binary", "network"]),
 }).strict();
 export const executorParams = z.object({
     environmentId: z.string().min(1).max(200),
@@ -158,6 +158,7 @@ export class LaomedoExtension {
             store_write: ["sh", "-c", "printf FORBIDDEN > /store/sentinel.txt"],
             auth_read: ["sh", "-c", "cat /home/runner/.codex/auth.json >/dev/null"],
             git_binary: ["git", "--version"],
+            network: ["python3", "-c", "import socket; s=socket.socket(); s.settimeout(3); s.connect(('1.1.1.1',443)); print('NETWORK_CONNECTED')"],
         };
         return this.native.sendRequest("command/exec", {
             command: commands[params.check], cwd: "/draft", timeoutMs: 15000,

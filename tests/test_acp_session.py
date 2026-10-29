@@ -181,6 +181,45 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result.answer, "actual answer")
 
+    async def test_host_health_failure_cancels_and_preserves_its_safe_code(self):
+        from laomedo.agents.runtime.errors import RunnerError
+
+        await self.client.initialize()
+        await self.client.open()
+        release = asyncio.Event()
+
+        async def pending(**kwargs):
+            await release.wait()
+            return SimpleNamespace(stop_reason="cancelled", usage=None)
+
+        self.connection.prompt = AsyncMock(side_effect=pending)
+        self.connection.cancel.side_effect = lambda **kwargs: release.set()
+        with self.assertRaisesRegex(RunnerError, "executor_lost"):
+            await self.client.prompt(
+                "task",
+                cancelled=threading.Event(),
+                seconds=1,
+                check_health=Mock(side_effect=RunnerError("executor_lost")),
+            )
+        self.connection.cancel.assert_awaited_once_with(session_id="native-session")
+        self.container.close.assert_not_called()  # The lifecycle owner still closes it.
+
+    async def test_host_policy_metadata_is_sent_without_becoming_prompt_text(self):
+        await self.client.initialize()
+        await self.client.open()
+        self.connection.prompt = AsyncMock(
+            return_value=SimpleNamespace(stop_reason="end_turn", usage=None)
+        )
+        await self.client.prompt(
+            "task",
+            cancelled=threading.Event(),
+            seconds=1,
+            metadata={"laomedo": {"skills": []}},
+        )
+        arguments = self.connection.prompt.call_args.kwargs
+        self.assertEqual(arguments["laomedo"], {"skills": []})
+        self.assertEqual(arguments["prompt"][0].text, "task")
+
     async def test_commentary_is_not_part_of_final_payload(self):
         self.client.updates = [
             {
