@@ -159,6 +159,17 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertFalse(result["snapshot_ready"])
         self.assertIsNone(result["output_ref"])
 
+    def test_snapshot_io_error_is_not_reported_as_container_cleanup_failure(self):
+        freeze = self.runner._freeze_workspace
+        def denied(root, record):
+            with patch("laomedo.agents.runtime.utils._copy_tree", side_effect=PermissionError("private local path")):
+                return freeze(root, record)
+        with patch.object(self.runner, "_freeze_workspace", side_effect=denied):
+            result = self.runner.start(self.request())
+        self.assertEqual(result["error_category"], "workspace_copy_mismatch")
+        self.assertEqual(result["controller_cleanup"], "confirmed")
+        self.assertFalse(result["snapshot_ready"])
+
     def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
         from laomedo.agents.providers.codex.runner import CodexRunner as NormalRunner; from laomedo.agents.runtime.utils import _json
         runner = object.__new__(NormalRunner)

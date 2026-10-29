@@ -159,7 +159,7 @@ class HistoryReader:
                     }
                 ]
             sensitive = table in required or any(
-                re.search(r"token|secret|password|credential|auth", name, re.I)
+                re.search(r"token|secret|password|credential|auth|(^|_)key($|_)|api.?key|bearer|cookie", name, re.I)
                 for name in (table, *columns)
             )
             if (

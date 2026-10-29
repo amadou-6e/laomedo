@@ -452,12 +452,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                 }
             )
-            if (
-                _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]
-                or (root / "store/sentinel.txt").read_text(encoding="utf-8")
-                != "STORE-ORIGINAL"
-            ):
-                raise _runtime_errors.RunnerError("protected_mount_changed")
+            self._verify_protected_mounts(root, record)
         except Exception as exc:
             if record is None or attempt is None:
                 raise

@@ -9,9 +9,9 @@ CLI_VERSION = "1.18.33"
 
 # Independently owned worker sandbox pin. Initially the same reviewed image used
 # by Codex; updating the Codex controller must not silently update this worker.
-WORKER_IMAGE = "laomedo-codex-boundary:0.159.2"
+WORKER_IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
 WORKER_IMAGE_ID = (
-    "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239"
+    "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa"
 )
 
 

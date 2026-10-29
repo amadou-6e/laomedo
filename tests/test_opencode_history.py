@@ -136,6 +136,20 @@ class OpenCodeHistoryTests(unittest.TestCase):
         self.reader._copy_database(destination)
         self.assertTrue(destination.is_file())
 
+    def test_additional_api_key_bearer_and_cookie_fields_block_export(self):
+        for column in ("key", "api_key", "apikey", "bearer", "cookie"):
+            with self.subTest(column=column):
+                with closing(sqlite3.connect(self.store / "opencode.db")) as database:
+                    database.execute('CREATE TABLE external_store("' + column + '" TEXT)')
+                    database.execute("INSERT INTO external_store VALUES ('private-test-value')")
+                    database.commit()
+                with self.assertRaisesRegex(ValueError, "opencode_history_credentials_present"):
+                    self.reader._copy_database(self.root / "refused-key.db")
+                self.assertFalse((self.root / "refused-key.db").exists())
+                with closing(sqlite3.connect(self.store / "opencode.db")) as database:
+                    database.execute("DROP TABLE external_store")
+                    database.commit()
+
     def test_unknown_credential_schema_and_host_size_budget_fail_closed(self):
         with closing(sqlite3.connect(self.store / "opencode.db")) as database:
             database.execute("DROP TABLE credential")

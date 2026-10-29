@@ -1037,13 +1037,7 @@ class CodexRunner(Runner):
             )
             if status == "completed" and not record["answer"]:
                 raise _runtime_errors.RunnerError("completed_without_agent_message")
-            if (
-                _runtime_utils._hash_tree(run_dir / "canonical")
-                != record["source_hash"]
-                or (run_dir / "store/sentinel.txt").read_text(encoding="utf-8")
-                != "STORE-ORIGINAL"
-            ):
-                raise _runtime_errors.RunnerError("protected_mount_changed")
+            self._verify_protected_mounts(run_dir, record)
             if lease is not None and lease.lost.is_set():
                 raise _runtime_errors.RunnerError("lease_service_lost")
         except Exception as exc:

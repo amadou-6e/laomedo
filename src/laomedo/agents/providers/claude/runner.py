@@ -1179,8 +1179,6 @@ class ClaudeRunner(_runtime_runner.Runner):
             if flag.is_set():
                 raise _runtime_errors.RunnerError("claude_cancelled")
             self._verify_skills(root, record)
-            if _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]:
-                raise _runtime_errors.RunnerError("protected_mount_changed")
             digest = self._freeze_workspace(root, record)
             record.update(
                 status="completed",

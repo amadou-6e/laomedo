@@ -636,19 +636,36 @@ class Runner(ABC):
         snapshot taken while its container was still alive.
         """
         try:
-            workspace_skills.verify(root / "workspace", record["skills"], record.get("skill_git_exclusion", {"enabled": False}))
+            workspace_skills.verify(
+                root / "workspace", record["skills"],
+                record.get("skill_git_exclusion", {"enabled": False}),
+            )
         except ValueError as error:
             raise _runtime_errors.RunnerError(str(error)) from None
-        if (_runtime_utils._hash_tree(root / "canonical") != record["source_hash"]
-                or (root / "store/sentinel.txt").read_text(encoding="utf-8") != "STORE-ORIGINAL"):
+        try:
+            self._verify_protected_mounts(root, record)
+            pending = root / ("post-run-pending-" + uuid4().hex)
+            digest = _runtime_utils._copy_tree(
+                root / "workspace", pending, exclude_root_git=self.git_workspace,
+            )
+            previous = root / "post-run"
+            if previous.exists():
+                workspace_skills.remove_owned_tree(previous, self.state)
+            pending.rename(previous)
+            return digest
+        except _runtime_errors.RunnerError:
+            raise
+        except Exception:
+            raise _runtime_errors.RunnerError("workspace_copy_mismatch") from None
+
+    def _verify_protected_mounts(self, root: Path, record: dict) -> None:
+        """Keep one canonical integrity check for live and closed run boundaries."""
+        if (
+            _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]
+            or (root / "store/sentinel.txt").read_text(encoding="utf-8")
+            != "STORE-ORIGINAL"
+        ):
             raise _runtime_errors.RunnerError("protected_mount_changed")
-        pending = root / ("post-run-pending-" + uuid4().hex)
-        digest = _runtime_utils._copy_tree(root / "workspace", pending, exclude_root_git=self.git_workspace)
-        previous = root / "post-run"
-        if previous.exists():
-            workspace_skills.remove_owned_tree(previous, self.state)
-        pending.rename(previous)
-        return digest
 
     def _mediator_route(self) -> tuple[str, str]:
         # host.docker.internal -> host loopback is checked by the Windows
