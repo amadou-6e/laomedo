@@ -47,6 +47,10 @@ Having an Agent as a caller does not make a GitHub workflow, graph execution or
 general infrastructure operation Agent-specific. Conversely, an app viewer
 reading Agent activity does not make that activity a general app concern.
 
+Run-to-run handoff control through the public Agent interface belongs in
+`agents/orchestration/`. Graph-wired loops between Agent, PR, Skill or other nodes
+belong to the Langflow integration, including their scheduling and edge handling.
+
 `Workspace` is a behavioral object, not a namespace for filesystem helpers.
 `GitWorkspace` uses a `GitRepository` to prepare its working state. Reusable Git
 mechanics already have consumers in Skills and host-side operations. A caller
@@ -218,8 +222,10 @@ blind redispatch.
   not automatically execute factories advertised by installed packages.
 - A graph selects a configured provider ID. It cannot supply import paths,
   commands or credential locations.
-- Preserve the existing error hierarchy and stable machine codes. A naming
-  migration must not create a parallel hierarchy or lose catalogue coverage.
+- Move the existing Agent `RunnerError` hierarchy and its stable machine codes
+  into `agents/errors.py`; `agents/interface/errors.py` only re-exports it. Do not
+  define a parallel hierarchy or lose catalogue coverage. Graph and host error
+  families remain with their respective owners outside the Agent module.
 
 Moving the HTTP client into `HttpAgentBridge` must preserve request/run identity,
 Stop behavior, token handling and the existing wire schemas. Update producer-path
@@ -240,8 +246,9 @@ variants, and a final noun describing the responsibility.
 | `AgentHandoffController` | Coordination of handoffs between Agent runs; mandatory limits are behavior/settings, not a separate controller variant |
 | `CodexActivityProjector` | Conversion of native evidence to the common Activity model |
 
-Reserve `Ledger` for ordered, append-only facts. The current mutable execution
-persistence should be named `RunStore`. Use `Full`, `Async` or `Sync` only when
+Reserve `Ledger` for ordered, append-only facts. The Agent-run portion of mutable
+execution persistence should be named `RunStore`; graph dispatch persistence
+remains separate under `work_graph/`. Use `Full`, `Async` or `Sync` only when
 they distinguish precisely defined supported variants. This proposal does not
 introduce an async-core conversion or parallel sync/async execution pipelines.
 
