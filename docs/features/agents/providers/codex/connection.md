@@ -32,6 +32,8 @@ in addition to its normal `--state`, `--skill-store` and `--source-workspace`
 arguments. Both flags are trusted host startup configuration. There is currently
 no Connect button or credential-path input on the Agent node. App-owned OAuth
 requires split execution; normal single-container execution refuses this store.
+This path currently requires manual runner startup: the managed service's
+**Start local runner** action does not configure `--split-executor` or `--auth-store`.
 
 ## Verification scope
 

@@ -1,7 +1,8 @@
 # Mediated agent host services (staged, Windows local slice)
 
 Production native-command mediation remains incomplete: the HTTP client runs
-inside Codex's network-disabled sandbox. A real read-only Actions check at
+inside Codex's network-disabled sandbox, which is the most likely cause of the
+failure below; the failing syscall has not yet been instrumented. A real read-only Actions check at
 `4eb5d95` exited with `mediation request failed` and made no provider request,
 even though the container bridge could reach the host mediator health endpoint.
 Runner completion did not establish GitHub operation success. The owner chose to
