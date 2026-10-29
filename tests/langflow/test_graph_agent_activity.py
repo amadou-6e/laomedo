@@ -17,7 +17,7 @@ from laomedo.agents.activity.runner.feed import notification; from laomedo.agent
 
 class GraphActivityTests(unittest.TestCase):
     def test_opencode_acp_completeness_is_authoritative_with_legacy_fallback(self):
-        from laomedo.agents.activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture
         cases = [({"capture_complete": True}, "complete", None),
                  ({"native_stream_complete": True}, "complete", None),
                  ({"capture_complete": False, "native_stream_complete": True}, "partial", "native_message_snapshot_only"),
@@ -27,7 +27,7 @@ class GraphActivityTests(unittest.TestCase):
             with self.subTest(fields=fields), tempfile.TemporaryDirectory() as directory:
                 store = ActivityStore(Path(directory)/'activity.db')
                 invocation = store.start(CaptureIdentity.from_values('alice', 'flow', 'agent'))
-                capture = RunnerCapture.__new__(RunnerCapture)
+                capture = ActivityCapture.__new__(ActivityCapture)
                 capture.capture = ActivityInvocation(store=store, invocation_id=invocation)
                 capture.timeout = 1; capture.accepted = False
                 capture.attempt_id = '11111111-1111-4111-8111-111111111111'
@@ -150,11 +150,11 @@ class GraphActivityTests(unittest.TestCase):
         self.assertEqual(project([{'raw':raw,'received_at':'2026-10-15T00:00:00Z'}])['turns'],[])
 
     def test_refused_attempt_cannot_adopt_another_resume(self):
-        from laomedo.agents.activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
             invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'refused', execution='graph'))
-            capture=RunnerCapture.__new__(RunnerCapture)
+            capture=ActivityCapture.__new__(ActivityCapture)
             capture.capture=ActivityInvocation(store=store, invocation_id=invocation);capture.timeout=1;capture.accepted=False
             capture.attempt_id='22222222-2222-4222-8222-222222222222'
             capture.refused=threading.Event();capture.done=threading.Event();capture.done.set()
@@ -167,11 +167,11 @@ class GraphActivityTests(unittest.TestCase):
             self.assertEqual(page['run']['reason'],'dispatch_not_accepted')
 
     def test_accepted_attempt_baseline_and_boundary_are_authoritative(self):
-        from laomedo.agents.activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
             invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='graph'))
-            capture=RunnerCapture.__new__(RunnerCapture)
+            capture=ActivityCapture.__new__(ActivityCapture)
             capture.capture=ActivityInvocation(store=store, invocation_id=invocation);capture.timeout=1;capture.accepted=False
             capture.attempt_id='11111111-1111-4111-8111-111111111111'
             capture.refused=threading.Event();capture.done=threading.Event();capture.outcome=None
@@ -190,11 +190,11 @@ class GraphActivityTests(unittest.TestCase):
             self.assertFalse(store.claim_attempt(other,'runner',capture.attempt_id))
 
     def test_capture_warning_is_partial_but_native_task_remains_completed(self):
-        from laomedo.agents.activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
             invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='graph'))
-            capture=RunnerCapture.__new__(RunnerCapture)
+            capture=ActivityCapture.__new__(ActivityCapture)
             capture.capture=ActivityInvocation(store=store, invocation_id=invocation);capture.timeout=1;capture.accepted=False
             capture.attempt_id='11111111-1111-4111-8111-111111111111'
             capture.refused=threading.Event();capture.done=threading.Event();capture.outcome=None

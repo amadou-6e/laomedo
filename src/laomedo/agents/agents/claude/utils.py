@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import json
-import laomedo.agents.agents.claude.catalog as _claude_catalog
-import laomedo.agents.agents.claude.settings as _claude_settings
-import laomedo.agents.errors as _runtime_errors
+from laomedo.agents.agents.claude.catalog import EFFORTS
+from laomedo.agents.errors import RunnerError
 import re
 
 
@@ -68,23 +67,23 @@ def terminal_result(text, thread):
     try:
         value = json.loads(text)
     except (ValueError, TypeError):
-        raise _runtime_errors.RunnerError("claude_terminal_receipt_invalid") from None
+        raise RunnerError("claude_terminal_receipt_invalid") from None
     if (
         not isinstance(value, dict)
         or value.get("type") != "result"
         or value.get("session_id") != thread
     ):
-        raise _runtime_errors.RunnerError("claude_session_identity_mismatch")
+        raise RunnerError("claude_session_identity_mismatch")
     if value.get("is_error") or value.get("subtype") != "success":
-        raise _runtime_errors.RunnerError("claude_native_turn_failed")
+        raise RunnerError("claude_native_turn_failed")
     if (
         type(value.get("num_turns", 1)) is not int
         or value.get("num_turns", 1) < 1
         or (value.get("subagent_stats") or {}).get("spawned", 0)
     ):
-        raise _runtime_errors.RunnerError("claude_native_turn_limit_mismatch")
+        raise RunnerError("claude_native_turn_limit_mismatch")
     if not isinstance(value.get("result"), str) or not value["result"].strip():
-        raise _runtime_errors.RunnerError("completed_without_agent_message")
+        raise RunnerError("completed_without_agent_message")
     return value
 
 
@@ -120,7 +119,7 @@ def normalize_models(items):
                 or not levels
                 or any(
                     not isinstance(level, str)
-                    or level not in _claude_catalog.EFFORTS
+                    or level not in EFFORTS
                     or level == "default"
                     for level in levels
                 )

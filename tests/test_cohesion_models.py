@@ -10,13 +10,13 @@ from laomedo.skills.operations.models import EditorProvenance, FileEdit, SkillPr
 from laomedo.skills.operations.utils import proposal
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.work_graph.models import Dependency, GraphSnapshot
-from laomedo.agents.interface.models import RunnerRequest
+from laomedo.agents.interface.models import AgentRequest
 
 
 class CohesionModelTests(unittest.TestCase):
     def test_capture_binding_projects_the_existing_component_request_api(self):
         body = {'task': 'continue'}
-        request = RunnerRequest.from_component_request(('http://localhost/run/resume', body, 'POST'))
+        request = AgentRequest.from_component_request(('http://localhost/run/resume', body, 'POST'))
         bound = request.with_activity_attempt('invocation-1')
         self.assertEqual(body, {'task': 'continue'})
         self.assertEqual(bound.component_arguments(), ('http://localhost/run/resume', {

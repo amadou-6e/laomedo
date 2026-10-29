@@ -3,22 +3,23 @@
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.agents.agents.claude.settings as _claude_settings
-import laomedo.agents.errors as _runtime_errors
+from laomedo.agents.agents.claude.settings import IMAGE
+from laomedo.agents.agents.claude.settings import PROFILE
+from laomedo.agents.errors import RunnerError
 import threading
 
 
 def main():
-    import laomedo.agents.agents.claude.runner as _claude_runner
+    from laomedo.agents.agents.claude.agent import ClaudeAgent
     import argparse
-    import laomedo.host.runner.http.server as _runtime_serving
+    from laomedo.host.runner.http.server import RunnerServer
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--skill-store", type=Path, required=True)
     parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument("--image", default=_claude_settings.IMAGE)
-    parser.add_argument("--profile-volume", default=_claude_settings.PROFILE)
+    parser.add_argument("--image", default=IMAGE)
+    parser.add_argument("--profile-volume", default=PROFILE)
     parser.add_argument("--lease-service", type=Path, required=True)
     parser.add_argument("--turn-timeout", type=int, default=180)
     parser.add_argument("--port", type=int, default=8769)
@@ -31,14 +32,14 @@ def main():
     args = parser.parse_args()
     if (args.github_authority_store is None) != (args.mediator_state is None):
         parser.error("GitHub authority and mediator state must be configured together")
-    import laomedo.host.mediation.authority as _mediation_authority
+    from laomedo.host.mediation.authority import RunGrantAuthority
 
     authority = (
-        _mediation_authority.RunGrantAuthority(args.github_authority_store)
+        RunGrantAuthority(args.github_authority_store)
         if args.github_authority_store
         else None
     )
-    runner = _claude_runner.ClaudeRunner(
+    runner = ClaudeAgent(
         args.state,
         args.skill_store,
         args.source,
@@ -53,12 +54,12 @@ def main():
     )
     # Authentication and discovery belong to editor refresh or dispatch.
     # Completed-run Status and Activity remain available when login expires.
-    server = _runtime_serving.RunnerServer(runner, port=args.port)
+    server = RunnerServer(runner, port=args.port)
 
     def warm_catalog():
         try:
             runner.model_catalog()
-        except _runtime_errors.RunnerError:
+        except RunnerError:
             pass  # Saved Status/Activity stay available; editor refresh reports recovery.
 
     threading.Thread(target=warm_catalog, daemon=True).start()

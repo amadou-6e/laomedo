@@ -57,7 +57,7 @@ class SettingsContractTests(unittest.TestCase):
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
             'agents/agents/codex/controller/service.py': {'otel', 'multi_agent'},
-            'agents/agents/claude/runner.py': {'mirror_host_login'},
+            'agents/agents/claude/agent.py': {'mirror_host_login'},
             'agents/agents/opencode/activity/telemetry.py': {'otel'},
         }
         for relative, fields in consumers.items():

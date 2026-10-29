@@ -1,14 +1,17 @@
 """Run workspace, native evidence and container preparation helpers."""
 
 from __future__ import annotations
-import laomedo.agents.agents.codex.settings as _codex_settings
+from laomedo.agents.agents.codex.settings import IMAGE
+from laomedo.agents.agents.codex.settings import IMAGE_ID
+from laomedo.agents.agents.codex.settings import NATIVE_ERROR_KINDS
+from laomedo.agents.agents.codex.settings import NATIVE_HTTP_ERROR_KINDS
 
 from pathlib import Path
 from uuid import uuid4
 import hashlib
 import json
-import laomedo.agents.errors as _runtime_errors
-import laomedo.host.credentials.siwc.errors as _siwc_errors
+from laomedo.agents.errors import RunnerError
+from laomedo.host.credentials.siwc.errors import AuthError
 
 
 
@@ -30,15 +33,15 @@ def _native_error_summary(events: list[dict], turn_id: str) -> dict:
         error = params.get("error")
         info = error.get("codexErrorInfo") if isinstance(error, dict) else None
         kind = "unknown"
-        if isinstance(info, str) and info in _codex_settings.NATIVE_ERROR_KINDS:
+        if isinstance(info, str) and info in NATIVE_ERROR_KINDS:
             kind = info
         elif isinstance(info, dict) and len(info) == 1:
             candidate, details = next(iter(info.items()))
-            if candidate in _codex_settings.NATIVE_ERROR_KINDS and isinstance(
+            if candidate in NATIVE_ERROR_KINDS and isinstance(
                 details, dict
             ):
                 kind = candidate
-                if candidate in _codex_settings.NATIVE_HTTP_ERROR_KINDS:
+                if candidate in NATIVE_HTTP_ERROR_KINDS:
                     status = details.get("httpStatusCode")
                     if type(status) is int and 100 <= status <= 599:
                         statuses.add(status)
@@ -54,7 +57,7 @@ def _native_error_summary(events: list[dict], turn_id: str) -> dict:
     }
 
 
-def _auth_record_error(exc: _siwc_errors.AuthError) -> tuple[str, str]:
+def _auth_record_error(exc: AuthError) -> tuple[str, str]:
     code = str(exc)
     if code == "auth_account_missing":
         return "auth_missing", "missing"
@@ -99,7 +102,7 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
     try:
         with Client(environment=env) as client:
             client.jobs.recover(state.joinpath("profile-init.json"))
-            image=client.images.resolve(_codex_settings.IMAGE, expected_id=_codex_settings.IMAGE_ID)
+            image=client.images.resolve(IMAGE, expected_id=IMAGE_ID)
             created=False
             if not client.volumes.exists(name):
                 client.volumes.create(name=name)
@@ -112,11 +115,11 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
                 limits=StreamLimits(seconds=30,max_bytes=65536),wait_timeout_seconds=30,
                 receipt_path=state.joinpath("profile-init.json")))
             if result.exit_code or (not created and result.stdout.strip()!=b"10001"):
-                raise _runtime_errors.RunnerError("docker_control_failed")
+                raise RunnerError("docker_control_failed")
     except CleanupUnconfirmedError:
-        raise _runtime_errors.RunnerError("container_termination_unverified") from None
+        raise RunnerError("container_termination_unverified") from None
     except (RuntimeError, DockerException):
-        raise _runtime_errors.RunnerError("docker_control_failed") from None
+        raise RunnerError("docker_control_failed") from None
 
 
 def _command_summary(events: list[dict], turn_id: str) -> dict:

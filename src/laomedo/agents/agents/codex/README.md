@@ -1,8 +1,7 @@
 # Codex Agent
 
-`CodexAgent` is the provider-qualified concrete Agent; the relocated class is still
-named `CodexRunner` until integration. It inherits the [abstract lifecycle](../base/README.md).
-The implementation currently remains in `runner.py`; folder relocation does not
+`CodexAgent` is the provider-qualified concrete Agent (formerly `CodexRunner`). It inherits the [abstract lifecycle](../base/README.md).
+The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
 
 A controller and optional executor span the attempt and output corrections. Native precheck and split-executor guards remain explicit.

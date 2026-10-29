@@ -10,8 +10,11 @@ from pathlib import Path
 from uuid import UUID
 from uuid import uuid4
 import json
-import laomedo.work_graph.runs.errors as _workflow_errors
-import laomedo.work_graph.runs.utils as _workflow_utils
+from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.utils import _canonical
+from laomedo.work_graph.runs.utils import _digest
+from laomedo.work_graph.runs.utils import runner_attempt_terminal
 import sqlite3
 
 
@@ -135,13 +138,13 @@ class WorkflowRunStore:
             or not isinstance(trigger, dict)
             or not trigger
         ):
-            raise _workflow_errors.LaunchError("unresolved_launch_identity")
+            raise LaunchError("unresolved_launch_identity")
         ids = {str(node.get("id")) for node in graph["nodes"] if isinstance(node, dict)}
         if not ids or any(
             node_id not in ids or not isinstance(code, str) or not code
             for node_id, code in component_code.items()
         ):
-            raise _workflow_errors.LaunchError("unresolved_component_identity")
+            raise LaunchError("unresolved_component_identity")
         component_revisions = {
             node_id: "sha256:" + sha256(code.encode("utf-8")).hexdigest()
             for node_id, code in component_code.items()
@@ -150,12 +153,12 @@ class WorkflowRunStore:
         record = (
             run_id,
             trace_id,
-            _workflow_utils._digest(graph),
-            _workflow_utils._canonical(component_revisions),
-            _workflow_utils._digest(resolved_config),
-            _workflow_utils._canonical(graph),
-            _workflow_utils._canonical(resolved_config),
-            _workflow_utils._canonical(trigger),
+            _digest(graph),
+            _canonical(component_revisions),
+            _digest(resolved_config),
+            _canonical(graph),
+            _canonical(resolved_config),
+            _canonical(trigger),
             "reserved",
         )
         try:
@@ -168,7 +171,7 @@ class WorkflowRunStore:
                     record,
                 )
         except (OSError, sqlite3.Error) as exc:
-            raise _workflow_errors.LaunchError("launch_record_not_durable") from exc
+            raise LaunchError("launch_record_not_durable") from exc
         return self.get(run_id)
 
     def get(self, run_id):
@@ -177,7 +180,7 @@ class WorkflowRunStore:
                 "SELECT * FROM runs WHERE run_id = ?", (run_id,)
             ).fetchone()
         if row is None:
-            raise _workflow_errors.LaunchError("unknown_run")
+            raise LaunchError("unknown_run")
         result = dict(row)
         result["component_revisions"] = json.loads(result["component_revisions"])
         return result
@@ -192,7 +195,7 @@ class WorkflowRunStore:
                 run_id,
                 invocation_id,
                 kind,
-                _workflow_utils._canonical(payload),
+                _canonical(payload),
                 source_time,
             ),
         )
@@ -200,18 +203,18 @@ class WorkflowRunStore:
     def reserve_invocation(self, run_id, stage_id):
         """Reserve first-slice invocation identity before any external dispatch."""
         if not isinstance(stage_id, str) or not stage_id:
-            raise _workflow_errors.LaunchError("invalid_stage_id")
+            raise LaunchError("invalid_stage_id")
         invocation_id = str(uuid4())
         with self._database() as db:
             run = db.execute(
                 "SELECT status FROM runs WHERE run_id=?", (run_id,)
             ).fetchone()
             if run is None or run["status"] != "reserved":
-                raise _workflow_errors.LaunchError("invocation_not_reserved")
+                raise LaunchError("invocation_not_reserved")
             if db.execute(
                 "SELECT 1 FROM workflow_invocations WHERE run_id=?", (run_id,)
             ).fetchone():
-                raise _workflow_errors.LaunchError("first_slice_allows_one_invocation")
+                raise LaunchError("first_slice_allows_one_invocation")
             db.execute(
                 """INSERT INTO workflow_invocations
                 (invocation_id,run_id,stage_id,status,evidence_state,effect_state,
@@ -233,14 +236,14 @@ class WorkflowRunStore:
     ):
         """Commit the exact native POST-body digest before dispatch."""
         if provider not in {"codex", "claude"}:
-            raise _workflow_errors.LaunchError("invalid_runner_reference")
+            raise LaunchError("invalid_runner_reference")
         if (
             not isinstance(request_hash, str)
             or len(request_hash) != 71
             or not request_hash.startswith("sha256:")
             or any(c not in "0123456789abcdef" for c in request_hash[7:])
         ):
-            raise _workflow_errors.LaunchError("invalid_runner_request_hash")
+            raise LaunchError("invalid_runner_request_hash")
         with self._database() as db:
             changed = db.execute(
                 """UPDATE workflow_invocations
@@ -249,7 +252,7 @@ class WorkflowRunStore:
                 (request_hash, run_id, invocation_id),
             ).rowcount
             if changed != 1:
-                raise _workflow_errors.LaunchError("runner_request_not_reserved")
+                raise LaunchError("runner_request_not_reserved")
             self._receipt(
                 db,
                 run_id,
@@ -263,9 +266,9 @@ class WorkflowRunStore:
         try:
             normalized = str(UUID(str(value)))
         except (TypeError, ValueError, AttributeError):
-            raise _workflow_errors.LaunchError("invalid_client_request_id") from None
+            raise LaunchError("invalid_client_request_id") from None
         if normalized != value:
-            raise _workflow_errors.LaunchError("invalid_client_request_id")
+            raise LaunchError("invalid_client_request_id")
         return normalized
 
     def claim_langflow_client(
@@ -292,15 +295,15 @@ class WorkflowRunStore:
             or not client_request_hash.startswith("sha256:")
             or any(c not in "0123456789abcdef" for c in client_request_hash[7:])
         ):
-            raise _workflow_errors.LaunchError("invalid_client_request_hash")
+            raise LaunchError("invalid_client_request_hash")
         if graph_basis not in {"saved_flow_export", "repository_fixture"}:
-            raise _workflow_errors.LaunchError("invalid_graph_basis")
+            raise LaunchError("invalid_graph_basis")
         if flow_id is not None and (not isinstance(flow_id, str) or not flow_id):
-            raise _workflow_errors.LaunchError("invalid_flow_id")
+            raise LaunchError("invalid_flow_id")
         if graph_run_id is not None and (
             not isinstance(graph_run_id, str) or not graph_run_id
         ):
-            raise _workflow_errors.LaunchError("invalid_graph_run_id")
+            raise LaunchError("invalid_graph_run_id")
         with self._database() as db:
             db.execute("BEGIN IMMEDIATE")
             existing = db.execute(
@@ -310,7 +313,7 @@ class WorkflowRunStore:
             ).fetchone()
             if existing is not None:
                 if existing["client_request_hash"] != client_request_hash:
-                    raise _workflow_errors.LaunchError(
+                    raise LaunchError(
                         "client_request_identity_conflict"
                     )
                 if existing["run_id"] != run_id:
@@ -327,7 +330,7 @@ class WorkflowRunStore:
                         (run_id, invocation_id),
                     ).rowcount
                     if changed != 1 or invocation_changed != 1:
-                        raise _workflow_errors.LaunchError(
+                        raise LaunchError(
                             "duplicate_reservation_not_reserved"
                         )
                     self._receipt(
@@ -345,7 +348,7 @@ class WorkflowRunStore:
                 (run_id, invocation_id),
             ).fetchone()
             if frozen is None:
-                raise _workflow_errors.LaunchError("client_request_not_frozen")
+                raise LaunchError("client_request_not_frozen")
             try:
                 db.execute(
                     """INSERT INTO langflow_client_requests
@@ -363,7 +366,7 @@ class WorkflowRunStore:
                     ),
                 )
             except sqlite3.IntegrityError as exc:
-                raise _workflow_errors.LaunchError(
+                raise LaunchError(
                     "client_request_binding_conflict"
                 ) from exc
             self._receipt(
@@ -402,11 +405,11 @@ class WorkflowRunStore:
 
     def langflow_runner_binding(self, runner_run_id, *, provider="codex"):
         if provider not in {"codex", "claude"}:
-            raise _workflow_errors.LaunchError("unsupported_join_provider")
+            raise LaunchError("unsupported_join_provider")
         try:
             runner_run_id = str(UUID(str(runner_run_id)))
         except (TypeError, ValueError, AttributeError):
-            raise _workflow_errors.LaunchError("invalid_runner_identity") from None
+            raise LaunchError("invalid_runner_identity") from None
         with self._database() as db:
             row = db.execute(
                 """SELECT c.*,w.runner_run_id,w.runner_request_hash
@@ -473,13 +476,13 @@ class WorkflowRunStore:
                 (client_request_id,),
             ).fetchone()
             if row is None:
-                raise _workflow_errors.LaunchError("client_request_not_claimed")
+                raise LaunchError("client_request_not_claimed")
             if row["dispatch_attempts"]:
                 return "already_dispatching"
             if row["status"] == "cancelled":
                 return "cancelled_before_dispatch"
             if row["status"] != "reserved" or not row["runner_request_hash"]:
-                raise _workflow_errors.LaunchError("client_request_not_frozen")
+                raise LaunchError("client_request_not_frozen")
             cancelled = db.execute(
                 """SELECT 1 FROM langflow_cancel_intents
                 WHERE client_request_id=?""",
@@ -532,12 +535,12 @@ class WorkflowRunStore:
             UUID(str(request_id))
             UUID(str(runner_run_id))
         except (TypeError, ValueError, AttributeError):
-            raise _workflow_errors.LaunchError("invalid_runner_identity") from None
+            raise LaunchError("invalid_runner_identity") from None
         if (
             provider not in {"codex", "claude"}
             or raw_event_ref != f"laomedo:run:{runner_run_id}:events"
         ):
-            raise _workflow_errors.LaunchError("invalid_runner_reference")
+            raise LaunchError("invalid_runner_reference")
         with self._database() as db:
             row = db.execute(
                 """SELECT runner_request_id,runner_provider,runner_run_id,
@@ -549,9 +552,9 @@ class WorkflowRunStore:
                 "SELECT dispatch_attempts FROM runs WHERE run_id=?", (run_id,)
             ).fetchone()
             if row is None or attempts is None or attempts[0] != 1:
-                raise _workflow_errors.LaunchError("runner_ack_without_dispatch")
+                raise LaunchError("runner_ack_without_dispatch")
             if request_id != row["runner_request_id"]:
-                raise _workflow_errors.LaunchError("runner_request_id_mismatch")
+                raise LaunchError("runner_request_id_mismatch")
             binding = (provider, runner_run_id, raw_event_ref)
             existing = (
                 row["runner_provider"],
@@ -561,7 +564,7 @@ class WorkflowRunStore:
             if existing == binding:
                 return False
             if any(existing):
-                raise _workflow_errors.LaunchError("runner_binding_conflict")
+                raise LaunchError("runner_binding_conflict")
             try:
                 db.execute(
                     """UPDATE workflow_invocations SET runner_provider=?,
@@ -570,7 +573,7 @@ class WorkflowRunStore:
                     (*binding, run_id, invocation_id),
                 )
             except sqlite3.IntegrityError as exc:
-                raise _workflow_errors.LaunchError("runner_binding_conflict") from exc
+                raise LaunchError("runner_binding_conflict") from exc
             self._receipt(
                 db,
                 run_id,
@@ -592,7 +595,7 @@ class WorkflowRunStore:
         if kind not in {"runner_status", "runner_cancel"} or not isinstance(
             payload, dict
         ):
-            raise _workflow_errors.LaunchError("invalid_runner_observation")
+            raise LaunchError("invalid_runner_observation")
         with self._database() as db:
             row = db.execute(
                 """SELECT 1 FROM workflow_invocations
@@ -600,7 +603,7 @@ class WorkflowRunStore:
                 (run_id, invocation_id, provider, runner_run_id),
             ).fetchone()
             if row is None:
-                raise _workflow_errors.LaunchError("runner_observation_not_correlated")
+                raise LaunchError("runner_observation_not_correlated")
             self._receipt(
                 db,
                 run_id,
@@ -625,10 +628,10 @@ class WorkflowRunStore:
         attempt_finished=False,
     ):
         """Retain native termination separately from a workflow wait/crash outcome."""
-        if not _workflow_utils.runner_attempt_terminal(
+        if not runner_attempt_terminal(
             {"status": status, "attempt_finished": attempt_finished}
         ):
-            raise _workflow_errors.LaunchError("invalid_runner_terminal_status")
+            raise LaunchError("invalid_runner_terminal_status")
         confirmed = status == "cancelled" and cancel_confirmed is True
         projected = (
             "incomplete"
@@ -645,7 +648,7 @@ class WorkflowRunStore:
                 (run_id, invocation_id, provider, runner_run_id),
             ).fetchone()
             if row is None:
-                raise _workflow_errors.LaunchError("runner_terminal_not_correlated")
+                raise LaunchError("runner_terminal_not_correlated")
             prior = db.execute(
                 """SELECT payload_json FROM trace_receipts
                 WHERE run_id=? AND invocation_id=? AND kind='runner_terminal'
@@ -657,7 +660,7 @@ class WorkflowRunStore:
                 if prior["native_status"] != status or (
                     prior.get("cancel_confirmed") and not confirmed
                 ):
-                    raise _workflow_errors.LaunchError("runner_terminal_conflict")
+                    raise LaunchError("runner_terminal_conflict")
                 if bool(prior.get("cancel_confirmed")) == confirmed:
                     return False
             preserve = (
@@ -667,7 +670,7 @@ class WorkflowRunStore:
             )
             if not preserve:
                 if row["run_status"] not in {"dispatching", "incomplete", projected}:
-                    raise _workflow_errors.LaunchError("runner_terminal_conflict")
+                    raise LaunchError("runner_terminal_conflict")
                 db.execute(
                     """UPDATE runs SET status=?,evidence_complete=0,
                     completion_basis='native_runner_status',terminal_reason=?
@@ -715,7 +718,7 @@ class WorkflowRunStore:
                 (run_id,),
             ).rowcount
             if changed != 1:
-                raise _workflow_errors.LaunchError("runner_wait_not_dispatching")
+                raise LaunchError("runner_wait_not_dispatching")
             db.execute(
                 """UPDATE workflow_invocations SET status='failed',
                 error_class='timeout' WHERE run_id=? AND invocation_id=?
@@ -744,7 +747,7 @@ class WorkflowRunStore:
             "runner_lookup_mismatch",
         }
         if category not in allowed:
-            raise _workflow_errors.LaunchError("invalid_runner_failure_category")
+            raise LaunchError("invalid_runner_failure_category")
         with self._database() as db:
             row = db.execute(
                 """SELECT status,dispatch_attempts FROM runs WHERE run_id=?""",
@@ -756,7 +759,7 @@ class WorkflowRunStore:
                 (run_id, invocation_id),
             ).fetchone()
             if row is None or invocation is None or row["dispatch_attempts"] != 1:
-                raise _workflow_errors.LaunchError("runner_failure_without_dispatch")
+                raise LaunchError("runner_failure_without_dispatch")
             if row["status"] == "dispatching":
                 db.execute(
                     """UPDATE runs SET status='incomplete',evidence_complete=0,
@@ -780,7 +783,7 @@ class WorkflowRunStore:
     def record_runner_rejection(self, run_id, invocation_id, *, category):
         """A complete client rejection has no runner identity to bind."""
         if not isinstance(category, str) or not category:
-            raise _workflow_errors.LaunchError("invalid_runner_rejection")
+            raise LaunchError("invalid_runner_rejection")
         with self._database() as db:
             changed = db.execute(
                 """UPDATE runs SET status='failed',
@@ -795,7 +798,7 @@ class WorkflowRunStore:
                 (run_id, invocation_id),
             ).rowcount
             if changed != 1 or invocation_changed != 1:
-                raise _workflow_errors.LaunchError("runner_rejection_not_correlated")
+                raise LaunchError("runner_rejection_not_correlated")
             self._receipt(
                 db,
                 run_id,
@@ -819,7 +822,7 @@ class WorkflowRunStore:
                 (run_id, invocation_id),
             ).rowcount
             if run_changed != 1 or invocation_changed != 1:
-                raise _workflow_errors.LaunchError("dispatch_not_reserved")
+                raise LaunchError("dispatch_not_reserved")
             self._receipt(db, run_id, invocation_id, "dispatch_started", {})
 
     def record_timeout(self, run_id, invocation_id, *, http_status, detail):
@@ -829,10 +832,10 @@ class WorkflowRunStore:
             or not isinstance(detail, dict)
             or detail.get("code") != "EXECUTION_TIMEOUT"
         ):
-            raise _workflow_errors.LaunchError("not_a_verified_timeout")
+            raise LaunchError("not_a_verified_timeout")
         job_id = detail.get("job_id")
         if job_id is not None and (not isinstance(job_id, str) or not job_id):
-            raise _workflow_errors.LaunchError("invalid_native_job_id")
+            raise LaunchError("invalid_native_job_id")
         with self._database() as db:
             run_changed = db.execute(
                 """UPDATE runs SET status='timed_out',
@@ -847,7 +850,7 @@ class WorkflowRunStore:
                 (job_id, run_id, invocation_id),
             ).rowcount
             if run_changed != 1 or invocation_changed != 1:
-                raise _workflow_errors.LaunchError("timeout_not_dispatching")
+                raise LaunchError("timeout_not_dispatching")
             self._receipt(
                 db,
                 run_id,
@@ -864,7 +867,7 @@ class WorkflowRunStore:
     def record_job_status(self, run_id, invocation_id, *, http_status, detail):
         """Distinguish a failed native job from a failed status lookup."""
         if not isinstance(http_status, int) or not isinstance(detail, dict):
-            raise _workflow_errors.LaunchError("invalid_native_status_response")
+            raise LaunchError("invalid_native_status_response")
         with self._database() as db:
             invocation = db.execute(
                 """SELECT native_job_id,native_job_state FROM workflow_invocations
@@ -872,14 +875,14 @@ class WorkflowRunStore:
                 (run_id, invocation_id),
             ).fetchone()
             if invocation is None or not invocation["native_job_id"]:
-                raise _workflow_errors.LaunchError("native_job_not_correlated")
+                raise LaunchError("native_job_not_correlated")
             code = detail.get("code")
             reported_job_id = detail.get("job_id")
             if (
                 reported_job_id is not None
                 and reported_job_id != invocation["native_job_id"]
             ):
-                raise _workflow_errors.LaunchError("native_job_id_mismatch")
+                raise LaunchError("native_job_id_mismatch")
             observed_state = (
                 "failed" if http_status == 500 and code == "JOB_FAILED" else "unknown"
             )
@@ -918,7 +921,7 @@ class WorkflowRunStore:
             or not isinstance(source_ref, str)
             or not source_ref
         ):
-            raise _workflow_errors.LaunchError("invalid_effect_source")
+            raise LaunchError("invalid_effect_source")
         with self._database() as db:
             changed = db.execute(
                 """UPDATE workflow_invocations SET effect_state='observed',
@@ -928,7 +931,7 @@ class WorkflowRunStore:
                 (run_id, invocation_id, run_id),
             ).rowcount
             if changed != 1:
-                raise _workflow_errors.LaunchError("effect_not_correlated")
+                raise LaunchError("effect_not_correlated")
             self._receipt(
                 db,
                 run_id,
@@ -946,7 +949,7 @@ class WorkflowRunStore:
                 "SELECT * FROM workflow_invocations WHERE run_id=?", (run_id,)
             ).fetchone()
             if invocation is None:
-                raise _workflow_errors.LaunchError("invocation_not_reserved")
+                raise LaunchError("invocation_not_reserved")
             rows = db.execute(
                 """SELECT sequence,kind,payload_json,source_time,received_at
                 FROM trace_receipts WHERE run_id=? ORDER BY sequence""",
@@ -974,7 +977,7 @@ class WorkflowRunStore:
     def dispatch(self, run_id, callback, *, completion_basis="callback_result"):
         """Commit one attempt; distinguish a returned callback from process exit."""
         if completion_basis not in {"callback_result", "process_exit"}:
-            raise _workflow_errors.LaunchError("completion_basis_invalid")
+            raise LaunchError("completion_basis_invalid")
         with self._database() as db:
             changed = db.execute(
                 """UPDATE runs SET status='dispatching',
@@ -984,10 +987,10 @@ class WorkflowRunStore:
                 (run_id,),
             ).rowcount
             if changed != 1:
-                raise _workflow_errors.LaunchError("dispatch_not_reserved")
+                raise LaunchError("dispatch_not_reserved")
         try:
             result = callback(run_id)
-        except _workflow_errors.ExternalOutcomeUnknown:
+        except ExternalOutcomeUnknown:
             with self._database() as db:
                 db.execute(
                     """UPDATE runs SET status='unknown', evidence_complete=0,

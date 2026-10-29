@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from uuid import uuid4
 from laomedo.work_graph.runs.store import WorkflowRunStore; from laomedo.work_graph.runs.errors import LaunchError
-from laomedo.agents.interface.bridge import RunnerAdapter
+from laomedo.agents.interface.bridge import HttpAgentBridge
 from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
 from laomedo.agents.orchestration.errors import HandoffError; from laomedo.agents.orchestration.utils import envelope
 
@@ -110,7 +110,7 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
     def adapter(self):
         token = Path(self.temp.name) / "token"
         token.write_text("a" * 64)
-        return RunnerAdapter({"codex": "http://127.0.0.1:1"}, {"codex": token})
+        return HttpAgentBridge({"codex": "http://127.0.0.1:1"}, {"codex": token})
 
     def test_authenticated_status_whitelists_fields_and_rejects_wrong_run(self):
         adapter = self.adapter()

@@ -4,7 +4,7 @@ import unittest
 from uuid import uuid4
 
 from laomedo.agents.artifacts.errors import ArtifactError; from laomedo.agents.artifacts.utils import selections
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 import test_local_runner as fixtures
 
 

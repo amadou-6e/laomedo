@@ -37,8 +37,8 @@ class LaomedoBoundedController(Component):
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
-            from laomedo.agents.orchestration.controller import BoundedController
-            from laomedo.agents.interface.bridge import RunnerAdapter
+            from laomedo.agents.orchestration.controller import AgentHandoffController
+            from laomedo.agents.interface.bridge import HttpAgentBridge
             targets = json.loads(self.targets_json)
             if not isinstance(targets, list) or not 1 <= len(targets) <= 16:
                 raise ValueError("one_to_sixteen_targets_required")
@@ -52,11 +52,11 @@ class LaomedoBoundedController(Component):
                 raise ValueError("explicit_stop_and_mode_required")
             skills = self.skills if isinstance(self.skills, list) else [self.skills]
             skills = [getattr(skill, "data", skill) for skill in skills]
-            adapter = RunnerAdapter(json.loads(self.endpoints_json))
+            adapter = HttpAgentBridge(json.loads(self.endpoints_json))
             artifact_paths = json.loads(getattr(self, "artifact_paths_json", "[]"))
             if not isinstance(artifact_paths, list) or not all(isinstance(path, str) for path in artifact_paths):
                 raise ValueError("artifact_path_list_required")
-            self._controller = BoundedController(adapter,
+            self._controller = AgentHandoffController(adapter,
                 max_iterations=int(self.max_iterations), turn_budget=int(self.turn_budget),
                 timeout_seconds=int(self.deadline_seconds), state_dir=self.state_directory)
             task = str(getattr(self.task, "text", self.task) or "")

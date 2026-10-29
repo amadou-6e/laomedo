@@ -3,13 +3,15 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class RunnerRequest(BaseModel):
+class AgentRequest(BaseModel):
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    endpoint: str
-    payload: dict | None = Field(repr=False)
-    method: str
+    endpoint: str = Field(description="Admitted local runner endpoint for this operation.")
+    payload: dict | None = Field(
+        repr=False, description="Existing wire request body, or no body for a read operation."
+    )
+    method: str = Field(description="HTTP method associated with the prepared operation.")
 
     @classmethod
     def from_component_request(cls, prepared):

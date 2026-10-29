@@ -4,25 +4,26 @@ from __future__ import annotations
 
 from uuid import uuid4
 import hashlib
-import json
-import laomedo.agents.activity.utils as _agent_activity_utils
-import laomedo.agents.activity.runner.feed as _runner_feed
-import laomedo.agents.agents.opencode.settings as _opencode_settings
-import laomedo.agents.agents.opencode.utils as _opencode_utils
-import laomedo.agents.errors as _runtime_errors
-import laomedo.agents.agents.base.agent as _runtime_runner
-import laomedo.agents.agents.base.models as _runtime_models
-import laomedo.agents.agents.base.utils as _runtime_utils
-import laomedo.skills.registry.errors as _registry_errors
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.agents.activity.utils import now
+from laomedo.agents.activity.runner.feed import line_count
+from laomedo.agents.agents.opencode.settings import CLI_VERSION
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.agents.base.utils import _id
+from laomedo.agents.agents.base.utils import _json
+from laomedo.skills.registry.errors import SkillStoreError
+from laomedo.skills.registry.utils import inventory
+from laomedo.skills.registry.utils import tree_hash
+from laomedo.skills.workspace.utils import verify
 import re
 import shutil
 import threading
 import time
 
 
-class OpenCodeRunner(_runtime_runner.Runner):
+class OpenCodeAgent(BaseAgent):
     """Reuse immutable skills, snapshot lifecycle and bounded dispatch accounting.
 
     No production transport is installed by default: mounting authentication with
@@ -63,13 +64,13 @@ class OpenCodeRunner(_runtime_runner.Runner):
         self._recover_containers()
 
     def runtime_binding(self):
-        return _runtime_models.RuntimeBinding(
+        return RuntimeBinding(
             provider=self.provider,
             profile=None,
             image=None,
             image_id=None,
             execution_mode="opencode_acp",
-            cli_version="opencode " + _opencode_settings.CLI_VERSION,
+            cli_version="opencode " + CLI_VERSION,
             config_sha256=None,
         )
 
@@ -91,7 +92,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
             from py_docker import Client
             from py_docker.errors import DockerOperationError
         except ImportError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_container_cleanup_unverified"
             ) from None
         try:
@@ -99,21 +100,21 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 for receipt in pending:
                     docker.sessions.recover(receipt)
         except DockerOperationError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_container_cleanup_unverified"
             ) from None
 
     def model_catalog(self):
         """Discover connected native models without creating a session or turn."""
         if self.transport_factory is None:
-            raise _runtime_errors.RunnerError("opencode_isolated_transport_required")
+            raise RunnerError("opencode_isolated_transport_required")
         self._recover_containers()
         with self._opencode_catalog_lock:
             cached = self._opencode_catalog_cached
             if cached and time.monotonic() - cached[0] < 30:
                 return cached[1]
             if not self.lock.acquire(blocking=False):
-                raise _runtime_errors.RunnerError("runner_busy")
+                raise RunnerError("runner_busy")
             root = self.state / "catalog" / str(uuid4())
             backend = None
             try:
@@ -128,7 +129,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 for item in models:
                     self._validate_provider(item["id"], "default")
                 if not models:
-                    raise _runtime_errors.RunnerError("opencode_model_not_connected")
+                    raise RunnerError("opencode_model_not_connected")
                 result = {"models": models, "submitted_turns": 0}
             finally:
                 try:
@@ -149,12 +150,12 @@ class OpenCodeRunner(_runtime_runner.Runner):
         # Both blocking and asynchronous starts must validate before preparing
         # a workspace or accepting a request identity.
         if not isinstance(request, dict):
-            raise _runtime_errors.RunnerError("invalid_request")
+            raise RunnerError("invalid_request")
         self._validate_provider(request.get("model"), request.get("effort"))
         if self.transport_factory is None:
-            raise _runtime_errors.RunnerError("opencode_isolated_transport_required")
+            raise RunnerError("opencode_isolated_transport_required")
         if request.get("output_requirements") is not None:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_output_requirements_not_supported"
             )
         self._recover_containers()
@@ -170,14 +171,14 @@ class OpenCodeRunner(_runtime_runner.Runner):
         if self.transport_factory is None:
             return {
                 "provider": "opencode",
-                "cli_version": _opencode_settings.CLI_VERSION,
+                "cli_version": CLI_VERSION,
                 "status": "blocked",
                 "error_category": "opencode_isolated_transport_required",
                 "submitted_turns": 0,
             }
         return {
             "provider": "opencode",
-            "cli_version": _opencode_settings.CLI_VERSION,
+            "cli_version": CLI_VERSION,
             "status": "transport_configured",
             "submitted_turns": 0,
         }
@@ -187,22 +188,22 @@ class OpenCodeRunner(_runtime_runner.Runner):
         if not isinstance(model, str) or not re.fullmatch(
             r"[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.:-]+", model
         ):
-            raise _runtime_errors.RunnerError("opencode_provider_model_required")
+            raise RunnerError("opencode_provider_model_required")
         if effort != "default":
-            raise _runtime_errors.RunnerError("unsupported_opencode_effort")
+            raise RunnerError("unsupported_opencode_effort")
 
     def _materialize(self, workspace, ref):
         # OpenCode skill names have a narrower grammar than the shared registry.
         if not isinstance(ref, dict) or not re.fullmatch(
             r"[a-z0-9]+(?:-[a-z0-9]+)*", str(ref.get("skill_id", ""))
         ):
-            raise _runtime_errors.RunnerError("unsupported_opencode_skill_name")
+            raise RunnerError("unsupported_opencode_skill_name")
         return super()._materialize(workspace, ref)
 
     def _verify_pinned_skills(self, workspace, record):
         skills = record.get("skills")
         if not isinstance(skills, list):
-            raise _runtime_errors.RunnerError("pinned_skill_record_invalid")
+            raise RunnerError("pinned_skill_record_invalid")
         expected = {
             skill.get("skill_id"): skill.get("tree_hash")
             for skill in skills
@@ -212,34 +213,34 @@ class OpenCodeRunner(_runtime_runner.Runner):
             not isinstance(name, str) or not isinstance(digest, str)
             for name, digest in expected.items()
         ):
-            raise _runtime_errors.RunnerError("pinned_skill_record_invalid")
+            raise RunnerError("pinned_skill_record_invalid")
         root = workspace / ".agents" / "skills"
         try:
             entries = list(root.iterdir())
             if {entry.name for entry in entries} != set(expected) or len(
                 entries
             ) != len(expected):
-                raise _runtime_errors.RunnerError("pinned_skill_workspace_changed")
+                raise RunnerError("pinned_skill_workspace_changed")
             for skill in skills:
                 name, digest = skill["skill_id"], skill["tree_hash"]
                 if (
                     skill.get("revision_id") != digest
                     or self.store.revision(name, digest)["tree_hash"] != digest
                 ):
-                    raise _runtime_errors.RunnerError("pinned_skill_record_invalid")
+                    raise RunnerError("pinned_skill_record_invalid")
                 if (
-                    _registry_utils.tree_hash(_registry_utils.inventory(root / name))
+                    tree_hash(inventory(root / name))
                     != digest
                 ):
-                    raise _runtime_errors.RunnerError("pinned_skill_workspace_changed")
-        except (OSError, _registry_errors.SkillStoreError) as exc:
-            raise _runtime_errors.RunnerError("pinned_skill_workspace_changed") from exc
+                    raise RunnerError("pinned_skill_workspace_changed")
+        except (OSError, SkillStoreError) as exc:
+            raise RunnerError("pinned_skill_workspace_changed") from exc
         try:
-            workspace_skills.verify(
+            verify(
                 workspace, skills, record.get("skill_git_exclusion", {"enabled": False})
             )
         except ValueError as exc:
-            raise _runtime_errors.RunnerError(str(exc)) from None
+            raise RunnerError(str(exc)) from None
 
     def resume(
         self,
@@ -256,7 +257,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
         record = self.status(run_id)
         if (
             record.get("provider") != "opencode"
-            or record.get("runtime_version") != _opencode_settings.CLI_VERSION
+            or record.get("runtime_version") != CLI_VERSION
             or record["status"] != "completed"
             or record["thread_id"] != expected_thread_id
             or record["post_run_hash"] != expected_post_run_hash
@@ -265,19 +266,19 @@ class OpenCodeRunner(_runtime_runner.Runner):
             or not isinstance(task, str)
             or not task.strip()
         ):
-            raise _runtime_errors.RunnerError("resume_binding_mismatch")
+            raise RunnerError("resume_binding_mismatch")
         root = self._run_dir(run_id)
         if (
-            _runtime_utils._hash_tree(root / "post-run") != expected_post_run_hash
-            or _runtime_utils._hash_tree(root / "workspace") != expected_post_run_hash
+            _hash_tree(root / "post-run") != expected_post_run_hash
+            or _hash_tree(root / "workspace") != expected_post_run_hash
         ):
-            raise _runtime_errors.RunnerError("workspace_changed_since_snapshot")
+            raise RunnerError("workspace_changed_since_snapshot")
         if (
-            _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]
+            _hash_tree(root / "canonical") != record["source_hash"]
             or (root / "store/sentinel.txt").read_text(encoding="utf-8")
             != "STORE-ORIGINAL"
         ):
-            raise _runtime_errors.RunnerError("protected_mount_changed")
+            raise RunnerError("protected_mount_changed")
         self._verify_pinned_skills(root / "workspace", record)
         return self._execute(
             run_id, task, resume=True, activity_attempt_id=activity_attempt_id
@@ -285,17 +286,17 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     def _execute(self, run_id, task, *, resume, activity_attempt_id=None):
         if activity_attempt_id is not None:
-            _runtime_utils._id(activity_attempt_id)
+            _id(activity_attempt_id)
         if not self.lock.acquire(blocking=False):
             # A model refresh is not an agent run. Wait for its bounded cleanup
             # instead of rejecting Run while metadata owns the profile lock.
             if not self._opencode_catalog_lock.acquire(timeout=30):
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "opencode_model_discovery_in_progress"
                 )
             self._opencode_catalog_lock.release()
             if not self.lock.acquire(blocking=False):
-                raise _runtime_errors.RunnerError("runner_busy")
+                raise RunnerError("runner_busy")
         root, record, flag, backend, attempt = None, None, None, None, None
         reader = capture = baseline = None
         baseline_available = True
@@ -309,7 +310,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 if record["status"] == "cancelled" and record.get("cancel_confirmed"):
                     return record
                 if record["status"] != ("completed" if resume else "prepared"):
-                    raise _runtime_errors.RunnerError("run_not_dispatchable")
+                    raise RunnerError("run_not_dispatchable")
                 # Refusal must preserve a completed run and its resume snapshot.
                 self._turn_available()
                 attempt_id = (
@@ -317,24 +318,24 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     if resume
                     else record.get("activity_initial_attempt_id")
                 ) or str(uuid4())
-                _runtime_utils._id(attempt_id)
+                _id(attempt_id)
                 attempts = root / "activity-attempts"
                 attempts.mkdir(exist_ok=True)
                 if (attempts / (attempt_id + ".json")).exists():
-                    raise _runtime_errors.RunnerError("activity_attempt_already_exists")
+                    raise RunnerError("activity_attempt_already_exists")
                 attempt = {
                     "id": attempt_id,
-                    "native_start": _runner_feed.line_count(
+                    "native_start": line_count(
                         root / "activity-events.jsonl"
                     ),
-                    "otel_start": _runner_feed.line_count(root / "otel-events.jsonl"),
+                    "otel_start": line_count(root / "otel-events.jsonl"),
                     "native_end": None,
                     "otel_end": None,
                     "usage_baseline": {},
                     "status": "running",
                     "ended_at": None,
                 }
-                _runtime_utils._json(attempts / (attempt_id + ".json"), attempt)
+                _json(attempts / (attempt_id + ".json"), attempt)
                 flag = threading.Event()
                 self.cancel_flags[run_id] = flag
                 record.update(
@@ -348,18 +349,18 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 )
                 record.update(
                     provider="opencode",
-                    runtime_version=_opencode_settings.CLI_VERSION,
+                    runtime_version=CLI_VERSION,
                     profile=None,
                     image=None,
                     image_id=None,
-                    cli_version="opencode " + _opencode_settings.CLI_VERSION,
+                    cli_version="opencode " + CLI_VERSION,
                     config_sha256=None,
                     status="running",
                 )
-                _runtime_utils._json(root / "record.json", record)
+                _json(root / "record.json", record)
             self._verify_pinned_skills(root / "workspace", record)
             if flag.is_set():
-                raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
+                raise RunnerError("opencode_cancelled_before_dispatch")
             launch_attempted = True
             backend = self.transport_factory(root / "workspace", root)
             self.active_backends[run_id] = backend
@@ -368,23 +369,23 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 "runtime_identity",
                 {
                     "provider": "opencode",
-                    "runtime_version": _opencode_settings.CLI_VERSION,
+                    "runtime_version": CLI_VERSION,
                 },
             )
             if resume and record.get("provider_runtime") != identity:
-                raise _runtime_errors.RunnerError("resume_provider_binding_mismatch")
+                raise RunnerError("resume_provider_binding_mismatch")
             record["provider_runtime"] = identity
             catalog = backend.models()
             if record["requested_model"] not in {item["id"] for item in catalog}:
-                raise _runtime_errors.RunnerError("opencode_model_not_connected")
+                raise RunnerError("opencode_model_not_connected")
             if flag.is_set():
-                raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
+                raise RunnerError("opencode_cancelled_before_dispatch")
             reader = backend.history_reader()
             from laomedo.agents.agents.opencode.history.errors import HistoryError
             if resume and reader is not None:
                 try:
                     baseline = reader.read(record["thread_id"])
-                except _runtime_errors.RunnerError:
+                except RunnerError:
                     metadata_cleanup_unverified = True
                     raise  # Owned metadata-job cleanup uncertainty remains fatal.
                 except HistoryError as error:
@@ -403,13 +404,13 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 """Persist the actual native binding before submitting the prompt."""
                 record["thread_id"] = session_id
                 record["communication_protocol"] = "acp.v1"
-                _runtime_utils._json(root / "record.json", record)
+                _json(root / "record.json", record)
 
             # Discovery can take long enough for a bounded credential to expire.
             # Recheck before charging or submitting a turn.
             backend.check_auth_fresh()
             record["attempt_number"] = self._reserve_turn()
-            _runtime_utils._json(root / "record.json", record)
+            _json(root / "record.json", record)
             outcome = backend.run(
                 task,
                 model=record["requested_model"],
@@ -426,14 +427,14 @@ class OpenCodeRunner(_runtime_runner.Runner):
             }
             if not flag.is_set():
                 if outcome.stop_reason != "end_turn":
-                    raise _runtime_errors.RunnerError("opencode_response_not_terminal")
+                    raise RunnerError("opencode_response_not_terminal")
                 if any(
                     tool["status"] not in {"completed", "failed"}
                     for tool in normalized["tools"]
                 ):
-                    raise _runtime_errors.RunnerError("opencode_outstanding_tool")
+                    raise RunnerError("opencode_outstanding_tool")
             if not normalized["answer"] and not flag.is_set():
-                raise _runtime_errors.RunnerError("completed_without_agent_message")
+                raise RunnerError("completed_without_agent_message")
             if flag.is_set():
                 record["status"] = "cancelled"
             else:
@@ -463,7 +464,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     if flag is not None and flag.is_set()
                     else (
                         str(exc)
-                        if isinstance(exc, _runtime_errors.RunnerError)
+                        if isinstance(exc, RunnerError)
                         else type(exc).__name__
                     )
                 ),
@@ -474,7 +475,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     backend.close()
                     if metadata_cleanup_unverified:
                         backend.termination_verified = False
-                        raise _runtime_errors.RunnerError(
+                        raise RunnerError(
                             "opencode_container_cleanup_unverified"
                         )
                 if (
@@ -534,7 +535,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     except HistoryError as error:
                         attempt["capture_error"] = error.code
                         record["evidence_complete"] = "partial"
-                    except _runtime_errors.RunnerError:
+                    except RunnerError:
                         backend.termination_verified = False
                         raise
                     except Exception:
@@ -547,10 +548,10 @@ class OpenCodeRunner(_runtime_runner.Runner):
                         output_ref=f"laomedo:run:{run_id}:workspace")
                 if record is not None and attempt is not None:
                     try:
-                        import laomedo.agents.agents.opencode.activity.telemetry as _opencode_telemetry
+                        from laomedo.agents.agents.opencode.activity.telemetry import export_attempt
 
                         attempt["telemetry_complete"] = (
-                            _opencode_telemetry.export_attempt(
+                            export_attempt(
                                 root,
                                 attempt["native_start"],
                                 record["thread_id"],
@@ -582,7 +583,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     record.update(
                         status="failed",
                         error_category=str(error)
-                        if isinstance(error, _runtime_errors.RunnerError)
+                        if isinstance(error, RunnerError)
                         else "opencode_transport_cleanup_failed",
                         controller_cleanup="confirmed" if verified else "unverified",
                         cancel_confirmed=False,
@@ -602,20 +603,20 @@ class OpenCodeRunner(_runtime_runner.Runner):
                                     output_ref=None,
                                 )
                             attempt.update(
-                                native_end=_runner_feed.line_count(
+                                native_end=line_count(
                                     root / "activity-events.jsonl"
                                 ),
-                                otel_end=_runner_feed.line_count(
+                                otel_end=line_count(
                                     root / "otel-events.jsonl"
                                 ),
                                 status=record["status"],
-                                ended_at=_agent_activity_utils.now(),
+                                ended_at=now(),
                             )
-                            _runtime_utils._json(
+                            _json(
                                 root / "activity-attempts" / (attempt["id"] + ".json"),
                                 attempt,
                             )
-                            _runtime_utils._json(root / "record.json", record)
+                            _json(root / "record.json", record)
                 finally:
                     self.active_backends.pop(run_id, None)
                     self.cancel_flags.pop(run_id, None)
@@ -636,7 +637,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                         attempt_finished=True,
                         controller_cleanup="not_launched",
                     )
-                    _runtime_utils._json(self._run_dir(run_id) / "record.json", record)
+                    _json(self._run_dir(run_id) / "record.json", record)
                     return record
         if record["status"] == "running":
             flag = self.cancel_flags.get(run_id)
@@ -644,14 +645,14 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 current = self.status(run_id)
                 if current["status"] != "running":
                     return current
-                raise _runtime_errors.RunnerError("run_not_active_in_this_process")
+                raise RunnerError("run_not_active_in_this_process")
             with self.control_lock:
                 current = self.status(run_id)
                 if current["status"] != "running":
                     return current
                 flag.set()
                 current["cancel_requested"] = True
-                _runtime_utils._json(self._run_dir(run_id) / "record.json", current)
+                _json(self._run_dir(run_id) / "record.json", current)
                 record = current
             backend = self.active_backends.get(run_id)
             if backend is None or not record.get("thread_id"):

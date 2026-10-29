@@ -55,9 +55,9 @@ def project(events, *, root_thread=None, model=None):
         .startswith("opencode/")
         for receipt in events
     ):
-        import laomedo.agents.agents.opencode.activity.projection as _opencode_projection
+        from laomedo.agents.agents.opencode.activity.projection import project as opencode_activity_projection_project
 
-        return _opencode_projection.project(
+        return opencode_activity_projection_project(
             events, root_thread=root_thread, model=model
         )
     turns, items, threads, latest, baselines = {}, {}, {}, {}, {}
@@ -224,7 +224,7 @@ def project(events, *, root_thread=None, model=None):
                         turn_usage_by_key[(thread, turn_id)] = None
                 else:
                     latest[thread] = delta
-                    import laomedo.agents.activity.cost as _agent_activity_cost
+                    from laomedo.agents.activity.cost import estimate
 
                     turn_base = turn_bases.get((thread, turn_id))
                     turn_usage = (
@@ -251,7 +251,7 @@ def project(events, *, root_thread=None, model=None):
                             "turn": turn_id,
                             "turn_usage": turn_usage,
                             "usage": delta,
-                            "cost": _agent_activity_cost.estimate(
+                            "cost": estimate(
                                 model if thread == root_thread else None, delta
                             ),
                         }
@@ -289,7 +289,7 @@ def project(events, *, root_thread=None, model=None):
         }
     if related - set(latest):
         usage = None
-    import laomedo.agents.activity.cost as _agent_activity_cost
+    from laomedo.agents.activity.cost import estimate
 
     models = {root_thread: model} if root_thread and model else {}
     model_provenance = (
@@ -313,19 +313,19 @@ def project(events, *, root_thread=None, model=None):
                 "runtime-reported OTLP metadata; not independently attested"
             )
     for point in points:
-        point["cost"] = _agent_activity_cost.estimate(
+        point["cost"] = estimate(
             models.get(point["thread"]), point["usage"]
         )
-        point["turn_cost"] = _agent_activity_cost.estimate(
+        point["turn_cost"] = estimate(
             models.get(point["thread"]), point.get("turn_usage")
         )
     # Child model and usage must be independently observed; do not price all
     # child activity at the parent's model or claim an inclusive known total.
-    cost = _agent_activity_cost.estimate(
+    cost = estimate(
         models.get(root_thread), latest.get(root_thread)
     )
     per_thread = {
-        thread: _agent_activity_cost.estimate(models.get(thread), latest.get(thread))
+        thread: estimate(models.get(thread), latest.get(thread))
         for thread in related
     }
     if len(related) > 1:
@@ -352,7 +352,7 @@ def project(events, *, root_thread=None, model=None):
         {
             **lane,
             "usage": turn_usage_by_key.get(key),
-            "cost": _agent_activity_cost.estimate(
+            "cost": estimate(
                 models.get(lane["thread"]), turn_usage_by_key.get(key)
             ),
         }

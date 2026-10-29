@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
-from laomedo.agents.agents.claude.runner import ClaudeRunner; from laomedo.agents.agents.claude.models import ClaudePolicy
+from laomedo.agents.agents.claude.agent import ClaudeAgent; from laomedo.agents.agents.claude.models import ClaudePolicy
 from laomedo.agents.agents.claude.container import ClaudeContainer; from laomedo.agents.agents.claude.container import CommandService
 from laomedo.agents.activity.projection import project
 from laomedo.agents.errors import RunnerError
@@ -156,7 +156,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         with self.invoke():
             first = self.runner.start(self.payload)
         runtime = self.runner.container
-        restarted = ClaudeRunner(self.runner.state, self.runner.store.root, self.source, container=runtime)
+        restarted = ClaudeAgent(self.runner.state, self.runner.store.root, self.source, container=runtime)
         self.assertNotEqual(self.runner.instance_id, restarted.instance_id)
         with patch.object(restarted, '_check_auth', return_value='sha256:'+'a'*64), \
              patch.object(restarted, '_invoke', side_effect=lambda root, record, prompt, flag, **kw:

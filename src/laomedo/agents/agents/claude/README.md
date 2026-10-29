@@ -1,8 +1,7 @@
 # Claude Agent
 
-`ClaudeAgent` is the provider-qualified concrete Agent; the relocated class is still
-named `ClaudeRunner` until integration. It inherits the [abstract lifecycle](../base/README.md).
-The implementation currently remains in `runner.py`; folder relocation does not
+`ClaudeAgent` is the provider-qualified concrete Agent (formerly `ClaudeRunner`). It inherits the [abstract lifecycle](../base/README.md).
+The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
 
 A container opens and closes per turn. Output correction resumes the native session in a new turn scope with correction tools disabled.

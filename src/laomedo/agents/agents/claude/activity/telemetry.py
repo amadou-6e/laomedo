@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
-from http.server import BaseHTTPRequestHandler
-from http.server import ThreadingHTTPServer
+from .http.server import ClaudeTelemetryHttpServer
 import json
-import laomedo.agents.agents.claude.activity.settings as _claude_settings
-import laomedo.agents.agents.claude.activity.utils as _claude_utils
+from laomedo.agents.agents.claude.activity.settings import EVENTS
+from laomedo.agents.agents.claude.activity.utils import safe_attributes
 import re
 import secrets
 import threading
@@ -42,74 +39,15 @@ class ClaudeTelemetry:
         self.count = 0
         self.failed = False
         self.output = (directory / "otel-events.jsonl").open("a", encoding="utf-8")
-        owner = self
         types = {
             "/v1/logs": ExportLogsServiceRequest,
             "/v1/traces": ExportTraceServiceRequest,
             "/v1/metrics": ExportMetricsServiceRequest,
         }
 
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *_):
-                pass
-
-            def setup(self):
-                super().setup()
-                self.connection.settimeout(5)
-
-            def do_POST(self):
-                if not secrets.compare_digest(
-                    self.headers.get("Authorization", ""), "Bearer " + owner.token
-                ):
-                    self.send_error(401)
-                    return
-                if self.path not in types:
-                    self.send_error(404)
-                    return
-                try:
-                    length = int(self.headers.get("Content-Length", "0"))
-                    if not 0 < length <= 8 * 1024 * 1024:
-                        owner.failed = True
-                        self.send_error(413)
-                        return
-                    raw = self.rfile.read(length)
-                    if len(raw) != length:
-                        raise ValueError("incomplete_export")
-                    message = types[self.path]()
-                    message.ParseFromString(raw)
-                    records = owner.decode(message, self.path)
-                    with owner.lock:
-                        for value in records:
-                            owner.output.write(
-                                json.dumps(
-                                    {
-                                        "received_at": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
-                                        "event": {
-                                            "method": "otel/record",
-                                            "params": value,
-                                        },
-                                    },
-                                    allow_nan=False,
-                                )
-                                + "\n"
-                            )
-                        owner.output.flush()
-                        owner.count += len(records)
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/x-protobuf")
-                    self.send_header("Content-Length", "0")
-                    self.end_headers()
-                except Exception:
-                    owner.failed = True
-                    try:
-                        self.send_error(400)
-                    except OSError:
-                        pass
 
         try:
-            self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            self.server = ClaudeTelemetryHttpServer(self, ("127.0.0.1", 0), request_types=types)
             self.server.daemon_threads = (
                 False  # server_close joins bounded upload handlers.
             )
@@ -187,7 +125,7 @@ class ClaudeTelemetry:
             "/v1/metrics": ("resource_metrics", "scope_metrics", "metrics"),
         }[path]
         for resource in getattr(message, field):
-            resource_attrs = _claude_utils.safe_attributes(resource.resource.attributes)
+            resource_attrs = safe_attributes(resource.resource.attributes)
             for scope in getattr(resource, scope_field):
                 for record in getattr(scope, record_field):
                     name = record.name if path != "/v1/logs" else ""
@@ -201,7 +139,7 @@ class ClaudeTelemetry:
                         for point in data.data_points:
                             attrs = {
                                 **resource_attrs,
-                                **_claude_utils.safe_attributes(point.attributes),
+                                **safe_attributes(point.attributes),
                             }
                             sample = (
                                 {
@@ -247,7 +185,7 @@ class ClaudeTelemetry:
                         continue
                     attrs = {
                         **resource_attrs,
-                        **_claude_utils.safe_attributes(record.attributes),
+                        **safe_attributes(record.attributes),
                     }
                     if path == "/v1/traces":
                         if not re.fullmatch(r"claude_code\.[a-z_.]+", name):
@@ -275,7 +213,7 @@ class ClaudeTelemetry:
                             event = record.body.string_value
                         if (
                             event.removeprefix("claude_code.")
-                            not in _claude_settings.EVENTS
+                            not in EVENTS
                         ):
                             event = "claude_code.event"
                         append(

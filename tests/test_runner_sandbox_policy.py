@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch
 
 
 @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
@@ -58,7 +58,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root=Path(temp); source=Path(__file__).resolve().parents[1] / "examples/github-pr"
             selection={"DOCKER_HOST":"unix:///selected.sock"}
             for split in (False,True):
-                with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container",return_value=selection) as checked, patch(
+                with patch("laomedo.agents.agents.codex.agent.CodexRunner._check_container",return_value=selection) as checked, patch(
                         "laomedo.agents.agents.codex.utils._ensure_split_profile") as profile, patch("py_docker.Client") as client:
                     runner=LocalRunner(root / str(split),root / "skills",source,split_executor=split)
                     checked.assert_called_once_with()
@@ -117,7 +117,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                 def __init__(self, command, evidence):
                     commands.append(command)
             selection = {"DOCKER_HOST": "unix:///local-test.sock"}
-            with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container", return_value=selection) as checked, patch("py_docker.Client") as docker:
+            with patch("laomedo.agents.agents.codex.agent.CodexRunner._check_container", return_value=selection) as checked, patch("py_docker.Client") as docker:
                 runner = LocalRunner(root / "state", root / "skills", source,
                                      image_id=approved, transport=Capture)
                 checked.assert_called_once_with()
@@ -125,7 +125,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             runner._open_server(root)
             self.assertEqual(approved, commands[0].image)
             self.assertNotEqual(runner.image, commands[0].image)
-            with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container", side_effect=RunnerError("docker_image_digest_changed")):
+            with patch("laomedo.agents.agents.codex.agent.CodexRunner._check_container", side_effect=RunnerError("docker_image_digest_changed")):
                 with self.assertRaisesRegex(RunnerError, "docker_image_digest_changed"):
                     LocalRunner(root / "mismatch", root / "skills", source,
                                 image_id=approved)
@@ -135,7 +135,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             source = Path(__file__).resolve().parents[1] / "examples/github-pr"
             approved = "sha256:" + "a" * 64
-            with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
+            with patch("laomedo.agents.agents.codex.agent.CodexRunner._check_container", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
                 with self.assertRaisesRegex(RunnerError, "unsupported_codex_cli_version"):
                     LocalRunner(root / "state", root / "skills", source, image_id=approved)
             docker.assert_not_called()

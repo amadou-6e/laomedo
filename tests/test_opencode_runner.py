@@ -5,7 +5,7 @@ import threading
 import json
 
 import test_local_runner as fixtures
-from laomedo.agents.agents.opencode.runner import OpenCodeRunner
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.acp.models import AcpTurn
 from laomedo.agents.agents.base.utils import _hash_tree
@@ -454,7 +454,7 @@ class OpenCodeTests(unittest.TestCase):
     def setUp(self):
         # Reuse only the fixture setup, not the Codex provider test cases.
         fixtures.LocalRunnerTests.setUp(self)
-        self.runner = OpenCodeRunner(
+        self.runner = OpenCodeAgent(
             self.root.parent / (self.root.name + "-runner"),
             self.root.parent / (self.root.name + "-skill-store"),
             self.source,
@@ -642,7 +642,7 @@ class OpenCodeTests(unittest.TestCase):
         # ACP titles are display text, not evidence that a native skill ran.
         self.assertEqual(run["skills"][0]["use_evidence"], "offered")
         self.assertIsNone(run["usage"])
-        restarted = OpenCodeRunner(
+        restarted = OpenCodeAgent(
             self.runner.state,
             self.runner.store.root,
             self.source,

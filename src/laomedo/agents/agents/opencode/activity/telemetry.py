@@ -2,25 +2,26 @@
 
 from datetime import datetime
 from datetime import timezone
-import laomedo.agents.activity.runner.feed as _runner_feed
-import laomedo.agents.activity.runner.settings as _runner_settings
+from laomedo.agents.activity.runner.feed import line_count
+from laomedo.agents.activity.runner.feed import read_feed
+from laomedo.agents.activity.runner.settings import Settings
 
 
 def export_attempt(root, start, session, model):
-    if _runner_settings.Settings().otel != "1":
+    if Settings().otel != "1":
         return False
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.trace import set_span_in_context
     import requests
-    import laomedo.agents.activity.runner.telemetry as _runner_telemetry
-    import laomedo.agents.activity.projection as _activity_projection
+    from laomedo.agents.activity.runner.telemetry import LaunchTelemetry
+    from laomedo.agents.activity.projection import project
 
     records = []
     cursor = start
     while True:
-        page = _runner_feed.read_feed(
+        page = read_feed(
             root / "activity-events.jsonl", after=cursor, limit=200
         )
         records.extend(
@@ -32,9 +33,9 @@ def export_attempt(root, start, session, model):
         cursor = page["next_after"]
         if not page["has_more"]:
             break
-    projection = _activity_projection.project(records, root_thread=session, model=model)
-    before = _runner_feed.line_count(root / "otel-events.jsonl")
-    receiver = _runner_telemetry.LaunchTelemetry(
+    projection = project(records, root_thread=session, model=model)
+    before = line_count(root / "otel-events.jsonl")
+    receiver = LaunchTelemetry(
         root, provenance="adapter-observed OpenCode activity"
     )
     provider = TracerProvider()
@@ -150,6 +151,6 @@ def export_attempt(root, start, session, model):
         + len(projection["turns"])
         + len(projection["items"])
     )
-    if _runner_feed.line_count(root / "otel-events.jsonl") - before != expected:
+    if line_count(root / "otel-events.jsonl") - before != expected:
         raise RuntimeError("opencode_telemetry_export_incomplete")
     return True

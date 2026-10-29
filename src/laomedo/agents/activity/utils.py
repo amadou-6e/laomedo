@@ -4,17 +4,18 @@ from __future__ import annotations
 
 from datetime import datetime
 from datetime import timezone
-from laomedo.agents.interface.models import RunnerRequest
-import laomedo.agents.activity.settings as _agent_activity_settings
+from laomedo.agents.interface.models import AgentRequest
+from laomedo.agents.activity.settings import REFUSALS
+from laomedo.agents.activity.settings import Settings
 
 
 def dispatch_with_capture(component, prepared):
-    import laomedo.agents.activity.capture as _agent_activity_capture
+    from laomedo.agents.activity.capture import ActivityCapture
 
     if component.operation not in {"fresh", "start", "resume"}:
         return component._http(*prepared)
-    request = RunnerRequest.from_component_request(prepared)
-    capture = _agent_activity_capture.RunnerCapture(component)
+    request = AgentRequest.from_component_request(prepared)
+    capture = ActivityCapture(component)
     component._activity_capture = capture
     result = None
     refused = False
@@ -32,7 +33,7 @@ def dispatch_with_capture(component, prepared):
             reference.get("error_category") if isinstance(reference, dict) else None
         )
         refused = (
-            isinstance(category, str) and category in _agent_activity_settings.REFUSALS
+            isinstance(category, str) and category in REFUSALS
         )
         raise
     finally:
@@ -45,13 +46,13 @@ def now():
 
 def capture_for(component):
     """Opt-in host configuration; refuse dispatch if configured capture cannot reserve."""
-    import laomedo.agents.activity.store as _agent_activity_store
+    from laomedo.agents.activity.store import ActivityStore
 
-    path = _agent_activity_settings.Settings().database
+    path = Settings().database
     if not path:
         return None
     graph = component.graph
-    store = _agent_activity_store.ActivityStore(path)
+    store = ActivityStore(path)
     execution = str(graph.run_id or "")
     if not execution:
         raise ValueError("agent_activity_execution_required")

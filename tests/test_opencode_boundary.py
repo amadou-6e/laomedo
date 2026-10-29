@@ -168,6 +168,8 @@ class BoundaryTests(unittest.TestCase):
                 client.return_value.__enter__.return_value.connection.endpoint = (
                     ENDPOINT
                 )
+                broker.return_value.server.server_port = 12345
+                broker.return_value.token = "internal-test-broker-capability"
                 with self.assertRaisesRegex(
                     RunnerError, "opencode_organization_context_invalid"
                 ):

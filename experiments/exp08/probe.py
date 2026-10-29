@@ -8,7 +8,7 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skills.registry.store import SkillStore; from laomedo.skills.registry.errors import SkillStoreError; from laomedo.skills.registry.utils import inventory; from laomedo.skills.registry.utils import tree_hash
 

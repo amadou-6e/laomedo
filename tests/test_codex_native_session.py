@@ -94,7 +94,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
 
     def test_recovered_metadata_is_removed_but_run_history_is_preserved(self):
         """Only successfully reconciled metadata folders are disposable."""
-        from laomedo.agents.agents.codex.runner import CodexRunner
+        from laomedo.agents.agents.codex.agent import CodexAgent
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
             for folder in ("runs","catalog","preflight"):
@@ -104,7 +104,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
                 directory.joinpath("history.json").write_text("retained execution evidence")
             client=Mock()
             client.sessions.recover.side_effect=lambda pending:pending.unlink()
-            runner = CodexRunner.__new__(CodexRunner); runner.state = root
+            runner = CodexAgent.__new__(CodexAgent); runner.state = root
             runner._recover_containers(client)
             self.assertTrue(root.joinpath("runs/identity/history.json").exists())
             self.assertTrue(root.joinpath("catalog/identity/history.json").exists())
@@ -114,18 +114,18 @@ class RetirementAndCatalogueTests(unittest.TestCase):
     def test_host_budgets_validate_before_launch_attempt_marker(self):
         """An invalid host setting must not be recorded as dispatch."""
         root=Path(__file__).resolve().parents[1]
-        source=root.joinpath("src/laomedo/agents/agents/codex/runner.py").read_text()
+        source=root.joinpath("src/laomedo/agents/agents/codex/agent.py").read_text()
         self.assertLess(source.index("transport_settings = _native_settings.Settings.load()"), source.index("launch_attempted = True"))
 
 
     @unittest.skipUnless(find_spec("py_docker"),"Requires optional Docker runtime")
     def test_executor_receipt_is_recovered_and_unresolved_intent_is_retained(self):
-        from laomedo.agents.agents.codex.runner import CodexRunner
-        from laomedo.agents.agents.codex.runner import CodexRunner
+        from laomedo.agents.agents.codex.agent import CodexAgent
+        from laomedo.agents.agents.codex.agent import CodexAgent
         from py_docker.errors import CleanupUnconfirmedError
         with tempfile.TemporaryDirectory() as temp:
             state=Path(temp); root=state.joinpath("catalog","metadata"); root.mkdir(parents=True)
-            runner=CodexRunner.__new__(CodexRunner); runner.state=state
+            runner=CodexAgent.__new__(CodexAgent); runner.state=state
             controller=runner._receipt_path(root)
             executor=controller.with_name(controller.stem+"-executor.json")
             executor.write_text("internal control")

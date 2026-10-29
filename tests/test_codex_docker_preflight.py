@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from laomedo.agents.agents.codex.runner import CodexRunner
+from laomedo.agents.agents.codex.agent import CodexAgent
 from laomedo.agents.agents.codex import settings
 from laomedo.agents.errors import RunnerError
 
@@ -29,7 +29,7 @@ class PreflightBoundaryTests(unittest.TestCase):
 import sys
 import laomedo.work_graph.stage_worker
 import laomedo.git.credentials.helper
-import laomedo.agents.agents.codex.runner
+import laomedo.agents.agents.codex.agent
 assert not any(n == 'py_docker' or n.startswith('py_docker.') for n in sys.modules)
 assert 'docker' not in sys.modules
 """
@@ -59,11 +59,11 @@ assert 'docker' not in sys.modules
             tempfile.TemporaryDirectory() as directory,
             patch("builtins.__import__", side_effect=without_runtime),
             self.assertLogs(
-                "laomedo.agents.agents.codex.runner", level="WARNING"
+                "laomedo.agents.agents.codex.agent", level="WARNING"
             ) as logs,
             self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
         ):
-            runner = CodexRunner.__new__(CodexRunner)
+            runner = CodexAgent.__new__(CodexAgent)
             runner.state = Path(directory)
             runner._check_container()
         self.assertIn(".[runner]", logs.output[0])
@@ -86,7 +86,7 @@ assert 'docker' not in sys.modules
                 "frontend/langflow-skill-viewer/node-error-catalog.json"
             ).read_text()
         )
-        source = textwrap.dedent(inspect.getsource(CodexRunner._check_container))
+        source = textwrap.dedent(inspect.getsource(CodexAgent._check_container))
         codes = set()
         for node in ast.walk(ast.parse(source)):
             if (
@@ -123,7 +123,7 @@ class PreflightControls(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.expected = "sha256:" + "a" * 64
-        self.preflight = CodexRunner.__new__(CodexRunner)
+        self.preflight = CodexAgent.__new__(CodexAgent)
         self.preflight.state = Path(self.temp.name)
         self.preflight.image = "local-image"
         self.preflight.image_id = self.expected
@@ -253,5 +253,5 @@ class PreflightControls(unittest.TestCase):
         self,
     ):
         """Guard the outsourcing boundary instead of retaining duplicate implementations."""
-        methods = set(CodexRunner.__dict__)
+        methods = set(CodexAgent.__dict__)
         self.assertFalse(methods & {"_save", "_recover", "_cleanup"})

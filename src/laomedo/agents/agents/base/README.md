@@ -1,7 +1,6 @@
 # Abstract Agent lifecycle
 
-`agent.py` currently defines abstract `Runner`; the integration step renames it
-`BaseAgent`. It owns common run admission, file-backed records, request identity,
+`agent.py` defines abstract `BaseAgent` (formerly `Runner`). It owns common run admission, file-backed records, request identity,
 workspace freezing and artifact selection. It composes provider execution hooks;
 it must not import concrete providers or their credential implementations.
 

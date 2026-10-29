@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.agents.agents.claude.runner import ClaudeRunner; from laomedo.agents.agents.claude.settings import CLI_VERSION; from laomedo.agents.agents.claude.models import ClaudePolicy; from laomedo.agents.agents.claude.utils import terminal_result; from laomedo.agents.agents.claude.utils import activity_usage
+from laomedo.agents.agents.claude.agent import ClaudeAgent; from laomedo.agents.agents.claude.settings import CLI_VERSION; from laomedo.agents.agents.claude.models import ClaudePolicy; from laomedo.agents.agents.claude.utils import terminal_result; from laomedo.agents.agents.claude.utils import activity_usage
 from laomedo.agents.activity.projection import project
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.interface.output.utils import requirements
@@ -154,7 +154,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def setUp(self):
         controls.LocalRunnerTests.setUp(self)
         runtime = SimpleNamespace(profile='laomedo-claude-unit', image_id='sha256:'+'b'*64)
-        self.runner = ClaudeRunner(self.root.parent / (self.root.name + '-claude'),
+        self.runner = ClaudeAgent(self.root.parent / (self.root.name + '-claude'),
             self.runner.store.root, self.source, container=runtime)
         self.addCleanup(lambda: __import__('shutil').rmtree(self.runner.state, ignore_errors=True))
         self.auth = patch.object(self.runner, '_check_auth', return_value='sha256:' + 'a' * 64)

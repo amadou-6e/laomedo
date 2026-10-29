@@ -9,7 +9,7 @@ from datetime import datetime
 from datetime import timezone
 from decimal import Decimal
 import json
-import laomedo.agents.activity.cost as _agent_activity_cost
+from laomedo.agents.activity.cost import estimate
 import math
 
 
@@ -430,7 +430,7 @@ def estimate_native(model, usage, rates, source=None):
         return {**metadata, "amount": None, "reason": reason}
 
     if not isinstance(rates, dict):
-        return _agent_activity_cost.estimate(model, usage)
+        return estimate(model, usage)
     if not isinstance(usage, dict):
         return unknown("Token usage is unavailable.")
     keys = ("inputTokens", "cachedInputTokens", "cacheWriteInputTokens", "outputTokens")
@@ -479,7 +479,7 @@ def estimate_native(model, usage, rates, source=None):
 
 
 def sum_costs(values, model):
-    base = values[-1] if values else _agent_activity_cost.estimate(model, None)
+    base = values[-1] if values else estimate(model, None)
     return {
         **base,
         "model": model,

@@ -1,5 +1,5 @@
 import unittest
-from laomedo.agents.orchestration.controller import BoundedController; from laomedo.agents.orchestration.errors import HandoffError; from laomedo.agents.orchestration.utils import envelope
+from laomedo.agents.orchestration.controller import AgentHandoffController; from laomedo.agents.orchestration.errors import HandoffError; from laomedo.agents.orchestration.utils import envelope
 
 
 TARGET = {"provider": "codex", "agent": "writer"}
@@ -27,7 +27,7 @@ class Adapter:
 class HandoffTests(unittest.TestCase):
     def controller(self, answers, **kwargs):
         adapter = Adapter(answers)
-        return BoundedController(adapter, max_iterations=kwargs.pop("max_iterations", 5),
+        return AgentHandoffController(adapter, max_iterations=kwargs.pop("max_iterations", 5),
                                  turn_budget=kwargs.pop("turn_budget", 5),
                                  timeout_seconds=10, **kwargs)
 
@@ -89,7 +89,7 @@ class HandoffTests(unittest.TestCase):
             def dispatch(self, item, **kwargs):
                 return {"provider": "codex", "status": "rejected",
                         "error_category": "invalid_skill"}
-        c = BoundedController(Rejected([]), max_iterations=2, turn_budget=1,
+        c = AgentHandoffController(Rejected([]), max_iterations=2, turn_budget=1,
                               timeout_seconds=10)
         result = self.run_chain(c)
         self.assertEqual(result["stop_reason"], "dispatch_rejected")
@@ -107,10 +107,10 @@ class HandoffTests(unittest.TestCase):
     def test_durable_completion_and_uncertain_reservation_survive_restart(self):
         import tempfile
         with tempfile.TemporaryDirectory() as root:
-            c = BoundedController(Adapter([TimeoutError()]), max_iterations=2,
+            c = AgentHandoffController(Adapter([TimeoutError()]), max_iterations=2,
                                   turn_budget=2, timeout_seconds=10, state_dir=root)
             result = self.run_chain(c)
-            stored = BoundedController.inspect(root, c.execution_id)
+            stored = AgentHandoffController.inspect(root, c.execution_id)
             self.assertEqual(stored["submitted_turns"], 1)
             self.assertEqual(stored["stop_reason"], "dispatch_uncertain")
             self.assertEqual(stored["transitions"], result["transitions"])
@@ -133,7 +133,7 @@ class HandoffTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as root:
             adapter = Waiting()
-            controller = BoundedController(adapter, max_iterations=1, turn_budget=1,
+            controller = AgentHandoffController(adapter, max_iterations=1, turn_budget=1,
                                            timeout_seconds=10, state_dir=root)
             result = {}
             worker = threading.Thread(target=lambda: result.update(
@@ -141,7 +141,7 @@ class HandoffTests(unittest.TestCase):
             worker.start()
             try:
                 self.assertTrue(adapter.acknowledged.wait(2))
-                stored = BoundedController.inspect(root, controller.execution_id)
+                stored = AgentHandoffController.inspect(root, controller.execution_id)
                 self.assertEqual(stored["transitions"][0]["run"]["run_id"], "early-id")
                 self.assertEqual(stored["stop_reason"], "running")
                 controller.cancel()

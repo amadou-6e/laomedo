@@ -7,8 +7,9 @@ from uuid import UUID
 from uuid import uuid4
 import hashlib
 import json
-import laomedo.agents.agents.base.settings as _runtime_settings
-import laomedo.agents.errors as _runtime_errors
+from laomedo.agents.agents.base.settings import MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
+from laomedo.agents.agents.base.settings import MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
+from laomedo.agents.errors import RunnerError
 import os
 import shutil
 import stat
@@ -22,7 +23,7 @@ def _git_tree(path: Path) -> bool:
 def _private(path: Path) -> Path:
     path = path.expanduser().resolve()
     if _git_tree(path) or path.is_symlink():
-        raise _runtime_errors.RunnerError("private_state_must_be_outside_git")
+        raise RunnerError("private_state_must_be_outside_git")
     return path
 
 
@@ -57,14 +58,14 @@ def _read(path: Path) -> dict:
                 raise
             time.sleep(0.01)
     if not isinstance(value, dict):
-        raise _runtime_errors.RunnerError("invalid_record")
+        raise RunnerError("invalid_record")
     return value
 
 
 def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     """Hash regular files and directories, including empty directories."""
     if not path.is_dir() or path.is_symlink():
-        raise _runtime_errors.RunnerError("invalid_workspace")
+        raise RunnerError("invalid_workspace")
     files = {}
     directories = []
     total_bytes = 0
@@ -80,19 +81,19 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
                 & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
                 or not (item.is_dir() or item.is_file())
             ):
-                raise _runtime_errors.RunnerError("unsafe_workspace_entry")
+                raise RunnerError("unsafe_workspace_entry")
             if item.is_file():
                 if item.stat().st_nlink != 1:
-                    raise _runtime_errors.RunnerError("unsafe_workspace_entry")
+                    raise RunnerError("unsafe_workspace_entry")
                 if exclude_root_git:
                     total_bytes += item.stat().st_size
                     if (
                         total_bytes
-                        > _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
+                        > MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
                         or len(files) + len(directories)
-                        >= _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
+                        >= MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
                     ):
-                        raise _runtime_errors.RunnerError(
+                        raise RunnerError(
                             "git_workspace_snapshot_limit"
                         )
                 files[item.relative_to(path).as_posix()] = item.read_bytes()
@@ -101,9 +102,9 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
                 if (
                     exclude_root_git
                     and len(files) + len(directories)
-                    > _runtime_settings.MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
+                    > MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
                 ):
-                    raise _runtime_errors.RunnerError("git_workspace_snapshot_limit")
+                    raise RunnerError("git_workspace_snapshot_limit")
     digest = hashlib.sha256()
     for relative in sorted(directories):
         encoded = relative.encode("utf-8")
@@ -133,19 +134,11 @@ def _copy_tree(source: Path, target: Path, *, exclude_root_git: bool = False) ->
     )
     shutil.copytree(source, target, ignore=ignore)
     if _hash_tree(target) != expected:
-        raise _runtime_errors.RunnerError("workspace_copy_mismatch")
+        raise RunnerError("workspace_copy_mismatch")
     return expected
 
 
 def _id(value: str) -> str:
     if str(UUID(value)) != value:
-        raise _runtime_errors.RunnerError("invalid_run_id")
+        raise RunnerError("invalid_run_id")
     return value
-
-
-
-
-def terminal_record(record):
-    """Stable terminal states shared by graph clients and asynchronous runner polling."""
-    return (record.get("status") in {"completed", "cancelled", "failed", "timeout", "interrupted"}
-            or record.get("status") == "unknown" and record.get("attempt_finished") is True)

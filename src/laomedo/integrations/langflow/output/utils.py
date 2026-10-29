@@ -1,6 +1,6 @@
 from copy import deepcopy
 import json
-import laomedo.agents.interface.output.utils as _contracts_output
+from laomedo.agents.interface.output.utils import requirements
 
 ROUTES = {"success", "failure", "rejection", "recovery"}
 
@@ -61,7 +61,7 @@ def downstream_requirements(agent, explicit=None):
         raise ValueError("ambiguous_output_contract_agent")
     raw = contract.data["node"]["template"]["requirements_json"]["value"]
     try:
-        selected = _contracts_output.requirements(json.loads(raw))
+        selected = requirements(json.loads(raw))
     except (TypeError, ValueError):
         raise ValueError("invalid_downstream_output_requirements") from None
     if explicit is not None and selected != explicit:

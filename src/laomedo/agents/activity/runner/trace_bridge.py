@@ -4,9 +4,9 @@ Langflow remains responsible for workflow scheduling. This bridge only reserves
 and correlates one fresh native invocation; it never retries an uncertain POST.
 """
 
-import laomedo.agents.orchestration.errors as _handoffs_errors
-import laomedo.work_graph.runs.errors as _workflow_errors
-import laomedo.work_graph.runs.utils as _workflow_utils
+from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.utils import runner_attempt_terminal
 
 
 class RunnerTraceBridge:
@@ -18,7 +18,7 @@ class RunnerTraceBridge:
         if handoff.get("operation") != "fresh" or handoff.get("target", {}).get(
             "provider"
         ) not in {"codex", "claude"}:
-            raise _workflow_errors.LaunchError("first_slice_requires_fresh_codex")
+            raise LaunchError("first_slice_requires_fresh_codex")
         provider = handoff["target"]["provider"]
         invocation_id = self.store.reserve_invocation(run_id, stage_id)
         _, request_hash = self.adapter.fresh_request(handoff, invocation_id)
@@ -47,7 +47,7 @@ class RunnerTraceBridge:
                 expected_request_hash=request_hash,
                 on_ack=on_ack,
             )
-        except _handoffs_errors.HandoffError as exc:
+        except HandoffError as exc:
             if str(exc) == "runner_result_pending":
                 self.store.record_runner_wait_uncertain(run_id, invocation_id)
             else:
@@ -67,11 +67,11 @@ class RunnerTraceBridge:
         except Exception as exc:
             category = (
                 "runner_binding_conflict"
-                if isinstance(exc, _workflow_errors.LaunchError)
+                if isinstance(exc, LaunchError)
                 and str(exc) == "runner_binding_conflict"
                 else (
                     "runner_binding_write_error"
-                    if isinstance(exc, _workflow_errors.LaunchError)
+                    if isinstance(exc, LaunchError)
                     else "runner_transport_error"
                 )
             )
@@ -116,13 +116,13 @@ class RunnerTraceBridge:
             binding["invocation_id"] != invocation_id
             or not binding["runner_request_hash"]
         ):
-            raise _workflow_errors.LaunchError("runner_request_not_frozen")
+            raise LaunchError("runner_request_not_frozen")
         try:
             found = self.adapter.lookup_request(provider, binding["runner_request_id"])
         except Exception as exc:
             category = (
                 "runner_lookup_conflict"
-                if isinstance(exc, _handoffs_errors.HandoffError)
+                if isinstance(exc, HandoffError)
                 and str(exc) == "runner_request_conflict"
                 else "runner_lookup_unknown"
             )
@@ -142,7 +142,7 @@ class RunnerTraceBridge:
             self.store.record_runner_failure(
                 run_id, invocation_id, category="runner_lookup_mismatch"
             )
-            raise _workflow_errors.LaunchError("runner_lookup_mismatch")
+            raise LaunchError("runner_lookup_mismatch")
         try:
             self.store.bind_runner_ack(
                 run_id,
@@ -152,7 +152,7 @@ class RunnerTraceBridge:
                 runner_run_id=found.get("run_id"),
                 raw_event_ref=found.get("raw_event_ref"),
             )
-        except _workflow_errors.LaunchError as exc:
+        except LaunchError as exc:
             self.store.record_runner_failure(
                 run_id,
                 invocation_id,
@@ -180,10 +180,10 @@ class RunnerTraceBridge:
     def cancel(self, run_id, invocation_id, execution_id):
         binding = self.store.trace_snapshot(run_id)["invocation"]
         if binding["invocation_id"] != invocation_id or not binding["runner_run_id"]:
-            raise _workflow_errors.LaunchError("runner_observation_not_correlated")
+            raise LaunchError("runner_observation_not_correlated")
         active = self.adapter.active.get(execution_id)
         if active is None or active[1] != binding["runner_run_id"]:
-            raise _workflow_errors.LaunchError("runner_cancel_identity_mismatch")
+            raise LaunchError("runner_cancel_identity_mismatch")
         result = self.adapter.cancel(execution_id)
         self.store.record_runner_observation(
             run_id,
@@ -202,11 +202,11 @@ class RunnerTraceBridge:
         """Explicit authenticated status reconciliation; never starts a turn."""
         binding = self.store.trace_snapshot(run_id)["invocation"]
         if binding["invocation_id"] != invocation_id or not binding["runner_run_id"]:
-            raise _workflow_errors.LaunchError("runner_observation_not_correlated")
+            raise LaunchError("runner_observation_not_correlated")
         native = self.adapter.status(
             binding["runner_provider"], binding["runner_run_id"]
         )
-        if _workflow_utils.runner_attempt_terminal(native):
+        if runner_attempt_terminal(native):
             self.store.record_runner_terminal(
                 run_id,
                 invocation_id,

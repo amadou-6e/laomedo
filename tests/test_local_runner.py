@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.agents.agents.codex.controller.service import CodexController as AppServer;  from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch; from laomedo.agents.agents.base.utils import _hash_tree; from laomedo.agents.agents.base.utils import _copy_tree; from laomedo.agents.agents.codex.utils import _native_error_summary; from laomedo.host.runner.http.server import RunnerServer as serve
+from laomedo.agents.agents.codex.controller.service import CodexController as AppServer;  from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch; from laomedo.agents.agents.base.utils import _hash_tree; from laomedo.agents.agents.base.utils import _copy_tree; from laomedo.agents.agents.codex.utils import _native_error_summary; from laomedo.host.runner.http.server import RunnerServer as serve
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.host.mediation.authority import RunGrantAuthority
@@ -171,7 +171,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertFalse(result["snapshot_ready"])
 
     def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
-        from laomedo.agents.agents.codex.runner import CodexRunner as NormalRunner; from laomedo.agents.agents.base.utils import _json
+        from laomedo.agents.agents.codex.agent import CodexAgent as NormalRunner; from laomedo.agents.agents.base.utils import _json
         runner = object.__new__(NormalRunner)
         runner.state = self.root / 'diagnostic-counter'
         runner.state.mkdir()
@@ -1030,9 +1030,9 @@ class LocalRunnerTests(unittest.TestCase):
 
     def test_production_runners_cannot_restore_a_verification_turn_cap(self):
         import inspect
-        from laomedo.agents.agents.claude.runner import ClaudeRunner
-        from laomedo.agents.agents.opencode.runner import OpenCodeRunner
-        for runner in (LocalRunner, ClaudeRunner, OpenCodeRunner):
+        from laomedo.agents.agents.claude.agent import ClaudeAgent
+        from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+        for runner in (LocalRunner, ClaudeAgent, OpenCodeAgent):
             self.assertNotIn("max_model_turns", inspect.signature(runner).parameters)
         for name in ("local_runner.py", "claude_runner.py", "opencode_runner.py"):
             root = Path(__file__).resolve().parents[1]

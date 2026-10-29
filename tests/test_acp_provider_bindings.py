@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from laomedo.agents.agents.claude.runner import ClaudeRunner
+from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.agents.opencode.utils import model_metadata
@@ -25,7 +25,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                 (1, 'cancelled', False, 'claude_cancelled'),
                 (1, 'end_turn', True, 'claude_session_identity_mismatch')):
             with self.subTest(count=count, stop=stop, mismatch=mismatch), tempfile.TemporaryDirectory() as directory:
-                runner = ClaudeRunner.__new__(ClaudeRunner)
+                runner = ClaudeAgent.__new__(ClaudeAgent)
                 runner._event = Mock(); runner._native_event = Mock()
                 identity = '11111111-1111-4111-8111-111111111111'
                 record = {'thread_id':None, 'requested_model':'sonnet', 'requested_effort':'low',

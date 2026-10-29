@@ -89,7 +89,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
         self.assertIn('container_termination_unverified',codes)
     def test_claude_runner_public_errors_including_named_codes_have_catalogue_entries(self):
         catalogue=json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
-        tree=ast.parse((ROOT/'src/laomedo/agents/agents/claude/runner.py').read_text(encoding='utf-8'))
+        tree=ast.parse((ROOT/'src/laomedo/agents/agents/claude/agent.py').read_text(encoding='utf-8'))
         assignments={}
         for node in ast.walk(tree):
             if isinstance(node,ast.Assign) and isinstance(node.value,ast.Constant) and isinstance(node.value.value,str):
@@ -277,7 +277,7 @@ class OpenCodeErrorCatalogueTests(unittest.TestCase):
     def test_changed_normal_accounting_methods_have_catalogue_coverage(self):
         catalog=json.loads((ROOT/"frontend/langflow-skill-viewer/node-error-catalog.json").read_text(encoding="utf-8"))
         tree=ast.parse((ROOT/"src/laomedo/agents/agents/base/agent.py").read_text(encoding="utf-8"))
-        runner=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=="Runner")
+        runner=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=="BaseAgent")
         methods={node.name:node for node in runner.body if isinstance(node,ast.FunctionDef) and node.name in {"_reserve_turn","_turn_available"}}
         self.assertEqual(set(methods),{"_reserve_turn","_turn_available"})
         for name,node in methods.items():

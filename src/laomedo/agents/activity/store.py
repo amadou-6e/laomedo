@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 import json
-import laomedo.agents.activity.utils as _agent_activity_utils
+from laomedo.agents.activity.utils import now
 import sqlite3
 
 
@@ -88,7 +88,7 @@ class ActivityStore:
                     identity.flow,
                     identity.node,
                     identity.provider,
-                    _agent_activity_utils.now(),
+                    now(),
                     "running",
                     "partial",
                     identity.execution,
@@ -122,7 +122,7 @@ class ActivityStore:
             ).fetchone()[0]
             db.execute(
                 "INSERT INTO agent_activity_receipts VALUES (?,?,?,?)",
-                (run, seq, _agent_activity_utils.now(), raw),
+                (run, seq, now(), raw),
             )
             if event.get("type") == "thread.started" and isinstance(
                 event.get("thread_id"), str
@@ -180,7 +180,7 @@ class ActivityStore:
             db.execute(
                 "UPDATE agent_activity_runs SET ended=?,status=?,stream_state=?,reason=? WHERE id=? AND ended IS NULL",
                 (
-                    ended_at or _agent_activity_utils.now(),
+                    ended_at or now(),
                     status,
                     "complete" if complete else "partial",
                     reason,

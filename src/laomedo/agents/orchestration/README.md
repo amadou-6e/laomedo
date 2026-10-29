@@ -1,6 +1,6 @@
 # Agent handoff orchestration
 
-`controller.py` owns `AgentHandoffController` (initially `BoundedController`). Its
+`controller.py` owns `AgentHandoffController` (formerly `BoundedController`). Its
 responsibility is coordinating explicit successive runs, not graph edge scheduling.
 All controllers have mandatory iteration, turn and deadline limits; `Bounded` is
 therefore not a distinguishing class qualifier. The HTTP bridge is composed from

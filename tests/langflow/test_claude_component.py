@@ -16,7 +16,7 @@ from laomedo.agents.interface.output.utils import requirements
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_unmigrated_provider_subclasses_fail_before_routing_or_http(self):
         import laomedo.codex_agent as concrete
-        from laomedo.integrations.langflow.agent import component as common
+        from laomedo.agents.interface.langflow import component as common
         from lfx.custom.custom_component.component import Component
         from lfx.custom.utils import build_custom_component_template
         for provider in ('Claude', 'OpenCode'):

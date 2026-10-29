@@ -7,8 +7,8 @@ import hashlib
 import hmac
 import json
 import re
-import laomedo.agents.agents.opencode.settings as _opencode_settings
-import laomedo.agents.errors as _runtime_errors
+from laomedo.agents.agents.opencode.settings import MIN_TOKEN_REMAINING_MS
+from laomedo.agents.errors import RunnerError
 import secrets
 import time
 
@@ -18,20 +18,20 @@ def check_auth_fresh(profile):
     try:
         validity = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise _runtime_errors.RunnerError("opencode_auth_validity_required") from exc
+        raise RunnerError("opencode_auth_validity_required") from exc
     if not isinstance(validity, dict):
-        raise _runtime_errors.RunnerError("opencode_auth_validity_invalid")
+        raise RunnerError("opencode_auth_validity_invalid")
     try:
         key = json.loads((Path(profile) / "auth.json").read_text(encoding="utf-8"))[
             "opencode-go"
         ]["key"]
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise _runtime_errors.RunnerError("opencode_private_auth_required") from exc
+        raise RunnerError("opencode_private_auth_required") from exc
     if (
         not isinstance(key, str)
         or validity.get("credential_sha256") != hashlib.sha256(key.encode()).hexdigest()
     ):
-        raise _runtime_errors.RunnerError("opencode_auth_validity_mismatch")
+        raise RunnerError("opencode_auth_validity_mismatch")
     mode = validity.get("credential_mode")
     if mode == "provider_key" and validity.get("expires_at_ms") is None:
         return
@@ -41,9 +41,9 @@ def check_auth_fresh(profile):
         or not isinstance(expiry, int)
         or isinstance(expiry, bool)
     ):
-        raise _runtime_errors.RunnerError("opencode_auth_validity_invalid")
-    if expiry <= int(time.time() * 1000) + _opencode_settings.MIN_TOKEN_REMAINING_MS:
-        raise _runtime_errors.RunnerError("opencode_console_token_refresh_required")
+        raise RunnerError("opencode_auth_validity_invalid")
+    if expiry <= int(time.time() * 1000) + MIN_TOKEN_REMAINING_MS:
+        raise RunnerError("opencode_console_token_refresh_required")
 
 
 def _credential_binding(profile):
@@ -55,7 +55,7 @@ def _credential_binding(profile):
         pass
     binding_key = path.read_bytes()
     if len(binding_key) != 32:
-        raise _runtime_errors.RunnerError("opencode_credential_binding_key_invalid")
+        raise RunnerError("opencode_credential_binding_key_invalid")
     fingerprint = json.loads((Path(profile) / "auth-validity.json").read_text())[
         "credential_sha256"
     ]
@@ -83,7 +83,7 @@ def model_metadata(text):
             )
             remaining = remaining[size:].strip()
     except (ValueError, TypeError, AttributeError):
-        raise _runtime_errors.RunnerError("opencode_model_not_connected") from None
+        raise RunnerError("opencode_model_not_connected") from None
     if not models or len({model["id"] for model in models}) != len(models):
-        raise _runtime_errors.RunnerError("opencode_model_not_connected")
+        raise RunnerError("opencode_model_not_connected")
     return models

@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from uuid import UUID; from uuid import uuid4
 
 from laomedo.integrations.langflow.agent.errors import RunnerResultError
-from laomedo.agents.agents.base.utils import terminal_record as _terminal_record
+from laomedo.agents.interface.utils import terminal_record as _terminal_record
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput; from lfx.io import DropdownInput; from lfx.io import IntInput; from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io import StrInput
 from lfx.schema import Data; from lfx.schema import Message

@@ -7,14 +7,14 @@ from pathlib import Path
 from uuid import uuid4
 import hashlib
 import json
-import laomedo.agents.orchestration.errors as _handoffs_errors
-import laomedo.agents.orchestration.utils as _handoffs_utils
+from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.agents.orchestration.utils import envelope
 import os
 import threading
 import time
 
 
-class BoundedController:
+class AgentHandoffController:
     """Bound dispatch attempts; remote execution may continue after timeout.
 
     Optional private state persists reservations before dispatch. Recovery exposes
@@ -32,11 +32,11 @@ class BoundedController:
         state_dir=None,
     ):
         if any(type(v) is not int or v <= 0 for v in (max_iterations, turn_budget)):
-            raise _handoffs_errors.HandoffError(
+            raise HandoffError(
                 "positive_iteration_and_turn_limits_required"
             )
         if not 0 < timeout_seconds <= 86400:
-            raise _handoffs_errors.HandoffError("bounded_deadline_required")
+            raise HandoffError("bounded_deadline_required")
         self.adapter, self.clock = adapter, clock
         self.max_iterations, self.turn_budget = max_iterations, turn_budget
         self.deadline = clock() + timeout_seconds
@@ -53,7 +53,7 @@ class BoundedController:
         if state_dir is not None:
             root = Path(state_dir).resolve()
             if any((parent / ".git").exists() for parent in (root, *root.parents)):
-                raise _handoffs_errors.HandoffError(
+                raise HandoffError(
                     "controller_state_must_be_outside_git"
                 )
             root.mkdir(parents=True, exist_ok=True)
@@ -72,13 +72,13 @@ class BoundedController:
 
     def run(self, targets, task, skills, *, success, loop=False, artifacts=None):
         if not self.lock.acquire(False):
-            raise _handoffs_errors.HandoffError("execution_busy")
+            raise HandoffError("execution_busy")
         try:
             if self.started:
-                raise _handoffs_errors.HandoffError("execution_already_started")
+                raise HandoffError("execution_already_started")
             self.started = True
             if not targets or not callable(success):
-                raise _handoffs_errors.HandoffError(
+                raise HandoffError(
                     "targets_and_stop_predicate_required"
                 )
             previous, seen = None, set()
@@ -100,7 +100,7 @@ class BoundedController:
                     return self._finish(reason)
                 target = targets[step % len(targets)]
                 try:
-                    outgoing = _handoffs_utils.envelope(
+                    outgoing = envelope(
                         previous,
                         target,
                         task,
@@ -228,7 +228,7 @@ class BoundedController:
         from uuid import UUID
 
         if str(UUID(execution_id)) != execution_id:
-            raise _handoffs_errors.HandoffError("invalid_execution_id")
+            raise HandoffError("invalid_execution_id")
         result = json.loads(
             (Path(state_dir) / (execution_id + ".json")).read_text(encoding="utf-8")
         )

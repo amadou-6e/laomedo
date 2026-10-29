@@ -9,12 +9,12 @@ from uuid import UUID
 from uuid import uuid5
 import hashlib
 import json
-import laomedo.agents.orchestration.errors as _handoffs_errors
+from laomedo.agents.orchestration.errors import HandoffError
 import os
 import time
 
 
-class RunnerAdapter:
+class HttpAgentBridge:
     def __init__(self, endpoints, token_files=None):
         self.endpoints = dict(endpoints)
         self.token_files = dict(token_files or {})
@@ -31,7 +31,7 @@ class RunnerAdapter:
                 or parsed.query
                 or parsed.fragment
             ):
-                raise _handoffs_errors.HandoffError("local_runner_url_required")
+                raise HandoffError("local_runner_url_required")
 
     def _headers(self, provider):
         path = self.token_files.get(provider) or os.environ.get(
@@ -42,13 +42,13 @@ class RunnerAdapter:
                 "LAOMEDO_RUNNER_TOKEN_FILE", "/run/secrets/laomedo-runner-token"
             )
         if not path:
-            raise _handoffs_errors.HandoffError("runner_token_file_required")
+            raise HandoffError("runner_token_file_required")
         try:
             token = Path(path).read_text(encoding="utf-8").strip()
         except OSError as exc:
-            raise _handoffs_errors.HandoffError("runner_token_unavailable") from exc
+            raise HandoffError("runner_token_unavailable") from exc
         if len(token) != 64 or any(c not in "0123456789abcdef" for c in token):
-            raise _handoffs_errors.HandoffError("runner_token_invalid")
+            raise HandoffError("runner_token_invalid")
         return {"Content-Type": "application/json", "Authorization": "Bearer " + token}
 
     @staticmethod
@@ -58,7 +58,7 @@ class RunnerAdapter:
             "codex",
             "claude",
         }:
-            raise _handoffs_errors.HandoffError("fresh_codex_request_required")
+            raise HandoffError("fresh_codex_request_required")
         target = handoff["target"]
         body = {
             "task": handoff["task"],
@@ -95,7 +95,7 @@ class RunnerAdapter:
             if exc.code == 404:
                 return None
             if exc.code == 409:
-                raise _handoffs_errors.HandoffError("runner_request_conflict") from exc
+                raise HandoffError("runner_request_conflict") from exc
             raise
 
     def dispatch(
@@ -110,7 +110,7 @@ class RunnerAdapter:
         expected_request_hash=None,
     ):
         if cancelled.is_set() or time.monotonic() >= deadline:
-            raise _handoffs_errors.HandoffError("dispatch_stopped")
+            raise HandoffError("dispatch_stopped")
         target = handoff["target"]
         provider = target["provider"]
         base = self.endpoints[provider]
@@ -123,9 +123,9 @@ class RunnerAdapter:
         if handoff["operation"] == "resume":
             prior = handoff["prior"]
             if prior["provider"] != provider:
-                raise _handoffs_errors.HandoffError("foreign_resume")
+                raise HandoffError("foreign_resume")
             if prior["model"] != task["model"] or prior["effort"] != task["effort"]:
-                raise _handoffs_errors.HandoffError("resume_model_effort_mismatch")
+                raise HandoffError("resume_model_effort_mismatch")
             endpoint = base + "/v1/runs/" + prior["run_id"] + "/resume"
             task.update(
                 expected_post_run_hash=prior["post_run_hash"],
@@ -149,7 +149,7 @@ class RunnerAdapter:
                     expected_request_hash is not None
                     and actual_hash != expected_request_hash
                 ):
-                    raise _handoffs_errors.HandoffError("runner_request_changed")
+                    raise HandoffError("runner_request_changed")
                 endpoint = base + "/v1/runs/async"
             else:
                 endpoint = base + "/v1/runs"
@@ -167,7 +167,7 @@ class RunnerAdapter:
             with exc:
                 raw = json.load(exc)
         if status_code == 409:
-            raise _handoffs_errors.HandoffError("runner_request_conflict")
+            raise HandoffError("runner_request_conflict")
         if (
             status_code in {400, 401, 403, 404, 422}
             and isinstance(raw, dict)
@@ -179,7 +179,7 @@ class RunnerAdapter:
                 "error_category": raw.get("error_category", "runner_rejected"),
             }
         if not isinstance(raw, dict) or not raw.get("run_id"):
-            raise _handoffs_errors.HandoffError("invalid_runner_response")
+            raise HandoffError("invalid_runner_response")
         self.active[handoff["execution_id"]] = (base, raw["run_id"])
         if (
             early_start
@@ -190,7 +190,7 @@ class RunnerAdapter:
                 raw.get("client_request_id") != task["request_id"]
                 or raw.get("raw_event_ref") != f"laomedo:run:{raw['run_id']}:events"
             ):
-                raise _handoffs_errors.HandoffError("runner_ack_identity_mismatch")
+                raise HandoffError("runner_ack_identity_mismatch")
             if callable(on_ack):
                 on_ack(
                     {
@@ -209,7 +209,7 @@ class RunnerAdapter:
                     self.cancel(handoff["execution_id"])
                     cancel_forwarded = True
                 if time.monotonic() >= deadline:
-                    raise _handoffs_errors.HandoffError("runner_result_pending")
+                    raise HandoffError("runner_result_pending")
                 poll = Request(endpoint, headers=headers, method="GET")
                 try:
                     with urlopen(
@@ -218,7 +218,7 @@ class RunnerAdapter:
                         raw = json.load(response)
                 except TimeoutError as exc:
                     if time.monotonic() >= deadline:
-                        raise _handoffs_errors.HandoffError(
+                        raise HandoffError(
                             "runner_result_pending"
                         ) from exc
                     raise
@@ -226,7 +226,7 @@ class RunnerAdapter:
                     not isinstance(raw, dict)
                     or raw.get("run_id") != self.active[handoff["execution_id"]][1]
                 ):
-                    raise _handoffs_errors.HandoffError("runner_poll_identity_mismatch")
+                    raise HandoffError("runner_poll_identity_mismatch")
                 if raw.get("status") in {"prepared", "running"}:
                     time.sleep(min(0.05, max(0, deadline - time.monotonic())))
         # Deliberately omit profile, auth, host paths and raw transcript contents.
@@ -250,7 +250,7 @@ class RunnerAdapter:
         except (TypeError, ValueError, AttributeError):
             valid = False
         if not valid:
-            raise _handoffs_errors.HandoffError("invalid_runner_status_identity")
+            raise HandoffError("invalid_runner_status_identity")
         req = Request(
             self.endpoints[provider] + "/v1/runs/" + run_id,
             headers=self._headers(provider),
@@ -259,7 +259,7 @@ class RunnerAdapter:
         with urlopen(req, timeout=10) as response:
             value = json.load(response)
         if not isinstance(value, dict) or value.get("run_id") != run_id:
-            raise _handoffs_errors.HandoffError("runner_status_identity_mismatch")
+            raise HandoffError("runner_status_identity_mismatch")
         return {
             **{
                 key: value.get(key)

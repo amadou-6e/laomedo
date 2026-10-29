@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 import asyncio
-from http.server import BaseHTTPRequestHandler
-from http.server import ThreadingHTTPServer
+from .http.server import BrokerHttpServer
 from pathlib import Path
 from uuid import uuid4
 import json
-import laomedo.agents.agents.opencode.settings as _opencode_settings
-import laomedo.agents.agents.opencode.utils as _opencode_utils
-import laomedo.agents.errors as _runtime_errors
-import laomedo.agents.agents.base.utils as _runtime_utils
+from laomedo.agents.agents.opencode.models import OpenCodeConfig
+from laomedo.agents.agents.opencode.settings import CLI_VERSION
+from laomedo.agents.agents.opencode.settings import CONTROLLER_LIFETIME_SECONDS
+from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
+from laomedo.agents.agents.opencode.settings import WORKER_IMAGE_ID
+from laomedo.agents.agents.opencode.utils import _credential_binding
+from laomedo.agents.agents.opencode.utils import check_auth_fresh as opencode_check_auth_fresh
+from laomedo.agents.agents.opencode.utils import model_metadata
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.base.utils import _private
 import secrets
 import shutil
 import threading
-import time
 
 
 class CommandBroker:
@@ -36,7 +41,7 @@ class CommandBroker:
         self.closed = self.cleanup_failed = False
         self.error_code = None
         self.stopping = threading.Event()
-        self.worker_image_id = worker_image_id or _opencode_settings.WORKER_IMAGE_ID
+        self.worker_image_id = worker_image_id or WORKER_IMAGE_ID
         self.docker_endpoint = docker_endpoint
         self.receipts = (
             Path(receipt_directory)
@@ -46,52 +51,11 @@ class CommandBroker:
         self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.capacity = threading.BoundedSemaphore(1)
-        broker = self
 
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *_):
-                pass
-
-            def setup(self):
-                """Bound malformed or abandoned broker uploads."""
-                super().setup()
-                self.connection.settimeout(5)
-
-            def do_POST(self):
-                if (
-                    self.path != "/mcp"
-                    or self.headers.get("Authorization") != "Bearer " + broker.token
-                ):
-                    self.send_error(403)
-                    return
-                msg = None
-                try:
-                    length = int(self.headers.get("Content-Length", "0"))
-                    if not 0 < length <= 65536:
-                        raise ValueError("invalid_body")
-                    msg = json.loads(self.rfile.read(length))
-                    if "id" not in msg:
-                        self.send_response(202)
-                        self.end_headers()
-                        return
-                    value = broker.rpc(msg.get("method"), msg.get("params", {}))
-                    body = {"jsonrpc": "2.0", "id": msg["id"], "result": value}
-                except Exception:
-                    body = {
-                        "jsonrpc": "2.0",
-                        "id": msg.get("id") if isinstance(msg, dict) else None,
-                        "error": {"code": -32602, "message": "broker_request_failed"},
-                    }
-                data = json.dumps(body).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
 
         # Docker bridge must reach this host listener. A random bearer capability
         # is mandatory, and only one run's immutable mounts are addressable.
-        self.server = ThreadingHTTPServer(("0.0.0.0", 0), Handler)
+        self.server = BrokerHttpServer(self, ("0.0.0.0", 0))
         self.server.daemon_threads = True
         try:
             self.thread = threading.Thread(
@@ -127,10 +91,10 @@ class CommandBroker:
                 ]
             }
         if method != "tools/call" or params.get("name") != "exec":
-            raise _runtime_errors.RunnerError("unknown_worker_tool")
+            raise RunnerError("unknown_worker_tool")
         command = params.get("arguments", {}).get("command")
         if not isinstance(command, str) or not command.strip() or len(command) > 16000:
-            raise _runtime_errors.RunnerError("invalid_worker_command")
+            raise RunnerError("invalid_worker_command")
         result = self.execute(command)
         return {
             "content": [{"type": "text", "text": json.dumps(result)}],
@@ -144,7 +108,7 @@ class CommandBroker:
         try:
             with self.lock:
                 if self.closed:
-                    raise _runtime_errors.RunnerError("opencode_command_service_closed")
+                    raise RunnerError("opencode_command_service_closed")
             from py_docker import Client
             from py_docker.containers.models import ContainerSpec, Mount
             from py_docker.jobs.models import ContainerJob
@@ -206,7 +170,7 @@ class CommandBroker:
                 }
             except CleanupUnconfirmedError:
                 self.cleanup_failed = True
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "opencode_container_cleanup_unverified"
                 ) from None
             except JobCancelledError:
@@ -222,7 +186,7 @@ class CommandBroker:
                 }
             except DockerOperationError:
                 self.error_code = "opencode_workspace_command_failed"
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "opencode_workspace_command_failed"
                 ) from None
             with self.evidence.joinpath("worker-events.jsonl").open(
@@ -249,7 +213,7 @@ class CommandBroker:
         if acquired:
             self.capacity.release()
         if not acquired or self.cleanup_failed or self.thread.is_alive():
-            raise _runtime_errors.RunnerError("opencode_container_cleanup_unverified")
+            raise RunnerError("opencode_container_cleanup_unverified")
 
 
 class IsolatedOpenCode:
@@ -268,23 +232,23 @@ class IsolatedOpenCode:
         receipt_directory=None,
     ):
         self.termination_verified = False
-        selected_worker_id = worker_image_id or _opencode_settings.WORKER_IMAGE_ID
-        self.profile = _runtime_utils._private(Path(profile))
+        selected_worker_id = worker_image_id or WORKER_IMAGE_ID
+        self.profile = _private(Path(profile))
         if not (self.profile / "auth.json").is_file():
-            raise _runtime_errors.RunnerError("opencode_private_auth_required")
+            raise RunnerError("opencode_private_auth_required")
         self.check_auth_fresh()
         identity_path = self.profile / "identity.json"
         if not identity_path.exists():
-            _runtime_utils._json(identity_path, {"profile_id": str(uuid4())})
+            _json(identity_path, {"profile_id": str(uuid4())})
         self.runtime_identity = {
             "provider": "opencode",
-            "runtime_version": _opencode_settings.CLI_VERSION,
+            "runtime_version": CLI_VERSION,
             "image": image,
             "image_id": image_id,
             "profile_id": json.loads(identity_path.read_text())["profile_id"],
-            "worker_image": _opencode_settings.WORKER_IMAGE,
+            "worker_image": WORKER_IMAGE,
             "worker_image_id": selected_worker_id,
-            "credential_binding": _opencode_utils._credential_binding(self.profile),
+            "credential_binding": _credential_binding(self.profile),
         }
         try:
             from py_docker import Client
@@ -296,7 +260,7 @@ class IsolatedOpenCode:
                 ImageResolutionError,
             )
         except ImportError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_controller_startup_failed"
             ) from None
         try:
@@ -304,7 +268,7 @@ class IsolatedOpenCode:
                 self.docker_endpoint = docker.connection.endpoint
                 docker.images.resolve(image, expected_id=image_id)
                 docker.images.resolve(
-                    _opencode_settings.WORKER_IMAGE, expected_id=selected_worker_id
+                    WORKER_IMAGE, expected_id=selected_worker_id
                 )
                 receipts = (
                     Path(receipt_directory)
@@ -315,21 +279,21 @@ class IsolatedOpenCode:
                 for receipt in receipts.glob("*.json"):
                     docker.sessions.recover(receipt)
         except OwnershipConflictError:
-            raise _runtime_errors.RunnerError("opencode_image_pin_mismatch") from None
+            raise RunnerError("opencode_image_pin_mismatch") from None
         except ImageResolutionError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_controller_image_unavailable"
             ) from None
         except CleanupUnconfirmedError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_container_cleanup_unverified"
             ) from None
         except ConnectionConfigurationError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_container_configuration_invalid"
             ) from None
         except DockerOperationError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_controller_startup_failed"
             ) from None
         root = evidence / ("controller-" + uuid4().hex)
@@ -356,22 +320,11 @@ class IsolatedOpenCode:
             permissions = {"*": "deny", "laomedo_exec": "allow", "skill": {"*": "deny"}}
             for skill in (view / ".agents/skills").iterdir():
                 permissions["skill"][skill.name] = "allow"
-            config = {
-                "$schema": "https://opencode.ai/config.json",
-                "autoupdate": False,
-                "share": "disabled",
-                "plugin": [],
-                "mcp": {
-                    "laomedo": {
-                        "type": "remote",
-                        "url": f"http://host.docker.internal:{self.broker.server.server_port}/mcp",
-                        "headers": {"Authorization": "Bearer " + self.broker.token},
-                        "oauth": False,
-                    }
-                },
-                "permission": permissions,
-                "tools": {"*": False, "skill": True, "laomedo_exec": True},
-            }
+            config = OpenCodeConfig(
+                permissions=permissions,
+                broker_port=self.broker.server.server_port,
+                broker_token=self.broker.token,
+            ).to_config()
             provider_options = self.profile / "provider-options.json"
             if provider_options.exists():
                 supplied = json.loads(provider_options.read_text(encoding="utf-8"))
@@ -383,7 +336,7 @@ class IsolatedOpenCode:
                     .get("x-opencode-org-id")
                 )
                 if not isinstance(organization, str) or not organization:
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "opencode_organization_context_invalid"
                     )
                 routing = supplied["provider"]["opencode-go"]
@@ -391,7 +344,7 @@ class IsolatedOpenCode:
                     routing.get("api") != "https://opencode.ai/inference/go/openai/v1"
                     or routing.get("npm") != "@ai-sdk/openai-compatible"
                 ):
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "opencode_console_provider_routing_not_allowed"
                     )
                 config["provider"] = {
@@ -407,7 +360,7 @@ class IsolatedOpenCode:
             # them (e.g. enabling a named read-only native subagent).
             if configure_agents is not None:
                 configure_agents(config)
-            _runtime_utils._json(root / "config.json", config)
+            _json(root / "config.json", config)
             self.profile.joinpath("sessions").mkdir(exist_ok=True)
         except Exception:
             self.close()
@@ -422,7 +375,7 @@ class IsolatedOpenCode:
             command=[
                 "--signal=TERM",
                 "--kill-after=5s",
-                str(_opencode_settings.CONTROLLER_LIFETIME_SECONDS),
+                str(CONTROLLER_LIFETIME_SECONDS),
                 "opencode",
                 "acp",
             ],
@@ -471,7 +424,7 @@ class IsolatedOpenCode:
             self.docker = Client(environment={"DOCKER_HOST": self.docker_endpoint})
         except Exception:
             self.close()
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_controller_startup_failed"
             ) from None
 
@@ -506,10 +459,10 @@ class IsolatedOpenCode:
                 )
             )
             if result.exit_code:
-                raise _runtime_errors.RunnerError("opencode_model_not_connected")
-            return _opencode_utils.model_metadata(result.stdout.decode("utf-8"))
+                raise RunnerError("opencode_model_not_connected")
+            return model_metadata(result.stdout.decode("utf-8"))
         except DockerOperationError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_controller_startup_failed"
             ) from None
 
@@ -538,7 +491,7 @@ class IsolatedOpenCode:
             ContainerSession(
                 spec=self.spec,
                 limits=StreamLimits(
-                    seconds=_opencode_settings.CONTROLLER_LIFETIME_SECONDS + 10,
+                    seconds=CONTROLLER_LIFETIME_SECONDS + 10,
                     max_bytes=36 * 1024 * 1024,
                 ),
                 receipt_path=self.receipts.joinpath(self.name + ".json"),
@@ -557,15 +510,15 @@ class IsolatedOpenCode:
         client = AcpSession(self.session)
         try:
             initialized = await client.initialize()
-            if initialized.agent_info.version != _opencode_settings.CLI_VERSION:
-                raise _runtime_errors.RunnerError("opencode_runtime_pin_mismatch")
+            if initialized.agent_info.version != CLI_VERSION:
+                raise RunnerError("opencode_runtime_pin_mismatch")
             created = await client.open(session_id=session_id)
             options = getattr(created, "config_options", None) or []
             picker = next(
                 (option for option in options if option.category == "model"), None
             )
             if picker is None:
-                raise _runtime_errors.RunnerError("opencode_model_not_connected")
+                raise RunnerError("opencode_model_not_connected")
             configured = await client.configure(picker.id, model)
             observed = next(
                 (
@@ -576,7 +529,7 @@ class IsolatedOpenCode:
                 None,
             )
             if observed != model:
-                raise _runtime_errors.RunnerError("opencode_model_not_connected")
+                raise RunnerError("opencode_model_not_connected")
             on_session(client.session_id)
             capture.begin(client.session_id, task)
             client.on_update = capture.update
@@ -592,7 +545,7 @@ class IsolatedOpenCode:
             )
             capture.finish(client.session_id, status, outcome.usage)
             if status == "failed":
-                raise _runtime_errors.RunnerError("opencode_response_not_terminal")
+                raise RunnerError("opencode_response_not_terminal")
             return outcome
         finally:
             await client.close()
@@ -605,7 +558,7 @@ class IsolatedOpenCode:
     def check_transport(self):
         """Surface independently observed worker failures, never model claims."""
         if self.broker is not None and self.broker.error_code:
-            raise _runtime_errors.RunnerError(self.broker.error_code)
+            raise RunnerError(self.broker.error_code)
 
     def close(self):
         """Confirm exact controller and worker cleanup on the lifecycle creator."""
@@ -624,11 +577,11 @@ class IsolatedOpenCode:
             if self.docker is not None:
                 self.docker.close()
         if failed:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "opencode_container_cleanup_unverified"
             ) from None
         self.termination_verified = True
 
     def check_auth_fresh(self):
         """Validate the dedicated profile's existing bounded credential grant."""
-        _opencode_utils.check_auth_fresh(self.profile)
+        opencode_check_auth_fresh(self.profile)

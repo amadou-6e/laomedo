@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import laomedo.agents.activity.runner.settings as _runner_settings
+from laomedo.agents.activity.runner.settings import ALLOWED
 
-SAFE = _runner_settings.ALLOWED | frozenset(
+SAFE = ALLOWED | frozenset(
     {
         "session.id",
         "event.sequence",

@@ -27,8 +27,11 @@ The physical relocation and first import/resource/migration-map integration are
 recorded in `eb1f5e8` and `75ce39d`. Concrete implementations now live under
 `agents/agents/`; graph dispatch records are in `work_graph/runs/`, provider-native
 Activity/authentication have provider owners and the public component entrypoint
-delegates into `agents/interface/langflow/`. Initial class names and provider
-pipeline overrides still remain. Reusable Git execution, canonical Activity
+delegates into `agents/interface/langflow/`. The integration now uses `BaseAgent`,
+the three concrete `*Agent` names, `HttpAgentBridge`, `AgentHandoffController`,
+`AgentRequest` and `ActivityCapture`. The five HTTP handlers are module-level
+collaborators; `OpenCodeConfig.to_config()` owns the private native configuration.
+Provider pipeline overrides still remain. Reusable Git execution, canonical Activity
 adapters and shared lifecycle consolidation are not completed by those commits.
 
 Read the [implementation index](agents/README.md), [public boundary](interface/README.md),

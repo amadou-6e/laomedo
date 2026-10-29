@@ -6,6 +6,8 @@ MIN_TOKEN_REMAINING_MS = 210000  # 180-second request timeout plus startup margi
 
 
 CLI_VERSION = "1.18.33"
+CONFIG_SCHEMA_URL = "https://opencode.ai/config.json"
+BROKER_HOST = "host.docker.internal"
 
 # Independently owned worker sandbox pin. Initially the same reviewed image used
 # by Codex; updating the Codex controller must not silently update this worker.

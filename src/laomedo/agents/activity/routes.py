@@ -6,13 +6,13 @@ from fastapi import Query
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from starlette.concurrency import run_in_threadpool
-import laomedo.agents.activity.store as _agent_activity_store
-import laomedo.agents.activity.settings as _agent_activity_settings
+from laomedo.agents.activity.store import ActivityStore
+from laomedo.agents.activity.settings import Settings
 
 
 def install_activity_routes(app, authenticate, store=None):
     def configured():
-        path = _agent_activity_settings.Settings().database
+        path = Settings().database
         if store is None and not path:
             raise HTTPException(503, detail={"code": "agent_activity_not_configured"})
         if store is None and not Path(path).is_file():
@@ -22,7 +22,7 @@ def install_activity_routes(app, authenticate, store=None):
         return (
             store
             if store is not None
-            else _agent_activity_store.ActivityStore(path, read_only=True)
+            else ActivityStore(path, read_only=True)
         )
 
     def owner(user):
@@ -51,7 +51,7 @@ def install_activity_routes(app, authenticate, store=None):
 
     @app.get("/api/v1/laomedo/agent-executions/{flow}/{node}/{run}")
     async def invocation(flow: str, node: str, run: str, user=Depends(authenticate)):
-        import laomedo.agents.activity.projection as _agent_activity_projection
+        from laomedo.agents.activity.projection import project
 
         identity = owner(user)
 
@@ -64,7 +64,7 @@ def install_activity_routes(app, authenticate, store=None):
                 events.extend(page["events"])
                 after = page["next_after"]
                 if not page["has_more"] or len(events) >= 20000:
-                    projection = _agent_activity_projection.project(
+                    projection = project(
                         events,
                         root_thread=page["run"]["native_session"],
                         model=page["run"]["model"],

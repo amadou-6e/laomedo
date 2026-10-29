@@ -10,40 +10,52 @@ import os
 import re
 import secrets
 import threading
-import laomedo.agents.artifacts.errors as _artifacts_errors
-import laomedo.agents.artifacts.utils as _artifacts_utils
-import laomedo.agents.interface.output.utils as _contracts_output
-import laomedo.agents.interface.models as _contracts_models
-import laomedo.agents.agents.base.models as _runtime_models
-import laomedo.agents.errors as _runtime_errors
-import laomedo.agents.agents.base.utils as _runtime_utils
-import laomedo.agents.workspaces.errors as _agents_workspace_errors
-import laomedo.agents.workspaces.git as _workspace_git
-import laomedo.host.mediation.errors as _mediation_errors
-import laomedo.skills.registry.store as _registry_store
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.errors as _skills_workspace_errors
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.agents.artifacts.errors import ArtifactError
+from laomedo.agents.artifacts.utils import import_selected
+from laomedo.agents.artifacts.utils import relative_path
+from laomedo.agents.artifacts.utils import selections
+from laomedo.agents.interface.output.utils import verify_requirements
+from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
+from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.utils import _copy_tree
+from laomedo.agents.agents.base.utils import _git_tree
+from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.agents.base.utils import _id
+from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.base.utils import _private
+from laomedo.agents.agents.base.utils import _read
+from laomedo.agents.workspaces.errors import GitWorkspaceError
+from laomedo.agents.workspaces.git import prepare_git_workspace
+from laomedo.host.mediation.errors import MediationError
+from laomedo.skills.registry.store import SkillStore
+from laomedo.skills.registry.utils import inventory
+from laomedo.skills.registry.utils import tree_hash
+from laomedo.skills.workspace.errors import WorkspaceSkillError
+from laomedo.skills.workspace.utils import initialize
+from laomedo.skills.workspace.utils import install
+from laomedo.skills.workspace.utils import remove_owned_tree
+from laomedo.skills.workspace.utils import verify
 
-class Runner(ABC):
+class BaseAgent(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
 
     def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *,
                  lease_service: Path | None = None, github_authority=None,
                  mediator_state: Path | None = None, git_workspace: bool = False,
                  publication_controller=None, artifact_sources=None):
-        self.state = _runtime_utils._private(state)
-        self.store = _registry_store.SkillStore(skill_store)
+        self.state = _private(state)
+        self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
         self.git_workspace = git_workspace
         if (
             not self.source.is_dir()
             or (self.source / ".git").is_dir() != git_workspace
-            or (not git_workspace and not _runtime_utils._git_tree(self.source))
+            or (not git_workspace and not _git_tree(self.source))
         ):
-            raise _runtime_errors.RunnerError("source_workspace_must_be_git_tree")
+            raise RunnerError("source_workspace_must_be_git_tree")
         if self.state == self.store.root or self.state.is_relative_to(self.store.root):
-            raise _runtime_errors.RunnerError("state_overlaps_skill_store")
+            raise RunnerError("state_overlaps_skill_store")
         self.state.mkdir(parents=True, exist_ok=True)
         token_path = self.state / "api-token"
         try:
@@ -55,30 +67,30 @@ class Runner(ABC):
                 token_file.write(secrets.token_hex(32))
         self.api_token = token_path.read_text(encoding="utf-8")
         if not re.fullmatch(r"[0-9a-f]{64}", self.api_token):
-            raise _runtime_errors.RunnerError("invalid_runner_api_token")
+            raise RunnerError("invalid_runner_api_token")
         (self.state / "runs").mkdir(exist_ok=True)
         # The lease service is started independently of this runner, so a
         # whole-process-tree kill of the runner cannot also kill it.
         self.lease_service = Path(lease_service).resolve() if lease_service else None
         self.artifact_sources = {}
         for provider, source_state in (artifact_sources or {}).items():
-            if provider not in _contracts_models.SUPPORTED_PROVIDERS:
-                raise _runtime_errors.RunnerError("invalid_artifact_provider")
-            self.artifact_sources[provider] = _runtime_utils._private(
+            if provider not in SUPPORTED_PROVIDERS:
+                raise RunnerError("invalid_artifact_provider")
+            self.artifact_sources[provider] = _private(
                 Path(source_state)
             )
         self.publication_controller = publication_controller
         self.github_authority = github_authority
         self.mediator_state = (
-            _runtime_utils._private(mediator_state) if mediator_state else None
+            _private(mediator_state) if mediator_state else None
         )
         for record_path in (self.state / "runs").glob("*/record.json"):
-            record = _runtime_utils._read(record_path)
+            record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
                 record["status"] = "interrupted"
                 record["error_category"] = "runner_restarted"
                 self.recover_interrupted(record)
-                _runtime_utils._json(record_path, record)
+                _json(record_path, record)
         self.instance_id = str(uuid4())
         self.lock = threading.Lock()
         self.control_lock = threading.Lock()
@@ -91,7 +103,7 @@ class Runner(ABC):
         """Concrete adapter identity; there is no default provider."""
 
     @abstractmethod
-    def runtime_binding(self) -> _runtime_models.RuntimeBinding:
+    def runtime_binding(self) -> RuntimeBinding:
         """Return this provider's current public record binding, without credentials."""
 
     @abstractmethod
@@ -135,7 +147,7 @@ class Runner(ABC):
         """Provider pre-dispatch authentication hook; neutral runners do nothing."""
 
     def _run_dir(self, run_id: str) -> Path:
-        return self.state / "runs" / _runtime_utils._id(run_id)
+        return self.state / "runs" / _id(run_id)
 
 
     def _reserve_turn(self) -> int:
@@ -144,7 +156,7 @@ class Runner(ABC):
         ledger = self.state / "attempt-count.json"
         count = getattr(self, "_observed_turns", 0)
         try:
-            value = _runtime_utils._read(ledger) if ledger.exists() else {}
+            value = _read(ledger) if ledger.exists() else {}
             saved = value.get("attempted_turns")
         except (OSError, ValueError, TypeError, AttributeError):
             saved = None
@@ -153,14 +165,14 @@ class Runner(ABC):
         else:
             for path in (self.state / "runs").glob("*/record.json"):
                 try:
-                    prior = _runtime_utils._read(path).get("attempt_number", 0)
+                    prior = _read(path).get("attempt_number", 0)
                     if type(prior) is int and prior >= 0:
                         count = max(count, prior)
                 except (OSError, ValueError, TypeError, AttributeError):
                     continue
         self._observed_turns = count + 1
         try:
-            _runtime_utils._json(ledger, {"attempted_turns": count + 1})
+            _json(ledger, {"attempted_turns": count + 1})
         except OSError:
             pass
         return count + 1
@@ -171,25 +183,25 @@ class Runner(ABC):
 
 
     def status(self, run_id: str) -> dict:
-        return _runtime_utils._read(self._run_dir(run_id) / "record.json")
+        return _read(self._run_dir(run_id) / "record.json")
 
 
     def lookup_request(self, request_id: str) -> dict:
         """Find one durable async run without starting or changing it."""
         try:
-            _runtime_utils._id(request_id)
+            _id(request_id)
         except (TypeError, ValueError, AttributeError):
-            raise _runtime_errors.RunnerError("invalid_request_id") from None
+            raise RunnerError("invalid_request_id") from None
         with self.request_lock:
             matches = []
             for record_path in (self.state / "runs").glob("*/record.json"):
-                record = _runtime_utils._read(record_path)
+                record = _read(record_path)
                 if record.get("client_request_id") == request_id:
                     matches.append(record)
             if not matches:
-                raise _runtime_errors.RunnerError("request_not_found")
+                raise RunnerError("request_not_found")
             if len(matches) != 1:
-                raise _runtime_errors.RunnerError("request_identity_conflict")
+                raise RunnerError("request_identity_conflict")
             record = matches[0]
             return {
                 key: record.get(key)
@@ -216,26 +228,26 @@ class Runner(ABC):
                     cancel_requested=True,
                     cancel_confirmed=True,
                 )
-                _runtime_utils._json(self._run_dir(run_id) / "record.json", record)
+                _json(self._run_dir(run_id) / "record.json", record)
                 return record
             if record["status"] == "running":
                 flag = self.cancel_flags.get(run_id)
                 if flag is None:
-                    raise _runtime_errors.RunnerError("run_not_active_in_this_process")
+                    raise RunnerError("run_not_active_in_this_process")
                 flag.set()
                 record.update(cancel_requested=True, cancel_confirmed=False)
-                _runtime_utils._json(self._run_dir(run_id) / "record.json", record)
+                _json(self._run_dir(run_id) / "record.json", record)
                 return record
             return record
 
 
     def publish(self, run_id: str) -> dict:
         if self.publication_controller is None:
-            raise _runtime_errors.RunnerError("publication_controller_unconfigured")
+            raise RunnerError("publication_controller_unconfigured")
         try:
             result = self.publication_controller.publish(run_id)
-        except _mediation_errors.MediationError as error:
-            raise _runtime_errors.RunnerError(error.code) from None
+        except MediationError as error:
+            raise RunnerError(error.code) from None
         return {
             "status": "completed" if result["phase"] == "completed" else "failed",
             "run_id": run_id,
@@ -247,36 +259,36 @@ class Runner(ABC):
         if not isinstance(ref, dict) or not all(
             ref.get(k) for k in ("skill_id", "revision_id", "tree_hash")
         ):
-            raise _runtime_errors.RunnerError("pinned_skill_ref_required")
+            raise RunnerError("pinned_skill_ref_required")
         if ref["revision_id"] != ref["tree_hash"]:
-            raise _runtime_errors.RunnerError("skill_ref_hash_mismatch")
+            raise RunnerError("skill_ref_hash_mismatch")
         record = self.store.revision(ref["skill_id"], ref["revision_id"])
         if record["tree_hash"] != ref["tree_hash"]:
-            raise _runtime_errors.RunnerError("skill_ref_hash_mismatch")
+            raise RunnerError("skill_ref_hash_mismatch")
         target = workspace / ".agents" / "skills" / ref["skill_id"]
         if target.exists():
-            raise _runtime_errors.RunnerError("skill_path_conflict")
+            raise RunnerError("skill_path_conflict")
         target.mkdir(parents=True)
         for relative, expected in record["file_hashes"].items():
             item = self.store.read_file(ref["skill_id"], ref["revision_id"], relative)
             if item["file_hash"] != expected:
-                raise _runtime_errors.RunnerError("skill_file_hash_mismatch")
+                raise RunnerError("skill_file_hash_mismatch")
             destination = target / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(item["content"])
         if (
-            _registry_utils.tree_hash(_registry_utils.inventory(target))
+            tree_hash(inventory(target))
             != ref["tree_hash"]
         ):
-            raise _runtime_errors.RunnerError("materialized_skill_mismatch")
+            raise RunnerError("materialized_skill_mismatch")
         try:
             skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
         except (OSError, UnicodeError):
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "skill_frontmatter_name_required"
             ) from None
         if not skill_text.startswith("---\n") or "\n---\n" not in skill_text[4:]:
-            raise _runtime_errors.RunnerError("skill_frontmatter_name_required")
+            raise RunnerError("skill_frontmatter_name_required")
         frontmatter = skill_text[4:].split("\n---\n", 1)[0]
         names = [
             line.split(":", 1)[1].strip().strip("\"'")
@@ -284,7 +296,7 @@ class Runner(ABC):
             if line.startswith("name:")
         ]
         if names != [ref["skill_id"]]:
-            raise _runtime_errors.RunnerError("skill_frontmatter_name_mismatch")
+            raise RunnerError("skill_frontmatter_name_mismatch")
         return {
             "skill_id": ref["skill_id"],
             "revision_id": ref["revision_id"],
@@ -299,42 +311,42 @@ class Runner(ABC):
         self, request: dict, *, client_request_id=None, request_hash=None
     ) -> dict:
         if not isinstance(request, dict):
-            raise _runtime_errors.RunnerError("invalid_request")
+            raise RunnerError("invalid_request")
         task = request.get("task")
         if not isinstance(task, str) or not task.strip() or len(task) > 16000:
-            raise _runtime_errors.RunnerError("invalid_task")
+            raise RunnerError("invalid_task")
         model, effort = request.get("model"), request.get("effort")
         if not all(isinstance(x, str) and x for x in (model, effort)):
-            raise _runtime_errors.RunnerError("model_and_effort_required")
+            raise RunnerError("model_and_effort_required")
         output_requirements = request.get("output_requirements")
         if output_requirements is not None:
-            output_requirements = _contracts_output.verify_requirements(
+            output_requirements = verify_requirements(
                 output_requirements
             )
         output_retries = request.get("output_retries", 1)
         if type(output_retries) is not int or not 0 <= output_retries <= 8:
-            raise _runtime_errors.RunnerError("invalid_output_retry_count")
+            raise RunnerError("invalid_output_retry_count")
         if "skill_refs" in request and "skill_ref" in request:
-            raise _runtime_errors.RunnerError("conflicting_skill_inputs")
+            raise RunnerError("conflicting_skill_inputs")
         refs = (
             request["skill_refs"]
             if "skill_refs" in request
             else [request["skill_ref"]] if "skill_ref" in request else []
         )
         if not isinstance(refs, list) or len(refs) > 16:
-            raise _runtime_errors.RunnerError("one_to_sixteen_skills_required")
+            raise RunnerError("one_to_sixteen_skills_required")
         seen = set()
         for ref in refs:
             if not isinstance(ref, dict) or not isinstance(ref.get("skill_id"), str):
-                raise _runtime_errors.RunnerError("pinned_skill_ref_required")
+                raise RunnerError("pinned_skill_ref_required")
             if ref["skill_id"] in seen:
-                raise _runtime_errors.RunnerError("duplicate_skill_id")
+                raise RunnerError("duplicate_skill_id")
             seen.add(ref["skill_id"])
         binding = self.runtime_binding()
         source = self.source
         handoff = self._handoff(request.get("handoff"))
         if "github_scope" in request:
-            raise _runtime_errors.RunnerError("github_scope_must_come_from_authority")
+            raise RunnerError("github_scope_must_come_from_authority")
         github_ref = request.get("github_authorization_ref")
         if github_ref is not None and (
             self.github_authority is None
@@ -342,7 +354,7 @@ class Runner(ABC):
             or self.lease_service is None
             or self.mediator_state is None
         ):
-            raise _runtime_errors.RunnerError("mediated_lease_required")
+            raise RunnerError("mediated_lease_required")
         run_id = str(uuid4())
         run_dir = self._run_dir(run_id)
         run_dir.mkdir()
@@ -367,22 +379,22 @@ class Runner(ABC):
                     if github_ref is not None
                     else None
                 )
-            except _mediation_errors.MediationError as error:
-                raise _runtime_errors.RunnerError(error.code) from None
+            except MediationError as error:
+                raise RunnerError(error.code) from None
             if self.git_workspace:
                 try:
-                    baseline = _workspace_git.prepare_git_workspace(source, workspace)
-                except _agents_workspace_errors.GitWorkspaceError as error:
-                    raise _runtime_errors.RunnerError(str(error)) from error
-                source_hash = _runtime_utils._copy_tree(
+                    baseline = prepare_git_workspace(source, workspace)
+                except GitWorkspaceError as error:
+                    raise RunnerError(str(error)) from error
+                source_hash = _copy_tree(
                     workspace, canonical, exclude_root_git=True
                 )
             else:
                 baseline = None
-                source_hash = _runtime_utils._copy_tree(source, workspace)
+                source_hash = _copy_tree(source, workspace)
                 # Preserve the tested read-only canonical and sibling store mounts.
-                if _runtime_utils._copy_tree(source, canonical) != source_hash:
-                    raise _runtime_errors.RunnerError("source_changed_during_snapshot")
+                if _copy_tree(source, canonical) != source_hash:
+                    raise RunnerError("source_changed_during_snapshot")
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text(
                 "STORE-ORIGINAL", encoding="utf-8"
@@ -390,14 +402,14 @@ class Runner(ABC):
             # prepare_git_workspace already created an isolated repository
             # with preserved history; do not replace it with a fresh baseline.
             if not self.git_workspace:
-                workspace_skills.initialize(workspace)
+                initialize(workspace)
             elif github_scope is not None:
                 # Install trusted remote/handoff metadata before the immutable
                 # skill exclusion digest. _open_server then verifies this same
                 # remote and leaves the already-present rule unchanged.
-                import laomedo.host.mediation.agent_cli as _mediation_agent_cli
+                from laomedo.host.mediation.agent_cli import configure_remote
 
-                _mediation_agent_cli.configure_remote(
+                configure_remote(
                     workspace, github_scope["repository"]
                 )
             skills = [self._materialize(workspace, ref) for ref in refs]
@@ -407,22 +419,22 @@ class Runner(ABC):
                         parents=True, exist_ok=True
                     )
                 except OSError:
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "unsafe_materialized_skill_path"
                     ) from None
-            git_exclusion = workspace_skills.install(workspace, skills)
+            git_exclusion = install(workspace, skills)
             if not skills:
                 try:
-                    workspace_skills.verify(workspace, skills, git_exclusion)
-                except _skills_workspace_errors.WorkspaceSkillError as error:
-                    raise _runtime_errors.RunnerError(str(error)) from None
-            artifacts = _artifacts_utils.import_selected(
+                    verify(workspace, skills, git_exclusion)
+                except WorkspaceSkillError as error:
+                    raise RunnerError(str(error)) from None
+            artifacts = import_selected(
                 request.get("artifact_refs", []),
                 workspace,
                 self._artifact_source,
-                _runtime_utils._hash_tree,
+                _hash_tree,
             )
-            effective_hash = _runtime_utils._hash_tree(
+            effective_hash = _hash_tree(
                 workspace, exclude_root_git=self.git_workspace
             )
             (run_dir / "raw-events.jsonl").touch()
@@ -471,12 +483,12 @@ class Runner(ABC):
             }
             if github_scope is not None:
                 record["github_scope"] = github_scope
-            _runtime_utils._json(run_dir / "record.json", record)
+            _json(run_dir / "record.json", record)
         except Exception:
             try:
-                workspace_skills.remove_owned_tree(run_dir, self.state)
+                remove_owned_tree(run_dir, self.state)
             except OSError:
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "run_preparation_cleanup_unverified"
                 ) from None
             raise
@@ -487,9 +499,9 @@ class Runner(ABC):
         record = self._prepare(request)
         try:
             self._mirror_host_login()
-        except _runtime_errors.RunnerError as exc:
+        except RunnerError as exc:
             record.update(status="failed", error_category=str(exc))
-            _runtime_utils._json(
+            _json(
                 self._run_dir(record["run_id"]) / "record.json", record
             )
             raise
@@ -499,12 +511,12 @@ class Runner(ABC):
     def start_async(self, request: dict, *, response_gate=None) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
         if not isinstance(request, dict):
-            raise _runtime_errors.RunnerError("invalid_request")
+            raise RunnerError("invalid_request")
         request_id = request.get("request_id")
         try:
-            _runtime_utils._id(request_id)
+            _id(request_id)
         except (TypeError, ValueError, AttributeError):
-            raise _runtime_errors.RunnerError("invalid_request_id") from None
+            raise RunnerError("invalid_request_id") from None
         body = {key: value for key, value in request.items() if key != "request_id"}
         request_hash = (
             "sha256:"
@@ -516,10 +528,10 @@ class Runner(ABC):
         )
         with self.request_lock:
             for record_path in (self.state / "runs").glob("*/record.json"):
-                prior = _runtime_utils._read(record_path)
+                prior = _read(record_path)
                 if prior.get("client_request_id") == request_id:
                     if prior.get("request_hash") != request_hash:
-                        raise _runtime_errors.RunnerError("request_identity_conflict")
+                        raise RunnerError("request_identity_conflict")
                     return prior
             record = self._prepare(
                 body, client_request_id=request_id, request_hash=request_hash
@@ -541,12 +553,12 @@ class Runner(ABC):
         try:
             self._mirror_host_login()
             self._execute(run_id, task, resume=False)
-        except _runtime_errors.RunnerError as exc:
+        except RunnerError as exc:
             with self.control_lock:
                 record = self.status(run_id)
                 if record["status"] == "prepared":
                     record.update(status="failed", error_category=str(exc))
-                    _runtime_utils._json(self._run_dir(run_id) / "record.json", record)
+                    _json(self._run_dir(run_id) / "record.json", record)
 
 
     def _artifact_source(self, provider, run_id):
@@ -554,31 +566,31 @@ class Runner(ABC):
             return self._run_dir(run_id) / "post-run", self.status(run_id)
         state = self.artifact_sources.get(provider)
         if state is None:
-            raise _artifacts_errors.ArtifactError("foreign_artifact_store_required")
-        run = state / "runs" / _runtime_utils._id(run_id)
+            raise ArtifactError("foreign_artifact_store_required")
+        run = state / "runs" / _id(run_id)
         if run.is_symlink() or not run.resolve().is_relative_to(state):
-            raise _artifacts_errors.ArtifactError("foreign_artifact_store_required")
-        record = _runtime_utils._read(run / "record.json")
+            raise ArtifactError("foreign_artifact_store_required")
+        record = _read(run / "record.json")
         if record.get("provider") != provider or record.get("run_id") != run_id:
-            raise _artifacts_errors.ArtifactError("artifact_snapshot_mismatch")
+            raise ArtifactError("artifact_snapshot_mismatch")
         return run / "post-run", record
 
 
     def select_artifacts(self, run_id, paths):
         if not isinstance(paths, list) or len(paths) > 32:
-            raise _artifacts_errors.ArtifactError("invalid_artifact_selection")
+            raise ArtifactError("invalid_artifact_selection")
         record = self.status(run_id)
         snapshot = self._run_dir(run_id) / "post-run"
-        if record.get("status") != "completed" or _runtime_utils._hash_tree(
+        if record.get("status") != "completed" or _hash_tree(
             snapshot
         ) != record.get("post_run_hash"):
-            raise _artifacts_errors.ArtifactError("artifact_snapshot_mismatch")
+            raise ArtifactError("artifact_snapshot_mismatch")
         result = []
         for path in paths:
-            path = _artifacts_utils.relative_path(path)
+            path = relative_path(path)
             source = snapshot / path
             if not source.is_file() or source.stat().st_size > 1024 * 1024:
-                raise _artifacts_errors.ArtifactError(
+                raise ArtifactError(
                     "artifact_file_missing_or_too_large"
                 )
             result.append(
@@ -592,11 +604,11 @@ class Runner(ABC):
                     "destination": "handoff/" + path,
                 }
             )
-        if _runtime_utils._hash_tree(snapshot) != record["post_run_hash"]:
-            raise _artifacts_errors.ArtifactError(
+        if _hash_tree(snapshot) != record["post_run_hash"]:
+            raise ArtifactError(
                 "artifact_source_changed_during_selection"
             )
-        return _artifacts_utils.selections(result)
+        return selections(result)
 
 
     def _handoff(self, value):
@@ -608,23 +620,23 @@ class Runner(ABC):
             "source",
             "workspace_policy",
         }:
-            raise _runtime_errors.RunnerError("invalid_handoff_provenance")
-        _runtime_utils._id(value["execution_id"])
+            raise RunnerError("invalid_handoff_provenance")
+        _id(value["execution_id"])
         if (
             type(value["step"]) is not int
             or value["step"] < 0
             or value["workspace_policy"] != "independent"
         ):
-            raise _runtime_errors.RunnerError("invalid_handoff_provenance")
+            raise RunnerError("invalid_handoff_provenance")
         origin = value["source"]
         if origin is not None:
             if (
                 not isinstance(origin, dict)
                 or set(origin) != {"provider", "run_id"}
-                or origin["provider"] not in _contracts_models.SUPPORTED_PROVIDERS
+                or origin["provider"] not in SUPPORTED_PROVIDERS
             ):
-                raise _runtime_errors.RunnerError("invalid_handoff_origin")
-            _runtime_utils._id(origin["run_id"])
+                raise RunnerError("invalid_handoff_origin")
+            _id(origin["run_id"])
         return json.loads(json.dumps(value))
 
 
@@ -636,42 +648,42 @@ class Runner(ABC):
         snapshot taken while its container was still alive.
         """
         try:
-            workspace_skills.verify(
+            verify(
                 root / "workspace", record["skills"],
                 record.get("skill_git_exclusion", {"enabled": False}),
             )
         except ValueError as error:
-            raise _runtime_errors.RunnerError(str(error)) from None
+            raise RunnerError(str(error)) from None
         try:
             self._verify_protected_mounts(root, record)
             pending = root / ("post-run-pending-" + uuid4().hex)
-            digest = _runtime_utils._copy_tree(
+            digest = _copy_tree(
                 root / "workspace", pending, exclude_root_git=self.git_workspace,
             )
             previous = root / "post-run"
             if previous.exists():
-                workspace_skills.remove_owned_tree(previous, self.state)
+                remove_owned_tree(previous, self.state)
             pending.rename(previous)
             return digest
-        except _runtime_errors.RunnerError:
+        except RunnerError:
             raise
         except Exception:
-            raise _runtime_errors.RunnerError("workspace_copy_mismatch") from None
+            raise RunnerError("workspace_copy_mismatch") from None
 
     def _verify_protected_mounts(self, root: Path, record: dict) -> None:
         """Keep one canonical integrity check for live and closed run boundaries."""
         if (
-            _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]
+            _hash_tree(root / "canonical") != record["source_hash"]
             or (root / "store/sentinel.txt").read_text(encoding="utf-8")
             != "STORE-ORIGINAL"
         ):
-            raise _runtime_errors.RunnerError("protected_mount_changed")
+            raise RunnerError("protected_mount_changed")
 
     def _mediator_route(self) -> tuple[str, str]:
         # host.docker.internal -> host loopback is checked by the Windows
         # Docker Desktop probe. Other network layouts need their own check.
         if os.name != "nt" or self.mediator_state is None:
-            raise _runtime_errors.RunnerError("mediator_container_route_unverified")
+            raise RunnerError("mediator_container_route_unverified")
         try:
             status = json.loads(
                 (self.mediator_state / "mediator.json").read_text(encoding="utf-8")
@@ -689,5 +701,5 @@ class Runner(ABC):
             if health != {"status": "ready", "instance": instance}:
                 raise ValueError("mediator_instance_mismatch")
         except (OSError, ValueError, KeyError, TypeError, TimeoutError) as error:
-            raise _runtime_errors.RunnerError("mediator_unavailable") from error
+            raise RunnerError("mediator_unavailable") from error
         return f"http://host.docker.internal:{port}/v1/mediate", instance

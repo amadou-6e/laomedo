@@ -7,8 +7,8 @@ import threading
 from pathlib import Path
 from uuid import uuid4
 
-from laomedo.agents.agents.codex import settings as _codex_settings
-import laomedo.agents.errors as _runtime_errors
+from laomedo.agents.agents.codex.settings import CLI_VERSION
+from laomedo.agents.errors import RunnerError
 
 
 class Executor:
@@ -78,9 +78,9 @@ class Executor:
         """Do not infer executor survival from the controller's ACP response."""
         try:
             if self.read_failed or not self.session.state().running:
-                raise _runtime_errors.RunnerError("executor_lost")
+                raise RunnerError("executor_lost")
         except RuntimeError:
-            raise _runtime_errors.RunnerError("executor_lost") from None
+            raise RunnerError("executor_lost") from None
 
     def _exec(self, identity, command):
         """Execute a bounded policy probe through the selected owned session."""
@@ -92,10 +92,10 @@ class Executor:
                 identity, command, StreamLimits(seconds=5, max_bytes=65536)
             )
             if result.exit_code:
-                raise _runtime_errors.RunnerError("docker_control_failed")
+                raise RunnerError("docker_control_failed")
             return result.stdout.decode("utf-8").strip()
         except (DockerOperationError, UnicodeError):
-            raise _runtime_errors.RunnerError("docker_control_unavailable") from None
+            raise RunnerError("docker_control_unavailable") from None
 
     def _controller_listeners(self, controller) -> set[str]:
         """Reject controller-owned listening TCP/Unix and any UDP socket."""
@@ -138,18 +138,18 @@ class Executor:
 
     def assert_controller_isolated(self, controller) -> None:
         if self._controller_listeners(controller):
-            raise _runtime_errors.RunnerError("controller_listener_gate_failed")
+            raise RunnerError("controller_listener_gate_failed")
         if (
             self._exec(controller.identity, ["codex", "--version"])
-            != _codex_settings.CLI_VERSION
+            != CLI_VERSION
         ):
-            raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
+            raise RunnerError("unsupported_codex_cli_version")
         if self.read_failed or not self.session.state().running:
-            raise _runtime_errors.RunnerError("executor_not_running")
+            raise RunnerError("executor_not_running")
         for session in (controller, self.session):
             container = self.client.containers.inspect(session.identity)
             if container is None or container.attrs["Image"] != self.image:
-                raise _runtime_errors.RunnerError("running_image_digest_changed")
+                raise RunnerError("running_image_digest_changed")
 
     def _drain(self) -> None:
         """Consume binary output under the session budget without retaining secrets."""
@@ -173,7 +173,7 @@ class Executor:
                 if self.reader.is_alive():
                     raise DockerOperationError("confirm executor reader shutdown")
         except DockerOperationError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "executor_termination_unverified"
             ) from None
         finally:

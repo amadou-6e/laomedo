@@ -24,7 +24,7 @@ class MigrationFileTests(unittest.TestCase):
             path = Path(directory) / 'launch.py'; path.write_bytes(source)
             result = subprocess.run([sys.executable, str(TOOL), str(path), '--apply'], capture_output=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(path.read_bytes(), b'\xef\xbb\xbffrom laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner\n')
+            self.assertEqual(path.read_bytes(), b'\xef\xbb\xbffrom laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner\n')
 
     def test_unparseable_import_requires_manual_migration(self):
         source = 'from laomedo import local_runner\nif (\n'
@@ -44,7 +44,7 @@ class MigrationFileTests(unittest.TestCase):
         migrated = migration.migrate_value(graph); data = migrated['nodes'][0]['data']
         self.assertEqual(data['module'], old); self.assertEqual(data['args'], [old])
         self.assertEqual(data['node']['template']['task']['value'], old)
-        self.assertEqual(data['node']['template']['code']['value'], 'import laomedo.agents.agents.codex.runner')
+        self.assertEqual(data['node']['template']['code']['value'], 'import laomedo.agents.agents.codex.agent')
         launcher = {'command': 'python -m ' + old, 'nested': {'command': old}}
         self.assertEqual(migration.migrate_value(launcher), {'command': 'python -m laomedo.agents.agents.codex.cli', 'nested': {'command': old}})
 
@@ -53,7 +53,7 @@ class MigrationFileTests(unittest.TestCase):
         migrated = migration.migrate_source(source)
         self.assertEqual(migrated, 'from laomedo.agents.activity import capture\n')
         namespace = {}; exec(migrated, namespace)
-        self.assertTrue(hasattr(namespace['capture'], 'RunnerCapture'))
+        self.assertTrue(hasattr(namespace['capture'], 'ActivityCapture'))
 
     def test_check_mode_reports_changes_without_writing(self):
         with tempfile.TemporaryDirectory() as directory:

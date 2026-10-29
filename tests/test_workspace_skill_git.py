@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.workspace.utils import remove_owned_tree
 from test_local_runner import FakeServer

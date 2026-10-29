@@ -1,6 +1,6 @@
 """Codex protocol/security pins and native feature configuration."""
 import threading
-import laomedo._paths as _package_paths
+from laomedo._paths import package_root
 
 IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
 
@@ -37,17 +37,17 @@ SPLIT_TOOLS = frozenset(
 )
 
 
-CONFIG = _package_paths.package_root() / "agents" / "agents" / "codex" / "resources" / "runner-config.toml"
+CONFIG = package_root() / "agents" / "agents" / "codex" / "resources" / "runner-config.toml"
 
 
-SECCOMP = _package_paths.package_root() / "agents" / "agents" / "codex" / "resources" / "codex-seccomp.json"
+SECCOMP = package_root() / "agents" / "agents" / "codex" / "resources" / "codex-seccomp.json"
 
 
 SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf50691"
 
 
 MEDIATION_CLIENT = (
-    _package_paths.package_root()
+    package_root()
     / "host"
     / "mediation"
     / "resources"

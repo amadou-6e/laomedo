@@ -3,7 +3,7 @@
 import hashlib
 import json
 from pydantic import BaseModel, ConfigDict, Field
-from laomedo.agents.agents.claude import settings
+from laomedo.agents.agents.claude.settings import SYSTEM
 
 
 class ClaudePolicy(BaseModel):
@@ -54,7 +54,7 @@ class ClaudePolicy(BaseModel):
             },
             "allowDangerouslySkipPermissions": False,
             "promptSuggestions": False,
-            "systemPrompt": settings.SYSTEM,
+            "systemPrompt": SYSTEM,
             "extraArgs": {
                 "restricted": None,
                 "permission-prompts": "none",

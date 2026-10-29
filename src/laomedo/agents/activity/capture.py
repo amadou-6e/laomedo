@@ -8,14 +8,14 @@ from urllib.request import Request
 from urllib.request import build_opener
 from uuid import UUID
 import json
-import laomedo.agents.activity.utils as _agent_activity_utils
+from laomedo.agents.activity.utils import capture_for
 import threading
 import time
 
 
-class RunnerCapture:
+class ActivityCapture:
     def __init__(self, component):
-        self.capture = _agent_activity_utils.capture_for(component)
+        self.capture = capture_for(component)
         self.done = threading.Event()
         self.refused = threading.Event()
         self.started = False

@@ -22,7 +22,7 @@ spec = importlib.util.spec_from_file_location("codex_agent", MODULE_PATH)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
-from laomedo.integrations.langflow.agent import component as shared_module
+from laomedo.agents.interface.langflow import component as shared_module
 
 skill_spec = importlib.util.spec_from_file_location("skill_component", MODULE_PATH.with_name("skill.py"))
 skill_module = importlib.util.module_from_spec(skill_spec)
@@ -70,7 +70,7 @@ def result(**changes):
 
 class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
     def test_bridge_activity_capture_uses_runner_token(self):
-        from laomedo.agents.activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture
         with tempfile.TemporaryDirectory() as folder:
             runner_path = Path(folder) / 'runner-token'
             bridge_path = Path(folder) / 'bridge-token'
@@ -80,7 +80,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             with patch.dict(os.environ, {'LAOMEDO_RUNNER_TOKEN_FILE': str(runner_path),
                     'LAOMEDO_BRIDGE_TOKEN_FILE': str(bridge_path)}), \
                     patch('laomedo.agents.activity.utils.capture_for', return_value=ActivityInvocation.model_construct(store=object(), invocation_id='internal')):
-                capture = RunnerCapture(node)
+                capture = ActivityCapture(node)
                 self.assertEqual(node._token_file_path(), str(bridge_path))
                 self.assertEqual(node._runner_token_file_path(), str(runner_path))
                 self.assertEqual(capture.token, runner_path.read_text())

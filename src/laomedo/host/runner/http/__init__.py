@@ -1,1 +1,1 @@
-"""Trusted host HTTP composition boundary for local Agents."""
+"""Explicit HTTP ownership and module-level request handlers."""

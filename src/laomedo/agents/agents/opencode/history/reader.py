@@ -12,7 +12,11 @@ import time
 from uuid import uuid4
 
 from laomedo.agents.activity.redaction.utils import sanitized
-from laomedo.agents.agents.opencode.history import settings
+from laomedo.agents.agents.opencode.history.settings import DATABASE_FILE
+from laomedo.agents.agents.opencode.history.settings import EXPORT_SECONDS
+from laomedo.agents.agents.opencode.history.settings import MAX_EXPORT_BYTES
+from laomedo.agents.agents.opencode.history.settings import MAX_SESSIONS
+from laomedo.agents.agents.opencode.history.settings import Settings
 from laomedo.agents.agents.opencode.history.errors import HistoryError
 from laomedo.agents.agents.opencode.history.models import (
     HistorySource,
@@ -49,11 +53,11 @@ class HistoryReader:
 
         if not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
             raise ValueError("Invalid native export identity")
-        deadline = time.monotonic() + settings.Settings().export_batch_seconds
+        deadline = time.monotonic() + Settings().export_batch_seconds
         private = Path(tempfile.mkdtemp(prefix="history-", dir=self.evidence))
         unresolved = False
         try:
-            self._copy_database(private / settings.DATABASE_FILE)
+            self._copy_database(private / DATABASE_FILE)
             history = NativeHistory(root_id=session_id)
             pending = [(session_id, None)]
             total = 0
@@ -66,14 +70,14 @@ class HistoryReader:
                                 "Native history tree is cyclic or has conflicting parents"
                             )
                         continue
-                    if len(history.sessions) >= settings.MAX_SESSIONS:
+                    if len(history.sessions) >= MAX_SESSIONS:
                         raise ValueError(
                             "Native history tree is cyclic or exceeds its bound"
                         )
                     # Reserve bounded process termination and receipt cleanup
                     # time inside the whole-tree budget, not once per child.
                     seconds = min(
-                        settings.EXPORT_SECONDS, int(deadline - time.monotonic()) - 15
+                        EXPORT_SECONDS, int(deadline - time.monotonic()) - 15
                     )
                     if seconds < 1:
                         raise ValueError(
@@ -81,7 +85,7 @@ class HistoryReader:
                         )
                     payload = self._export(docker, private, identity, seconds)
                     total += len(payload)
-                    if total > settings.MAX_EXPORT_BYTES:
+                    if total > MAX_EXPORT_BYTES:
                         raise ValueError("Native history export exceeds its byte bound")
                     exported = NativeExport.model_validate_json(payload)
                     exported.bind(identity, parent)
@@ -103,8 +107,8 @@ class HistoryReader:
         VACUUM INTO purges deleted-page contents before any copy reaches disk or
         a credential-free export job. No live profile is modified.
         """
-        source = self.source.store / settings.DATABASE_FILE
-        limit = settings.Settings().max_database_bytes
+        source = self.source.store / DATABASE_FILE
+        limit = Settings().max_database_bytes
         if source.stat().st_size > limit:
             raise HistoryError("opencode_history_database_limit")
         deadline = time.monotonic() + 10
@@ -211,7 +215,7 @@ class HistoryReader:
                 ),
                 limits=StreamLimits(
                     seconds=seconds + 10,
-                    max_bytes=settings.MAX_EXPORT_BYTES,
+                    max_bytes=MAX_EXPORT_BYTES,
                 ),
                 wait_timeout_seconds=10.0,
                 receipt_path=self.source.receipts / (name + ".json"),

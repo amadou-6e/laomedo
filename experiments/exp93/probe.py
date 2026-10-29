@@ -9,7 +9,7 @@ import time
 from datetime import datetime; from datetime import timezone
 from uuid import uuid4
 
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skills.registry.store import SkillStore
 

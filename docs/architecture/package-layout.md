@@ -71,7 +71,7 @@ src/laomedo/
 
 Each implementation has one owner. The neutral lifecycle is
 `laomedo.agents.agents.base.agent.Runner`; Codex execution is
-`laomedo.agents.agents.codex.runner.CodexRunner`. Use
+`laomedo.agents.agents.codex.agent.CodexRunner`. Use
 `laomedo.skills.registry.store` and `laomedo.agents.activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions

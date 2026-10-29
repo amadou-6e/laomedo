@@ -11,31 +11,40 @@ from uuid import uuid4
 import asyncio
 import hashlib
 import json
-import laomedo.agents.activity.utils as _agent_activity_utils
-import laomedo.agents.activity.runner.feed as _runner_feed
-import laomedo.agents.interface.output.utils as _contracts_output
-import laomedo.agents.agents.claude.catalog as _claude_catalog
-import laomedo.agents.agents.claude.settings as _claude_settings
-import laomedo.agents.agents.claude.container as _claude_container
-import laomedo.agents.agents.claude.utils as _agents_providers_claude_utils
-import laomedo.agents.errors as _runtime_errors
-import laomedo.agents.agents.base.agent as _runtime_runner
-import laomedo.agents.agents.base.models as _runtime_models
-import laomedo.agents.agents.base.utils as _runtime_utils
-import laomedo.agents.agents.claude.auth.errors as _claude_errors
-import laomedo.agents.agents.claude.auth.utils as _host_credentials_claude_utils
-import laomedo.host.leases.models as _leases_models
-import laomedo.host.leases.utils as _leases_utils
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.workspace.utils as workspace_skills
-import laomedo.agents.agents.claude.auth.settings as _host_claude_settings
+from laomedo.agents.activity.utils import now
+from laomedo.agents.activity.runner.feed import line_count
+from laomedo.agents.activity.runner.feed import receipt
+from laomedo.agents.interface.output.utils import evaluate
+from laomedo.agents.agents.claude.catalog import EFFORTS
+from laomedo.agents.agents.claude.settings import CLI_VERSION
+from laomedo.agents.agents.claude.settings import IMAGE
+from laomedo.agents.agents.claude.settings import PROFILE
+from laomedo.agents.agents.claude.container import ClaudeContainer
+from laomedo.agents.agents.claude.container import CommandService
+from laomedo.agents.agents.claude.utils import activity_usage
+from laomedo.agents.agents.claude.utils import configuration_hash
+from laomedo.agents.agents.claude.utils import normalize_models
+from laomedo.agents.agents.claude.utils import terminal_result
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
+from laomedo.agents.agents.claude.auth.utils import mirror_login
+from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.utils import cleanup_exact
+from laomedo.skills.registry.utils import inventory
+from laomedo.skills.registry.utils import tree_hash
+from laomedo.skills.workspace.utils import verify
+from laomedo.agents.agents.claude.auth.settings import Settings
 import re
 import subprocess
 import threading
 import time
 
 
-class ClaudeRunner(_runtime_runner.Runner):
+class ClaudeAgent(BaseAgent):
     provider = "claude"
 
     def editor_model_catalog(self):
@@ -46,7 +55,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         if "run_timeout_seconds" in body:
             value = body["run_timeout_seconds"]
             if type(value) is not int or not 1 <= value <= 86400:
-                raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
+                raise RunnerError("claude_turn_timeout_invalid")
             extra["run_timeout_seconds"] = value
         required = (
             extra.get("run_timeout_seconds")
@@ -57,13 +66,13 @@ class ClaudeRunner(_runtime_runner.Runner):
         return extra
 
     def runtime_binding(self):
-        return _runtime_models.RuntimeBinding(
+        return RuntimeBinding(
             provider=self.provider,
             profile=self.profile,
             image=self.image,
             image_id=self.image_id,
             execution_mode="claude_container",
-            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
+            cli_version="Claude Code " + CLI_VERSION,
             config_sha256=None,
         )
 
@@ -72,8 +81,8 @@ class ClaudeRunner(_runtime_runner.Runner):
         # Reconcile the exact persisted controller identity without broad cleanup.
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
-            verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(
+            verified, detail = cleanup_exact(
+                ContainerIdentity(
                     name=owner["name"],
                     run_id=record["run_id"],
                     token=owner["launch_token"],
@@ -98,7 +107,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             try:
                 return deepcopy(pending.result(timeout=65))
             except FutureTimeout:
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "runner_model_catalog_unavailable_check_runner_connection"
                 ) from None
         try:
@@ -176,7 +185,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 raise ValueError("catalog_response_missing")
             if not isinstance(responses[0], dict):
                 raise ValueError("invalid_catalog_response")
-            models = _agents_providers_claude_utils.normalize_models(
+            models = normalize_models(
                 responses[0]["models"]
             )
             return {
@@ -187,7 +196,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 "submitted_turns": 0,
             }
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
-            raise _runtime_errors.RunnerError(failure) from None
+            raise RunnerError(failure) from None
 
     def __init__(
         self,
@@ -195,8 +204,8 @@ class ClaudeRunner(_runtime_runner.Runner):
         skill_store,
         source_workspace,
         *,
-        image=_claude_settings.IMAGE,
-        profile_volume=_claude_settings.PROFILE,
+        image=IMAGE,
+        profile_volume=PROFILE,
         lease_service=None,
         turn_timeout=180,
         container=None,
@@ -206,9 +215,9 @@ class ClaudeRunner(_runtime_runner.Runner):
         artifact_sources=None,
     ):
         if type(turn_timeout) is not int or not 1 <= turn_timeout <= 86400:
-            raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
+            raise RunnerError("claude_turn_timeout_invalid")
         self.turn_timeout = turn_timeout
-        self.container = container or _claude_container.ClaudeContainer(
+        self.container = container or ClaudeContainer(
             image, profile_volume, lease_service
         )
         self.executable = "claude"
@@ -227,24 +236,24 @@ class ClaudeRunner(_runtime_runner.Runner):
         self.image, self.image_id = image, self.container.image_id
 
     def _mirror_host_login(self, *, minimum_validity_seconds=None):
-        if _host_claude_settings.Settings().mirror_host_login == "1":
+        if Settings().mirror_host_login == "1":
             try:
-                _host_credentials_claude_utils.mirror_login(
+                mirror_login(
                     self.container.profile,
                     self.container.image_id,
                     minimum_validity_seconds=minimum_validity_seconds
                     or self.turn_timeout,
                 )
-            except _claude_errors.LocalClaudeLoginError as error:
+            except LocalClaudeLoginError as error:
                 if str(error) == "claude_host_login_unavailable":
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "claude_host_login_unavailable"
                     ) from None
                 if str(error) == "claude_host_login_expired":
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "claude_host_login_expired"
                     ) from None
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "claude_local_login_copy_failed"
                 ) from None
 
@@ -254,7 +263,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         try:
             auth = json.loads(checked.stdout)
         except ValueError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "claude_subscription_unavailable"
             ) from None
         if (
@@ -262,7 +271,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             or not auth.get("loggedIn")
             or auth.get("authMethod") != "claude.ai"
         ):
-            raise _runtime_errors.RunnerError("claude_subscription_unavailable")
+            raise RunnerError("claude_subscription_unavailable")
         identity = {key: auth[key] for key in ("email", "orgId") if auth.get(key)}
         return (
             "sha256:"
@@ -281,7 +290,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         self._check_auth()
         return {
             "provider": self.provider,
-            "cli_version": _claude_settings.CLI_VERSION,
+            "cli_version": CLI_VERSION,
             "status": "ready",
             "native_tools": ["Skill", "mcp__laomedo__exec_command"],
             "profile": self.profile,
@@ -297,12 +306,12 @@ class ClaudeRunner(_runtime_runner.Runner):
                 r"[A-Za-z0-9][A-Za-z0-9_.\[\]-]{0,159}", request["model"]
             )
         ):
-            raise _runtime_errors.RunnerError("claude_model_required")
-        if request.get("effort") not in _claude_catalog.EFFORTS:
-            raise _runtime_errors.RunnerError("unsupported_claude_effort")
+            raise RunnerError("claude_model_required")
+        if request.get("effort") not in EFFORTS:
+            raise RunnerError("unsupported_claude_effort")
         timeout = request.get("run_timeout_seconds", self.turn_timeout)
         if type(timeout) is not int or not 1 <= timeout <= 86400:
-            raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
+            raise RunnerError("claude_turn_timeout_invalid")
         # Explicit editor refresh owns discovery latency. Reuse the last native
         # selection for dispatch even after its editor-cache TTL; never silently
         # remap an alias during a slow concurrent refresh. A cold API client
@@ -311,7 +320,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             cached = getattr(self, "_catalog_cached", None)
             selected_catalog = deepcopy(cached[1]) if cached else None
         if not selected_catalog:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "runner_model_catalog_unavailable_check_runner_connection"
             )
         choices = selected_catalog["models"]
@@ -328,9 +337,9 @@ class ClaudeRunner(_runtime_runner.Runner):
                 None,
             )
         if choice is None:
-            raise _runtime_errors.RunnerError("claude_model_required")
+            raise RunnerError("claude_model_required")
         if request["effort"] not in choice["efforts"]:
-            raise _runtime_errors.RunnerError("unsupported_claude_effort")
+            raise RunnerError("unsupported_claude_effort")
         # Pinned native skills may instruct draft commands through the isolated
         # worker, but may not execute shell substitutions/hooks in the credential
         # controller or widen its frozen tools/model/session grant.
@@ -361,17 +370,17 @@ class ClaudeRunner(_runtime_runner.Runner):
                             .replace("\r", "\n")
                         )
                     except UnicodeError:
-                        raise _runtime_errors.RunnerError(
+                        raise RunnerError(
                             "skill_frontmatter_name_required"
                         ) from None
                     if re.search(r"!`", text):
-                        raise _runtime_errors.RunnerError(
+                        raise RunnerError(
                             "claude_native_skill_policy_unsupported"
                         )
                     # Reject ambiguous delimiters rather than guessing how the
                     # native loader interprets whitespace or unterminated YAML.
                     if not text.startswith("---\n") or "\n---\n" not in text[4:]:
-                        raise _runtime_errors.RunnerError(
+                        raise RunnerError(
                             "claude_native_skill_policy_unsupported"
                         )
                     front = text[4:].split("\n---\n", 1)[0]
@@ -394,19 +403,19 @@ class ClaudeRunner(_runtime_runner.Runner):
                             continue
                         key = re.match(r"^['\"]?([A-Za-z0-9_-]+)['\"]?\s*:", line)
                         if key is None or key.group(1) not in allowed:
-                            raise _runtime_errors.RunnerError(
+                            raise RunnerError(
                                 "claude_native_skill_policy_unsupported"
                             )
         record = super()._prepare(request, **kwargs)
         record.update(
             provider=self.provider,
-            runtime_version=_claude_settings.CLI_VERSION,
+            runtime_version=CLI_VERSION,
             execution_mode="claude_container",
             profile=self.profile,
             image=self.image,
             image_id=self.image_id,
-            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
-            config_sha256=_agents_providers_claude_utils.configuration_hash(
+            cli_version="Claude Code " + CLI_VERSION,
+            config_sha256=configuration_hash(
                 choice["resolved_model"], request["effort"], record["skills"]
             ),
             native_tools=(["Skill"] if record["skills"] else [])
@@ -420,26 +429,26 @@ class ClaudeRunner(_runtime_runner.Runner):
                 "external_effects": "host-mediated",
             },
         )
-        _runtime_utils._json(self._run_dir(record["run_id"]) / "record.json", record)
+        _json(self._run_dir(record["run_id"]) / "record.json", record)
         return record
 
     def _verify_skills(self, root, record):
         for skill in record["skills"]:
             path = root / "workspace/.agents/skills" / skill["skill_id"]
             if (
-                _registry_utils.tree_hash(_registry_utils.inventory(path))
+                tree_hash(inventory(path))
                 != skill["tree_hash"]
             ):
-                raise _runtime_errors.RunnerError("pinned_skill_workspace_changed")
-        workspace_skills.verify(
+                raise RunnerError("pinned_skill_workspace_changed")
+        verify(
             root / "workspace", record["skills"], record["skill_git_exclusion"]
         )
         if (
-            _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]
+            _hash_tree(root / "canonical") != record["source_hash"]
             or (root / "store/sentinel.txt").read_text(encoding="utf-8")
             != "STORE-ORIGINAL"
         ):
-            raise _runtime_errors.RunnerError("protected_mount_changed")
+            raise RunnerError("protected_mount_changed")
 
     def _prompt(self, root, record, task):
         # Skills are native CLI plugin bundles, never text-truncated snapshots.
@@ -472,7 +481,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             "supervised": True,
             "cleanup_verified": False,
         }
-        _runtime_utils._json(root / "record.json", record)
+        _json(root / "record.json", record)
         lease = self.container.lease(
             record["run_id"], name, token, flag, record.get("github_scope")
         )
@@ -485,7 +494,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         try:
             plugin = root / "native-skill-plugin"
             (plugin / ".claude-plugin").mkdir(parents=True, exist_ok=True)
-            _runtime_utils._json(
+            _json(
                 plugin / ".claude-plugin/plugin.json",
                 {"name": "laomedo-pinned", "version": "1.0.0"},
             )
@@ -494,23 +503,23 @@ class ClaudeRunner(_runtime_runner.Runner):
             mediation = None
             if record.get("github_scope"):
                 if lease.grant_id is None:
-                    raise _runtime_errors.RunnerError("mediated_grant_unavailable")
+                    raise RunnerError("mediated_grant_unavailable")
                 route, instance = self._mediator_route()
                 mediation = (route, instance, lease.dir / "grant.secret")
-            service = _claude_container.CommandService(
+            service = CommandService(
                 self.container, root, record, flag, deadline, mediation=mediation
             )
             try:
-                import laomedo.agents.agents.claude.activity.telemetry as _claude_telemetry
+                from laomedo.agents.agents.claude.activity.telemetry import ClaudeTelemetry
 
-                telemetry = _claude_telemetry.ClaudeTelemetry(
+                telemetry = ClaudeTelemetry(
                     root,
                     run_id=record["run_id"],
                     thread_id=record["thread_id"],
                     turn_id=record["active_host_turn"],
                 )
             except (ImportError, OSError):
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "claude_telemetry_start_failed"
                 ) from None
             from py_docker.containers.models import Mount
@@ -546,9 +555,9 @@ class ClaudeRunner(_runtime_runner.Runner):
             spec = spec.model_copy(update={"stdin_open": True})
             with self.control_lock:
                 if flag.is_set():
-                    raise _runtime_errors.RunnerError("claude_cancelled")
+                    raise RunnerError("claude_cancelled")
                 if time.monotonic() >= deadline:
-                    raise _runtime_errors.RunnerError("claude_turn_timeout")
+                    raise RunnerError("claude_turn_timeout")
             with (
                 self.container.session(
                     spec,
@@ -585,8 +594,8 @@ class ClaudeRunner(_runtime_runner.Runner):
             if session is not None and session.cleanup_confirmed is not True:
                 verified, detail = False, "sdk_cleanup_unverified"
             elif session is None:
-                verified, detail = _leases_utils.cleanup_exact(
-                    _leases_models.ContainerIdentity(
+                verified, detail = cleanup_exact(
+                    ContainerIdentity(
                         name=name,
                         run_id=record["run_id"],
                         token=token,
@@ -611,7 +620,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 cleanup_verified=verified, cleanup_detail=detail
             )
             record["descendant_cleanup"] = "verified" if verified else "not_verified"
-            _runtime_utils._json(root / "record.json", record)
+            _json(root / "record.json", record)
             telemetry_cleanup_failed = False
             if telemetry is not None:
                 try:
@@ -619,7 +628,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 except Exception:
                     telemetry_cleanup_failed = True
             if not verified:
-                raise _runtime_errors.RunnerError("container_termination_unverified")
+                raise RunnerError("container_termination_unverified")
             if telemetry is not None:
                 capture = record.setdefault(
                     "telemetry_capture",
@@ -642,11 +651,11 @@ class ClaudeRunner(_runtime_runner.Runner):
                 # Capture failure must not discard an attested native result or
                 # its completed snapshot, or invite replay of effects already done.
             if service is not None and service.error_code:
-                raise _runtime_errors.RunnerError("workspace_command_output_too_large")
+                raise RunnerError("workspace_command_output_too_large")
             if not native_completed and flag.is_set():
-                raise _runtime_errors.RunnerError("claude_cancelled")
+                raise RunnerError("claude_cancelled")
             if not native_completed and time.monotonic() >= deadline:
-                raise _runtime_errors.RunnerError("claude_turn_timeout")
+                raise RunnerError("claude_turn_timeout")
 
     async def _communicate_acp(
         self,
@@ -681,7 +690,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 buffered.append((method, params))
                 return
             if params.get("sessionId") != record["thread_id"]:
-                raise _runtime_errors.RunnerError("claude_session_identity_mismatch")
+                raise RunnerError("claude_session_identity_mismatch")
             event = params.get("message")
             self._native_event(root, record, event)
             if event.get("type") == "result":
@@ -717,7 +726,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             record["thread_id"] = client.session_id
             telemetry.bind_thread(client.session_id)
             record["communication_protocol"] = "acp.v1"
-            _runtime_utils._json(root / "record.json", record)
+            _json(root / "record.json", record)
             common = {
                 "threadId": record["thread_id"],
                 "turnId": record["active_host_turn"],
@@ -749,17 +758,17 @@ class ClaudeRunner(_runtime_runner.Runner):
             for method, params in buffered:
                 native(method, params)
             if flag.is_set():
-                raise _runtime_errors.RunnerError("claude_cancelled")
+                raise RunnerError("claude_cancelled")
             outcome = await client.prompt(
                 prompt, cancelled=flag, seconds=max(0.001, deadline - time.monotonic())
             )
             if flag.is_set() or outcome.stop_reason == "cancelled":
-                raise _runtime_errors.RunnerError("claude_cancelled")
+                raise RunnerError("claude_cancelled")
             if outcome.stop_reason != "end_turn":
-                raise _runtime_errors.RunnerError("claude_native_turn_failed")
+                raise RunnerError("claude_native_turn_failed")
             if len(results) != 1:
-                raise _runtime_errors.RunnerError("claude_terminal_receipt_invalid")
-            return _agents_providers_claude_utils.terminal_result(
+                raise RunnerError("claude_terminal_receipt_invalid")
+            return terminal_result(
                 json.dumps(results[0]), record["thread_id"]
             )
         finally:
@@ -770,9 +779,9 @@ class ClaudeRunner(_runtime_runner.Runner):
             not isinstance(event, dict)
             or event.get("session_id", record["thread_id"]) != record["thread_id"]
         ):
-            raise _runtime_errors.RunnerError("claude_session_identity_mismatch")
+            raise RunnerError("claude_session_identity_mismatch")
         with (root / "raw-events.jsonl").open("a", encoding="utf-8") as log:
-            log.write(json.dumps(_runner_feed.receipt(event)) + "\n")
+            log.write(json.dumps(receipt(event)) + "\n")
         turn = record.get("active_host_turn")
         common = {"threadId": record["thread_id"], "turnId": turn}
         if event.get("type") == "system" and event.get("subtype") == "init":
@@ -790,7 +799,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         tools = record.setdefault("_native_tool_calls", {})
         for index, block in enumerate(content if isinstance(content, list) else []):
             if not isinstance(block, dict):
-                raise _runtime_errors.RunnerError("claude_terminal_receipt_invalid")
+                raise RunnerError("claude_terminal_receipt_invalid")
             if block.get("type") == "tool_use":
                 item = {
                     "id": block["id"],
@@ -919,7 +928,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             "normalization": "claude-stream-v3",
         }
         with (root / "activity-events.jsonl").open("a", encoding="utf-8") as output:
-            output.write(json.dumps(_runner_feed.receipt(event)) + "\n")
+            output.write(json.dumps(receipt(event)) + "\n")
 
     def _execute(
         self,
@@ -931,7 +940,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         run_timeout_seconds=None,
     ):
         if not self.lock.acquire(blocking=False):
-            raise _runtime_errors.RunnerError("runner_busy")
+            raise RunnerError("runner_busy")
         record, attempt, flag = None, None, threading.Event()
         try:
             root = self._run_dir(run_id)
@@ -942,7 +951,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 ):
                     return candidate
                 if candidate["status"] != ("completed" if resume else "prepared"):
-                    raise _runtime_errors.RunnerError("run_not_dispatchable")
+                    raise RunnerError("run_not_dispatchable")
                 record = candidate
                 if run_timeout_seconds is not None:
                     record["turn_timeout"] = run_timeout_seconds
@@ -955,18 +964,18 @@ class ClaudeRunner(_runtime_runner.Runner):
                     completion_basis=None,
                 )
                 record["_attempt_deadline"] = time.monotonic() + record["turn_timeout"]
-                _runtime_utils._json(root / "record.json", record)
+                _json(root / "record.json", record)
             self._verify_skills(root, record)
             remaining = record["_attempt_deadline"] - time.monotonic()
             if remaining <= 0:
-                raise _runtime_errors.RunnerError("claude_turn_timeout")
+                raise RunnerError("claude_turn_timeout")
             identity = self._check_auth(
                 timeout=min(60, remaining), minimum_validity_seconds=remaining
             )
             if resume and (
                 not identity or record.get("credential_subject_hash") != identity
             ):
-                raise _runtime_errors.RunnerError("resume_auth_identity_mismatch")
+                raise RunnerError("resume_auth_identity_mismatch")
             record["credential_subject_hash"] = identity
             if not resume:
                 record["thread_id"] = str(uuid4())
@@ -978,9 +987,9 @@ class ClaudeRunner(_runtime_runner.Runner):
             folder = root / "activity-attempts"
             folder.mkdir(exist_ok=True)
             if (folder / (attempt_id + ".json")).exists():
-                raise _runtime_errors.RunnerError("activity_attempt_already_exists")
+                raise RunnerError("activity_attempt_already_exists")
             baseline = (
-                _agents_providers_claude_utils.activity_usage(
+                activity_usage(
                     {"modelUsage": record.get("native_model_usage")}
                 )
                 if resume
@@ -993,8 +1002,8 @@ class ClaudeRunner(_runtime_runner.Runner):
             }
             attempt = {
                 "id": attempt_id,
-                "native_start": _runner_feed.line_count(root / "activity-events.jsonl"),
-                "otel_start": _runner_feed.line_count(root / "otel-events.jsonl"),
+                "native_start": line_count(root / "activity-events.jsonl"),
+                "otel_start": line_count(root / "otel-events.jsonl"),
                 "usage_baseline": (
                     {record["thread_id"]: {"total": baseline}} if resume else {}
                 ),
@@ -1004,15 +1013,15 @@ class ClaudeRunner(_runtime_runner.Runner):
                 "status": "running",
                 "ended_at": None,
             }
-            _runtime_utils._json(folder / (attempt_id + ".json"), attempt)
+            _json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
             prompt = self._prompt(root, record, task)
             corrections = 0
             while True:
                 if flag.is_set():
-                    raise _runtime_errors.RunnerError("claude_cancelled")
+                    raise RunnerError("claude_cancelled")
                 record["attempt_number"] = self._reserve_turn()
-                _runtime_utils._json(root / "record.json", record)
+                _json(root / "record.json", record)
                 host_turn = str(uuid4())
                 record.pop("_last_streamed_text", None)
                 record["_completed_stream_items"] = {}
@@ -1046,7 +1055,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                         },
                     )
                     raise
-                totals = _agents_providers_claude_utils.activity_usage(result)
+                totals = activity_usage(result)
                 # Explicitly invalidate unknown resume baselines instead of charging
                 # the entire session to the latest invocation.
                 if resume and baseline is None:
@@ -1154,7 +1163,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                     )
                 else:
                     parse_error = None
-                validation = _contracts_output.evaluate(requirements, submission)
+                validation = evaluate(requirements, submission)
                 if parse_error:
                     validation.update(
                         contract_status="rejected",
@@ -1177,7 +1186,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 )
                 corrections += 1
             if flag.is_set():
-                raise _runtime_errors.RunnerError("claude_cancelled")
+                raise RunnerError("claude_cancelled")
             self._verify_skills(root, record)
             digest = self._freeze_workspace(root, record)
             record.update(
@@ -1198,7 +1207,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                     if record.get("mediation_outcome") == "unknown"
                     else (
                         str(exc)
-                        if isinstance(exc, _runtime_errors.RunnerError)
+                        if isinstance(exc, RunnerError)
                         else type(exc).__name__
                     )
                 ),
@@ -1221,25 +1230,25 @@ class ClaudeRunner(_runtime_runner.Runner):
                 record.update(attempt_finished=True, cancel_requested=flag.is_set())
                 if attempt is not None:
                     attempt.update(
-                        native_end=_runner_feed.line_count(
+                        native_end=line_count(
                             self._run_dir(run_id) / "activity-events.jsonl"
                         ),
-                        otel_end=_runner_feed.line_count(
+                        otel_end=line_count(
                             self._run_dir(run_id) / "otel-events.jsonl"
                         ),
                         status=record["status"],
-                        ended_at=_agent_activity_utils.now(),
+                        ended_at=now(),
                         capture_error=record.get("telemetry_capture", {}).get(
                             "error_category"
                         ),
                     )
-                    _runtime_utils._json(
+                    _json(
                         self._run_dir(run_id)
                         / "activity-attempts"
                         / (attempt["id"] + ".json"),
                         attempt,
                     )
-                _runtime_utils._json(self._run_dir(run_id) / "record.json", record)
+                _json(self._run_dir(run_id) / "record.json", record)
             self.cancel_flags.pop(run_id, None)
             self.lock.release()
         return record
@@ -1260,16 +1269,16 @@ class ClaudeRunner(_runtime_runner.Runner):
             type(run_timeout_seconds) is not int
             or not 1 <= run_timeout_seconds <= 86400
         ):
-            raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
+            raise RunnerError("claude_turn_timeout_invalid")
         record = self.status(run_id)
         root = self._run_dir(run_id)
         if (
             record.get("provider") != self.provider
-            or record.get("runtime_version") != _claude_settings.CLI_VERSION
+            or record.get("runtime_version") != CLI_VERSION
             or record.get("image_id") != self.image_id
             or record.get("profile") != self.profile
             or record.get("config_sha256")
-            != _agents_providers_claude_utils.configuration_hash(
+            != configuration_hash(
                 record.get("resolved_model"), effort, record.get("skills", [])
             )
             or record.get("permission_grant")
@@ -1288,14 +1297,14 @@ class ClaudeRunner(_runtime_runner.Runner):
             or not isinstance(task, str)
             or not task.strip()
         ):
-            raise _runtime_errors.RunnerError("resume_binding_mismatch")
+            raise RunnerError("resume_binding_mismatch")
         if (
             not (root / "post-run").is_dir()
-            or _runtime_utils._hash_tree(root / "post-run") != expected_post_run_hash
+            or _hash_tree(root / "post-run") != expected_post_run_hash
         ):
-            raise _runtime_errors.RunnerError("post_run_snapshot_mismatch")
-        if _runtime_utils._hash_tree(root / "workspace") != expected_post_run_hash:
-            raise _runtime_errors.RunnerError("workspace_changed_since_snapshot")
+            raise RunnerError("post_run_snapshot_mismatch")
+        if _hash_tree(root / "workspace") != expected_post_run_hash:
+            raise RunnerError("workspace_changed_since_snapshot")
         return self._execute(
             run_id,
             task,
@@ -1314,12 +1323,12 @@ class ClaudeRunner(_runtime_runner.Runner):
                     cancel_confirmed=True,
                     attempt_finished=True,
                 )
-                _runtime_utils._json(self._run_dir(run_id) / "record.json", record)
+                _json(self._run_dir(run_id) / "record.json", record)
                 return record
         if record["status"] == "running":
             flag = self.cancel_flags.get(run_id)
             if flag is None:
-                raise _runtime_errors.RunnerError("run_not_active_in_this_process")
+                raise RunnerError("run_not_active_in_this_process")
             with self.control_lock:
                 flag.set()
             # The execution loop owns teardown of both controller and workers.

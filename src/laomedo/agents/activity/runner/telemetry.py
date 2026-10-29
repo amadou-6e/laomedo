@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from datetime import timezone
-from http.server import BaseHTTPRequestHandler
-from http.server import ThreadingHTTPServer
-import json
-import laomedo.agents.activity.runner.utils as _runner_utils
+from .http.server import LaunchTelemetryHttpServer
 import secrets
 import threading
 
@@ -25,95 +20,15 @@ class LaunchTelemetry:
         self.token = token
         self.output = (directory / "otel-events.jsonl").open("a", encoding="utf-8")
         self.lock = threading.Lock()
-        owner = self
 
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *args):
-                pass
 
-            def do_POST(self):
-                if not secrets.compare_digest(
-                    self.headers.get("Authorization", ""), "Bearer " + token
-                ):
-                    self.send_error(401)
-                    return
-                if self.path not in {"/v1/logs", "/v1/traces"}:
-                    self.send_error(404)
-                    return
-                try:
-                    length = int(self.headers.get("Content-Length", "0"))
-                    if not 0 < length <= 8 * 1024 * 1024:
-                        self.send_error(413)
-                        return
-                    message = (
-                        ExportLogsServiceRequest()
-                        if self.path == "/v1/logs"
-                        else ExportTraceServiceRequest()
-                    )
-                    message.ParseFromString(self.rfile.read(length))
-                    records = []
-                    for resource in (
-                        message.resource_logs
-                        if self.path == "/v1/logs"
-                        else message.resource_spans
-                    ):
-                        for scope in (
-                            resource.scope_logs
-                            if self.path == "/v1/logs"
-                            else resource.scope_spans
-                        ):
-                            for record in (
-                                scope.log_records
-                                if self.path == "/v1/logs"
-                                else scope.spans
-                            ):
-                                value = {
-                                    "signal": (
-                                        "log" if self.path == "/v1/logs" else "span"
-                                    ),
-                                    "provenance": provenance,
-                                    "trace_id": record.trace_id.hex(),
-                                    "span_id": record.span_id.hex(),
-                                    "attributes": _runner_utils.attributes(
-                                        record.attributes
-                                    ),
-                                }
-                                if self.path == "/v1/traces":
-                                    value.update(
-                                        name=record.name,
-                                        parent_span_id=record.parent_span_id.hex(),
-                                        started_ns=str(record.start_time_unix_nano),
-                                        ended_ns=str(record.end_time_unix_nano),
-                                        status=record.status.code,
-                                    )
-                                else:
-                                    value["timestamp_ns"] = str(record.time_unix_nano)
-                                records.append(value)
-                    with owner.lock:
-                        for value in records:
-                            owner.output.write(
-                                json.dumps(
-                                    {
-                                        "received_at": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
-                                        "event": {
-                                            "method": "otel/record",
-                                            "params": value,
-                                        },
-                                    }
-                                )
-                                + "\n"
-                            )
-                        owner.output.flush()
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/x-protobuf")
-                    self.send_header("Content-Length", "0")
-                    self.end_headers()
-                except Exception:
-                    self.send_error(400)
-
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server = LaunchTelemetryHttpServer(
+            self, ("127.0.0.1", 0), provenance=provenance,
+            request_types={
+                "/v1/logs": ExportLogsServiceRequest,
+                "/v1/traces": ExportTraceServiceRequest,
+            },
+        )
         self.server.daemon_threads = True
         self.server.timeout = 10
         threading.Thread(target=self.server.serve_forever, daemon=True).start()

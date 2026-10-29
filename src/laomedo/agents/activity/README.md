@@ -1,8 +1,7 @@
 # Shared Agent activity
 
 `ActivityStore` retains owner-scoped invocations, receipts and observations;
-`RunnerCapture` currently observes one runner attempt and will be named
-`ActivityCapture`. `CaptureIdentity` and `ActivityInvocation` in `models.py`
+`ActivityCapture` observes one runner attempt (formerly `RunnerCapture`). `CaptureIdentity` and `ActivityInvocation` in `models.py`
 carry correlated values. `routes.py` presents the authenticated read-only API.
 
 Vocabulary: `start` reserves capture identity; `bind` binds the actual remote run;
@@ -22,7 +21,7 @@ roles. Full signatures and detailed parameter contracts remain in source.
 
 | Object | Defining module | Public/framework methods |
 | --- | --- | --- |
-| `RunnerCapture` | `capture.py` | `__init__`, `feed`, `bind`, `observe`, `dispatched` |
+| `ActivityCapture` | `capture.py` | `__init__`, `feed`, `bind`, `observe`, `dispatched` |
 | `CaptureIdentity` | `models.py` | `from_values` |
 | `ActivityInvocation` | `models.py` | Validated fields / inherited interface |
 | `Settings` | `settings.py` | `settings_customise_sources` |

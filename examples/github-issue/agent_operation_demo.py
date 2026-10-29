@@ -8,7 +8,7 @@ from contextlib import closing
 import json
 from pathlib import Path
 from uuid import uuid4
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.agents.base.utils import _private
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.agents.base.utils import _private
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.github.issues.gateway import GitHubIssueGateway
 from laomedo.github.issues.contract import issue_digest

@@ -6,8 +6,8 @@ Optional framework adapters load only when requested.
 
 | Concern | Owner | Nomenclature |
 | --- | --- | --- |
-| HTTP transport | `bridge.py` | `HttpAgentBridge` (initially `RunnerAdapter`): transport-qualified bridge |
-| Prepared request | `models.py` | `AgentRequest` (initially `RunnerRequest`): strict request envelope |
+| HTTP transport | `bridge.py` | `HttpAgentBridge` (formerly `RunnerAdapter`): transport-qualified bridge |
+| Prepared request | `models.py` | `AgentRequest` (formerly `RunnerRequest`): strict request envelope |
 | Output requirements | [output](output/README.md) | One validation implementation shared by Agents and callers |
 | Langflow adapter | [langflow](langflow/README.md) | `AgentComponent`: framework-specific application adapter |
 | Errors | `errors.py` | Re-export canonical Agent errors; no second hierarchy |

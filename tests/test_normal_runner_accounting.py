@@ -1,8 +1,8 @@
 """Internal accounting regressions, with no Docker or model requests."""
 import unittest
 import shutil
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.agents.base.utils import _json
-from laomedo.agents.agents.opencode.runner import OpenCodeRunner
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 import test_local_runner as fixtures
 
 class NormalRunnerAccountingTests(unittest.TestCase):
@@ -10,7 +10,7 @@ class NormalRunnerAccountingTests(unittest.TestCase):
         fixtures.LocalRunnerTests.setUp(self)
 
     def test_normal_codex_and_opencode_ignore_historical_experiment_allowances(self):
-        for runner_type in (LocalRunner,OpenCodeRunner):
+        for runner_type in (LocalRunner,OpenCodeAgent):
             with self.subTest(provider=runner_type.__name__):
                 runner=runner_type(self.root.parent/(self.root.name+"-runner"),self.runner.store.root,self.source,
                     **({"check_docker":False} if runner_type is LocalRunner else {}))

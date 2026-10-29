@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import urlsplit
 import json
-import laomedo.agents.agents.claude.auth.errors as _claude_errors
+from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 import math
 import os
 import re
@@ -20,13 +20,13 @@ def mirror_login(
     if not re.fullmatch(r"laomedo-claude-[a-z0-9-]+", profile) or not re.fullmatch(
         r"sha256:[0-9a-f]{64}", image
     ):
-        raise _claude_errors.LocalClaudeLoginError("claude_local_login_copy_failed")
+        raise LocalClaudeLoginError("claude_local_login_copy_failed")
     if (
         type(minimum_validity_seconds) not in (int, float)
         or not math.isfinite(minimum_validity_seconds)
         or not 0 < minimum_validity_seconds <= 86400
     ):
-        raise _claude_errors.LocalClaudeLoginError("claude_local_login_copy_failed")
+        raise LocalClaudeLoginError("claude_local_login_copy_failed")
     allowed = {
         "PATH",
         "SYSTEMROOT",
@@ -61,11 +61,11 @@ def mirror_login(
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except (OSError, subprocess.SubprocessError):
-            raise _claude_errors.LocalClaudeLoginError(
+            raise LocalClaudeLoginError(
                 "claude_local_login_copy_failed"
             ) from None
         if result.returncode:
-            raise _claude_errors.LocalClaudeLoginError("claude_local_login_copy_failed")
+            raise LocalClaudeLoginError("claude_local_login_copy_failed")
         return result.stdout
 
     try:
@@ -88,7 +88,7 @@ def mirror_login(
         if (volume.get("Labels") or {}).get("laomedo.provider") != "claude":
             raise ValueError()
     except (ValueError, KeyError, IndexError, TypeError):
-        raise _claude_errors.LocalClaudeLoginError(
+        raise LocalClaudeLoginError(
             "claude_local_login_copy_failed"
         ) from None
     try:
@@ -108,11 +108,11 @@ def mirror_login(
         ):
             raise ValueError()
     except (OSError, ValueError, TypeError, KeyError):
-        raise _claude_errors.LocalClaudeLoginError(
+        raise LocalClaudeLoginError(
             "claude_host_login_unavailable"
         ) from None
     if expires <= (time.time() + minimum_validity_seconds + 30) * 1000:
-        raise _claude_errors.LocalClaudeLoginError("claude_host_login_expired")
+        raise LocalClaudeLoginError("claude_host_login_expired")
     # Never duplicate the rotating refresh credential or host profile/session data.
     login = {
         key: value[key]

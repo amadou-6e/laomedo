@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -14,10 +13,16 @@ import secrets
 import threading
 import time
 
-from laomedo.agents.agents.claude import settings as _claude_settings
-import laomedo.agents.errors as _runtime_errors
-from laomedo.host.leases import client as _leases_client
-from laomedo.host.leases import settings as _leases_settings
+from laomedo.agents.agents.claude.settings import CLI_VERSION
+from laomedo.agents.agents.claude.settings import EXECUTION_GUARD
+from laomedo.agents.agents.claude.settings import IMAGE
+from laomedo.agents.agents.claude.settings import PROFILE
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.claude.http.server import CommandHttpServer
+from laomedo.host.leases.client import LeaseClient
+from laomedo.host.leases.settings import LABEL_RUN
+from laomedo.host.leases.settings import LABEL_TOKEN
+from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
 
 
 class ClaudeContainer:
@@ -25,8 +30,8 @@ class ClaudeContainer:
 
     def __init__(
         self,
-        image=_claude_settings.IMAGE,
-        profile=_claude_settings.PROFILE,
+        image=IMAGE,
+        profile=PROFILE,
         lease_service=None,
     ):
         """Verify the local image, supervised cleanup and dedicated profile before use."""
@@ -36,7 +41,7 @@ class ClaudeContainer:
             or not isinstance(profile, str)
             or not re.fullmatch(r"laomedo-claude-[a-z0-9-]+", profile)
         ):
-            raise _runtime_errors.RunnerError("claude_container_configuration_invalid")
+            raise RunnerError("claude_container_configuration_invalid")
         self.profile, self.lease_service = profile, lease_service
         self.check_supervisor()
         try:
@@ -48,7 +53,7 @@ class ClaudeContainer:
                 ImageResolutionError,
             )
         except ImportError:
-            raise _runtime_errors.RunnerError("claude_container_unavailable") from None
+            raise RunnerError("claude_container_unavailable") from None
         try:
             with Client() as docker:
                 self.docker_endpoint = docker.connection.endpoint
@@ -61,28 +66,28 @@ class ClaudeContainer:
                 if not docker.volumes.exists(profile):
                     docker.volumes.create(name=profile, labels=labels)
                 if not docker.volumes.has_labels(profile, labels):
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "claude_container_profile_unavailable"
                     )
         except CleanupUnconfirmedError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "container_termination_unverified"
             ) from None
         except ConnectionConfigurationError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "claude_container_configuration_invalid"
             ) from None
         except ImageResolutionError:
-            raise _runtime_errors.RunnerError("claude_container_image_missing") from None
+            raise RunnerError("claude_container_image_missing") from None
         except DockerOperationError:
-            raise _runtime_errors.RunnerError("claude_container_unavailable") from None
+            raise RunnerError("claude_container_unavailable") from None
         version = self.control(["--version"], timeout=60)
         if (
             version.exit_code
             or version.stdout.decode().strip()
-            != _claude_settings.CLI_VERSION + " (Claude Code)"
+            != CLI_VERSION + " (Claude Code)"
         ):
-            raise _runtime_errors.RunnerError("unsupported_claude_cli_version")
+            raise RunnerError("unsupported_claude_cli_version")
 
     @contextmanager
     def client(self, *, output_code="workspace_command_output_too_large"):
@@ -100,17 +105,17 @@ class ClaudeContainer:
             with Client(environment={"DOCKER_HOST": self.docker_endpoint}) as docker:
                 yield docker
         except CleanupUnconfirmedError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "container_termination_unverified"
             ) from None
         except JobCancelledError:
-            raise _runtime_errors.RunnerError("claude_cancelled") from None
+            raise RunnerError("claude_cancelled") from None
         except OutputLimitError:
-            raise _runtime_errors.RunnerError(output_code) from None
+            raise RunnerError(output_code) from None
         except DeadlineError:
-            raise _runtime_errors.RunnerError("claude_turn_timeout") from None
+            raise RunnerError("claude_turn_timeout") from None
         except DockerOperationError:
-            raise _runtime_errors.RunnerError("claude_container_unavailable") from None
+            raise RunnerError("claude_container_unavailable") from None
 
     def spec(
         self,
@@ -169,8 +174,8 @@ class ClaudeContainer:
             environment=env,
             extra_hosts=extra_hosts or {},
             labels={
-                _leases_settings.LABEL_RUN: run_id,
-                _leases_settings.LABEL_TOKEN: token,
+                LABEL_RUN: run_id,
+                LABEL_TOKEN: token,
             }
             if run_id
             else {},
@@ -180,11 +185,11 @@ class ClaudeContainer:
         """Bound the process tree inside the container even if its host disappears."""
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise _runtime_errors.RunnerError("claude_turn_timeout")
+            raise RunnerError("claude_turn_timeout")
         return [
             "python3",
             "-c",
-            _claude_settings.EXECUTION_GUARD,
+            EXECUTION_GUARD,
             str(time.time() + remaining),
             str(remaining),
             *command,
@@ -256,7 +261,7 @@ class ClaudeContainer:
         from pathlib import Path
 
         if self.lease_service is None:
-            raise _runtime_errors.RunnerError("lease_service_required")
+            raise RunnerError("lease_service_required")
         try:
             root = Path(self.lease_service)
             info = json.loads((root / "service.json").read_text())
@@ -269,20 +274,20 @@ class ClaudeContainer:
                 or not math.isfinite(monotonic)
                 or not -1
                 <= time.time() - wall
-                <= _leases_settings.SERVICE_STALE_SECONDS
+                <= SERVICE_STALE_SECONDS
                 or not -1
                 <= time.monotonic() - monotonic
-                <= _leases_settings.SERVICE_STALE_SECONDS
+                <= SERVICE_STALE_SECONDS
             ):
                 raise ValueError()
         except (OSError, ValueError, TypeError, AttributeError):
-            raise _runtime_errors.RunnerError("lease_service_unavailable") from None
+            raise RunnerError("lease_service_unavailable") from None
 
     def lease(self, run_id, name, token, cancelled, scope=None):
         if self.lease_service is None:
-            raise _runtime_errors.RunnerError("lease_service_required")
+            raise RunnerError("lease_service_required")
         try:
-            return _leases_client.LeaseClient(
+            return LeaseClient(
                 self.lease_service,
                 run_id=run_id,
                 docker_endpoint=self.docker_endpoint,
@@ -292,7 +297,7 @@ class ClaudeContainer:
                 mediation_request=scope,
             )
         except (OSError, RuntimeError):
-            raise _runtime_errors.RunnerError("lease_service_unavailable") from None
+            raise RunnerError("lease_service_unavailable") from None
 
 
 class CommandService:
@@ -308,38 +313,9 @@ class CommandService:
         self.error_code = None
         self.stopping = threading.Event()
         self.closed = False
-        owner = self
 
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *_):
-                pass
 
-            def do_POST(self):
-                if self.path != "/command" or not secrets.compare_digest(
-                    self.headers.get("Authorization", ""), "Bearer " + owner.token
-                ):
-                    self.send_error(403)
-                    return
-                try:
-                    size = int(self.headers.get("Content-Length", "0"))
-                    if not 0 < size <= 65536:
-                        raise ValueError()
-                    value = json.loads(self.rfile.read(size))
-                    answer = (
-                        owner.mediate(value["github"])
-                        if isinstance(value, dict) and set(value) == {"github"}
-                        else owner.execute(value)
-                    )
-                    raw = json.dumps(answer).encode()
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Content-Length", str(len(raw)))
-                    self.end_headers()
-                    self.wfile.write(raw)
-                except Exception:
-                    self.send_error(503, "Workspace command unavailable")
-
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server = CommandHttpServer(self, ("127.0.0.1", 0))
         self.server.daemon_threads = True
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -353,17 +329,17 @@ class CommandService:
             or set(value) != {"command"}
             or not isinstance(value["command"], str)
         ):
-            raise _runtime_errors.RunnerError("claude_workspace_command_invalid")
+            raise RunnerError("claude_workspace_command_invalid")
         if not value["command"].strip() or len(value["command"]) > 60000:
-            raise _runtime_errors.RunnerError("claude_workspace_command_invalid")
+            raise RunnerError("claude_workspace_command_invalid")
         with self.lock:
             if (
                 self.closed
                 or self.cancelled.is_set()
             ):
-                raise _runtime_errors.RunnerError("claude_cancelled")
+                raise RunnerError("claude_cancelled")
             if time.monotonic() >= self.deadline:
-                raise _runtime_errors.RunnerError("claude_turn_timeout")
+                raise RunnerError("claude_turn_timeout")
             name, token = "laomedo-claude-command-" + uuid4().hex, uuid4().hex
             lease = self.runtime.lease(
                 self.record["run_id"], name, token, self.cancelled
@@ -394,7 +370,7 @@ class CommandService:
                         "utf-8", errors="replace"
                     ),
                 }
-            except _runtime_errors.RunnerError as error:
+            except RunnerError as error:
                 if str(error) == "workspace_command_output_too_large":
                     self.error_code = "workspace_command_output_too_large"
                 cleanup_confirmed = (
@@ -413,7 +389,7 @@ class CommandService:
                 if not verified:
                     self.cleanup_failed = True
                     self.cancelled.set()
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "container_termination_unverified"
                     )
 
@@ -423,14 +399,14 @@ class CommandService:
         from urllib.error import HTTPError
 
         if self.mediation is None or self.closed or self.cancelled.is_set():
-            raise _runtime_errors.RunnerError("mediated_grant_unavailable")
+            raise RunnerError("mediated_grant_unavailable")
         if (
             not isinstance(value, dict)
             or set(value) - {"operation", "payload", "effect_id"}
             or not isinstance(value.get("operation"), str)
             or not isinstance(value.get("payload"), dict)
         ):
-            raise _runtime_errors.RunnerError("claude_workspace_command_invalid")
+            raise RunnerError("claude_workspace_command_invalid")
         url, instance, secret_path = self.mediation
         body = {**value, "repository": self.record["github_scope"]["repository"]}
         request = Request(
@@ -451,7 +427,7 @@ class CommandService:
         except Exception:
             self.record["mediation_outcome"] = "unknown"
             self.cancelled.set()
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "claude_mediation_outcome_unknown"
             ) from None
 
@@ -465,4 +441,4 @@ class CommandService:
         with self.lock:
             self.secret_path.unlink(missing_ok=True)
         if self.cleanup_failed or self.thread.is_alive():
-            raise _runtime_errors.RunnerError("container_termination_unverified")
+            raise RunnerError("container_termination_unverified")

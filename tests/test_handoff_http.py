@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from laomedo.agents.interface.bridge import RunnerAdapter
+from laomedo.agents.interface.bridge import HttpAgentBridge
 from laomedo.agents.orchestration.errors import HandoffError; from laomedo.agents.orchestration.utils import envelope
 
 
@@ -27,7 +27,7 @@ class HttpTests(unittest.TestCase):
         self.token_file.write_text("a" * 64, encoding="utf-8")
 
     def adapter(self):
-        return RunnerAdapter({"codex": "http://localhost:8765"},
+        return HttpAgentBridge({"codex": "http://localhost:8765"},
                              {"codex": self.token_file})
 
     def test_fresh_discards_foreign_native_ids_and_sensitive_runner_fields(self):
@@ -50,8 +50,8 @@ class HttpTests(unittest.TestCase):
 
     def test_unsafe_url_and_unavailable_cancellation(self):
         with self.assertRaises(HandoffError):
-            RunnerAdapter({"codex": "http://example.com"})
-        self.assertFalse(RunnerAdapter({}).cancel("unknown")["cancel_acknowledged"])
+            HttpAgentBridge({"codex": "http://example.com"})
+        self.assertFalse(HttpAgentBridge({}).cancel("unknown")["cancel_acknowledged"])
 
     def test_same_provider_resume_binds_thread_snapshot_model_and_skills(self):
         skill = {"skill_id": "fixture", "revision_id": "sha256:" + "a" * 64}

@@ -4,8 +4,11 @@ import asyncio
 import json
 import time
 
-from laomedo.agents.interface.output import utils as output
-from laomedo.agents.agents.codex import settings
+from laomedo.agents.interface.output.utils import dynamic_tool
+from laomedo.agents.interface.output.utils import precheck_response
+from laomedo.agents.interface.output.utils import verify_requirements
+from laomedo.agents.agents.codex.settings import NATIVE_RECEIPT_FILENAME
+from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
@@ -81,7 +84,7 @@ class CodexController:
                 if "LAOMEDO_CODEX_ARGS" in environment
                 else []
             )
-            if settings.Settings().multi_agent == "1":
+            if CodexSettings().multi_agent == "1":
                 arguments += [
                     "--disable",
                     "memories",
@@ -117,7 +120,7 @@ class CodexController:
                         seconds=lifetime_seconds, max_bytes=Settings.load().max_bytes
                     ),
                     receipt_path=receipt_path
-                    or evidence / settings.NATIVE_RECEIPT_FILENAME,
+                    or evidence / NATIVE_RECEIPT_FILENAME,
                 )
             )
         except Exception as primary:
@@ -200,7 +203,7 @@ class CodexController:
     async def open(self, record, *, resume):
         """Bind the actual native session and confirm advertised model settings."""
         self.output_requirements = (
-            output.verify_requirements(record["output_requirements"])
+            verify_requirements(record["output_requirements"])
             if record.get("output_requirements")
             else None
         )
@@ -208,7 +211,7 @@ class CodexController:
             "policy": "split" if self.executor else "normal",
             "model": record["requested_model"],
             "effort": record["requested_effort"],
-            "dynamicTools": [output.dynamic_tool(self.output_requirements)]
+            "dynamicTools": [dynamic_tool(self.output_requirements)]
             if self.output_requirements
             else [],
         }
@@ -346,7 +349,8 @@ class CodexController:
         if method != "laomedo/codexEvent":
             return
         from laomedo.agents.activity.redaction.utils import sanitized
-        from laomedo.agents.activity.runner import feed
+        from laomedo.agents.activity.runner.feed import notification
+        from laomedo.agents.activity.runner.feed import receipt
 
         line = self._redact(json.dumps(event, ensure_ascii=False))
         event = sanitized(json.loads(line))
@@ -355,9 +359,9 @@ class CodexController:
         self.events.append(event)
         self.raw_log.write(json.dumps(event, ensure_ascii=False) + "\n")
         self.raw_log.flush()
-        if feed.notification(event):
+        if notification(event):
             self.activity_log.write(
-                json.dumps(feed.receipt(event), ensure_ascii=False) + "\n"
+                json.dumps(receipt(event), ensure_ascii=False) + "\n"
             )
             self.activity_log.flush()
 
@@ -371,7 +375,7 @@ class CodexController:
         """Validate pure output forms and retain exact binding/call evidence."""
         if self.output_requirements is None:
             raise RunnerError("runner_transport_failed")
-        response = output.precheck_response(
+        response = precheck_response(
             self.output_requirements, params, self.active_thread_id
         )
         if (

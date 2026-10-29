@@ -12,11 +12,11 @@ import time
 from uuid import uuid4
 
 from experiments.exp117.support import ROOT; from experiments.exp117.support import PILOT; from experiments.exp117.support import LEDGER; from experiments.exp117.support import CAP; from experiments.exp117.support import _hash; from experiments.exp117.support import _private_empty; from experiments.exp117.support import _port; from experiments.exp117.support import _events; from experiments.exp117.support import _owned_container_absent; from experiments.exp117.support import _cleanup_runner_runs; from experiments.exp117.support import _audit_requests
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.host.runner.http.server import RunnerServer as serve
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.host.runner.http.server import RunnerServer as serve
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skills.registry.store import SkillStore
 from laomedo.work_graph.runs.store import WorkflowRunStore
-from laomedo.agents.interface.bridge import RunnerAdapter
+from laomedo.agents.interface.bridge import HttpAgentBridge
 from laomedo.agents.orchestration.errors import HandoffError
 from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
 
@@ -117,7 +117,7 @@ def main():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     port = server.server_address[1]
-    adapter = RunnerAdapter({'codex': f'http://127.0.0.1:{port}'},
+    adapter = HttpAgentBridge({'codex': f'http://127.0.0.1:{port}'},
         {'codex': state/'runner/api-token'})
     store = WorkflowRunStore(state/'join.sqlite3')
     bridge = RunnerTraceBridge(store, adapter)

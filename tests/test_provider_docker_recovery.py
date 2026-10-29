@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 from laomedo.agents.agents.claude.container import CommandService
 from laomedo.agents.agents.opencode.boundary import CommandBroker, IsolatedOpenCode
-from laomedo.agents.agents.opencode.runner import OpenCodeRunner
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.errors import RunnerError
 
 
@@ -27,7 +27,7 @@ class ProviderRecoveryTests(unittest.TestCase):
             receipt = state.joinpath("catalog/earlier/docker-receipts/controller.json")
             receipt.parent.mkdir(parents=True)
             receipt.write_text("private test intent", encoding="utf-8")
-            runner = OpenCodeRunner.__new__(OpenCodeRunner)
+            runner = OpenCodeAgent.__new__(OpenCodeAgent)
             runner.state, runner.transport_factory, runner.lock = state, object(), threading.Lock()
             with patch("py_docker.Client") as client:
                 recover = client.return_value.__enter__.return_value.sessions.recover
@@ -39,7 +39,7 @@ class ProviderRecoveryTests(unittest.TestCase):
 
     def test_catalogue_factory_failure_retains_pending_intent(self):
         with tempfile.TemporaryDirectory() as temporary:
-            runner = OpenCodeRunner.__new__(OpenCodeRunner)
+            runner = OpenCodeAgent.__new__(OpenCodeAgent)
             runner.state, runner.lock = Path(temporary), threading.Lock()
             runner._opencode_catalog_lock = threading.Lock()
             runner._opencode_catalog_cached = None

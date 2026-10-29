@@ -7,9 +7,16 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-from laomedo.agents.agents.codex import settings
+from laomedo.agents.agents.codex.settings import CONFIG
+from laomedo.agents.agents.codex.settings import GIT_IMAGE
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
+from laomedo.agents.agents.codex.settings import SECCOMP
+from laomedo.agents.agents.codex.settings import SECCOMP_SHA256
+from laomedo.agents.agents.codex.settings import VOLUME
 from laomedo.agents.errors import RunnerError
-from laomedo.host.leases import settings as lease_settings
+from laomedo.host.leases.settings import LABEL_RUN
+from laomedo.host.leases.settings import LABEL_TOKEN
 
 if TYPE_CHECKING:
     from py_docker.containers.models import ContainerSpec
@@ -26,7 +33,7 @@ class CodexLaunch(BaseModel):
     store_mount: Path = Field(description="Prepared run-local skill store mount.")
     image: str = Field(description="Host-authorized immutable Codex image ID.")
     profile: str = Field(
-        default_factory=lambda: settings.VOLUME,
+        default_factory=lambda: VOLUME,
         description="Dedicated named credential volume selected by the host runner.",
     )
     name: str = Field(
@@ -67,15 +74,15 @@ class CodexLaunch(BaseModel):
         default="main", description="Authorized pull-request base branch."
     )
     config: Path = Field(
-        default_factory=lambda: settings.CONFIG,
+        default_factory=lambda: CONFIG,
         description="Reviewed Codex configuration mounted read-only.",
     )
     seccomp: Path = Field(
-        default_factory=lambda: settings.SECCOMP,
+        default_factory=lambda: SECCOMP,
         description="Reviewed seccomp policy bytes supplied inline to the SDK.",
     )
     seccomp_sha256: str = Field(
-        default_factory=lambda: settings.SECCOMP_SHA256,
+        default_factory=lambda: SECCOMP_SHA256,
         description="Required checksum of the exact seccomp bytes sent to Docker.",
     )
 
@@ -144,7 +151,7 @@ class CodexLaunch(BaseModel):
                     ),
                     Mount(
                         type="bind",
-                        source=str(settings.MEDIATION_CLIENT),
+                        source=str(MEDIATION_CLIENT),
                         target="/run/laomedo/mediate.mjs",
                         read_only=True,
                     ),
@@ -169,7 +176,7 @@ class CodexLaunch(BaseModel):
                     Mount(
                         type="bind",
                         source=str(
-                            settings.MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs")
+                            MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs")
                         ),
                         target="/run/laomedo/gh.mjs",
                         read_only=True,
@@ -177,7 +184,7 @@ class CodexLaunch(BaseModel):
                     Mount(
                         type="bind",
                         source=str(
-                            settings.MEDIATION_CLIENT.with_name("agent_git_remote.mjs")
+                            MEDIATION_CLIENT.with_name("agent_git_remote.mjs")
                         ),
                         target="/run/laomedo/git-remote.mjs",
                         read_only=True,
@@ -190,7 +197,7 @@ class CodexLaunch(BaseModel):
                 LAOMEDO_BASE_BRANCH=self.base_branch,
                 PATH="/run/laomedo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             )
-        if self.image in {settings.GIT_IMAGE, settings.GIT_IMAGE_ID}:
+        if self.image in {GIT_IMAGE, GIT_IMAGE_ID}:
             environment.update(
                 GIT_CONFIG_COUNT="1",
                 GIT_CONFIG_KEY_0="safe.directory",
@@ -199,8 +206,8 @@ class CodexLaunch(BaseModel):
         labels = {}
         if self.run_id and self.launch_token:
             labels = {
-                lease_settings.LABEL_RUN: self.run_id,
-                lease_settings.LABEL_TOKEN: self.launch_token,
+                LABEL_RUN: self.run_id,
+                LABEL_TOKEN: self.launch_token,
             }
         return ContainerSpec(
             image=self.image,

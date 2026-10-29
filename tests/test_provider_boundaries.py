@@ -5,10 +5,10 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.agents.base.agent import Runner
-from laomedo.agents.agents.codex.runner import CodexRunner
-from laomedo.agents.agents.claude.runner import ClaudeRunner
-from laomedo.agents.agents.opencode.runner import OpenCodeRunner
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.codex.agent import CodexAgent
+from laomedo.agents.agents.claude.agent import ClaudeAgent
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex import settings as codex_settings
 import test_local_runner
@@ -32,13 +32,13 @@ class ProviderBoundaryTests(unittest.TestCase):
                     self.assertNotIn(node.value, {'codex', 'claude', 'opencode'}, (path.name, node.lineno))
 
     def test_providers_extend_only_the_neutral_lifecycle(self):
-        for cls in (CodexRunner, ClaudeRunner, OpenCodeRunner):
-            self.assertEqual(cls.__bases__, (Runner,))
+        for cls in (CodexAgent, ClaudeAgent, OpenCodeAgent):
+            self.assertEqual(cls.__bases__, (BaseAgent,))
             self.assertFalse(cls.__abstractmethods__)
         forbidden = {'transport', 'check_docker', 'supervise_containers', 'split_executor',
                      'split_provider_config', 'split_access_token', 'auth_store', 'image_id'}
-        self.assertFalse(forbidden & set(inspect.signature(Runner).parameters))
-        self.assertFalse(forbidden & set(inspect.signature(OpenCodeRunner).parameters))
+        self.assertFalse(forbidden & set(inspect.signature(BaseAgent).parameters))
+        self.assertFalse(forbidden & set(inspect.signature(OpenCodeAgent).parameters))
 
     def test_concrete_providers_never_import_a_sibling_provider(self):
         for path in (ROOT / 'src/laomedo/agents/agents').rglob('*.py'):
@@ -126,11 +126,13 @@ class ProviderBoundaryTests(unittest.TestCase):
             owner = {'supervised':True, 'name':'laomedo-exact-unit', 'launch_token':'unit-capability'}
             record.update(status='running', container_ownership=owner)
             _json(control.runner._run_dir(record['run_id'])/'record.json', record)
-            with patch('laomedo.host.leases.utils.cleanup_exact', return_value=(False,'identity mismatch')) as cleanup:
+            cleanup_owner = ('laomedo.agents.agents.codex.agent' if fixture_type is test_local_runner.LocalRunnerTests
+                             else 'laomedo.agents.agents.claude.agent')
+            with patch(cleanup_owner + '.cleanup_exact', return_value=(False,'identity mismatch')) as cleanup:
                 if fixture_type is test_local_runner.LocalRunnerTests:
-                    restarted = CodexRunner(control.runner.state, control.runner.store.root, control.source, check_docker=False)
+                    restarted = CodexAgent(control.runner.state, control.runner.store.root, control.source, check_docker=False)
                 else:
-                    restarted = ClaudeRunner(control.runner.state, control.runner.store.root, control.source,
+                    restarted = ClaudeAgent(control.runner.state, control.runner.store.root, control.source,
                                              container=control.runner.container)
             identity = cleanup.call_args.args[0]
             self.assertEqual((identity.name,identity.run_id,identity.token.get_secret_value()),
@@ -147,7 +149,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         record.update(status='running', image=codex_settings.IMAGE, cli_version=codex_settings.CLI_VERSION)
         _json(control.runner._run_dir(record['run_id'])/'record.json',record)
         with patch('laomedo.host.leases.utils.cleanup_exact',side_effect=AssertionError('no owned controller')):
-            restarted = OpenCodeRunner(control.runner.state,control.runner.store.root,control.source)
+            restarted = OpenCodeAgent(control.runner.state,control.runner.store.root,control.source)
         historical = restarted.status(record['run_id'])
         self.assertEqual(historical['image'],codex_settings.IMAGE)
         self.assertEqual(historical['cli_version'],codex_settings.CLI_VERSION)
@@ -157,10 +159,10 @@ class ProviderBoundaryTests(unittest.TestCase):
         control = self.fixture(test_local_runner.LocalRunnerTests)
         from types import SimpleNamespace
         with patch.object(codex_settings, 'CONFIG', ROOT/'not-a-codex-policy'):
-            claude = ClaudeRunner(control.runner.state.parent/(control.runner.state.name+'-neutral-claude'),
+            claude = ClaudeAgent(control.runner.state.parent/(control.runner.state.name+'-neutral-claude'),
                 control.runner.store.root, control.source,
                 container=SimpleNamespace(profile='local-unit', image_id='sha256:'+'b'*64))
-            opencode = OpenCodeRunner(control.runner.state.parent/(control.runner.state.name+'-neutral-opencode'),
+            opencode = OpenCodeAgent(control.runner.state.parent/(control.runner.state.name+'-neutral-opencode'),
                 control.runner.store.root, control.source)
         import shutil
         for runner in (claude, opencode):

@@ -368,7 +368,7 @@ class PublicationHandoffTests(unittest.TestCase):
                 self.assertNotIn("run-a", controller.owned)
 
     def test_runner_publication_api_requires_auth_and_empty_graph_body(self):
-        from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.host.runner.http.server import RunnerServer as serve
+        from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.host.runner.http.server import RunnerServer as serve
         from urllib import request; from urllib import error
         import json
         self.ready()

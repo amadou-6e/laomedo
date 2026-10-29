@@ -1,9 +1,30 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
-import laomedo.agents.agents.codex.settings as _codex_settings
-import laomedo.agents.agents.codex.utils as _codex_utils
-import laomedo.agents.agents.codex.controller.settings as _native_settings
+from laomedo.agents.agents.codex.settings import CLI_VERSION
+from laomedo.agents.agents.codex.settings import CONFIG
+from laomedo.agents.agents.codex.settings import CONFIG_LF_SHA256
+from laomedo.agents.agents.codex.settings import CONFIG_SHA256
+from laomedo.agents.agents.codex.settings import GIT_IMAGE
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import IMAGE
+from laomedo.agents.agents.codex.settings import IMAGE_ID
+from laomedo.agents.agents.codex.settings import NATIVE_TURN_SECONDS
+from laomedo.agents.agents.codex.settings import PREFLIGHT_API_TIMEOUT_SECONDS
+from laomedo.agents.agents.codex.settings import PREFLIGHT_MAX_OUTPUT_BYTES
+from laomedo.agents.agents.codex.settings import PREFLIGHT_RECEIPT_FILENAME
+from laomedo.agents.agents.codex.settings import PREFLIGHT_STREAM_SECONDS
+from laomedo.agents.agents.codex.settings import PREFLIGHT_WAIT_SECONDS
+from laomedo.agents.agents.codex.settings import VOLUME
+from laomedo.agents.agents.codex.settings import _CATALOG_INIT_LOCK
+from laomedo.agents.agents.codex.utils import _answer
+from laomedo.agents.agents.codex.utils import _auth_record_error
+from laomedo.agents.agents.codex.utils import _command_summary
+from laomedo.agents.agents.codex.utils import _ensure_split_profile
+from laomedo.agents.agents.codex.utils import _execution_evidence
+from laomedo.agents.agents.codex.utils import _native_error_summary
+from laomedo.agents.agents.codex.utils import _split_profile
+from laomedo.agents.agents.codex.controller.settings import Settings
 
 from pathlib import Path
 from uuid import uuid4
@@ -11,29 +32,32 @@ import hashlib
 import asyncio
 import logging
 import json
-import laomedo.agents.interface.output.utils as _contracts_output
-import laomedo.agents.errors as _runtime_errors
-import laomedo.agents.agents.codex.controller.service as _runtime_servers
-import laomedo.agents.agents.base.utils as _runtime_utils
-import laomedo.host.credentials.siwc.connection as _siwc_connection
-import laomedo.host.credentials.siwc.errors as _siwc_errors
-import laomedo.host.credentials.siwc.utils as _siwc_utils
-import laomedo.host.leases.client as _leases_client
-import laomedo.host.leases.models as _leases_models
-import laomedo.host.leases.utils as _leases_utils
-import laomedo.host.mediation.authority as _mediation_authority
-import laomedo.skills.workspace.utils as workspace_skills
+from laomedo.agents.interface.output.utils import evaluate
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.agents.base.utils import _id
+from laomedo.agents.agents.base.utils import _json
+from laomedo.host.credentials.siwc.connection import ChatGPTConnection
+from laomedo.host.credentials.siwc.errors import AuthError
+from laomedo.host.credentials.siwc.utils import _outside_git
+from laomedo.host.leases.client import LeaseClient
+from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.utils import cleanup_exact
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.skills.workspace.utils import verify
 import re
 import shutil
 import threading
 import time
 
 
-from laomedo.agents.agents.base.agent import Runner
-import laomedo.agents.agents.base.models as _runtime_models
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.models import CredentialBinding
+from laomedo.agents.agents.base.models import RuntimeBinding
 
 
-class CodexRunner(Runner):
+class CodexAgent(BaseAgent):
     provider = "codex"
 
     def __init__(
@@ -42,11 +66,11 @@ class CodexRunner(Runner):
         skill_store: Path,
         source_workspace: Path,
         *,
-        transport=_runtime_servers.CodexController,
+        transport=CodexController,
         check_docker: bool = True,
         supervise_containers: bool | None = None,
         lease_service: Path | None = None,
-        github_authority: _mediation_authority.RunGrantAuthority | None = None,
+        github_authority: RunGrantAuthority | None = None,
         mediator_state: Path | None = None,
         git_workspace: bool = False,
         split_executor: bool = False,
@@ -58,12 +82,12 @@ class CodexRunner(Runner):
         artifact_sources=None,
     ):
         self.image = (
-            _codex_settings.GIT_IMAGE if git_workspace else _codex_settings.IMAGE
+            GIT_IMAGE if git_workspace else IMAGE
         )
         self.image_id = (
-            _codex_settings.GIT_IMAGE_ID
+            GIT_IMAGE_ID
             if git_workspace
-            else _codex_settings.IMAGE_ID
+            else IMAGE_ID
         )
         if image_id is not None:
             if (
@@ -72,18 +96,18 @@ class CodexRunner(Runner):
                 or not isinstance(image_id, str)
                 or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id)
             ):
-                raise _runtime_errors.RunnerError("invalid_local_image_id")
+                raise RunnerError("invalid_local_image_id")
             # Trusted host startup configuration, never a per-run API input.
             self.image_id = image_id
         self.supervise_containers = (
-            transport is _runtime_servers.CodexController and not split_executor
+            transport is CodexController and not split_executor
             if supervise_containers is None
             else supervise_containers
         )
         if split_executor and self.supervise_containers:
-            raise _runtime_errors.RunnerError("split_executor_lease_unavailable")
+            raise RunnerError("split_executor_lease_unavailable")
         if git_workspace and split_executor:
-            raise _runtime_errors.RunnerError("git_workspace_split_unsupported")
+            raise RunnerError("git_workspace_split_unsupported")
         super().__init__(state, skill_store, source_workspace,
                          lease_service=lease_service, github_authority=github_authority,
                          mediator_state=mediator_state, git_workspace=git_workspace,
@@ -93,11 +117,11 @@ class CodexRunner(Runner):
         self.split_provider_config = tuple(split_provider_config)
         self.split_access_token = split_access_token
         if auth_store is not None and not split_executor:
-            raise _runtime_errors.RunnerError("app_owned_auth_requires_split_executor")
+            raise RunnerError("app_owned_auth_requires_split_executor")
         if auth_store is not None and (split_provider_config or split_access_token):
-            raise _runtime_errors.RunnerError("conflicting_split_auth_sources")
+            raise RunnerError("conflicting_split_auth_sources")
         if auth_store is not None:
-            auth_root = _siwc_utils._outside_git(auth_store)
+            auth_root = _outside_git(auth_store)
             if (
                 auth_root == self.state
                 or auth_root.is_relative_to(self.state)
@@ -106,8 +130,8 @@ class CodexRunner(Runner):
                 or auth_root.is_relative_to(self.store.root)
                 or self.store.root.is_relative_to(auth_root)
             ):
-                raise _runtime_errors.RunnerError("auth_store_overlaps_runner_state")
-            self.auth = _siwc_connection.ChatGPTConnection(auth_root)
+                raise RunnerError("auth_store_overlaps_runner_state")
+            self.auth = ChatGPTConnection(auth_root)
         else:
             self.auth = None
         if self.auth:
@@ -121,35 +145,35 @@ class CodexRunner(Runner):
                 "model_providers.openai_chatgpt_plan.supports_websockets=false",
             )
         self.profile = (
-            _codex_utils._split_profile(self.state)
+            _split_profile(self.state)
             if split_executor
-            else _codex_settings.VOLUME
+            else VOLUME
         )
-        if split_executor and transport is not _runtime_servers.CodexController:
-            raise _runtime_errors.RunnerError(
+        if split_executor and transport is not CodexController:
+            raise RunnerError(
                 "split_executor_requires_native_transport"
             )
         if (
             self.split_provider_config or split_access_token is not None
         ) and not split_executor:
-            raise _runtime_errors.RunnerError("split_provider_requires_split_executor")
+            raise RunnerError("split_provider_requires_split_executor")
         # The checked-in policy is LF on Linux and CRLF in Windows worktrees.
         # Accept only these two reviewed byte representations of the same policy.
-        if hashlib.sha256(_codex_settings.CONFIG.read_bytes()).hexdigest() not in {
-            _codex_settings.CONFIG_SHA256,
-            _codex_settings.CONFIG_LF_SHA256,
+        if hashlib.sha256(CONFIG.read_bytes()).hexdigest() not in {
+            CONFIG_SHA256,
+            CONFIG_LF_SHA256,
         }:
-            raise _runtime_errors.RunnerError("permission_config_changed")
+            raise RunnerError("permission_config_changed")
         self.docker_environment = None
         if check_docker:
             self.docker_environment = self._check_container()
             if split_executor:
-                _codex_utils._ensure_split_profile(self.profile, state=self.state, env=self.docker_environment)
+                _ensure_split_profile(self.profile, state=self.state, env=self.docker_environment)
             else:
                 from py_docker import Client
                 with Client(environment=self.docker_environment) as docker:
-                    if not docker.volumes.exists(_codex_settings.VOLUME):
-                        raise _runtime_errors.RunnerError("docker_control_failed")
+                    if not docker.volumes.exists(VOLUME):
+                        raise RunnerError("docker_control_failed")
 
     def _check_container(self) -> dict[str, str]:
         """Recover and verify the Docker runtime without credentials or model work.
@@ -185,26 +209,26 @@ class CodexRunner(Runner):
                 "runner extra in the Python environment used to start this runner "
                 "(python -m pip install -e '.[runner]')."
             )
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "runner_docker_check_unconfirmed"
             ) from None
         snapshot = ConnectionSettings.environment_snapshot(None)
         try:
             with Client(
                 settings=ConnectionSettings(
-                    timeout_seconds=_codex_settings.PREFLIGHT_API_TIMEOUT_SECONDS
+                    timeout_seconds=PREFLIGHT_API_TIMEOUT_SECONDS
                 ),
                 environment=snapshot,
             ) as client:
                 receipt = self.state.joinpath(
-                    _codex_settings.PREFLIGHT_RECEIPT_FILENAME
+                    PREFLIGHT_RECEIPT_FILENAME
                 )
                 client.jobs.recover(receipt)
                 self._recover_containers(client)
                 try:
                     client.images.resolve(self.image, expected_id=self.image_id)
                 except OwnershipConflictError:
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "docker_image_digest_changed"
                     ) from None
                 result = client.jobs.run(
@@ -216,21 +240,21 @@ class CodexRunner(Runner):
                             user="10001:10001",
                         ),
                         limits=StreamLimits(
-                            seconds=_codex_settings.PREFLIGHT_STREAM_SECONDS,
-                            max_bytes=_codex_settings.PREFLIGHT_MAX_OUTPUT_BYTES,
+                            seconds=PREFLIGHT_STREAM_SECONDS,
+                            max_bytes=PREFLIGHT_MAX_OUTPUT_BYTES,
                         ),
                         receipt_path=receipt,
-                        wait_timeout_seconds=_codex_settings.PREFLIGHT_WAIT_SECONDS,
+                        wait_timeout_seconds=PREFLIGHT_WAIT_SECONDS,
                     )
                 )
                 try:
                     version = result.stdout.decode("utf-8").strip()
                 except UnicodeDecodeError:
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "unsupported_codex_cli_version"
                     ) from None
-                if result.exit_code != 0 or version != _codex_settings.CLI_VERSION:
-                    raise _runtime_errors.RunnerError("unsupported_codex_cli_version")
+                if result.exit_code != 0 or version != CLI_VERSION:
+                    raise RunnerError("unsupported_codex_cli_version")
                 pinned = {
                     key: value
                     for key, value in snapshot.items()
@@ -238,10 +262,10 @@ class CodexRunner(Runner):
                 }
                 pinned["DOCKER_HOST"] = client.connection.endpoint
                 return pinned
-        except _runtime_errors.RunnerError:
+        except RunnerError:
             raise
         except CleanupUnconfirmedError:
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "container_termination_unverified"
             ) from None
         except ConnectionConfigurationError:
@@ -250,7 +274,7 @@ class CodexRunner(Runner):
                 "DOCKER_HOST or DOCKER_CONTEXT; TLS and remote endpoints are unsupported "
                 "by this local trial. No configuration values are logged."
             )
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "runner_docker_check_unconfirmed"
             ) from None
         except (
@@ -263,7 +287,7 @@ class CodexRunner(Runner):
             KeyError,
             AttributeError,
         ):
-            raise _runtime_errors.RunnerError(
+            raise RunnerError(
                 "runner_docker_check_unconfirmed"
             ) from None
 
@@ -282,16 +306,16 @@ class CodexRunner(Runner):
                 client.sessions.recover(pending)
 
     def runtime_binding(self):
-        return _runtime_models.RuntimeBinding(
+        return RuntimeBinding(
             provider=self.provider,
             profile=self.profile,
             image=self.image,
             image_id=self.image_id,
             execution_mode="codex_acp_split" if self.split_executor else "codex_acp",
-            cli_version=_codex_settings.CLI_VERSION,
-            config_sha256=_codex_settings.CONFIG_SHA256,
+            cli_version=CLI_VERSION,
+            config_sha256=CONFIG_SHA256,
             credential=(
-                _runtime_models.CredentialBinding(
+                CredentialBinding(
                     credential_mode="chatgpt_plan_oauth",
                     credential_ref=None,
                     auth_outcome="not_checked",
@@ -308,8 +332,8 @@ class CodexRunner(Runner):
     def recover_interrupted(self, record):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
-            verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
+            verified, detail = cleanup_exact(
+                ContainerIdentity(name=owner["name"], run_id=record["run_id"],
                                                 token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
@@ -347,16 +371,17 @@ class CodexRunner(Runner):
         )
         command_directory = None
         if capability is not None and self.git_workspace:
-            import laomedo.host.mediation.agent_cli as _mediation_agent_cli
+            from laomedo.host.mediation.agent_cli import configure_remote
+            from laomedo.host.mediation.agent_cli import prepare_commands
 
             if repository is None or branch is None:
-                raise _runtime_errors.RunnerError("mediated_command_scope_missing")
-            command_directory = _mediation_agent_cli.prepare_commands(
+                raise RunnerError("mediated_command_scope_missing")
+            command_directory = prepare_commands(
                 root, repository, branch
             )
             # The checkout was prepared without a provider remote. This is a
             # credential-free helper URL, not an HTTPS fallback.
-            _mediation_agent_cli.configure_remote(workspace, repository)
+            configure_remote(workspace, repository)
         from laomedo.agents.agents.codex.controller.models import CodexLaunch
 
         values = dict(workspace=workspace, canonical=canonical, store_mount=store_mount,
@@ -370,7 +395,7 @@ class CodexRunner(Runner):
         from laomedo.agents.agents.codex.controller.models import SplitPolicy
 
         if isinstance(self.transport, type) and issubclass(
-            self.transport, _runtime_servers.CodexController
+            self.transport, CodexController
         ):
             split = (
                 SplitPolicy(
@@ -400,7 +425,7 @@ class CodexRunner(Runner):
     def model_catalog(self) -> dict:
         """Serialize and briefly cache metadata discovery; never submit a turn."""
         # Lazy initialization also supports existing host-created runner objects.
-        with _codex_settings._CATALOG_INIT_LOCK:
+        with _CATALOG_INIT_LOCK:
             if not hasattr(self, "_catalog_lock"):
                 self._catalog_lock = threading.Lock()
                 self._catalog_cached = None
@@ -422,7 +447,7 @@ class CodexRunner(Runner):
             server = self._open_server(
                 root,
                 access_token=token,
-                lifetime_seconds=60 + _native_settings.Settings.load().startup_margin,
+                lifetime_seconds=60 + Settings.load().startup_margin,
             )
             await server.initialize()
             return {"models": await server.models(), "submitted_turns": 0}
@@ -457,7 +482,7 @@ class CodexRunner(Runner):
         try:
             token = self.auth.access_token()[0] if self.auth else None
             server = self._open_server(root, access_token=token,
-                lifetime_seconds=160 + _native_settings.Settings.load().startup_margin)
+                lifetime_seconds=160 + Settings.load().startup_margin)
             await server.initialize()
             models = await server.models()
             checks = {}
@@ -471,7 +496,7 @@ class CodexRunner(Runner):
             if self.git_workspace:
                 checks["git_binary"] = await server.preflight("git_binary")
                 if checks["git_binary"] != 0:
-                    raise _runtime_errors.RunnerError("git_image_missing_git")
+                    raise RunnerError("git_image_missing_git")
             if not (
                 checks["workspace_write"] == 0
                 and all(
@@ -483,15 +508,15 @@ class CodexRunner(Runner):
                 == "CANONICAL-ORIGINAL"
                 and (root / "store/sentinel.txt").read_text() == "STORE-ORIGINAL"
             ):
-                raise _runtime_errors.RunnerError("permission_preflight_failed")
+                raise RunnerError("permission_preflight_failed")
             return {
                 "status": "ready",
                 "models": models,
                 "image": self.image,
                 "image_id": self.image_id,
-                "cli_version": _codex_settings.CLI_VERSION,
+                "cli_version": CLI_VERSION,
                 "profile": self.profile,
-                "config_sha256": _codex_settings.CONFIG_SHA256,
+                "config_sha256": CONFIG_SHA256,
                 "permission_checks": checks,
                 "submitted_turns": 0,
             }
@@ -515,9 +540,9 @@ class CodexRunner(Runner):
             self.publication_controller is not None
             and run_id in self.publication_controller.owned
         ):
-            raise _runtime_errors.RunnerError("publication_handoff_resume_denied")
+            raise RunnerError("publication_handoff_resume_denied")
         if not isinstance(task, str) or not task.strip():
-            raise _runtime_errors.RunnerError("invalid_task")
+            raise RunnerError("invalid_task")
         if (
             record["status"] != "completed"
             or not record["thread_id"]
@@ -532,40 +557,40 @@ class CodexRunner(Runner):
             != ("codex_acp_split" if self.split_executor else "codex_acp")
             or record["image"] != self.image
             or record["image_id"] != self.image_id
-            or record["cli_version"] != _codex_settings.CLI_VERSION
-            or record["config_sha256"] != _codex_settings.CONFIG_SHA256
+            or record["cli_version"] != CLI_VERSION
+            or record["config_sha256"] != CONFIG_SHA256
         ):
-            raise _runtime_errors.RunnerError("resume_binding_mismatch")
+            raise RunnerError("resume_binding_mismatch")
         run_dir = self._run_dir(run_id)
         if activity_attempt_id is not None:
             if not isinstance(activity_attempt_id, str):
-                raise _runtime_errors.RunnerError("invalid_activity_attempt_id")
-            _runtime_utils._id(activity_attempt_id)
+                raise RunnerError("invalid_activity_attempt_id")
+            _id(activity_attempt_id)
             if (
                 run_dir / "activity-attempts" / (activity_attempt_id + ".json")
             ).exists():
-                raise _runtime_errors.RunnerError("activity_attempt_already_exists")
+                raise RunnerError("activity_attempt_already_exists")
         snapshot = run_dir / "post-run"
         workspace = run_dir / "workspace"
         if (
             not snapshot.exists()
-            or _runtime_utils._hash_tree(snapshot) != expected_post_run_hash
+            or _hash_tree(snapshot) != expected_post_run_hash
         ):
-            raise _runtime_errors.RunnerError("post_run_snapshot_mismatch")
+            raise RunnerError("post_run_snapshot_mismatch")
         if (
-            _runtime_utils._hash_tree(workspace, exclude_root_git=self.git_workspace)
+            _hash_tree(workspace, exclude_root_git=self.git_workspace)
             != expected_post_run_hash
         ):
-            raise _runtime_errors.RunnerError("workspace_changed_since_snapshot")
+            raise RunnerError("workspace_changed_since_snapshot")
         if (
-            _runtime_utils._hash_tree(run_dir / "canonical") != record["source_hash"]
+            _hash_tree(run_dir / "canonical") != record["source_hash"]
             or (run_dir / "store/sentinel.txt").read_text(encoding="utf-8")
             != "STORE-ORIGINAL"
         ):
-            raise _runtime_errors.RunnerError("protected_mount_changed")
+            raise RunnerError("protected_mount_changed")
         if self.auth:
             if record.get("runner_instance_id") != self.instance_id:
-                raise _runtime_errors.RunnerError(
+                raise RunnerError(
                     "resume_after_runner_restart_forbidden"
                 )
             _token, current = self.auth.access_token()
@@ -574,7 +599,7 @@ class CodexRunner(Runner):
                 current.get(key) != prior.get(key)
                 for key in ("credential_ref", "provider_subject_hash")
             ):
-                raise _runtime_errors.RunnerError("resume_auth_identity_mismatch")
+                raise RunnerError("resume_auth_identity_mismatch")
         return self._execute(
             run_id, task, resume=True, activity_attempt_id=activity_attempt_id
         )
@@ -603,10 +628,10 @@ class CodexRunner(Runner):
     ) -> dict:
         if activity_attempt_id is not None:
             if not isinstance(activity_attempt_id, str):
-                raise _runtime_errors.RunnerError("invalid_activity_attempt_id")
-            _runtime_utils._id(activity_attempt_id)
+                raise RunnerError("invalid_activity_attempt_id")
+            _id(activity_attempt_id)
         if not self.lock.acquire(blocking=False):
-            raise _runtime_errors.RunnerError("runner_busy")
+            raise RunnerError("runner_busy")
         run_dir, record, cancelled, server, lease = None, None, None, None, None
         evidence_offset, attempt_turn_offset = 0, 0
         launch_attempted = False
@@ -622,18 +647,17 @@ class CodexRunner(Runner):
                 if (not resume and record["status"] != "prepared") or (
                     resume and record["status"] != "completed"
                 ):
-                    raise _runtime_errors.RunnerError("run_not_dispatchable")
+                    raise RunnerError("run_not_dispatchable")
                 cancelled = threading.Event()
                 evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
                 attempt_turn_offset = len(record["turns"])
-                import laomedo.agents.activity.runner.feed as _runner_feed
+                from laomedo.agents.activity.runner.feed import line_count
+                from laomedo.agents.activity.runner.feed import read_feed
 
                 activity_start = (
-                    _runner_feed.line_count(run_dir / "activity-events.jsonl"),
-                    _runner_feed.line_count(run_dir / "otel-events.jsonl"),
+                    line_count(run_dir / "activity-events.jsonl"),
+                    line_count(run_dir / "otel-events.jsonl"),
                 )
-                import laomedo.agents.activity.runner.feed as _runner_feed
-
                 attempt_id = (
                     activity_attempt_id
                     if resume
@@ -642,7 +666,7 @@ class CodexRunner(Runner):
                 attempts = run_dir / "activity-attempts"
                 attempts.mkdir(exist_ok=True)
                 if (attempts / (attempt_id + ".json")).exists():
-                    raise _runtime_errors.RunnerError("activity_attempt_already_exists")
+                    raise RunnerError("activity_attempt_already_exists")
                 activity_attempt = {
                     "id": attempt_id,
                     "native_start": activity_start[0],
@@ -650,13 +674,13 @@ class CodexRunner(Runner):
                     "native_end": None,
                     "otel_end": None,
                     "fresh_thread": not resume,
-                    "usage_baseline": _runner_feed.read_feed(
+                    "usage_baseline": read_feed(
                         run_dir / "activity-events.jsonl", tail=True
                     )["usage_baseline"],
                     "status": "running",
                     "ended_at": None,
                 }
-                _runtime_utils._json(
+                _json(
                     attempts / (attempt_id + ".json"), activity_attempt
                 )
                 record["activity_attempt_id"] = attempt_id
@@ -677,20 +701,20 @@ class CodexRunner(Runner):
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False,
                 }
-                _runtime_utils._json(run_dir / "record.json", record)
+                _json(run_dir / "record.json", record)
             try:
-                workspace_skills.verify(
+                verify(
                     run_dir / "workspace",
                     record["skills"],
                     record.get("skill_git_exclusion", {"enabled": False}),
                 )
             except ValueError as exc:
-                raise _runtime_errors.RunnerError(str(exc)) from None
+                raise RunnerError(str(exc)) from None
             if self.supervise_containers:
                 if self.lease_service is None:
-                    raise _runtime_errors.RunnerError("lease_service_required")
+                    raise RunnerError("lease_service_required")
                 try:
-                    lease = _leases_client.LeaseClient(
+                    lease = LeaseClient(
                         self.lease_service,
                         run_id=run_id,
                         name=name,
@@ -700,7 +724,7 @@ class CodexRunner(Runner):
                         mediation_request=record.get("github_scope"),
                     )
                 except (OSError, RuntimeError):
-                    raise _runtime_errors.RunnerError(
+                    raise RunnerError(
                         "lease_service_unavailable"
                     ) from None
                 record["container_ownership"]["lease_instance"] = lease.instance
@@ -710,16 +734,16 @@ class CodexRunner(Runner):
                 ):
                     self.publication_controller.register(lease, record)
                 with self.control_lock:
-                    _runtime_utils._json(run_dir / "record.json", record)
+                    _json(run_dir / "record.json", record)
             capability = None
             mediator_url = None
             mediator_instance = None
             if record.get("github_scope") is not None:
                 if lease is None or lease.grant_id is None:
-                    raise _runtime_errors.RunnerError("mediated_grant_unavailable")
+                    raise RunnerError("mediated_grant_unavailable")
                 capability = lease.dir / "grant.secret"
                 if capability.is_symlink() or not capability.is_file():
-                    raise _runtime_errors.RunnerError("mediated_capability_unavailable")
+                    raise RunnerError("mediated_capability_unavailable")
                 mediator_url, mediator_instance = self._mediator_route()
             access_token, auth_summary = (
                 self.auth.access_token() if self.auth else (None, None)
@@ -730,14 +754,14 @@ class CodexRunner(Runner):
                     auth_summary.get(key) != prior.get(key)
                     for key in ("credential_ref", "provider_subject_hash")
                 ):
-                    raise _runtime_errors.RunnerError("resume_auth_identity_mismatch")
+                    raise RunnerError("resume_auth_identity_mismatch")
             record["credential"] = auth_summary
-            _runtime_utils._json(run_dir / "record.json", record)
-            transport_settings = _native_settings.Settings.load()
+            _json(run_dir / "record.json", record)
+            transport_settings = Settings.load()
             launch_attempted = True
             server = self._open_server(
                 run_dir,
-                lifetime_seconds=(_codex_settings.NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
+                lifetime_seconds=(NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
                                   + transport_settings.startup_margin),
                 access_token=access_token,
                 name=name,
@@ -755,7 +779,7 @@ class CodexRunner(Runner):
             record["controller_cleanup"] = "pending"
             # Keep the pre-launch name/launch-token/grant ownership binding;
             # lifecycle diagnostics must not replace it with a name-only map.
-            _runtime_utils._json(run_dir / "record.json", record)
+            _json(run_dir / "record.json", record)
             await server.initialize()
             entries = await server.models()
             choice = next(
@@ -763,7 +787,7 @@ class CodexRunner(Runner):
             )
             levels = set((choice or {}).get("efforts", []))
             if choice is None or record["requested_effort"] not in levels:
-                raise _runtime_errors.RunnerError("unsupported_model_effort")
+                raise RunnerError("unsupported_model_effort")
             if cancelled.is_set():
                 record.update(
                     status="cancelled",
@@ -780,7 +804,7 @@ class CodexRunner(Runner):
             # ACP echoes adapter configuration, not an independent native report.
             record["effective_model_source"] = "host_requested_adapter_asserted"
             record["effective_effort_source"] = "host_requested_adapter_asserted"
-            _runtime_utils._json(run_dir / "record.json", record)
+            _json(run_dir / "record.json", record)
             if cancelled.is_set():
                 record.update(
                     status="cancelled",
@@ -790,7 +814,7 @@ class CodexRunner(Runner):
                 return record
             attempt = self._reserve_turn()
             record["attempt_number"] = attempt
-            _runtime_utils._json(run_dir / "record.json", record)
+            _json(run_dir / "record.json", record)
             if cancelled.is_set():
                 record.update(
                     status="cancelled",
@@ -848,8 +872,8 @@ class CodexRunner(Runner):
                     try:
                         current = self.auth.active()
                         selected = self.auth.summary(current)
-                    except _siwc_errors.AuthError as exc:
-                        category, outcome = _codex_utils._auth_record_error(exc)
+                    except AuthError as exc:
+                        category, outcome = _auth_record_error(exc)
                         auth_failure.update(
                             error=category + "_during_turn",
                             outcome=outcome,
@@ -895,12 +919,12 @@ class CodexRunner(Runner):
 
                 server.authorization_probe = still_authorized
                 if not still_authorized():
-                    raise _siwc_errors.AuthError(auth_failure["code"])
+                    raise AuthError(auth_failure["code"])
             turn_event_offset = len(server.events)
             native = await server.prompt(
                 turn_text,
                 skills=record["skills"],
-                seconds=_codex_settings.NATIVE_TURN_SECONDS,
+                seconds=NATIVE_TURN_SECONDS,
                 cancelled=cancelled,
             )
             turn_id, status, error = native.turn_id, native.status, native.error
@@ -911,12 +935,12 @@ class CodexRunner(Runner):
             while record.get("output_requirements") and status == "completed":
                 try:
                     submission = json.loads(
-                        _codex_utils._answer(server.events[turn_event_offset:])
+                        _answer(server.events[turn_event_offset:])
                         or "null"
                     )
                 except (ValueError, TypeError):
                     submission = None
-                validation = _contracts_output.evaluate(
+                validation = evaluate(
                     record["output_requirements"], submission
                 )
                 record["output_validation"] = validation
@@ -927,7 +951,7 @@ class CodexRunner(Runner):
                     or correction_count >= record["output_retries"]
                 ):
                     break
-                commands_before = _codex_utils._command_summary(
+                commands_before = _command_summary(
                     server.events, turn_id
                 )
 
@@ -971,7 +995,7 @@ class CodexRunner(Runner):
                 correction_count += 1
                 record["attempt_number"] = attempt
                 record["output_correction_count"] = correction_count
-                _runtime_utils._json(run_dir / "record.json", record)
+                _json(run_dir / "record.json", record)
                 feedback = (
                     "Continue this same session by correcting only your output form. "
                     "Do not repeat the original task or any external writes. "
@@ -980,22 +1004,22 @@ class CodexRunner(Runner):
                 )
                 server.assert_controller_isolated()
                 if self.auth and not still_authorized():
-                    raise _siwc_errors.AuthError(auth_failure["code"])
+                    raise AuthError(auth_failure["code"])
                 turn_event_offset = len(server.events)
                 native = await server.prompt(
                     feedback,
                     skills=record["skills"],
-                    seconds=_codex_settings.NATIVE_TURN_SECONDS,
+                    seconds=NATIVE_TURN_SECONDS,
                     cancelled=cancelled,
                 )
                 turn_id, status, error = native.turn_id, native.status, native.error
             native_status = status
-            commands = _codex_utils._command_summary(server.events, turn_id)
+            commands = _command_summary(server.events, turn_id)
             record["native_turn_status"] = native_status
             record["precheck"]["call_count"] = getattr(server, "precheck_call_count", 0)
             record["command_summary"] = commands
             record["native_answer"] = (
-                _codex_utils._answer(server.events[turn_event_offset:])
+                _answer(server.events[turn_event_offset:])
                 if native_status == "completed"
                 else None
             )
@@ -1006,7 +1030,7 @@ class CodexRunner(Runner):
             if self.auth and error == "auth_revoked_during_turn":
                 error = auth_failure["error"]
                 record["credential"]["auth_outcome"] = auth_failure["outcome"]
-            native_errors = _codex_utils._native_error_summary(server.events, turn_id)
+            native_errors = _native_error_summary(server.events, turn_id)
             if status == "failed" and error is None and native_errors["last_category"]:
                 error = "codex_" + native_errors["last_category"]
             record["turns"].append(
@@ -1032,29 +1056,29 @@ class CodexRunner(Runner):
                 record["cancel_requested"] = True
             record["native_error_summary"] = native_errors
             record["answer"] = (
-                _codex_utils._answer(server.events[turn_event_offset:])
+                _answer(server.events[turn_event_offset:])
                 if status == "completed"
                 else None
             )
             if status == "completed" and not record["answer"]:
-                raise _runtime_errors.RunnerError("completed_without_agent_message")
+                raise RunnerError("completed_without_agent_message")
             self._verify_protected_mounts(run_dir, record)
             if lease is not None and lease.lost.is_set():
-                raise _runtime_errors.RunnerError("lease_service_lost")
+                raise RunnerError("lease_service_lost")
         except Exception as exc:
             if record is None:
                 raise
             if record["status"] not in {"interrupted", "cancelled"}:
                 record["status"] = "failed"
-                if isinstance(exc, _siwc_errors.AuthError):
-                    category, outcome = _codex_utils._auth_record_error(exc)
+                if isinstance(exc, AuthError):
+                    category, outcome = _auth_record_error(exc)
                     record["error_category"] = category
                     if isinstance(record.get("credential"), dict):
                         record["credential"]["auth_outcome"] = outcome
                 else:
                     record["error_category"] = (
                         str(exc)
-                        if isinstance(exc, _runtime_errors.RunnerError)
+                        if isinstance(exc, RunnerError)
                         else type(exc).__name__
                     )
         finally:
@@ -1081,7 +1105,7 @@ class CodexRunner(Runner):
                 if record is not None:
                     record.update(
                         status="failed",
-                        error_category=(close_failure.code if isinstance(close_failure,_runtime_errors.RunnerError)
+                        error_category=(close_failure.code if isinstance(close_failure,RunnerError)
                                         and close_failure.code in {"executor_termination_unverified","container_termination_unverified","runner_transport_failed"}
                                         else "container_termination_unverified"),
                     )
@@ -1094,7 +1118,7 @@ class CodexRunner(Runner):
                         record["snapshot_ready"] = True
                     except Exception as snapshot_failure:
                         record.update(status="failed", answer=None,
-                            error_category=snapshot_failure.code if isinstance(snapshot_failure, _runtime_errors.RunnerError) else "workspace_copy_mismatch")
+                            error_category=snapshot_failure.code if isinstance(snapshot_failure, RunnerError) else "workspace_copy_mismatch")
             finally:
                 try:
                     if (
@@ -1123,7 +1147,7 @@ class CodexRunner(Runner):
                             )
                     elif record is not None and self.supervise_containers:
                         verified, detail = ((True, "removed") if getattr(server,"cleanup_confirmed",False) else
-                            _leases_utils.cleanup_exact(_leases_models.ContainerIdentity(
+                            cleanup_exact(ContainerIdentity(
                                 name=name,run_id=run_id,token=launch_token,
                                 docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"))))
                         if lease is not None:
@@ -1133,7 +1157,7 @@ class CodexRunner(Runner):
                             record["container_ownership"]["cleanup_verified"] = verified
                             record["container_ownership"]["cleanup_detail"] = detail
                             record.update(
-                                _codex_utils._execution_evidence(
+                                _execution_evidence(
                                     run_dir / "raw-events.jsonl",
                                     evidence_offset,
                                     record,
@@ -1179,20 +1203,20 @@ class CodexRunner(Runner):
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             if activity_attempt is not None:
-                                import laomedo.agents.activity.utils as _agent_activity_utils
+                                from laomedo.agents.activity.utils import now
 
                                 try:
                                     activity_attempt.update(
-                                        native_end=_runner_feed.line_count(
+                                        native_end=line_count(
                                             run_dir / "activity-events.jsonl"
                                         ),
-                                        otel_end=_runner_feed.line_count(
+                                        otel_end=line_count(
                                             run_dir / "otel-events.jsonl"
                                         ),
                                         status=record["status"],
-                                        ended_at=_agent_activity_utils.now(),
+                                        ended_at=now(),
                                     )
-                                    _runtime_utils._json(
+                                    _json(
                                         run_dir
                                         / "activity-attempts"
                                         / (activity_attempt["id"] + ".json"),
@@ -1200,7 +1224,7 @@ class CodexRunner(Runner):
                                     )
                                 except OSError:
                                     pass  # An observation failure cannot change execution success.
-                            _runtime_utils._json(run_dir / "record.json", record)
+                            _json(run_dir / "record.json", record)
                         self.cancel_flags.pop(run_id, None)
                 finally:
                     self.lock.release()

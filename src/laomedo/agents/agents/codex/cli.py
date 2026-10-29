@@ -1,17 +1,16 @@
 """Implementation owned by agents / runtime / cli."""
 
 from __future__ import annotations
-import laomedo.agents.agents.codex.runner as _codex_runner
+from laomedo.agents.agents.codex.agent import CodexAgent
 
 from pathlib import Path
 import argparse
 import json
-import laomedo.host.runner.http.server as _runtime_serving
-import laomedo.host.mediation.authority as _mediation_authority
+from laomedo.host.runner.http.server import RunnerServer
+from laomedo.host.mediation.authority import RunGrantAuthority
 
 
 def main():
-    import laomedo.agents.agents.codex.runner as _runtime_runner
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, required=True)
@@ -60,11 +59,11 @@ def main():
     if (args.github_authority_store is None) != (args.mediator_state is None):
         parser.error("GitHub authority and mediator state must be configured together")
     authority = (
-        _mediation_authority.RunGrantAuthority(args.github_authority_store)
+        RunGrantAuthority(args.github_authority_store)
         if args.github_authority_store
         else None
     )
-    runner = _codex_runner.CodexRunner(
+    runner = CodexAgent(
         args.state,
         args.skill_store,
         args.source_workspace,
@@ -80,7 +79,7 @@ def main():
     if args.preflight:
         print(json.dumps(runner.preflight(), indent=2))
         return
-    _runtime_serving.RunnerServer(runner, port=args.port).serve_forever()
+    RunnerServer(runner, port=args.port).serve_forever()
 
 
 if __name__ == "__main__":

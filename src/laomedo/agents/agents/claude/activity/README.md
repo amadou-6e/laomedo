@@ -4,8 +4,8 @@
 evidence. Construction binds observation before execution; `bind_thread` binds
 native identity, `record` retains normalized evidence, `decode` parses native
 telemetry, and `close` stops the exact listener and reconciles its thread.
-The nested HTTP handler will move to a focused
-module with explicit owner state, preserving parse, redaction and lifecycle rules.
+The HTTP handler lives in the focused
+`http/` package with explicit owner state, preserving parse, redaction and lifecycle rules.
 Native attribute normalization stays here; common storage must consume canonical
 records without interpreting Claude-specific schemas.
 

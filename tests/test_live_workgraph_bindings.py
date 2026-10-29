@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from experiments.exp139.models import GitMetadataLaunch, MailboxLaunch
 from experiments.exp139.bindings import BoundRunner; from experiments.exp139.bindings import GitMetadataAppServer; from experiments.exp139.bindings import MailboxAppServer; from experiments.exp139.settings import GIT_OVERRIDE; from experiments.exp139.settings import PROFILE_OVERRIDES; from experiments.exp139.bindings import request_digest
-from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
 
 
 class BindingTests(unittest.TestCase):

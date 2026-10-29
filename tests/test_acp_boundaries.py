@@ -12,7 +12,7 @@ class AcpBoundaryTests(unittest.TestCase):
         root = package_root()
         for relative in ("agents/agents/codex/native/base.py", "agents/agents/codex/native/server.py", "agents/agents/codex/split/server.py"):
             self.assertFalse((root / relative).exists())
-        for relative in ("agents/agents/codex/runner.py", "agents/agents/codex/controller/service.py", "agents/agents/codex/split/executor.py"):
+        for relative in ("agents/agents/codex/agent.py", "agents/agents/codex/controller/service.py", "agents/agents/codex/split/executor.py"):
             tree = ast.parse((root / relative).read_text(encoding="utf-8-sig"))
             methods = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
             self.assertFalse(methods.intersection({"wait_turn", "interrupt", "_read_frames", "request", "notify"}))
@@ -22,7 +22,7 @@ class AcpBoundaryTests(unittest.TestCase):
         root = package_root()
         for name in ("events.py", "settings.py", "utils.py"):
             self.assertFalse((root / "agents/agents/opencode/activity" / name).exists())
-        runner = ast.parse((root / "agents/agents/opencode/runner.py").read_text())
+        runner = ast.parse((root / "agents/agents/opencode/agent.py").read_text())
         self.assertFalse(
             any(
                 isinstance(node, ast.ClassDef) and node.name == "OpenCodeHTTP"

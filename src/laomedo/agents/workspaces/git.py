@@ -7,8 +7,9 @@ The existing file-snapshot runner path remains unchanged."""
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.agents.workspaces.settings as _workspace_settings
-import laomedo.agents.workspaces.errors as _workspace_errors
+from laomedo.agents.workspaces.settings import GIT_COMMAND_TIMEOUT_SECONDS
+from laomedo.agents.workspaces.settings import _SHA
+from laomedo.agents.workspaces.errors import GitWorkspaceError
 import os
 import shutil
 import signal
@@ -56,7 +57,7 @@ def _bounded_git(args: list[str], env: dict[str, str]):
     process = subprocess.Popen(args, **options)
     try:
         stdout, stderr = process.communicate(
-            timeout=_workspace_settings.GIT_COMMAND_TIMEOUT_SECONDS
+            timeout=GIT_COMMAND_TIMEOUT_SECONDS
         )
     except subprocess.TimeoutExpired as error:
         cleanup_verified = False
@@ -82,7 +83,7 @@ def _bounded_git(args: list[str], env: dict[str, str]):
             process.communicate(timeout=5)
         except subprocess.TimeoutExpired:
             cleanup_verified = False
-        raise _workspace_errors.GitWorkspaceError(
+        raise GitWorkspaceError(
             "git_timeout" if cleanup_verified else "git_timeout_cleanup_unverified"
         ) from error
     return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
@@ -97,11 +98,11 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
     and an uncommitted source are refused.
     """
     if source.is_symlink() or destination.exists() or destination.is_symlink():
-        raise _workspace_errors.GitWorkspaceError("git_workspace_path_invalid")
+        raise GitWorkspaceError("git_workspace_path_invalid")
     source = source.expanduser().resolve()
     git_dir = source / ".git"
     if not source.is_dir() or not git_dir.is_dir() or git_dir.is_symlink():
-        raise _workspace_errors.GitWorkspaceError("git_repository_root_required")
+        raise GitWorkspaceError("git_repository_root_required")
     with tempfile.TemporaryDirectory(prefix="laomedo-git-home-") as home:
         env = _git_environment(home)
 
@@ -119,18 +120,18 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
         baseline = command(
             "rev-parse", "--verify", "HEAD", cwd=source, source_side=True
         )
-        if baseline.returncode or not _workspace_settings._SHA.fullmatch(
+        if baseline.returncode or not _SHA.fullmatch(
             baseline.stdout.strip()
         ):
-            raise _workspace_errors.GitWorkspaceError("source_commit_invalid")
+            raise GitWorkspaceError("source_commit_invalid")
         indexed = command("ls-files", "--stage", "-z", cwd=source, source_side=True)
         if indexed.returncode:
-            raise _workspace_errors.GitWorkspaceError("source_index_invalid")
+            raise GitWorkspaceError("source_index_invalid")
         modes = {row.split(b" ", 1)[0] for row in indexed.stdout.split(b"\0") if row}
         if b"160000" in modes:
-            raise _workspace_errors.GitWorkspaceError("submodule_source_unsupported")
+            raise GitWorkspaceError("submodule_source_unsupported")
         if b"120000" in modes:
-            raise _workspace_errors.GitWorkspaceError("symlink_source_unsupported")
+            raise GitWorkspaceError("symlink_source_unsupported")
         if any(
             (path := row.split(b"\t", 1)[-1].replace(b"\\", b"/").lower())
             == b".agents/skills"
@@ -138,7 +139,7 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
             for row in indexed.stdout.split(b"\0")
             if row
         ):
-            raise _workspace_errors.GitWorkspaceError("tracked_skill_path_unsupported")
+            raise GitWorkspaceError("tracked_skill_path_unsupported")
         config = command(
             "config",
             "--local",
@@ -152,7 +153,7 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
             b"1",
             b"yes",
         }:
-            raise _workspace_errors.GitWorkspaceError("sparse_source_unsupported")
+            raise GitWorkspaceError("sparse_source_unsupported")
         status = command(
             "status",
             "--porcelain=v1",
@@ -161,11 +162,11 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
             source_side=True,
         )
         if status.returncode or status.stdout:
-            raise _workspace_errors.GitWorkspaceError("source_not_clean")
+            raise GitWorkspaceError("source_not_clean")
         try:
             destination.mkdir()
         except FileExistsError as error:
-            raise _workspace_errors.GitWorkspaceError(
+            raise GitWorkspaceError(
                 "git_workspace_path_invalid"
             ) from error
         try:
@@ -180,19 +181,19 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
                 str(destination),
             )
             if cloned.returncode:
-                raise _workspace_errors.GitWorkspaceError("git_clone_failed")
+                raise GitWorkspaceError("git_clone_failed")
             sha = baseline.stdout.decode("ascii").strip()
             checked = command("checkout", "--quiet", "--detach", sha, cwd=destination)
             if checked.returncode:
-                raise _workspace_errors.GitWorkspaceError("git_checkout_failed")
+                raise GitWorkspaceError("git_checkout_failed")
             removed = command("remote", "remove", "origin", cwd=destination)
             if removed.returncode:
-                raise _workspace_errors.GitWorkspaceError("git_remote_removal_failed")
+                raise GitWorkspaceError("git_remote_removal_failed")
             tracked_skills = command(
                 "ls-files", "-z", "--", ".agents/skills", cwd=destination
             )
             if tracked_skills.returncode or tracked_skills.stdout:
-                raise _workspace_errors.GitWorkspaceError(
+                raise GitWorkspaceError(
                     "tracked_skill_path_unsupported"
                 )
             with (destination / ".git" / "info" / "exclude").open(
@@ -207,7 +208,7 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
                 or remotes.returncode
                 or remotes.stdout.strip()
             ):
-                raise _workspace_errors.GitWorkspaceError(
+                raise GitWorkspaceError(
                     "git_clone_verification_failed"
                 )
             return sha
@@ -216,7 +217,7 @@ def prepare_git_workspace(source: Path, destination: Path) -> str:
                 if destination.exists():
                     shutil.rmtree(destination)
             except OSError as cleanup_error:
-                raise _workspace_errors.GitWorkspaceError(
+                raise GitWorkspaceError(
                     "git_workspace_cleanup_unverified"
                 ) from cleanup_error
             raise

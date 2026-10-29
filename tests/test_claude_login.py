@@ -37,9 +37,9 @@ class LoginMirrorTests(TestCase):
         self.assertEqual(credentials.read_bytes(), original)
 
     def test_runtime_opt_in_mirrors_before_auth_and_preserves_safe_error(self):
-        from laomedo.agents.agents.claude.runner import ClaudeRunner
+        from laomedo.agents.agents.claude.agent import ClaudeAgent
         from laomedo.agents.errors import RunnerError
-        runner = object.__new__(ClaudeRunner)
+        runner = object.__new__(ClaudeAgent)
         runner.turn_timeout = 180
         runner.container = SimpleNamespace(profile='laomedo-claude-unit', image_id=IMAGE,
             control=lambda *args, **kw: SimpleNamespace(exit_code=0,
