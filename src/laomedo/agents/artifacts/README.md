@@ -5,7 +5,8 @@ behavior is in `utils.py`; `ArtifactStore` and `ArtifactReference` remain target
 objects until extraction replaces those functions. GitHub publication policy is
 not an artifact-storage responsibility.
 
-`select` identifies retained outputs; import/materialization validates references,
+`selections` validates the retained selection list; `relative_path` validates a
+manifest path; `import_selected` validates references,
 ownership, paths and size before copying. Read the actual utility signatures rather
 than treating these vocabulary terms as new implemented methods. Errors remain
 `ArtifactError` with unchanged codes and boundary behavior. Retaining files is not

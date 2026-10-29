@@ -21,6 +21,14 @@ from lfx.schema import Data; from lfx.schema import Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    'opencode_auth_redirect_rejected',
+    'opencode_active_console_account_required',
+    'opencode_console_models_required',
+    'opencode_console_origin_not_allowed',
+    'opencode_model_endpoint_not_allowed',
+    'opencode_model_sdk_not_allowed',
+    'opencode_organization_context_mismatch',
+    'opencode_real_credential_required',
     'agent_component_migration_required',
     'auth_revoked_during_turn',
     'cancel_native_unconfirmed',

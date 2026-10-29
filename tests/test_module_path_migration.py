@@ -44,11 +44,11 @@ class ModuleMigrationTests(unittest.TestCase):
         self.assertEqual(migration.migrate_source(result), result)
 
     def test_intermediate_runtime_symbols_reach_final_owner(self):
-        source = 'from laomedo.agents.agents.base.agent import LocalRunner\n'
+        source = 'from laomedo.agents.runtime.runner import LocalRunner\n'
         result = migration.migrate_source(source)
-        self.assertIn('providers.codex.runner import CodexRunner as LocalRunner', result)
+        self.assertIn('agents.codex.runner import CodexRunner as LocalRunner', result)
         self.assertEqual(migration.migrate_source(result), result)
-        source = 'import laomedo.agents.agents.base.agent as runtime\nrunner = runtime.LocalRunner\n'
+        source = 'import laomedo.agents.runtime.runner as runtime\nrunner = runtime.LocalRunner\n'
         result = migration.migrate_source(source)
         namespace = {}
         exec(result, namespace)
@@ -92,7 +92,7 @@ class ModuleMigrationTests(unittest.TestCase):
     def test_reused_package_names_accept_flat_intermediate_and_current_inputs(self):
         cases = [
             ('laomedo.handoffs', 'BoundedController', 'laomedo.agents.orchestration.controller'),
-            ('laomedo.agents.orchestration', 'BoundedController', 'laomedo.agents.orchestration.controller'),
+            ('laomedo.agents.handoffs', 'BoundedController', 'laomedo.agents.orchestration.controller'),
             ('laomedo.artifacts', 'ArtifactError', 'laomedo.agents.artifacts.errors'),
             ('laomedo.agents.artifacts', 'ArtifactError', 'laomedo.agents.artifacts.errors'),
         ]
@@ -180,7 +180,7 @@ class ModuleMigrationTests(unittest.TestCase):
                 migration.migrate_source(source)
 
     def test_cli_and_object_imports_use_distinct_final_modules(self):
-        self.assertIn('providers.codex.runner', migration.migrate_source('from laomedo.local_runner import LocalRunner'))
+        self.assertIn('agents.codex.runner', migration.migrate_source('from laomedo.local_runner import LocalRunner'))
         self.assertEqual(migration.migrate_source('python -m laomedo.local_runner'), 'python -m laomedo.agents.agents.codex.cli')
         self.assertEqual(migration.migrate_value({'module': 'laomedo.local_runner'}), {'module': 'laomedo.agents.agents.codex.cli'})
 

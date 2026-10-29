@@ -49,7 +49,7 @@ class MigrationFileTests(unittest.TestCase):
         self.assertEqual(migration.migrate_value(launcher), {'command': 'python -m laomedo.agents.agents.codex.cli', 'nested': {'command': old}})
 
     def test_removed_intermediate_import_is_migrated(self):
-        source = 'from laomedo.agents import activity as agent_activity_capture as capture\n'
+        source = 'from laomedo.activity import agent_activity_capture as capture\n'
         migrated = migration.migrate_source(source)
         self.assertEqual(migrated, 'from laomedo.agents.activity import capture\n')
         namespace = {}; exec(migrated, namespace)

@@ -1548,5 +1548,45 @@
     "title": "The native history store exceeds its capture limit",
     "description": "The dedicated OpenCode session database is larger than the configured host memory budget, so native history export was refused. Existing history is preserved and activity evidence is incomplete.",
     "recovery": "The local user can raise LAOMEDO_OPENCODE_HISTORY_MAX_DATABASE_BYTES within the supported 512 MiB limit in runner startup configuration. For larger stores, preserve an archive and configure a separate dedicated session store for new work. Do not delete active history or replay the Agent request."
+  },
+  "opencode_auth_redirect_rejected": {
+    "title": "OpenCode account configuration redirected unexpectedly",
+    "description": "The account configuration request redirected to another address. The local authentication adapter refused to forward the credential.",
+    "recovery": "Check the locally configured OpenCode Console address and resolve the unexpected redirect before loading account configuration again."
+  },
+  "opencode_active_console_account_required": {
+    "title": "No active OpenCode account is selected",
+    "description": "The local OpenCode Console account store has no active account with an organization selected.",
+    "recovery": "Check the active account and organization in OpenCode Console, then refresh the local runner account configuration."
+  },
+  "opencode_console_models_required": {
+    "title": "OpenCode returned an unusable model catalogue",
+    "description": "The selected Console provider configuration contained no models or unsupported model identifiers.",
+    "recovery": "Check the selected account and its provider model configuration before refreshing the catalogue. Do not substitute an unverified model identifier."
+  },
+  "opencode_console_origin_not_allowed": {
+    "title": "The OpenCode Console address is not supported",
+    "description": "The locally selected account points to a Console address outside the supported HTTPS service boundary.",
+    "recovery": "Correct the local account configuration to use the supported OpenCode Console service. Keep credentials out of graph inputs."
+  },
+  "opencode_model_endpoint_not_allowed": {
+    "title": "An OpenCode model uses an unsupported endpoint",
+    "description": "A model in the Console configuration selected an endpoint outside the permitted OpenCode inference boundary.",
+    "recovery": "Check the local provider model configuration and its inference endpoint before loading it again. Do not bypass endpoint validation."
+  },
+  "opencode_model_sdk_not_allowed": {
+    "title": "An OpenCode model uses an unsupported SDK",
+    "description": "A model in the Console configuration requested a provider SDK that this local adapter does not support.",
+    "recovery": "Use a supported SDK in the local provider model configuration or update the adapter through a reviewed change."
+  },
+  "opencode_organization_context_mismatch": {
+    "title": "The OpenCode organizations do not match",
+    "description": "The returned provider configuration belongs to a different organization from the locally selected Console account.",
+    "recovery": "Check the active account and organization in OpenCode Console before refreshing the local runner account configuration."
+  },
+  "opencode_real_credential_required": {
+    "title": "The OpenCode account credential is missing or invalid",
+    "description": "The authentication adapter received an empty credential or a placeholder instead of a usable account credential.",
+    "recovery": "Sign in through the supported OpenCode account flow and refresh the local runner account configuration. Do not paste credentials into the graph."
   }
 }

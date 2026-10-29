@@ -1,7 +1,7 @@
 examples/skill-agent-pilot/** text eol=lf
 experiments/** text eol=lf
 src/laomedo/host/publication/resources/*.sh text eol=lf
-src/laomedo/agents/providers/codex/resources/codex-seccomp.json text eol=lf
+src/laomedo/agents/agents/codex/resources/codex-seccomp.json text eol=lf
 docker/codex-acp/** text eol=lf
 docker/codex-acp/native-events.patch whitespace=-blank-at-eol
 experiments/exp22/prethread.json -text whitespace=cr-at-eol

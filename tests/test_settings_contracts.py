@@ -118,7 +118,7 @@ class SettingsContractTests(unittest.TestCase):
                         'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',
-            'agents/orchestration/transport.py': '"LAOMEDO_" + provider.upper()',
+            'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
@@ -128,7 +128,7 @@ class SettingsContractTests(unittest.TestCase):
         split=(SOURCE / 'agents/agents/codex/split/executor.py').read_text()
         self.assertNotIn('os.environ',split)
         self.assertIn('environment=environment',split)
-        helper = (SOURCE / 'host/credentials/git_credential_helper.py').read_text()
+        helper = (SOURCE / 'git/credentials/helper.py').read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn('pydantic', helper)
         self.assertNotIn('import laomedo', helper)
