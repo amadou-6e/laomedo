@@ -1,8 +1,10 @@
 """Codex policy for a credential-bearing controller and isolated tool executor."""
 
+import json
+
 from pydantic import Field, SecretStr
 
-from laomedo.agents.providers.codex.native.models import CodexLaunch
+from laomedo.agents.providers.codex.controller.models import CodexLaunch
 
 
 class SplitLaunch(CodexLaunch):
@@ -24,21 +26,20 @@ class SplitLaunch(CodexLaunch):
     def to_container_spec(self):
         """Project the controller's unchanged deferred-execution policy."""
         spec = super().to_container_spec()
-        command = list(spec.command)
-        command[-2:-2] = [
+        arguments = [
             "-c",
             "features.deferred_executor=true",
             "-c",
             "features.executor_capability_discovery=true",
         ]
         for setting in self.provider_config:
-            command[-2:-2] = ["-c", setting]
+            arguments.extend(["-c", setting])
         environment = dict(spec.environment)
+        environment["LAOMEDO_CODEX_ARGS"] = SecretStr(json.dumps(arguments))
         if self.access_token is not None:
             environment["ACCESS_TOKEN"] = self.access_token
         return spec.model_copy(
             update={
-                "command": command,
                 "environment": environment,
                 "network_mode": "container:" + self.executor_id,
                 "security_opt": ["no-new-privileges"],

@@ -39,6 +39,7 @@ export const executorParams = z.object({
 export const statusParams = executorParams.pick({environmentId: true});
 
 export class LaomedoExtension {
+    static readonly capabilities = {version: 1, rawEvents: true, hostPolicy: true};
     private sessions = new Map<string, z.infer<typeof sessionPolicy>>();
     private rawQueue: Promise<void> = Promise.resolve();
     private rawFailed = false;

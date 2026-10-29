@@ -190,7 +190,9 @@ class AcpSession:
                 if getattr(reply, "usage", None) is not None
                 else None,
             )
-        except RequestError:
+        except RunnerError:
+            raise
+        except (RequestError, ConnectionError, OSError, ValueError):
             if health_error is not None:
                 raise health_error from None
             raise RunnerError("runner_transport_failed") from None

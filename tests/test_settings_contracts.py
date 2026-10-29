@@ -71,7 +71,7 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_native_stream_settings_validate_positive_numeric_environment(self):
         from pydantic import ValidationError
-        from laomedo.agents.providers.codex.native.settings import Settings
+        from laomedo.agents.providers.codex.controller.settings import Settings
         from laomedo.agents.runtime.errors import RunnerError
         for field, alias in (("max_bytes","LAOMEDO_CODEX_STREAM_MAX_BYTES"),
                              ("startup_margin","LAOMEDO_CODEX_STREAM_STARTUP_MARGIN")):

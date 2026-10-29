@@ -17,6 +17,9 @@ function setup() {
 }
 
 describe("Laomedo ACP policy", () => {
+    it("advertises the versioned raw-event and host-policy contract", () => {
+        expect(LaomedoExtension.capabilities).toEqual({version: 1, rawEvents: true, hostPolicy: true});
+    });
     it("inherits the normal permission profile without agent-mode overrides", () => {
         const {extension, request} = setup();
         const params = extension.sessionParameters(request);

@@ -1518,5 +1518,20 @@
     "title": "The OpenCode images could not be confirmed",
     "description": "The runner could not confirm the configured local controller and worker images. No controller was launched.",
     "recovery": "Check Docker is running and the approved images are available on the configured local connection. Then check the local runner configuration."
+  },
+  "executor_lost": {
+    "title": "The isolated tool runner stopped",
+    "description": "The Agent lost its separate tool container while the request was active. The work outcome is not confirmed.",
+    "recovery": "Check the existing run and workspace changes before starting new work. Do not repeat the original request automatically; a tool may already have changed files."
+  },
+  "auth_revoked_during_turn": {
+    "title": "The Agent connection is no longer authorized",
+    "description": "The host detected that the account authorization changed while the Agent was working and requested cancellation. The remote work outcome may be unconfirmed.",
+    "recovery": "Check the existing run and its changes. Reconnect the intended account through the local account setup before starting new work; do not repeat an uncertain request automatically."
+  },
+  "permission_preflight_failed": {
+    "title": "The local runner sandbox could not be verified",
+    "description": "The runner could not confirm the required workspace access and protected-file restrictions. No model request was submitted by this preflight check.",
+    "recovery": "Check the configured runner image and its reviewed sandbox configuration. Keep execution disabled until the local runner preflight succeeds."
   }
 }

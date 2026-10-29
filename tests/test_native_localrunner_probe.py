@@ -1,5 +1,6 @@
 """Credential-free prospective S13 controls; no model or live capture."""
 from copy import deepcopy
+import asyncio
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -10,7 +11,7 @@ from unittest.mock import patch
 from experiments.exp104 import native_localrunner_worker as worker
 from experiments.exp104 import native_localrunner_probe as probe
 from experiments.exp104.native_localrunner_checks import IDENTITY; from experiments.exp104.native_localrunner_checks import validate
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.controller.service import CodexController as AppServer; from laomedo.agents.runtime.errors import RunnerError
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,9 +69,9 @@ class LocalRunnerProbeTests(unittest.TestCase):
 
                 def _execute(self, run_id, task, *, resume):
                     server = self.transport.__new__(self.transport)
-                    for method in ("turn/start", "thread/start", "model/list"):
+                    for method in ("prompt", "open", "models"):
                         with self.test.assertRaisesRegex(RunnerError, "fixture_forbids_model_or_thread_request"):
-                            server.request(method, {})
+                            asyncio.run(getattr(server, method)())
                     return {"run_id": run_id, "status": "failed", "error_category": "fixture_hold_finished_before_turn"}
 
             test = self

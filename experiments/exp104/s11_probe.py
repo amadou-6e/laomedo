@@ -25,7 +25,7 @@ from urllib import error; from urllib import request
 from laomedo.host.leases.utils import inspect_exact
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.host.leases.client import LeaseClient; from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
-from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.native.models import CodexLaunch
+from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.controller.models import CodexLaunch
 from laomedo.host.mediation.authority import RunGrantAuthority
 
 _helper_spec = importlib.util.spec_from_file_location(

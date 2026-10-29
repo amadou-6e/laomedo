@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.split.server import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.native.models import CodexLaunch; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.providers.codex.controller.service import CodexController as AppServer;  from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.controller.models import CodexLaunch; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.host.mediation.authority import RunGrantAuthority
@@ -97,7 +97,38 @@ class FakeServer:
         self.log.flush()
         return "completed", None
 
-    def close(self):
+    async def initialize(self):
+        self.request("initialize", {})
+
+    async def models(self):
+        reply = self.request("model/list", {})
+        return [{"id": item["id"], "efforts": item["supportedReasoningEfforts"]} for item in reply["result"]["data"]]
+
+    async def open(self, record, *, resume):
+        self.active_thread_id = "native-thread"
+        self.output_requirements = record.get("output_requirements")
+        self.precheck_call_count = 0
+        self.verified_precheck_calls = set()
+        params = {"threadId": "native-thread"} if resume else {}
+        if self.output_requirements:
+            from laomedo.agents.contracts.output import dynamic_tool
+            params["dynamicTools"] = [dynamic_tool(self.output_requirements)]
+        self.request("thread/resume" if resume else "thread/start", params)
+        return "native-thread"
+
+    def assert_controller_isolated(self):
+        pass
+
+    async def prompt(self, text, *, skills, seconds, cancelled):
+        # Fixture-only hooks preserve the existing domain test scenarios. No
+        # production component offers these retired native request/wait methods.
+        from laomedo.agents.providers.codex.controller.models import CodexTurn
+        sent = self.request("turn/start", {"threadId": "native-thread", "input": [{"type": "text", "text": text}]})
+        identity = sent["result"]["turn"]["id"]
+        status, error = self.wait_turn(identity, seconds, cancelled)
+        return CodexTurn(turn_id=identity, status=status, error=error)
+
+    async def close(self):
         self.log.close()
 
 
@@ -137,10 +168,9 @@ class LocalRunnerTests(unittest.TestCase):
                     inner.events.append({"method": "item/completed", "params": {"turnId": turn_id,
                         "item": {"type": "userMessage", "id": "user-message", "content": []}}})
                     inner.process = SimpleNamespace(stdin=io.StringIO())
-                    AppServer._observe(inner, {"id": "rpc-" + turn_id, "method": "item/tool/call",
-                        "params": {"threadId": "native-thread", "turnId": turn_id, "callId": "precheck-" + turn_id,
+                    AppServer._precheck(inner, {"threadId": "native-thread", "turnId": turn_id, "callId": "precheck-" + turn_id,
                             "tool": "laomedo_output_precheck", "namespace": None, "arguments": {
-                                "requirements_revision": pinned["requirements_revision"], "submission": {}}}})
+                                "requirements_revision": pinned["requirements_revision"], "submission": {}}})
                     inner.events.append({"method": "item/completed", "params": {"turnId": turn_id,
                         "item": {"type": "dynamicToolCall", "id": "precheck-" + turn_id,
                                  "tool": "laomedo_output_precheck", "namespace": None}}})
@@ -510,26 +540,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["turns"], [])
         self.assertFalse((self.runner.state / "turn-ledger.json").exists())
 
-    def test_split_selection_refuses_missing_ambiguous_or_wrong_executor(self):
-        server = SimpleNamespace(environment_id="private-executor")
-        good = [{"environmentId": "private-executor", "cwd": "/draft"}]
-        SplitAppServer.assert_executor_selection(server, good)
-        for bad in ([], [{}], [{"environmentId": "other", "cwd": "/draft"}],
-                    [{"environmentId": "private-executor", "cwd": "/"}],
-                    good + good):
-            with self.subTest(selection=bad):
-                with self.assertRaisesRegex(RunnerError,
-                                            "^executor_selection_mismatch$"):
-                    SplitAppServer.assert_executor_selection(server, bad)
 
-    def test_split_wait_turn_revocation_interrupts_without_completion(self):
-        server = SimpleNamespace(events=[{"method": "item/completed",
-            "params": {"item": {"type": "commandExecution"}}}],
-            authorization_probe=lambda: False, interrupt=Mock())
-        status, error = SplitAppServer.wait_turn(
-            server, "native-turn", 1, threading.Event())
-        self.assertEqual((status, error), ("unknown", "auth_revoked_during_turn"))
-        server.interrupt.assert_called_once_with("native-turn")
 
     def test_mid_turn_revocation_retains_turn_ledger_and_partial_trace(self):
         state = {"active": True}
@@ -729,8 +740,8 @@ class LocalRunnerTests(unittest.TestCase):
         result = runner.start(self.request())
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["workspace_mode"], "git")
-        self.assertEqual(result["image"], "laomedo-codex-git:0.159.2")
-        self.assertEqual(FakeServer.calls[-1].image, "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78")
+        self.assertEqual(result["image"], "laomedo-codex-acp:0.159.2-2.1.1")
+        self.assertEqual(FakeServer.calls[-1].image, __import__("laomedo.agents.providers.codex.settings", fromlist=["GIT_IMAGE_ID"]).GIT_IMAGE_ID)
         self.assertEqual(result["git_baseline"], baseline)
         self.assertTrue(result["skill_git_exclusion"]["enabled"])
         self.assertEqual(result["post_run_hash_scope"], "working_files_only")
@@ -1137,48 +1148,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertTrue(self.runner.lock.acquire(blocking=False))
         self.runner.lock.release()
 
-    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
-    def test_app_server_interrupt_then_removes_named_container(self):
-        app = AppServer.__new__(AppServer)
-        app.active_thread_id = "thread-test"
-        app.interrupt_acknowledged = False
-        app.events, app.messages = [], queue.Queue()
-        app.request = Mock(return_value={"result": {}})
-        app._reader_done = threading.Event()
-        app._closed = False
-        app._resources_failed = False
-        app.session = Mock()
-        app.reader = Mock()
-        app.reader.is_alive.return_value = False
-        app._close_resources = Mock()
-        cancelled = threading.Event()
-        cancelled.set()
-        self.assertEqual(app.wait_turn("turn-test", .05, cancelled),
-                         ("cancelled", "cancel_native_unconfirmed"))
-        app.request.assert_called_once_with("turn/interrupt", {
-            "threadId": "thread-test", "turnId": "turn-test"}, timeout=5)
-        with patch("subprocess.run") as cli:
-            app.close()
-            cli.assert_not_called()
-        app.session.close.assert_called_once_with()
-        app._close_resources.assert_called_once_with()
 
-    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
-    def test_unverified_container_removal_fails_closed(self):
-        from py_docker.errors import CleanupUnconfirmedError
-        app = AppServer.__new__(AppServer)
-        app._closed = False
-        app._resources_failed = False
-        app.session = Mock()
-        app.session.close.side_effect = CleanupUnconfirmedError("internal cleanup control")
-        app.reader = Mock()
-        app.reader.is_alive.return_value = False
-        app._close_resources = Mock()
-        with patch("subprocess.run") as cli:
-            with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
-                app.close()
-            cli.assert_not_called()
-        app.session.close.assert_called_once_with()
 
     def test_http_rejects_simple_cross_origin_content_type(self):
         server = serve(self.runner, port=0)
@@ -1288,33 +1258,8 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["run_id"], run_dir.name)
         self.assertIn("item/started", (run_dir / "raw-events.jsonl").read_text())
 
-    def test_completion_queued_before_turn_start_response_is_observed(self):
-        server = AppServer.__new__(AppServer)
-        server.events = [{"method": "turn/completed", "params": {"turn": {
-            "id": "fast-turn", "status": "completed"}}}]
-        status, error = server.wait_turn("fast-turn", .1, threading.Event())
-        self.assertEqual((status, error), ("completed", None))
 
 
-    def test_cancel_waits_for_native_interrupted_completion(self):
-        server = AppServer.__new__(AppServer)
-        server.events = []
-        server.messages = queue.Queue()
-        server.process = Mock()
-        server.process.poll.return_value = None
-        server.active_thread_id = "thread-test"
-        server.interrupt_acknowledged = False
-        server.native_completion_status = None
-        server.request = Mock(side_effect=lambda *args, **kwargs: (
-            server.messages.put({"method": "turn/completed", "params": {
-                "turn": {"id": "turn-test", "status": "interrupted"}}}) or
-            {"result": {}}))
-        cancelled = threading.Event()
-        cancelled.set()
-        self.assertEqual(server.wait_turn("turn-test", 1, cancelled),
-                         ("cancelled", "cancelled_by_user"))
-        self.assertTrue(server.interrupt_acknowledged)
-        self.assertEqual(server.native_completion_status, "interrupted")
 
 
 if __name__ == "__main__":

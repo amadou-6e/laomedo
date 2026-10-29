@@ -21,6 +21,9 @@ from lfx.schema import Data; from lfx.schema import Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "executor_lost",
+    "auth_revoked_during_turn",
+    "permission_preflight_failed",
     'cancel_native_unconfirmed',
     'agent_component_migration_required',
     'claude_cancelled',

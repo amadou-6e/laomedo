@@ -195,7 +195,7 @@ index 0f79117..4d65127 100644
          const bundledCodexPath = createRequire(import.meta.url).resolve("@openai/codex/bin/codex.js");
          codex = spawn(process.execPath, [bundledCodexPath, 'app-server'], {env: spawnEnv});
 diff --git a/src/index.ts b/src/index.ts
-index 1975930..84cebf9 100644
+index 1975930..defc390 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -2,6 +2,7 @@
@@ -235,7 +235,19 @@ index 1975930..84cebf9 100644
      acp.agent({name: packageJson.name})
          .onConnect((connection) => {
              const agent = createAgent(connection.client);
-@@ -161,7 +173,7 @@ function startAcpServer() {
+@@ -146,7 +158,10 @@ function startAcpServer() {
+                 }
+             });
+         })
+-        .onRequest(acp.methods.agent.initialize, (ctx) => getAgent().initialize(ctx.params))
++        .onRequest(acp.methods.agent.initialize, async (ctx) => {
++            const reply = await getAgent().initialize(ctx.params);
++            return {...reply, _meta: {...reply._meta, ...(laomedo ? {laomedo: LaomedoExtension.capabilities} : {})}};
++        })
+         .onRequest(acp.methods.agent.session.new, (ctx) => getAgent().newSession(ctx.params))
+         .onRequest(acp.methods.agent.session.load, (ctx) => getAgent().loadSession(ctx.params))
+         .onRequest(acp.methods.agent.session.fork, (ctx) => getAgent().forkSession(ctx.params))
+@@ -161,7 +176,7 @@ function startAcpServer() {
          .onRequest(acp.methods.agent.providers.list, (ctx) => getAgent().listProviders(ctx.params))
          .onRequest(acp.methods.agent.providers.set, (ctx) => getAgent().setProvider(ctx.params))
          .onRequest(acp.methods.agent.providers.disable, (ctx) => getAgent().disableProvider(ctx.params))
@@ -244,7 +256,7 @@ index 1975930..84cebf9 100644
          .onNotification(acp.methods.agent.session.cancel, (ctx) => getAgent().cancel(ctx.params))
          .onRequest("authentication/status", emptyExtensionParamsParser, (ctx) => getAgent().extMethod("authentication/status", ctx.params))
          .onRequest("authentication/logout", emptyExtensionParamsParser, (ctx) => getAgent().extMethod("authentication/logout", ctx.params))
-@@ -169,5 +181,10 @@ function startAcpServer() {
+@@ -169,5 +184,10 @@ function startAcpServer() {
          .onRequest(SESSION_STEERING_METHOD, sessionSteerParamsParser, (ctx) => getAgent().extMethod(SESSION_STEERING_METHOD, ctx.params))
          .onRequest(ASYNC_TASK_STOP_METHOD, asyncTaskStopParamsParser, (ctx) => getAgent().extMethod(ASYNC_TASK_STOP_METHOD, ctx.params))
          .onRequest(GOAL_CONTROL_METHOD, goalControlParamsParser, (ctx) => getAgent().extMethod(GOAL_CONTROL_METHOD, ctx.params))

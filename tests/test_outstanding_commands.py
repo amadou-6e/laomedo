@@ -2,7 +2,7 @@
 import json
 import unittest
 
-from laomedo.agents.providers.codex.utils import _command_summary; from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.split.server import SplitAppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.utils import _command_summary; from laomedo.agents.providers.codex.controller.service import CodexController as AppServer;  from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
 import threading
 from types import SimpleNamespace
 from laomedo.agents.artifacts.errors import ArtifactError
@@ -16,14 +16,10 @@ def command(method, identity="exec-1", **fields):
 
 
 class ProjectionTests(unittest.TestCase):
-    def test_both_native_transports_complete_with_a_dangling_command(self):
-        for transport in (AppServer, SplitAppServer):
-            events = [command("item/started"), {"method": "turn/completed", "params": {
-                "turn": {"id": "turn-1", "status": "completed"}}}]
-            server = SimpleNamespace(events=events)
-            self.assertEqual(transport.wait_turn(server, "turn-1", 1, threading.Event()),
-                             ("completed", None))
-            self.assertEqual(_command_summary(events, "turn-1")["outstanding_ids"], ["exec-1"])
+    def test_native_completion_does_not_close_a_dangling_command(self):
+        events = [command("item/started"), {"method": "turn/completed", "params": {
+            "turn": {"id": "turn-1", "status": "completed"}}}]
+        self.assertEqual(_command_summary(events, "turn-1")["outstanding_ids"], ["exec-1"])
 
     def test_other_turn_and_partial_output(self):
         events = [command("item/started"), {"method": "item/commandExecution/outputDelta",
@@ -126,8 +122,8 @@ class RunnerTests(unittest.TestCase):
                 super().wait_turn(turn_id, timeout, cancelled)
                 server.events.append(command("item/started"))
                 return "completed", None
-            def close(server):
-                super().close()
+            async def close(server):
+                await super().close()
                 raise OSError("synthetic cleanup failure")
         self.runner.transport = Transport
         result = self.runner.start(self.request())
