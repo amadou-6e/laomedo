@@ -16,6 +16,48 @@ reflect shared behavior rather than three independent pipelines.
 For current product documentation, see the [Agents guide](../../../docs/features/agents/README.md).
 Canonical requirements remain in the separate specs repository.
 
+## Current migration increment
+
+The owner has authorized implementation of this design. The target tree below
+remains a target until the corresponding code and checks are recorded. The first
+increment relocates existing behavior; it does not establish lifecycle unification.
+
+Agent run records currently belong to the shared Runner's file-backed lifecycle
+(`_run_dir`, `_reserve_turn`, status and terminal-record helpers). They initially
+move with `BaseAgent`; extracting the proposed `agents/runs/RunStore` is a later
+replacement, not an already existing store. `WorkflowRunStore` moves to
+`work_graph/runs/`, including its `freeze_runner_request`, `bind_runner_ack` and
+`record_runner_*` methods: those are graph-side correlations. Existing persisted
+`runner_*` fields, wire formats and machine codes do not change with class names.
+
+Migration checkpoints are ordered as follows:
+
+1. Record pure physical moves separately from import and symbol edits so the
+   large provider files remain reviewable. These intermediate commits are not
+   runnable deliverables; the relocation checkpoint includes integration fixes.
+2. In the same relocation checkpoint, update imports, string patch targets,
+   launcher commands, filesystem resources, package-data ownership and documented
+   CLI commands. Flatten all older migration-map targets directly to their final
+   defining modules; add the newly retired paths without chained mappings.
+3. Dry-run the migration tool on owned components and example flows, preserve
+   backups, then apply only recognized changes. Unknown external saved flows
+   remain an explicit retirement/merge constraint. Migration never dispatches work.
+4. Write module and leaf READMEs describing actual object/method nomenclature
+   before semantic integration. Rename objects separately from physical moves;
+   update symbol maps without renaming persisted fields or public node identities.
+5. Extract all five nested handlers in owned code, replace module-alias usage
+   with direct symbols and model the native OpenCode configuration. Other domains'
+   handlers remain outside this increment.
+6. Consolidate Git command mechanics with caller-specific error translation;
+   establish canonical Activity adapters; consolidate provider lifecycles in
+   separate reviewable replacements. Do not claim consolidation from relocation.
+
+The trusted HTTP server entrypoint under `host/runner/http/` is an explicit
+composition-boundary exception: it may bind the base Agent implementation, while
+public interface contracts must remain independent of that implementation.
+Workspace tree hashing is an Agent working-state responsibility; repository
+detection and reusable Git invocation belong to the shared Git owner.
+
 ## Module boundary and owning objects
 
 Paths in this table are relative to `src/laomedo/` and describe the target.
