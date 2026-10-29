@@ -9,7 +9,7 @@ The goal is to make providers visible entrypoints, give each concern an owning
 object, and inherit the common execution lifecycle through `BaseAgent`. Matching
 folders must reflect shared behavior rather than three independent pipelines.
 
-For current product documentation, see the [Agents guide](../../../../docs/features/agents/README.md).
+For current product documentation, see the [Agents guide](../../../docs/features/agents/README.md).
 Canonical requirements remain in the separate specs repository.
 
 ## Concerns and owning objects
