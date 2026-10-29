@@ -28,7 +28,7 @@ from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import RuntimeBinding
-from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.utils import mirror_login

@@ -1,6 +1,6 @@
 """Credential-free, opt-in whole-repository workspace preparation."""
 
-from laomedo.agents.workspaces.git import _bounded_git as _owned_git_workspace__bounded_git
+from laomedo.git.command import GitCommandRunner
 
 from pathlib import Path
 import os
@@ -9,8 +9,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import laomedo.agents.workspaces.git as git_workspace
-from laomedo.agents.workspaces.errors import GitWorkspaceError; from laomedo.agents.workspaces.git import prepare_git_workspace
+from laomedo.agents.workspaces.workspace import AgentWorkspace
+from laomedo.agents.workspaces.models import WorkspacePaths
+from laomedo.agents.workspaces.errors import GitWorkspaceError
 
 
 class GitWorkspaceTests(unittest.TestCase):
@@ -46,7 +47,7 @@ class GitWorkspaceTests(unittest.TestCase):
         with patch.dict(os.environ, {"HOME": str(hostile_home),
                                      "USERPROFILE": str(hostile_home),
                                      "XDG_CONFIG_HOME": str(hostile_home)}):
-            pinned = prepare_git_workspace(self.source, destination)
+            pinned = AgentWorkspace(WorkspacePaths(source=self.source, directory=destination)).prepare_git()
         self.assertEqual(pinned, self.baseline)
         self.assertEqual(self._git(destination, "rev-parse", "HEAD").stdout.decode().strip(),
                          self.baseline)
@@ -58,64 +59,63 @@ class GitWorkspaceTests(unittest.TestCase):
         destination = self.root / "workspace"
         (self.source / "untracked.txt").write_bytes(b"not pinned\n")
         with self.assertRaisesRegex(GitWorkspaceError, "source_not_clean"):
-            prepare_git_workspace(self.source, destination)
+            AgentWorkspace(WorkspacePaths(source=self.source, directory=destination)).prepare_git()
         self.assertFalse(destination.exists())
         (self.source / "untracked.txt").unlink()
         destination.mkdir()
         with self.assertRaisesRegex(GitWorkspaceError, "git_workspace_path_invalid"):
-            prepare_git_workspace(self.source, destination)
+            AgentWorkspace(WorkspacePaths(source=self.source, directory=destination)).prepare_git()
 
     def test_submodule_gitlink_is_refused(self):
         self._git(self.source, "update-index", "--add", "--cacheinfo",
                   "160000," + self.baseline + ",nested")
         self._git(self.source, "commit", "-qm", "gitlink")
         with self.assertRaisesRegex(GitWorkspaceError, "submodule_source_unsupported"):
-            prepare_git_workspace(self.source, self.root / "workspace")
+            AgentWorkspace(WorkspacePaths(source=self.source, directory=self.root / "workspace")).prepare_git()
 
     def test_indexed_symlink_is_refused(self):
         self._git(self.source, "update-index", "--add", "--cacheinfo",
                   "120000," + self.baseline + ",link")
         self._git(self.source, "commit", "-qm", "symlink")
         with self.assertRaisesRegex(GitWorkspaceError, "symlink_source_unsupported"):
-            prepare_git_workspace(self.source, self.root / "workspace")
+            AgentWorkspace(WorkspacePaths(source=self.source, directory=self.root / "workspace")).prepare_git()
 
     def test_partial_clone_is_removed_on_failure(self):
         destination = self.root / "workspace"
-        original = _owned_git_workspace__bounded_git
+        original = GitCommandRunner.run
 
-        def fail_after_clone(args, env):
-            if "clone" in args:
+        def fail_after_clone(runner, command):
+            if "clone" in command.arguments:
                 (destination / "partial").write_text("unfinished", encoding="utf-8")
-                return subprocess.CompletedProcess(args, 1, b"", b"synthetic failure")
-            return original(args, env)
+                return subprocess.CompletedProcess(command.arguments, 1, b"", b"synthetic failure")
+            return original(runner, command)
 
-        with patch.object(git_workspace, "_bounded_git", side_effect=fail_after_clone):
+        with patch.object(GitCommandRunner, "run", new=fail_after_clone):
             with self.assertRaisesRegex(GitWorkspaceError, "git_clone_failed"):
-                prepare_git_workspace(self.source, destination)
+                AgentWorkspace(WorkspacePaths(source=self.source, directory=destination)).prepare_git()
         self.assertFalse(destination.exists())
 
     def test_racing_destination_is_not_removed(self):
         destination = self.root / "workspace"
-        original = _owned_git_workspace__bounded_git
+        original = GitCommandRunner.run
 
-        def claim_destination_after_status(args, env):
-            result = original(args, env)
-            if "status" in args:
+        def claim_destination_after_status(runner, command):
+            result = original(runner, command)
+            if "status" in command.arguments:
                 destination.mkdir()
                 (destination / "foreign").write_text("keep", encoding="utf-8")
             return result
 
-        with patch.object(git_workspace, "_bounded_git",
-                          side_effect=claim_destination_after_status):
+        with patch.object(GitCommandRunner, "run", new=claim_destination_after_status):
             with self.assertRaisesRegex(GitWorkspaceError, "git_workspace_path_invalid"):
-                prepare_git_workspace(self.source, destination)
+                AgentWorkspace(WorkspacePaths(source=self.source, directory=destination)).prepare_git()
         self.assertEqual((destination / "foreign").read_text(encoding="utf-8"), "keep")
 
     def test_fsmonitor_source_config_does_not_run(self):
         marker = self.root / "fsmonitor.txt"
         command = f'echo fired > "{marker}"'
         self._git(self.source, "config", "core.fsmonitor", command)
-        prepare_git_workspace(self.source, self.root / "workspace")
+        AgentWorkspace(WorkspacePaths(source=self.source, directory=self.root / "workspace")).prepare_git()
         self.assertFalse(marker.exists())
 
     def test_tracked_skill_path_is_refused(self):
@@ -125,7 +125,7 @@ class GitWorkspaceTests(unittest.TestCase):
         self._git(self.source, "add", ".agents/skills/example/SKILL.md")
         self._git(self.source, "commit", "-qm", "tracked skill")
         with self.assertRaisesRegex(GitWorkspaceError, "tracked_skill_path_unsupported"):
-            prepare_git_workspace(self.source, self.root / "workspace")
+            AgentWorkspace(WorkspacePaths(source=self.source, directory=self.root / "workspace")).prepare_git()
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@ state directory or automatically retry an uncertain remote effect.
 
 from __future__ import annotations
 
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
+
 from laomedo.host.leases.models import ContainerIdentity
 
 import argparse

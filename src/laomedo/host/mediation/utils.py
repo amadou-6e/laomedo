@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
-import laomedo.host.mediation.errors as _mediation_errors
+from laomedo.host.mediation.errors import MediationError
 import re
 
 
@@ -18,9 +18,9 @@ def _request_hash(repository: str, operation: str, payload: dict) -> str:
             allow_nan=False,
         ).encode("utf-8")
     except (TypeError, ValueError) as error:
-        raise _mediation_errors.MediationError("request_not_serializable") from error
+        raise MediationError("request_not_serializable") from error
     if len(encoded) > 1024 * 1024:
-        raise _mediation_errors.MediationError("request_too_large")
+        raise MediationError("request_too_large")
     return sha256(encoded).hexdigest()
 
 
@@ -49,15 +49,15 @@ def _validate_effect(
             isinstance(payload.get(key), str) and payload[key]
             for key in ("branch", "commit")
         ):
-            raise _mediation_errors.MediationError("push_identity_required")
+            raise MediationError("push_identity_required")
         if payload["branch"].startswith("refs/") or ".." in payload["branch"]:
-            raise _mediation_errors.MediationError("push_branch_invalid")
+            raise MediationError("push_branch_invalid")
         if payload["branch"] != grant["branch"]:
-            raise _mediation_errors.MediationError("push_branch_denied")
+            raise MediationError("push_branch_denied")
         # The expensive trusted inspection was performed without a write
         # transaction. Revalidate the grant and branch inside this transaction.
         if changes_workflow is not False:
-            raise _mediation_errors.MediationError(
+            raise MediationError(
                 "workflow_approval_required"
                 if changes_workflow is True
                 else "push_diff_unverified"
@@ -67,10 +67,10 @@ def _validate_effect(
             isinstance(payload.get(key), str) and payload[key]
             for key in ("head", "base", "marker")
         ):
-            raise _mediation_errors.MediationError("pr_identity_required")
+            raise MediationError("pr_identity_required")
         if operation == "pr_update":
             if type(payload.get("number")) is not int or payload["number"] < 1:
-                raise _mediation_errors.MediationError("target_pr_required")
+                raise MediationError("target_pr_required")
             target = db.execute(
                 "SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
                 (grant["grant_id"], payload["number"]),
@@ -80,24 +80,24 @@ def _validate_effect(
                 or payload["head"] != grant["branch"]
                 or payload["base"] != target["base"]
             ):
-                raise _mediation_errors.MediationError("target_pr_denied")
+                raise MediationError("target_pr_denied")
         if operation == "pr_create" and payload["head"] != grant["branch"]:
-            raise _mediation_errors.MediationError("pr_head_denied")
+            raise MediationError("pr_head_denied")
         if operation == "pr_create" and payload["base"] != grant["base_branch"]:
-            raise _mediation_errors.MediationError("pr_base_denied")
+            raise MediationError("pr_base_denied")
     if operation == "issue_create":
         if not all(
             isinstance(payload.get(key), str) and payload[key]
             for key in ("reviewed_proposal_id", "marker")
         ):
-            raise _mediation_errors.MediationError("reviewed_issue_required")
+            raise MediationError("reviewed_issue_required")
         reviewed = json.loads(grant["reviewed_issue_hashes"])
         if reviewed.get(payload["reviewed_proposal_id"]) != _request_hash(
             grant["repository"], "issue_create", payload
         ):
-            raise _mediation_errors.MediationError("issue_review_denied")
+            raise MediationError("issue_review_denied")
     if operation == "issue_update":
-        import laomedo.github.issues.contract as _issues_contract
+        from laomedo.github.issues.contract import validate_patch as github_issues_contract_validate_patch
 
         try:
             if (
@@ -108,9 +108,9 @@ def _validate_effect(
                 or not re.fullmatch(r"sha256:[0-9a-f]{64}", payload["expected"])
             ):
                 raise ValueError()
-            _issues_contract.validate_patch(payload["changes"])
+            github_issues_contract_validate_patch(payload["changes"])
         except (ValueError, TypeError):
-            raise _mediation_errors.MediationError("issue_patch_invalid") from None
+            raise MediationError("issue_patch_invalid") from None
         if (
             db.execute(
                 "SELECT 1 FROM issue_targets WHERE grant_id=? AND number=?",
@@ -118,9 +118,9 @@ def _validate_effect(
             ).fetchone()
             is None
         ):
-            raise _mediation_errors.MediationError("issue_target_denied")
+            raise MediationError("issue_target_denied")
     if operation == "pr_node_update":
-        import laomedo.github.pull_requests.contract as _pull_requests_contract
+        from laomedo.github.pull_requests.contract import validate_patch as github_pull_requests_contract_validate_patch
 
         try:
             if (
@@ -131,9 +131,9 @@ def _validate_effect(
                 or not re.fullmatch(r"sha256:[0-9a-f]{64}", payload["expected"])
             ):
                 raise ValueError()
-            _pull_requests_contract.validate_patch(payload["changes"])
+            github_pull_requests_contract_validate_patch(payload["changes"])
         except (ValueError, TypeError):
-            raise _mediation_errors.MediationError("pr_patch_invalid") from None
+            raise MediationError("pr_patch_invalid") from None
         target = db.execute(
             "SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
             (grant["grant_id"], payload["number"]),
@@ -143,16 +143,16 @@ def _validate_effect(
             or payload["head"] != grant["branch"]
             or payload["base"] != target["base"]
         ):
-            raise _mediation_errors.MediationError("target_pr_denied")
+            raise MediationError("target_pr_denied")
     if operation in {"api_rest_write", "api_graphql_mutation"}:
         # An agent-declared semantic_operation is not a security classifier.
         # The real endpoint/query parser must be reviewed before this lane opens.
-        raise _mediation_errors.MediationError("api_write_unsupported")
+        raise MediationError("api_write_unsupported")
 
 
 def _validate_read(operation: str, payload: dict, repository: str, grant, db) -> None:
     if operation in {"label_list", "issue_query", "issue_read"}:
-        import laomedo.github.issues.contract as _issues_contract
+        from laomedo.github.issues.contract import labels_value
 
         try:
             if operation == "label_list" and payload != {}:
@@ -170,9 +170,9 @@ def _validate_read(operation: str, payload: dict, repository: str, grant, db) ->
                     "all",
                 }:
                     raise ValueError()
-                _issues_contract.labels_value(payload["labels"])
+                labels_value(payload["labels"])
         except (ValueError, TypeError):
-            raise _mediation_errors.MediationError(
+            raise MediationError(
                 "issue_read_request_invalid"
             ) from None
         return
@@ -190,7 +190,7 @@ def _validate_read(operation: str, payload: dict, repository: str, grant, db) ->
             or not isinstance(payload.get("commit"), str)
             or not re.fullmatch(r"[0-9a-f]{40}", payload["commit"])
         ):
-            raise _mediation_errors.MediationError("fetch_target_denied")
+            raise MediationError("fetch_target_denied")
         return
     if operation == "pr_read":
         if (
@@ -198,13 +198,13 @@ def _validate_read(operation: str, payload: dict, repository: str, grant, db) ->
             or type(payload["number"]) is not int
             or payload["number"] < 1
         ):
-            raise _mediation_errors.MediationError("pr_read_target_invalid")
+            raise MediationError("pr_read_target_invalid")
         target = db.execute(
             "SELECT base FROM pr_targets WHERE grant_id=? AND number=?",
             (grant["grant_id"], payload["number"]),
         ).fetchone()
         if target is None:
-            raise _mediation_errors.MediationError("pr_read_target_denied")
+            raise MediationError("pr_read_target_denied")
         return
     if operation != "api_rest_read":
         return
@@ -216,4 +216,4 @@ def _validate_read(operation: str, payload: dict, repository: str, grant, db) ->
         or not path.startswith(prefix)
         or any(part in path for part in ("..", "//", "\\", "%", "?", "#"))
     ):
-        raise _mediation_errors.MediationError("api_read_denied")
+        raise MediationError("api_read_denied")

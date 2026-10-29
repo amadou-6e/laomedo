@@ -1,5 +1,7 @@
 """Single-use, independently reviewed real-agent crash test. No GitHub writes."""
 
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
+
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from contextlib import closing

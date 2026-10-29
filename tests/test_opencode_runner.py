@@ -8,7 +8,7 @@ import test_local_runner as fixtures
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.acp.models import AcpTurn
-from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _json
 
 

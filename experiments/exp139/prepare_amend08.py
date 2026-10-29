@@ -1,4 +1,6 @@
 """Prepare fresh bounded state from retained inputs; never launch a model or write GitHub."""
+
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 import ast
 from contextlib import closing
 from hashlib import sha256

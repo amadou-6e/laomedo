@@ -31,6 +31,25 @@ def producer_path(filename):
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_reworked_working_state_and_git_producers_are_catalogued_and_routable(self):
+        catalogue = json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
+        component = ast.parse((ROOT/'src/laomedo/agents/interface/langflow/component.py').read_text())
+        routed = next(ast.literal_eval(n.value) for n in component.body if isinstance(n, ast.Assign)
+                      and any(isinstance(t, ast.Name) and t.id == '_ROUTABLE_ERRORS' for t in n.targets))
+        paths = ('agents/workspaces/workspace.py', 'agents/workspaces/utils.py',
+                 'skills/workspace/utils.py', 'git/worktree.py', 'host/mediation/agent_cli.py')
+        codes = {'git_timeout', 'git_timeout_cleanup_unverified'}
+        for relative in paths:
+            tree = ast.parse((ROOT/'src/laomedo'/relative).read_text())
+            codes.update(n.exc.args[0].value for n in ast.walk(tree)
+                         if isinstance(n, ast.Raise) and isinstance(n.exc, ast.Call) and n.exc.args
+                         and isinstance(n.exc.args[0], ast.Constant) and isinstance(n.exc.args[0].value, str))
+        self.assertFalse(codes - catalogue.keys())
+        self.assertFalse(codes - routed)
+        for code in codes:
+            for field in ('title', 'description', 'recovery'):
+                self.assertTrue(catalogue[code][field].strip(), (code, field))
+
     def test_shared_acp_timeout_methods_are_preserved_by_the_graph_boundary(self):
         source=ast.parse((ROOT/'src/laomedo/agents/agents/base/acp/session.py').read_text())
         methods={node.args[1].value for node in ast.walk(source)

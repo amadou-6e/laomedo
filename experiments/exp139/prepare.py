@@ -3,6 +3,8 @@
 This explicit command uses the selected host connection for repository reads.
 It starts no runner, spends no model turn and performs no GitHub write.
 """
+
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 import argparse
 import base64
 from hashlib import sha256

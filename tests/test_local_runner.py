@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.agents.agents.codex.controller.service import CodexController as AppServer;  from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch; from laomedo.agents.agents.base.utils import _hash_tree; from laomedo.agents.agents.base.utils import _copy_tree; from laomedo.agents.agents.codex.utils import _native_error_summary; from laomedo.host.runner.http.server import RunnerServer as serve
+from laomedo.agents.agents.codex.controller.service import CodexController as AppServer;  from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch; from laomedo.agents.workspaces.utils import _hash_tree; from laomedo.agents.workspaces.utils import _copy_tree; from laomedo.agents.agents.codex.utils import _native_error_summary; from laomedo.host.runner.http.server import RunnerServer as serve
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.host.mediation.authority import RunGrantAuthority
@@ -162,7 +162,7 @@ class LocalRunnerTests(unittest.TestCase):
     def test_snapshot_io_error_is_not_reported_as_container_cleanup_failure(self):
         freeze = self.runner._freeze_workspace
         def denied(root, record):
-            with patch("laomedo.agents.agents.base.utils._copy_tree", side_effect=PermissionError("private local path")):
+            with patch("laomedo.agents.workspaces.workspace._copy_tree", side_effect=PermissionError("private local path")):
                 return freeze(root, record)
         with patch.object(self.runner, "_freeze_workspace", side_effect=denied):
             result = self.runner.start(self.request())

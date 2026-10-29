@@ -111,8 +111,7 @@ class SettingsContractTests(unittest.TestCase):
     def test_raw_environment_boundaries_stay_explicit(self):
         protected = {
             'host/runner/utils.py': 'os.environ.items()',
-            'agents/workspaces/git.py': 'os.environ.items()',
-            'github/transport/git/utils.py': 'os.environ.items()',
+            'git/command.py': 'os.environ.items()',
             'agents/agents/claude/auth/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
                         'host/publication/cli.py': 'key in os.environ',
@@ -149,6 +148,14 @@ class ErrorContractTests(unittest.TestCase):
                         self.assertEqual(error.code, 'runner_transport_failed')
                         self.assertEqual(error.run_reference['run_id'], 'retained-run')
                         continue  # Graph invocation errors retain a record, unlike scalar domain errors.
+                    if cls.__name__ == 'GitCommandTimeout':
+                        error = cls(['git', '--version'], .5, False)
+                        self.assertEqual(error.code, 'git_timeout_cleanup_unverified')
+                        self.assertFalse(error.cleanup_verified)
+                        restored = pickle.loads(pickle.dumps(error))
+                        self.assertEqual(restored.__dict__, error.__dict__)
+                        self.assertEqual(str(restored), str(error))
+                        continue  # Cleanup-aware subprocess timeouts retain native constructor arguments.
                     if cls.__name__ == 'PushOutcomeUnknown':
                         error = cls('timeout', None)
                         code = 'push_outcome_unknown'

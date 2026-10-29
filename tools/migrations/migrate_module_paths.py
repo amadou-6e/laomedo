@@ -21,6 +21,7 @@ from migration_errors import ManualMigrationRequired
 MODULE_PATHS = json.loads(Path(__file__).with_name("module-paths.json").read_text())
 
 SYMBOL_PATHS = json.loads(Path(__file__).with_name("symbol-paths.json").read_text())
+MANUAL_SYMBOLS = json.loads(Path(__file__).with_name("manual-symbols.json").read_text())
 CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
@@ -93,6 +94,9 @@ def _physical_lines(source: str) -> list[str]:
 
 def migrate_source(source: str) -> str:
     """Rewrite published imports to defining modules; refuse ambiguous symbols."""
+    for symbol, explanation in MANUAL_SYMBOLS.items():
+        if re.search(r"(?<![\w.])" + re.escape(symbol) + r"(?!\w)", source):
+            raise ManualMigrationRequired(symbol + ": " + explanation)
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -143,11 +147,20 @@ def migrate_source(source: str) -> str:
                 )
             )
 
+        imported_modules = {item.asname or item.name: item.name for node in ast.walk(tree)
+                            if isinstance(node, ast.Import) for item in node.names}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                full = imported_modules.get(node.value.id, "") + "." + node.attr
+                if full in MANUAL_SYMBOLS:
+                    raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module and not node.level:
                 statements, changed = [], False
                 for item in node.names:
                     full = node.module + "." + item.name
+                    if full in MANUAL_SYMBOLS:
+                        raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
                     if legacy_agent is not None and full == "laomedo.codex_agent.LaomedoCodexAgent":
                         alias = item.asname or item.name
                         statements.append("from laomedo.integrations.langflow.agent.component import AgentComponent as " + alias)

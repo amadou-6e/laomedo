@@ -1,6 +1,10 @@
 """No-network checks of exact-commit pushes and host-credential isolation."""
 
 from pathlib import Path
+from pydantic import SecretStr
+from git_runner_controls import CallbackGitRunner
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCommand, GitCredential, GitExecutionContext
 import os
 import shlex
 import subprocess
@@ -10,7 +14,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.errors import PushOutcomeUnknown; from laomedo.github.transport.git.settings import GIT_COMMAND_TIMEOUT_SECONDS; from laomedo.github.transport.git.transport import GitTreeTimeout; from laomedo.github.transport.git.utils import _credential_environment; from laomedo.github.transport.git.utils import _run_bounded_tree
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.errors import PushOutcomeUnknown; from laomedo.git.settings import GIT_COMMAND_TIMEOUT_SECONDS; from laomedo.git.errors import GitCommandTimeout
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.service import JournaledTransport
@@ -47,7 +51,7 @@ class GitHubGitTransportTests(unittest.TestCase):
             REPOSITORY, self.checkout, self.baseline,
             lambda connection_id, generation: "synthetic-secret"
             if (connection_id, generation) == ("connection-a", 1) else None,
-            run=runner)
+            runner=CallbackGitRunner(runner))
 
     def _git(self, *args):
         return subprocess.run(["git", "-C", str(self.checkout), *args],
@@ -97,7 +101,7 @@ class GitHubGitTransportTests(unittest.TestCase):
                 if "push" in args:
                     pushes.append(args)
                 return subprocess.run(rewritten, **options)
-            self.transport.run = local_provider
+            self.transport.runner = CallbackGitRunner(local_provider)
             binding = {"connection_id": "connection-a", "connection_generation": 1}
             self.transport(REPOSITORY, "git_push", {"branch": "probe-a", "commit": self.baseline},
                            **binding)
@@ -142,13 +146,13 @@ class GitHubGitTransportTests(unittest.TestCase):
         global_trace.unlink()
         inherited_trace.unlink()
         with patch.dict(os.environ, ambient):
-            checked = self.transport._git("status", "--porcelain")
+            checked = self.transport._repository(self.checkout).run(["status", "--porcelain"])
         self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertFalse(global_trace.exists())
         self.assertFalse(inherited_trace.exists())
 
     def test_isolated_git_home_keeps_only_mediated_credential_helper(self):
-        environment, helper = _credential_environment("synthetic-only")
+        credential = GitCredential(token=SecretStr("synthetic-only"))
         homes = []
 
         def fill_with_input(args, **options):
@@ -160,10 +164,8 @@ class GitHubGitTransportTests(unittest.TestCase):
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 env=options["env"], timeout=options["timeout"], check=False)
 
-        self.transport.run = fill_with_input
-        filled = self.transport._git("-c", "credential.helper=", "-c",
-                                     "credential.helper=" + helper,
-                                     "credential", "fill", env=environment)
+        self.transport.runner = CallbackGitRunner(fill_with_input)
+        filled = self.transport._repository(self.checkout).run(["credential", "fill"], credential=credential)
         self.assertEqual(filled.returncode, 0, filled.stderr)
         self.assertIn(b"password=synthetic-only", filled.stdout)
         self.assertEqual(len(homes), 1)
@@ -175,7 +177,7 @@ class GitHubGitTransportTests(unittest.TestCase):
                 raise subprocess.TimeoutExpired(args, kwargs["timeout"])
             return subprocess.run(args, **kwargs)
 
-        self.transport.run = timed_out_fetch
+        self.transport.runner = CallbackGitRunner(timed_out_fetch)
         with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
             self.transport(REPOSITORY, "git_push", {
                 "branch": "probe-a", "commit": self.commit},
@@ -260,7 +262,7 @@ class GitHubGitTransportTests(unittest.TestCase):
                 raise subprocess.TimeoutExpired(args, kwargs["timeout"])
             return subprocess.run(args, **kwargs)
 
-        self.transport.run = timed_out_diff
+        self.transport.runner = CallbackGitRunner(timed_out_diff)
         with self.assertRaisesRegex(KnownRejected, "push_commit_unverified"):
             self.transport(REPOSITORY, "git_push", {
                 "branch": "probe-a", "commit": self.commit},
@@ -277,7 +279,7 @@ class GitHubGitTransportTests(unittest.TestCase):
                                                 stderr=b"synthetic-secret")
             return subprocess.run(args, **kwargs)
 
-        self.transport.run = timed_out_push
+        self.transport.runner = CallbackGitRunner(timed_out_push)
         with self.assertRaisesRegex(PushOutcomeUnknown,
                                     "push_outcome_unknown") as found:
             self.transport(REPOSITORY, "git_push", {
@@ -296,10 +298,9 @@ class GitHubGitTransportTests(unittest.TestCase):
                   f"subprocess.Popen([sys.executable,'-c',{child!r}]); "
                   "time.sleep(10)")
         started = time.monotonic()
-        with self.assertRaises(GitTreeTimeout) as found:
-            _run_bounded_tree([sys.executable, "-c", parent],
-                              capture_output=True, check=False, timeout=.5,
-                              env=os.environ.copy())
+        with patch.object(GitCommandRunner, "_arguments", return_value=[sys.executable, "-c", parent]):
+            with self.assertRaises(GitCommandTimeout) as found:
+                GitCommandRunner().run(GitCommand(arguments=["--version"], context=GitExecutionContext(timeout=.5)))
         self.assertLess(time.monotonic() - started, 8,
                         "timed-out command waited for the sleeping parent")
         time.sleep(2.2)
@@ -362,10 +363,10 @@ class GitHubGitTransportTests(unittest.TestCase):
         self.assertEqual(self.push_calls, [])
 
     def test_transport_failure_is_uncertain_not_safe_to_retry(self):
-        self.transport.run = lambda args, **kwargs: (
+        self.transport.runner = CallbackGitRunner(lambda args, **kwargs: (
             subprocess.CompletedProcess(
                 args, 1, b"synthetic-secret", b"error: 403 synthetic-secret")
-            if "push" in args else subprocess.run(args, **kwargs))
+            if "push" in args else subprocess.run(args, **kwargs)))
         with self.assertRaisesRegex(PushOutcomeUnknown,
                                     "push_outcome_unknown") as found:
             self.transport(REPOSITORY, "git_push", {"branch": "probe-a",
@@ -388,7 +389,7 @@ class GitHubGitTransportTests(unittest.TestCase):
                     ("fatal: " + secret).encode())
             return subprocess.run(args, **kwargs)
 
-        self.transport.run = failing_git
+        self.transport.runner = CallbackGitRunner(failing_git)
         private = tempfile.TemporaryDirectory()
         self.addCleanup(private.cleanup)
         store_path = Path(private.name) / "effects.sqlite"

@@ -79,7 +79,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
             node = component(bridge_url='http://localhost:8766')
             with patch.dict(os.environ, {'LAOMEDO_RUNNER_TOKEN_FILE': str(runner_path),
                     'LAOMEDO_BRIDGE_TOKEN_FILE': str(bridge_path)}), \
-                    patch('laomedo.agents.activity.utils.capture_for', return_value=ActivityInvocation.model_construct(store=object(), invocation_id='internal')):
+                    patch('laomedo.agents.activity.capture.capture_for', return_value=ActivityInvocation.model_construct(store=object(), invocation_id='internal')):
                 capture = ActivityCapture(node)
                 self.assertEqual(node._token_file_path(), str(bridge_path))
                 self.assertEqual(node._runner_token_file_path(), str(runner_path))

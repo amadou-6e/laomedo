@@ -1,5 +1,7 @@
 """S11 one-shot direct/mediated synthetic comparison. Never consumes a real token."""
 
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
+
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from copy import deepcopy

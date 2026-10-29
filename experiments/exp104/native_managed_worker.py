@@ -4,6 +4,8 @@ Not a product runner or a capture entry point. The reviewed controller must
 prepare/bind the trusted scope and paths before starting this process.
 """
 
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
+
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 import json

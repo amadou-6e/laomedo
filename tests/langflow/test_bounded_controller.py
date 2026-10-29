@@ -58,7 +58,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(expected=expected), tempfile.TemporaryDirectory() as state:
                 Adapter.answers, Adapter.calls = answers, []
                 Adapter.delay = 1.05 if expected == "deadline" else 0
-                with patch.object(handoff_http, "RunnerAdapter", Adapter):
+                with patch.object(handoff_http, "HttpAgentBridge", Adapter):
                     await Graph.from_payload(self.flow(state, **fields)).arun(inputs=[{"input_value": "start"}], types=["chat"])
                 record = json.loads(next(Path(state).glob("*.json")).read_text())
                 self.assertEqual(record["stop_reason"], expected)
@@ -83,7 +83,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
                 "max_iterations": 2, "turn_budget": 2, "deadline_seconds": 10, "state_directory": state}.items():
                 setattr(node, name, value)
             node._pre_run_setup()
-            with patch.object(handoff_http, "RunnerAdapter", Blocking):
+            with patch.object(handoff_http, "HttpAgentBridge", Blocking):
                 task = asyncio.create_task(node.execution_output())
                 await asyncio.to_thread(entered.wait, 2)
                 task.cancel()

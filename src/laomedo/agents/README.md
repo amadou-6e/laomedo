@@ -31,8 +31,13 @@ delegates into `agents/interface/langflow/`. The integration now uses `BaseAgent
 the three concrete `*Agent` names, `HttpAgentBridge`, `AgentHandoffController`,
 `AgentRequest` and `ActivityCapture`. The five HTTP handlers are module-level
 collaborators; `OpenCodeConfig.to_config()` owns the private native configuration.
-Provider pipeline overrides still remain. Reusable Git execution, canonical Activity
-adapters and shared lifecycle consolidation are not completed by those commits.
+Provider pipeline overrides still remain. The next integration replaces distributed
+Git process helpers with `git/GitCommandRunner`, `GitRepository` and
+`GitWorkingTree`; `AgentWorkspace` owns source admission and preparation, with
+`WorkspacePaths` and `WorkspaceSnapshot` as its canonical data. GitHub workflow
+classification stays under `github/workflows`. These changes require the checks
+below; canonical Activity adapter and shared lifecycle consolidation remain later
+replacements, not consequences of matching folders.
 
 Read the [implementation index](agents/README.md), [public boundary](interface/README.md),
 [working-state contract](workspaces/README.md), [artifact contract](artifacts/README.md)

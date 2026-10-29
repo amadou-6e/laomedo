@@ -35,7 +35,7 @@ import json
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.codex.controller.service import CodexController
-from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection

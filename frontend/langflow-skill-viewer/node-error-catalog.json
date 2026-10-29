@@ -1012,7 +1012,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent’s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃ¢â‚¬â„¢s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",
@@ -1588,5 +1588,160 @@
     "title": "The OpenCode account credential is missing or invalid",
     "description": "The authentication adapter received an empty credential or a placeholder instead of a usable account credential.",
     "recovery": "Sign in through the supported OpenCode account flow and refresh the local runner account configuration. Do not paste credentials into the graph."
+  },
+  "git_workspace_path_invalid": {
+    "title": "The run workspace path is unavailable",
+    "description": "Git preparation needs a new run-owned directory, but the destination already exists or is a link.",
+    "recovery": "Check the configured source and run-state paths. Preserve unrelated files; use a new run directory after confirming existing work is stopped."
+  },
+  "git_repository_root_required": {
+    "title": "The source is not a supported Git repository",
+    "description": "Git workspace mode requires a repository root with its own real .git directory; linked worktrees are unsupported.",
+    "recovery": "Choose a normal local repository root in the runner configuration, or use directory workspace mode."
+  },
+  "source_commit_invalid": {
+    "title": "The source has no usable commit",
+    "description": "The runner could not resolve a valid source HEAD before preparing the workspace.",
+    "recovery": "Check that the source repository has a valid committed HEAD before starting new work."
+  },
+  "source_index_invalid": {
+    "title": "The source index could not be read",
+    "description": "The runner could not inspect tracked files safely before cloning the source.",
+    "recovery": "Check the source repository with Git and resolve index errors before starting a run."
+  },
+  "source_not_clean": {
+    "title": "The source has uncommitted changes",
+    "description": "The source contains tracked or untracked changes, so the runner refused to treat it as a pinned Git baseline.",
+    "recovery": "Commit, stash or otherwise preserve your source changes, then start a fresh run from a clean repository."
+  },
+  "submodule_source_unsupported": {
+    "title": "The source contains a submodule",
+    "description": "This workspace mode cannot safely prepare a source index containing Git submodules.",
+    "recovery": "Use a source without submodules or directory workspace mode with the required regular files."
+  },
+  "symlink_source_unsupported": {
+    "title": "The source contains a tracked link",
+    "description": "This workspace mode refuses tracked symbolic links before cloning.",
+    "recovery": "Use a source with regular files in place of links, or select a supported source."
+  },
+  "tracked_skill_path_unsupported": {
+    "title": "The source tracks the reserved skills directory",
+    "description": "The source tracks .agents/skills, which the runner reserves for pinned skill materialization.",
+    "recovery": "Remove that path from the source index while preserving any files you need, then commit a clean baseline."
+  },
+  "sparse_source_unsupported": {
+    "title": "The source uses a sparse checkout",
+    "description": "Git workspace mode requires the full source checkout and refuses enabled sparse-checkout configuration.",
+    "recovery": "Use a full clean checkout before starting new work."
+  },
+  "git_clone_failed": {
+    "title": "The run repository could not be cloned",
+    "description": "Git did not create an independent clone of the selected source. No prepared workspace was returned.",
+    "recovery": "Check local Git availability and source access. Confirm failed-run cleanup before starting new work."
+  },
+  "git_checkout_failed": {
+    "title": "The run baseline could not be checked out",
+    "description": "The cloned repository could not check out the source commit observed during admission.",
+    "recovery": "Check the source repository and local filesystem access. Confirm cleanup before preparing another run."
+  },
+  "git_remote_removal_failed": {
+    "title": "The run remote could not be removed",
+    "description": "The runner could not remove the clone remote, so it refused the workspace before dispatch.",
+    "recovery": "Check local Git and filesystem access. Confirm failed-run cleanup before starting new work."
+  },
+  "git_clone_verification_failed": {
+    "title": "The run repository did not match its baseline",
+    "description": "The final checkout commit or remote list did not match the isolated workspace requirements.",
+    "recovery": "Check the source repository and any local process modifying it. Confirm cleanup before starting a new run."
+  },
+  "git_workspace_cleanup_unverified": {
+    "title": "Workspace cleanup could not be confirmed",
+    "description": "Preparation failed and the runner could not remove its partial workspace. The workspace is not admitted for execution.",
+    "recovery": "Check the failed run directory and any process holding its files before starting new work. Preserve unrelated directories."
+  },
+  "git_workspace_snapshot_limit": {
+    "title": "The source is too large to snapshot safely",
+    "description": "The Git workspace exceeded the supported snapshot byte or entry limit before a verified snapshot was produced.",
+    "recovery": "Reduce the selected source to the files needed for this run; do not bypass the snapshot limits."
+  },
+  "invalid_workspace": {
+    "title": "The workspace is unavailable",
+    "description": "The selected working-state path is missing, is not a directory or is a symbolic link.",
+    "recovery": "Check the configured source and retained run directory before continuing."
+  },
+  "unsafe_workspace_entry": {
+    "title": "The workspace contains an unsupported file entry",
+    "description": "Snapshot verification found a link, shared hardlinked file or other unsupported filesystem entry.",
+    "recovery": "Use regular private files and directories for the source. Check retained run state before continuing."
+  },
+  "workspace_copy_mismatch": {
+    "title": "The copied workspace did not match the source",
+    "description": "The copied file tree failed its hash check. The runner did not accept that snapshot.",
+    "recovery": "Check for concurrent source changes or filesystem errors before starting new work."
+  },
+  "workspace_git_initialization_failed": {
+    "title": "The workspace baseline could not be created",
+    "description": "Local Git could not initialize or commit the private file baseline required for this run.",
+    "recovery": "Check that Git is installed and can write to the runner state directory before starting new work."
+  },
+  "workspace_git_metadata_conflict": {
+    "title": "The copied workspace already contains Git metadata",
+    "description": "Baseline initialization found an existing .git path and refused to replace it.",
+    "recovery": "Check the configured workspace mode and source. Use Git workspace mode for a supported full repository."
+  },
+  "cleanup_path_outside_run_state": {
+    "title": "The cleanup path is outside this run",
+    "description": "The requested cleanup location overlaps or escapes the run state boundary, so nothing was removed there.",
+    "recovery": "Check the runner state configuration and retained run paths. Do not remove unrelated files to work around this refusal."
+  },
+  "mediated_remote_changed": {
+    "title": "The run remote no longer matches its authorized repository",
+    "description": "The fixed origin URL or push URL changed from the host-configured mediated remote.",
+    "recovery": "Check the existing run state and repository binding before continuing. Do not replace it with a credential-bearing URL."
+  },
+  "mediated_remote_install_failed": {
+    "title": "The mediated run remote could not be installed",
+    "description": "Local Git could not add the fixed remote required by the authorized run.",
+    "recovery": "Check the run repository and local filesystem access before continuing."
+  },
+  "mediated_remote_invalid": {
+    "title": "The mediated run remote could not be inspected",
+    "description": "Local Git could not read the fixed origin configuration safely.",
+    "recovery": "Check the run repository configuration before continuing. Keep provider credentials out of remotes and graph inputs."
+  },
+  "git_exclude_invalid": {
+    "title": "The run exclusion file is unavailable",
+    "description": "The runner expected a regular private Git exclusion file but found a missing or linked path.",
+    "recovery": "Check the retained run repository and filesystem access before continuing."
+  },
+  "command_directory_invalid": {
+    "title": "The run command directory changed",
+    "description": "The command-wrapper directory contains unsupported entries or is a link. The runner refused to install wrappers there.",
+    "recovery": "Check the retained run directory before starting new work; preserve unrelated files and keep wrappers run-local."
+  },
+  "command_wrapper_changed": {
+    "title": "A run command wrapper changed",
+    "description": "An existing command wrapper no longer matches the trusted host-generated contents.",
+    "recovery": "Check the retained run directory before continuing. Do not replace trusted wrappers with Agent-generated commands."
+  },
+  "repository_invalid": {
+    "title": "The repository identifier is invalid",
+    "description": "The configured repository does not use the supported owner/name format.",
+    "recovery": "Correct the repository identifier in the local configuration before starting new work."
+  },
+  "branch_invalid": {
+    "title": "The branch name is invalid",
+    "description": "The configured branch name contains unsupported characters or path segments.",
+    "recovery": "Choose a supported branch name in the local configuration before starting new work."
+  },
+  "git_timeout": {
+    "title": "A local Git operation timed out",
+    "description": "The Git command exceeded its deadline and process-tree cleanup was confirmed. A remote effect may still have completed.",
+    "recovery": "Check the existing run and any remote result before starting new work. Do not blindly repeat a push."
+  },
+  "git_timeout_cleanup_unverified": {
+    "title": "A local Git operation timed out and cleanup is uncertain",
+    "description": "The Git command exceeded its deadline, and the runner could not confirm all related processes stopped. A remote effect may still be active or completed.",
+    "recovery": "Check the existing run, local Git processes and any remote result before continuing. Do not retry a push while its outcome is uncertain."
   }
 }

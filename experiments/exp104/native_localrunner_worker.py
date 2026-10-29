@@ -1,5 +1,7 @@
 """S13 production LocalRunner fixture held at native initialize; zero turns."""
 
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
+
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from hashlib import sha256

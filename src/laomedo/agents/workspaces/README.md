@@ -1,16 +1,24 @@
 # Agent working state
 
-This concern owns protected files, pinned skills, admission, snapshots and restore
-policy for an Agent run. The relocated `git.py` still implements
-`prepare_git_workspace(source, destination) -> str`: validate an admitted clean
-source, clone without credentials or remotes, and return its verified baseline.
+This concern owns Agent source admission and immutable file snapshots. Generic
+Git commands, process isolation and cleanup live in `laomedo/git`; authorization
+and protected-file policy remain with their existing callers.
 
-The target behavioral object is `AgentWorkspace`, composing generic Git objects.
-Its `prepare`, `verify`, `snapshot` and `restore` vocabulary will describe distinct
-state transitions. Those object methods are not implemented by relocation. Do not
-create storage-mode subclasses simply to distinguish directory and Git inputs.
+| Object | Responsibility and nomenclature |
+| --- | --- |
+| `AgentWorkspace` | Agent-qualified owner of working-state preparation; composes Git mechanics, not an inheritance variant for each storage mode. |
+| `WorkspacePaths` | Canonical source/directory pair, retained privately rather than repeatedly passing paths. |
+| `WorkspaceSnapshot` | Preparation result: canonical source hash and optional trusted Git baseline. |
+| `GitWorkspaceError` | Existing admission/cleanup codes; a failed preparation never grants dispatch. |
 
-Reusable Git commands and process cleanup move to `laomedo/git`; Agent admission
-stays here. The source must remain trusted host input, not prior Agent output.
-`GitWorkspaceError` retains its current machine codes during extraction. Failed
-preparation must report cleanup uncertainty rather than leave an admitted result.
+| Method | Interface and effects |
+| --- | --- |
+| `prepare(canonical, *, git)` | Prepare the run directory and canonical snapshot; return `WorkspaceSnapshot`. Git mode preserves history; directory mode copies admitted files. |
+| `prepare_git()` | Admit a clean trusted repository root, clone independent objects, detach its observed baseline and remove remotes. Return that baseline. |
+
+`utils.py` owns independent tree hashing/copy functions shared by preparation,
+existing restore and post-run verification. Restore/protected-state transitions
+still belong to `BaseAgent`; extracting those later is not implied by this move.
+The object is not a namespace replacement for generic Git operations. Sources
+must be trusted host input, never prior Agent output. Existing symlink, gitlink,
+sparse, tracked-skill, dirty-source and cleanup refusals remain in force.

@@ -6,16 +6,23 @@ from contextlib import contextmanager
 from pathlib import Path
 import hashlib
 import json
-import laomedo.github.transport.git.utils as _git_utils
-import laomedo.host.publication.bundle.settings as _bundle_settings
-import laomedo.host.publication.bundle.errors as _bundle_errors
-import laomedo.host.publication.bundle.stage as _bundle_stage
-import laomedo.host.publication.verified.settings as _verified_settings
-import laomedo.host.publication.verified.errors as _verified_errors
-import laomedo.host.publication.verified.models as _verified_models
-import laomedo.skills.ingestion.settings as _ingestion_settings
-import laomedo.skills.ingestion.errors as _ingestion_errors
-import laomedo.skills.ingestion.utils as _ingestion_utils
+from laomedo.git.command import GitCommandRunner
+from laomedo.host.publication.bundle.settings import MAX_OUTPUT_BYTES
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle.errors import BundleStageError
+from laomedo.host.publication.bundle.stage import _read_frozen
+from laomedo.host.publication.bundle.stage import _single_bundle_commit
+from laomedo.host.publication.verified.settings import _COMMIT
+from laomedo.host.publication.verified.errors import VerifiedGitStageError
+from laomedo.host.publication.verified.errors import VerifiedStageError
+from laomedo.host.publication.verified.models import VerifiedStage
+from laomedo.skills.ingestion.settings import MAX_RECORD_BYTES
+from laomedo.skills.ingestion.settings import _IDENTITY
+from laomedo.skills.ingestion.errors import BundleIngestError
+from laomedo.skills.ingestion.utils import _bound_roots
+from laomedo.skills.ingestion.utils import _record
+from laomedo.skills.ingestion.utils import _redirected
+from laomedo.skills.ingestion.utils import freeze_run_bundle
 import os
 import stat
 import subprocess
@@ -26,7 +33,7 @@ def make_grant_stage_resolver(
     runner_state: Path, private_root: Path, agent_mount: Path
 ):
     """Create a host-only resolver; the request never selects filesystem roots."""
-    runner_state, private_root = _ingestion_utils._bound_roots(
+    runner_state, private_root = _bound_roots(
         Path(runner_state), Path(private_root)
     )
     mounted = Path(agent_mount).resolve()
@@ -39,7 +46,7 @@ def make_grant_stage_resolver(
 
     def resolve(
         grant, repository: str, payload: dict
-    ) -> _verified_models.VerifiedStage:
+    ) -> VerifiedStage:
         return resolve_verified_stage(
             runner_state,
             private_root,
@@ -66,7 +73,7 @@ def make_grant_bundle_freezer(
     This copies bytes only; Docker verification and provider effects remain
     separate. No request field selects a host path or a run identity.
     """
-    runner_state, private_root = _ingestion_utils._bound_roots(
+    runner_state, private_root = _bound_roots(
         Path(runner_state), Path(private_root)
     )
     mounted = Path(agent_mount).resolve()
@@ -79,20 +86,20 @@ def make_grant_bundle_freezer(
 
     def freeze(grant, payload: dict) -> dict:
         if set(payload) != {"attempt_id"}:
-            raise _ingestion_errors.BundleIngestError("freeze_request_invalid")
-        _, before = _ingestion_utils._record(runner_state, grant["run_id"])
+            raise BundleIngestError("freeze_request_invalid")
+        _, before = _record(runner_state, grant["run_id"])
         if (
             before.get("binding_mode") != "active"
             or before.get("grant_id") != grant["grant_id"]
             or before["repository"] != grant["repository"]
             or before["branch"] != grant["branch"]
         ):
-            raise _ingestion_errors.BundleIngestError("run_grant_mismatch")
+            raise BundleIngestError("run_grant_mismatch")
 
         def confirm_prior(attempt_id):
             # The normal resolver checks immutable bytes, verification and
             # cleanup, the current run binding and this exact grant first.
-            _, prior = _bundle_stage._read_frozen(
+            _, prior = _read_frozen(
                 runner_state, private_root, grant["run_id"], attempt_id
             )
             snapshot = resolve_verified_stage(
@@ -107,7 +114,7 @@ def make_grant_bundle_freezer(
             )
             return confirmed_stage_authorizer(grant, snapshot) is True
 
-        result = _ingestion_utils.freeze_run_bundle(
+        result = freeze_run_bundle(
             runner_state,
             private_root,
             run_id=grant["run_id"],
@@ -116,24 +123,24 @@ def make_grant_bundle_freezer(
                 confirm_prior if confirmed_stage_authorizer is not None else None
             ),
         )
-        _, after = _ingestion_utils._record(runner_state, grant["run_id"])
+        _, after = _record(runner_state, grant["run_id"])
         if after != before or any(
             result.get(key) != value for key, value in before.items()
         ):
-            raise _ingestion_errors.BundleIngestError("run_changed_during_freeze")
+            raise BundleIngestError("run_changed_during_freeze")
         return result
 
     return freeze
 
 
-def classify_verified_workflow(snapshot: _verified_models.VerifiedStage) -> bool:
+def classify_verified_workflow(snapshot: VerifiedStage) -> bool:
     with stage_verified_git(snapshot) as staged:
         return staged.classify_workflow_change()
 
 
 @contextmanager
 def stage_verified_git(
-    snapshot: _verified_models.VerifiedStage, *, run=_git_utils._run_bounded_tree
+    snapshot: VerifiedStage, *, runner: GitCommandRunner | None = None
 ):
     """Yield a fresh bare Git repo containing only the snapshot's objects.
 
@@ -141,55 +148,46 @@ def stage_verified_git(
     deleted with it. A later push must use ``stage.bare`` while this context
     remains open; it must not stage again from an agent checkout.
     """
-    import laomedo.host.publication.verified.git as _verified_git
+    from laomedo.host.publication.verified.git import VerifiedGitStage
 
     if (
-        not isinstance(snapshot, _verified_models.VerifiedStage)
-        or not _verified_settings._COMMIT.fullmatch(snapshot.commit)
-        or not _verified_settings._COMMIT.fullmatch(snapshot.baseline)
+        not isinstance(snapshot, VerifiedStage)
+        or not _COMMIT.fullmatch(snapshot.commit)
+        or not _COMMIT.fullmatch(snapshot.baseline)
         or hashlib.sha256(snapshot.bundle).hexdigest() != snapshot.bundle_sha256
     ):
-        raise _verified_errors.VerifiedGitStageError("stage_snapshot_invalid")
+        raise VerifiedGitStageError("stage_snapshot_invalid")
     try:
-        advertised = _bundle_stage._single_bundle_commit(
+        advertised = _single_bundle_commit(
             snapshot.bundle, "refs/heads/validated"
         )
-    except _bundle_errors.BundleStageError as error:
-        raise _verified_errors.VerifiedGitStageError("stage_bundle_invalid") from error
+    except BundleStageError as error:
+        raise VerifiedGitStageError("stage_bundle_invalid") from error
     if advertised != snapshot.commit:
-        raise _verified_errors.VerifiedGitStageError("stage_commit_mismatch")
+        raise VerifiedGitStageError("stage_commit_mismatch")
     with tempfile.TemporaryDirectory(prefix="laomedo-verified-git-") as root:
         directory = Path(root)
         bare = directory / "objects.git"
         bare.mkdir()
         bundle = directory / "verified.bundle"
         bundle.write_bytes(snapshot.bundle)
-        stage = _verified_git.VerifiedGitStage(bare, snapshot, run=run)
+        stage = VerifiedGitStage(bare, snapshot, runner=runner)
         try:
-            if (
-                stage.git("init", "--bare", "--quiet").returncode
-                or stage.git(
-                    "fetch",
-                    "--no-tags",
-                    "--no-write-fetch-head",
-                    str(bundle),
-                    "refs/heads/validated:refs/stage/validated",
-                ).returncode
-                or stage.git("rev-parse", "refs/stage/validated").stdout.strip()
-                != snapshot.commit.encode("ascii")
-                or stage.git("fsck", "--full", "--strict", "--no-reflogs").returncode
-            ):
-                raise _verified_errors.VerifiedGitStageError("stage_import_invalid")
+            if (not stage.repository.init_bare()
+                    or not stage.repository.fetch(str(bundle), "refs/heads/validated:refs/stage/validated")
+                    or stage.repository.resolve("refs/stage/validated") != snapshot.commit.encode("ascii")
+                    or not stage.repository.fsck(no_reflogs=True)):
+                raise VerifiedGitStageError("stage_import_invalid")
         except (OSError, subprocess.TimeoutExpired) as error:
-            raise _verified_errors.VerifiedGitStageError(
+            raise VerifiedGitStageError(
                 "stage_git_unavailable"
             ) from error
         yield stage
 
 
 def _read_regular(path: Path, limit: int) -> bytes:
-    if _ingestion_utils._redirected(path) or not path.is_file():
-        raise _verified_errors.VerifiedStageError("stage_file_invalid")
+    if _redirected(path) or not path.is_file():
+        raise VerifiedStageError("stage_file_invalid")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -200,7 +198,7 @@ def _read_regular(path: Path, limit: int) -> bytes:
                 or before.st_nlink != 1
                 or before.st_size > limit
             ):
-                raise _verified_errors.VerifiedStageError("stage_file_invalid")
+                raise VerifiedStageError("stage_file_invalid")
             payload = source.read(limit + 1)
             after = os.fstat(source.fileno())
             current = path.lstat()
@@ -215,12 +213,12 @@ def _read_regular(path: Path, limit: int) -> bytes:
                 or len(payload) > limit
                 or identity(before) != identity(after)
                 or identity(before) != identity(current)
-                or _ingestion_utils._redirected(path)
+                or _redirected(path)
             ):
-                raise _verified_errors.VerifiedStageError("stage_file_changed")
+                raise VerifiedStageError("stage_file_changed")
             return payload
     except OSError as error:
-        raise _verified_errors.VerifiedStageError("stage_file_unreadable") from error
+        raise VerifiedStageError("stage_file_unreadable") from error
 
 
 def resolve_verified_stage(
@@ -233,7 +231,7 @@ def resolve_verified_stage(
     commit: str,
     stage_attempt_id: str,
     expected_grant_id: str | None = None,
-) -> _verified_models.VerifiedStage:
+) -> VerifiedStage:
     """Return exact verified bytes, bound to the trusted grant scope.
 
     This is a credential-free local read. The caller must take ``run_id``,
@@ -241,43 +239,43 @@ def resolve_verified_stage(
     """
     if not isinstance(
         stage_attempt_id, str
-    ) or not _ingestion_settings._IDENTITY.fullmatch(stage_attempt_id):
-        raise _verified_errors.VerifiedStageError("stage_identity_invalid")
+    ) or not _IDENTITY.fullmatch(stage_attempt_id):
+        raise VerifiedStageError("stage_identity_invalid")
     try:
-        runner_state, private_root = _ingestion_utils._bound_roots(
+        runner_state, private_root = _bound_roots(
             Path(runner_state), Path(private_root)
         )
-        _, binding = _ingestion_utils._record(runner_state, run_id)
-        attempt, frozen = _bundle_stage._read_frozen(
+        _, binding = _record(runner_state, run_id)
+        attempt, frozen = _read_frozen(
             runner_state, private_root, run_id, stage_attempt_id
         )
     except (
-        _ingestion_errors.BundleIngestError,
-        _bundle_errors.BundleStageError,
+        BundleIngestError,
+        BundleStageError,
         OSError,
     ) as error:
-        raise _verified_errors.VerifiedStageError("stage_binding_invalid") from error
+        raise VerifiedStageError("stage_binding_invalid") from error
     if expected_grant_id is not None and binding.get("binding_mode") != "active":
-        raise _verified_errors.VerifiedStageError("stage_run_not_active")
+        raise VerifiedStageError("stage_run_not_active")
     if (
         binding.get("binding_mode") == "active"
         and binding.get("grant_id") != expected_grant_id
     ):
-        raise _verified_errors.VerifiedStageError("stage_grant_mismatch")
+        raise VerifiedStageError("stage_grant_mismatch")
     if (
         binding["repository"] != repository
         or binding["branch"] != branch
         or frozen["advertised_commit"] != commit
         or frozen["baseline"] != binding["baseline"]
     ):
-        raise _verified_errors.VerifiedStageError("stage_scope_mismatch")
+        raise VerifiedStageError("stage_scope_mismatch")
     raw = _read_regular(
-        attempt / "verification.json", _ingestion_settings.MAX_RECORD_BYTES
+        attempt / "verification.json", MAX_RECORD_BYTES
     )
     try:
         verification = json.loads(raw)
     except (ValueError, UnicodeError) as error:
-        raise _verified_errors.VerifiedStageError(
+        raise VerifiedStageError(
             "stage_verification_invalid"
         ) from error
     container = (
@@ -291,7 +289,7 @@ def resolve_verified_stage(
         or verification.get("source_bundle_sha256") != frozen["bundle_sha256"]
         or verification.get("baseline") != binding["baseline"]
         or verification.get("commit") != commit
-        or verification.get("image_id") != _bundle_settings.PINNED_IMAGE_ID
+        or verification.get("image_id") != PINNED_IMAGE_ID
         or not isinstance(verification.get("baseline_bundle_sha256"), str)
         or len(verification["baseline_bundle_sha256"]) != 64
         or any(
@@ -305,9 +303,9 @@ def resolve_verified_stage(
         or container.get("limits_verified") is not True
         or container.get("export_class") != "ok"
     ):
-        raise _verified_errors.VerifiedStageError("stage_verification_invalid")
+        raise VerifiedStageError("stage_verification_invalid")
     bundle = _read_regular(
-        attempt / "verified.bundle", _bundle_settings.MAX_OUTPUT_BYTES
+        attempt / "verified.bundle", MAX_OUTPUT_BYTES
     )
     digest = hashlib.sha256(bundle).hexdigest()
     if (
@@ -315,13 +313,13 @@ def resolve_verified_stage(
         or type(container.get("output_bytes")) is not int
         or container["output_bytes"] != len(bundle)
     ):
-        raise _verified_errors.VerifiedStageError("stage_bundle_changed")
+        raise VerifiedStageError("stage_bundle_changed")
     try:
-        advertised = _bundle_stage._single_bundle_commit(bundle, "refs/heads/validated")
-    except _bundle_errors.BundleStageError as error:
-        raise _verified_errors.VerifiedStageError("stage_bundle_invalid") from error
+        advertised = _single_bundle_commit(bundle, "refs/heads/validated")
+    except BundleStageError as error:
+        raise VerifiedStageError("stage_bundle_invalid") from error
     if advertised != commit:
-        raise _verified_errors.VerifiedStageError("stage_commit_mismatch")
+        raise VerifiedStageError("stage_commit_mismatch")
     binding_identity = (
         {"run_binding_sha256": binding["run_binding_sha256"]}
         if binding.get("binding_mode") == "active"
@@ -341,7 +339,7 @@ def resolve_verified_stage(
     stage_digest = hashlib.sha256(
         json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    return _verified_models.VerifiedStage(
+    return VerifiedStage(
         run_id=run_id,
         attempt_id=stage_attempt_id,
         repository=repository,

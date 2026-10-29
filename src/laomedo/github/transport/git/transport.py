@@ -8,24 +8,26 @@ uncertain effects: never automatically retry them."""
 from __future__ import annotations
 
 from contextlib import ExitStack
+from pydantic import SecretStr
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCredential, GitExecutionContext
+from laomedo.git.repository import GitRepository
+from laomedo.github.workflows.utils import touches_workflows
 from pathlib import Path
 import base64
-import laomedo.github.transport.git.settings as _git_settings
-import laomedo.github.transport.git.errors as _git_errors
-import laomedo.github.transport.git.utils as _git_utils
-import laomedo.host.mediation.errors as _mediation_errors
+from laomedo.github.transport.git.settings import _REPOSITORY
+from laomedo.github.transport.git.settings import _SHA
+from laomedo.github.transport.git.errors import PushOutcomeUnknown
+from laomedo.github.transport.git.utils import _push_failure_category
+from laomedo.github.transport.git.utils import _redirected_path
+from laomedo.host.mediation.errors import KnownRejected
 import os
 import re
 import subprocess
 import tempfile
 
 
-class GitTreeTimeout(subprocess.TimeoutExpired):
-    """A timeout with an explicit tree-cleanup verification result."""
 
-    def __init__(self, args: list[str], timeout: float, cleanup_verified: bool):
-        super().__init__(args, timeout)
-        self.cleanup_verified = cleanup_verified
 
 
 class GitHubGitTransport:
@@ -38,14 +40,14 @@ class GitHubGitTransport:
         baseline: str,
         token_supplier,
         *,
-        run=subprocess.run,
+        runner: GitCommandRunner | None = None,
         require_verified_stage: bool = False,
     ):
-        if not isinstance(repository, str) or not _git_settings._REPOSITORY.fullmatch(
+        if not isinstance(repository, str) or not _REPOSITORY.fullmatch(
             repository
         ):
             raise ValueError("repository_invalid")
-        if not isinstance(baseline, str) or not _git_settings._SHA.fullmatch(baseline):
+        if not isinstance(baseline, str) or not _SHA.fullmatch(baseline):
             raise ValueError("baseline_invalid")
         checkout = Path(checkout).resolve()
         if not checkout.is_dir() or checkout.is_symlink():
@@ -57,39 +59,18 @@ class GitHubGitTransport:
         self.baseline = baseline
         self.token_supplier = token_supplier
         self.require_verified_stage = require_verified_stage
-        self.run = _git_utils._run_bounded_tree if run is subprocess.run else run
+        self.runner = runner if runner is not None else GitCommandRunner()
 
-    def _run_git(self, directory: Path, *args: str, env: dict | None = None):
-        # Git 2.31 on Windows does not honor GIT_CONFIG_GLOBAL. Isolate both
-        # home-based config locations for each child command, including the
-        # credential helper, rather than relying on that override alone.
-        with tempfile.TemporaryDirectory(
-            prefix="laomedo-git-home-", ignore_cleanup_errors=True
-        ) as home:
-            isolated = (
-                env if env is not None else _git_utils._base_git_environment()
-            ).copy()
-            isolated.update(
-                {"HOME": home, "USERPROFILE": home, "XDG_CONFIG_HOME": home}
-            )
-            isolated.pop("HOMEDRIVE", None)
-            isolated.pop("HOMEPATH", None)
-            return self.run(
-                ["git", "-C", str(directory), *args],
-                capture_output=True,
-                check=False,
-                timeout=_git_settings.GIT_COMMAND_TIMEOUT_SECONDS,
-                env=isolated,
-            )
+    def _repository(self, directory: Path) -> GitRepository:
+        """Bind generic mechanics; connection and publication policy stay here."""
+        return GitRepository(directory, context=GitExecutionContext(), runner=self.runner)
 
-    def _git(self, *args: str, env: dict | None = None):
-        return self._run_git(self.checkout, *args, env=env)
+
 
     def _valid_commit(self, commit: str) -> bool:
-        if not isinstance(commit, str) or not _git_settings._SHA.fullmatch(commit):
-            return False
-        result = self._git("cat-file", "-t", commit)
-        return result.returncode == 0 and result.stdout.strip() == b"commit"
+        """Admit a commit identifier only when its local object is a commit."""
+        return (isinstance(commit, str) and bool(_SHA.fullmatch(commit))
+                and self._repository(self.checkout).object_type(commit) == b"commit")
 
     def _plain_object_source(self) -> bool:
         """Refuse Git metadata that redirects staging outside the checkout.
@@ -105,7 +86,7 @@ class GitHubGitTransport:
         info = objects / "info"
         pack = objects / "pack"
         if any(
-            not path.is_dir() or _git_utils._redirected_path(path)
+            not path.is_dir() or _redirected_path(path)
             for path in (git_dir, objects, info, pack)
         ):
             return False
@@ -119,7 +100,7 @@ class GitHubGitTransport:
             objects, topdown=True, followlinks=False, onerror=errors.append
         ):
             for name in directories + files:
-                if _git_utils._redirected_path(Path(root) / name):
+                if _redirected_path(Path(root) / name):
                     return False
         return not errors
 
@@ -127,68 +108,24 @@ class GitHubGitTransport:
         """Fetch real objects into an isolated repository, without credentials."""
         if not self._plain_object_source():
             return False
-        environment = _git_utils._base_git_environment()
+        repository = self._repository(bare)
         try:
-            if self._run_git(
-                bare, "init", "--bare", "--quiet", env=environment
-            ).returncode:
-                return False
-            fetched = self._run_git(
-                bare,
-                "fetch",
-                "--no-tags",
-                "--no-write-fetch-head",
-                str(self.checkout),
-                commit,
-                env=environment,
-            )
-            return fetched.returncode == 0
+            return repository.init_bare() and repository.fetch(str(self.checkout), commit)
         except subprocess.TimeoutExpired:
             # No provider credential exists yet; fail closed before a push.
             return False
 
     def _classify_staged(self, bare: Path, commit: str) -> bool | None:
-        environment = _git_utils._base_git_environment()
+        """Apply workflow policy to the exact object store that would be pushed."""
+        repository = self._repository(bare)
         try:
-            if (
-                self._run_git(
-                    bare, "cat-file", "-t", commit, env=environment
-                ).stdout.strip()
-                != b"commit"
-            ):
+            if (repository.object_type(commit) != b"commit"
+                    or not repository.is_ancestor(self.baseline, commit)):
                 return None
-            ancestor = self._run_git(
-                bare,
-                "merge-base",
-                "--is-ancestor",
-                self.baseline,
-                commit,
-                env=environment,
-            )
-            if ancestor.returncode != 0:
-                return None
-            changed = self._run_git(
-                bare,
-                "diff",
-                "--no-ext-diff",
-                "--no-textconv",
-                "--name-only",
-                "-z",
-                "--no-renames",
-                self.baseline,
-                commit,
-                env=environment,
-            )
-            if changed.returncode != 0:
-                return None
+            paths = repository.changed_paths(self.baseline, commit)
         except subprocess.TimeoutExpired:
-            # Classification uses only local objects, before provider contact.
             return None
-        return any(
-            path.startswith(b".github/workflows/")
-            for path in changed.stdout.split(b"\0")
-            if path
-        )
+        return touches_workflows(paths) if paths is not None else None
 
     def classify_workflow_diff(
         self, repository: str, branch: str, commit: str
@@ -197,7 +134,7 @@ class GitHubGitTransport:
         if (
             repository != self.repository
             or not isinstance(commit, str)
-            or not _git_settings._SHA.fullmatch(commit)
+            or not _SHA.fullmatch(commit)
         ):
             return None
         with tempfile.TemporaryDirectory(prefix="laomedo-git-check-") as scratch:
@@ -220,7 +157,7 @@ class GitHubGitTransport:
         expected_remote_commit: str | None = None,
     ) -> dict:
         if repository != self.repository:
-            raise _mediation_errors.KnownRejected("repository_denied")
+            raise KnownRejected("repository_denied")
         if operation == "git_fetch":
             return self._fetch(
                 payload,
@@ -230,34 +167,34 @@ class GitHubGitTransport:
                 allowed_base_branch,
             )
         if operation != "git_push":
-            raise _mediation_errors.KnownRejected("operation_not_implemented")
+            raise KnownRejected("operation_not_implemented")
         branch, commit = payload.get("branch"), payload.get("commit")
         if not isinstance(branch, str) or not branch or branch.startswith("refs/"):
-            raise _mediation_errors.KnownRejected("push_branch_invalid")
+            raise KnownRejected("push_branch_invalid")
         ref = "refs/heads/" + branch
-        if not isinstance(commit, str) or not _git_settings._SHA.fullmatch(commit):
-            raise _mediation_errors.KnownRejected("push_commit_unverified")
+        if not isinstance(commit, str) or not _SHA.fullmatch(commit):
+            raise KnownRejected("push_commit_unverified")
         if expected_remote_commit is not None and (
             not isinstance(expected_remote_commit, str)
             or not re.fullmatch(r"[0-9a-f]{40}", expected_remote_commit)
         ):
-            raise _mediation_errors.KnownRejected("push_predecessor_invalid")
+            raise KnownRejected("push_predecessor_invalid")
         if self.require_verified_stage and verified_stage is None:
-            raise _mediation_errors.KnownRejected("push_stage_required")
+            raise KnownRejected("push_stage_required")
         if verified_stage is not None and (
             verified_stage.repository != repository
             or verified_stage.branch != branch
             or verified_stage.commit != commit
             or verified_stage.baseline != self.baseline
         ):
-            raise _mediation_errors.KnownRejected("push_stage_scope_mismatch")
+            raise KnownRejected("push_stage_scope_mismatch")
         if (
             not isinstance(connection_id, str)
             or not connection_id
             or type(connection_generation) is not int
             or connection_generation < 1
         ):
-            raise _mediation_errors.KnownRejected("connection_binding_required")
+            raise KnownRejected("connection_binding_required")
         remote = "https://github.com/" + repository + ".git"
         # Never inspect the agent-writable checkout for workflow approval:
         # replace refs or alternates there can describe different objects from
@@ -274,55 +211,48 @@ class GitHubGitTransport:
                     not self._stage(bare, commit)
                     or self._classify_staged(bare, commit) is not False
                 ):
-                    raise _mediation_errors.KnownRejected("push_commit_unverified")
+                    raise KnownRejected("push_commit_unverified")
             else:
                 # Local import and classification use the exact same bare
                 # repository that the push below sends. Never fetch checkout
                 # objects after a verified snapshot has been supplied.
-                import laomedo.host.publication.verified.utils as _verified_utils
-                import laomedo.host.publication.verified.errors as _verified_errors
+                from laomedo.host.publication.verified.utils import stage_verified_git
+                from laomedo.host.publication.verified.errors import VerifiedGitStageError
 
                 try:
                     staged = stack.enter_context(
-                        _verified_utils.stage_verified_git(verified_stage)
+                        stage_verified_git(verified_stage, runner=self.runner)
                     )
                     if staged.classify_workflow_change() is not False:
-                        raise _mediation_errors.KnownRejected(
+                        raise KnownRejected(
                             "workflow_approval_required"
                         )
-                except _verified_errors.VerifiedGitStageError as error:
-                    raise _mediation_errors.KnownRejected(
+                except VerifiedGitStageError as error:
+                    raise KnownRejected(
                         "push_stage_invalid"
                     ) from error
                 bare = staged.bare
             try:
                 branch_valid = (
-                    self._run_git(bare, "check-ref-format", ref).returncode == 0
+                    self._repository(bare).check_ref_format(ref)
                 )
             except subprocess.TimeoutExpired:
                 branch_valid = False
             if not branch_valid:
-                raise _mediation_errors.KnownRejected("push_branch_invalid")
+                raise KnownRejected("push_branch_invalid")
             if expected_remote_commit is not None:
                 try:
                     fast_forward = (
-                        self._run_git(
-                            bare,
-                            "merge-base",
-                            "--is-ancestor",
-                            expected_remote_commit,
-                            commit,
-                        ).returncode
-                        == 0
+                        self._repository(bare).is_ancestor(expected_remote_commit, commit)
                     )
                 except subprocess.TimeoutExpired:
                     fast_forward = False
                 if not fast_forward:
-                    raise _mediation_errors.KnownRejected("push_not_fast_forward")
+                    raise KnownRejected("push_not_fast_forward")
             try:
                 token = self.token_supplier(connection_id, connection_generation)
             except (KeyError, TypeError, ValueError):
-                raise _mediation_errors.KnownRejected(
+                raise KnownRejected(
                     "provider_credential_unavailable"
                 ) from None
             if (
@@ -331,40 +261,22 @@ class GitHubGitTransport:
                 or "\n" in token
                 or "\r" in token
             ):
-                raise _mediation_errors.KnownRejected("provider_credential_unavailable")
-            environment, helper_command = _git_utils._credential_environment(token)
+                raise KnownRejected("provider_credential_unavailable")
+            credential = GitCredential(token=SecretStr(token))
             try:
-                try:
-                    pushed = self._run_git(
-                        bare,
-                        "-c",
-                        "credential.helper=",
-                        "-c",
-                        "credential.helper=" + helper_command,
-                        "push",
-                        "--porcelain",
-                        "--force-with-lease="
-                        + ref
-                        + ":"
-                        + (expected_remote_commit or ""),
-                        remote,
-                        commit + ":" + ref,
-                        env=environment,
-                    )
-                except subprocess.TimeoutExpired as error:
-                    # The remote may have accepted the push before Git was killed.
-                    category = (
-                        "timeout"
-                        if getattr(error, "cleanup_verified", None) is True
-                        else "timeout_cleanup_unverified"
-                    )
-                    raise _git_errors.PushOutcomeUnknown(category, None) from None
-            finally:
-                environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
+                pushed = self._repository(bare).run(
+                    ["push", "--porcelain",
+                     "--force-with-lease=" + ref + ":" + (expected_remote_commit or ""),
+                     remote, commit + ":" + ref], credential=credential)
+            except subprocess.TimeoutExpired as error:
+                # The remote may have accepted the push before Git was killed.
+                category = ("timeout" if getattr(error, "cleanup_verified", None) is True
+                            else "timeout_cleanup_unverified")
+                raise PushOutcomeUnknown(category, None) from None
         if pushed.returncode != 0:
             # A lost response can follow a successful remote write.
-            raise _git_errors.PushOutcomeUnknown(
-                _git_utils._push_failure_category(pushed.stderr, pushed.stdout),
+            raise PushOutcomeUnknown(
+                _push_failure_category(pushed.stderr, pushed.stdout),
                 pushed.returncode,
             )
         result = {"branch": branch, "commit": commit}
@@ -389,7 +301,7 @@ class GitHubGitTransport:
             or type(generation) is not int
             or generation < 1
         ):
-            raise _mediation_errors.KnownRejected("connection_binding_required")
+            raise KnownRejected("connection_binding_required")
         action = payload.get("action")
         if (
             not isinstance(base_branch, str)
@@ -397,11 +309,11 @@ class GitHubGitTransport:
             or base_branch.startswith("refs/")
             or ".." in base_branch
         ):
-            raise _mediation_errors.KnownRejected("fetch_ref_invalid")
+            raise KnownRejected("fetch_ref_invalid")
         refs = {"refs/heads/" + base_branch, "refs/heads/" + branch}
         if action == "list":
             if set(payload) != {"action"}:
-                raise _mediation_errors.KnownRejected("fetch_request_invalid")
+                raise KnownRejected("fetch_request_invalid")
         elif (
             action != "fetch"
             or set(payload) != {"action", "ref", "commit"}
@@ -409,92 +321,55 @@ class GitHubGitTransport:
             or not isinstance(payload.get("commit"), str)
             or not re.fullmatch(r"[0-9a-f]{40}", payload["commit"])
         ):
-            raise _mediation_errors.KnownRejected("fetch_request_invalid")
+            raise KnownRejected("fetch_request_invalid")
         try:
             token = self.token_supplier(connection_id, generation)
         except (KeyError, TypeError, ValueError):
-            raise _mediation_errors.KnownRejected(
+            raise KnownRejected(
                 "provider_credential_unavailable"
             ) from None
         if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
-            raise _mediation_errors.KnownRejected("provider_credential_unavailable")
-        environment, helper = _git_utils._credential_environment(token)
+            raise KnownRejected("provider_credential_unavailable")
+        credential = GitCredential(token=SecretStr(token))
         remote = "https://github.com/" + self.repository + ".git"
-        credential = ("-c", "credential.helper=", "-c", "credential.helper=" + helper)
-        try:
-            with tempfile.TemporaryDirectory(prefix="laomedo-git-read-") as scratch:
-                bare = Path(scratch)
-                if self._run_git(
-                    bare, "init", "--bare", "--template=", "--quiet"
-                ).returncode:
-                    raise _mediation_errors.KnownRejected("fetch_initialization_failed")
-                for ref in refs:
-                    if self._run_git(bare, "check-ref-format", ref).returncode:
-                        raise _mediation_errors.KnownRejected("fetch_ref_invalid")
-                if action == "list":
-                    listed = self._run_git(
-                        bare,
-                        *credential,
-                        "ls-remote",
-                        "--heads",
-                        remote,
-                        *sorted(refs),
-                        env=environment,
-                    )
-                    if listed.returncode or len(listed.stdout) > 1024:
-                        raise _mediation_errors.KnownRejected("fetch_listing_failed")
-                    result, seen = [], set()
-                    for line in listed.stdout.decode("ascii").splitlines():
-                        commit, ref = line.split("\t")
-                        if (
-                            not re.fullmatch(r"[0-9a-f]{40}", commit)
-                            or ref not in refs
-                            or ref in seen
-                        ):
-                            raise _mediation_errors.KnownRejected(
-                                "fetch_listing_invalid"
-                            )
-                        seen.add(ref)
-                        result.append({"ref": ref, "commit": commit})
-                    return {"refs": result}
-                fetched = self._run_git(
-                    bare,
-                    *credential,
-                    "fetch",
-                    "--no-tags",
-                    "--no-write-fetch-head",
-                    remote,
-                    payload["ref"] + ":refs/heads/laomedo-read",
-                    env=environment,
-                )
-                environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
-                if fetched.returncode:
-                    raise _mediation_errors.KnownRejected("fetch_acquisition_failed")
-                actual = self._run_git(
-                    bare, "rev-parse", "refs/heads/laomedo-read^{commit}"
-                )
-                if (
-                    actual.returncode
-                    or actual.stdout.decode().strip() != payload["commit"]
-                ):
-                    raise _mediation_errors.KnownRejected("fetch_ref_changed")
-                if self._run_git(bare, "fsck", "--full", "--strict").returncode:
-                    raise _mediation_errors.KnownRejected("fetch_objects_invalid")
-                bundle = bare / "read.bundle"
-                if self._run_git(
-                    bare, "bundle", "create", str(bundle), "refs/heads/laomedo-read"
-                ).returncode:
-                    raise _mediation_errors.KnownRejected("fetch_bundle_failed")
-                if bundle.stat().st_size > 262144:
-                    raise _mediation_errors.KnownRejected("fetch_bundle_too_large")
-                data = bundle.read_bytes()
-                return {
-                    "ref": payload["ref"],
-                    "commit": payload["commit"],
-                    "bundle": base64.b64encode(data).decode("ascii"),
-                }
-        finally:
-            environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
+        with tempfile.TemporaryDirectory(prefix="laomedo-git-read-") as scratch:
+            bare = Path(scratch)
+            repository = self._repository(bare)
+            if not repository.init_bare(empty_template=True):
+                raise KnownRejected("fetch_initialization_failed")
+            for ref in refs:
+                if not repository.check_ref_format(ref):
+                    raise KnownRejected("fetch_ref_invalid")
+            if action == "list":
+                listed = repository.run(["ls-remote", "--heads", remote, *sorted(refs)],
+                                        credential=credential)
+                if listed.returncode or len(listed.stdout) > 1024:
+                    raise KnownRejected("fetch_listing_failed")
+                result, seen = [], set()
+                for line in listed.stdout.decode("ascii").splitlines():
+                    commit, ref = line.split("\t")
+                    if (not re.fullmatch(r"[0-9a-f]{40}", commit)
+                            or ref not in refs or ref in seen):
+                        raise KnownRejected("fetch_listing_invalid")
+                    seen.add(ref)
+                    result.append({"ref": ref, "commit": commit})
+                return {"refs": result}
+            if not repository.fetch(remote, payload["ref"] + ":refs/heads/laomedo-read",
+                                    credential=credential):
+                raise KnownRejected("fetch_acquisition_failed")
+            actual = repository.resolve("refs/heads/laomedo-read^{commit}")
+            if actual != payload["commit"].encode("ascii"):
+                raise KnownRejected("fetch_ref_changed")
+            if not repository.fsck():
+                raise KnownRejected("fetch_objects_invalid")
+            bundle = bare / "read.bundle"
+            if repository.run(["bundle", "create", str(bundle), "refs/heads/laomedo-read"]).returncode:
+                raise KnownRejected("fetch_bundle_failed")
+            if bundle.stat().st_size > 262144:
+                raise KnownRejected("fetch_bundle_too_large")
+            return {"ref": payload["ref"], "commit": payload["commit"],
+                    "bundle": base64.b64encode(bundle.read_bytes()).decode("ascii")}
+
 
 
 class GitHubMediatedTransport:

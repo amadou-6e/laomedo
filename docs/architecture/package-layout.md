@@ -204,7 +204,7 @@ pinned-stage-image and real graph evidence remain separate from internal tests.
 
 ## Provider-neutral Agent boundary
 
-The shared `Runner` is a template-method lifecycle, not a default Codex provider.
+The shared `BaseAgent` owns the current lifecycle and is not a default Codex provider.
 It owns private state, durable request identity and acknowledgement, workspace
 preparation, immutable skill/artifact inputs and host authorization orchestration.
 Codex, Claude and OpenCode extend it directly. They own their constructors,
@@ -230,8 +230,9 @@ supervision flag did not implement mediated execution. Existing
 new remote-write capability for either provider.
 
 Graph components keep their public names and ports. Their shared implementation
-lives in `integrations/langflow/agent/component.py`, imported by the installed
-package, so no additional base node is exposed by the component category loader.
+lives in `agents/interface/langflow/component.py`, with the established
+`integrations/langflow/agent/component.py` public entrypoint delegating to it,
+so no additional base node is exposed by the component category loader.
 Concrete adapters declare capabilities instead of the common component choosing
 behavior by node name. Embedded Claude/OpenCode sources inheriting the old Codex
 component must be migrated with the one-time tool; custom methods and graph
@@ -239,8 +240,10 @@ identities are retained. Regenerate templates when current dependency metadata i
 needed. Current source templates are distinct from historical execution evidence.
 
 Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
-Git ownership, mediation server extraction and frontend feature directories remain
-separate follow-ups (#206?#210).
+Git command execution now belongs to `git/`; `AgentWorkspace` composes its objects
+for Agent admission, while GitHub workflow rules and host publication policy keep
+their own owners. Mediation server extraction and frontend feature directories
+remain separate follow-ups (#206 through #210).
 
 Concrete Codex components reject stale subclass inheritance before model discovery,
 bridge selection or dispatch with `agent_component_migration_required`. The shared

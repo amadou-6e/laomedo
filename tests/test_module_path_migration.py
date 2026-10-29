@@ -132,6 +132,17 @@ class ModuleMigrationTests(unittest.TestCase):
             self.assertIn('manual', result.stdout.lower() + result.stderr.lower())
             self.assertEqual(path.read_text(), source)
 
+    def test_removed_procedural_git_apis_require_explicit_object_migration(self):
+        sources = [
+            'from laomedo.git_workspace import prepare_git_workspace\n',
+            'from laomedo.agents.workspaces.git import _bounded_git\n',
+            'from laomedo.github.transport.git.utils import _credential_environment\n',
+            'import laomedo.github_git_transport as git\ngit._run_bounded_tree(args)\n',
+        ]
+        for source in sources:
+            with self.subTest(source=source), self.assertRaises(migration.ManualMigrationRequired):
+                migration.migrate_source(source)
+
     def test_renamed_server_symbol_in_its_final_module_is_migrated(self):
         source = "import laomedo.skill_operation_server as api\nvalue = api.server(ops, token)\n"
         result = migration.migrate_source(source)
@@ -150,7 +161,7 @@ class ModuleMigrationTests(unittest.TestCase):
                 exec(migrated, namespace)
                 self.assertEqual(namespace['LocalRunner'].__module__, 'laomedo.agents.agents.codex.agent')
                 self.assertEqual(namespace['RunnerError'].__module__, 'laomedo.agents.errors')
-                self.assertEqual(namespace['_hash_tree'].__module__, 'laomedo.agents.agents.base.utils')
+                self.assertEqual(namespace['_hash_tree'].__module__, 'laomedo.agents.workspaces.utils')
 
     def test_moved_module_attributes_keep_aliases(self):
         source = 'import laomedo.agents.local_runner as runner\nerror = runner.RunnerError\n'

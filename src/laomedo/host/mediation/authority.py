@@ -13,7 +13,7 @@ from contextlib import closing
 from hashlib import sha256
 from pathlib import Path
 import json
-import laomedo.host.mediation.errors as _mediation_errors
+from laomedo.host.mediation.errors import MediationError
 import re
 import secrets
 import sqlite3
@@ -35,13 +35,13 @@ class RunGrantAuthority:
         # the accepted first-slice grant. Production callers leave this off.
         candidate = Path(path).expanduser()
         if not candidate.is_absolute() or candidate.is_symlink():
-            raise _mediation_errors.MediationError("authority_path_invalid")
+            raise MediationError("authority_path_invalid")
         self.path = candidate.resolve()
         if any(
             (parent / ".git").exists()
             for parent in (self.path.parent, *self.path.parent.parents)
         ):
-            raise _mediation_errors.MediationError("authority_inside_checkout")
+            raise MediationError("authority_inside_checkout")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.connection_authorizer = connection_authorizer
         self.diagnostic_repository_read = diagnostic_repository_read is True
@@ -98,7 +98,7 @@ class RunGrantAuthority:
             or ".." in base_branch
             or base_branch.startswith("refs/")
         ):
-            raise _mediation_errors.MediationError("authorization_invalid")
+            raise MediationError("authorization_invalid")
         if (
             not all(
                 isinstance(v, str) and v
@@ -137,7 +137,7 @@ class RunGrantAuthority:
                 )
             )
         ):
-            raise _mediation_errors.MediationError("authorization_invalid")
+            raise MediationError("authorization_invalid")
         if connection_id is not None:
             try:
                 permitted = (
@@ -150,7 +150,7 @@ class RunGrantAuthority:
             except Exception:
                 permitted = False
             if not permitted:
-                raise _mediation_errors.MediationError("connection_unavailable")
+                raise MediationError("connection_unavailable")
         reference = secrets.token_urlsafe(32)
         with closing(self._connect()) as db, db:
             db.execute(
@@ -187,7 +187,7 @@ class RunGrantAuthority:
             or not isinstance(run_id, str)
             or not run_id
         ):
-            raise _mediation_errors.MediationError("authorization_unavailable")
+            raise MediationError("authorization_unavailable")
         digest = sha256(reference.encode()).hexdigest()
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
@@ -195,12 +195,12 @@ class RunGrantAuthority:
                 "SELECT * FROM authorizations WHERE ref_hash=?", (digest,)
             ).fetchone()
             if row is None or row["run_id"] not in (None, run_id):
-                raise _mediation_errors.MediationError("authorization_unavailable")
+                raise MediationError("authorization_unavailable")
             if (
                 allowed_operations is not None
                 and not set(json.loads(row["operations"])) <= allowed_operations
             ):
-                raise _mediation_errors.MediationError(
+                raise MediationError(
                     "operation_unavailable_in_runner"
                 )
             db.execute(

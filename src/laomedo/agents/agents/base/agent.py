@@ -18,15 +18,16 @@ from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.errors import RunnerError
-from laomedo.agents.agents.base.utils import _copy_tree
+from laomedo.agents.workspaces.utils import _copy_tree
 from laomedo.agents.agents.base.utils import _git_tree
-from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import _read
 from laomedo.agents.workspaces.errors import GitWorkspaceError
-from laomedo.agents.workspaces.git import prepare_git_workspace
+from laomedo.agents.workspaces.workspace import AgentWorkspace
+from laomedo.agents.workspaces.models import WorkspacePaths
 from laomedo.host.mediation.errors import MediationError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.utils import inventory
@@ -381,25 +382,17 @@ class BaseAgent(ABC):
                 )
             except MediationError as error:
                 raise RunnerError(error.code) from None
-            if self.git_workspace:
-                try:
-                    baseline = prepare_git_workspace(source, workspace)
-                except GitWorkspaceError as error:
-                    raise RunnerError(str(error)) from error
-                source_hash = _copy_tree(
-                    workspace, canonical, exclude_root_git=True
-                )
-            else:
-                baseline = None
-                source_hash = _copy_tree(source, workspace)
-                # Preserve the tested read-only canonical and sibling store mounts.
-                if _copy_tree(source, canonical) != source_hash:
-                    raise RunnerError("source_changed_during_snapshot")
+            try:
+                prepared = AgentWorkspace(WorkspacePaths(source=source, directory=workspace)).prepare(
+                    canonical, git=self.git_workspace)
+            except GitWorkspaceError as error:
+                raise RunnerError(str(error)) from error
+            baseline, source_hash = prepared.baseline, prepared.source_hash
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text(
                 "STORE-ORIGINAL", encoding="utf-8"
             )
-            # prepare_git_workspace already created an isolated repository
+            # AgentWorkspace already created an isolated repository
             # with preserved history; do not replace it with a fresh baseline.
             if not self.git_workspace:
                 initialize(workspace)

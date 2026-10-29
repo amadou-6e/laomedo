@@ -1,5 +1,7 @@
 """Single-use S10 local-provider capture; no real token or model turn."""
 
+raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
+
 from laomedo.host.leases.models import ContainerIdentity
 from hashlib import sha256
 import argparse

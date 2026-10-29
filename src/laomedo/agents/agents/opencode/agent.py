@@ -10,7 +10,7 @@ from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import RuntimeBinding
-from laomedo.agents.agents.base.utils import _hash_tree
+from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
 from laomedo.skills.registry.errors import SkillStoreError
