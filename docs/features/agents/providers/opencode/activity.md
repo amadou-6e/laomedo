@@ -157,3 +157,28 @@ in the OpenCode boundary, runner, native reader, telemetry exporter and activity
 observer. It does not claim exhaustive coverage of arbitrary external exceptions;
 those use the safe fallback. Capture explanations retain safe machine codes in
 the shared details control, without raw exception bodies.
+
+## ACP child capture and export deadlines
+
+ACP streams the root conversation. After controller cleanup, credential-free,
+network-disabled native CLI exports provide child ancestry, tool identities and
+per-conversation usage. Child activity is available after export, not as a live
+child stream. Repeated snapshots and ACP usage must not be counted twice.
+
+The whole export tree has a 120-second default deadline, including CLI startup
+and Docker cleanup. Each individual export remains limited to 30 seconds. Trusted
+host configuration may set `LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS` from 45 to
+600 seconds; a lower value can leave a multi-session capture incomplete. This is
+a metadata deadline, not a model-turn allowance. Timeout does not retry a prompt
+or claim that missing usage is zero.
+
+On 2026-10-29, revision `4eb5d95` ran one explicitly authorized native Task child
+through ACP. The child received actual documentation text and had no tools or
+further delegation. A verification-only standard ACP allow-once response consumed
+that authorization; the product client still denies permission requests by default.
+The original graph completed but its 45-second export tree was marked partial.
+The same genuine parent/child exports were later read and projected offline with
+no additional model calls, confirming exactly one parent-linked child and separate
+usage. This reconciliation is not a successful original live capture or proof of
+production delegation controls. End-to-end capture with the revised deadline
+requires a separately authorized new child run.

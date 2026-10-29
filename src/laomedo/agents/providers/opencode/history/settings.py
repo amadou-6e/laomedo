@@ -7,7 +7,6 @@ DATABASE_FILE = "opencode.db"
 MAX_EXPORT_BYTES = 8 * 1024 * 1024
 MAX_SESSIONS = 32
 EXPORT_SECONDS = 30
-EXPORT_BATCH_SECONDS = 45
 
 
 class Settings(BaseSettings):
@@ -28,6 +27,13 @@ class Settings(BaseSettings):
         le=512 * 1024 * 1024,
         validation_alias="LAOMEDO_OPENCODE_HISTORY_MAX_DATABASE_BYTES",
         description="Host-only byte ceiling for a consistent native history snapshot, up to 512 MiB.",
+    )
+    export_batch_seconds: int = Field(
+        default=120,
+        ge=45,
+        le=600,
+        validation_alias="LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS",
+        description="Host-only whole-tree deadline, including native CLI startup and exact Docker cleanup; each export remains limited to 30 seconds.",
     )
 
     @classmethod

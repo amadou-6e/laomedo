@@ -273,6 +273,52 @@ class OpenCodeHistoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "session binding"):
                 self.reader.read("ses_root")
 
+    def test_child_export_keeps_its_budget_after_slow_parent_startup(self):
+        """A parent export must not reduce its child's 30s budget to five seconds."""
+        parent = self.exported()
+        parent.messages[0]["parts"].append({
+            "type": "tool", "tool": "task", "callID": "call",
+            "state": {"metadata": {"sessionId": "ses_child", "parentSessionId": "ses_root"}},
+        })
+        child = self.exported("ses_child", "ses_root", "child")
+        calls = []
+
+        def export(docker, private, identity, seconds):
+            calls.append((identity, seconds))
+            return (parent if identity == "ses_root" else child).model_dump_json().encode()
+
+        with (
+            patch.object(self.reader, "_copy_database"),
+            patch.object(self.reader, "_export", side_effect=export),
+            patch("py_docker.Client"),
+            patch("laomedo.agents.providers.opencode.history.reader.time.monotonic", side_effect=[0, 0, 25]),
+        ):
+            history = self.reader.read("ses_root")
+        self.assertEqual(calls, [("ses_root", 30), ("ses_child", 30)])
+        self.assertEqual(set(history.sessions), {"ses_root", "ses_child"})
+
+    def test_expired_tree_deadline_refuses_another_job_and_removes_private_copy(self):
+        with (
+            patch.object(self.reader, "_copy_database"),
+            patch.object(self.reader, "_export") as export,
+            patch("py_docker.Client"),
+            patch("laomedo.agents.providers.opencode.history.reader.time.monotonic", side_effect=[0, 120]),
+        ):
+            with self.assertRaisesRegex(ValueError, "batch exceeded its deadline"):
+                self.reader.read("ses_root")
+        export.assert_not_called()
+        self.assertEqual(list(self.root.glob("history-*")), [])
+
+    def test_host_export_deadline_is_bounded_and_configurable(self):
+        from laomedo.agents.providers.opencode.history.settings import Settings
+        from pydantic import ValidationError
+
+        with patch.dict("os.environ", {"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": "180"}):
+            self.assertEqual(Settings().export_batch_seconds, 180)
+        for value in (44, 601):
+            with self.subTest(seconds=value), self.assertRaises(ValidationError):
+                Settings(**{"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": value})
+
     def test_resume_does_not_retain_old_messages_or_double_count_acp_usage(self):
         old = self.exported(message="old", text="old text")
         current = self.exported(message="new", text="new text")

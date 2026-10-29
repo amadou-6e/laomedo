@@ -1,5 +1,15 @@
 # Mediated agent host services (staged, Windows local slice)
 
+Production native-command mediation remains incomplete: the HTTP client runs
+inside Codex's network-disabled sandbox. A real read-only Actions check at
+`4eb5d95` exited with `mediation request failed` and made no provider request,
+even though the container bridge could reach the host mediator health endpoint.
+Runner completion did not establish GitHub operation success. The owner chose to
+keep the repair separate from the ACP refactor; follow
+[issue #215](https://github.com/amadou-6e/laomedo/issues/215). The experimental
+file-mailbox relay in `experiments/exp139` is a proposed starting point, not a
+production capability established by the setup below.
+
 The agent runner can now pass a run-scoped mediator capability to its pinned
 Docker image. The reusable GitHub credential remains in a host-only service.
 This is **not** acceptance of #100 capability parity or the production
