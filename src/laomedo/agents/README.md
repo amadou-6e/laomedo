@@ -28,7 +28,7 @@ Paths in this table are relative to `src/laomedo/` and describe the target.
 | Agent working state | `agents/workspaces/` | `AgentWorkspace`, `WorkspaceSnapshot`: prepare, verify, snapshot and restore Agent working state; compose shared Git objects where needed |
 | Agent artifacts | `agents/artifacts/` | `ArtifactStore`, `ArtifactReference`: retain, select, verify and transfer files between Agent runs |
 | Agent run persistence | `agents/runs/` | `RunStore`, `RunRecord`, `RunReference`: Agent requests, attempts, state and recovery information |
-| Agent response requirements | `agents/output/` | `OutputValidator`, `OutputRequirements`, `OutputValidation`: describe and check Agent responses |
+| Agent response contract | `agents/interface/output/` | `OutputValidator`, `OutputRequirements`, `OutputValidation`: one public contract and validator shared by Agents, downstream components and publication checks |
 | Coordination between Agents | `agents/orchestration/` | `AgentHandoffController`, `AgentHandoff`: coordinate Agent handoffs and explicit stopping conditions |
 | Agent observability | `agents/activity/` | `ActivityStore`, `ActivityCapture`, `ActivityProjection`: retain and present normalized Agent activity |
 | Agent framework integration | `agents/interface/` | Agent-specific framework adapters belong to the public boundary; the existing Agent component adapter is Langflow-specific |
@@ -97,6 +97,9 @@ laomedo/
 │   │   ├── bridge.py               # HttpAgentBridge
 │   │   ├── models.py               # Public Agent requests and descriptors
 │   │   ├── errors.py               # Public error exports
+│   │   ├── output/
+│   │   │   ├── validator.py        # OutputValidator shared with callers
+│   │   │   └── models.py           # OutputRequirements, OutputValidation
 │   │   ├── langflow/               # Agent-specific component adapter
 │   │   └── langchain/              # Only when an actual Agent adapter is added
 │   ├── workspaces/
@@ -107,9 +110,6 @@ laomedo/
 │   │   └── models.py
 │   ├── runs/
 │   │   ├── store.py                # RunStore for Agent runs
-│   │   └── models.py
-│   ├── output/
-│   │   ├── validator.py            # Agent response validation
 │   │   └── models.py
 │   ├── orchestration/
 │   │   ├── controller.py           # AgentHandoffController
@@ -288,6 +288,12 @@ blind redispatch.
   base. Import-boundary checks must identify those entrypoints explicitly.
 - The interface imports domain models, not base or provider implementations.
   It re-exports canonical models from their owning concern where necessary.
+- The Agent response contract is owned by `agents/interface/output/`.
+  `OutputRequirements` and `OutputValidation` are canonical definitions in that
+  package's `models.py`; `BaseAgent`, downstream components and publication
+  checks use the same `OutputValidator`. There is no sibling `agents/output/`
+  package or second validator. Graph-specific discovery of downstream
+  requirements stays in the Langflow integration outside the Agent module.
 - The base depends on those public data contracts and shared domain objects.
   Concrete providers depend on the base.
 - Agent-specific framework adapters are part of `agents/interface`. They may
