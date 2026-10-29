@@ -318,6 +318,14 @@ class OpenCodeHistoryTests(unittest.TestCase):
         for value in (44, 601):
             with self.subTest(seconds=value), self.assertRaises(ValidationError):
                 Settings(**{"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": value})
+        with (
+            patch.dict("os.environ", {"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": "601"}),
+            patch("py_docker.Client") as client,
+        ):
+            with self.assertRaises(ValidationError):
+                self.reader.read("ses_root")
+        client.assert_not_called()
+        self.assertEqual(list(self.root.glob("history-*")), [])
 
     def test_resume_does_not_retain_old_messages_or_double_count_acp_usage(self):
         old = self.exported(message="old", text="old text")

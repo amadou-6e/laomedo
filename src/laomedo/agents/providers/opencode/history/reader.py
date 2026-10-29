@@ -49,9 +49,9 @@ class HistoryReader:
 
         if not re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
             raise ValueError("Invalid native export identity")
+        deadline = time.monotonic() + settings.Settings().export_batch_seconds
         private = Path(tempfile.mkdtemp(prefix="history-", dir=self.evidence))
         unresolved = False
-        deadline = time.monotonic() + settings.Settings().export_batch_seconds
         try:
             self._copy_database(private / settings.DATABASE_FILE)
             history = NativeHistory(root_id=session_id)
