@@ -165,8 +165,9 @@ network-disabled native CLI exports provide child ancestry, tool identities and
 per-conversation usage. Child activity is available after export, not as a live
 child stream. Repeated snapshots and ACP usage must not be counted twice.
 
-The whole export tree has a 120-second default deadline, including CLI startup
-and Docker cleanup. Each individual export remains limited to 30 seconds. Trusted
+The whole export tree has an approximate 120-second default budget, including CLI
+startup and Docker cleanup; stream termination and cleanup waits can overrun it
+by about ten seconds. Each individual export remains limited to 30 seconds. Trusted
 host configuration may set `LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS` from 45 to
 600 seconds; a lower value can leave a multi-session capture incomplete. This is
 a metadata deadline, not a model-turn allowance. Timeout does not retry a prompt
@@ -176,9 +177,19 @@ On 2026-10-29, revision `4eb5d95` ran one explicitly authorized native Task chil
 through ACP. The child received actual documentation text and had no tools or
 further delegation. A verification-only standard ACP allow-once response consumed
 that authorization; the product client still denies permission requests by default.
-The original graph completed but its 45-second export tree was marked partial.
+The original graph completed but native capture was marked partial. Its failure
+cause was not instrumented and remains unconfirmed.
 The same genuine parent/child exports were later read and projected offline with
 no additional model calls, confirming exactly one parent-linked child and separate
-usage. This reconciliation is not a successful original live capture or proof of
-production delegation controls. End-to-end capture with the revised deadline
-requires a separately authorized new child run.
+usage. That offline export took 11.64 seconds and would also have fit within the
+old 45-second budget. The larger budget is a robustness improvement, not evidence
+that it fixes the original failure. This reconciliation is not a successful
+original live capture or proof of production delegation controls. End-to-end
+capture requires a separately authorized new child run with export diagnostics.
+
+The Agent node waits 210 seconds by default, with a 240-second maximum. OpenCode
+can need startup, a 180-second prompt and final export; Resume also needs a baseline
+export. These phases can exceed the node's wait, and cancellation can still be
+followed by metadata capture. A wait timeout therefore leaves the run outcome
+unconfirmed. Retain its reference and inspect existing work before dispatching
+again; a longer metadata budget does not extend the node's wait or retry a prompt.
