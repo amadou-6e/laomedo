@@ -16,3 +16,25 @@ class AcpTurn(BaseModel):
         default=None,
         description="Native ACP usage when supplied; absent means unknown.",
     )
+
+    def tool_calls(self) -> list[dict]:
+        """Project final observed ACP tool states without inventing native IDs."""
+        calls = {}
+        for update in self.updates:
+            if update.get("sessionUpdate") not in {"tool_call", "tool_call_update"}:
+                continue
+            identity = update.get("toolCallId")
+            if not isinstance(identity, str):
+                continue
+            calls.setdefault(identity, {}).update(update)
+        return [
+            {
+                "call_id": identity,
+                "tool": value.get("title"),
+                "status": value.get("status"),
+                "input": value.get("rawInput"),
+                "output": value.get("rawOutput", value.get("content")),
+                "error": value.get("status") == "failed",
+            }
+            for identity, value in calls.items()
+        ]

@@ -43,6 +43,7 @@ class AcpSession:
         self.session_id = None
         self.capabilities = None
         self.cancel_sent = False
+        self.protocol_failed = False
         self.connection = connect_to_agent(self, DockerTransport(session))
 
     async def initialize(self):
@@ -135,17 +136,14 @@ class AcpSession:
                     )
                 await asyncio.wait({pending}, timeout=0.1)
             reply = await pending
+            if self.protocol_failed:
+                raise RunnerError("runner_transport_failed")
             if timed_out:
                 raise RunnerError("turn_timeout")
             return AcpTurn(
                 session_id=self.session_id,
                 stop_reason=reply.stop_reason,
-                answer="".join(
-                    update["content"]["text"]
-                    for update in self.updates
-                    if update.get("sessionUpdate") == "agent_message_chunk"
-                    and update.get("content", {}).get("type") == "text"
-                ),
+                answer=self._answer(),
                 updates=list(self.updates),
                 usage=reply.usage.model_dump(
                     mode="json", by_alias=True, exclude_none=True
@@ -167,11 +165,16 @@ class AcpSession:
     async def session_update(self, session_id, update, **kwargs):
         """Retain real updates and forward them to the owning activity capture."""
         if self.session_id is not None and session_id != self.session_id:
+            self.protocol_failed = True
             raise RunnerError("runner_transport_failed")
         value = update.model_dump(mode="json", by_alias=True, exclude_none=True)
         self.updates.append(value)
         if self.on_update is not None:
-            self.on_update(session_id, value)
+            try:
+                self.on_update(session_id, value)
+            except Exception:
+                self.protocol_failed = True
+                raise RunnerError("runner_transport_failed") from None
 
     async def ext_method(self, method, params):
         """Reject every extension request; none may become a host tool call."""
@@ -180,7 +183,37 @@ class AcpSession:
     async def ext_notification(self, method, params):
         """Forward provider telemetry only, without interpreting it as execution."""
         if self.on_extension is not None:
-            self.on_extension(method, params)
+            try:
+                self.on_extension(method, params)
+            except Exception:
+                self.protocol_failed = True
+                raise RunnerError("runner_transport_failed") from None
+
+    def _answer(self) -> str:
+        """Return the final message only, retaining commentary in the update log.
+
+        Providers that identify messages are grouped by that native identity.
+        For providers without message IDs, a non-message update separates runs
+        of text chunks; earlier commentary must not enter a downstream payload.
+        """
+        messages = {}
+        current = None
+        anonymous = 0
+        for update in self.updates:
+            if update.get("sessionUpdate") != "agent_message_chunk":
+                if update.get("sessionUpdate") in {"tool_call", "tool_call_update"}:
+                    current = None
+                continue
+            if update.get("content", {}).get("type") != "text":
+                continue
+            identity = update.get("messageId")
+            if identity is None:
+                if current is None:
+                    anonymous += 1
+                    current = ("anonymous", anonymous)
+                identity = current
+            messages.setdefault(identity, []).append(update["content"]["text"])
+        return "".join(next(reversed(messages.values()))) if messages else ""
 
     async def close(self) -> None:
         """Unblock the reader through creator-owned cleanup before closing SDK I/O."""
@@ -192,7 +225,10 @@ class AcpSession:
     async def _request(self, request, method: str, seconds: float):
         """Map bounded SDK failures to existing safe runner error contracts."""
         try:
-            return await asyncio.wait_for(request, timeout=seconds)
+            result = await asyncio.wait_for(request, timeout=seconds)
+            if self.protocol_failed:
+                raise RunnerError("runner_transport_failed")
+            return result
         except TimeoutError:
             raise RunnerError("request_timeout:" + method) from None
         except (RequestError, ConnectionError, OSError, ValueError):

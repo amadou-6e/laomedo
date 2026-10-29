@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from urllib import request
-from urllib.parse import urlencode
-from urllib.parse import urlsplit
 from uuid import uuid4
 import hashlib
 import json
@@ -25,48 +22,6 @@ import threading
 import time
 
 
-class OpenCodeHTTP:
-    """Private server protocol, usable for credential-free contract verification.
-
-    A caller must provision a private server with controller/tool isolation before
-    exposing real credentials. This adapter never reads or imports personal auth.
-    """
-
-    def __init__(self, url, directory, evidence):
-        parsed = urlsplit(url)
-        if (
-            parsed.scheme != "http"
-            or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
-            or parsed.username
-            or parsed.password
-            or parsed.path
-            or parsed.query
-            or parsed.fragment
-        ):
-            raise _runtime_errors.RunnerError("private_opencode_server_required")
-        self.url = url.rstrip("/")
-        self.directory = directory
-        self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
-
-    def call(self, method, path, payload=None):
-        req = request.Request(
-            self.url + path + "?" + urlencode({"directory": self.directory}),
-            data=None if payload is None else json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"},
-            method=method,
-        )
-        with request.urlopen(req, timeout=180) as response:
-            value = json.load(response)
-        self.log.write(
-            json.dumps({"method": method, "path": path, "response": value}) + "\n"
-        )
-        self.log.flush()
-        return value
-
-    def close(self):
-        self.log.close()
-
-
 class OpenCodeRunner(_runtime_runner.Runner):
     """Reuse immutable skills, snapshot lifecycle and bounded dispatch accounting.
 
@@ -76,9 +31,20 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     provider = "opencode"
 
-    def __init__(self, state, skill_store, source_workspace, *, transport_factory=None,
-                 lease_service=None, github_authority=None, mediator_state=None,
-                 git_workspace=False, publication_controller=None, artifact_sources=None):
+    def __init__(
+        self,
+        state,
+        skill_store,
+        source_workspace,
+        *,
+        transport_factory=None,
+        lease_service=None,
+        github_authority=None,
+        mediator_state=None,
+        git_workspace=False,
+        publication_controller=None,
+        artifact_sources=None,
+    ):
         self.transport_factory = transport_factory
         self.active_backends = {}
         self._opencode_catalog_lock = threading.Lock()
@@ -98,9 +64,14 @@ class OpenCodeRunner(_runtime_runner.Runner):
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=None, image=None, image_id=None,
-            execution_mode="opencode_http", cli_version="opencode " + _opencode_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=None,
+            image=None,
+            image_id=None,
+            execution_mode="opencode_acp",
+            cli_version="opencode " + _opencode_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""
@@ -150,22 +121,12 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     (root / name).mkdir(parents=True)
                 (root / "workspace/.agents/skills").mkdir(parents=True)
                 backend = self.transport_factory(root / "workspace", root)
-                health = backend.call("GET", "/global/health")
-                if (
-                    health.get("version") != _opencode_settings.CLI_VERSION
-                    or health.get("healthy") is not True
-                ):
-                    raise _runtime_errors.RunnerError("opencode_runtime_pin_mismatch")
-                providers = backend.call("GET", "/provider")
-                connected = providers.get("connected", [])
-                models = []
-                for provider in providers.get("all", []):
-                    if provider.get("id") not in connected:
-                        continue
-                    for model in provider.get("models", {}):
-                        identity = provider["id"] + "/" + model
-                        self._validate_provider(identity, "default")
-                        models.append({"id": identity, "efforts": ["default"]})
+                models = [
+                    {"id": item["id"], "efforts": item["efforts"]}
+                    for item in backend.models()
+                ]
+                for item in models:
+                    self._validate_provider(item["id"], "default")
                 if not models:
                     raise _runtime_errors.RunnerError("opencode_model_not_connected")
                 result = {"models": models, "submitted_turns": 0}
@@ -336,8 +297,6 @@ class OpenCodeRunner(_runtime_runner.Runner):
             if not self.lock.acquire(blocking=False):
                 raise _runtime_errors.RunnerError("runner_busy")
         root, record, flag, backend, attempt = None, None, None, None, None
-        native_capture = None
-        baseline_ids = set()
         launch_attempted = False
         try:
             root, record = self._run_dir(run_id), self.status(run_id)
@@ -411,160 +370,44 @@ class OpenCodeRunner(_runtime_runner.Runner):
             if resume and record.get("provider_runtime") != identity:
                 raise _runtime_errors.RunnerError("resume_provider_binding_mismatch")
             record["provider_runtime"] = identity
-            health = backend.call("GET", "/global/health")
-            if health.get(
-                "version"
-            ) != _opencode_settings.CLI_VERSION or not health.get("healthy"):
-                raise _runtime_errors.RunnerError("opencode_runtime_pin_mismatch")
-            provider, model = record["requested_model"].split("/", 1)
-            catalog = backend.call("GET", "/provider")
-            available = next(
-                (item for item in catalog.get("all", []) if item.get("id") == provider),
-                {},
-            )
-            if provider not in catalog.get(
-                "connected", []
-            ) or model not in available.get("models", {}):
+            catalog = backend.models()
+            if record["requested_model"] not in {item["id"] for item in catalog}:
                 raise _runtime_errors.RunnerError("opencode_model_not_connected")
             if flag.is_set():
                 raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
-            self._turn_available()
-            if not resume:
-                session = backend.call(
-                    "POST", "/session", {"title": "Laomedo private run"}
-                )
-                record["thread_id"] = session.get("id")
-            if not re.fullmatch(r"ses_[a-zA-Z0-9]+", str(record.get("thread_id", ""))):
-                raise _runtime_errors.RunnerError("opencode_session_identity_invalid")
-            if resume:
-                previous = backend.call(
-                    "GET", "/session/" + record["thread_id"] + "/message"
-                )
-                if not isinstance(previous, list):
-                    raise _runtime_errors.RunnerError("opencode_history_invalid")
-                baseline_ids = {
-                    entry.get("info", {}).get("id")
-                    for entry in previous
-                    if isinstance(entry, dict)
-                }
-            if flag.is_set():
-                raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
-            check_auth = getattr(backend, "check_auth_fresh", None)
-            if check_auth is not None:
-                check_auth()
-            if callable(getattr(backend, "open_events", None)):
-                import laomedo.activity.opencode.events as _opencode_events
-                import laomedo.activity.opencode.projection as _opencode_projection
+            from laomedo.activity.acp.capture import AcpCapture
 
-                try:
-                    children = backend.call(
-                        "GET", "/session/" + record["thread_id"] + "/children"
-                    )
-                    for child in children:
-                        if (
-                            not isinstance(child, dict)
-                            or child.get("parentID") != record["thread_id"]
-                        ):
-                            continue
-                        for entry in backend.call(
-                            "GET", "/session/" + child["id"] + "/message"
-                        ):
-                            baseline_ids.add(entry.get("info", {}).get("id"))
-                    native_capture = _opencode_events.NativeCapture(
-                        root, record["thread_id"], baseline_ids
-                    )
-                    native_capture.append(
-                        {
-                            "method": "opencode/modelCatalog",
-                            "params": {
-                                "model": record["requested_model"],
-                                "rates": available["models"][model].get("cost"),
-                            },
-                        }
-                    )
-                    native_capture.start(backend)
-                except Exception:
-                    attempt["capture_error"] = (
-                        "opencode_native_subscription_unavailable"
-                    )
+            capture = AcpCapture(root, attempt_id)
+
+            def bind(session_id):
+                """Persist the actual native binding before submitting the prompt."""
+                record["thread_id"] = session_id
+                record["communication_protocol"] = "acp.v1"
+                _runtime_utils._json(root / "record.json", record)
+
             record["attempt_number"] = self._reserve_turn()
             _runtime_utils._json(root / "record.json", record)
-            if flag.is_set():
-                raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
-            message = backend.call(
-                "POST",
-                "/session/" + record["thread_id"] + "/message",
-                {
-                    "model": {"providerID": provider, "modelID": model},
-                    "parts": [{"type": "text", "text": task}],
-                },
+            outcome = backend.run(
+                task,
+                model=record["requested_model"],
+                session_id=record.get("thread_id") if resume else None,
+                cancelled=flag,
+                capture=capture,
+                on_session=bind,
             )
-            info = message.get("info") or {}
-            if (
-                info.get("sessionID") != record["thread_id"]
-                or info.get("providerID") != provider
-                or info.get("modelID") != model
-            ):
-                raise _runtime_errors.RunnerError("opencode_response_identity_mismatch")
-            steps = backend.call("GET", "/session/" + record["thread_id"] + "/message")
-            import laomedo.activity.opencode.projection as _opencode_projection
-
-            if not isinstance(steps, list):
-                raise _runtime_errors.RunnerError("opencode_history_invalid")
-            captured = [
-                entry
-                for entry in steps
-                if isinstance(entry, dict)
-                and entry.get("info", {}).get("id") not in baseline_ids
-            ]
-            try:
-                if not _opencode_projection.retain_messages(
-                    root, record["thread_id"], captured, writer=native_capture
-                ):
-                    attempt["capture_error"] = "opencode_native_snapshot_size_limit"
-            except (OSError, TypeError, ValueError):
-                attempt["capture_error"] = "opencode_native_snapshot_unavailable"
-            if native_capture:
-                native_capture.terminal.wait(2)
-                try:
-                    children = backend.call(
-                        "GET", "/session/" + record["thread_id"] + "/children"
-                    )
-                    for child in children:
-                        if (
-                            not isinstance(child, dict)
-                            or child.get("parentID") != record["thread_id"]
-                        ):
-                            continue
-                        child_messages = backend.call(
-                            "GET", "/session/" + child["id"] + "/message"
-                        )
-                        new_messages = [
-                            entry
-                            for entry in child_messages
-                            if entry.get("info", {}).get("id") not in baseline_ids
-                        ]
-                        if new_messages:
-                            with native_capture.lock:
-                                native_capture.child_idle.setdefault(child["id"], False)
-                            native_capture.append(
-                                {
-                                    "method": "opencode/sessionSnapshot",
-                                    "params": {"session": child},
-                                }
-                            )
-                            _opencode_projection.retain_messages(
-                                root,
-                                child["id"],
-                                new_messages,
-                                parent=record["thread_id"],
-                                writer=native_capture,
-                            )
-                except Exception:
-                    attempt["capture_error"] = "opencode_child_snapshot_incomplete"
-            observed = dict(message)
-            observed["parts"] = _opencode_utils.turn_parts(message, steps)
-            normalized = _opencode_utils.normalize_message(observed, record["skills"])
+            normalized = {
+                "answer": outcome.answer,
+                "native_turn_id": None,
+                "usage": outcome.usage,
+                "tools": outcome.tool_calls(),
+            }
+            if not normalized["answer"] and not flag.is_set():
+                raise _runtime_errors.RunnerError("completed_without_agent_message")
+            for tool in normalized["tools"]:
+                if tool["tool"] == "skill" and tool["status"] == "completed":
+                    for skill in record["skills"]:
+                        if (tool.get("input") or {}).get("name") == skill["skill_id"]:
+                            skill["use_evidence"] = "native_skill_tool_completed"
             record["skill"] = (
                 record["skills"][0] if len(record["skills"]) == 1 else None
             )
@@ -575,7 +418,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 record.update(
                     normalized,
                     status="completed",
-                    effective_model=info["providerID"] + "/" + info["modelID"],
+                    effective_model=record["requested_model"],
                     effective_effort=None,
                 )
                 pending = root / "post-run-pending"
@@ -591,7 +434,8 @@ class OpenCodeRunner(_runtime_runner.Runner):
                 )
             record["turns"].append(
                 {
-                    "turn_id": normalized["native_turn_id"],
+                    "turn_id": attempt_id,
+                    "identity_source": "host_attempt",
                     "status": record["status"],
                     "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
                 }
@@ -608,41 +452,19 @@ class OpenCodeRunner(_runtime_runner.Runner):
             record.update(
                 status="cancelled" if flag is not None and flag.is_set() else "failed",
                 error_category=(
-                    None if flag is not None and flag.is_set() else (
-                        str(exc) if isinstance(exc, _runtime_errors.RunnerError)
+                    None
+                    if flag is not None and flag.is_set()
+                    else (
+                        str(exc)
+                        if isinstance(exc, _runtime_errors.RunnerError)
                         else type(exc).__name__
                     )
                 ),
             )
         finally:
             try:
-                if native_capture:
-                    try:
-                        native_capture.close()
-                    except Exception:
-                        attempt["capture_error"] = (
-                            "opencode_native_reader_cleanup_unverified"
-                        )
-                    attempt["native_stream_complete"] = native_capture.complete
-                    if native_capture.error or not native_capture.complete:
-                        attempt.setdefault(
-                            "capture_error",
-                            native_capture.error
-                            or "opencode_native_terminal_not_observed",
-                        )
                 if backend:
                     backend.close()
-                if (
-                    native_capture
-                    and native_capture.thread
-                    and native_capture.thread.is_alive()
-                ):
-                    native_capture.thread.join(5)
-                    if native_capture.thread.is_alive():
-                        attempt["capture_error"] = (
-                            "opencode_native_reader_cleanup_unverified"
-                        )
-                        attempt["native_stream_complete"] = False
                 if record is not None and attempt is not None:
                     try:
                         import laomedo.activity.opencode.telemetry as _opencode_telemetry
@@ -759,16 +581,12 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     "cancel_acknowledged": False,
                     "termination_verified": False,
                 }
-            acknowledged = backend.call(
-                "POST", "/session/" + record["thread_id"] + "/abort", {}
-            )
-            if acknowledged is not True:
-                raise _runtime_errors.RunnerError("opencode_abort_not_acknowledged")
+            backend.cancel()
             # An acknowledgement is not proof that a native child command terminated.
             return {
                 **record,
                 "cancel_requested": True,
-                "cancel_acknowledged": True,
+                "cancel_acknowledged": False,
                 "termination_verified": False,
             }
         return record

@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from urllib import error
-from urllib import request
 from uuid import uuid4
-import base64
-import http.client
 import json
 import laomedo.agents.providers.opencode.settings as _opencode_settings
 import laomedo.agents.providers.opencode.utils as _opencode_utils
@@ -17,7 +14,6 @@ import laomedo.agents.runtime.errors as _runtime_errors
 import laomedo.agents.runtime.utils as _runtime_utils
 import secrets
 import shutil
-import socket
 import threading
 import time
 
@@ -293,8 +289,11 @@ class IsolatedOpenCode:
         try:
             from py_docker import Client
             from py_docker.errors import (
-                CleanupUnconfirmedError, ConnectionConfigurationError,
-                DockerOperationError, OwnershipConflictError, ImageResolutionError,
+                CleanupUnconfirmedError,
+                ConnectionConfigurationError,
+                DockerOperationError,
+                OwnershipConflictError,
+                ImageResolutionError,
             )
         except ImportError:
             raise _runtime_errors.RunnerError(
@@ -304,7 +303,9 @@ class IsolatedOpenCode:
             with Client() as docker:
                 self.docker_endpoint = docker.connection.endpoint
                 docker.images.resolve(image, expected_id=image_id)
-                docker.images.resolve(_opencode_settings.WORKER_IMAGE, expected_id=selected_worker_id)
+                docker.images.resolve(
+                    _opencode_settings.WORKER_IMAGE, expected_id=selected_worker_id
+                )
                 receipts = (
                     Path(receipt_directory)
                     if receipt_directory is not None
@@ -316,13 +317,21 @@ class IsolatedOpenCode:
         except OwnershipConflictError:
             raise _runtime_errors.RunnerError("opencode_image_pin_mismatch") from None
         except ImageResolutionError:
-            raise _runtime_errors.RunnerError("opencode_controller_image_unavailable") from None
+            raise _runtime_errors.RunnerError(
+                "opencode_controller_image_unavailable"
+            ) from None
         except CleanupUnconfirmedError:
-            raise _runtime_errors.RunnerError("opencode_container_cleanup_unverified") from None
+            raise _runtime_errors.RunnerError(
+                "opencode_container_cleanup_unverified"
+            ) from None
         except ConnectionConfigurationError:
-            raise _runtime_errors.RunnerError("opencode_container_configuration_invalid") from None
+            raise _runtime_errors.RunnerError(
+                "opencode_container_configuration_invalid"
+            ) from None
         except DockerOperationError:
-            raise _runtime_errors.RunnerError("opencode_controller_startup_failed") from None
+            raise _runtime_errors.RunnerError(
+                "opencode_controller_startup_failed"
+            ) from None
         root = evidence / ("controller-" + uuid4().hex)
         root.mkdir()
         view = root / "view"
@@ -330,10 +339,8 @@ class IsolatedOpenCode:
         # No user project configs/custom tools are ever mounted in the controller.
         shutil.copytree(workspace / ".agents", view / ".agents")
         self.broker = None
-        self.log = None
         self.name = None
-        self.session = self.docker = self.drainer = None
-        self.drain_error = None
+        self.session = self.docker = None
         self.closing = False
         try:
             self.broker = CommandBroker(
@@ -345,9 +352,7 @@ class IsolatedOpenCode:
                 docker_endpoint=self.docker_endpoint,
                 receipt_directory=receipts,
             )
-            self.password = secrets.token_hex(32)
             self.name = "laomedo-oc-controller-" + uuid4().hex
-            self.log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
             permissions = {"*": "deny", "laomedo_exec": "allow", "skill": {"*": "deny"}}
             for skill in (view / ".agents/skills").iterdir():
                 permissions["skill"][skill.name] = "allow"
@@ -408,222 +413,192 @@ class IsolatedOpenCode:
             self.close()
             raise
         from py_docker.containers.models import ContainerSpec, Mount
-        from py_docker.sessions.models import ContainerSession
-        from py_docker.streams.models import StreamLimits
 
+        self.root, self.evidence, self.receipts = root, evidence, receipts
+        self.spec = ContainerSpec(
+            image=image_id,
+            name=self.name,
+            entrypoint=["timeout"],
+            command=[
+                "--signal=TERM",
+                "--kill-after=5s",
+                str(_opencode_settings.CONTROLLER_LIFETIME_SECONDS),
+                "opencode",
+                "acp",
+            ],
+            user="10001:10001",
+            read_only=False,
+            network_mode="bridge",
+            working_dir="/draft",
+            stdin_open=True,
+            extra_hosts={"host.docker.internal": "host-gateway"},
+            environment={
+                "OPENCODE_CONFIG": "/controller-config.json",
+                "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+                "HOME": "/home/runner",
+                "XDG_STATE_HOME": "/tmp/opencode-state",
+                "XDG_CACHE_HOME": "/tmp/opencode-cache",
+                "XDG_CONFIG_HOME": "/tmp/opencode-config",
+            },
+            mounts=[
+                Mount(
+                    type="bind",
+                    source=str(source),
+                    target=target,
+                    read_only=readonly,
+                )
+                for source, target, readonly in (
+                    (view, "/draft", True),
+                    (
+                        root.joinpath("config.json"),
+                        "/controller-config.json",
+                        True,
+                    ),
+                    (
+                        self.profile.joinpath("sessions"),
+                        "/home/runner/.local/share/opencode",
+                        False,
+                    ),
+                    (
+                        self.profile.joinpath("auth.json"),
+                        "/home/runner/.local/share/opencode/auth.json",
+                        True,
+                    ),
+                )
+            ],
+        )
         try:
             self.docker = Client(environment={"DOCKER_HOST": self.docker_endpoint})
-            self.session = self.docker.sessions.open(
-                ContainerSession(
-                    spec=ContainerSpec(
-                        image=image_id,
-                        name=self.name,
-                        entrypoint=["timeout"],
-                        command=[
-                            "--signal=TERM",
-                            "--kill-after=5s",
-                            str(_opencode_settings.CONTROLLER_LIFETIME_SECONDS),
-                            "opencode",
-                            "serve",
-                            "--pure",
-                            "--hostname",
-                            "0.0.0.0",
-                            "--port",
-                            "4096",
-                        ],
-                        user="10001:10001",
-                        read_only=False,
-                        network_mode="bridge",
-                        working_dir="/draft",
-                        ports={"4096/tcp": None},
-                        extra_hosts={"host.docker.internal": "host-gateway"},
-                        environment={
-                            "OPENCODE_CONFIG": "/controller-config.json",
-                            "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
-                            "OPENCODE_SERVER_PASSWORD": self.password,
-                            "HOME": "/home/runner",
-                            "XDG_STATE_HOME": "/tmp/opencode-state",
-                            "XDG_CACHE_HOME": "/tmp/opencode-cache",
-                            "XDG_CONFIG_HOME": "/tmp/opencode-config",
-                        },
-                        mounts=[
-                            Mount(
-                                type="bind",
-                                source=str(source),
-                                target=target,
-                                read_only=readonly,
-                            )
-                            for source, target, readonly in (
-                                (view, "/draft", True),
-                                (
-                                    root.joinpath("config.json"),
-                                    "/controller-config.json",
-                                    True,
-                                ),
-                                (
-                                    self.profile.joinpath("sessions"),
-                                    "/home/runner/.local/share/opencode",
-                                    False,
-                                ),
-                                (
-                                    self.profile.joinpath("auth.json"),
-                                    "/home/runner/.local/share/opencode/auth.json",
-                                    True,
-                                ),
-                            )
-                        ],
-                    ),
-                    limits=StreamLimits(
-                        seconds=_opencode_settings.CONTROLLER_LIFETIME_SECONDS + 10,
-                        max_bytes=36 * 1024 * 1024,
-                    ),
-                    receipt_path=receipts.joinpath(self.name + ".json"),
-                )
-            )
-
-            def drain():
-                try:
-                    with root.joinpath("startup.log").open("wb") as log:
-                        tail = bytearray()
-                        while (frame := self.session.read_frame()) is not None:
-                            tail.extend(frame.data)
-                            del tail[: -_opencode_settings.CONTROLLER_LOG_TAIL_BYTES]
-                            log.seek(0)
-                            log.write(tail)
-                            log.truncate()
-                            log.flush()
-                except Exception:
-                    if not self.closing:
-                        self.drain_error = "opencode_controller_output_failed"
-                        try:
-                            self.session.terminate()
-                        except Exception:
-                            pass  # Creator-thread close retains and reports cleanup uncertainty.
-
-            self.drainer = threading.Thread(target=drain, daemon=True)
-            self.drainer.start()
-            self.port = self.docker.containers.published_port(
-                self.session.identity, "4096/tcp"
-            )
-            for _ in range(40):
-                try:
-                    if self.call("GET", "/global/health").get("healthy"):
-                        break
-                except (OSError, error.URLError):
-                    if self.drain_error or not self.session.state().running:
-                        raise _runtime_errors.RunnerError(
-                            "opencode_controller_startup_failed"
-                        )
-                    time.sleep(0.25)
-            else:
-                raise _runtime_errors.RunnerError("opencode_controller_not_ready")
         except Exception:
             self.close()
             raise _runtime_errors.RunnerError(
                 "opencode_controller_startup_failed"
             ) from None
 
-    def open_events(self):
-        basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
-        connection = http.client.HTTPConnection("127.0.0.1", int(self.port), timeout=30)
-        connection.request(
-            "GET",
-            "/event?directory=/draft",
-            headers={"Authorization": "Basic " + basic, "Accept": "text/event-stream"},
+    def models(self):
+        """Read native CLI metadata without creating a session or model turn."""
+        from py_docker.jobs.models import ContainerJob
+        from py_docker.streams.models import StreamLimits
+        from py_docker.errors import DockerOperationError
+
+        name = "laomedo-oc-catalog-" + uuid4().hex
+        self.check_auth_fresh()
+        try:
+            result = self.docker.jobs.run(
+                ContainerJob(
+                    spec=self.spec.model_copy(
+                        update={
+                            "name": name,
+                            "stdin_open": False,
+                            "command": [
+                                "--signal=TERM",
+                                "--kill-after=5s",
+                                "60",
+                                "opencode",
+                                "models",
+                                "--verbose",
+                            ],
+                        }
+                    ),
+                    limits=StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024),
+                    wait_timeout_seconds=10.0,
+                    receipt_path=self.receipts.joinpath(name + ".json"),
+                )
+            )
+            if result.exit_code:
+                raise _runtime_errors.RunnerError("opencode_model_not_connected")
+            return _opencode_utils.model_metadata(result.stdout.decode("utf-8"))
+        except DockerOperationError:
+            raise _runtime_errors.RunnerError(
+                "opencode_controller_startup_failed"
+            ) from None
+
+    def run(self, task, *, model, session_id, cancelled, capture, on_session):
+        """Execute over shared ACP; no published port, password or SSE reader."""
+        from py_docker.sessions.models import ContainerSession
+        from py_docker.streams.models import StreamLimits
+
+        self.check_auth_fresh()
+        self.session = self.docker.sessions.open(
+            ContainerSession(
+                spec=self.spec,
+                limits=StreamLimits(
+                    seconds=_opencode_settings.CONTROLLER_LIFETIME_SECONDS + 10,
+                    max_bytes=36 * 1024 * 1024,
+                ),
+                receipt_path=self.receipts.joinpath(self.name + ".json"),
+            )
         )
-        response = connection.getresponse()
-        if response.status != 200:
-            connection.close()
-            raise RuntimeError("opencode_native_subscription_unavailable")
-        # The owned connection is explicitly shut down by close(); a quiet model
-        # step must not terminate capture at the HTTP connect timeout.
-        if connection.sock is not None:
-            connection.sock.settimeout(None)
+        return asyncio.run(
+            self._run_acp(task, model, session_id, cancelled, capture, on_session)
+        )
 
-        class EventStream:
-            def readline(self, limit):
-                return response.readline(limit)
+    async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
+        """Validate agent identity, load the same native session and await its prompt."""
+        from laomedo.agents.protocol.acp.session import AcpSession
 
-            def close(self):
-                if connection.sock is not None:
-                    try:
-                        connection.sock.shutdown(socket.SHUT_RDWR)
-                    except OSError:
-                        pass
-                response.close()
-                connection.close()
+        client = AcpSession(self.session, on_update=capture.update)
+        try:
+            initialized = await client.initialize()
+            if initialized.agent_info.version != _opencode_settings.CLI_VERSION:
+                raise _runtime_errors.RunnerError("opencode_runtime_pin_mismatch")
+            created = await client.open(session_id=session_id)
+            options = getattr(created, "config_options", None) or []
+            picker = next(
+                (option for option in options if option.category == "model"), None
+            )
+            if picker is None:
+                raise _runtime_errors.RunnerError("opencode_model_not_connected")
+            await client.configure(picker.id, model)
+            on_session(client.session_id)
+            capture.begin(client.session_id, task)
+            outcome = await client.prompt(task, cancelled=cancelled, seconds=180)
+            status = (
+                "cancelled"
+                if cancelled.is_set() or outcome.stop_reason == "cancelled"
+                else "completed"
+                if outcome.stop_reason == "end_turn"
+                else "failed"
+            )
+            capture.finish(client.session_id, status, outcome.usage)
+            if status == "failed":
+                raise _runtime_errors.RunnerError("opencode_response_not_terminal")
+            return outcome
+        finally:
+            await client.close()
 
-        return EventStream()
+    def cancel(self):
+        """Stop owned workers; the shared ACP prompt observes the runner's flag."""
+        if self.broker is not None:
+            self.broker.stop()
 
     def check_transport(self):
-        """Surface fatal capture or worker failures independently of model claims."""
-        if self.drain_error:
-            raise _runtime_errors.RunnerError("opencode_controller_output_failed")
+        """Surface independently observed worker failures, never model claims."""
         if self.broker is not None and self.broker.error_code:
             raise _runtime_errors.RunnerError(self.broker.error_code)
 
-    def call(self, method, path, payload=None):
-        if method == "POST" and path.endswith("/abort") and self.broker is not None:
-            self.broker.stop()
-        self.check_transport()
-        basic = base64.b64encode(("opencode:" + self.password).encode()).decode()
-        req = request.Request(
-            "http://127.0.0.1:" + str(self.port) + path + "?directory=/draft",
-            data=None if payload is None else json.dumps(payload).encode(),
-            headers={
-                "Authorization": "Basic " + basic,
-                "Content-Type": "application/json",
-            },
-            method=method,
-        )
-        with request.urlopen(
-            req, timeout=3 if path == "/global/health" else 180
-        ) as response:
-            raw = response.read()
-            value = json.loads(raw) if raw else None
-        self.check_transport()
-        # Raw provider records stay in private run evidence. Request credentials
-        # and config responses are never placed in the provider trace.
-        if path not in {"/config", "/provider"}:
-            self.log.write(
-                json.dumps({"method": method, "path": path, "response": value}) + "\n"
-            )
-            self.log.flush()
-        return value
-
     def close(self):
-        """Close on the launch thread; uncertain controller or worker cleanup fails."""
-        self.closing = True
+        """Confirm exact controller and worker cleanup on the lifecycle creator."""
+        failed = False
         try:
             if self.session is not None:
                 self.session.close()
-                if self.session.cleanup_confirmed is not True:
-                    raise _runtime_errors.RunnerError("opencode_container_cleanup_unverified")
-            if self.drainer is not None:
-                self.drainer.join(5)
-                if self.drainer.is_alive():
-                    raise _runtime_errors.RunnerError(
-                        "opencode_container_cleanup_unverified"
-                    )
         except Exception:
+            failed = True
+        try:
+            if self.broker is not None:
+                self.broker.close()
+        except Exception:
+            failed = True
+        finally:
+            if self.docker is not None:
+                self.docker.close()
+        if failed:
             raise _runtime_errors.RunnerError(
                 "opencode_container_cleanup_unverified"
             ) from None
-        finally:
-            try:
-                if self.broker is not None:
-                    self.broker.close()
-                    self.broker = None
-            finally:
-                if self.docker is not None:
-                    self.docker.close()
-                    self.docker = None
-                if self.log is not None:
-                    self.log.close()
-                    self.log = None
-        self.session = None
         self.termination_verified = True
-        self.check_transport()
 
     def check_auth_fresh(self):
+        """Validate the dedicated profile's existing bounded credential grant."""
         _opencode_utils.check_auth_fresh(self.profile)

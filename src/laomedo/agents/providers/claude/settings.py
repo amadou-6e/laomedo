@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-IMAGE = "laomedo-claude-controller:2.1.310"
+IMAGE = "laomedo-claude-controller:2.1.310-acp0.98.0"
 
 
 PROFILE = "laomedo-claude-profile"

@@ -15,7 +15,7 @@ def export_attempt(root, start, session, model):
     from opentelemetry.trace import set_span_in_context
     import requests
     import laomedo.activity.runner.telemetry as _runner_telemetry
-    import laomedo.activity.opencode.projection as _opencode_projection
+    import laomedo.activity.agent_activity.projection as _activity_projection
 
     records = []
     cursor = start
@@ -32,7 +32,7 @@ def export_attempt(root, start, session, model):
         cursor = page["next_after"]
         if not page["has_more"]:
             break
-    projection = _opencode_projection.project(records, root_thread=session, model=model)
+    projection = _activity_projection.project(records, root_thread=session, model=model)
     before = _runner_feed.line_count(root / "otel-events.jsonl")
     receiver = _runner_telemetry.LaunchTelemetry(
         root, provenance="adapter-observed OpenCode native records"

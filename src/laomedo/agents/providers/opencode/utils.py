@@ -6,6 +6,7 @@ from pathlib import Path
 import hashlib
 import hmac
 import json
+import re
 import laomedo.agents.providers.opencode.settings as _opencode_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import secrets
@@ -128,3 +129,30 @@ def turn_parts(message, steps):
                 positions[call_id] = len(merged)
             merged.append(part)
     return merged
+
+
+def model_metadata(text):
+    """Parse native models --verbose records; reject incomplete or conflicting IDs."""
+    decoder = json.JSONDecoder()
+    models = []
+    remaining = text.strip()
+    try:
+        while remaining:
+            identity, separator, remaining = remaining.partition("\n")
+            if not separator or not re.fullmatch(
+                r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.:-]+", identity
+            ):
+                raise ValueError()
+            remaining = remaining.lstrip()
+            metadata, size = decoder.raw_decode(remaining)
+            if metadata.get("providerID") + "/" + metadata.get("id") != identity:
+                raise ValueError()
+            models.append(
+                {"id": identity, "efforts": ["default"], "metadata": metadata}
+            )
+            remaining = remaining[size:].strip()
+    except (ValueError, TypeError, AttributeError):
+        raise _runtime_errors.RunnerError("opencode_model_not_connected") from None
+    if not models or len({model["id"] for model in models}) != len(models):
+        raise _runtime_errors.RunnerError("opencode_model_not_connected")
+    return models

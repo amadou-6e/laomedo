@@ -8,6 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 from uuid import UUID
 from uuid import uuid4
+import asyncio
 import hashlib
 import json
 import laomedo.activity.agent_activity.utils as _agent_activity_utils
@@ -47,15 +48,24 @@ class ClaudeRunner(_runtime_runner.Runner):
             if type(value) is not int or not 1 <= value <= 86400:
                 raise _runtime_errors.RunnerError("claude_turn_timeout_invalid")
             extra["run_timeout_seconds"] = value
-        required = extra.get("run_timeout_seconds") if extra else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        required = (
+            extra.get("run_timeout_seconds")
+            if extra
+            else self.status(run_id).get("turn_timeout", self.turn_timeout)
+        )
         self._mirror_host_login(minimum_validity_seconds=required)
         return extra
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
-            execution_mode="claude_container", cli_version="Claude Code " + _claude_settings.CLI_VERSION,
-            config_sha256=None)
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
+            execution_mode="claude_container",
+            cli_version="Claude Code " + _claude_settings.CLI_VERSION,
+            config_sha256=None,
+        )
 
     def recover_interrupted(self, record):
         # The independent lease supervisor owns controller/worker lifetimes.
@@ -63,8 +73,13 @@ class ClaudeRunner(_runtime_runner.Runner):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
+                _leases_models.ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
+            )
             owner.update(cleanup_verified=verified, cleanup_detail=detail)
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
@@ -465,7 +480,6 @@ class ClaudeRunner(_runtime_runner.Runner):
             "_attempt_deadline", time.monotonic() + record["turn_timeout"]
         )
         service, telemetry, session = None, None, None
-        input_path = root.joinpath("controller-input-" + uuid4().hex)
         native_completed = False
         output_only = record.get("output_correction_count", 0) > 0
         try:
@@ -499,20 +513,9 @@ class ClaudeRunner(_runtime_runner.Runner):
                 raise _runtime_errors.RunnerError(
                     "claude_telemetry_start_failed"
                 ) from None
-            native = _agents_providers_claude_utils.command(
-                None,
-                record.get("resolved_model", record["requested_model"]),
-                record["requested_effort"],
-                record["thread_id"],
-                resume=resume,
-                output_only=output_only,
-                skill_ids=tuple(x["skill_id"] for x in record["skills"]),
-            )
             from py_docker.containers.models import Mount
 
-            input_path.write_bytes(prompt.encode())
-            input_path.chmod(0o600)
-            command = ["sh", "-c", 'exec "$@" < /run/laomedo/input', "sh", *native]
+            command = ["/opt/acp/node_modules/.bin/claude-agent-acp"]
             spec = self.container.spec(
                 self.container.guarded(command, deadline),
                 name=name,
@@ -523,6 +526,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                     **telemetry.environment,
                     "LAOMEDO_COMMAND_URL": service.url,
                     "LAOMEDO_GITHUB_GRANTED": "1" if mediation else "0",
+                    "CLAUDE_CODE_EXECUTABLE": "/usr/local/bin/claude",
                 },
                 extra_hosts={"host.docker.internal": "host-gateway"},
                 mounts=[
@@ -530,7 +534,6 @@ class ClaudeRunner(_runtime_runner.Runner):
                         type="bind", source=str(source), target=target, read_only=True
                     )
                     for source, target in (
-                        (input_path, "/run/laomedo/input"),
                         (plugin, "/run/laomedo/pinned-skills"),
                         (
                             root.joinpath("workspace/.agents/skills"),
@@ -540,60 +543,34 @@ class ClaudeRunner(_runtime_runner.Runner):
                     )
                 ],
             )
+            spec = spec.model_copy(update={"stdin_open": True})
             with self.control_lock:
                 if flag.is_set():
                     raise _runtime_errors.RunnerError("claude_cancelled")
                 if time.monotonic() >= deadline:
                     raise _runtime_errors.RunnerError("claude_turn_timeout")
-            with self.container.session(
-                spec,
-                self.container.receipts.joinpath("claude-" + name + ".json"),
-                max(1, deadline - time.monotonic()) + 10,
-            ) as session, session.stop_on(
-                lambda: (
-                    flag.is_set() or time.monotonic() >= deadline or bool(service.error_code)
-                )
+            with (
+                self.container.session(
+                    spec,
+                    self.container.receipts.joinpath("claude-" + name + ".json"),
+                    max(1, deadline - time.monotonic()) + 10,
+                ) as session,
+                session.stop_on(
+                    lambda: time.monotonic() >= deadline + 5 or bool(service.error_code)
+                ),
             ):
-                total, stderr_size, result = 0, 0, None
-                while True:
-                    if flag.is_set():
-                        raise _runtime_errors.RunnerError("claude_cancelled")
-                    if time.monotonic() >= deadline:
-                        raise _runtime_errors.RunnerError("claude_turn_timeout")
-                    line = session.read_line()
-                    if line is None:
-                        break
-                    if line.channel == "stderr":
-                        stderr_size += len(line.data)
-                        if stderr_size > 4 * 1024 * 1024:
-                            raise _runtime_errors.RunnerError(
-                                "claude_receipt_too_large"
-                            )
-                        continue
-                    line = line.data
-                    total += len(line)
-                    if len(line) > 1024 * 1024 or total > 32 * 1024 * 1024:
-                        raise _runtime_errors.RunnerError("claude_receipt_too_large")
-                    try:
-                        event = json.loads(line)
-                    except ValueError:
-                        raise _runtime_errors.RunnerError(
-                            "claude_terminal_receipt_invalid"
-                        ) from None
-                    self._native_event(root, record, event)
-                    if event.get("type") == "result":
-                        if result is not None:
-                            raise _runtime_errors.RunnerError(
-                                "claude_terminal_receipt_invalid"
-                            )
-                        result = event
-                exit_code = session.wait(timeout=10)
-                if exit_code == 124:
-                    raise _runtime_errors.RunnerError("claude_turn_timeout")
-                if exit_code or result is None:
-                    raise _runtime_errors.RunnerError("claude_native_turn_failed")
-                completed = _agents_providers_claude_utils.terminal_result(
-                    json.dumps(result), record["thread_id"]
+                completed = asyncio.run(
+                    self._communicate_acp(
+                        session,
+                        root,
+                        record,
+                        prompt,
+                        flag,
+                        deadline,
+                        telemetry,
+                        resume=resume,
+                        output_only=output_only,
+                    )
                 )
                 native_completed = True
                 return completed
@@ -620,7 +597,6 @@ class ClaudeRunner(_runtime_runner.Runner):
                 )
             if self.container.receipts.joinpath("claude-" + name + ".json").exists():
                 verified, detail = False, "pending_sdk_receipt"
-            input_path.unlink(missing_ok=True)
             if verified:
                 try:
                     lease.finish()
@@ -671,6 +647,162 @@ class ClaudeRunner(_runtime_runner.Runner):
                 raise _runtime_errors.RunnerError("claude_cancelled")
             if not native_completed and time.monotonic() >= deadline:
                 raise _runtime_errors.RunnerError("claude_turn_timeout")
+
+    async def _communicate_acp(
+        self,
+        session,
+        root,
+        record,
+        prompt,
+        flag,
+        deadline,
+        telemetry,
+        *,
+        resume,
+        output_only,
+    ):
+        """Use the shared ACP wire and preserve Claude's original SDK receipts.
+
+        Fresh adopts the agent's actual native ID before publishing host events.
+        Resume loads the saved ID and never falls back to a new session. Native
+        result receipts remain authoritative for completion, usage and output.
+        """
+        from acp.schema import McpServerStdio
+        from laomedo.agents.protocol.acp.session import AcpSession
+
+        buffered, results = [], []
+        bound = False
+
+        def native(method, params):
+            """Accept only the adapter's explicitly enabled raw SDK extension."""
+            if method not in {"claude/sdkMessage", "_claude/sdkMessage"}:
+                return
+            if not bound:
+                buffered.append((method, params))
+                return
+            if params.get("sessionId") != record["thread_id"]:
+                raise _runtime_errors.RunnerError("claude_session_identity_mismatch")
+            event = params.get("message")
+            self._native_event(root, record, event)
+            if event.get("type") == "result":
+                results.append(event)
+
+        client = AcpSession(session, on_extension=native)
+        try:
+            await client.initialize()
+            options = {
+                "model": record.get("resolved_model", record["requested_model"]),
+                "tools": ["Skill"] if record["skills"] and not output_only else [],
+                "allowedTools": []
+                if output_only
+                else [
+                    "mcp__laomedo__exec_command",
+                    "mcp__laomedo__github_operation",
+                    *[
+                        "Skill(laomedo-pinned:" + item["skill_id"] + ")"
+                        for item in record["skills"]
+                    ],
+                ],
+                "disallowedTools": [
+                    "Read",
+                    "Glob",
+                    "Grep",
+                    "Edit",
+                    "Write",
+                    "Bash",
+                    "Agent",
+                    "Task",
+                    "WebFetch",
+                    "WebSearch",
+                    "NotebookEdit",
+                ],
+                "settingSources": [],
+                "settings": {
+                    "disableAllHooks": True,
+                    "enabledPlugins": {},
+                    "autoMemoryEnabled": False,
+                },
+                "allowDangerouslySkipPermissions": False,
+                "promptSuggestions": False,
+                "systemPrompt": _claude_settings.SYSTEM,
+                "extraArgs": {
+                    "restricted": None,
+                    "permission-prompts": "none",
+                    "strict-mcp-config": None,
+                },
+            }
+            if record["requested_effort"] != "default":
+                options["effort"] = record["requested_effort"]
+            if not output_only:
+                options["plugins"] = [
+                    {"type": "local", "path": "/run/laomedo/pinned-skills"}
+                ]
+            await client.open(
+                session_id=record["thread_id"] if resume else None,
+                mcp_servers=[]
+                if output_only
+                else [
+                    McpServerStdio(
+                        name="laomedo",
+                        command="python3",
+                        args=["/opt/laomedo/command_mcp.py"],
+                        env=[],
+                    )
+                ],
+                metadata={
+                    "claudeCode": {"options": options, "emitRawSDKMessages": True}
+                },
+            )
+            record["thread_id"] = client.session_id
+            telemetry.bind_thread(client.session_id)
+            record["communication_protocol"] = "acp.v1"
+            _runtime_utils._json(root / "record.json", record)
+            common = {
+                "threadId": record["thread_id"],
+                "turnId": record["active_host_turn"],
+            }
+            self._event(root, "thread/started", {"thread": {"id": record["thread_id"]}})
+            self._event(
+                root,
+                "turn/started",
+                {
+                    **common,
+                    "turn": {"id": record["active_host_turn"]},
+                    "identity_source": "host_attempt",
+                },
+            )
+            self._event(
+                root,
+                "item/completed",
+                {
+                    **common,
+                    "item": {
+                        "id": record["active_host_turn"] + ":prompt",
+                        "type": "userMessage",
+                        "content": [{"type": "inputText", "text": prompt}],
+                        "provenance": "host_submitted_prompt",
+                    },
+                },
+            )
+            bound = True
+            for method, params in buffered:
+                native(method, params)
+            if flag.is_set():
+                raise _runtime_errors.RunnerError("claude_cancelled")
+            outcome = await client.prompt(
+                prompt, cancelled=flag, seconds=max(0.001, deadline - time.monotonic())
+            )
+            if flag.is_set() or outcome.stop_reason == "cancelled":
+                raise _runtime_errors.RunnerError("claude_cancelled")
+            if outcome.stop_reason != "end_turn":
+                raise _runtime_errors.RunnerError("claude_native_turn_failed")
+            if len(results) != 1:
+                raise _runtime_errors.RunnerError("claude_terminal_receipt_invalid")
+            return _agents_providers_claude_utils.terminal_result(
+                json.dumps(results[0]), record["thread_id"]
+            )
+        finally:
+            await client.close()
 
     def _native_event(self, root, record, event):
         if (
@@ -913,7 +1045,6 @@ class ClaudeRunner(_runtime_runner.Runner):
             }
             _runtime_utils._json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
-            self._event(root, "thread/started", {"thread": {"id": record["thread_id"]}})
             prompt = self._prompt(root, record, task)
             corrections = 0
             while True:
@@ -926,29 +1057,6 @@ class ClaudeRunner(_runtime_runner.Runner):
                 record["_completed_stream_items"] = {}
                 record["active_host_turn"] = host_turn
                 record["output_correction_count"] = corrections
-                self._event(
-                    root,
-                    "turn/started",
-                    {
-                        "threadId": record["thread_id"],
-                        "turn": {"id": host_turn},
-                        "identity_source": "host_attempt",
-                    },
-                )
-                self._event(
-                    root,
-                    "item/completed",
-                    {
-                        "threadId": record["thread_id"],
-                        "turnId": host_turn,
-                        "item": {
-                            "id": host_turn + ":prompt",
-                            "type": "userMessage",
-                            "content": [{"type": "inputText", "text": prompt}],
-                            "provenance": "host_submitted_prompt",
-                        },
-                    },
-                )
                 try:
                     result = self._invoke(
                         root, record, prompt, flag, resume=resume or corrections > 0

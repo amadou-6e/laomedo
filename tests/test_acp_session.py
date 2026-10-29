@@ -161,6 +161,27 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result.answer, "actual answer")
 
+    async def test_commentary_is_not_part_of_final_payload(self):
+        self.client.updates = [
+            {
+                "sessionUpdate": "agent_message_chunk",
+                "messageId": "commentary",
+                "content": {"type": "text", "text": "I will inspect it."},
+            },
+            {"sessionUpdate": "tool_call", "toolCallId": "call"},
+            {
+                "sessionUpdate": "agent_message_chunk",
+                "messageId": "answer",
+                "content": {"type": "text", "text": '{"result":'},
+            },
+            {
+                "sessionUpdate": "agent_message_chunk",
+                "messageId": "answer",
+                "content": {"type": "text", "text": "true}"},
+            },
+        ]
+        self.assertEqual(self.client._answer(), '{"result":true}')
+
 
 @unittest.skipIf(AcpSession is None, "Optional runner ACP dependency is not installed")
 class DockerTransportTests(unittest.IsolatedAsyncioTestCase):
