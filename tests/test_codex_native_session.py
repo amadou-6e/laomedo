@@ -9,10 +9,10 @@ from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from laomedo.agents.providers.codex import settings
-from laomedo.agents.providers.codex.controller.models import CodexLaunch
-from laomedo.agents.providers.codex.controller.service import CodexController as AppServer
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.codex import settings
+from laomedo.agents.agents.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
+from laomedo.agents.errors import RunnerError
 
 
 @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
@@ -64,7 +64,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
 
     def test_old_normal_cli_server_is_retired(self):
         root=Path(__file__).resolve().parents[1]
-        package=root.joinpath("src/laomedo/agents/providers/codex")
+        package=root.joinpath("src/laomedo/agents/agents/codex")
         self.assertFalse(package.joinpath("servers.py").exists())
         self.assertFalse(package.joinpath("split/transport.py").exists())
         self.assertNotIn("def _docker_prefix",package.joinpath("utils.py").read_text())
@@ -80,9 +80,9 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         catalogue=json.loads(root.joinpath("frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         codes=set()
-        producers=[root.joinpath("src/laomedo/agents/providers/codex/controller",module) for module in ("service.py","models.py","settings.py")]
-        producers += [root.joinpath("src/laomedo/agents/providers/codex/split",module) for module in ("executor.py","models.py")]
-        producers += [root.joinpath("src/laomedo/agents/providers", module) for module in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py")]
+        producers=[root.joinpath("src/laomedo/agents/agents/codex/controller",module) for module in ("service.py","models.py","settings.py")]
+        producers += [root.joinpath("src/laomedo/agents/agents/codex/split",module) for module in ("executor.py","models.py")]
+        producers += [root.joinpath("src/laomedo/agents/agents", module) for module in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py")]
         for module in producers:
             tree=ast.parse(module.read_text())
             for node in ast.walk(tree):
@@ -94,7 +94,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
 
     def test_recovered_metadata_is_removed_but_run_history_is_preserved(self):
         """Only successfully reconciled metadata folders are disposable."""
-        from laomedo.agents.providers.codex.runner import CodexRunner
+        from laomedo.agents.agents.codex.runner import CodexRunner
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
             for folder in ("runs","catalog","preflight"):
@@ -114,14 +114,14 @@ class RetirementAndCatalogueTests(unittest.TestCase):
     def test_host_budgets_validate_before_launch_attempt_marker(self):
         """An invalid host setting must not be recorded as dispatch."""
         root=Path(__file__).resolve().parents[1]
-        source=root.joinpath("src/laomedo/agents/providers/codex/runner.py").read_text()
+        source=root.joinpath("src/laomedo/agents/agents/codex/runner.py").read_text()
         self.assertLess(source.index("transport_settings = _native_settings.Settings.load()"), source.index("launch_attempted = True"))
 
 
     @unittest.skipUnless(find_spec("py_docker"),"Requires optional Docker runtime")
     def test_executor_receipt_is_recovered_and_unresolved_intent_is_retained(self):
-        from laomedo.agents.providers.codex.runner import CodexRunner
-        from laomedo.agents.providers.codex.runner import CodexRunner
+        from laomedo.agents.agents.codex.runner import CodexRunner
+        from laomedo.agents.agents.codex.runner import CodexRunner
         from py_docker.errors import CleanupUnconfirmedError
         with tempfile.TemporaryDirectory() as temp:
             state=Path(temp); root=state.joinpath("catalog","metadata"); root.mkdir(parents=True)

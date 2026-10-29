@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from laomedo.activity.agent_activity.models import CaptureIdentity
+    from laomedo.agents.activity.models import CaptureIdentity
 
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 import json
-import laomedo.activity.agent_activity.utils as _agent_activity_utils
+import laomedo.agents.activity.utils as _agent_activity_utils
 import sqlite3
 
 
@@ -72,7 +72,7 @@ class ActivityStore:
             db.close()
 
     def start(self, identity: "CaptureIdentity"):
-        from laomedo.activity.agent_activity.models import CaptureIdentity
+        from laomedo.agents.activity.models import CaptureIdentity
 
         if not isinstance(identity, CaptureIdentity):
             raise ValueError("agent_activity_identity_required")

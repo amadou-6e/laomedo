@@ -6,8 +6,8 @@ from fastapi import Query
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from starlette.concurrency import run_in_threadpool
-import laomedo.activity.agent_activity.store as _agent_activity_store
-import laomedo.activity.agent_activity.settings as _agent_activity_settings
+import laomedo.agents.activity.store as _agent_activity_store
+import laomedo.agents.activity.settings as _agent_activity_settings
 
 
 def install_activity_routes(app, authenticate, store=None):
@@ -51,7 +51,7 @@ def install_activity_routes(app, authenticate, store=None):
 
     @app.get("/api/v1/laomedo/agent-executions/{flow}/{node}/{run}")
     async def invocation(flow: str, node: str, run: str, user=Depends(authenticate)):
-        import laomedo.activity.agent_activity.projection as _agent_activity_projection
+        import laomedo.agents.activity.projection as _agent_activity_projection
 
         identity = owner(user)
 

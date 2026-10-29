@@ -2,7 +2,7 @@
 
 import re
 
-from laomedo.activity.redaction.settings import SECRET_KEYS
+from laomedo.agents.activity.redaction.settings import SECRET_KEYS
 
 
 def sanitized(value):

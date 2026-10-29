@@ -15,7 +15,7 @@ from laomedo.integrations.langflow.stage_adapter import FrozenLangflowStage
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.launch import launch_github_saved_flow_stage; from laomedo.work_graph.launch import launch_work_stage
-from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.json"

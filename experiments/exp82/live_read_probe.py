@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 from laomedo.work_graph.github import fetch
 from laomedo.work_graph.launch import launch_github_work_stage; from laomedo.work_graph.launch import preflight
-from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 REPOSITORY = "amadou-6e/laomedo"

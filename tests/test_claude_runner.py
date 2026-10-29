@@ -10,10 +10,10 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.settings import CLI_VERSION; from laomedo.agents.providers.claude.models import ClaudePolicy; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import activity_usage
-from laomedo.activity.agent_activity.projection import project
-from laomedo.agents.runtime.errors import RunnerError
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.agents.claude.runner import ClaudeRunner; from laomedo.agents.agents.claude.settings import CLI_VERSION; from laomedo.agents.agents.claude.models import ClaudePolicy; from laomedo.agents.agents.claude.utils import terminal_result; from laomedo.agents.agents.claude.utils import activity_usage
+from laomedo.agents.activity.projection import project
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.interface.output.utils import requirements
 
 
 try:
@@ -49,7 +49,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_catalog_does_not_dispatch_or_claim_model_execution(self):
         before=(self.runner.state/'turn-ledger.json').exists()
         with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \
-             patch('laomedo.agents.providers.codex.controller.service.CodexController',side_effect=AssertionError('no Codex RPC')):
+             patch('laomedo.agents.agents.codex.controller.service.CodexController',side_effect=AssertionError('no Codex RPC')):
             catalog=self.runner.model_catalog()
         self.assertEqual([item['id'] for item in catalog['models']],['sonnet','opus','haiku'])
         self.assertEqual(catalog['account_availability'],'cli_reported')
@@ -228,7 +228,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_unexpected_receiver_cleanup_failure_preserves_native_result(self):
         import io; import threading
         from unittest.mock import Mock
-        from laomedo.activity.claude.telemetry import ClaudeTelemetry
+        from laomedo.agents.agents.claude.activity.telemetry import ClaudeTelemetry
         original_close=ClaudeTelemetry.close
         def broken_close(receiver):
             original_close(receiver)
@@ -284,7 +284,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.runner.container.receipts = self.runner.state
         self.runner.container.session = MagicMock()
         root = self.runner._run_dir(record['run_id'])
-        with patch('laomedo.activity.claude.telemetry.ClaudeTelemetry',side_effect=OSError('private detail')), \
+        with patch('laomedo.agents.agents.claude.activity.telemetry.ClaudeTelemetry',side_effect=OSError('private detail')), \
              patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
              patch('subprocess.Popen') as launch:
             with self.assertRaisesRegex(RunnerError,'^claude_telemetry_start_failed$'):
@@ -369,7 +369,7 @@ class ClaudeRunnerTests(unittest.TestCase):
 
     @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime; covered by docker-runtime-controls")
     def test_environment_excludes_host_service_credentials(self):
-        from laomedo.agents.providers.claude.container import ClaudeContainer
+        from laomedo.agents.agents.claude.container import ClaudeContainer
         runtime = ClaudeContainer.__new__(ClaudeContainer)
         runtime.profile, runtime.image_id = 'laomedo-claude-unit', 'sha256:'+'a'*64
         with patch.dict('os.environ', {'GITHUB_TOKEN':'internal-secret', 'ANTHROPIC_API_KEY':'internal-secret'}):

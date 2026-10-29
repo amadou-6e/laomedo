@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.agents.workflow.store as _workflow_store
+import laomedo.work_graph.runs.errors as _workflow_errors
+import laomedo.work_graph.runs.store as _workflow_store
 import laomedo.work_graph.grant_utils as _work_graph_grant_utils
 import laomedo.work_graph.grants as _work_graph_grants
 import laomedo.work_graph.launch as _work_graph_launch

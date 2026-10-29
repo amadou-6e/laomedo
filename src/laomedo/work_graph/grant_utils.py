@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import csv
-import laomedo.agents.workflow.errors as _workflow_errors
+import laomedo.work_graph.runs.errors as _workflow_errors
 import os
 import re
 import subprocess

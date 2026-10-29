@@ -55,7 +55,7 @@ def project(events, *, root_thread=None, model=None):
         .startswith("opencode/")
         for receipt in events
     ):
-        import laomedo.activity.opencode.projection as _opencode_projection
+        import laomedo.agents.agents.opencode.activity.projection as _opencode_projection
 
         return _opencode_projection.project(
             events, root_thread=root_thread, model=model
@@ -224,7 +224,7 @@ def project(events, *, root_thread=None, model=None):
                         turn_usage_by_key[(thread, turn_id)] = None
                 else:
                     latest[thread] = delta
-                    import laomedo.activity.agent_activity.cost as _agent_activity_cost
+                    import laomedo.agents.activity.cost as _agent_activity_cost
 
                     turn_base = turn_bases.get((thread, turn_id))
                     turn_usage = (
@@ -289,7 +289,7 @@ def project(events, *, root_thread=None, model=None):
         }
     if related - set(latest):
         usage = None
-    import laomedo.activity.agent_activity.cost as _agent_activity_cost
+    import laomedo.agents.activity.cost as _agent_activity_cost
 
     models = {root_thread: model} if root_thread and model else {}
     model_provenance = (

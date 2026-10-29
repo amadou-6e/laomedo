@@ -8,10 +8,10 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from uuid import uuid4
 import json
-import laomedo.agents.providers.opencode.settings as _opencode_settings
-import laomedo.agents.providers.opencode.utils as _opencode_utils
-import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.runtime.utils as _runtime_utils
+import laomedo.agents.agents.opencode.settings as _opencode_settings
+import laomedo.agents.agents.opencode.utils as _opencode_utils
+import laomedo.agents.errors as _runtime_errors
+import laomedo.agents.agents.base.utils as _runtime_utils
 import secrets
 import shutil
 import threading
@@ -515,8 +515,8 @@ class IsolatedOpenCode:
 
     def history_reader(self):
         """Bind an offline metadata reader without mounting credentials or live state."""
-        from laomedo.agents.providers.opencode.history.models import HistorySource
-        from laomedo.agents.providers.opencode.history.reader import HistoryReader
+        from laomedo.agents.agents.opencode.history.models import HistorySource
+        from laomedo.agents.agents.opencode.history.reader import HistoryReader
 
         return HistoryReader(
             HistorySource(
@@ -550,7 +550,7 @@ class IsolatedOpenCode:
 
     async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
         """Validate agent identity, load the same native session and await its prompt."""
-        from laomedo.agents.protocol.acp.session import AcpSession
+        from laomedo.agents.agents.base.acp.session import AcpSession
 
         # Loading may replay earlier native history. Subscribe only after the
         # current attempt is bound so it cannot be mistaken for new activity.

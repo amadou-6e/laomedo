@@ -18,7 +18,7 @@ from laomedo.host.mediation.agent_cli import prepare_commands
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
 from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.host.leases.client import LeaseClient
-from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 

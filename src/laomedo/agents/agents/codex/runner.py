@@ -1,9 +1,9 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
-import laomedo.agents.providers.codex.settings as _codex_settings
-import laomedo.agents.providers.codex.utils as _codex_utils
-import laomedo.agents.providers.codex.controller.settings as _native_settings
+import laomedo.agents.agents.codex.settings as _codex_settings
+import laomedo.agents.agents.codex.utils as _codex_utils
+import laomedo.agents.agents.codex.controller.settings as _native_settings
 
 from pathlib import Path
 from uuid import uuid4
@@ -11,10 +11,10 @@ import hashlib
 import asyncio
 import logging
 import json
-import laomedo.agents.contracts.output as _contracts_output
-import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.providers.codex.controller.service as _runtime_servers
-import laomedo.agents.runtime.utils as _runtime_utils
+import laomedo.agents.interface.output.utils as _contracts_output
+import laomedo.agents.errors as _runtime_errors
+import laomedo.agents.agents.codex.controller.service as _runtime_servers
+import laomedo.agents.agents.base.utils as _runtime_utils
 import laomedo.host.credentials.siwc.connection as _siwc_connection
 import laomedo.host.credentials.siwc.errors as _siwc_errors
 import laomedo.host.credentials.siwc.utils as _siwc_utils
@@ -29,8 +29,8 @@ import threading
 import time
 
 
-from laomedo.agents.runtime.runner import Runner
-import laomedo.agents.runtime.models as _runtime_models
+from laomedo.agents.agents.base.agent import Runner
+import laomedo.agents.agents.base.models as _runtime_models
 
 
 class CodexRunner(Runner):
@@ -357,7 +357,7 @@ class CodexRunner(Runner):
             # The checkout was prepared without a provider remote. This is a
             # credential-free helper URL, not an HTTPS fallback.
             _mediation_agent_cli.configure_remote(workspace, repository)
-        from laomedo.agents.providers.codex.controller.models import CodexLaunch
+        from laomedo.agents.agents.codex.controller.models import CodexLaunch
 
         values = dict(workspace=workspace, canonical=canonical, store_mount=store_mount,
                       image=self.image_id, profile=self.profile, run_id=run_id, launch_token=launch_token,
@@ -367,7 +367,7 @@ class CodexRunner(Runner):
         if name is not None:
             values["name"] = name
         launch = CodexLaunch(**values)
-        from laomedo.agents.providers.codex.controller.models import SplitPolicy
+        from laomedo.agents.agents.codex.controller.models import SplitPolicy
 
         if isinstance(self.transport, type) and issubclass(
             self.transport, _runtime_servers.CodexController
@@ -626,13 +626,13 @@ class CodexRunner(Runner):
                 cancelled = threading.Event()
                 evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
                 attempt_turn_offset = len(record["turns"])
-                import laomedo.activity.runner.feed as _runner_feed
+                import laomedo.agents.activity.runner.feed as _runner_feed
 
                 activity_start = (
                     _runner_feed.line_count(run_dir / "activity-events.jsonl"),
                     _runner_feed.line_count(run_dir / "otel-events.jsonl"),
                 )
-                import laomedo.activity.runner.feed as _runner_feed
+                import laomedo.agents.activity.runner.feed as _runner_feed
 
                 attempt_id = (
                     activity_attempt_id
@@ -1179,7 +1179,7 @@ class CodexRunner(Runner):
                             if cancelled is not None and cancelled.is_set():
                                 record["cancel_requested"] = True
                             if activity_attempt is not None:
-                                import laomedo.activity.agent_activity.utils as _agent_activity_utils
+                                import laomedo.agents.activity.utils as _agent_activity_utils
 
                                 try:
                                     activity_attempt.update(

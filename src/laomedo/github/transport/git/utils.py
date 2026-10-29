@@ -148,7 +148,7 @@ def _base_git_environment() -> dict:
 def _credential_environment(token: str) -> tuple[dict, str]:
     """Host-only Git environment without ambient credential/config sources."""
     helper = Path(
-        _package_paths.package_root(), "host", "credentials", "git_credential_helper.py"
+        _package_paths.package_root(), "git", "credentials", "helper.py"
     )
     command = "!" + shlex.quote(sys.executable) + " " + shlex.quote(str(helper))
     environment = _base_git_environment()

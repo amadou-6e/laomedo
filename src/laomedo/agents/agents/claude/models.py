@@ -3,7 +3,7 @@
 import hashlib
 import json
 from pydantic import BaseModel, ConfigDict, Field
-from laomedo.agents.providers.claude import settings
+from laomedo.agents.agents.claude import settings
 
 
 class ClaudePolicy(BaseModel):

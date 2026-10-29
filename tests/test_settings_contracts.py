@@ -56,9 +56,9 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/providers/codex/controller/service.py': {'otel', 'multi_agent'},
-            'agents/providers/claude/runner.py': {'mirror_host_login'},
-            'activity/opencode/telemetry.py': {'otel'},
+            'agents/agents/codex/controller/service.py': {'otel', 'multi_agent'},
+            'agents/agents/claude/runner.py': {'mirror_host_login'},
+            'agents/agents/opencode/activity/telemetry.py': {'otel'},
         }
         for relative, fields in consumers.items():
             tree = ast.parse((SOURCE / relative).read_text())
@@ -71,8 +71,8 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_native_stream_settings_validate_positive_numeric_environment(self):
         from pydantic import ValidationError
-        from laomedo.agents.providers.codex.controller.settings import Settings
-        from laomedo.agents.runtime.errors import RunnerError
+        from laomedo.agents.agents.codex.controller.settings import Settings
+        from laomedo.agents.errors import RunnerError
         for field, alias in (("max_bytes","LAOMEDO_CODEX_STREAM_MAX_BYTES"),
                              ("startup_margin","LAOMEDO_CODEX_STREAM_STARTUP_MARGIN")):
             with self.subTest(field=field), patch.dict(os.environ, {}, clear=True):
@@ -111,21 +111,21 @@ class SettingsContractTests(unittest.TestCase):
     def test_raw_environment_boundaries_stay_explicit(self):
         protected = {
             'host/runner/utils.py': 'os.environ.items()',
-            'agents/workspace/git.py': 'os.environ.items()',
+            'agents/workspaces/git.py': 'os.environ.items()',
             'github/transport/git/utils.py': 'os.environ.items()',
-            'host/credentials/claude/utils.py': 'os.environ if environment is None',
+            'agents/agents/claude/auth/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
                         'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',
-            'agents/handoffs/transport.py': '"LAOMEDO_" + provider.upper()',
+            'agents/orchestration/transport.py': '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
-        claude=(SOURCE / 'agents/providers/claude/container.py').read_text(encoding='utf-8')
+        claude=(SOURCE / 'agents/agents/claude/container.py').read_text(encoding='utf-8')
         self.assertNotIn('os.environ', claude)
         self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
-        split=(SOURCE / 'agents/providers/codex/split/executor.py').read_text()
+        split=(SOURCE / 'agents/agents/codex/split/executor.py').read_text()
         self.assertNotIn('os.environ',split)
         self.assertIn('environment=environment',split)
         helper = (SOURCE / 'host/credentials/git_credential_helper.py').read_text()

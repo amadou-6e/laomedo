@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from uuid import uuid4
 
-from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 class RunnerTraceJoinTests(unittest.TestCase):

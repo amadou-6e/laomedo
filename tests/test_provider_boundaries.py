@@ -5,12 +5,12 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.runtime.runner import Runner
-from laomedo.agents.providers.codex.runner import CodexRunner
-from laomedo.agents.providers.claude.runner import ClaudeRunner
-from laomedo.agents.providers.opencode.runner import OpenCodeRunner
-from laomedo.agents.runtime.errors import RunnerError
-from laomedo.agents.providers.codex import settings as codex_settings
+from laomedo.agents.agents.base.agent import Runner
+from laomedo.agents.agents.codex.runner import CodexRunner
+from laomedo.agents.agents.claude.runner import ClaudeRunner
+from laomedo.agents.agents.opencode.runner import OpenCodeRunner
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex import settings as codex_settings
 import test_local_runner
 import test_claude_runner
 import test_opencode_runner
@@ -20,11 +20,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ProviderBoundaryTests(unittest.TestCase):
     def test_shared_runtime_never_imports_concrete_provider_or_credentials(self):
-        for path in (ROOT / 'src/laomedo/agents/runtime').glob('*.py'):
+        for path in (ROOT / 'src/laomedo/agents/agents/base').glob('*.py'):
             for node in ast.walk(ast.parse(path.read_text())):
                 names = [item.name for item in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else []
                 for name in names:
-                    self.assertFalse(name.startswith(('laomedo.agents.providers.', 'laomedo.host.credentials.')), (path.name, node.lineno, name))
+                    self.assertFalse(name.startswith(tuple(
+                        'laomedo.agents.agents.' + provider + '.'
+                        for provider in ('codex', 'claude', 'opencode')
+                    ) + ('laomedo.host.credentials.',)), (path.name, node.lineno, name))
                 if isinstance(node, ast.Constant) and isinstance(node.value, str):
                     self.assertNotIn(node.value, {'codex', 'claude', 'opencode'}, (path.name, node.lineno))
 
@@ -38,12 +41,12 @@ class ProviderBoundaryTests(unittest.TestCase):
         self.assertFalse(forbidden & set(inspect.signature(OpenCodeRunner).parameters))
 
     def test_concrete_providers_never_import_a_sibling_provider(self):
-        for path in (ROOT / 'src/laomedo/agents/providers').rglob('*.py'):
-            owner = path.relative_to(ROOT / 'src/laomedo/agents/providers').parts[0]
+        for path in (ROOT / 'src/laomedo/agents/agents').rglob('*.py'):
+            owner = path.relative_to(ROOT / 'src/laomedo/agents/agents').parts[0]
             for node in ast.walk(ast.parse(path.read_text())):
                 names = [item.name for item in node.names] if isinstance(node, ast.Import) else [node.module or ''] if isinstance(node, ast.ImportFrom) else []
                 for name in names:
-                    if name.startswith('laomedo.agents.providers.'):
+                    if name.startswith('laomedo.agents.agents.') and name.split('.')[3] != 'base':
                         self.assertEqual(name.split('.')[3], owner, (path.name, node.lineno, name))
 
     def test_graph_adapters_do_not_inherit_each_other(self):
@@ -53,7 +56,7 @@ class ProviderBoundaryTests(unittest.TestCase):
             imports = [node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
             self.assertIn('laomedo.integrations.langflow.agent.component', imports)
             self.assertNotIn('laomedo.codex_agent', imports)
-        shared = ROOT / 'src/laomedo/integrations/langflow/agent/component.py'
+        shared = ROOT / 'src/laomedo/agents/interface/langflow/component.py'
         for node in ast.walk(ast.parse(shared.read_text())):
             if isinstance(node, ast.Attribute):
                 self.assertFalse(isinstance(node.value, ast.Name) and node.value.id == 'self' and node.attr == 'name')
@@ -115,7 +118,7 @@ class ProviderBoundaryTests(unittest.TestCase):
                 self.assertEqual(list((control.runner.state/'runs').iterdir()), [])
 
     def test_provider_restart_reconciles_only_the_persisted_identity(self):
-        from laomedo.agents.runtime.utils import _json
+        from laomedo.agents.agents.base.utils import _json
         for fixture_type in (test_local_runner.LocalRunnerTests, test_claude_runner.ClaudeRunnerTests):
             control = self.fixture(fixture_type)
             request = control.request() if fixture_type is test_local_runner.LocalRunnerTests else control.payload
@@ -138,7 +141,7 @@ class ProviderBoundaryTests(unittest.TestCase):
             self.assertFalse(result['container_ownership']['cleanup_verified'])
 
     def test_opencode_restart_reads_historical_metadata_without_codex_cleanup(self):
-        from laomedo.agents.runtime.utils import _json
+        from laomedo.agents.agents.base.utils import _json
         control = self.fixture(test_opencode_runner.OpenCodeTests)
         record = control.runner._prepare(control.payload)
         record.update(status='running', image=codex_settings.IMAGE, cli_version=codex_settings.CLI_VERSION)

@@ -1,8 +1,8 @@
 """Internal accounting regressions, with no Docker or model requests."""
 import unittest
 import shutil
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.utils import _json
-from laomedo.agents.providers.opencode.runner import OpenCodeRunner
+from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.opencode.runner import OpenCodeRunner
 import test_local_runner as fixtures
 
 class NormalRunnerAccountingTests(unittest.TestCase):

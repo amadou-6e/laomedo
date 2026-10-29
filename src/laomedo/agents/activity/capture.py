@@ -8,7 +8,7 @@ from urllib.request import Request
 from urllib.request import build_opener
 from uuid import UUID
 import json
-import laomedo.activity.agent_activity.utils as _agent_activity_utils
+import laomedo.agents.activity.utils as _agent_activity_utils
 import threading
 import time
 

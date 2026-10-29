@@ -4,11 +4,11 @@ import asyncio
 import json
 import time
 
-from laomedo.agents.contracts import output
-from laomedo.agents.providers.codex import settings
-from laomedo.agents.providers.codex.controller.models import CodexLaunch, CodexTurn
-from laomedo.agents.providers.codex.controller.settings import Settings
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.interface.output import utils as output
+from laomedo.agents.agents.codex import settings
+from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
+from laomedo.agents.agents.codex.controller.settings import Settings
+from laomedo.agents.errors import RunnerError
 
 
 class CodexController:
@@ -53,8 +53,8 @@ class CodexController:
         self.logs = []
         try:
             if split is not None:
-                from laomedo.agents.providers.codex.split.executor import Executor
-                from laomedo.agents.providers.codex.split.models import SplitLaunch
+                from laomedo.agents.agents.codex.split.executor import Executor
+                from laomedo.agents.agents.codex.split.models import SplitLaunch
 
                 self.executor = Executor(
                     launch,
@@ -92,10 +92,10 @@ class CodexController:
                     "-c",
                     "agents.max_depth=1",
                 ]
-            from laomedo.activity.runner.settings import Settings as ActivitySettings
+            from laomedo.agents.activity.runner.settings import Settings as ActivitySettings
 
             if ActivitySettings().otel == "1":
-                from laomedo.activity.runner.telemetry import LaunchTelemetry
+                from laomedo.agents.activity.runner.telemetry import LaunchTelemetry
 
                 self.telemetry = LaunchTelemetry(evidence)
                 arguments += self.telemetry.arguments()
@@ -138,7 +138,7 @@ class CodexController:
 
     async def initialize(self):
         """Refuse stock or incompatible adapters before any session is created."""
-        from laomedo.agents.protocol.acp.session import AcpSession
+        from laomedo.agents.agents.base.acp.session import AcpSession
 
         self.acp = AcpSession(
             self.session, on_extension=self._native_event, on_precheck=self._precheck
@@ -345,8 +345,8 @@ class CodexController:
         """Retain redacted original native events before ACP prompt returns."""
         if method != "laomedo/codexEvent":
             return
-        from laomedo.activity.redaction.utils import sanitized
-        from laomedo.activity.runner import feed
+        from laomedo.agents.activity.redaction.utils import sanitized
+        from laomedo.agents.activity.runner import feed
 
         line = self._redact(json.dumps(event, ensure_ascii=False))
         event = sanitized(json.loads(line))

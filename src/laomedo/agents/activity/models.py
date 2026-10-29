@@ -1,7 +1,7 @@
 """Typed capture provenance and its reserved local invocation."""
 
 from pydantic import BaseModel, ConfigDict, Field
-from laomedo.activity.agent_activity.store import ActivityStore
+from laomedo.agents.activity.store import ActivityStore
 
 
 class CaptureIdentity(BaseModel):

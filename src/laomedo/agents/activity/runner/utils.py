@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import laomedo.activity.runner.settings as _runner_settings
+import laomedo.agents.activity.runner.settings as _runner_settings
 
 
 def attributes(values):

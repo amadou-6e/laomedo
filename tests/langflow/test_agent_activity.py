@@ -1,5 +1,5 @@
 
-from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity, ActivityInvocation
 import tempfile
 import unittest
 import os
@@ -10,15 +10,15 @@ from types import SimpleNamespace
 try:
     from fastapi import FastAPI; from fastapi import Header; from fastapi import HTTPException
     from fastapi.testclient import TestClient
-    from laomedo.activity.agent_activity.routes import install_activity_routes
+    from laomedo.agents.activity.routes import install_activity_routes
 except ImportError:
     FastAPI=None
-from laomedo.activity.agent_activity.store import ActivityStore
+from laomedo.agents.activity.store import ActivityStore
 
 
 class ActivityTests(unittest.TestCase):
     def test_capture_records_visible_name_without_changing_node_identity(self):
-        from laomedo.activity.agent_activity.utils import capture_for
+        from laomedo.agents.activity.utils import capture_for
         component=SimpleNamespace(_user_id='alice',graph=SimpleNamespace(run_id='execution',flow_id='flow'),
                                   _vertex=SimpleNamespace(id='stable-node',display_name='Review PR'))
         with patch.dict(os.environ,{'LAOMEDO_AGENT_ACTIVITY_DB':str(self.store.path)}):

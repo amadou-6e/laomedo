@@ -5,14 +5,14 @@ from __future__ import annotations
 from uuid import uuid4
 import hashlib
 import json
-import laomedo.activity.agent_activity.utils as _agent_activity_utils
-import laomedo.activity.runner.feed as _runner_feed
-import laomedo.agents.providers.opencode.settings as _opencode_settings
-import laomedo.agents.providers.opencode.utils as _opencode_utils
-import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.runtime.runner as _runtime_runner
-import laomedo.agents.runtime.models as _runtime_models
-import laomedo.agents.runtime.utils as _runtime_utils
+import laomedo.agents.activity.utils as _agent_activity_utils
+import laomedo.agents.activity.runner.feed as _runner_feed
+import laomedo.agents.agents.opencode.settings as _opencode_settings
+import laomedo.agents.agents.opencode.utils as _opencode_utils
+import laomedo.agents.errors as _runtime_errors
+import laomedo.agents.agents.base.agent as _runtime_runner
+import laomedo.agents.agents.base.models as _runtime_models
+import laomedo.agents.agents.base.utils as _runtime_utils
 import laomedo.skills.registry.errors as _registry_errors
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.utils as workspace_skills
@@ -380,7 +380,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
             if flag.is_set():
                 raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
             reader = backend.history_reader()
-            from laomedo.agents.providers.opencode.history.errors import HistoryError
+            from laomedo.agents.agents.opencode.history.errors import HistoryError
             if resume and reader is not None:
                 try:
                     baseline = reader.read(record["thread_id"])
@@ -395,7 +395,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     baseline_available = False
                     attempt["capture_error"] = "opencode_native_snapshot_unavailable"
                     record["evidence_complete"] = "partial"
-            from laomedo.activity.acp.capture import AcpCapture
+            from laomedo.agents.activity.acp.capture import AcpCapture
 
             capture = AcpCapture(root, attempt_id)
 
@@ -547,7 +547,7 @@ class OpenCodeRunner(_runtime_runner.Runner):
                         output_ref=f"laomedo:run:{run_id}:workspace")
                 if record is not None and attempt is not None:
                     try:
-                        import laomedo.activity.opencode.telemetry as _opencode_telemetry
+                        import laomedo.agents.agents.opencode.activity.telemetry as _opencode_telemetry
 
                         attempt["telemetry_complete"] = (
                             _opencode_telemetry.export_attempt(

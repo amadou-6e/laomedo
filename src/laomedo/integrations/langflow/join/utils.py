@@ -5,7 +5,7 @@ from __future__ import annotations
 from hashlib import sha256
 from uuid import UUID
 import json
-import laomedo.agents.workflow.errors as _workflow_errors
+import laomedo.work_graph.runs.errors as _workflow_errors
 
 
 def _digest(value):

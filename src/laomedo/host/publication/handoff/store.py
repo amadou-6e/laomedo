@@ -8,7 +8,7 @@ from __future__ import annotations
 from contextlib import closing
 from hashlib import sha256
 import json
-import laomedo.agents.contracts.output as _contracts_output
+import laomedo.agents.interface.output.utils as _contracts_output
 import laomedo.host.publication.handoff.settings as _handoff_settings
 import laomedo.host.publication.handoff.utils as _handoff_utils
 import math

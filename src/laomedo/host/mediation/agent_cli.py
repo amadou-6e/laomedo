@@ -1,7 +1,7 @@
 """Materialize trusted command wrappers; never install into the host PATH."""
 
 from pathlib import Path
-import laomedo.agents.workspace.git as _workspace_git
+import laomedo.agents.workspaces.git as _workspace_git
 import re
 import tempfile
 

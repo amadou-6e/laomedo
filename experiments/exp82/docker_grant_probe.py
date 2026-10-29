@@ -9,7 +9,7 @@ from laomedo.work_graph.docker_stage import DockerLangflowStage
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.launch import launch_work_stage; from laomedo.work_graph.launch import preflight
-from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
 
 from .docker_stage_probe import ROOT, no_model_flow
 

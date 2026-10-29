@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import laomedo.activity.claude.settings as _claude_settings
+import laomedo.agents.agents.claude.activity.settings as _claude_settings
 
 
 def safe_attributes(values):

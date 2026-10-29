@@ -12,13 +12,13 @@ import time
 from uuid import uuid4
 
 from experiments.exp117.support import ROOT; from experiments.exp117.support import PILOT; from experiments.exp117.support import LEDGER; from experiments.exp117.support import CAP; from experiments.exp117.support import _hash; from experiments.exp117.support import _private_empty; from experiments.exp117.support import _port; from experiments.exp117.support import _events; from experiments.exp117.support import _owned_container_absent; from experiments.exp117.support import _cleanup_runner_runs; from experiments.exp117.support import _audit_requests
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.host.runner.http.server import RunnerServer as serve
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skills.registry.store import SkillStore
-from laomedo.agents.workflow.store import WorkflowRunStore
-from laomedo.agents.handoffs.transport import RunnerAdapter
-from laomedo.agents.handoffs.errors import HandoffError
-from laomedo.activity.runner.trace_bridge import RunnerTraceBridge
+from laomedo.work_graph.runs.store import WorkflowRunStore
+from laomedo.agents.interface.bridge import RunnerAdapter
+from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
 
 
 def reserve_entry(state, case, *, entry=None, result=None):
@@ -53,7 +53,7 @@ def reserve_entry(state, case, *, entry=None, result=None):
 
 def reopen(path, run_id):
     """Fresh process opens only the durable store; cannot dispatch anything."""
-    code = ('import json,sys;from laomedo.agents.workflow.store import WorkflowRunStore;'
+    code = ('import json,sys;from laomedo.work_graph.runs.store import WorkflowRunStore;'
             'print(json.dumps(WorkflowRunStore(sys.argv[1]).trace_snapshot(sys.argv[2])))')
     return json.loads(subprocess.check_output(
         [sys.executable, '-c', code, str(path), run_id], cwd=ROOT, text=True, timeout=20))

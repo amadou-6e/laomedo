@@ -2,7 +2,7 @@
 import json
 import unittest
 
-from laomedo.agents.providers.codex.utils import _command_summary; from laomedo.agents.providers.codex.controller.service import CodexController as AppServer;  from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.codex.utils import _command_summary; from laomedo.agents.agents.codex.controller.service import CodexController as AppServer;  from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError
 import threading
 from types import SimpleNamespace
 from laomedo.agents.artifacts.errors import ArtifactError

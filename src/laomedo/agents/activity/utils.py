@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from datetime import timezone
-from laomedo.agents.contracts.models import RunnerRequest
-import laomedo.activity.agent_activity.settings as _agent_activity_settings
+from laomedo.agents.interface.models import RunnerRequest
+import laomedo.agents.activity.settings as _agent_activity_settings
 
 
 def dispatch_with_capture(component, prepared):
-    import laomedo.activity.agent_activity.capture as _agent_activity_capture
+    import laomedo.agents.activity.capture as _agent_activity_capture
 
     if component.operation not in {"fresh", "start", "resume"}:
         return component._http(*prepared)
@@ -45,7 +45,7 @@ def now():
 
 def capture_for(component):
     """Opt-in host configuration; refuse dispatch if configured capture cannot reserve."""
-    import laomedo.activity.agent_activity.store as _agent_activity_store
+    import laomedo.agents.activity.store as _agent_activity_store
 
     path = _agent_activity_settings.Settings().database
     if not path:
@@ -56,7 +56,7 @@ def capture_for(component):
     if not execution:
         raise ValueError("agent_activity_execution_required")
     label = getattr(component._vertex, "display_name", None)
-    from laomedo.activity.agent_activity.models import (
+    from laomedo.agents.activity.models import (
         CaptureIdentity,
         ActivityInvocation,
     )

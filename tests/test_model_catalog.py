@@ -2,7 +2,7 @@
 import asyncio
 import unittest
 from unittest.mock import Mock, AsyncMock
-from laomedo.agents.providers.codex.controller.service import CodexController; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
+from laomedo.agents.agents.codex.controller.service import CodexController; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from concurrent.futures import ThreadPoolExecutor

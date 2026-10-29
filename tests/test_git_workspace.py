@@ -1,6 +1,6 @@
 """Credential-free, opt-in whole-repository workspace preparation."""
 
-from laomedo.agents.workspace.git import _bounded_git as _owned_git_workspace__bounded_git
+from laomedo.agents.workspaces.git import _bounded_git as _owned_git_workspace__bounded_git
 
 from pathlib import Path
 import os
@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import laomedo.agents.workspace.git as git_workspace
-from laomedo.agents.workspace.errors import GitWorkspaceError; from laomedo.agents.workspace.git import prepare_git_workspace
+import laomedo.agents.workspaces.git as git_workspace
+from laomedo.agents.workspaces.errors import GitWorkspaceError; from laomedo.agents.workspaces.git import prepare_git_workspace
 
 
 class GitWorkspaceTests(unittest.TestCase):

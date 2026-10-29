@@ -29,7 +29,7 @@ from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.ut
 from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.github.transport.rest.transport import GitHubRestTransport
 from laomedo.host.mediation.store import MediationStore
-from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
 from laomedo.host.mediation.service import MediationHTTPService
 from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
 

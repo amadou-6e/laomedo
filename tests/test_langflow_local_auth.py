@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 from laomedo.work_graph.client import LangflowLocalClient
-from laomedo.agents.workflow.errors import LaunchError
+from laomedo.work_graph.runs.errors import LaunchError
 
 def response(value):
     return io.BytesIO(json.dumps(value).encode())

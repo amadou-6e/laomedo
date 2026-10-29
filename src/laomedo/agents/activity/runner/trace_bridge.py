@@ -4,9 +4,9 @@ Langflow remains responsible for workflow scheduling. This bridge only reserves
 and correlates one fresh native invocation; it never retries an uncertain POST.
 """
 
-import laomedo.agents.handoffs.errors as _handoffs_errors
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.agents.workflow.utils as _workflow_utils
+import laomedo.agents.orchestration.errors as _handoffs_errors
+import laomedo.work_graph.runs.errors as _workflow_errors
+import laomedo.work_graph.runs.utils as _workflow_utils
 
 
 class RunnerTraceBridge:

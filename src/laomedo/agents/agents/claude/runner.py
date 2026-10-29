@@ -11,24 +11,24 @@ from uuid import uuid4
 import asyncio
 import hashlib
 import json
-import laomedo.activity.agent_activity.utils as _agent_activity_utils
-import laomedo.activity.runner.feed as _runner_feed
-import laomedo.agents.contracts.output as _contracts_output
-import laomedo.agents.providers.claude.catalog as _claude_catalog
-import laomedo.agents.providers.claude.settings as _claude_settings
-import laomedo.agents.providers.claude.container as _claude_container
-import laomedo.agents.providers.claude.utils as _agents_providers_claude_utils
-import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.runtime.runner as _runtime_runner
-import laomedo.agents.runtime.models as _runtime_models
-import laomedo.agents.runtime.utils as _runtime_utils
-import laomedo.host.credentials.claude.errors as _claude_errors
-import laomedo.host.credentials.claude.utils as _host_credentials_claude_utils
+import laomedo.agents.activity.utils as _agent_activity_utils
+import laomedo.agents.activity.runner.feed as _runner_feed
+import laomedo.agents.interface.output.utils as _contracts_output
+import laomedo.agents.agents.claude.catalog as _claude_catalog
+import laomedo.agents.agents.claude.settings as _claude_settings
+import laomedo.agents.agents.claude.container as _claude_container
+import laomedo.agents.agents.claude.utils as _agents_providers_claude_utils
+import laomedo.agents.errors as _runtime_errors
+import laomedo.agents.agents.base.agent as _runtime_runner
+import laomedo.agents.agents.base.models as _runtime_models
+import laomedo.agents.agents.base.utils as _runtime_utils
+import laomedo.agents.agents.claude.auth.errors as _claude_errors
+import laomedo.agents.agents.claude.auth.utils as _host_credentials_claude_utils
 import laomedo.host.leases.models as _leases_models
 import laomedo.host.leases.utils as _leases_utils
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.utils as workspace_skills
-import laomedo.host.credentials.claude.settings as _host_claude_settings
+import laomedo.agents.agents.claude.auth.settings as _host_claude_settings
 import re
 import subprocess
 import threading
@@ -501,7 +501,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 self.container, root, record, flag, deadline, mediation=mediation
             )
             try:
-                import laomedo.activity.claude.telemetry as _claude_telemetry
+                import laomedo.agents.agents.claude.activity.telemetry as _claude_telemetry
 
                 telemetry = _claude_telemetry.ClaudeTelemetry(
                     root,
@@ -668,7 +668,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         result receipts remain authoritative for completion, usage and output.
         """
         from acp.schema import McpServerStdio
-        from laomedo.agents.protocol.acp.session import AcpSession
+        from laomedo.agents.agents.base.acp.session import AcpSession
 
         buffered, results = [], []
         bound = False
@@ -690,7 +690,7 @@ class ClaudeRunner(_runtime_runner.Runner):
         client = AcpSession(session, on_extension=native)
         try:
             await client.initialize()
-            from laomedo.agents.providers.claude.models import ClaudePolicy
+            from laomedo.agents.agents.claude.models import ClaudePolicy
 
             options = ClaudePolicy(
                 model=record.get("resolved_model", record["requested_model"]),

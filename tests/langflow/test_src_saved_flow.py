@@ -25,7 +25,7 @@ class SavedFlowMigrationTests(unittest.TestCase):
         self.assertEqual(migrated["id"], original["id"])
         node = next(n for n in migrated["data"]["nodes"] if n["data"]["type"] == "LaomedoCodexAgent")
         code = node["data"]["node"]["template"]["code"]["value"]
-        self.assertIn("from laomedo.agents.contracts.output import", code)
+        self.assertIn("from laomedo.agents.interface.output.utils import", code)
         return code
 
     def test_archived_component_loads_after_explicit_migration(self):

@@ -150,7 +150,7 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
 
     def test_trusted_handoff_lease_loss_revokes_before_cleanup_other_run_survives(self):
-        from laomedo.agents.contracts.output import requirements
+        from laomedo.agents.interface.output.utils import requirements
         first, accepted, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         handoff = self.store.begin_publication_handoff(

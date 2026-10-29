@@ -10,10 +10,10 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from laomedo.agents.contracts.output import requirements
-from laomedo.agents.providers.codex.controller.models import CodexLaunch
-from laomedo.agents.providers.codex.controller.service import CodexController
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.interface.output.utils import requirements
+from laomedo.agents.agents.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.errors import RunnerError
 
 
 @unittest.skipUnless(
@@ -64,7 +64,7 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             )
             acp.close = AsyncMock()
             with patch(
-                "laomedo.agents.protocol.acp.session.AcpSession",
+                "laomedo.agents.agents.base.acp.session.AcpSession",
                 return_value=acp,
             ):
                 with self.assertRaisesRegex(RunnerError, "initialize_rejected"):

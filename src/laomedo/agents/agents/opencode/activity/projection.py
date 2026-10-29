@@ -9,7 +9,7 @@ from datetime import datetime
 from datetime import timezone
 from decimal import Decimal
 import json
-import laomedo.activity.agent_activity.cost as _agent_activity_cost
+import laomedo.agents.activity.cost as _agent_activity_cost
 import math
 
 

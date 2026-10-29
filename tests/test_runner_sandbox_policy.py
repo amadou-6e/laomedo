@@ -5,21 +5,21 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch
 
 
 @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
 class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_split_controller_token_is_not_a_control_environment(self):
-        from laomedo.agents.providers.codex.split.models import SplitLaunch
-        from laomedo.agents.providers.codex.controller.models import SplitPolicy
-        from laomedo.agents.providers.codex.controller.service import CodexController
+        from laomedo.agents.agents.codex.split.models import SplitLaunch
+        from laomedo.agents.agents.codex.controller.models import SplitPolicy
+        from laomedo.agents.agents.codex.controller.service import CodexController
         from unittest.mock import Mock
         root = Path("/test")
         executor = Mock()
         executor.session.identity.id = "a" * 64
         launch = CodexLaunch(workspace=root, canonical=root, store_mount=root, image="sha256:" + "b" * 64)
-        with tempfile.TemporaryDirectory() as temp, patch("py_docker.Client") as client, patch("laomedo.agents.providers.codex.split.executor.Executor", return_value=executor):
+        with tempfile.TemporaryDirectory() as temp, patch("py_docker.Client") as client, patch("laomedo.agents.agents.codex.split.executor.Executor", return_value=executor):
             controller = CodexController(launch, Path(temp), env={"DOCKER_HOST": "unix:///selected.sock"}, split=SplitPolicy(access_token="private-test-token"))
             spec = client.return_value.sessions.open.call_args.args[0].spec
             self.assertEqual(spec.environment["ACCESS_TOKEN"].get_secret_value(), "private-test-token")
@@ -41,7 +41,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
 
     def test_split_profile_failure_cleanup_keeps_endpoint(self):
         from docker.errors import NotFound
-        from laomedo.agents.providers.codex.utils import _ensure_split_profile
+        from laomedo.agents.agents.codex.utils import _ensure_split_profile
         with tempfile.TemporaryDirectory() as temp, patch("py_docker.Client") as client:
             selected={"DOCKER_HOST":"unix:///selected.sock"}; docker=client.return_value.__enter__.return_value
             docker.volumes.exists.return_value=False
@@ -58,8 +58,8 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root=Path(temp); source=Path(__file__).resolve().parents[1] / "examples/github-pr"
             selection={"DOCKER_HOST":"unix:///selected.sock"}
             for split in (False,True):
-                with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container",return_value=selection) as checked, patch(
-                        "laomedo.agents.providers.codex.utils._ensure_split_profile") as profile, patch("py_docker.Client") as client:
+                with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container",return_value=selection) as checked, patch(
+                        "laomedo.agents.agents.codex.utils._ensure_split_profile") as profile, patch("py_docker.Client") as client:
                     runner=LocalRunner(root / str(split),root / "skills",source,split_executor=split)
                     checked.assert_called_once_with()
                     if split:
@@ -69,7 +69,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                         client.return_value.__enter__.return_value.volumes.exists.assert_called_once()
 
     def test_split_control_calls_keep_the_selected_endpoint(self):
-        from laomedo.agents.providers.codex.split.executor import Executor
+        from laomedo.agents.agents.codex.split.executor import Executor
         server=Executor.__new__(Executor); server.client=MagicMock()
         server.client.execution.run.return_value.exit_code=0
         server.client.execution.run.return_value.stdout=b"verified"
@@ -89,7 +89,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             policy = root / "policy.json"
             policy.write_text('{"defaultAction":"SCMP_ACT_ALLOW"}')
-            with patch("laomedo.agents.providers.codex.settings.SECCOMP", policy):
+            with patch("laomedo.agents.agents.codex.settings.SECCOMP", policy):
                 with self.assertRaisesRegex(RunnerError, "seccomp_profile_changed"):
                     CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64).to_container_spec()
                 policy.unlink()
@@ -97,7 +97,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                     CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64).to_container_spec()
 
     def test_legacy_keeps_seccomp_and_split_controller_uses_default(self):
-        from laomedo.agents.providers.codex.split.models import SplitLaunch
+        from laomedo.agents.agents.codex.split.models import SplitLaunch
         root=Path("/test")
         normal=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64).to_container_spec()
         self.assertEqual(normal.cap_drop,["ALL"])
@@ -117,7 +117,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                 def __init__(self, command, evidence):
                     commands.append(command)
             selection = {"DOCKER_HOST": "unix:///local-test.sock"}
-            with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container", return_value=selection) as checked, patch("py_docker.Client") as docker:
+            with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container", return_value=selection) as checked, patch("py_docker.Client") as docker:
                 runner = LocalRunner(root / "state", root / "skills", source,
                                      image_id=approved, transport=Capture)
                 checked.assert_called_once_with()
@@ -125,7 +125,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             runner._open_server(root)
             self.assertEqual(approved, commands[0].image)
             self.assertNotEqual(runner.image, commands[0].image)
-            with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container", side_effect=RunnerError("docker_image_digest_changed")):
+            with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container", side_effect=RunnerError("docker_image_digest_changed")):
                 with self.assertRaisesRegex(RunnerError, "docker_image_digest_changed"):
                     LocalRunner(root / "mismatch", root / "skills", source,
                                 image_id=approved)
@@ -135,7 +135,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             root = Path(temp)
             source = Path(__file__).resolve().parents[1] / "examples/github-pr"
             approved = "sha256:" + "a" * 64
-            with patch("laomedo.agents.providers.codex.runner.CodexRunner._check_container", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
+            with patch("laomedo.agents.agents.codex.runner.CodexRunner._check_container", side_effect=RunnerError("unsupported_codex_cli_version")), patch("subprocess.run") as docker:
                 with self.assertRaisesRegex(RunnerError, "unsupported_codex_cli_version"):
                     LocalRunner(root / "state", root / "skills", source, image_id=approved)
             docker.assert_not_called()
@@ -158,7 +158,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
 
 
     def test_claude_endpoint_configuration_maps_to_descriptive_code(self):
-        from laomedo.agents.providers.claude.container import ClaudeContainer
+        from laomedo.agents.agents.claude.container import ClaudeContainer
         from py_docker.errors import ConnectionConfigurationError
         with patch.object(ClaudeContainer,"check_supervisor"), patch("py_docker.Client",side_effect=ConnectionConfigurationError("select local endpoint")):
             with self.assertRaisesRegex(RunnerError,"claude_container_configuration_invalid"):

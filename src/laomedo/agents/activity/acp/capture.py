@@ -3,9 +3,9 @@
 import json
 import threading
 
-from laomedo.activity.runner.feed import receipt
-from laomedo.activity.redaction.utils import sanitized
-from laomedo.activity.acp.settings import MAX_ATTEMPT_BYTES, MAX_RECORD_BYTES
+from laomedo.agents.activity.runner.feed import receipt
+from laomedo.agents.activity.redaction.utils import sanitized
+from laomedo.agents.activity.acp.settings import MAX_ATTEMPT_BYTES, MAX_RECORD_BYTES
 
 
 class AcpCapture:

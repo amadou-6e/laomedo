@@ -7,8 +7,8 @@ import hashlib
 import hmac
 import json
 import re
-import laomedo.agents.providers.opencode.settings as _opencode_settings
-import laomedo.agents.runtime.errors as _runtime_errors
+import laomedo.agents.agents.opencode.settings as _opencode_settings
+import laomedo.agents.errors as _runtime_errors
 import secrets
 import time
 

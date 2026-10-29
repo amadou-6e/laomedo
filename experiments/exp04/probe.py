@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.agents.workflow.store import WorkflowRunStore  # noqa: E402
+from laomedo.work_graph.runs.store import WorkflowRunStore  # noqa: E402
 
 
 FLOW = ROOT / "experiments" / "exp03" / "flow.json"

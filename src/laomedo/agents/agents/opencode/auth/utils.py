@@ -30,7 +30,7 @@ def console_provider(
     database, *, fetch=None, include_routing=False, include_expiry=False
 ):
     """Return only the Go credential and organization routing header, never log them."""
-    import laomedo.host.credentials.opencode.transport as _opencode_transport
+    import laomedo.agents.agents.opencode.auth.transport as _opencode_transport
 
     with closing(
         sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro", uri=True)

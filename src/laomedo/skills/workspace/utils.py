@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import hashlib
-import laomedo.agents.workspace.errors as _agents_workspace_errors
-import laomedo.agents.workspace.git as _workspace_git
+import laomedo.agents.workspaces.errors as _agents_workspace_errors
+import laomedo.agents.workspaces.git as _workspace_git
 import laomedo.skills.registry.settings as _registry_settings
 import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.workspace.errors as _skills_workspace_errors

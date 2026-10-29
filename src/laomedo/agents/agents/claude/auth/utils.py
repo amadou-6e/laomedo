@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import urlsplit
 import json
-import laomedo.host.credentials.claude.errors as _claude_errors
+import laomedo.agents.agents.claude.auth.errors as _claude_errors
 import math
 import os
 import re

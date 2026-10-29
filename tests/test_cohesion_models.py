@@ -10,7 +10,7 @@ from laomedo.skills.operations.models import EditorProvenance, FileEdit, SkillPr
 from laomedo.skills.operations.utils import proposal
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.work_graph.models import Dependency, GraphSnapshot
-from laomedo.agents.contracts.models import RunnerRequest
+from laomedo.agents.interface.models import RunnerRequest
 
 
 class CohesionModelTests(unittest.TestCase):

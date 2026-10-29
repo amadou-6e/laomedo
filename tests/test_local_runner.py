@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock; from unittest.mock import patch
 from urllib import request as http_request; from urllib import error as http_error
 
-from laomedo.agents.providers.codex.controller.service import CodexController as AppServer;  from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.controller.models import CodexLaunch; from laomedo.agents.runtime.utils import _hash_tree; from laomedo.agents.runtime.utils import _copy_tree; from laomedo.agents.providers.codex.utils import _native_error_summary; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.agents.codex.controller.service import CodexController as AppServer;  from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.controller.models import CodexLaunch; from laomedo.agents.agents.base.utils import _hash_tree; from laomedo.agents.agents.base.utils import _copy_tree; from laomedo.agents.agents.codex.utils import _native_error_summary; from laomedo.host.runner.http.server import RunnerServer as serve
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.host.mediation.authority import RunGrantAuthority
@@ -111,7 +111,7 @@ class FakeServer:
         self.verified_precheck_calls = set()
         params = {"threadId": "native-thread"} if resume else {}
         if self.output_requirements:
-            from laomedo.agents.contracts.output import dynamic_tool
+            from laomedo.agents.interface.output.utils import dynamic_tool
             params["dynamicTools"] = [dynamic_tool(self.output_requirements)]
         self.request("thread/resume" if resume else "thread/start", params)
         return "native-thread"
@@ -122,7 +122,7 @@ class FakeServer:
     async def prompt(self, text, *, skills, seconds, cancelled):
         # Fixture-only hooks preserve the existing domain test scenarios. No
         # production component offers these retired native request/wait methods.
-        from laomedo.agents.providers.codex.controller.models import CodexTurn
+        from laomedo.agents.agents.codex.controller.models import CodexTurn
         sent = self.request("turn/start", {"threadId": "native-thread", "input": [{"type": "text", "text": text}]})
         identity = sent["result"]["turn"]["id"]
         status, error = self.wait_turn(identity, seconds, cancelled)
@@ -162,7 +162,7 @@ class LocalRunnerTests(unittest.TestCase):
     def test_snapshot_io_error_is_not_reported_as_container_cleanup_failure(self):
         freeze = self.runner._freeze_workspace
         def denied(root, record):
-            with patch("laomedo.agents.runtime.utils._copy_tree", side_effect=PermissionError("private local path")):
+            with patch("laomedo.agents.agents.base.utils._copy_tree", side_effect=PermissionError("private local path")):
                 return freeze(root, record)
         with patch.object(self.runner, "_freeze_workspace", side_effect=denied):
             result = self.runner.start(self.request())
@@ -171,7 +171,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertFalse(result["snapshot_ready"])
 
     def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
-        from laomedo.agents.providers.codex.runner import CodexRunner as NormalRunner; from laomedo.agents.runtime.utils import _json
+        from laomedo.agents.agents.codex.runner import CodexRunner as NormalRunner; from laomedo.agents.agents.base.utils import _json
         runner = object.__new__(NormalRunner)
         runner.state = self.root / 'diagnostic-counter'
         runner.state.mkdir()
@@ -183,12 +183,12 @@ class LocalRunnerTests(unittest.TestCase):
         _json(runner.state / 'runs/prior/record.json', {'attempt_number': 7})
         (runner.state / 'attempt-count.json').write_text('broken accounting')
         self.assertEqual(restarted._reserve_turn(), 8)
-        with patch('laomedo.agents.runtime.utils._json', side_effect=PermissionError('unwritable diagnostic')):
+        with patch('laomedo.agents.agents.base.utils._json', side_effect=PermissionError('unwritable diagnostic')):
             self.assertEqual(restarted._reserve_turn(), 9)
 
 
     def _output_run(self, answers, *, effects=False, retry_count=1, native_item=None, native_precheck=False, failed_wait=False):
-        from laomedo.agents.contracts.output import requirements
+        from laomedo.agents.interface.output.utils import requirements
         pinned = requirements({"schema_version": 1, "fields": [
             {"name": "report", "type": "string", "required": True}]})
         class OutputServer(FakeServer):
@@ -431,7 +431,7 @@ class LocalRunnerTests(unittest.TestCase):
 
     @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
     def test_git_image_trusts_only_fixed_workspace_for_native_git(self):
-        from laomedo.agents.providers.codex.settings import GIT_IMAGE, GIT_IMAGE_ID
+        from laomedo.agents.agents.codex.settings import GIT_IMAGE, GIT_IMAGE_ID
         for image in (GIT_IMAGE,GIT_IMAGE_ID):
             spec=CodexLaunch(workspace=self.root,canonical=self.root,store_mount=self.root,image=image).to_container_spec()
             values={k:v.get_secret_value() for k,v in spec.environment.items() if k.startswith("GIT_CONFIG_")}
@@ -778,7 +778,7 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(result["workspace_mode"], "git")
         self.assertEqual(result["image"], "laomedo-codex-acp:0.159.2-2.1.1")
-        self.assertEqual(FakeServer.calls[-1].image, __import__("laomedo.agents.providers.codex.settings", fromlist=["GIT_IMAGE_ID"]).GIT_IMAGE_ID)
+        self.assertEqual(FakeServer.calls[-1].image, __import__("laomedo.agents.agents.codex.settings", fromlist=["GIT_IMAGE_ID"]).GIT_IMAGE_ID)
         self.assertEqual(result["git_baseline"], baseline)
         self.assertTrue(result["skill_git_exclusion"]["enabled"])
         self.assertEqual(result["post_run_hash_scope"], "working_files_only")
@@ -1030,8 +1030,8 @@ class LocalRunnerTests(unittest.TestCase):
 
     def test_production_runners_cannot_restore_a_verification_turn_cap(self):
         import inspect
-        from laomedo.agents.providers.claude.runner import ClaudeRunner
-        from laomedo.agents.providers.opencode.runner import OpenCodeRunner
+        from laomedo.agents.agents.claude.runner import ClaudeRunner
+        from laomedo.agents.agents.opencode.runner import OpenCodeRunner
         for runner in (LocalRunner, ClaudeRunner, OpenCodeRunner):
             self.assertNotIn("max_model_turns", inspect.signature(runner).parameters)
         for name in ("local_runner.py", "claude_runner.py", "opencode_runner.py"):

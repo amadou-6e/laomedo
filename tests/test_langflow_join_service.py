@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.integrations.langflow.join.service import build_service
-from laomedo.agents.workflow.errors import LaunchError
+from laomedo.work_graph.runs.errors import LaunchError
 
 
 class LangflowJoinServiceTests(unittest.TestCase):

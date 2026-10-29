@@ -26,11 +26,11 @@ from laomedo.host.mediation.store import MediationStore; from laomedo.host.media
 from laomedo.github.transport.rest.transport import GitHubRestTransport
 from laomedo.host.host_services import serve_services
 from laomedo.host.leases.service import LeaseService
-from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID; from laomedo.host.runner.http.server import RunnerServer as serve
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.host.mediation.service import MediationHTTPService; from laomedo.host.mediation.service import JournaledTransport
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import requirements
 from laomedo.host.publication.controller import PublicationController
 from laomedo.host.credentials.siwc.utils import _outside_git
 from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import stage_verified_git

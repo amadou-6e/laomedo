@@ -12,9 +12,9 @@ from acp.schema import (
     TextContentBlock,
 )
 
-from laomedo.agents.protocol.acp.models import AcpTurn
-from laomedo.agents.protocol.acp.transport import DockerTransport
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.base.acp.models import AcpTurn
+from laomedo.agents.agents.base.acp.transport import DockerTransport
+from laomedo.agents.errors import RunnerError
 
 
 class AcpSession:

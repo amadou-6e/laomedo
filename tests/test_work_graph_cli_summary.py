@@ -26,7 +26,7 @@ class WorkGraphCliSummaryTests(unittest.TestCase):
                         return_value=Mock(path=grant_path)),
                   patch("laomedo.work_graph.grant_utils._private_path",
                         return_value=run_path),
-                  patch("laomedo.agents.workflow.store.WorkflowRunStore"),
+                  patch("laomedo.work_graph.runs.store.WorkflowRunStore"),
                   patch("laomedo.work_graph.client.LangflowLocalClient"),
                   patch("laomedo.work_graph.launch.launch_github_docker_saved_flow_stage",
                         return_value=(record, "PRIVATE RESULT"))):

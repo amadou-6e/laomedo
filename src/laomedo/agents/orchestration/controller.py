@@ -7,8 +7,8 @@ from pathlib import Path
 from uuid import uuid4
 import hashlib
 import json
-import laomedo.agents.handoffs.errors as _handoffs_errors
-import laomedo.agents.handoffs.utils as _handoffs_utils
+import laomedo.agents.orchestration.errors as _handoffs_errors
+import laomedo.agents.orchestration.utils as _handoffs_utils
 import os
 import threading
 import time

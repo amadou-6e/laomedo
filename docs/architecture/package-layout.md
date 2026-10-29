@@ -70,9 +70,9 @@ src/laomedo/
 ```
 
 Each implementation has one owner. The neutral lifecycle is
-`laomedo.agents.runtime.runner.Runner`; Codex execution is
-`laomedo.agents.providers.codex.runner.CodexRunner`. Use
-`laomedo.skills.registry.store` and `laomedo.activity.agent_activity.capture`.
+`laomedo.agents.agents.base.agent.Runner`; Codex execution is
+`laomedo.agents.agents.codex.runner.CodexRunner`. Use
+`laomedo.skills.registry.store` and `laomedo.agents.activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
 live in `docker/`; registry documentation is in [the Skills registry guide](../features/skills/registry.md).
@@ -80,8 +80,8 @@ live in `docker/`; registry documentation is in [the Skills registry guide](../f
 Launchers use canonical names:
 
 ```text
-python -m laomedo.agents.providers.codex.cli ...
-python -m laomedo.agents.providers.claude.cli ...
+python -m laomedo.agents.agents.codex.cli ...
+python -m laomedo.agents.agents.claude.cli ...
 python -m laomedo.host.leases.service_cli serve ...
 python -m laomedo.host.managed_service ...
 ```
@@ -164,13 +164,13 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 
 | Owner | Models and purpose |
 | --- | --- |
-| agents/runtime | RuntimeBinding groups provider-owned public record metadata |
-| agents/contracts | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
+| agents/agents/base | RuntimeBinding groups provider-owned public record metadata |
+| agents/interface | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
 | host/publication/verified | VerifiedStage carries the immutable verified bundle and its provenance |
 | host/leases | ContainerIdentity carries exact name, run ID and a secret launch token |
-| activity/agent_activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
+| agents/activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
 
 Models own validation, constructors and explicit projections. HTTP/provider JSON
 and persisted records retain their existing fields and identities. Strict models
@@ -204,7 +204,7 @@ preparation, immutable skill/artifact inputs and host authorization orchestratio
 Codex, Claude and OpenCode extend it directly. They own their constructors,
 request policy, model discovery/cache, native execution, resume binding,
 pre-dispatch authentication, cancellation and exact restart cleanup.
-`RuntimeBinding` in `agents/runtime/models.py` groups the public record fields;
+`RuntimeBinding` in `agents/agents/base/models.py` groups the public record fields;
 it never carries an access token. Credential identity metadata is distinct from
 login material. The record key set remains stable, including explicit nulls.
 OpenCode prepared records now report its own CLI and `opencode_acp` mode, with

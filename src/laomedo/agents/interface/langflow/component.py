@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from uuid import UUID; from uuid import uuid4
 
 from laomedo.integrations.langflow.agent.errors import RunnerResultError
-from laomedo.agents.runtime.utils import terminal_record as _terminal_record
+from laomedo.agents.agents.base.utils import terminal_record as _terminal_record
 from lfx.custom.custom_component.component import Component
 from lfx.io import DataInput; from lfx.io import DropdownInput; from lfx.io import IntInput; from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io import StrInput
 from lfx.schema import Data; from lfx.schema import Message
@@ -374,7 +374,7 @@ class AgentComponent(Component):
             field = self._vertex.full_data.get('data', {}).get('node', {}).get('template', {}).get('output_requirements_json', {})
             static = str(field.get('value') or '').strip()
         if static:
-            from laomedo.agents.contracts.output import verify_requirements
+            from laomedo.agents.interface.output.utils import verify_requirements
             try:
                 pinned = verify_requirements(json.loads(static))
             except (TypeError, ValueError):
@@ -383,13 +383,13 @@ class AgentComponent(Component):
                 raise ValueError("conflicting_output_requirements")
             connected = pinned
         if self.supports_output_requirements:
-            from laomedo.agents.contracts.graph import downstream_requirements
-            from laomedo.agents.contracts.output import verify_requirements
+            from laomedo.integrations.langflow.output.utils import downstream_requirements
+            from laomedo.agents.interface.output.utils import verify_requirements
             explicit = (verify_requirements(getattr(connected, "data", connected))
                         if connected not in (None, "", []) else None)
             connected = downstream_requirements(self, explicit)
         if connected not in (None, "", []):
-            from laomedo.agents.contracts.output import verify_requirements
+            from laomedo.agents.interface.output.utils import verify_requirements
             if self.operation not in {"fresh", "start"}:
                 raise ValueError("output_requirements_require_fresh_start")
             selected = verify_requirements(getattr(connected, "data", connected))
@@ -810,7 +810,7 @@ class AgentComponent(Component):
                 self._stop_request_hash = "sha256:" + hashlib.sha256(
                     json.dumps(canonical, sort_keys=True, separators=(",", ":"),
                                ensure_ascii=False).encode("utf-8")).hexdigest()
-            from laomedo.activity.agent_activity.utils import dispatch_with_capture
+            from laomedo.agents.activity.utils import dispatch_with_capture
             self._dispatch_task = asyncio.create_task(asyncio.to_thread(dispatch_with_capture, self, prepared))
         try:
             # Shield the HTTP call so the same request identity can be reconciled.

@@ -17,8 +17,8 @@ an agent-proposed operation is distinct from a confirmed result.
 request. [Runner recovery](runner/local-service.md) manages service availability
 separately from graph execution.
 
-The lifecycle is provider-neutral: `agents/runtime/runner.py` owns shared state and
-request orchestration, while each `agents/providers/{codex,claude,opencode}` adapter
+The lifecycle is provider-neutral: `agents/agents/base/runner.py` owns shared state and
+request orchestration, while each `agents/agents/{codex,claude,opencode}` adapter
 owns native execution and runtime binding. Claude and OpenCode do not inherit
 Codex. The common graph component belongs to `integrations/langflow/agent/`;
 provider nodes retain their existing public identities. See the

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-import laomedo.agents.providers.claude.catalog as _claude_catalog
-import laomedo.agents.providers.claude.settings as _claude_settings
-import laomedo.agents.runtime.errors as _runtime_errors
+import laomedo.agents.agents.claude.catalog as _claude_catalog
+import laomedo.agents.agents.claude.settings as _claude_settings
+import laomedo.agents.errors as _runtime_errors
 import re
 
 
@@ -56,7 +56,7 @@ def activity_usage(result):
 
 def configuration_hash(model, effort, skills):
     """Fingerprint the same canonical ACP options that execution will apply."""
-    from laomedo.agents.providers.claude.models import ClaudePolicy
+    from laomedo.agents.agents.claude.models import ClaudePolicy
 
     return ClaudePolicy(
         model=model, effort=effort, skill_ids=tuple(item["skill_id"] for item in skills)

@@ -1,17 +1,17 @@
 """Implementation owned by agents / runtime / cli."""
 
 from __future__ import annotations
-import laomedo.agents.providers.codex.runner as _codex_runner
+import laomedo.agents.agents.codex.runner as _codex_runner
 
 from pathlib import Path
 import argparse
 import json
-import laomedo.agents.runtime.serving as _runtime_serving
+import laomedo.host.runner.http.server as _runtime_serving
 import laomedo.host.mediation.authority as _mediation_authority
 
 
 def main():
-    import laomedo.agents.providers.codex.runner as _runtime_runner
+    import laomedo.agents.agents.codex.runner as _runtime_runner
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, required=True)

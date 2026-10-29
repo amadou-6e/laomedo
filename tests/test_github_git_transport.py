@@ -14,7 +14,7 @@ from laomedo.github.transport.git.transport import GitHubGitTransport; from laom
 from laomedo.host.mediation.errors import KnownRejected
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.service import JournaledTransport
-import laomedo.host.credentials.git_credential_helper as git_credential_helper
+import laomedo.git.credentials.helper as git_credential_helper
 
 
 REPOSITORY = "example/disposable"

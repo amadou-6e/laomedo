@@ -7,8 +7,8 @@ import threading
 from pathlib import Path
 from uuid import uuid4
 
-from laomedo.agents.providers.codex import settings as _codex_settings
-from laomedo.agents.runtime import errors as _runtime_errors
+from laomedo.agents.agents.codex import settings as _codex_settings
+import laomedo.agents.errors as _runtime_errors
 
 
 class Executor:
@@ -21,7 +21,7 @@ class Executor:
         from py_docker.containers.models import ContainerSpec, Mount
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
-        from laomedo.agents.providers.codex.controller.settings import Settings
+        from laomedo.agents.agents.codex.controller.settings import Settings
 
         self.environment_id = "laomedo-executor-" + uuid4().hex
         self.token = secrets.token_hex(32)

@@ -1,6 +1,6 @@
 from copy import deepcopy
 import json
-import laomedo.agents.contracts.output as _contracts_output
+import laomedo.agents.interface.output.utils as _contracts_output
 
 ROUTES = {"success", "failure", "rejection", "recovery"}
 

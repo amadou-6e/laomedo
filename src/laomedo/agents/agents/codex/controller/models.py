@@ -7,8 +7,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-from laomedo.agents.providers.codex import settings
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.codex import settings
+from laomedo.agents.errors import RunnerError
 from laomedo.host.leases import settings as lease_settings
 
 if TYPE_CHECKING:

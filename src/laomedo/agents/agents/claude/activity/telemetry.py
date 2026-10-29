@@ -7,8 +7,8 @@ from datetime import timezone
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 import json
-import laomedo.activity.claude.settings as _claude_settings
-import laomedo.activity.claude.utils as _claude_utils
+import laomedo.agents.agents.claude.activity.settings as _claude_settings
+import laomedo.agents.agents.claude.activity.utils as _claude_utils
 import re
 import secrets
 import threading

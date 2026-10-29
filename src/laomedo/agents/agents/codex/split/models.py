@@ -4,7 +4,7 @@ import json
 
 from pydantic import Field, SecretStr
 
-from laomedo.agents.providers.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.controller.models import CodexLaunch
 
 
 class SplitLaunch(CodexLaunch):

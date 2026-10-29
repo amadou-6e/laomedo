@@ -55,7 +55,7 @@ class RunnerService:
         value.setdefault("lease_service", str(Path(value["state"]).parent / "lease"))
         required.add("lease_service")
         if value["provider"] == "claude":
-            from laomedo.agents.providers.claude.settings import IMAGE
+            from laomedo.agents.agents.claude.settings import IMAGE
 
             value.pop("executable", None)  # Retired host-runtime configuration.
             value.setdefault("image", IMAGE)
@@ -236,9 +236,9 @@ class RunnerService:
                 return current
             config = self.config(url)
             module = (
-                "laomedo.agents.providers.claude.cli"
+                "laomedo.agents.agents.claude.cli"
                 if config["provider"] == "claude"
-                else "laomedo.agents.providers.codex.cli"
+                else "laomedo.agents.agents.codex.cli"
             )
             # Load this installation even when Python is embedded/isolated and
             # ignores PYTHONPATH. Both bootstrap and module choice are fixed;

@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.agents.providers.claude.settings as _claude_settings
-import laomedo.agents.runtime.errors as _runtime_errors
+import laomedo.agents.agents.claude.settings as _claude_settings
+import laomedo.agents.errors as _runtime_errors
 import threading
 
 
 def main():
-    import laomedo.agents.providers.claude.runner as _claude_runner
+    import laomedo.agents.agents.claude.runner as _claude_runner
     import argparse
-    import laomedo.agents.runtime.serving as _runtime_serving
+    import laomedo.host.runner.http.server as _runtime_serving
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)

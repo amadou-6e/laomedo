@@ -11,15 +11,15 @@ import tempfile
 import time
 from uuid import uuid4
 
-from laomedo.activity.redaction.utils import sanitized
-from laomedo.agents.providers.opencode.history import settings
-from laomedo.agents.providers.opencode.history.errors import HistoryError
-from laomedo.agents.providers.opencode.history.models import (
+from laomedo.agents.activity.redaction.utils import sanitized
+from laomedo.agents.agents.opencode.history import settings
+from laomedo.agents.agents.opencode.history.errors import HistoryError
+from laomedo.agents.agents.opencode.history.models import (
     HistorySource,
     NativeExport,
     NativeHistory,
 )
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.errors import RunnerError
 
 
 class HistoryReader:

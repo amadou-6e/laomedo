@@ -48,7 +48,7 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         import json
         import os
         import tempfile
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
         node = self.node()
         fields = {item.name: item.model_dump() for item in node.inputs}
         fields["runner_url"]["value"] = node.runner_url

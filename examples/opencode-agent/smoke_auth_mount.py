@@ -11,8 +11,8 @@ from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode
-from laomedo.agents.runtime.utils import _json
+from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.agents.base.utils import _json
 from acceptance import IMAGE; from acceptance import IMAGE_ID
 
 

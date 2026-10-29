@@ -7,10 +7,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.activity.opencode.projection import project
-from laomedo.activity.runner.feed import receipt
-from laomedo.activity.opencode.telemetry import export_attempt
-from laomedo.activity.runner.feed import read_feed
+from laomedo.agents.agents.opencode.activity.projection import project
+from laomedo.agents.activity.runner.feed import receipt
+from laomedo.agents.agents.opencode.activity.telemetry import export_attempt
+from laomedo.agents.activity.runner.feed import read_feed
 
 
 try:

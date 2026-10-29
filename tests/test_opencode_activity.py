@@ -1,6 +1,6 @@
 import unittest
-from laomedo.activity.opencode.projection import project
-from laomedo.activity.opencode.projection import estimate_native
+from laomedo.agents.agents.opencode.activity.projection import project
+from laomedo.agents.agents.opencode.activity.projection import estimate_native
 
 
 def message(identity, role, text, **changes):

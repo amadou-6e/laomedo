@@ -7,8 +7,8 @@ The existing file-snapshot runner path remains unchanged."""
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.agents.workspace.settings as _workspace_settings
-import laomedo.agents.workspace.errors as _workspace_errors
+import laomedo.agents.workspaces.settings as _workspace_settings
+import laomedo.agents.workspaces.errors as _workspace_errors
 import os
 import shutil
 import signal

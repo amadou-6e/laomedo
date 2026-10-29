@@ -6,7 +6,7 @@ import socket
 import sqlite3
 from contextlib import closing
 
-from laomedo.agents.contracts.output import precheck_response
+from laomedo.agents.interface.output.utils import precheck_response
 from laomedo.host.credentials.siwc.utils import _outside_git
 
 

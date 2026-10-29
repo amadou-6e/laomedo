@@ -12,13 +12,13 @@ import secrets
 import threading
 import laomedo.agents.artifacts.errors as _artifacts_errors
 import laomedo.agents.artifacts.utils as _artifacts_utils
-import laomedo.agents.contracts.output as _contracts_output
-import laomedo.agents.contracts.models as _contracts_models
-import laomedo.agents.runtime.models as _runtime_models
-import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.runtime.utils as _runtime_utils
-import laomedo.agents.workspace.errors as _agents_workspace_errors
-import laomedo.agents.workspace.git as _workspace_git
+import laomedo.agents.interface.output.utils as _contracts_output
+import laomedo.agents.interface.models as _contracts_models
+import laomedo.agents.agents.base.models as _runtime_models
+import laomedo.agents.errors as _runtime_errors
+import laomedo.agents.agents.base.utils as _runtime_utils
+import laomedo.agents.workspaces.errors as _agents_workspace_errors
+import laomedo.agents.workspaces.git as _workspace_git
 import laomedo.host.mediation.errors as _mediation_errors
 import laomedo.skills.registry.store as _registry_store
 import laomedo.skills.registry.utils as _registry_utils

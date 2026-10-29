@@ -9,15 +9,15 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from laomedo.activity.acp.capture import AcpCapture
-from laomedo.activity.agent_activity.projection import project
-from laomedo.activity.runner.feed import read_feed
-from laomedo.agents.providers.opencode.history.models import (
+from laomedo.agents.activity.acp.capture import AcpCapture
+from laomedo.agents.activity.projection import project
+from laomedo.agents.activity.runner.feed import read_feed
+from laomedo.agents.agents.opencode.history.models import (
     HistorySource,
     NativeExport,
     NativeHistory,
 )
-from laomedo.agents.providers.opencode.history.reader import HistoryReader
+from laomedo.agents.agents.opencode.history.reader import HistoryReader
 
 
 @unittest.skipUnless(find_spec("py_docker"), "Requires optional Docker runtime")
@@ -156,7 +156,7 @@ class OpenCodeHistoryTests(unittest.TestCase):
             database.commit()
         with self.assertRaisesRegex(ValueError, "opencode_history_credentials_unverified"):
             self.reader._copy_database(self.root / "refused.db")
-        with patch("laomedo.agents.providers.opencode.history.reader.settings.Settings") as configured:
+        with patch("laomedo.agents.agents.opencode.history.reader.settings.Settings") as configured:
             configured.return_value.max_database_bytes = 1
             with self.assertRaisesRegex(ValueError, "opencode_history_database_limit"):
                 self.reader._copy_database(self.root / "too-large.db")
@@ -291,7 +291,7 @@ class OpenCodeHistoryTests(unittest.TestCase):
             patch.object(self.reader, "_copy_database"),
             patch.object(self.reader, "_export", side_effect=export),
             patch("py_docker.Client"),
-            patch("laomedo.agents.providers.opencode.history.reader.time.monotonic", side_effect=[0, 0, 25]),
+            patch("laomedo.agents.agents.opencode.history.reader.time.monotonic", side_effect=[0, 0, 25]),
         ):
             history = self.reader.read("ses_root")
         self.assertEqual(calls, [("ses_root", 30), ("ses_child", 30)])
@@ -302,7 +302,7 @@ class OpenCodeHistoryTests(unittest.TestCase):
             patch.object(self.reader, "_copy_database"),
             patch.object(self.reader, "_export") as export,
             patch("py_docker.Client"),
-            patch("laomedo.agents.providers.opencode.history.reader.time.monotonic", side_effect=[0, 120]),
+            patch("laomedo.agents.agents.opencode.history.reader.time.monotonic", side_effect=[0, 120]),
         ):
             with self.assertRaisesRegex(ValueError, "batch exceeded its deadline"):
                 self.reader.read("ses_root")
@@ -310,7 +310,7 @@ class OpenCodeHistoryTests(unittest.TestCase):
         self.assertEqual(list(self.root.glob("history-*")), [])
 
     def test_host_export_deadline_is_bounded_and_configurable(self):
-        from laomedo.agents.providers.opencode.history.settings import Settings
+        from laomedo.agents.agents.opencode.history.settings import Settings
         from pydantic import ValidationError
 
         with patch.dict("os.environ", {"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": "180"}):
@@ -419,7 +419,7 @@ class OpenCodeHistoryTests(unittest.TestCase):
         self,
     ):
         from py_docker.errors import CleanupUnconfirmedError
-        from laomedo.agents.runtime.errors import RunnerError
+        from laomedo.agents.errors import RunnerError
 
         with patch("py_docker.Client") as client:
             client.return_value.__enter__.return_value.jobs.run.side_effect = (

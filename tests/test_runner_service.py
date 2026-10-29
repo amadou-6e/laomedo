@@ -11,7 +11,7 @@ from unittest.mock import patch; from unittest.mock import Mock
 from urllib.error import URLError
 from urllib.request import Request; from urllib.request import urlopen
 from laomedo.host.runner.service import RunnerService; from laomedo.host.runner.routes import install_runner_service_routes; from laomedo.host.runner.utils import service_environment
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.serving import RunnerServer as serve
+from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.host.runner.http.server import RunnerServer as serve
 try:
     from fastapi.testclient import TestClient
 except ImportError:
@@ -20,7 +20,7 @@ except ImportError:
 
 class RunnerServiceTests(unittest.TestCase):
     def test_managed_codex_and_claude_keep_the_supervisor_and_current_image(self):
-        from laomedo.agents.providers.claude.settings import IMAGE
+        from laomedo.agents.agents.claude.settings import IMAGE
         for provider in ("codex", "claude"):
             with self.subTest(provider=provider):
                 config = {key: self.config[key] for key in ("state", "skill_store", "source", "port")}
@@ -117,7 +117,7 @@ class RunnerServiceTests(unittest.TestCase):
         for enabled in ('','1'):
             events.clear()
             with patch.dict(os.environ, {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN':enabled}), \
-                 patch('laomedo.host.credentials.claude.utils.mirror_login',side_effect=lambda *args:events.append('mirror')) as mirror:
+                 patch('laomedo.agents.agents.claude.auth.utils.mirror_login',side_effect=lambda *args:events.append('mirror')) as mirror:
                 req=Request('http://127.0.0.1:'+str(server.server_port)+'/v1/runs/async',
                     data=json.dumps({'profile':'untrusted','image':'untrusted'}).encode(),
                     headers={'Authorization':'Bearer internal-control','Content-Type':'application/json'})
@@ -129,7 +129,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.config['mirror_host_claude_login'] = True
         self.path.write_text(json.dumps(self.config))
         with patch.object(self.service.opener, 'open', side_effect=URLError('offline')), \
-             patch('laomedo.host.credentials.claude.utils.mirror_login') as mirror, \
+             patch('laomedo.agents.agents.claude.auth.utils.mirror_login') as mirror, \
              patch('laomedo.host.runner.service.subprocess.Popen', return_value=Mock(poll=lambda:None)) as spawn:
             result = self.service.start(self.url)
         mirror.assert_not_called()
@@ -152,7 +152,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertTrue(executed.is_set())
 
     def test_async_copy_failure_is_recorded_without_model_dispatch(self):
-        from laomedo.agents.runtime.errors import RunnerError
+        from laomedo.agents.errors import RunnerError
         record={'status':'prepared'}
         def fail(): raise RunnerError('claude_host_login_expired')
         runner=SimpleNamespace(_mirror_host_login=fail, _execute=Mock(), control_lock=threading.Lock(),
@@ -177,7 +177,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.assertNotIn('max_model_turns',self.service.config(self.url))
         self.assertEqual(args[1], '-c')
         self.assertEqual(args[3], str(Path(laomedo.__file__).resolve().parent.parent))
-        self.assertEqual(args[4], 'laomedo.agents.providers.claude.cli')
+        self.assertEqual(args[4], 'laomedo.agents.agents.claude.cli')
         self.assertEqual(spawn.call_args.kwargs['cwd'], Path(laomedo.__file__).resolve().parent.parent)
         self.assertEqual(json.loads((self.root/'runner/turn-ledger.json').read_text())['attempted_turns'],1)
         self.assertNotIn('shell',spawn.call_args.kwargs)

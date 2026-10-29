@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.insert(0, "/laomedo-src")
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 store = WorkflowRunStore("/state/runs.sqlite3")

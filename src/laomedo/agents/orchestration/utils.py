@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from uuid import uuid4
 import laomedo.agents.artifacts.utils as _artifacts_utils
-import laomedo.agents.handoffs.errors as _handoffs_errors
+import laomedo.agents.orchestration.errors as _handoffs_errors
 import re
 
 

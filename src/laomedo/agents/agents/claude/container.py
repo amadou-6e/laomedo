@@ -14,8 +14,8 @@ import secrets
 import threading
 import time
 
-from laomedo.agents.providers.claude import settings as _claude_settings
-from laomedo.agents.runtime import errors as _runtime_errors
+from laomedo.agents.agents.claude import settings as _claude_settings
+import laomedo.agents.errors as _runtime_errors
 from laomedo.host.leases import client as _leases_client
 from laomedo.host.leases import settings as _leases_settings
 

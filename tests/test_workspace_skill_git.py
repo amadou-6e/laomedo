@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.errors import RunnerError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.workspace.utils import remove_owned_tree
 from test_local_runner import FakeServer
@@ -166,7 +166,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
 
     def test_git_initialization_failure_does_not_dispatch(self):
         runner = self.runner()
-        with patch('laomedo.agents.workspace.git._bounded_git', side_effect=FileNotFoundError), patch.object(
+        with patch('laomedo.agents.workspaces.git._bounded_git', side_effect=FileNotFoundError), patch.object(
                 runner, '_open_server') as server:
             with self.assertRaisesRegex(ValueError, 'workspace_git_initialization_failed'):
                 runner.start(self.request())

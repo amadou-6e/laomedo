@@ -37,10 +37,10 @@ SPLIT_TOOLS = frozenset(
 )
 
 
-CONFIG = _package_paths.package_root() / "agents" / "providers" / "codex" / "resources" / "runner-config.toml"
+CONFIG = _package_paths.package_root() / "agents" / "agents" / "codex" / "resources" / "runner-config.toml"
 
 
-SECCOMP = _package_paths.package_root() / "agents" / "providers" / "codex" / "resources" / "codex-seccomp.json"
+SECCOMP = _package_paths.package_root() / "agents" / "agents" / "codex" / "resources" / "codex-seccomp.json"
 
 
 SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf50691"
@@ -48,9 +48,9 @@ SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf506
 
 MEDIATION_CLIENT = (
     _package_paths.package_root()
-    / "agents"
-    / "resources"
+    / "host"
     / "mediation"
+    / "resources"
     / "agent_mediation_client.mjs"
 )
 

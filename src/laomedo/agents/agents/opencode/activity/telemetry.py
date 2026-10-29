@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from datetime import timezone
-import laomedo.activity.runner.feed as _runner_feed
-import laomedo.activity.runner.settings as _runner_settings
+import laomedo.agents.activity.runner.feed as _runner_feed
+import laomedo.agents.activity.runner.settings as _runner_settings
 
 
 def export_attempt(root, start, session, model):
@@ -14,8 +14,8 @@ def export_attempt(root, start, session, model):
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.trace import set_span_in_context
     import requests
-    import laomedo.activity.runner.telemetry as _runner_telemetry
-    import laomedo.activity.agent_activity.projection as _activity_projection
+    import laomedo.agents.activity.runner.telemetry as _runner_telemetry
+    import laomedo.agents.activity.projection as _activity_projection
 
     records = []
     cursor = start

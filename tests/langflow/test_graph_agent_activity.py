@@ -1,6 +1,6 @@
 """Internal tests only; real graph acceptance is recorded separately."""
 
-from laomedo.activity.agent_activity.models import CaptureIdentity, ActivityInvocation
+from laomedo.agents.activity.models import CaptureIdentity, ActivityInvocation
 import json
 from pathlib import Path
 import tempfile
@@ -9,15 +9,15 @@ import threading
 from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 
-from laomedo.activity.agent_activity.store import ActivityStore
-from laomedo.activity.agent_activity.projection import project
-from laomedo.activity.agent_activity.cost import estimate
-from laomedo.activity.runner.feed import notification; from laomedo.activity.runner.feed import read_feed
+from laomedo.agents.activity.store import ActivityStore
+from laomedo.agents.activity.projection import project
+from laomedo.agents.activity.cost import estimate
+from laomedo.agents.activity.runner.feed import notification; from laomedo.agents.activity.runner.feed import read_feed
 
 
 class GraphActivityTests(unittest.TestCase):
     def test_opencode_acp_completeness_is_authoritative_with_legacy_fallback(self):
-        from laomedo.activity.agent_activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import RunnerCapture
         cases = [({"capture_complete": True}, "complete", None),
                  ({"native_stream_complete": True}, "complete", None),
                  ({"capture_complete": False, "native_stream_complete": True}, "partial", "native_message_snapshot_only"),
@@ -150,7 +150,7 @@ class GraphActivityTests(unittest.TestCase):
         self.assertEqual(project([{'raw':raw,'received_at':'2026-10-15T00:00:00Z'}])['turns'],[])
 
     def test_refused_attempt_cannot_adopt_another_resume(self):
-        from laomedo.activity.agent_activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
             invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'refused', execution='graph'))
@@ -167,7 +167,7 @@ class GraphActivityTests(unittest.TestCase):
             self.assertEqual(page['run']['reason'],'dispatch_not_accepted')
 
     def test_accepted_attempt_baseline_and_boundary_are_authoritative(self):
-        from laomedo.activity.agent_activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
             invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='graph'))
@@ -190,7 +190,7 @@ class GraphActivityTests(unittest.TestCase):
             self.assertFalse(store.claim_attempt(other,'runner',capture.attempt_id))
 
     def test_capture_warning_is_partial_but_native_task_remains_completed(self):
-        from laomedo.activity.agent_activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import RunnerCapture
         with tempfile.TemporaryDirectory() as directory:
             store=ActivityStore(Path(directory)/'activity.db')
             invocation=store.start(CaptureIdentity.from_values('alice', 'flow', 'agent', execution='graph'))

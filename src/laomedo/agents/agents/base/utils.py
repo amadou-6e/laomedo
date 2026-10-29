@@ -7,8 +7,8 @@ from uuid import UUID
 from uuid import uuid4
 import hashlib
 import json
-import laomedo.agents.runtime.settings as _runtime_settings
-import laomedo.agents.runtime.errors as _runtime_errors
+import laomedo.agents.agents.base.settings as _runtime_settings
+import laomedo.agents.errors as _runtime_errors
 import os
 import shutil
 import stat

@@ -101,7 +101,7 @@ Laomedo vision document directory within this Git checkout, not a synthetic
 project. It exposes `README.md` at the root of the Agent's private draft.
 
 ```powershell
-& $pythonExe -m laomedo.agents.providers.claude.cli `
+& $pythonExe -m laomedo.agents.agents.claude.cli `
   --state "$runtimeRoot/runner" `
   --skill-store "$runtimeRoot/registry" `
   --source "$repoPath/docs/vision-and-goals" `

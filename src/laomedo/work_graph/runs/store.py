@@ -10,8 +10,8 @@ from pathlib import Path
 from uuid import UUID
 from uuid import uuid4
 import json
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.agents.workflow.utils as _workflow_utils
+import laomedo.work_graph.runs.errors as _workflow_errors
+import laomedo.work_graph.runs.utils as _workflow_utils
 import sqlite3
 
 

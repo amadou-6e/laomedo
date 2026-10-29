@@ -5,16 +5,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import laomedo.agents.runtime.runner as _runtime_runner
+    import laomedo.agents.agents.base.agent as _runtime_runner
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 import json
 import laomedo.agents.artifacts.errors as _artifacts_errors
-import laomedo.agents.runtime.settings as _runtime_settings
-import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.runtime.utils as _runtime_utils
+import laomedo.agents.agents.base.settings as _runtime_settings
+import laomedo.agents.errors as _runtime_errors
+import laomedo.agents.agents.base.utils as _runtime_utils
 import laomedo.skills.registry.errors as _registry_errors
-import laomedo.agents.runtime.settings as _runtime_settings
+import laomedo.agents.agents.base.settings as _runtime_settings
 import secrets
 import threading
 
@@ -26,7 +26,7 @@ class RunnerServer(ThreadingHTTPServer):
         host: str = "127.0.0.1",
         port: int = 8765,
     ):
-        import laomedo.agents.runtime.runner as _runtime_runner
+        import laomedo.agents.agents.base.agent as _runtime_runner
 
         if host not in ("127.0.0.1", "::1"):
             raise _runtime_errors.RunnerError("loopback_only")
@@ -92,7 +92,7 @@ class RunnerServer(ThreadingHTTPServer):
                         and parts[:2] == ["v1", "runs"]
                         and parts[3] == "events"
                     ):
-                        import laomedo.activity.runner.feed as _runner_feed
+                        import laomedo.agents.activity.runner.feed as _runner_feed
 
                         query = parse_qs(parsed.query)
                         record = runner.status(parts[2])

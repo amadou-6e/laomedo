@@ -1,7 +1,7 @@
 """Copy one native Codex rollout from the existing private volume for AGENTVIZ."""
 
 from __future__ import annotations
-import laomedo.agents.providers.codex.settings as _codex_settings
+import laomedo.agents.agents.codex.settings as _codex_settings
 
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -9,9 +9,9 @@ from uuid import UUID
 from uuid import uuid4
 import argparse
 import json
-import laomedo.agents.runtime.settings as _runtime_settings
-import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.runtime.utils as _runtime_utils
+import laomedo.agents.agents.base.settings as _runtime_settings
+import laomedo.agents.errors as _runtime_errors
+import laomedo.agents.agents.base.utils as _runtime_utils
 import os
 import subprocess
 

@@ -6,7 +6,7 @@ Docker Desktop versions whose default profile rejects Bubblewrap startup.
 It retains a default-deny policy, non-root UID 10001, all capabilities dropped,
 no-new-privileges, the fixed Codex version and the inner permission profile.
 Missing or changed seccomp resources refuse launch. See the packaged
-[policy provenance](../../../../src/laomedo/agents/providers/codex/resources/codex-seccomp.md) and upstream license.
+[policy provenance](../../../../src/laomedo/agents/agents/codex/resources/codex-seccomp.md) and upstream license.
 The credential-free split executor also needs this checksum-verified profile for
 Bubblewrap. This expands its outer syscall policy beyond Docker's default; it
 retains only the workspace mount, no credentials, non-root UID, dropped

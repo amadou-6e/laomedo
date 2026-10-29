@@ -9,7 +9,7 @@ from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io impo
 from lfx.schema.message import Message
 
 sys.path.insert(0, "/laomedo-src")
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 class Exp06Stage(Component):

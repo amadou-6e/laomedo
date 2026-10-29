@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 
-from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.settings import IMAGE; from laomedo.agents.agents.codex.controller.models import CodexLaunch
 
 
 @unittest.skipUnless(os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",

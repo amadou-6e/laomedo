@@ -14,10 +14,10 @@ from urllib.request import Request
 
 from laomedo.github.transport.git.transport import GitHubGitTransport
 from laomedo.github.transport.rest.transport import GitHubRestTransport
-from laomedo.agents.workspace.git import _git_environment; from laomedo.agents.workspace.git import _bounded_git
+from laomedo.agents.workspaces.git import _git_environment; from laomedo.agents.workspaces.git import _bounded_git
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.github.issues.utils import fetch_context
-from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
 from laomedo.host.credentials.siwc.utils import _outside_git
 from laomedo.skills.registry.store import SkillStore
 

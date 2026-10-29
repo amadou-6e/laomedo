@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import socket
 import sqlite3
-from laomedo.agents.contracts.output import precheck_response
+from laomedo.agents.interface.output.utils import precheck_response
 from laomedo.host.credentials.siwc.utils import _outside_git
 
 

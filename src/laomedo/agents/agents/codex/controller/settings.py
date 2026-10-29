@@ -3,7 +3,7 @@
 from pydantic import Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.errors import RunnerError
 
 
 class Settings(BaseSettings):
