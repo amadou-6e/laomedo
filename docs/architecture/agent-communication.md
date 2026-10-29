@@ -1,8 +1,8 @@
 # Shared agent communication
 
-Status: migration in progress. The existing runners have not all been switched.
+Status: all three runners use ACP on the draft branch; final acceptance is pending.
 
-Laomedo is moving agent execution to one ACP v1 client, using the published
+Laomedo routes agent execution through one ACP v1 client, using the published
 `agent-client-protocol` Python SDK over a creator-owned py-docker stdio session.
 Provider-specific policy supplies the image, entry point, credential mounts and
 configuration. py-docker remains independent of agents and ACP.
@@ -50,10 +50,14 @@ error presentation before requesting owner validation.
 | Failure/recovery | Missing Docker, unavailable runner, expired credentials, transport loss and worker loss produce descriptive errors and only applicable recovery controls. An uncertain remote outcome cannot offer a blind new turn. |
 | Activity | Actual text, reasoning, tools, native identities, usage and provenance remain inspectable across fresh/resume/cancel. Missing native counters or child relationships cannot become invented totals or identities. |
 
-Bounded container-runner evidence currently covers real Claude and OpenCode Fresh,
-Resume and cancellation during worker execution. Internal ACP/capture and provider
-regressions are separate supporting controls. Codex cutover, locked release images,
-pre-migration resume, skill/precheck coverage and final graph evidence remain open.
+Bounded real-runner evidence covers all three ACP providers, same-session Resume,
+native skill use and cancellation. Real browser Fresh checks returned useful
+documentation answers for all three providers. Internal ACP/capture and provider
+regressions remain separate supporting controls. Final browser paths, split and
+mediated execution, owner inspection and release acceptance remain open.
+Claude initialization also advertises bundled skills that were not selected;
+the current tool allowlist denies their invocation. Discovery isolation is an
+observed gap, not an accepted capability.
 OpenCode's ACP terminal usage describes the final assistant message rather than
 all tool-loop messages; do not present it as a full attempt/session total. Preserving
 complete usage and native child-session activity uses `opencode export` in separate
