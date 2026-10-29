@@ -10,7 +10,7 @@ import time
 
 from laomedo.host.leases.utils import inspect_exact
 from laomedo.github.transport.git.utils import _base_git_environment
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.controller.service import CodexController as AppServer; from laomedo.agents.runtime.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.mediation.authority import RunGrantAuthority
 import laomedo.skills.workspace.utils as workspace_skills
@@ -56,12 +56,17 @@ def run(root, side):
             capability = (root / "host/lease/leases" / owner["launch_token"] / "grant.secret").read_text().strip()
             super().__init__(command, evidence, secret_redactions=tuple(kwargs.pop("secret_redactions", ())) + (capability,), **kwargs)
 
-        def request(self, method, params, timeout=30):
-            if method != "initialize":
-                raise RunnerError("fixture_forbids_model_or_thread_request")
-            response = super().request(method, params, timeout)
-            if "result" not in response:
-                raise RunnerError("fixture_initialize_rejected")
+        async def models(self):
+            raise RunnerError("fixture_forbids_model_or_thread_request")
+
+        async def open(self, *args, **kwargs):
+            raise RunnerError("fixture_forbids_model_or_thread_request")
+
+        async def prompt(self, *args, **kwargs):
+            raise RunnerError("fixture_forbids_model_or_thread_request")
+
+        async def initialize(self):
+            await super().initialize()
             selected = identities(side, root)
             state, container_id = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
             if state != "owned":

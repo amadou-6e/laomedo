@@ -48,13 +48,18 @@ class RunnerService:
         # Retire persisted preview-only ceilings when reading older host configs.
         value = dict(value)
         value.pop("max_model_turns", None)
+        if not required <= set(value):
+            raise ValueError("invalid_runner_service_config")
+        if not isinstance(value["state"], str):
+            raise ValueError("absolute_runner_service_paths_required")
+        value.setdefault("lease_service", str(Path(value["state"]).parent / "lease"))
+        required.add("lease_service")
         if value["provider"] == "claude":
+            from laomedo.agents.providers.claude.settings import IMAGE
+
             value.pop("executable", None)  # Retired host-runtime configuration.
-            value.setdefault("image", "laomedo-claude-controller:2.1.310")
+            value.setdefault("image", IMAGE)
             value.setdefault("profile_volume", "laomedo-claude-profile")
-            value.setdefault(
-                "lease_service", str(Path(value["state"]).parent / "lease")
-            )
             required.update({"image", "profile_volume", "lease_service"})
         optional = {
             "artifact_sources",
@@ -89,9 +94,7 @@ class RunnerService:
                 raise ValueError("absolute_runner_service_paths_required")
         if type(value["port"]) is not int or not 1 <= value["port"] <= 65535:
             raise ValueError("invalid_runner_service_port")
-        for key in ("state", "skill_store", "source") + (
-            ("lease_service",) if value["provider"] == "claude" else ()
-        ):
+        for key in ("state", "skill_store", "source", "lease_service"):
             if not isinstance(value[key], str) or not Path(value[key]).is_absolute():
                 raise ValueError("absolute_runner_service_paths_required")
         if url is not None and url != f"http://127.0.0.1:{value['port']}":
@@ -257,6 +260,8 @@ class RunnerService:
                 config["skill_store"],
                 "--source" if config["provider"] == "claude" else "--source-workspace",
                 config["source"],
+                "--lease-service",
+                config["lease_service"],
                 "--port",
                 str(config["port"]),
             ]
@@ -267,8 +272,6 @@ class RunnerService:
                         config["image"],
                         "--profile-volume",
                         config["profile_volume"],
-                        "--lease-service",
-                        config["lease_service"],
                     ]
                 )
             for provider, state in sorted(config.get("artifact_sources", {}).items()):

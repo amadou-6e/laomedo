@@ -11,7 +11,7 @@ from uuid import uuid4
 from laomedo.host.mediation.agent_cli import prepare_commands; from laomedo.host.mediation.agent_cli import configure_remote
 from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.utils import _base_git_environment
 from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.errors import KnownRejected
-from laomedo.agents.providers.codex.native.models import CodexLaunch
+from laomedo.agents.providers.codex.controller.models import CodexLaunch
 from laomedo.host.mediation.authority import RunGrantAuthority; from laomedo.host.mediation.authority import FIRST_SLICE_OPERATIONS
 
 

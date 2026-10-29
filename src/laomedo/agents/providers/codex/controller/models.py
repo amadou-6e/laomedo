@@ -114,7 +114,9 @@ class CodexLaunch(BaseModel):
                 read_only=True,
             ),
         ]
-        environment = {}
+        environment = {
+            "CODEX_CONFIG": '{"features":{"apps":false,"plugins":false,"memories":false},"apps":{"_default":{"enabled":false}}}',
+        }
         mediated = all(
             value is not None
             for value in (self.capability, self.mediator_url, self.mediator_instance)
@@ -206,10 +208,10 @@ class CodexLaunch(BaseModel):
             command=[
                 "sh",
                 "-c",
-                'cp /config.toml /home/runner/.codex/config.toml && exec codex "$@"',
+                'cp /config.toml /home/runner/.codex/config.toml && exec "$@"',
                 "bootstrap",
-                "app-server",
-                "--stdio",
+                "node",
+                "/opt/acp/index.mjs",
             ],
             user="10001:10001",
             working_dir="/draft",
@@ -219,5 +221,41 @@ class CodexLaunch(BaseModel):
             network_mode="bridge",
             read_only=False,
             stdin_open=True,
+            tmpfs={
+                "/home/runner/.codex/skills": "ro,mode=0555",
+                "/home/runner/.codex/plugins": "ro,mode=0555",
+                "/home/runner/.agents": "ro,mode=0555",
+            },
             security_opt=["no-new-privileges", "seccomp=" + policy.decode("utf-8")],
         )
+
+
+class SplitPolicy(BaseModel):
+    """Host-only provider configuration for a credential-free tool executor."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    provider_config: tuple[str, ...] = Field(
+        default=(), description="Trusted host native provider configuration overrides."
+    )
+    access_token: SecretStr | None = Field(
+        default=None,
+        repr=False,
+        exclude=True,
+        description="Private launch-only controller access credential.",
+    )
+
+
+class CodexTurn(BaseModel):
+    """Native terminal identity retained across the common ACP lifecycle."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    turn_id: str = Field(
+        description="Actual native turn identity from the raw event stream."
+    )
+    status: str = Field(
+        description="Observed terminal state or explicit uncertain outcome."
+    )
+    error: str | None = Field(
+        default=None,
+        description="Safe stable failure code when completion is not successful.",
+    )

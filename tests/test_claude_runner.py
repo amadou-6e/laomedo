@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import test_local_runner as controls
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.settings import CLI_VERSION; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import activity_usage
+from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.settings import CLI_VERSION; from laomedo.agents.providers.claude.models import ClaudePolicy; from laomedo.agents.providers.claude.utils import terminal_result; from laomedo.agents.providers.claude.utils import activity_usage
 from laomedo.activity.agent_activity.projection import project
 from laomedo.agents.runtime.errors import RunnerError
 from laomedo.agents.contracts.output import requirements
@@ -24,6 +24,11 @@ except ImportError:
 
 
 class ClaudeRunnerTests(unittest.TestCase):
+    def _begin_activity(self, root, record, prompt):
+        # Fixture-only replacement for the ACP session binding boundary.
+        common = {"threadId": record["thread_id"], "turnId": record["active_host_turn"]}
+        self.runner._event(root, "turn/started", {**common, "turn": {"id": record["active_host_turn"]}, "identity_source": "host_attempt"})
+        self.runner._event(root, "item/completed", {**common, "item": {"id": record["active_host_turn"] + ":prompt", "type": "userMessage", "content": [{"type": "inputText", "text": prompt}]}})
     def test_no_skills_produces_empty_prompt_bundle_and_preserves_resume_binding(self):
         payload={key:value for key,value in self.payload.items() if key!='skill_ref'}
         payload['task']='Answer the task without skills'
@@ -44,7 +49,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_catalog_does_not_dispatch_or_claim_model_execution(self):
         before=(self.runner.state/'turn-ledger.json').exists()
         with patch.object(self.runner,'_invoke',side_effect=AssertionError('no native turn')), \
-             patch('laomedo.agents.providers.codex.native.server.AppServer',side_effect=AssertionError('no Codex RPC')):
+             patch('laomedo.agents.providers.codex.controller.service.CodexController',side_effect=AssertionError('no Codex RPC')):
             catalog=self.runner.model_catalog()
         self.assertEqual([item['id'] for item in catalog['models']],['sonnet','opus','haiku'])
         self.assertEqual(catalog['account_availability'],'cli_reported')
@@ -108,6 +113,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_real_capture_boundary_uses_previous_receipt_as_resume_baseline(self):
         calls = []
         def invoke(root, record, prompt, flag, *, resume):
+            self._begin_activity(root, record, prompt)
             calls.append(resume)
             count = len(calls)
             return {'session_id': record['thread_id'], 'result': 'ok',
@@ -188,7 +194,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
         self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
-        self.runner.container.spec = Mock(return_value=object())
+        self.runner.container.spec = Mock()
         self.runner.container.guarded = Mock(return_value=[])
         self.runner.container.receipts = self.runner.state
         self.runner.container.session = MagicMock()
@@ -200,7 +206,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         session.wait.return_value = 0
         session.cleanup_confirmed = True
         with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
-             patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')):
+             patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')), patch.object(self.runner, '_communicate_acp', new=__import__('unittest.mock',fromlist=['AsyncMock']).AsyncMock(return_value=receipt)):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         self.assertEqual(result['result'],'done')
         self.assertEqual(record['telemetry_capture']['error_category'],'claude_telemetry_capture_failed')
@@ -230,7 +236,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
         self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
-        self.runner.container.spec = Mock(return_value=object())
+        self.runner.container.spec = Mock()
         self.runner.container.guarded = Mock(return_value=[])
         self.runner.container.receipts = self.runner.state
         self.runner.container.session = MagicMock()
@@ -242,7 +248,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         session.wait.return_value = 0
         session.cleanup_confirmed = True
         with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
-             patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')), \
+             patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')), patch.object(self.runner, '_communicate_acp', new=__import__('unittest.mock',fromlist=['AsyncMock']).AsyncMock(return_value=receipt)), \
              patch.object(ClaudeTelemetry,'close',broken_close):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         self.assertEqual(result['result'],'done')
@@ -273,7 +279,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         record = self.runner._prepare(self.payload)
         record.update(thread_id=str(uuid4()),active_host_turn=str(uuid4()))
         self.runner.container.lease = Mock(return_value=SimpleNamespace(finish=lambda:None,stop_heartbeats=lambda:None))
-        self.runner.container.spec = Mock(return_value=object())
+        self.runner.container.spec = Mock()
         self.runner.container.guarded = Mock(return_value=[])
         self.runner.container.receipts = self.runner.state
         self.runner.container.session = MagicMock()
@@ -288,6 +294,7 @@ class ClaudeRunnerTests(unittest.TestCase):
 
     def invoke(self, answer='{"action":"modify"}'):
         def run(root, record, prompt, flag, *, resume):
+            self._begin_activity(root, record, prompt)
             return {"type": "result", "subtype": "success", "is_error": False,
                     "session_id": record['thread_id'], "result": answer}
         return patch.object(self.runner, '_invoke', side_effect=run)
@@ -300,16 +307,14 @@ class ClaudeRunnerTests(unittest.TestCase):
             with self.assertRaises(RunnerError):
                 terminal_result(json.dumps(value), thread)
 
-    def test_cli_confines_native_tools_and_uses_credential_free_command_server(self):
-        thread = str(uuid4())
-        args = command(sys.executable, 'sonnet', 'low', thread, resume=True)
-        self.assertEqual(args[args.index('--tools') + 1], '')
-        self.assertIn('--restricted', args)
-        self.assertNotIn('Bash', args[args.index('--tools') + 1])
-        self.assertEqual(command(None,'sonnet','low',thread,output_only=True)[command(None,'sonnet','low',thread,output_only=True).index('--tools')+1], '')
-        self.assertIn('--strict-mcp-config', args)
-        self.assertEqual(args[-2:], ['--resume', thread])
-        self.assertNotIn('--dangerously-skip-permissions', args)
+    def test_acp_policy_confines_native_tools_and_uses_credential_free_command_server(self):
+        options = ClaudePolicy(model="sonnet", effort="low").sdk_options()
+        self.assertEqual(options["tools"], [])
+        self.assertIn("restricted", options["extraArgs"])
+        self.assertIn("strict-mcp-config", options["extraArgs"])
+        self.assertIn("Bash", options["disallowedTools"])
+        self.assertFalse(options["allowDangerouslySkipPermissions"])
+        self.assertEqual(ClaudePolicy(model="sonnet", effort="low", output_only=True).sdk_options()["allowedTools"], [])
 
     def test_fresh_and_resume_keep_provider_skills_and_bound_snapshot(self):
         with self.invoke():

@@ -1,7 +1,7 @@
 """No-model host dispatch identity controls for the prospective live graph."""
 import unittest
 from importlib.util import find_spec
-from laomedo.agents.providers.codex.native.models import CodexLaunch
+from laomedo.agents.providers.codex.controller.models import CodexLaunch
 import tempfile
 from pathlib import Path
 import sys
@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from experiments.exp139.models import GitMetadataLaunch, MailboxLaunch
 from experiments.exp139.bindings import BoundRunner; from experiments.exp139.bindings import GitMetadataAppServer; from experiments.exp139.bindings import MailboxAppServer; from experiments.exp139.settings import GIT_OVERRIDE; from experiments.exp139.settings import PROFILE_OVERRIDES; from experiments.exp139.bindings import request_digest
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.native.server import AppServer
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.controller.service import CodexController as AppServer
 
 
 class BindingTests(unittest.TestCase):
@@ -25,7 +25,7 @@ class BindingTests(unittest.TestCase):
             prepared=parent.call_args.args[0]
             self.assertIsInstance(prepared,MailboxLaunch)
             spec=prepared.to_container_spec()
-            self.assertEqual(spec.command[-2:],["app-server","--stdio"])
+            self.assertEqual(spec.command[-2:],["node","/opt/acp/index.mjs"])
             self.assertIn("node /run/laomedo/relay.mjs",spec.command[2])
             self.assertEqual(spec.environment["GIT_EXEC_PATH"].get_secret_value(),"/run/laomedo/bin")
             self.assertEqual(spec.image,launch.image)

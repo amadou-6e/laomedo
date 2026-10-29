@@ -87,7 +87,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         control = self.fixture(test_local_runner.LocalRunnerTests)
         self.assert_record(control, control.request(), {
             'provider':'codex','profile':codex_settings.VOLUME,'image':codex_settings.IMAGE,
-            'image_id':codex_settings.IMAGE_ID,'execution_mode':'legacy',
+            'image_id':codex_settings.IMAGE_ID,'execution_mode':'codex_acp',
             'cli_version':codex_settings.CLI_VERSION,'config_sha256':codex_settings.CONFIG_SHA256,
             'credential':None})
 
@@ -102,7 +102,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         control = self.fixture(test_opencode_runner.OpenCodeTests)
         self.assert_record(control, control.payload, {
             'provider':'opencode','profile':None,'image':None,'image_id':None,
-            'execution_mode':'opencode_http','cli_version':'opencode 1.18.33',
+            'execution_mode':'opencode_acp','cli_version':'opencode 1.18.33',
             'config_sha256':None,'credential':None})
 
     def test_unsupported_mediation_is_rejected_before_workspace_or_authority(self):

@@ -2,7 +2,10 @@
 
 from laomedo.agents.providers.codex.settings import CONFIG as _owned_runner_CONFIG
 from laomedo.agents.providers.codex.settings import IMAGE as _owned_runner_IMAGE
-from laomedo.agents.providers.codex.split.server import SplitAppServer as _owned_runner_SplitAppServer
+from laomedo.agents.providers.codex.controller.service import CodexController
+from laomedo.agents.providers.codex.controller.models import CodexLaunch, SplitPolicy
+from laomedo.agents.providers.codex.settings import IMAGE_ID
+import asyncio
 from laomedo.agents.providers.codex.utils import _ensure_split_profile as _owned_runner__ensure_split_profile
 from laomedo.agents.providers.codex.utils import _split_profile as _owned_runner__split_profile
 
@@ -20,7 +23,7 @@ import laomedo.agents.providers.codex.cli as runner
 from probe_mock_responses import MockResponses
 
 
-def main(with_hook=True):
+async def _run(with_hook=True):
     with tempfile.TemporaryDirectory(prefix="laomedo-patch-107-") as directory:
         root = Path(directory)
         for name in ("workspace", "canonical", "store", "evidence"):
@@ -45,8 +48,6 @@ def main(with_hook=True):
         config.write_text(config_text)
         profile = _owned_runner__split_profile(root.resolve())
         _owned_runner__ensure_split_profile(profile, state=root)
-        original_config = _owned_runner_CONFIG
-        _owned_runner_CONFIG = config
         server = None
         try:
             with MockResponses(tool_input=None) as mock:
@@ -59,10 +60,7 @@ def main(with_hook=True):
                     'model_providers.laomedo_mock.requires_openai_auth=false',
                     'model_providers.laomedo_mock.supports_websockets=false',
                 )
-                server = _owned_runner_SplitAppServer(root / "workspace",
-                    root / "canonical", root / "store", root / "evidence",
-                    profile, provider_config=provider,
-                    access_token="SYNTHETIC_ONLY")
+                server = CodexController(CodexLaunch(workspace=root / "workspace", canonical=root / "canonical", store_mount=root / "store", image=IMAGE_ID, profile=profile, config=config), root / "evidence", split=SplitPolicy(provider_config=provider, access_token="SYNTHETIC_ONLY"))
                 patch = ("*** Begin Patch\n*** Add File: "
                          "/home/runner/.codex/patch-sentinel.txt\n+" +
                          canary + "\n*** End Patch")
@@ -71,14 +69,7 @@ def main(with_hook=True):
                     json.dumps(patch) + "); text('PATCH:' + "
                     "(result?.isError ? 'denied' : 'resolved')); } "
                     "catch { text('PATCH:denied'); }")
-                initialized = server.request("initialize", {"clientInfo": {
-                    "name": "laomedo_hook_probe", "title": "Hook Probe",
-                    "version": "0.1.0"},
-                    "capabilities": {"experimentalApi": True}}, timeout=30)
-                if "result" not in initialized:
-                    raise RuntimeError("initialize_rejected")
-                server.notify("initialized", {})
-                server.register_executor()
+                await server.initialize()
                 controller_writer = subprocess.run(["docker", "exec",
                     server.container_name, "sh", "-c",
                     "printf %s " + control +
@@ -86,20 +77,9 @@ def main(with_hook=True):
                     capture_output=True, timeout=5)
                 if controller_writer.returncode:
                     raise RuntimeError("controller_control_setup_failed")
-                thread = server.request("thread/start", {
-                    "model": "gpt-6-luna", "cwd": "/draft",
-                    "approvalPolicy": "never",
-                    "environments": server.thread_environment()})
-                thread_id = thread["result"]["thread"]["id"]
-                turn = server.request("turn/start", {
-                    "threadId": thread_id, "model": "gpt-6-luna",
-                    "effort": "low", "cwd": "/draft",
-                    "input": [{"type": "text", "text": "Synthetic hook probe"}],
-                    "environments": server.turn_environment(),
-                    "sandboxPolicy": {"type": "externalSandbox",
-                                      "networkAccess": "restricted"}})
-                status, error = server.wait_turn(turn["result"]["turn"]["id"],
-                                                 50, threading.Event())
+                await server.open({"requested_model": "gpt-6-luna", "requested_effort": "low"}, resume=False)
+                turn = await server.prompt("Synthetic hook probe", skills=[], seconds=50, cancelled=threading.Event())
+                status, error = turn.status, turn.error
                 archive = subprocess.run(["docker", "run", "--rm",
                     "--pull=never", "--network", "none", "--user", "10001:10001",
                     "--mount", f"type=volume,source={profile},target=/profile,readonly",
@@ -118,19 +98,16 @@ def main(with_hook=True):
                     _owned_runner_IMAGE, "cat", "/profile/patch-sentinel.txt"],
                     capture_output=True, timeout=15)
                 executor_file = subprocess.run(["docker", "exec",
-                    server.executor_name, "cat",
+                    server.executor.session.identity.name, "cat",
                     "/home/runner/.codex/patch-sentinel.txt"],
                     capture_output=True, timeout=5)
                 config_check = subprocess.run(["docker", "exec",
                     server.container_name, "grep", "-q", "hooks.PreToolUse",
                     "/home/runner/.codex/config.toml"], capture_output=True,
                     timeout=5)
-                stderr_text = (root / "evidence" / "stderr.log").read_text(
-                    errors="replace")
                 result = {"schema_version": 1, "real_model_turns": 0,
                     "status": status, "error": error,
                     "config_contains_hook": config_check.returncode == 0,
-                    "stderr_mentions_hook": "hook" in stderr_text.lower(),
                     "event_methods": sorted({str(event.get("method")) for event in
                                               server.events if "hook" in
                                               str(event.get("method", "")).lower()}),
@@ -166,11 +143,14 @@ def main(with_hook=True):
                         result["fake_responses_requests"] != 2):
                     raise RuntimeError("patch_route_probe_failed")
         finally:
-            _owned_runner_CONFIG = original_config
             if server is not None:
-                server.close()
+                await server.close()
             subprocess.run(["docker", "volume", "rm", profile],
                            capture_output=True, timeout=15)
+
+
+def main(with_hook=True):
+    asyncio.run(_run(with_hook))
 
 
 if __name__ == "__main__":

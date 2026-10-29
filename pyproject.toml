@@ -15,7 +15,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-runner = ["py-docker @ git+https://github.com/amadou-6e/py-docker.git@c0d92a785eccd3d423a8d00f856d82fa47afc461"]
+runner = [
+    "py-docker @ git+https://github.com/amadou-6e/py-docker.git@c0d92a785eccd3d423a8d00f856d82fa47afc461",
+    "agent-client-protocol==0.12.1",
+]
 observability = ["opentelemetry-proto==1.45.1", "opentelemetry-sdk==1.45.1", "opentelemetry-exporter-otlp-proto-http==1.45.1"]
 
 [project.scripts]

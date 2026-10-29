@@ -10,8 +10,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from laomedo.agents.providers.codex import settings
-from laomedo.agents.providers.codex.native.models import CodexLaunch
-from laomedo.agents.providers.codex.native.server import AppServer
+from laomedo.agents.providers.codex.controller.models import CodexLaunch
+from laomedo.agents.providers.codex.controller.service import CodexController as AppServer
 from laomedo.agents.runtime.errors import RunnerError
 
 
@@ -42,33 +42,6 @@ class NativeSessionTests(unittest.TestCase):
             self.assertEqual(spec.labels["laomedo.run_id"].get_secret_value(),"run")
             self.assertNotIn("private",launch.model_dump_json())
 
-    def test_native_reader_buffers_utf8_and_redacts_across_frames(self):
-        """Use the actual constructor and line reader over an injected SDK boundary."""
-        from py_docker.containers.models import ContainerState
-        from py_docker.streams.models import Frame
-
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp)
-            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
-            session=Mock()
-            session.read_line.side_effect=[
-                Frame(channel="stdout",data='{"method":"notice","params":{"text":"caf\u00e9"}}\n'.encode()),
-                Frame(channel="stderr",data=b'private-token\n'),None]
-            session.state.return_value=ContainerState(running=False,exit_code=0,removed=False)
-            with patch("py_docker.Client") as client, patch("subprocess.Popen") as cli:
-                client.return_value.sessions.open.return_value=session
-                server=AppServer(launch,root,lifetime_seconds=321,secret_redactions=("private-token",))
-                server.reader.join(timeout=2)
-                self.assertTrue(server.streams_closed)
-                self.assertEqual(server.messages.get_nowait()["params"]["text"],"café")
-                request=client.return_value.sessions.open.call_args.args[0]
-                self.assertEqual(request.limits.seconds,321)
-                self.assertEqual(request.spec.command[-2:],["app-server","--stdio"])
-                self.assertTrue(server._transport_exited())
-                server.close()
-                cli.assert_not_called()
-                session.close.assert_called_once_with()
-            self.assertEqual(root.joinpath("stderr.log").read_text(),"[REDACTED_RUN_CAPABILITY]\n")
 
     def test_failed_open_retains_safe_public_code_without_cli_fallback(self):
         """Unconfirmed SDK creation maps safely and never launches a second path."""
@@ -83,41 +56,7 @@ class NativeSessionTests(unittest.TestCase):
                 cli.assert_not_called()
                 client.return_value.close.assert_called_once_with()
 
-    def test_reader_start_failure_cleans_the_open_session(self):
-        """A local thread-start failure cannot strand a created controller."""
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp)
-            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
-            with patch("py_docker.Client") as client, patch("threading.Thread.start",side_effect=RuntimeError("internal thread control")):
-                with self.assertRaisesRegex(RunnerError,"runner_transport_failed"):
-                    AppServer(launch,root)
-                client.return_value.sessions.open.return_value.close.assert_called_once_with()
-                client.return_value.close.assert_called_once_with()
 
-    def test_late_reader_completion_releases_deferred_resources_once(self):
-        """A reported slow-reader failure does not leak resources after it exits."""
-        import threading
-        entered,release=threading.Event(),threading.Event()
-        def late_read():
-            entered.set()
-            release.wait(timeout=2)
-            return None
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp)
-            launch=CodexLaunch(workspace=root,canonical=root,store_mount=root,image="sha256:"+"a"*64)
-            with patch("py_docker.Client") as client:
-                client.return_value.sessions.open.return_value.read_line.side_effect=late_read
-                server=AppServer(launch,root)
-                self.assertTrue(entered.wait(timeout=1))
-                with patch.object(server.reader,"join"):
-                    with self.assertRaisesRegex(RunnerError,"runner_transport_failed"):
-                        server.close()
-                self.assertFalse(server.log.closed)
-                release.set()
-                server.reader.join(timeout=2)
-                self.assertFalse(server.reader.is_alive())
-                self.assertTrue(server.log.closed)
-                client.return_value.close.assert_called_once_with()
 
 
 class RetirementAndCatalogueTests(unittest.TestCase):
@@ -129,7 +68,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         self.assertFalse(package.joinpath("servers.py").exists())
         self.assertFalse(package.joinpath("split/transport.py").exists())
         self.assertNotIn("def _docker_prefix",package.joinpath("utils.py").read_text())
-        source=package.joinpath("native/server.py").read_text()
+        source=package.joinpath("controller/service.py").read_text()
         tree=ast.parse(source)
         imports={alias.name for node in ast.walk(tree) if isinstance(node,ast.Import) for alias in node.names}
         self.assertNotIn("subprocess",imports)
@@ -141,8 +80,8 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         catalogue=json.loads(root.joinpath("frontend/langflow-skill-viewer/node-error-catalog.json").read_text())
         codes=set()
-        producers=[root.joinpath("src/laomedo/agents/providers/codex/native",module) for module in ("server.py","models.py","base.py","settings.py")]
-        producers += [root.joinpath("src/laomedo/agents/providers/codex/split",module) for module in ("server.py","models.py")]
+        producers=[root.joinpath("src/laomedo/agents/providers/codex/controller",module) for module in ("service.py","models.py","settings.py")]
+        producers += [root.joinpath("src/laomedo/agents/providers/codex/split",module) for module in ("executor.py","models.py")]
         producers += [root.joinpath("src/laomedo/agents/providers", module) for module in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py")]
         for module in producers:
             tree=ast.parse(module.read_text())

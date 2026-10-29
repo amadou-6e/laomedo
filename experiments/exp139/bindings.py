@@ -11,7 +11,7 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.providers.codex.controller.service import CodexController; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
 
 
 def request_digest(request):
@@ -93,7 +93,7 @@ class BoundRunner(LocalRunner):
 # original policy plus the sole approved Git-metadata rule as an inline table.
 
 
-class GitMetadataAppServer(AppServer):
+class GitMetadataAppServer(CodexController):
     """Apply the same approved invocation rule to a typed SDK launch."""
 
     def __init__(self, launch, evidence, **kwargs):

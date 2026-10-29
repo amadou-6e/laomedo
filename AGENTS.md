@@ -23,10 +23,34 @@
 
 ## Python module cohesion
 
+- Apply these conventions to new and reworked code within the owned task. Record
+  existing violations for the planned refactor; do not launch an unrelated
+  repository-wide or test-suite rewrite merely by adding these instructions.
 - Group cohesive features into packages; do not stop at a fixed nesting depth.
   Repeated filename prefixes are a signal to review the package boundary.
 - A Python implementation file introduces classes or standalone functions, never
   both. Put class-only exceptions in errors.py. Keep package initializers small.
+- Import the classes, functions and other symbols you use directly from their
+  defining modules. Prefer `from ...errors import HandoffError` followed by
+  `HandoffError(...)`; do not spread aliases such as `_handoffs_errors` and
+  `_handoffs_errors.HandoffError(...)` through callers. Use a descriptive symbol
+  alias only for a real name collision. Preserve necessary optional-import
+  boundaries and update affected patch targets when changing import bindings.
+  If a direct import exposes a cycle, correct the dependency boundary or import
+  the symbol at its safe point of use instead of spreading module-prefix aliases.
+- Extract large configuration/definition literals into typed Pydantic objects in
+  the owning feature's `models.py`. Pass the varying inputs into the object and
+  let an explicit method such as `to_config()` construct the external dictionary.
+  Preserve the exact wire shape, defaults, validation and error behavior. Use
+  nested models for independently meaningful nested data; do not hide an opaque
+  `dict[str, Any]` behind a model. Keep secrets out of normal dumps and reprs;
+  an explicitly privileged native-config serializer may reveal only what its
+  private destination requires, and its output must never be logged.
+- Define classes at module scope in their own cohesive files. Never define a
+  request handler, model, exception or other class inside a method/function, or
+  hide it in a class factory. For example, put `BrokerRequestHandler` in
+  `http/handler.py` and its server in `http/server.py`, with explicit instance
+  references for shared state instead of closure capture or mutable globals.
 - Make a function a method when its responsibility belongs to an object. Keep
   independent helpers in the owning feature's utils.py (or a focused function-only
   module); do not create a cross-domain dumping ground of utilities.

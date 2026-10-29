@@ -2,16 +2,16 @@
 import threading
 import laomedo._paths as _package_paths
 
-IMAGE = "laomedo-codex-boundary:0.159.2"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
 
 
-IMAGE_ID = "sha256:7b79ce12be47d6c8262dd4043895112d204416bda5cd891d124775df55587239"
+IMAGE_ID = "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa"
 
 
-GIT_IMAGE = "laomedo-codex-git:0.159.2"
+GIT_IMAGE = IMAGE
 
 
-GIT_IMAGE_ID = "sha256:eceda79a349c46a8afd6fb271e92b979f872ca67cbdf228fde6dee0856481e78"
+GIT_IMAGE_ID = IMAGE_ID
 
 
 CLI_VERSION = "codex-cli 0.159.2"

@@ -1,9 +1,10 @@
 """Typed SDK policy projections for the existing disposable Git experiment."""
 
 from pathlib import Path
+import json
 
 from experiments.exp139.settings import PROFILE_OVERRIDES
-from laomedo.agents.providers.codex.native.models import CodexLaunch
+from laomedo.agents.providers.codex.controller.models import CodexLaunch
 from laomedo.agents.runtime.errors import RunnerError
 from pydantic import SecretStr
 
@@ -36,11 +37,11 @@ class GitMetadataLaunch(CodexLaunch):
             Unchanged mounts and sandbox, with approved native command arguments.
         """
         spec = super().to_container_spec()
-        command = list(spec.command)
-        if command[-2:] != ["app-server", "--stdio"]:
+        if spec.command[-2:] != ["node", "/opt/acp/index.mjs"]:
             raise RunnerError("experiment_app_server_invocation_changed")
-        command[-2:-2] = PROFILE_OVERRIDES
-        return spec.model_copy(update={"command": command})
+        environment = dict(spec.environment)
+        environment["LAOMEDO_CODEX_ARGS"] = SecretStr(json.dumps(PROFILE_OVERRIDES))
+        return spec.model_copy(update={"environment": environment})
 
 
 class MailboxLaunch(GitMetadataLaunch):
@@ -88,7 +89,7 @@ class MailboxLaunch(GitMetadataLaunch):
             "test -f /draft/.git/laomedo-mediation/ready && break; "
             'kill -0 "$relay" 2>/dev/null || exit 2; sleep 0.05; done; '
             "test -f /draft/.git/laomedo-mediation/ready || exit 2; "
-            'exec codex "$@"'
+            'exec "$@"'
         )
         return spec.model_copy(
             update={"mounts": mounts, "environment": environment, "command": command}

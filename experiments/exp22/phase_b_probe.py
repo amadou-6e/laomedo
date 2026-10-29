@@ -13,7 +13,7 @@ import threading
 import time
 from uuid import uuid4
 
-from laomedo.agents.providers.codex.native.server import AppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
+from laomedo.agents.providers.codex.controller.service import CodexController as AppServer; from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.skills.registry.store import SkillStore
 

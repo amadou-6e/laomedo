@@ -6,6 +6,7 @@ from pathlib import Path
 import hashlib
 import hmac
 import json
+import re
 import laomedo.agents.providers.opencode.settings as _opencode_settings
 import laomedo.agents.runtime.errors as _runtime_errors
 import secrets
@@ -61,70 +62,28 @@ def _credential_binding(profile):
     return hmac.new(binding_key, fingerprint.encode(), hashlib.sha256).hexdigest()
 
 
-def normalize_message(message, skills):
-    """Require terminal assistant metadata; normalize observed native tool results."""
-    info = message.get("info") or {}
-    if info.get("role") != "assistant" or not info.get("time", {}).get("completed"):
-        raise _runtime_errors.RunnerError("opencode_response_not_terminal")
-    if info.get("error"):
-        raise _runtime_errors.RunnerError("opencode_provider_error")
-    answer, tools = [], []
-    for part in message.get("parts", []):
-        if part.get("type") == "text":
-            answer.append(part.get("text", ""))
-        elif part.get("type") == "tool":
-            state = part.get("state") or {}
-            tools.append(
-                {
-                    "call_id": part.get("callID"),
-                    "tool": part.get("tool"),
-                    "status": state.get("status"),
-                    "input": state.get("input"),
-                    "output": state.get("output"),
-                    "error": state.get("error"),
-                }
-            )
-            if state.get("status") in {"pending", "running"}:
-                raise _runtime_errors.RunnerError("opencode_outstanding_tool")
-            if part.get("tool") == "skill" and state.get("status") == "completed":
-                tool_input = state.get("input")
-                if not isinstance(tool_input, dict):
-                    tool_input = {}
-                for skill in skills:
-                    if tool_input.get("name") == skill["skill_id"]:
-                        skill["use_evidence"] = "native_skill_tool_completed"
-    if not any(answer):
-        raise _runtime_errors.RunnerError("completed_without_agent_message")
-    return {
-        "answer": "\n".join(answer),
-        "native_turn_id": info.get("id"),
-        "usage": info.get("tokens") if isinstance(info.get("tokens"), dict) else None,
-        "tools": tools,
-    }
-
-
-def turn_parts(message, steps):
-    """Keep the latest state of each native tool call, including final-message parts."""
-    info = message.get("info") or {}
-    parts = []
-    if isinstance(steps, list) and info.get("parentID"):
-        for step in steps:
-            step_info = step.get("info") or {}
-            if (
-                step_info.get("role") == "assistant"
-                and step_info.get("parentID") == info["parentID"]
+def model_metadata(text):
+    """Parse native models --verbose records; reject incomplete or conflicting IDs."""
+    decoder = json.JSONDecoder()
+    models = []
+    remaining = text.strip()
+    try:
+        while remaining:
+            identity, separator, remaining = remaining.partition("\n")
+            if not separator or not re.fullmatch(
+                r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.:-]+", identity
             ):
-                parts.extend(
-                    part for part in step.get("parts", []) if part.get("type") == "tool"
-                )
-    parts.extend(message.get("parts", []))
-    merged, positions = [], {}
-    for part in parts:
-        call_id = part.get("callID") if part.get("type") == "tool" else None
-        if call_id and call_id in positions:
-            merged[positions[call_id]] = part
-        else:
-            if call_id:
-                positions[call_id] = len(merged)
-            merged.append(part)
-    return merged
+                raise ValueError()
+            remaining = remaining.lstrip()
+            metadata, size = decoder.raw_decode(remaining)
+            if metadata.get("providerID") + "/" + metadata.get("id") != identity:
+                raise ValueError()
+            models.append(
+                {"id": identity, "efforts": ["default"], "metadata": metadata}
+            )
+            remaining = remaining[size:].strip()
+    except (ValueError, TypeError, AttributeError):
+        raise _runtime_errors.RunnerError("opencode_model_not_connected") from None
+    if not models or len({model["id"] for model in models}) != len(models):
+        raise _runtime_errors.RunnerError("opencode_model_not_connected")
+    return models

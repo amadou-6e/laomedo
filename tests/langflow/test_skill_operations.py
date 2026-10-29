@@ -7,9 +7,11 @@ import unittest
 from unittest.mock import patch
 from lfx.graph.graph.base import Graph
 from lfx.schema import Data
-import test_skill_operations as controls
 
 ROOT = Path(__file__).resolve().parents[2]
+control_spec = importlib.util.spec_from_file_location('skill_operation_controls', ROOT/'tests/test_skill_operations.py')
+controls = importlib.util.module_from_spec(control_spec)
+control_spec.loader.exec_module(controls)
 spec = importlib.util.spec_from_file_location('skill_ops_graph_builder', ROOT/'examples/skill-operations/build_flow.py')
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)

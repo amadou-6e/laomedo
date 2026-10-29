@@ -23,6 +23,8 @@ activity. Domain operations remain with the Skills and GitHub features.
 
 ## Providers and evidence
 
+- [Connect Codex to ChatGPT](providers/codex/connection.md): app-owned browser
+  sign-in, private host storage and the split-runner boundary.
 - [OpenCode activity](providers/opencode/activity.md): capture and reconciliation.
 - [Codex activity parity validation](providers/codex/activity-parity-validation.md):
   historical evidence with a named revision and bounded acceptance scope.

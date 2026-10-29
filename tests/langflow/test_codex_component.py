@@ -498,23 +498,19 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         flow = json.loads((root / "examples/native-codex-node/flow.json").read_text())
         agent = next(node for node in flow["data"]["nodes"]
                      if node["data"]["type"] == "LaomedoCodexAgent")
-        code = agent["data"]["node"]["template"]["code"]["value"]
-        source = '            return endpoint, payload, "POST"'
-        probe = ('            payload["langflow_probe"] = {"run_id": self.graph.run_id, '
-                 '"flow_id": self.graph.flow_id, "stage_id": self._vertex.id}\n'
-                 + source)
-        self.assertEqual(code.count(source), 1)
-        prefix, separator, suffix = code.rpartition(source)
-        self.assertTrue(separator)
-        agent["data"]["node"]["template"]["code"]["value"] = prefix + probe + suffix
         observed = []
+        original = shared_module.AgentComponent._fresh_route
+
+        def probe_route(component, endpoint, payload, client_request_id):
+            observed.append((component.graph.run_id, component.graph.flow_id,
+                             component._vertex.id))
+            return original(component, endpoint, payload, client_request_id)
 
         def respond(req, **_kwargs):
             payload = json.loads(req.data)
-            probe = payload["langflow_probe"]
-            observed.append((probe["run_id"], probe["flow_id"], probe["stage_id"]))
             return Response(json.dumps(result(client_request_id=payload["request_id"])).encode())
-        with patch.object(shared_module.request, "urlopen", side_effect=respond):
+        with patch.object(shared_module.request, "urlopen", side_effect=respond), \
+                patch.object(shared_module.AgentComponent, "_fresh_route", probe_route):
             for _ in range(2):
                 await Graph.from_payload(flow).arun(
                     inputs=[{"input_value": "Read fixture"}], types=["chat"])

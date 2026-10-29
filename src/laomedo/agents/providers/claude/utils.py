@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from uuid import UUID
-import hashlib
 import json
 import laomedo.agents.providers.claude.catalog as _claude_catalog
 import laomedo.agents.providers.claude.settings as _claude_settings
@@ -56,77 +54,13 @@ def activity_usage(result):
     return normalized
 
 
-def command(
-    executable, model, effort, thread, *, resume=False, output_only=False, skill_ids=()
-):
-    UUID(thread)
-    # The networked controller owns the subscription profile. Never expose its
-    # filesystem through model-callable native tools. All file/command work
-    # uses the credential-free worker, regardless of CLI path-policy behavior.
-    tools = "Skill" if skill_ids and not output_only else ""
-    allowed = "mcp__laomedo__exec_command,mcp__laomedo__github_operation"
-    allowed += "".join(",Skill(laomedo-pinned:" + name + ")" for name in skill_ids)
-    return [
-        "claude",
-        "--print",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--include-partial-messages",
-        "--model",
-        model,
-        *(["--effort", effort] if effort != "default" else []),
-        "--restricted",
-        "--tools",
-        tools,
-        "--setting-sources",
-        "",
-        "--settings",
-        '{"disableAllHooks":true,"enabledPlugins":{},"autoMemoryEnabled":false}',
-        "--strict-mcp-config",
-        "--mcp-config",
-        json.dumps(
-            {
-                "mcpServers": (
-                    {}
-                    if output_only
-                    else {
-                        "laomedo": {
-                            "command": "python3",
-                            "args": ["/opt/laomedo/command_mcp.py"],
-                        }
-                    }
-                )
-            }
-        ),
-        "--allowedTools",
-        allowed,
-        "--disallowedTools",
-        "Read,Glob,Grep,Edit,Write,Bash,Agent,Task,WebFetch,WebSearch,NotebookEdit",
-        "--permission-mode",
-        "dontAsk",
-        "--permission-prompts",
-        "none",
-        *([] if output_only else ["--plugin-dir", "/run/laomedo/pinned-skills"]),
-        "--append-system-prompt",
-        _claude_settings.SYSTEM,
-        "--resume" if resume else "--session-id",
-        thread,
-    ]
-
-
 def configuration_hash(model, effort, skills):
-    frozen = command(
-        None,
-        model,
-        effort,
-        "00000000-0000-0000-0000-000000000000",
-        skill_ids=tuple(item["skill_id"] for item in skills),
-    )
-    return (
-        "sha256:"
-        + hashlib.sha256(json.dumps(frozen, separators=(",", ":")).encode()).hexdigest()
-    )
+    """Fingerprint the same canonical ACP options that execution will apply."""
+    from laomedo.agents.providers.claude.models import ClaudePolicy
+
+    return ClaudePolicy(
+        model=model, effort=effort, skill_ids=tuple(item["skill_id"] for item in skills)
+    ).fingerprint()
 
 
 def terminal_result(text, thread):

@@ -16,6 +16,35 @@ from laomedo.activity.runner.feed import notification; from laomedo.activity.run
 
 
 class GraphActivityTests(unittest.TestCase):
+    def test_opencode_acp_completeness_is_authoritative_with_legacy_fallback(self):
+        from laomedo.activity.agent_activity.capture import RunnerCapture
+        cases = [({"capture_complete": True}, "complete", None),
+                 ({"native_stream_complete": True}, "complete", None),
+                 ({"capture_complete": False, "native_stream_complete": True}, "partial", "native_message_snapshot_only"),
+                 ({"capture_complete": True, "capture_error": "opencode_native_snapshot_unavailable"}, "partial", "opencode_native_snapshot_unavailable"),
+                 ({}, "partial", "native_message_snapshot_only")]
+        for fields, state, reason in cases:
+            with self.subTest(fields=fields), tempfile.TemporaryDirectory() as directory:
+                store = ActivityStore(Path(directory)/'activity.db')
+                invocation = store.start(CaptureIdentity.from_values('alice', 'flow', 'agent'))
+                capture = RunnerCapture.__new__(RunnerCapture)
+                capture.capture = ActivityInvocation(store=store, invocation_id=invocation)
+                capture.timeout = 1; capture.accepted = False
+                capture.attempt_id = '11111111-1111-4111-8111-111111111111'
+                capture.component = SimpleNamespace(name='LaomedoOpenCodeAgent')
+                capture.refused = threading.Event(); capture.done = threading.Event(); capture.outcome = None
+                capture.feed = lambda *args: {'accepted':True,'attempt':{
+                    'native_start':0,'native_end':0,'otel_start':0,'otel_end':0,
+                    'usage_baseline':{},'fresh_thread':True,'status':'completed',
+                    'ended_at':'2026-10-29T12:00:00Z', **fields},
+                    'events':[],'next_after':0,'telemetry':{'events':[],'next_after':0},
+                    'thread_id':'native-session','model':'native-model'}
+                capture.observe('runner')
+                page = store.read('alice', 'flow', 'agent', invocation)
+                self.assertEqual(page['run']['status'], 'completed')
+                self.assertEqual(page['run']['stream_state'], state)
+                self.assertEqual(page['run']['reason'], reason)
+
     def test_native_turn_usage_uses_cumulative_boundary_deltas_and_ignores_last(self):
         def receipt(raw):return {'received_at':'2026-10-24T18:00:00Z','raw':raw}
         events=[{'method':'capture/usageBaseline','threads':{'root':{'total':{'inputTokens':100,'cachedInputTokens':20,'outputTokens':10}}}},

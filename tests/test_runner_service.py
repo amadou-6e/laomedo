@@ -19,6 +19,22 @@ except ImportError:
 
 
 class RunnerServiceTests(unittest.TestCase):
+    def test_managed_codex_and_claude_keep_the_supervisor_and_current_image(self):
+        from laomedo.agents.providers.claude.settings import IMAGE
+        for provider in ("codex", "claude"):
+            with self.subTest(provider=provider):
+                config = {key: self.config[key] for key in ("state", "skill_store", "source", "port")}
+                config.update(provider=provider, lease_service=str(self.root / "independent-supervisor"))
+                self.path.write_text(json.dumps(config))
+                service = RunnerService(self.path)
+                with patch.object(service.opener, "open", side_effect=URLError("offline")), patch("laomedo.host.runner.service.subprocess.Popen", return_value=Mock(poll=lambda: None)) as spawn:
+                    self.assertEqual(service.start(self.url)["state"], "starting")
+                command = spawn.call_args.args[0]
+                self.assertEqual(command.count("--lease-service"), 1)
+                self.assertEqual(command[command.index("--lease-service") + 1], config["lease_service"])
+                if provider == "claude":
+                    self.assertEqual(command[command.index("--image") + 1], IMAGE)
+
     def test_normal_defaults_ignore_historical_exhaustion_without_dispatch(self):
         """The managed command's ordinary defaults must not install a zero-turn gate."""
         state = self.root / 'normal-state'

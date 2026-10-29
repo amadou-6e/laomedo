@@ -26,7 +26,7 @@ def node(path, identifier, values, x, y):
     template, _ = build_custom_component_template(Component(_code=code))
     component_type = next(item.name for item in ast.parse(code).body
                           if isinstance(item, ast.ClassDef) and any(
-                              isinstance(base, ast.Name) and base.id == "Component" for base in item.bases))
+                              isinstance(base, ast.Name) and base.id in {"Component", "AgentComponent"} for base in item.bases))
     for name, value in values.items():
         template["template"][name]["value"] = value
     return {"id": identifier, "type": "genericNode", "position": {"x": x, "y": y},

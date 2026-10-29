@@ -5,42 +5,39 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.native.models import CodexLaunch
+from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.providers.codex.controller.models import CodexLaunch
 
 
 @unittest.skipUnless(__import__("importlib.util").util.find_spec("py_docker"), "Requires optional Docker runtime")
 class RunnerSandboxPolicyTests(unittest.TestCase):
     def test_split_controller_token_is_not_a_control_environment(self):
-        from laomedo.agents.providers.codex.split.server import SplitAppServer
-        from laomedo.agents.providers.codex.settings import IMAGE_ID
-        with tempfile.TemporaryDirectory() as temp, patch("py_docker.Client") as client, patch(
-                "laomedo.agents.providers.codex.native.server.AppServer.__init__",side_effect=OSError("launch unavailable")) as launch:
-            root=Path(temp); selected={"DOCKER_HOST":"unix:///selected.sock"}
-            client.return_value.images.resolve.return_value=IMAGE_ID
-            client.return_value.sessions.open.return_value.identity.id="a"*64
-            client.return_value.sessions.open.return_value.read_frame.return_value=None
-            with self.assertRaises(OSError):
-                SplitAppServer(root,root,root,root,"profile",access_token="internal-test-token",docker_environment=selected)
-            policy=launch.call_args.args[0]
-            self.assertEqual(policy.to_container_spec().environment["ACCESS_TOKEN"].get_secret_value(),"internal-test-token")
-            self.assertNotIn("ACCESS_TOKEN",client.call_args.kwargs["environment"])
-            executor=client.return_value.sessions.open.call_args.args[0]
-            self.assertNotIn("ACCESS_TOKEN",executor.spec.environment)
-            client.return_value.sessions.open.return_value.close.assert_called_once()
+        from laomedo.agents.providers.codex.split.models import SplitLaunch
+        from laomedo.agents.providers.codex.controller.models import SplitPolicy
+        from laomedo.agents.providers.codex.controller.service import CodexController
+        from unittest.mock import Mock
+        root = Path("/test")
+        executor = Mock()
+        executor.session.identity.id = "a" * 64
+        launch = CodexLaunch(workspace=root, canonical=root, store_mount=root, image="sha256:" + "b" * 64)
+        with tempfile.TemporaryDirectory() as temp, patch("py_docker.Client") as client, patch("laomedo.agents.providers.codex.split.executor.Executor", return_value=executor):
+            controller = CodexController(launch, Path(temp), env={"DOCKER_HOST": "unix:///selected.sock"}, split=SplitPolicy(access_token="private-test-token"))
+            spec = client.return_value.sessions.open.call_args.args[0].spec
+            self.assertEqual(spec.environment["ACCESS_TOKEN"].get_secret_value(), "private-test-token")
+            self.assertNotIn("ACCESS_TOKEN", client.call_args.kwargs["environment"])
+            self.assertNotIn("private-test-token", spec.environment["LAOMEDO_CODEX_ARGS"].get_secret_value())
+            controller._close_resources()
+            executor.close.assert_called_once_with()
 
     def test_split_permission_checks_use_selected_endpoint(self):
+        from unittest.mock import AsyncMock
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp); source=Path(__file__).resolve().parents[1] / "examples/github-pr"
-            runner=LocalRunner(root / "state",root / "skills",source,split_executor=True,check_docker=False)
-            server=MagicMock(); server.request.return_value={"result":{}}
-            server.exec_probe.return_value.exit_code=1
-            with patch.object(runner,"_open_server",return_value=server), patch(
-                    "laomedo.agents.providers.codex.utils._advertised_models",return_value=[]):
-                with self.assertRaisesRegex(RunnerError,"permission_preflight_failed"):
+            root = Path(temp)
+            runner = LocalRunner(root / "state", root / "skills", Path(__file__).resolve().parents[1] / "examples/github-pr", split_executor=True, check_docker=False)
+            server = MagicMock(initialize=AsyncMock(), models=AsyncMock(return_value=[]), preflight=AsyncMock(return_value=1), close=AsyncMock())
+            with patch.object(runner, "_open_server", return_value=server):
+                with self.assertRaisesRegex(RunnerError, "permission_preflight_failed"):
                     runner.preflight()
-            self.assertEqual(server.exec_probe.call_count,4)
-            for call in server.exec_probe.call_args_list:
-                self.assertEqual(call.args[0][:2],["sh","-c"])
+            self.assertEqual(server.preflight.await_count, 4)
 
     def test_split_profile_failure_cleanup_keeps_endpoint(self):
         from docker.errors import NotFound
@@ -72,12 +69,12 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
                         client.return_value.__enter__.return_value.volumes.exists.assert_called_once()
 
     def test_split_control_calls_keep_the_selected_endpoint(self):
-        from laomedo.agents.providers.codex.split.server import SplitAppServer
-        server=SplitAppServer.__new__(SplitAppServer); server._executor_client=MagicMock()
-        server._executor_client.execution.run.return_value.exit_code=0
-        server._executor_client.execution.run.return_value.stdout=b"verified"
+        from laomedo.agents.providers.codex.split.executor import Executor
+        server=Executor.__new__(Executor); server.client=MagicMock()
+        server.client.execution.run.return_value.exit_code=0
+        server.client.execution.run.return_value.stdout=b"verified"
         self.assertEqual(server._exec("owned",["codex","--version"]),"verified")
-        self.assertEqual(server._executor_client.execution.run.call_args.args[:2],("owned",["codex","--version"]))
+        self.assertEqual(server.client.execution.run.call_args.args[:2],("owned",["codex","--version"]))
 
     def test_retired_cli_version_probe_cannot_return(self):
         """One implementation owns Codex startup image/version validation."""

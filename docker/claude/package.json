@@ -1,0 +1,8 @@
+{
+  "name": "laomedo-claude-acp-runtime",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.98.0"
+  }
+}

@@ -3,17 +3,17 @@
 from __future__ import annotations
 import laomedo.agents.providers.codex.settings as _codex_settings
 import laomedo.agents.providers.codex.utils as _codex_utils
-import laomedo.agents.providers.codex.native.settings as _native_settings
+import laomedo.agents.providers.codex.controller.settings as _native_settings
 
 from pathlib import Path
 from uuid import uuid4
 import hashlib
+import asyncio
 import logging
 import json
 import laomedo.agents.contracts.output as _contracts_output
 import laomedo.agents.runtime.errors as _runtime_errors
-import laomedo.agents.providers.codex.native.server as _runtime_servers
-import laomedo.agents.providers.codex.split.server as _split_servers
+import laomedo.agents.providers.codex.controller.service as _runtime_servers
 import laomedo.agents.runtime.utils as _runtime_utils
 import laomedo.host.credentials.siwc.connection as _siwc_connection
 import laomedo.host.credentials.siwc.errors as _siwc_errors
@@ -42,7 +42,7 @@ class CodexRunner(Runner):
         skill_store: Path,
         source_workspace: Path,
         *,
-        transport=_runtime_servers.AppServer,
+        transport=_runtime_servers.CodexController,
         check_docker: bool = True,
         supervise_containers: bool | None = None,
         lease_service: Path | None = None,
@@ -76,7 +76,7 @@ class CodexRunner(Runner):
             # Trusted host startup configuration, never a per-run API input.
             self.image_id = image_id
         self.supervise_containers = (
-            transport is _runtime_servers.AppServer and not split_executor
+            transport is _runtime_servers.CodexController and not split_executor
             if supervise_containers is None
             else supervise_containers
         )
@@ -125,7 +125,7 @@ class CodexRunner(Runner):
             if split_executor
             else _codex_settings.VOLUME
         )
-        if split_executor and transport is not _runtime_servers.AppServer:
+        if split_executor and transport is not _runtime_servers.CodexController:
             raise _runtime_errors.RunnerError(
                 "split_executor_requires_native_transport"
             )
@@ -283,11 +283,23 @@ class CodexRunner(Runner):
 
     def runtime_binding(self):
         return _runtime_models.RuntimeBinding(
-            provider=self.provider, profile=self.profile, image=self.image, image_id=self.image_id,
-            execution_mode="split" if self.split_executor else "legacy",
-            cli_version=_codex_settings.CLI_VERSION, config_sha256=_codex_settings.CONFIG_SHA256,
-            credential=(_runtime_models.CredentialBinding(credential_mode="chatgpt_plan_oauth", credential_ref=None,
-                         auth_outcome="not_checked") if self.auth else None))
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
+            execution_mode="codex_acp_split" if self.split_executor else "codex_acp",
+            cli_version=_codex_settings.CLI_VERSION,
+            config_sha256=_codex_settings.CONFIG_SHA256,
+            credential=(
+                _runtime_models.CredentialBinding(
+                    credential_mode="chatgpt_plan_oauth",
+                    credential_ref=None,
+                    auth_outcome="not_checked",
+                )
+                if self.auth
+                else None
+            ),
+        )
 
     @property
     def supports_mediated_github(self):
@@ -333,23 +345,6 @@ class CodexRunner(Runner):
         workspace, canonical, store_mount = (
             root / name for name in ("workspace", "canonical", "store")
         )
-        if self.split_executor:
-            return _split_servers.SplitAppServer(
-                workspace,
-                canonical,
-                store_mount,
-                root,
-                self.profile,
-                provider_config=self.split_provider_config,
-                docker_environment=self.docker_environment,
-                lifetime_seconds=lifetime_seconds,
-                receipt_path=self._receipt_path(root),
-                access_token=(
-                    access_token
-                    if access_token is not None
-                    else self.split_access_token
-                ),
-            )
         command_directory = None
         if capability is not None and self.git_workspace:
             import laomedo.host.mediation.agent_cli as _mediation_agent_cli
@@ -362,7 +357,7 @@ class CodexRunner(Runner):
             # The checkout was prepared without a provider remote. This is a
             # credential-free helper URL, not an HTTPS fallback.
             _mediation_agent_cli.configure_remote(workspace, repository)
-        from laomedo.agents.providers.codex.native.models import CodexLaunch
+        from laomedo.agents.providers.codex.controller.models import CodexLaunch
 
         values = dict(workspace=workspace, canonical=canonical, store_mount=store_mount,
                       image=self.image_id, profile=self.profile, run_id=run_id, launch_token=launch_token,
@@ -372,16 +367,35 @@ class CodexRunner(Runner):
         if name is not None:
             values["name"] = name
         launch = CodexLaunch(**values)
-        from laomedo.agents.providers.codex.native.base import BaseNativeServer
-        if isinstance(self.transport, type) and issubclass(self.transport, BaseNativeServer):
-            return self.transport(launch, root,
-                env=getattr(self, "docker_environment", None),
+        from laomedo.agents.providers.codex.controller.models import SplitPolicy
+
+        if isinstance(self.transport, type) and issubclass(
+            self.transport, _runtime_servers.CodexController
+        ):
+            split = (
+                SplitPolicy(
+                    provider_config=self.split_provider_config,
+                    access_token=access_token
+                    if access_token is not None
+                    else self.split_access_token,
+                )
+                if self.split_executor
+                else None
+            )
+            return self.transport(
+                launch,
+                root,
+                env=self.docker_environment,
                 lifetime_seconds=lifetime_seconds,
                 receipt_path=self._receipt_path(root),
-                secret_redactions=((capability.read_text(encoding="utf-8").strip(),)
-                                   if capability is not None else ()))
+                split=split,
+                secret_redactions=(
+                    (capability.read_text(encoding="utf-8").strip(),)
+                    if capability is not None
+                    else ()
+                ),
+            )
         return self.transport(launch, root)
-
 
     def model_catalog(self) -> dict:
         """Serialize and briefly cache metadata discovery; never submit a turn."""
@@ -394,49 +408,37 @@ class CodexRunner(Runner):
             cached = self._catalog_cached
             if cached and time.monotonic() - cached[0] < 30:
                 return cached[1]
-            root = self.state / "catalog" / str(uuid4())
-            server = None
-            try:
-                for name in ("workspace", "canonical", "store"):
-                    (root / name).mkdir(parents=True)
-                # Deliberately use runner authentication when configured: metadata
-                # may be account-specific. No thread or turn is requested.
-                token = self.auth.access_token()[0] if self.auth else None
-                server = self._open_server(root, access_token=token,
-                    lifetime_seconds=60 + _native_settings.Settings.load().startup_margin)
-                initialized = server.request(
-                    "initialize",
-                    {
-                        "clientInfo": {
-                            "name": "laomedo_model_catalog",
-                            "version": "0.1.0",
-                        },
-                        **(
-                            {"capabilities": {"experimentalApi": True}}
-                            if self.split_executor
-                            else {}
-                        ),
-                    },
-                )
-                if "result" not in initialized:
-                    raise _runtime_errors.RunnerError("initialize_rejected")
-                server.notify("initialized", {})
-                result = {
-                    "models": _codex_utils._advertised_models(server),
-                    "submitted_turns": 0,
-                }
-                self._catalog_cached = (time.monotonic(), result)
-                return result
-            finally:
-                try:
-                    if server is not None:
-                        server.close()
-                finally:
-                    if not self._pending_receipts(root):
-                        shutil.rmtree(root, ignore_errors=True)
+            result = asyncio.run(self._model_catalog())
+            self._catalog_cached = (time.monotonic(), result)
+            return result
 
+    async def _model_catalog(self):
+        root = self.state / "catalog" / str(uuid4())
+        server = None
+        try:
+            for name in ("workspace", "canonical", "store"):
+                (root / name).mkdir(parents=True)
+            token = self.auth.access_token()[0] if self.auth else None
+            server = self._open_server(
+                root,
+                access_token=token,
+                lifetime_seconds=60 + _native_settings.Settings.load().startup_margin,
+            )
+            await server.initialize()
+            return {"models": await server.models(), "submitted_turns": 0}
+        finally:
+            try:
+                if server is not None:
+                    await server.close()
+            finally:
+                if not self._pending_receipts(root):
+                    shutil.rmtree(root, ignore_errors=True)
 
     def preflight(self) -> dict:
+        """Run provider handshake and policy probes without a model request."""
+        return asyncio.run(self._preflight())
+
+    async def _preflight(self) -> dict:
         """Launch native handshake, model and permission probes without a model turn.
 
         This active check starts a controller and uses a disposable workspace.
@@ -456,67 +458,18 @@ class CodexRunner(Runner):
             token = self.auth.access_token()[0] if self.auth else None
             server = self._open_server(root, access_token=token,
                 lifetime_seconds=160 + _native_settings.Settings.load().startup_margin)
-            initialized = server.request(
-                "initialize",
-                {
-                    "clientInfo": {
-                        "name": "laomedo_local_runner",
-                        "title": "Laomedo Local Runner",
-                        "version": "0.1.0",
-                    },
-                    **(
-                        {"capabilities": {"experimentalApi": True}}
-                        if self.split_executor
-                        else {}
-                    ),
-                },
-            )
-            if "result" not in initialized:
-                raise _runtime_errors.RunnerError("initialize_rejected")
-            server.notify("initialized", {})
-            if self.split_executor:
-                server.register_executor()
-            models = _codex_utils._advertised_models(server)
+            await server.initialize()
+            models = await server.models()
             checks = {}
-            if self.split_executor:
-                # Direct checks against the tool executor. Calling command/exec
-                # on app-server would execute inside the credential controller.
-                for label, command in (
-                    ("workspace_write", "printf CANARY > /draft/canary.txt"),
-                    ("canonical_write", "printf FORBIDDEN > /canonical/sentinel.txt"),
-                    ("store_write", "printf FORBIDDEN > /store/sentinel.txt"),
-                    ("auth_read", "cat /home/runner/.codex/auth.json >/dev/null"),
-                ):
-                    response = server.exec_probe(["sh", "-c", command])
-                    checks[label] = response.exit_code
-            else:
-                for label, command in (
-                    ("workspace_write", "printf CANARY > /draft/canary.txt"),
-                    ("canonical_write", "printf FORBIDDEN > /canonical/sentinel.txt"),
-                    ("store_write", "printf FORBIDDEN > /store/sentinel.txt"),
-                    ("auth_read", "cat /home/runner/.codex/auth.json >/dev/null"),
-                ):
-                    response = server.request(
-                        "command/exec",
-                        {
-                            "command": ["sh", "-c", command],
-                            "cwd": "/draft",
-                            "timeoutMs": 15000,
-                        },
-                        timeout=25,
-                    )
-                    checks[label] = (response.get("result") or {}).get("exitCode")
+            for label in (
+                "workspace_write",
+                "canonical_write",
+                "store_write",
+                "auth_read",
+            ):
+                checks[label] = await server.preflight(label)
             if self.git_workspace:
-                git_check = server.request(
-                    "command/exec",
-                    {
-                        "command": ["git", "--version"],
-                        "cwd": "/draft",
-                        "timeoutMs": 15000,
-                    },
-                    timeout=25,
-                )
-                checks["git_binary"] = (git_check.get("result") or {}).get("exitCode")
+                checks["git_binary"] = await server.preflight("git_binary")
                 if checks["git_binary"] != 0:
                     raise _runtime_errors.RunnerError("git_image_missing_git")
             if not (
@@ -544,8 +497,7 @@ class CodexRunner(Runner):
             }
         finally:
             if server is not None:
-                server.close()
-
+                await server.close()
 
     def resume(
         self,
@@ -577,7 +529,7 @@ class CodexRunner(Runner):
             or record.get("workspace_mode", "files")
             != ("git" if self.git_workspace else "files")
             or record.get("execution_mode", "legacy")
-            != ("split" if self.split_executor else "legacy")
+            != ("codex_acp_split" if self.split_executor else "codex_acp")
             or record["image"] != self.image
             or record["image_id"] != self.image_id
             or record["cli_version"] != _codex_settings.CLI_VERSION
@@ -627,8 +579,21 @@ class CodexRunner(Runner):
             run_id, task, resume=True, activity_attempt_id=activity_attempt_id
         )
 
-
     def _execute(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        resume: bool,
+        activity_attempt_id: str | None = None,
+    ) -> dict:
+        return asyncio.run(
+            self._execute_acp(
+                run_id, task, resume=resume, activity_attempt_id=activity_attempt_id
+            )
+        )
+
+    async def _execute_acp(
         self,
         run_id: str,
         task: str,
@@ -791,27 +756,8 @@ class CodexRunner(Runner):
             # Keep the pre-launch name/launch-token/grant ownership binding;
             # lifecycle diagnostics must not replace it with a name-only map.
             _runtime_utils._json(run_dir / "record.json", record)
-            initialized = server.request(
-                "initialize",
-                {
-                    "clientInfo": {
-                        "name": "laomedo_local_runner",
-                        "title": "Laomedo Local Runner",
-                        "version": "0.1.0",
-                    },
-                    **(
-                        {"capabilities": {"experimentalApi": True}}
-                        if self.split_executor or record.get("output_requirements")
-                        else {}
-                    ),
-                },
-            )
-            if "result" not in initialized:
-                raise _runtime_errors.RunnerError("initialize_rejected")
-            server.notify("initialized", {})
-            if self.split_executor:
-                server.register_executor()
-            entries = _codex_utils._advertised_models(server)
+            await server.initialize()
+            entries = await server.models()
             choice = next(
                 (x for x in entries if x["id"] == record["requested_model"]), None
             )
@@ -826,40 +772,14 @@ class CodexRunner(Runner):
                 )
                 return record
             self._turn_available()
-            method = "thread/resume" if resume else "thread/start"
-            params = (
-                {"threadId": record["thread_id"], "cwd": "/draft"}
-                if resume
-                else {
-                    "model": record["requested_model"],
-                    "cwd": "/draft",
-                    "approvalPolicy": "never",
-                }
-            )
-            if record.get("output_requirements"):
-                server.output_requirements = _contracts_output.verify_requirements(
-                    record["output_requirements"]
-                )
-                if not resume:
-                    params["dynamicTools"] = [
-                        _contracts_output.dynamic_tool(server.output_requirements)
-                    ]
-            if self.split_executor:
-                params["environments"] = server.thread_environment()
-                server.assert_executor_selection(params["environments"])
-            response = server.request(method, params)
-            result = response.get("result") or {}
-            thread = result.get("thread") or {}
-            native_id = thread.get("id")
-            if not native_id or (resume and native_id != record["thread_id"]):
-                raise _runtime_errors.RunnerError("thread_identity_mismatch")
+            native_id = await server.open(record, resume=resume)
             record["thread_id"] = native_id
-            server.active_thread_id = native_id
-            record["precheck"]["installed"] = "dynamicTools" in params
-            record["effective_model"] = thread.get("model") or result.get("model")
-            record["effective_effort"] = result.get("reasoningEffort") or thread.get(
-                "reasoningEffort"
-            )
+            record["precheck"]["installed"] = bool(record.get("output_requirements"))
+            record["effective_model"] = record["requested_model"]
+            record["effective_effort"] = record["requested_effort"]
+            # ACP echoes adapter configuration, not an independent native report.
+            record["effective_model_source"] = "host_requested_adapter_asserted"
+            record["effective_effort_source"] = "host_requested_adapter_asserted"
             _runtime_utils._json(run_dir / "record.json", record)
             if cancelled.is_set():
                 record.update(
@@ -908,28 +828,15 @@ class CodexRunner(Runner):
                         "last confirmed push; never force or fall back "
                         "to direct HTTPS."
                     )
-            turn_params = {
-                "threadId": native_id,
-                "model": record["requested_model"],
-                "effort": record["requested_effort"],
-                "cwd": "/draft",
-                "input": [{"type": "text", "text": task}],
-            }
+            turn_text = task
             if record.get("output_requirements"):
-                turn_params["input"][0]["text"] += (
+                turn_text += (
                     "\nReturn your final submission as a JSON object with explicit task_outcome "
                     "success or failure. Use laomedo_output_precheck on your form before "
                     "handoff and correct rejected fields within this request. Requirements: "
                     + json.dumps(record["output_requirements"], sort_keys=True)
                 )
-            if self.split_executor:
-                server.assert_controller_isolated()
-                turn_params["environments"] = server.turn_environment()
-                server.assert_executor_selection(turn_params["environments"])
-                turn_params["sandboxPolicy"] = {
-                    "type": "externalSandbox",
-                    "networkAccess": "restricted",
-                }
+            server.assert_controller_isolated()
             if self.auth:
                 auth_failure = {
                     "error": "auth_revoked_during_turn",
@@ -990,12 +897,13 @@ class CodexRunner(Runner):
                 if not still_authorized():
                     raise _siwc_errors.AuthError(auth_failure["code"])
             turn_event_offset = len(server.events)
-            sent = server.request("turn/start", turn_params)
-            turn_id = ((sent.get("result") or {}).get("turn") or {}).get("id")
-            if not turn_id:
-                raise _runtime_errors.RunnerError("turn_dispatch_rejected")
-            server.active_thread_id = native_id
-            status, error = server.wait_turn(turn_id, _codex_settings.NATIVE_TURN_SECONDS, cancelled)
+            native = await server.prompt(
+                turn_text,
+                skills=record["skills"],
+                seconds=_codex_settings.NATIVE_TURN_SECONDS,
+                cancelled=cancelled,
+            )
+            turn_id, status, error = native.turn_id, native.status, native.error
             # Correction is a continuation of this native thread, never a new
             # dispatch of the original task. Any mediated scope or tool effect
             # blocks automatic continuation because safe repetition is unknown.
@@ -1070,18 +978,17 @@ class CodexRunner(Runner):
                     "Use the existing output precheck. Validation feedback: "
                     + json.dumps(validation, sort_keys=True)
                 )
-                turn_params["input"] = [{"type": "text", "text": feedback}]
-                if self.split_executor:
-                    server.assert_controller_isolated()
-                    server.assert_executor_selection(turn_params["environments"])
+                server.assert_controller_isolated()
                 if self.auth and not still_authorized():
                     raise _siwc_errors.AuthError(auth_failure["code"])
                 turn_event_offset = len(server.events)
-                next_turn = server.request("turn/start", turn_params)
-                turn_id = ((next_turn.get("result") or {}).get("turn") or {}).get("id")
-                if not turn_id:
-                    raise _runtime_errors.RunnerError("turn_dispatch_rejected")
-                status, error = server.wait_turn(turn_id, _codex_settings.NATIVE_TURN_SECONDS, cancelled)
+                native = await server.prompt(
+                    feedback,
+                    skills=record["skills"],
+                    seconds=_codex_settings.NATIVE_TURN_SECONDS,
+                    cancelled=cancelled,
+                )
+                turn_id, status, error = native.turn_id, native.status, native.error
             native_status = status
             commands = _codex_utils._command_summary(server.events, turn_id)
             record["native_turn_status"] = native_status
@@ -1131,37 +1038,7 @@ class CodexRunner(Runner):
             )
             if status == "completed" and not record["answer"]:
                 raise _runtime_errors.RunnerError("completed_without_agent_message")
-            if status == "completed":
-                try:
-                    workspace_skills.verify(
-                        run_dir / "workspace",
-                        record["skills"],
-                        record.get("skill_git_exclusion", {"enabled": False}),
-                    )
-                except ValueError as exc:
-                    record["answer"] = None
-                    raise _runtime_errors.RunnerError(str(exc)) from None
-                post_hash = _runtime_utils._hash_tree(
-                    run_dir / "workspace", exclude_root_git=self.git_workspace
-                )
-                pending = run_dir / ("post-run-pending-" + uuid4().hex)
-                _runtime_utils._copy_tree(
-                    run_dir / "workspace", pending, exclude_root_git=self.git_workspace
-                )
-                old = run_dir / "post-run"
-                if old.exists():
-                    workspace_skills.remove_owned_tree(old, self.state)
-                pending.rename(old)
-                record["post_run_hash"] = post_hash
-                record["output_ref"] = f"laomedo:run:{run_id}:workspace"
-                record["snapshot_ready"] = True
-            if (
-                _runtime_utils._hash_tree(run_dir / "canonical")
-                != record["source_hash"]
-                or (run_dir / "store/sentinel.txt").read_text(encoding="utf-8")
-                != "STORE-ORIGINAL"
-            ):
-                raise _runtime_errors.RunnerError("protected_mount_changed")
+            self._verify_protected_mounts(run_dir, record)
             if lease is not None and lease.lost.is_set():
                 raise _runtime_errors.RunnerError("lease_service_lost")
         except Exception as exc:
@@ -1190,9 +1067,13 @@ class CodexRunner(Runner):
                         record["precheck"]["installed"] = record["precheck"][
                             "installed"
                         ] or bool(getattr(server, "verified_precheck_calls", set()))
-                    server.close()
+                    await server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
+                        if not self.supervise_containers and getattr(server, "cleanup_confirmed", False):
+                            record["container_ownership"].update(
+                                cleanup_verified=True, cleanup_detail="removed"
+                            )
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
             except Exception as close_failure:
@@ -1205,6 +1086,15 @@ class CodexRunner(Runner):
                                         else "container_termination_unverified"),
                     )
                     record["controller_cleanup"] = "unverified"
+            else:
+                if record is not None and record.get("status") == "completed":
+                    try:
+                        record["post_run_hash"] = self._freeze_workspace(run_dir, record)
+                        record["output_ref"] = f"laomedo:run:{run_id}:workspace"
+                        record["snapshot_ready"] = True
+                    except Exception as snapshot_failure:
+                        record.update(status="failed", answer=None,
+                            error_category=snapshot_failure.code if isinstance(snapshot_failure, _runtime_errors.RunnerError) else "workspace_copy_mismatch")
             finally:
                 try:
                     if (
@@ -1315,5 +1205,3 @@ class CodexRunner(Runner):
                 finally:
                     self.lock.release()
         return record
-
-
