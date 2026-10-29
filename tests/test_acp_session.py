@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import queue
 import threading
 import unittest
 from types import SimpleNamespace
@@ -250,6 +251,46 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
             },
         ]
         self.assertEqual(self.client._answer(), '{"result":true}')
+
+
+@unittest.skipIf(AcpSession is None, "Optional runner ACP dependency is not installed")
+class AcpOrderingTests(unittest.IsolatedAsyncioTestCase):
+    """Pin actual SDK notification ordering with an internal in-memory wire."""
+
+    async def test_raw_terminal_notification_is_captured_before_prompt_returns(self):
+        class Wire:
+            def __init__(self):
+                self.messages = queue.Queue()
+
+            def write(self, payload):
+                request = json.loads(payload)
+                method = request["method"]
+                if method == "initialize":
+                    result = {"protocolVersion": 1, "agentCapabilities": {"loadSession": True}}
+                elif method == "session/new":
+                    result = {"sessionId": "native-session"}
+                elif method == "session/prompt":
+                    self.messages.put(SimpleNamespace(channel="stdout", data=json.dumps({"method": "_laomedo/codexEvent", "params": {"method": "turn/completed", "params": {"threadId": "native-session", "turn": {"id": "actual-native-turn", "status": "completed"}}}}).encode()))
+                    result = {"stopReason": "end_turn"}
+                else:
+                    raise AssertionError(method)
+                self.messages.put(SimpleNamespace(channel="stdout", data=json.dumps({"id": request["id"], "result": result}).encode()))
+
+            def read_line(self):
+                return self.messages.get(timeout=5)
+
+            def close(self):
+                self.messages.put(None)
+
+        observed = []
+        client = AcpSession(Wire(), on_extension=lambda method, params: observed.append(params))
+        try:
+            await client.initialize()
+            await client.open()
+            await client.prompt("test prompt", cancelled=threading.Event(), seconds=1)
+            self.assertEqual(observed[0]["params"]["turn"]["id"], "actual-native-turn")
+        finally:
+            await client.close()
 
 
 @unittest.skipIf(AcpSession is None, "Optional runner ACP dependency is not installed")

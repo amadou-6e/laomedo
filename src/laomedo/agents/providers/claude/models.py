@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from laomedo.agents.providers.claude import settings
 
 
@@ -10,10 +10,16 @@ class ClaudePolicy(BaseModel):
     """Group native model selection, pinned skills and available tool scope."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
-    model: str
-    effort: str
-    skill_ids: tuple[str, ...] = ()
-    output_only: bool = False
+    model: str = Field(
+        description="Resolved native model selected from runtime metadata."
+    )
+    effort: str = Field(description="Requested supported effort, or native default.")
+    skill_ids: tuple[str, ...] = Field(
+        default=(), description="Exact pinned skill IDs available to this invocation."
+    )
+    output_only: bool = Field(
+        default=False, description="Correction scope with all execution tools disabled."
+    )
 
     def sdk_options(self):
         """Return exactly the policy passed through the Claude ACP adapter."""

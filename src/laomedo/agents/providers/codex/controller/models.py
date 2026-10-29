@@ -234,14 +234,28 @@ class SplitPolicy(BaseModel):
     """Host-only provider configuration for a credential-free tool executor."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
-    provider_config: tuple[str, ...] = ()
-    access_token: SecretStr | None = Field(default=None, repr=False, exclude=True)
+    provider_config: tuple[str, ...] = Field(
+        default=(), description="Trusted host native provider configuration overrides."
+    )
+    access_token: SecretStr | None = Field(
+        default=None,
+        repr=False,
+        exclude=True,
+        description="Private launch-only controller access credential.",
+    )
 
 
 class CodexTurn(BaseModel):
     """Native terminal identity retained across the common ACP lifecycle."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    turn_id: str
-    status: str
-    error: str | None = None
+    turn_id: str = Field(
+        description="Actual native turn identity from the raw event stream."
+    )
+    status: str = Field(
+        description="Observed terminal state or explicit uncertain outcome."
+    )
+    error: str | None = Field(
+        default=None,
+        description="Safe stable failure code when completion is not successful.",
+    )

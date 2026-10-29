@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from laomedo.activity.redaction.utils import sanitized
 from laomedo.agents.providers.opencode.history import settings
+from laomedo.agents.providers.opencode.history.errors import HistoryError
 from laomedo.agents.providers.opencode.history.models import (
     HistorySource,
     NativeExport,
@@ -96,28 +97,77 @@ class HistoryReader:
                 shutil.rmtree(private)
 
     def _copy_database(self, destination: Path) -> None:
-        """Take a bounded consistent read-only SQLite backup without schema queries."""
+        """Export a compact snapshot only after ruling out credential-store rows.
+
+        Backup stays in host memory until its consistent schema/rows are checked.
+        VACUUM INTO purges deleted-page contents before any copy reaches disk or
+        a credential-free export job. No live profile is modified.
+        """
         source = self.source.store / settings.DATABASE_FILE
-        if source.stat().st_size > settings.MAX_DATABASE_BYTES:
-            raise ValueError("Native history database exceeds its byte bound")
+        limit = settings.Settings().max_database_bytes
+        if source.stat().st_size > limit:
+            raise HistoryError("opencode_history_database_limit")
         deadline = time.monotonic() + 10
 
         page_size = 4096
 
         def progress(status, remaining, total):
             """Bound lock contention and database growth during the native backup."""
-            if (
-                time.monotonic() > deadline
-                or total * page_size > settings.MAX_DATABASE_BYTES
-            ):
+            if time.monotonic() > deadline or total * page_size > limit:
                 raise ValueError("Native history backup exceeded its bound")
 
         with closing(
             sqlite3.connect(source.resolve().as_uri() + "?mode=ro", uri=True, timeout=5)
         ) as original:
             page_size = original.execute("PRAGMA page_size").fetchone()[0]
-            with closing(sqlite3.connect(destination)) as copied:
-                original.backup(copied, pages=512, progress=progress, sleep=0.05)
+            with closing(sqlite3.connect(":memory:")) as snapshot:
+                snapshot.execute("PRAGMA temp_store=MEMORY")
+                original.backup(snapshot, pages=512, progress=progress, sleep=0.05)
+                self._check_credentials(snapshot)
+                snapshot.set_progress_handler(
+                    lambda: int(time.monotonic() > deadline), 10000
+                )
+                snapshot.execute("VACUUM INTO ?", (str(destination),))
+
+    def _check_credentials(self, database):
+        """Require empty pinned account stores, including unexpected secret columns."""
+        tables = {
+            row[0]
+            for row in database.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        required = {"account", "account_state", "control_account", "credential"}
+        if not required <= tables:
+            raise HistoryError("opencode_history_credentials_unverified")
+        for table in tables:
+            quoted = '"' + table.replace('"', '""') + '"'
+            columns = [
+                row[1] for row in database.execute("PRAGMA table_info(" + quoted + ")")
+            ]
+            if table == "session":
+                columns = [
+                    name
+                    for name in columns
+                    if name
+                    not in {
+                        "tokens_input",
+                        "tokens_output",
+                        "tokens_reasoning",
+                        "tokens_cache_read",
+                        "tokens_cache_write",
+                    }
+                ]
+            sensitive = table in required or any(
+                re.search(r"token|secret|password|credential|auth", name, re.I)
+                for name in (table, *columns)
+            )
+            if (
+                sensitive
+                and database.execute("SELECT 1 FROM " + quoted + " LIMIT 1").fetchone()
+                is not None
+            ):
+                raise HistoryError("opencode_history_credentials_present")
 
     def _export(self, docker, private: Path, session_id: str, seconds: int) -> bytes:
         """Run the pinned native export CLI for exactly one verified session ID."""

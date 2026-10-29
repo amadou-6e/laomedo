@@ -5,7 +5,7 @@ import laomedo._paths as _package_paths
 IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
 
 
-IMAGE_ID = "sha256:3dbc4c17805aa7ff18c66223a33dc118812c8db110b8c2804a34b2499642db93"
+IMAGE_ID = "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa"
 
 
 GIT_IMAGE = IMAGE

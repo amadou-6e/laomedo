@@ -133,6 +133,32 @@ class FakeServer:
 
 
 class LocalRunnerTests(unittest.TestCase):
+    def test_snapshot_includes_native_shutdown_changes_and_remains_resumable(self):
+        class LateDirectory(FakeServer):
+            async def close(inner):
+                await super().close()
+                (inner.evidence / "workspace/.aws").mkdir(exist_ok=True)
+        self.runner.transport = LateDirectory
+        first = self.runner.start(self.request())
+        self.assertEqual(first["status"], "completed")
+        root = self.runner._run_dir(first["run_id"])
+        self.assertTrue((root / "post-run/.aws").is_dir())
+        self.assertEqual(_hash_tree(root / "workspace"), first["post_run_hash"])
+        resumed = self.runner.resume(first["run_id"], "Continue", expected_post_run_hash=first["post_run_hash"], expected_thread_id=first["thread_id"], model="test-model", effort="low")
+        self.assertEqual(resumed["status"], "completed")
+
+    def test_late_pinned_skill_change_blocks_snapshot_without_claiming_cleanup_failed(self):
+        class LateSkillChange(FakeServer):
+            async def close(inner):
+                await super().close()
+                (inner.evidence / "workspace/.agents/skills/sample/SKILL.md").write_text("changed during shutdown")
+        self.runner.transport = LateSkillChange
+        result = self.runner.start(self.request())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["controller_cleanup"], "confirmed")
+        self.assertFalse(result["snapshot_ready"])
+        self.assertIsNone(result["output_ref"])
+
     def test_diagnostic_counter_survives_restart_and_corruption_never_gates(self):
         from laomedo.agents.providers.codex.runner import CodexRunner as NormalRunner; from laomedo.agents.runtime.utils import _json
         runner = object.__new__(NormalRunner)

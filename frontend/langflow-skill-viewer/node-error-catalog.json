@@ -1533,5 +1533,20 @@
     "title": "The local runner sandbox could not be verified",
     "description": "The runner could not confirm the required workspace access and protected-file restrictions. No model request was submitted by this preflight check.",
     "recovery": "Check the configured runner image and its reviewed sandbox configuration. Keep execution disabled until the local runner preflight succeeds."
+  },
+  "opencode_history_credentials_present": {
+    "title": "Native history export was stopped to protect account data",
+    "description": "The dedicated OpenCode history store contains account or credential records. The runner refused to pass a database copy to the offline export container. Activity evidence is incomplete.",
+    "recovery": "Keep the current run and its history. Check the dedicated local OpenCode profile configuration and use a separate session-only store; do not repeat the Agent task to repair history capture."
+  },
+  "opencode_history_credentials_unverified": {
+    "title": "The native history store could not be verified",
+    "description": "The history database schema did not match the expected credential-store checks. No database copy was passed to the export container. Activity evidence is incomplete.",
+    "recovery": "Check that the configured OpenCode image and dedicated session store match the supported runtime. Preserve the existing history and do not rerun the task just to repair capture."
+  },
+  "opencode_history_database_limit": {
+    "title": "The native history store exceeds its capture limit",
+    "description": "The dedicated OpenCode session database is larger than the configured host memory budget, so native history export was refused. Existing history is preserved and activity evidence is incomplete.",
+    "recovery": "The local user can raise LAOMEDO_OPENCODE_HISTORY_MAX_DATABASE_BYTES within the supported 512 MiB limit in runner startup configuration. For larger stores, preserve an archive and configure a separate dedicated session store for new work. Do not delete active history or replay the Agent request."
   }
 }

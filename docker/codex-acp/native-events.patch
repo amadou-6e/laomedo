@@ -1,13 +1,14 @@
 diff --git a/src/CodexAcpClient.ts b/src/CodexAcpClient.ts
-index ecdf1b8..7012b27 100644
+index ecdf1b8..2e62c3f 100644
 --- a/src/CodexAcpClient.ts
 +++ b/src/CodexAcpClient.ts
-@@ -1,3 +1,4 @@
+@@ -1,3 +1,5 @@
++import {projectTrust} from "./LaomedoLaunch";
 +import type {LaomedoExtension} from "./LaomedoExtension";
  import {
      type ApiKeyAuthRequest,
      CODEX_API_KEY_ENV_VAR,
-@@ -141,7 +142,7 @@ export class CodexAcpClient {
+@@ -141,7 +143,7 @@ export class CodexAcpClient {
      private configPath: string | null = null;
  
  
@@ -16,16 +17,7 @@ index ecdf1b8..7012b27 100644
          this.codexClient = codexClient;
          this.config = codexConfig ?? {};
          this.modelProvider = modelProvider ?? null;
-@@ -474,7 +475,7 @@ export class CodexAcpClient {
- 
-     /**
-      * `providers/disable`: disables the custom gateway provider. Disabling an
--     * unknown provider id is idempotent success (RFD behavior §7).
-+     * unknown provider id is idempotent success (RFD behavior Â§7).
-      */
-     disableProvider(request: acp.DisableProviderRequest): void {
-         const overrideWasActive = this.gatewayConfig !== null;
-@@ -638,6 +639,7 @@ export class CodexAcpClient {
+@@ -638,6 +640,7 @@ export class CodexAcpClient {
      }
  
      async loadSession(request: acp.LoadSessionRequest, onSubscribed?: () => void): Promise<SessionMetadataWithThread> {
@@ -33,7 +25,7 @@ index ecdf1b8..7012b27 100644
          const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
          await this.refreshSkills(request.cwd, additionalDirectories);
  
-@@ -647,7 +649,9 @@ export class CodexAcpClient {
+@@ -647,7 +650,9 @@ export class CodexAcpClient {
              cwd: request.cwd,
              modelProvider: await this.getResumeModelProvider(),
              threadId: request.sessionId,
@@ -43,7 +35,7 @@ index ecdf1b8..7012b27 100644
          onSubscribed?.();
          // Resume cursors bound durable history; later turns arrive through live events.
          // A null paginated cursor means there was no durable history at resume time.
-@@ -706,6 +710,7 @@ export class CodexAcpClient {
+@@ -706,6 +711,7 @@ export class CodexAcpClient {
      }
  
      async newSession(request: acp.NewSessionRequest): Promise<SessionMetadata> {
@@ -51,7 +43,7 @@ index ecdf1b8..7012b27 100644
          const additionalDirectories = readAdditionalDirectories(request.cwd, request.additionalDirectories, request._meta);
          await this.refreshSkills(request.cwd, additionalDirectories);
  
-@@ -713,8 +718,10 @@ export class CodexAcpClient {
+@@ -713,8 +719,10 @@ export class CodexAcpClient {
              config: await this.createSessionConfig(request.cwd, additionalDirectories, request.mcpServers),
              modelProvider: this.getModelProvider(),
              cwd: request.cwd,
@@ -62,7 +54,18 @@ index ecdf1b8..7012b27 100644
          const codexModels = await this.fetchAvailableModels();
          if (codexModels.length === 0) {
              throw new Error("Codex did not return any models");
-@@ -1057,8 +1064,10 @@ export class CodexAcpClient {
+@@ -866,9 +874,7 @@ export class CodexAcpClient {
+         });
+         const mergedConfig = {
+             ...forceGitRootTurnDiffPaths(mergeGatewayConfig(this.config, this.gatewayConfig)),
+-            projects: Object.fromEntries(sessionRoots.map(root => [root, {
+-                trust_level: "trusted",
+-            }])),
++            projects: projectTrust(sessionRoots, Boolean(this.laomedo)),
+         };
+         const configWithWorkspaceRoots = mergeSandboxWorkspaceWriteRoots(mergedConfig, additionalDirectories);
+         if (mcpServers.length === 0) {
+@@ -1057,8 +1063,10 @@ export class CodexAcpClient {
          onTurnStarted?: (turnId: string) => void,
          shouldCancel?: () => boolean,
      ): Promise<TurnCompletedNotification | null> {
@@ -75,7 +78,7 @@ index ecdf1b8..7012b27 100644
          await this.refreshSkills(cwd, additionalDirectories);
          if (shouldCancel?.()) {
              return null;
-@@ -1066,9 +1075,11 @@ export class CodexAcpClient {
+@@ -1066,9 +1074,11 @@ export class CodexAcpClient {
          return await this.codexClient.runTurn({
              threadId: request.sessionId,
              input: input,
@@ -91,65 +94,9 @@ index ecdf1b8..7012b27 100644
              effort: effort,
              model: modelId.model,
 diff --git a/src/CodexAcpServer.ts b/src/CodexAcpServer.ts
-index a43f9ab..6a67e96 100644
+index a43f9ab..63ac123 100644
 --- a/src/CodexAcpServer.ts
 +++ b/src/CodexAcpServer.ts
-@@ -1286,7 +1286,7 @@ export class CodexAcpServer {
-      * Builds the agent-owned auth identity. Routing the client configured
-      * through the ACP `providers/*` API is invisible here: the reported state
-      * is what the agent itself is logged in with. `gateway` stays reserved for
--     * agent-owned gateway state — the `gateway` auth method, or a provider the
-+     * agent-owned gateway state â€” the `gateway` auth method, or a provider the
-      * user configured in Codex's own config.
-      */
-     private async readAgentAuthIdentity(): Promise<AuthStatus> {
-@@ -1323,7 +1323,7 @@ export class CodexAcpServer {
-         if (this.codexAcpClient.isClientConfiguredProvider(authProvider)) {
-             // The session routes through client-configured providers; the agent-owned
-             // login is a separate question, so read it instead of reporting the
--            // override. A failed read means "nothing to report" — it must never
-+            // override. A failed read means "nothing to report" â€” it must never
-             // take the session create down with it.
-             await this.publishAuthStatusRead();
-             return;
-@@ -1368,8 +1368,8 @@ export class CodexAcpServer {
-      * Stores `next` and pushes `_auth/status_update`.
-      *
-      * A push goes out only when the payload changed. The identity is read on
--     * many occasions — `initialize`, each session create, each `account/updated`
--     * — and almost all of them see the login already reported.
-+     * many occasions â€” `initialize`, each session create, each `account/updated`
-+     * â€” and almost all of them see the login already reported.
-      * Clients replace their whole state on each update and tolerate duplicates,
-      * so a repeat is harmless, but it is pure noise all the same.
-      *
-@@ -1555,7 +1555,7 @@ export class CodexAcpServer {
-      *
-      * Every session gets its own {@link SteeringQueue}: the request is enqueued
-      * and awaited, so concurrent steers for one session run strictly one at a
--     * time, in arrival order, and can never race to inject into — or start —
-+     * time, in arrival order, and can never race to inject into â€” or start â€”
-      * rival turns. Steers for different sessions use different queues and run
-      * concurrently. Once the queue drains to idle it is removed from the map,
-      * so no per-session entry leaks after the session goes quiet (the identity
-@@ -1675,7 +1675,7 @@ export class CodexAcpServer {
-      * inject into, and returns as soon as that turn is running.
-      *
-      * Waits for any previous prompt to drain first, then re-checks that the
--     * session is not closing — the await above is a window during which a close
-+     * session is not closing â€” the await above is a window during which a close
-      * request can arrive.
-      *
-      * @param params The target session id and the prompt to steer with.
-@@ -1754,7 +1754,7 @@ export class CodexAcpServer {
-                     if (turnStarted) {
-                         // The turn had already started, so the steer was already
-                         // answered "startedNewTurn". This is a failure of a turn running
--                        // in the background — nothing to return, just log it.
-+                        // in the background â€” nothing to return, just log it.
-                         logger.error(`${source} prompt for session ${params.sessionId} failed`, error);
-                     } else {
-                         // The prompt failed before the turn started. The steer never
 @@ -2968,7 +2968,7 @@ export class CodexAcpServer {
                  return cancelledPromptResponse();
              }
@@ -159,17 +106,6 @@ index a43f9ab..6a67e96 100644
                  onTurnStartPending: () => {
                      sessionState.lastTokenUsage = null;
                      ensurePendingTurnStart();
-@@ -3266,8 +3266,8 @@ export class CodexAcpServer {
-             );
- 
-             // Fire-and-forget: generate an AI title from the first turn.
--            // Never await — must not block the prompt response.
--            // Note: turn.items contains only agent output, not the user message —
-+            // Never await â€” must not block the prompt response.
-+            // Note: turn.items contains only agent output, not the user message â€”
-             // extract prompt text from params instead.
-             if (sessionState.titleGen) {
-                 const promptText = params.prompt
 diff --git a/src/CodexJsonRpcConnection.ts b/src/CodexJsonRpcConnection.ts
 index 0f79117..4d65127 100644
 --- a/src/CodexJsonRpcConnection.ts

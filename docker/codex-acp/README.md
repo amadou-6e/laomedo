@@ -22,6 +22,8 @@ the one supported output-precheck definition. Normal mode inherits the reviewed
 permission profile without per-turn sandbox/approval overrides; split mode uses
 only its registered external executor. Typed skill items come from host metadata,
 never prompt parsing. ACP slash-command interception is disabled for these runs.
+Native session roots remain explicitly untrusted, so model-writable project
+configuration cannot become a runner-policy or provider-routing source.
 
 `LAOMEDO_CODEX_ARGS` carries host-owned native configuration arguments into the
 Codex subprocess. The adapter validates alternating `-c`/`--enable`/`--disable`

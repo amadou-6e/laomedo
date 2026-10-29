@@ -111,7 +111,7 @@ class NodeErrorCatalogueTests(unittest.TestCase):
             # Catalogue the boundary's public exception types across defining siblings.
             # Claude catalogue parser ValueErrors become RunnerError at _discover_models;
             # join config/parser ValueErrors are private setup or become join_request_refused.
-            public_types = {'RunnerError', 'LaunchError'}
+            public_types = {'RunnerError', 'LaunchError', 'HistoryError'}
             if filename.startswith('agent_activity'):
                 public_types.add('ValueError')
             if filename == 'handoff_http.py':

@@ -61,7 +61,9 @@ class CodexRunner(Runner):
             _codex_settings.GIT_IMAGE if git_workspace else _codex_settings.IMAGE
         )
         self.image_id = (
-            _codex_settings.GIT_IMAGE_ID if git_workspace else _codex_settings.IMAGE_ID
+            _codex_settings.GIT_IMAGE_ID
+            if git_workspace
+            else _codex_settings.IMAGE_ID
         )
         if image_id is not None:
             if (
@@ -82,17 +84,10 @@ class CodexRunner(Runner):
             raise _runtime_errors.RunnerError("split_executor_lease_unavailable")
         if git_workspace and split_executor:
             raise _runtime_errors.RunnerError("git_workspace_split_unsupported")
-        super().__init__(
-            state,
-            skill_store,
-            source_workspace,
-            lease_service=lease_service,
-            github_authority=github_authority,
-            mediator_state=mediator_state,
-            git_workspace=git_workspace,
-            publication_controller=publication_controller,
-            artifact_sources=artifact_sources,
-        )
+        super().__init__(state, skill_store, source_workspace,
+                         lease_service=lease_service, github_authority=github_authority,
+                         mediator_state=mediator_state, git_workspace=git_workspace,
+                         publication_controller=publication_controller, artifact_sources=artifact_sources)
         self.transport = transport
         self.split_executor = split_executor
         self.split_provider_config = tuple(split_provider_config)
@@ -149,12 +144,9 @@ class CodexRunner(Runner):
         if check_docker:
             self.docker_environment = self._check_container()
             if split_executor:
-                _codex_utils._ensure_split_profile(
-                    self.profile, state=self.state, env=self.docker_environment
-                )
+                _codex_utils._ensure_split_profile(self.profile, state=self.state, env=self.docker_environment)
             else:
                 from py_docker import Client
-
                 with Client(environment=self.docker_environment) as docker:
                     if not docker.volumes.exists(_codex_settings.VOLUME):
                         raise _runtime_errors.RunnerError("docker_control_failed")
@@ -317,28 +309,22 @@ class CodexRunner(Runner):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = _leases_utils.cleanup_exact(
-                _leases_models.ContainerIdentity(
-                    name=owner["name"],
-                    run_id=record["run_id"],
-                    token=owner["launch_token"],
-                    docker_endpoint=owner.get("docker_endpoint"),
-                )
-            )
+                _leases_models.ContainerIdentity(name=owner["name"], run_id=record["run_id"],
+                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
 
     def _receipt_path(self, root: Path) -> Path:
         """Keep lifecycle intent outside disposable metadata and evidence folders."""
-        directory = self.state.joinpath("receipts")
-        directory.mkdir(mode=0o700, exist_ok=True)
-        return directory.joinpath(root.name + "-controller.json")
+        directory=self.state.joinpath("receipts")
+        directory.mkdir(mode=0o700,exist_ok=True)
+        return directory.joinpath(root.name+"-controller.json")
 
     def _pending_receipts(self, root: Path) -> bool:
         """Retain evidence for either unresolved controller or executor cleanup."""
-        return any(self.state.joinpath("receipts").glob(root.name + "-*.json")) or any(
-            root.glob("*receipt*.json")
-        )
+        return (any(self.state.joinpath("receipts").glob(root.name+"-*.json"))
+                or any(root.glob("*receipt*.json")))
 
     def _open_server(
         self,
@@ -373,22 +359,11 @@ class CodexRunner(Runner):
             _mediation_agent_cli.configure_remote(workspace, repository)
         from laomedo.agents.providers.codex.controller.models import CodexLaunch
 
-        values = dict(
-            workspace=workspace,
-            canonical=canonical,
-            store_mount=store_mount,
-            image=self.image_id,
-            profile=self.profile,
-            run_id=run_id,
-            launch_token=launch_token,
-            capability=capability,
-            mediator_url=mediator_url,
-            mediator_instance=mediator_instance,
-            command_directory=command_directory,
-            repository=repository,
-            branch=branch,
-            base_branch=base_branch,
-        )
+        values = dict(workspace=workspace, canonical=canonical, store_mount=store_mount,
+                      image=self.image_id, profile=self.profile, run_id=run_id, launch_token=launch_token,
+                      capability=capability, mediator_url=mediator_url,
+                      mediator_instance=mediator_instance, command_directory=command_directory,
+                      repository=repository, branch=branch, base_branch=base_branch)
         if name is not None:
             values["name"] = name
         launch = CodexLaunch(**values)
@@ -481,11 +456,8 @@ class CodexRunner(Runner):
         server = None
         try:
             token = self.auth.access_token()[0] if self.auth else None
-            server = self._open_server(
-                root,
-                access_token=token,
-                lifetime_seconds=160 + _native_settings.Settings.load().startup_margin,
-            )
+            server = self._open_server(root, access_token=token,
+                lifetime_seconds=160 + _native_settings.Settings.load().startup_margin)
             await server.initialize()
             models = await server.models()
             checks = {}
@@ -700,9 +672,7 @@ class CodexRunner(Runner):
                 launch_token = uuid4().hex
                 record["container_ownership"] = {
                     "name": name,
-                    "docker_endpoint": (self.docker_environment or {}).get(
-                        "DOCKER_HOST"
-                    ),
+                    "docker_endpoint": (self.docker_environment or {}).get("DOCKER_HOST"),
                     "launch_token": launch_token,
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False,
@@ -724,9 +694,7 @@ class CodexRunner(Runner):
                         self.lease_service,
                         run_id=run_id,
                         name=name,
-                        docker_endpoint=(self.docker_environment or {}).get(
-                            "DOCKER_HOST"
-                        ),
+                        docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"),
                         token=launch_token,
                         cancelled=cancelled,
                         mediation_request=record.get("github_scope"),
@@ -769,11 +737,8 @@ class CodexRunner(Runner):
             launch_attempted = True
             server = self._open_server(
                 run_dir,
-                lifetime_seconds=(
-                    _codex_settings.NATIVE_TURN_SECONDS
-                    * (1 + record.get("output_retries", 0))
-                    + transport_settings.startup_margin
-                ),
+                lifetime_seconds=(_codex_settings.NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
+                                  + transport_settings.startup_margin),
                 access_token=access_token,
                 name=name,
                 run_id=run_id,
@@ -812,6 +777,8 @@ class CodexRunner(Runner):
             record["precheck"]["installed"] = bool(record.get("output_requirements"))
             record["effective_model"] = record["requested_model"]
             record["effective_effort"] = record["requested_effort"]
+            record["effective_model_source"] = "confirmed_acp_configuration"
+            record["effective_effort_source"] = "confirmed_acp_configuration"
             _runtime_utils._json(run_dir / "record.json", record)
             if cancelled.is_set():
                 record.update(
@@ -959,7 +926,9 @@ class CodexRunner(Runner):
                     or correction_count >= record["output_retries"]
                 ):
                     break
-                commands_before = _codex_utils._command_summary(server.events, turn_id)
+                commands_before = _codex_utils._command_summary(
+                    server.events, turn_id
+                )
 
                 def effect_event(event):
                     if event.get("method") not in {"item/started", "item/completed"}:
@@ -1068,30 +1037,6 @@ class CodexRunner(Runner):
             )
             if status == "completed" and not record["answer"]:
                 raise _runtime_errors.RunnerError("completed_without_agent_message")
-            if status == "completed":
-                try:
-                    workspace_skills.verify(
-                        run_dir / "workspace",
-                        record["skills"],
-                        record.get("skill_git_exclusion", {"enabled": False}),
-                    )
-                except ValueError as exc:
-                    record["answer"] = None
-                    raise _runtime_errors.RunnerError(str(exc)) from None
-                post_hash = _runtime_utils._hash_tree(
-                    run_dir / "workspace", exclude_root_git=self.git_workspace
-                )
-                pending = run_dir / ("post-run-pending-" + uuid4().hex)
-                _runtime_utils._copy_tree(
-                    run_dir / "workspace", pending, exclude_root_git=self.git_workspace
-                )
-                old = run_dir / "post-run"
-                if old.exists():
-                    workspace_skills.remove_owned_tree(old, self.state)
-                pending.rename(old)
-                record["post_run_hash"] = post_hash
-                record["output_ref"] = f"laomedo:run:{run_id}:workspace"
-                record["snapshot_ready"] = True
             if (
                 _runtime_utils._hash_tree(run_dir / "canonical")
                 != record["source_hash"]
@@ -1137,19 +1082,20 @@ class CodexRunner(Runner):
                 if record is not None:
                     record.update(
                         status="failed",
-                        error_category=(
-                            close_failure.code
-                            if isinstance(close_failure, _runtime_errors.RunnerError)
-                            and close_failure.code
-                            in {
-                                "executor_termination_unverified",
-                                "container_termination_unverified",
-                                "runner_transport_failed",
-                            }
-                            else "container_termination_unverified"
-                        ),
+                        error_category=(close_failure.code if isinstance(close_failure,_runtime_errors.RunnerError)
+                                        and close_failure.code in {"executor_termination_unverified","container_termination_unverified","runner_transport_failed"}
+                                        else "container_termination_unverified"),
                     )
                     record["controller_cleanup"] = "unverified"
+            else:
+                if record is not None and record.get("status") == "completed":
+                    try:
+                        record["post_run_hash"] = self._freeze_workspace(run_dir, record)
+                        record["output_ref"] = f"laomedo:run:{run_id}:workspace"
+                        record["snapshot_ready"] = True
+                    except Exception as snapshot_failure:
+                        record.update(status="failed", answer=None,
+                            error_category=snapshot_failure.code if isinstance(snapshot_failure, _runtime_errors.RunnerError) else "workspace_copy_mismatch")
             finally:
                 try:
                     if (
@@ -1177,20 +1123,10 @@ class CodexRunner(Runner):
                                 error_category="container_termination_unverified",
                             )
                     elif record is not None and self.supervise_containers:
-                        verified, detail = (
-                            (True, "removed")
-                            if getattr(server, "cleanup_confirmed", False)
-                            else _leases_utils.cleanup_exact(
-                                _leases_models.ContainerIdentity(
-                                    name=name,
-                                    run_id=run_id,
-                                    token=launch_token,
-                                    docker_endpoint=(self.docker_environment or {}).get(
-                                        "DOCKER_HOST"
-                                    ),
-                                )
-                            )
-                        )
+                        verified, detail = ((True, "removed") if getattr(server,"cleanup_confirmed",False) else
+                            _leases_utils.cleanup_exact(_leases_models.ContainerIdentity(
+                                name=name,run_id=run_id,token=launch_token,
+                                docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"))))
                         if lease is not None:
                             # The executor is already removed. Only a trusted
                             # controller can keep its SAME lease through output
@@ -1205,7 +1141,9 @@ class CodexRunner(Runner):
                                     record["turns"][attempt_turn_offset:],
                                     resumed=resume,
                                     streams_closed=(
-                                        server is not None and (server.streams_closed)
+                                        server is not None and (
+                                            server.streams_closed
+                                        )
                                     ),
                                 )
                             )

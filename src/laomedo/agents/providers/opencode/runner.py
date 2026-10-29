@@ -380,12 +380,17 @@ class OpenCodeRunner(_runtime_runner.Runner):
             if flag.is_set():
                 raise _runtime_errors.RunnerError("opencode_cancelled_before_dispatch")
             reader = backend.history_reader()
+            from laomedo.agents.providers.opencode.history.errors import HistoryError
             if resume and reader is not None:
                 try:
                     baseline = reader.read(record["thread_id"])
                 except _runtime_errors.RunnerError:
                     metadata_cleanup_unverified = True
                     raise  # Owned metadata-job cleanup uncertainty remains fatal.
+                except HistoryError as error:
+                    baseline_available = False
+                    attempt["capture_error"] = error.code
+                    record["evidence_complete"] = "partial"
                 except Exception:
                     baseline_available = False
                     attempt["capture_error"] = "opencode_native_snapshot_unavailable"
@@ -438,17 +443,6 @@ class OpenCodeRunner(_runtime_runner.Runner):
                     status="completed",
                     effective_model=record["requested_model"],
                     effective_effort=None,
-                )
-                pending = root / "post-run-pending"
-                post_hash = _runtime_utils._copy_tree(root / "workspace", pending)
-                old = root / "post-run"
-                if old.exists():
-                    workspace_skills.remove_owned_tree(old, self.state)
-                pending.rename(old)
-                record.update(
-                    post_run_hash=post_hash,
-                    snapshot_ready=True,
-                    output_ref=f"laomedo:run:{run_id}:workspace",
                 )
             record["turns"].append(
                 {
@@ -542,6 +536,9 @@ class OpenCodeRunner(_runtime_runner.Runner):
                         record["evidence_complete"] = (
                             "complete" if complete else "partial"
                         )
+                    except HistoryError as error:
+                        attempt["capture_error"] = error.code
+                        record["evidence_complete"] = "partial"
                     except _runtime_errors.RunnerError:
                         backend.termination_verified = False
                         raise
@@ -550,6 +547,9 @@ class OpenCodeRunner(_runtime_runner.Runner):
                             "opencode_native_snapshot_unavailable"
                         )
                         record["evidence_complete"] = "partial"
+                if record is not None and record.get("status") == "completed":
+                    record.update(post_run_hash=self._freeze_workspace(root, record), snapshot_ready=True,
+                        output_ref=f"laomedo:run:{run_id}:workspace")
                 if record is not None and attempt is not None:
                     try:
                         import laomedo.activity.opencode.telemetry as _opencode_telemetry

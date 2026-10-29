@@ -1,6 +1,7 @@
 """Internal controls for the native-evidence boundary; no live acceptance."""
 
 import asyncio
+from importlib.util import find_spec
 import json
 from pathlib import Path
 import tempfile
@@ -15,6 +16,9 @@ from laomedo.agents.providers.codex.controller.service import CodexController
 from laomedo.agents.runtime.errors import RunnerError
 
 
+@unittest.skipUnless(
+    find_spec("py_docker") and find_spec("acp"), "Requires optional runner dependencies"
+)
 class ControllerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -52,13 +56,15 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             None,
             {},
             {"laomedo": {"version": 2, "rawEvents": True, "hostPolicy": True}},
+            {"laomedo": {"version": True, "rawEvents": True, "hostPolicy": True}},
+            {"laomedo": {"version": 1, "rawEvents": 1, "hostPolicy": True}},
         ):
             acp = Mock(
                 initialize=AsyncMock(return_value=SimpleNamespace(field_meta=value))
             )
             acp.close = AsyncMock()
             with patch(
-                "laomedo.agents.providers.codex.controller.service.AcpSession",
+                "laomedo.agents.protocol.acp.session.AcpSession",
                 return_value=acp,
             ):
                 with self.assertRaisesRegex(RunnerError, "initialize_rejected"):

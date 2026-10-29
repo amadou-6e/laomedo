@@ -1,6 +1,11 @@
 /** Internal launch controls; no native process or model is started here. */
 import {expect, it} from "vitest";
-import {nativeArguments} from "./LaomedoLaunch";
+import {nativeArguments, projectTrust} from "./LaomedoLaunch";
+
+it("never trusts model-writable project config in host-owned sessions", () => {
+    expect(projectTrust(["/draft"], true)).toEqual({"/draft": {trust_level: "untrusted"}});
+    expect(projectTrust(["/draft"], false)).toEqual({"/draft": {trust_level: "trusted"}});
+});
 
 it("preserves trusted native config flags as argv, never shell syntax", () => {
     const args=["-c","features.deferred_executor=true","--disable","memories"];

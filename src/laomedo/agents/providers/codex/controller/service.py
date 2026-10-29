@@ -5,7 +5,6 @@ import json
 import time
 
 from laomedo.agents.contracts import output
-from laomedo.agents.protocol.acp.session import AcpSession
 from laomedo.agents.providers.codex import settings
 from laomedo.agents.providers.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.providers.codex.controller.settings import Settings
@@ -139,12 +138,19 @@ class CodexController:
 
     async def initialize(self):
         """Refuse stock or incompatible adapters before any session is created."""
+        from laomedo.agents.protocol.acp.session import AcpSession
+
         self.acp = AcpSession(
             self.session, on_extension=self._native_event, on_precheck=self._precheck
         )
         reply = await self.acp.initialize()
         advertised = (reply.field_meta or {}).get("laomedo")
-        if advertised != {"version": 1, "rawEvents": True, "hostPolicy": True}:
+        if (
+            advertised != {"version": 1, "rawEvents": True, "hostPolicy": True}
+            or type(advertised["version"]) is not int
+            or type(advertised["rawEvents"]) is not bool
+            or type(advertised["hostPolicy"]) is not bool
+        ):
             raise RunnerError("initialize_rejected")
         if self.executor is not None:
             self.assert_controller_isolated()
@@ -181,8 +187,14 @@ class CodexController:
             "laomedo/executorStatus",
         }:
             raise RunnerError("runner_transport_failed")
+        label = {
+            "laomedo/codexModels": "model/list",
+            "laomedo/preflight": "command/exec",
+            "laomedo/registerExecutor": "environment/add",
+            "laomedo/executorStatus": "environment/status",
+        }[method]
         return await self.acp._request(
-            self.acp.connection.ext_method(method, params), "initialize", seconds
+            self.acp.connection.ext_method(method, params), label, seconds
         )
 
     async def open(self, record, *, resume):

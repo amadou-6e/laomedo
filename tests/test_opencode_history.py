@@ -1,6 +1,7 @@
 """Internal native-export controls; fixtures are not live provider acceptance."""
 
 import json
+from importlib.util import find_spec
 from contextlib import closing
 from pathlib import Path
 import sqlite3
@@ -19,6 +20,7 @@ from laomedo.agents.providers.opencode.history.models import (
 from laomedo.agents.providers.opencode.history.reader import HistoryReader
 
 
+@unittest.skipUnless(find_spec("py_docker"), "Requires optional Docker runtime")
 class OpenCodeHistoryTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -28,6 +30,8 @@ class OpenCodeHistoryTests(unittest.TestCase):
         self.store.mkdir()
         with closing(sqlite3.connect(self.store / "opencode.db")) as database:
             database.execute("CREATE TABLE internal_control(value TEXT)")
+            for table in ("account", "account_state", "control_account", "credential"):
+                database.execute('CREATE TABLE "' + table + '"(value TEXT)')
             database.execute(
                 "INSERT INTO internal_control VALUES ('not a provider fixture')"
             )
@@ -94,6 +98,54 @@ class OpenCodeHistoryTests(unittest.TestCase):
         exported.messages[0]["parts"][0]["sessionID"] = "ses_foreign"
         with self.assertRaises(ValueError):
             exported.bind("ses_root", None)
+
+    def test_account_or_credential_rows_are_refused_before_disk_copy_or_job(self):
+        for table in ("account", "account_state", "control_account", "credential"):
+            with self.subTest(table=table):
+                with closing(sqlite3.connect(self.store / "opencode.db")) as database:
+                    database.execute('INSERT INTO "' + table + '" VALUES (?)', ("private-test-value",))
+                    database.commit()
+                with patch("py_docker.Client") as client:
+                    with self.assertRaisesRegex(ValueError, "^opencode_history_credentials_present$"):
+                        self.reader.read("ses_root")
+                    client.assert_not_called()
+                self.assertEqual(list(self.root.glob("history-*")), [])
+                with closing(sqlite3.connect(self.store / "opencode.db")) as database:
+                    database.execute('DELETE FROM "' + table + '"')
+                    database.commit()
+
+    def test_deleted_credential_page_contents_never_reach_export_copy(self):
+        marker = "PRIVATE_DELETED_TEST_VALUE_" * 30
+        with closing(sqlite3.connect(self.store / "opencode.db")) as database:
+            database.execute("PRAGMA secure_delete=OFF")
+            database.execute("INSERT INTO credential VALUES (?)", (marker,))
+            database.commit()
+            database.execute("DELETE FROM credential")
+            database.commit()
+        self.assertIn(marker.encode(), (self.store / "opencode.db").read_bytes())
+        destination = self.root / "compact.db"
+        self.reader._copy_database(destination)
+        self.assertNotIn(marker.encode(), destination.read_bytes())
+
+    def test_native_session_token_counters_are_not_account_credentials(self):
+        with closing(sqlite3.connect(self.store / "opencode.db")) as database:
+            database.execute("CREATE TABLE session(tokens_input INTEGER, tokens_output INTEGER)")
+            database.execute("INSERT INTO session VALUES (10, 5)")
+            database.commit()
+        destination = self.root / "usage.db"
+        self.reader._copy_database(destination)
+        self.assertTrue(destination.is_file())
+
+    def test_unknown_credential_schema_and_host_size_budget_fail_closed(self):
+        with closing(sqlite3.connect(self.store / "opencode.db")) as database:
+            database.execute("DROP TABLE credential")
+            database.commit()
+        with self.assertRaisesRegex(ValueError, "opencode_history_credentials_unverified"):
+            self.reader._copy_database(self.root / "refused.db")
+        with patch("laomedo.agents.providers.opencode.history.reader.settings.Settings") as configured:
+            configured.return_value.max_database_bytes = 1
+            with self.assertRaisesRegex(ValueError, "opencode_history_database_limit"):
+                self.reader._copy_database(self.root / "too-large.db")
 
     def test_native_record_fields_use_final_message_and_actual_tool_name(self):
         first = self.exported(message="commentary", text="I will do it")

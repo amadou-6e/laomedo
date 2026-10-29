@@ -1181,11 +1181,7 @@ class ClaudeRunner(_runtime_runner.Runner):
             self._verify_skills(root, record)
             if _runtime_utils._hash_tree(root / "canonical") != record["source_hash"]:
                 raise _runtime_errors.RunnerError("protected_mount_changed")
-            snapshot = root / "post-run-pending"
-            digest = _runtime_utils._copy_tree(root / "workspace", snapshot)
-            if (root / "post-run").exists():
-                workspace_skills.remove_owned_tree(root / "post-run", self.state)
-            snapshot.rename(root / "post-run")
+            digest = self._freeze_workspace(root, record)
             record.update(
                 status="completed",
                 post_run_hash=digest,

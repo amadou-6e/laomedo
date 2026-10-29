@@ -1,4 +1,9 @@
 /** Preserve host-owned native configuration arguments without a shell tunnel. */
+export function projectTrust(roots: string[], hostOwned: boolean) {
+    // Model-writable project configuration must never become a policy source.
+    return Object.fromEntries(roots.map(root => [root, {trust_level: hostOwned ? "untrusted" : "trusted"}]));
+}
+
 export function nativeArguments(env: NodeJS.ProcessEnv, codexPath?: string, platform = process.platform): string[] {
     if (env["LAOMEDO_CODEX_NATIVE_EVENTS"] !== "1") return [];
     let args;
