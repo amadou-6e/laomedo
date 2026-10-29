@@ -56,7 +56,7 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/providers/codex/native/server.py': {'otel', 'multi_agent'},
+            'agents/providers/codex/controller/service.py': {'otel', 'multi_agent'},
             'agents/providers/claude/runner.py': {'mirror_host_login'},
             'activity/opencode/telemetry.py': {'otel'},
         }
@@ -125,9 +125,9 @@ class SettingsContractTests(unittest.TestCase):
         claude=(SOURCE / 'agents/providers/claude/container.py').read_text(encoding='utf-8')
         self.assertNotIn('os.environ', claude)
         self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
-        split=(SOURCE / 'agents/providers/codex/split/server.py').read_text()
+        split=(SOURCE / 'agents/providers/codex/split/executor.py').read_text()
         self.assertNotIn('os.environ',split)
-        self.assertIn('environment=docker_environment',split)
+        self.assertIn('environment=environment',split)
         helper = (SOURCE / 'host/credentials/git_credential_helper.py').read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn('pydantic', helper)

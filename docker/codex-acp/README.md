@@ -1,8 +1,7 @@
-# Codex ACP runtime candidate
+# Codex ACP runtime
 
-Status: not a released or accepted runner image. The production Codex runner has
-not switched to this adapter yet. The current draft must pass normal/split policy,
-raw-event, precheck, skill, cancellation and old-thread resume probes first.
+Status: selected by the production runner on draft PR #214; unreleased and not
+accepted for merge. Final graph and provider-policy acceptance remain pending.
 
 Build from this directory with `docker build -t laomedo-codex-acp:0.159.2-2.1.1 .`.
 Record the resulting immutable image ID before testing or configuring a runner.
@@ -13,6 +12,9 @@ source is maintained here; `native-events.patch` contains the minimal upstream
 hooks needed to activate it.
 
 The optional extension is enabled only by `LAOMEDO_CODEX_NATIVE_EVENTS=1`. It
+advertises `_meta.laomedo` version 1 with rawEvents and hostPolicy true during
+initialize. The host rejects an absent or incompatible capability before creating
+a session, preventing a stock adapter from ignoring the host policy metadata. It
 preserves allowlisted native notifications on the same ACP connection and flushes
 them before the prompt response. Raw capture failure terminates native execution.
 Host-owned session metadata supplies normal or split policy, model, effort and
@@ -36,7 +38,16 @@ credential-free executor, no controller listeners, executor-loss detection and
 cleanup. The executor required the existing checksum-verified Codex seccomp policy
 for Bubblewrap's namespace creation; Docker's default policy refused it. No host
 kernel setting or unconfined container was used. These prototype checks do not
-establish production-runner or graph acceptance; that cutover is still pending.
+establish final graph acceptance. After the cutover, a separate production-runner
+check observed Fresh and Resume on one native thread, accepted prechecks, local
+OTLP receipt and confirmed cleanup on image
+`sha256:3dbc4c17805aa7ff18c66223a33dc118812c8db110b8c2804a34b2499642db93`.
+Split production, app-owned OAuth, mediation and graph checks remain pending.
+
+Saved runs retain exact image, policy and execution-mode bindings. Pre-ACP runs
+with different bindings fail with `resume_binding_mismatch`; they are not silently
+migrated or restarted. Historical activity remains readable. Native thread-history
+compatibility is a separate observation from saved-run migration.
 
 Named extensions provide model/skill metadata, fixed-enum permission preflight,
 one pre-prompt executor registration/status and pure output precheck. They expose

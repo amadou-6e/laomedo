@@ -690,53 +690,14 @@ class ClaudeRunner(_runtime_runner.Runner):
         client = AcpSession(session, on_extension=native)
         try:
             await client.initialize()
-            options = {
-                "model": record.get("resolved_model", record["requested_model"]),
-                "tools": ["Skill"] if record["skills"] and not output_only else [],
-                "allowedTools": []
-                if output_only
-                else [
-                    "mcp__laomedo__exec_command",
-                    "mcp__laomedo__github_operation",
-                    *[
-                        "Skill(laomedo-pinned:" + item["skill_id"] + ")"
-                        for item in record["skills"]
-                    ],
-                ],
-                "disallowedTools": [
-                    "Read",
-                    "Glob",
-                    "Grep",
-                    "Edit",
-                    "Write",
-                    "Bash",
-                    "Agent",
-                    "Task",
-                    "WebFetch",
-                    "WebSearch",
-                    "NotebookEdit",
-                ],
-                "settingSources": [],
-                "settings": {
-                    "disableAllHooks": True,
-                    "enabledPlugins": {},
-                    "autoMemoryEnabled": False,
-                },
-                "allowDangerouslySkipPermissions": False,
-                "promptSuggestions": False,
-                "systemPrompt": _claude_settings.SYSTEM,
-                "extraArgs": {
-                    "restricted": None,
-                    "permission-prompts": "none",
-                    "strict-mcp-config": None,
-                },
-            }
-            if record["requested_effort"] != "default":
-                options["effort"] = record["requested_effort"]
-            if not output_only:
-                options["plugins"] = [
-                    {"type": "local", "path": "/run/laomedo/pinned-skills"}
-                ]
+            from laomedo.agents.providers.claude.models import ClaudePolicy
+
+            options = ClaudePolicy(
+                model=record.get("resolved_model", record["requested_model"]),
+                effort=record["requested_effort"],
+                skill_ids=tuple(item["skill_id"] for item in record["skills"]),
+                output_only=output_only,
+            ).sdk_options()
             await client.open(
                 session_id=record["thread_id"] if resume else None,
                 mcp_servers=[]
@@ -1231,7 +1192,7 @@ class ClaudeRunner(_runtime_runner.Runner):
                 snapshot_ready=True,
                 output_ref=f"laomedo:run:{run_id}:workspace",
                 evidence_complete="unknown",
-                completion_basis="claude_native_stream_and_receipt",
+                completion_basis="claude_acp_native_receipt",
             )
         except Exception as exc:
             if record is None:

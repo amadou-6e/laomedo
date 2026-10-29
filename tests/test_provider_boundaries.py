@@ -87,7 +87,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         control = self.fixture(test_local_runner.LocalRunnerTests)
         self.assert_record(control, control.request(), {
             'provider':'codex','profile':codex_settings.VOLUME,'image':codex_settings.IMAGE,
-            'image_id':codex_settings.IMAGE_ID,'execution_mode':'legacy',
+            'image_id':codex_settings.IMAGE_ID,'execution_mode':'codex_acp',
             'cli_version':codex_settings.CLI_VERSION,'config_sha256':codex_settings.CONFIG_SHA256,
             'credential':None})
 

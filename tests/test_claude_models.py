@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.utils import command; from laomedo.agents.providers.claude.utils import normalize_models
+from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.models import ClaudePolicy; from laomedo.agents.providers.claude.utils import normalize_models
 from laomedo.agents.runtime.errors import RunnerError
 
 
@@ -80,8 +80,8 @@ class ClaudeModelTests(unittest.TestCase):
     def test_no_effort_model_omits_flag_and_invalid_metadata_is_rejected(self):
         model={'value':'claude-haiku-old','resolvedModel':'claude-haiku-old','displayName':'Haiku old'}
         self.assertEqual(normalize_models([model])[0]['efforts'],['default'])
-        args=command('cli','claude-haiku-old','default','00000000-0000-4000-8000-000000000001')
-        self.assertNotIn('--effort',args)
+        args=ClaudePolicy(model='claude-haiku-old', effort='default').sdk_options()
+        self.assertNotIn('effort',args)
         for levels in (['unsupported'],['low','low'],[{}]):
             with self.assertRaises(ValueError): normalize_models([native(levels=levels)])
 

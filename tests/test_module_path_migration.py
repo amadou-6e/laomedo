@@ -57,7 +57,8 @@ class ModuleMigrationTests(unittest.TestCase):
     def test_constants_generation_migrates_symbols_and_aliases_in_one_pass(self):
         renamed = {old: new for old, new in migration.MODULE_PATHS.items()
                    if old.endswith('.constants')}
-        self.assertEqual(len(renamed), 22)
+        # The retired OpenCode SSE settings generation has no current owner.
+        self.assertEqual(len(renamed), 21)
         for old, new in renamed.items():
             symbols = {key.rsplit('.', 1)[1]: value
                        for key, value in migration.SYMBOL_PATHS.items()

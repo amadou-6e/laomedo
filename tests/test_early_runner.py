@@ -43,8 +43,8 @@ class BlockingServer(FakeServer):
             return "timeout", "synthetic_timeout"
         return "cancelled", "cancelled_by_user"
 
-    def close(self):
-        super().close()
+    async def close(self):
+        await super().close()
         type(self).closed.set()
 
 

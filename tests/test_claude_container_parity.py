@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.utils import command
+from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.models import ClaudePolicy
 from laomedo.agents.providers.claude.container import ClaudeContainer; from laomedo.agents.providers.claude.container import CommandService
 from laomedo.activity.agent_activity.projection import project
 from laomedo.agents.runtime.errors import RunnerError
@@ -54,6 +54,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         controls.ClaudeRunnerTests.setUp(self)
 
     invoke = controls.ClaudeRunnerTests.invoke
+    _begin_activity = controls.ClaudeRunnerTests._begin_activity
 
     def test_controller_command_is_bounded_inside_container(self):
         runtime = object.__new__(ClaudeContainer)
@@ -211,12 +212,12 @@ class ClaudeContainerParityTests(unittest.TestCase):
                 native.assert_not_called()
 
     def test_controller_never_exposes_credential_side_file_or_shell_tools(self):
-        args = command(None, 'sonnet', 'low', str(uuid4()), skill_ids=('selected',))
-        self.assertEqual(args[args.index('--tools')+1], 'Skill')
-        self.assertNotIn('Read', args[args.index('--allowedTools')+1])
-        denied = args[args.index('--disallowedTools')+1].split(',')
-        for name in ('Read', 'Write', 'Glob', 'Grep', 'Edit', 'Bash', 'Agent', 'Task'):
-            self.assertIn(name, denied)
+        options = ClaudePolicy(model="sonnet", effort="low", skill_ids=("selected",)).sdk_options()
+        self.assertEqual(options["tools"], ["Skill"])
+        self.assertIn("Skill(laomedo-pinned:selected)", options["allowedTools"])
+        self.assertNotIn("Read", options["allowedTools"])
+        for name in ("Read", "Write", "Glob", "Grep", "Edit", "Bash", "Agent", "Task"):
+            self.assertIn(name, options["disallowedTools"])
 
     def test_bom_or_ambiguous_frontmatter_cannot_hide_permission_overrides(self):
         for index, prefix in enumerate(['\ufeff---\n', '--- \n']):
