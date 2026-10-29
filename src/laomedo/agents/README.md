@@ -2,93 +2,118 @@
 
 **Status: PROPOSED, NOT IMPLEMENTED.** This document records the target design
 discussed with the owner. It is not a description of the current folder layout,
-a completed refactor, or approval to merge. Claude reviewed the design direction;
-the implementation contracts and migration still require the checks below.
+a completed refactor, or approval to merge. The owner selected the nested
+`agents/agents/{claude,codex,opencode,base}` layout and the Agent-only module
+boundary below. Implementation contracts and migration still require the checks
+below; earlier Claude reviews do not approve later edits or implementation.
 
-The goal is to make providers visible entrypoints, give each concern an owning
-object, and inherit the common execution lifecycle through `BaseAgent`. Matching
-folders must reflect shared behavior rather than three independent pipelines.
+The outer `agents/` module owns only Agent concerns. Its inner `agents/` package
+contains concrete Agent implementations and their shared abstract base. Other
+purely Agent-specific services are siblings of that inner package. The common
+execution lifecycle is inherited through `BaseAgent`; matching folders must
+reflect shared behavior rather than three independent pipelines.
 
 For current product documentation, see the [Agents guide](../../../docs/features/agents/README.md).
 Canonical requirements remain in the separate specs repository.
 
-## Concerns and owning objects
+## Module boundary and owning objects
 
 Paths in this table are relative to `src/laomedo/` and describe the target.
 
 | Concern | Folder | Objects and responsibility |
 | --- | --- | --- |
 | Public Agent API | `agents/interface/` | `HttpAgentBridge`, `AgentRequest`, `AgentCapabilities`: the boundary used by the rest of the app |
-| Shared Agent behavior | `agents/base/` | `BaseAgent`, `AcpRuntime`, `AgentRegistry`: inherited lifecycle, communication and trusted registration |
-| Concrete providers | `agents/codex/`, `agents/claude/`, `agents/opencode/` | `CodexAgent`, `ClaudeAgent`, `OpenCodeAgent`: provider behavior and resources |
-| Working files | `workspaces/` | `BaseWorkspace`, `DirectoryWorkspace`, `GitWorkspace`: prepare, verify, snapshot and restore working state |
-| Git repositories | Initially `workspaces/git/`; `repositories/git/` if shared use is established | `GitRepository`: controlled Git operations; caller-specific workspace admission and publication authorization stay with their callers |
-| Transferable files | `artifacts/` | `ArtifactStore`, `ArtifactReference`: retain, select, verify and import output files |
-| Execution persistence | `executions/` | `RunStore`, `RunRecord`, `RunReference`: reservations, state, correlation and recovery information |
-| Expected output | `output/` | `OutputValidator`, `OutputRequirements`, `OutputValidation`: describe and check acceptable responses |
-| Coordination between agents | `orchestration/` | `BoundedAgentController`, `AgentHandoff`: coordinate successive runs and explicit stopping conditions |
-| Shared observability | `activity/` | `ActivityStore`, `ActivityCapture`, `ActivityProjection`: retain and present normalized activity |
-| Graph integration | `integrations/langflow/` | Components, feedback connections and downstream requirement discovery |
+| Shared Agent implementation | `agents/agents/base/` | `BaseAgent`, `AcpRuntime`, `AgentRegistry`: inherited lifecycle, communication and trusted registration |
+| Concrete Agent implementations | `agents/agents/codex/`, `agents/agents/claude/`, `agents/agents/opencode/` | `CodexAgent`, `ClaudeAgent`, `OpenCodeAgent`: provider behavior and resources |
+| Agent working state | `agents/workspaces/` | `BaseWorkspace`, `DirectoryWorkspace`, `GitWorkspace`: prepare, verify, snapshot and restore Agent working state |
+| Agent artifacts | `agents/artifacts/` | `ArtifactStore`, `ArtifactReference`: retain, select, verify and transfer files between Agent runs |
+| Agent run persistence | `agents/runs/` | `RunStore`, `RunRecord`, `RunReference`: Agent requests, attempts, state and recovery information |
+| Agent response requirements | `agents/output/` | `OutputValidator`, `OutputRequirements`, `OutputValidation`: describe and check Agent responses |
+| Coordination between Agents | `agents/orchestration/` | `AgentHandoffController`, `AgentHandoff`: coordinate Agent handoffs and explicit stopping conditions |
+| Agent observability | `agents/activity/` | `ActivityStore`, `ActivityCapture`, `ActivityProjection`: retain and present normalized Agent activity |
+| Agent framework integration | `agents/interface/` | Agent-specific framework adapters belong to the public boundary; the existing Agent component adapter is Langflow-specific |
+
+The following concerns stay outside the Agent module:
+
+| Concern | Owner outside `agents/` | Boundary |
+| --- | --- | --- |
+| Reusable Git mechanics | Shared Git code, with `repositories/git/` as a target after caller audit | `GitRepository` supplies controlled Git operations to Agent workspaces and other consumers |
+| GitHub workflows and operations | Existing GitHub, work-graph and host publication/mediation owners | Issue/PR actions, repository authorization, workflow decisions and publishing are not Agent responsibilities |
+| Graph dispatch persistence | `work_graph/`, with a focused runs package if warranted | Graph launch reservations and invocation correlations are distinct from Agent run records |
+| General graph integration | `integrations/langflow/` | Cross-node PR/Skill feedback, downstream requirement discovery and graph routing stay with the graph integration |
+| General infrastructure | Shared host services and `py-docker` | Secure storage, leases, mediation and Docker mechanics retain their existing owners |
+
+Having an Agent as a caller does not make a GitHub workflow, graph execution or
+general infrastructure operation Agent-specific. Conversely, an app viewer
+reading Agent activity does not make that activity a general app concern.
 
 `Workspace` is a behavioral object, not a namespace for filesystem helpers.
-`GitWorkspace` uses a `GitRepository` to prepare its working state. Git mechanics
-may be shared by workspace preparation and verified publication. A caller audit
-must establish the common operations and actual consumers before extracting
-`repositories/git/`. Until then, `GitRepository` belongs in `workspaces/git/`.
-Relocate it if extraction is justified; do not keep two implementations. GitHub
-grants, remote selection and publication authorization stay with their callers.
+`GitWorkspace` uses a `GitRepository` to prepare its working state. Reusable Git
+mechanics already have consumers in Skills and host-side operations. A caller
+audit must establish the exact shared operations and destination before moving
+them; do not copy them into a second Agent implementation. GitHub grants, remote
+selection and publication authorization stay with their non-Agent owners.
+
+The owner's requested LangChain Agent integration belongs under
+`agents/interface/langchain/` when an actual adapter is implemented. The current
+Agent graph adapter is Langflow-specific and targets
+`agents/interface/langflow/`. These are separate framework adapters, not two names
+for the same implementation. This proposal does not claim a LangChain adapter
+already exists or add a new framework dependency.
 
 ## Target structure
 
 ```text
 laomedo/
-├── agents/
-│   ├── claude/
-│   ├── codex/
-│   ├── opencode/
-│   ├── interface/
-│   │   ├── bridge.py          # HttpAgentBridge
-│   │   ├── models.py          # Public Agent requests and descriptors
-│   │   └── errors.py          # Public error exports
-│   ├── base/
-│   │   ├── agent.py           # BaseAgent
-│   │   ├── runtime.py         # AcpRuntime
-│   │   ├── registry.py        # AgentRegistry
-│   │   ├── catalog.py         # Shared caching/discovery coordination
-│   │   ├── models.py
-│   │   ├── settings.py
-│   │   ├── errors.py
-│   │   └── acp/              # Shared protocol implementation
+├── agents/                         # Only Agent-specific concerns
+│   ├── agents/                     # Agent implementations
+│   │   ├── claude/
+│   │   ├── codex/
+│   │   ├── opencode/
+│   │   └── base/
+│   │       ├── agent.py            # BaseAgent
+│   │       ├── runtime.py          # AcpRuntime
+│   │       ├── registry.py         # AgentRegistry
+│   │       ├── catalog.py          # Shared discovery coordination
+│   │       ├── models.py
+│   │       ├── settings.py
+│   │       └── acp/                # Shared Agent protocol implementation
+│   ├── interface/                  # Boundary with the wider implementation
+│   │   ├── bridge.py               # HttpAgentBridge
+│   │   ├── models.py               # Public Agent requests and descriptors
+│   │   ├── errors.py               # Public error exports
+│   │   ├── langflow/               # Agent-specific component adapter
+│   │   └── langchain/              # Only when an actual Agent adapter is added
+│   ├── workspaces/
+│   │   ├── base.py                 # BaseWorkspace
+│   │   ├── directory.py            # DirectoryWorkspace
+│   │   ├── git.py                  # GitWorkspace, using shared Git mechanics
+│   │   └── models.py
+│   ├── artifacts/
+│   │   ├── store.py                # ArtifactStore
+│   │   └── models.py
+│   ├── runs/
+│   │   ├── store.py                # RunStore for Agent runs
+│   │   └── models.py
+│   ├── output/
+│   │   ├── validator.py            # Agent response validation
+│   │   └── models.py
+│   ├── orchestration/
+│   │   ├── controller.py           # AgentHandoffController
+│   │   └── models.py
+│   ├── activity/                   # Common Agent activity only
+│   ├── errors.py                   # One shared Agent error hierarchy
 │   └── ADD_PROVIDER.md
-├── workspaces/
-│   ├── base.py               # BaseWorkspace
-│   ├── directory.py          # DirectoryWorkspace
-│   ├── git/
-│   │   ├── workspace.py      # GitWorkspace
-│   │   └── repository.py     # GitRepository until shared extraction is justified
-│   └── models.py
-├── repositories/             # Conditional on the shared Git caller audit
+├── repositories/                   # Shared Git target, after caller audit
 │   └── git/
-│       ├── repository.py     # GitRepository relocated from workspaces/git/
-│       └── models.py
-├── artifacts/
-│   ├── store.py              # ArtifactStore
-│   └── models.py
-├── executions/
-│   ├── store.py              # RunStore
-│   └── models.py
-├── output/
-│   ├── validator.py          # OutputValidator
-│   └── models.py
-├── orchestration/
-│   ├── controller.py         # BoundedAgentController
-│   └── models.py
-├── activity/                 # Shared storage, capture and presentation
+├── github/                         # GitHub domain and workflow operations
+├── work_graph/                     # Graph execution and dispatch persistence
+├── host/                           # Shared host infrastructure/publication
 └── integrations/
     └── langflow/
-        ├── agent/            # Existing public component entrypoint
-        ├── feedback/         # PR/Skill and Agent graph loops
-        └── output/           # Downstream requirements and graph routing
+        ├── agent/                  # Stable external component entrypoint
+        ├── feedback/               # Cross-node PR/Skill and Agent graph loops
+        └── output/                 # Downstream discovery and graph routing
 ```
 
 Settings, errors and package initializers are omitted from parts of this tree
@@ -101,7 +126,7 @@ empty files or duplicate models solely to make folder contents identical.
 Each provider has the same core responsibilities. Codex illustrates the layout:
 
 ```text
-agents/codex/
+agents/agents/codex/
 ├── agent.py                  # CodexAgent(BaseAgent)
 ├── launch.py                 # CodexLaunchPolicy
 ├── catalog.py                # CodexModelCatalog
@@ -120,13 +145,14 @@ agents/codex/
 ```
 
 Claude and OpenCode follow the same core roles. Additional packages represent
-actual capabilities, such as `agents/opencode/activity/history/`.
+actual capabilities, such as `agents/agents/opencode/activity/history/`.
 
 Provider-specific authentication logic, catalogue discovery, native Activity
 interpretation, runtime resources and policy extensions belong with the provider.
-This supersedes the earlier proposed `activity/codex/` layout: generic Activity
-code receives registered adapters and canonical records without provider-name
-branches. Original native evidence remains separately retained with provenance.
+Common `agents/activity/` code receives registered adapters and canonical records
+without provider-name branches. Native interpretation stays inside
+`agents/agents/<provider>/activity/`, superseding the earlier top-level Activity
+proposal. Original native evidence remains separately retained with provenance.
 
 Generic secure credential storage, leases and mediation remain shared host
 services. General Docker mechanics remain in `py-docker`. Moving build recipes
@@ -149,7 +175,8 @@ BaseAgent uses:
   ActivityCapture
 ```
 
-`BaseAgent` inherits the common lifecycle once for all providers and coordinates
+`BaseAgent`, defined in `agents/agents/base/`, supplies the inherited common
+lifecycle for all providers and coordinates
 the other objects by composition. It does not absorb Git commands, SQLite
 operations, file copying or validation implementation into one large class.
 
@@ -176,13 +203,17 @@ blind redispatch.
 ## Public boundary and registration
 
 - Application consumers use `agents/interface`; they do not import concrete
-  providers or the base implementation. Explicit host bootstrap and runner-server
+  implementations in `agents/agents/`. Explicit host bootstrap and runner-server
   wiring are the exceptions: they register trusted factories and delegate to the
   base. Import-boundary checks must identify those entrypoints explicitly.
 - The interface imports domain models, not base or provider implementations.
   It re-exports canonical models from their owning concern where necessary.
 - The base depends on those public data contracts and shared domain objects.
   Concrete providers depend on the base.
+- Agent-specific framework adapters are part of `agents/interface`. They may
+  depend on the relevant optional framework, but importing the core Agent module
+  must not eagerly load Langflow or LangChain. General graph traversal and
+  GitHub/Skill feedback orchestration remain outside the Agent module.
 - Host startup selects explicit trusted provider factories. The registry does
   not automatically execute factories advertised by installed packages.
 - A graph selects a configured provider ID. It cannot supply import paths,
@@ -206,7 +237,7 @@ variants, and a final noun describing the responsibility.
 | `AcpRuntime` | Execution machinery communicating through ACP |
 | `HttpAgentBridge` | Connector across the application/runner boundary |
 | `ArtifactStore`, `RunStore` | Persistence and retrieval of entities |
-| `BoundedAgentController` | Coordination with explicit execution bounds |
+| `AgentHandoffController` | Coordination of handoffs between Agent runs; mandatory limits are behavior/settings, not a separate controller variant |
 | `CodexActivityProjector` | Conversion of native evidence to the common Activity model |
 
 Reserve `Ledger` for ordered, append-only facts. The current mutable execution
@@ -223,8 +254,8 @@ owning objects and standalone functions in focused function-only modules.
 
 The extension guide and shared conformance suite must make these steps explicit:
 
-1. Create the provider package directly under `agents/`.
-2. Subclass `BaseAgent` and implement the documented provider hooks.
+1. Create the implementation package under `agents/agents/<provider>/`.
+2. Subclass `BaseAgent` from `agents/agents/base/` and implement its documented hooks.
 3. Supply native catalogue discovery, authentication integration, launch policy,
    Activity interpretation, capabilities, resources and descriptive errors.
 4. Register its factory through explicit trusted host configuration.
@@ -241,9 +272,13 @@ contract extension.
 
 Separate the work into reviewable replacements:
 
-1. **Relocate and name existing behavior.** Initially `BaseAgent` is the current
-   shared Runner renamed and relocated, with existing provider overrides retained.
-   This step alone does not complete lifecycle consolidation.
+1. **Separate ownership and relocate existing behavior.** Put concrete Agents and
+   the base under `agents/agents/`; keep purely Agent-specific services beside that
+   package. Separate graph dispatch records, GitHub workflows and reusable Git
+   mechanics into their non-Agent owners. Move only Agent-specific framework
+   adapters into `agents/interface`. Initially `BaseAgent` is the current shared
+   Runner renamed and relocated, with existing provider overrides retained. This
+   step alone does not complete lifecycle consolidation.
 2. **Establish canonical Activity adapters.** Define shared records and trusted
    adapter registration before relocating native parsers. Check each provider's
    actual Activity and original evidence.
@@ -258,7 +293,9 @@ runtime or describe equal-looking folders as completed unification.
 Saved graphs need an explicit compatibility policy:
 
 - Keep public component names, IDs, ports, runner HTTP/CLI contracts and the
-  generic `integrations.langflow.agent.component` entrypoint stable.
+  generic `integrations.langflow.agent.component` entrypoint stable. Its Agent
+  implementation moves to `agents/interface/langflow/`; the established public
+  entrypoint delegates there rather than retaining a second implementation.
 - Inventory embedded component imports before retiring paths. Some current
   Claude component code directly imports its old provider catalogue, so keeping
   the generic entrypoint alone is insufficient.
