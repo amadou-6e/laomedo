@@ -22,7 +22,7 @@ Paths in this table are relative to `src/laomedo/` and describe the target.
 | Shared Agent behavior | `agents/base/` | `BaseAgent`, `AcpRuntime`, `AgentRegistry`: inherited lifecycle, communication and trusted registration |
 | Concrete providers | `agents/codex/`, `agents/claude/`, `agents/opencode/` | `CodexAgent`, `ClaudeAgent`, `OpenCodeAgent`: provider behavior and resources |
 | Working files | `workspaces/` | `BaseWorkspace`, `DirectoryWorkspace`, `GitWorkspace`: prepare, verify, snapshot and restore working state |
-| Git repositories | `repositories/git/` | `GitRepository`: reusable controlled Git operations; caller-specific workspace admission and publication authorization stay with their callers |
+| Git repositories | Initially `workspaces/git/`; `repositories/git/` if shared use is established | `GitRepository`: controlled Git operations; caller-specific workspace admission and publication authorization stay with their callers |
 | Transferable files | `artifacts/` | `ArtifactStore`, `ArtifactReference`: retain, select, verify and import output files |
 | Execution persistence | `executions/` | `RunStore`, `RunRecord`, `RunReference`: reservations, state, correlation and recovery information |
 | Expected output | `output/` | `OutputValidator`, `OutputRequirements`, `OutputValidation`: describe and check acceptable responses |
@@ -32,10 +32,11 @@ Paths in this table are relative to `src/laomedo/` and describe the target.
 
 `Workspace` is a behavioral object, not a namespace for filesystem helpers.
 `GitWorkspace` uses a `GitRepository` to prepare its working state. Git mechanics
-are reusable across workspace preparation and verified publication; their exact
-shared boundary must be established by a caller audit before extraction. This
-does not move GitHub grants, remote selection or publication authorization into
-the generic repository object.
+may be shared by workspace preparation and verified publication. A caller audit
+must establish the common operations and actual consumers before extracting
+`repositories/git/`. Until then, `GitRepository` belongs in `workspaces/git/`.
+Relocate it if extraction is justified; do not keep two implementations. GitHub
+grants, remote selection and publication authorization stay with their callers.
 
 ## Target structure
 
@@ -62,11 +63,13 @@ laomedo/
 ├── workspaces/
 │   ├── base.py               # BaseWorkspace
 │   ├── directory.py          # DirectoryWorkspace
-│   ├── git.py                # GitWorkspace
+│   ├── git/
+│   │   ├── workspace.py      # GitWorkspace
+│   │   └── repository.py     # GitRepository until shared extraction is justified
 │   └── models.py
-├── repositories/
+├── repositories/             # Conditional on the shared Git caller audit
 │   └── git/
-│       ├── repository.py     # GitRepository
+│       ├── repository.py     # GitRepository relocated from workspaces/git/
 │       └── models.py
 ├── artifacts/
 │   ├── store.py              # ArtifactStore
@@ -113,7 +116,7 @@ agents/codex/
 ├── extensions/               # Actual provider-specific protocol policies
 ├── split/                    # Optional split-executor capability
 ├── resources/                # Required runtime assets
-└── docker/                   # Provider image build definitions
+└── docker/                   # Build definitions, after context/package-data audit
 ```
 
 Claude and OpenCode follow the same core roles. Additional packages represent
@@ -173,7 +176,9 @@ blind redispatch.
 ## Public boundary and registration
 
 - Application consumers use `agents/interface`; they do not import concrete
-  providers or the base implementation.
+  providers or the base implementation. Explicit host bootstrap and runner-server
+  wiring are the exceptions: they register trusted factories and delegate to the
+  base. Import-boundary checks must identify those entrypoints explicitly.
 - The interface imports domain models, not base or provider implementations.
   It re-exports canonical models from their owning concern where necessary.
 - The base depends on those public data contracts and shared domain objects.
