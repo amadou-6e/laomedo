@@ -120,9 +120,9 @@ laomedo/
 ├── git/                            # Sole owner of reusable Git mechanics
 │   ├── repository.py               # GitRepository
 │   ├── worktree.py                 # GitWorkingTree
-│   ├── command.py                  # GitCommandRunner
-│   ├── credentials/                # Git credential-helper protocol/mechanics
-│   ├── resources/                  # Required Git helper scripts
+│   ├── command.py                  # Host-side GitCommandRunner
+│   ├── credentials/                # Standard-library-only scoped Git helper
+│   ├── resources/                  # Protocol-generic Git helper assets only
 │   ├── models.py                   # GitCommit, GitRemote, GitBundle, operation data
 │   ├── settings.py
 │   └── errors.py
@@ -147,9 +147,9 @@ empty files or duplicate models solely to make folder contents identical.
 | --- | --- | --- |
 | Open/create repositories, clone, fetch, push and repository-level history operations | `GitRepository` | Agent workspaces, Skills and approved host publication |
 | Checkout, working-tree status, changes and commit operations | `GitWorkingTree` | Any owner of checked-out files, including `AgentWorkspace` |
-| Controlled command construction/execution, environment isolation, deadlines and process-tree cleanup | `GitCommandRunner` | Git objects inside `git/`; application callers use the domain methods |
+| Controlled host-side command execution, environment isolation, deadlines and process-tree cleanup | `GitCommandRunner` | Git objects inside `git/`; application callers use the domain methods |
 | Commit identities, remotes, bundles, requests and results | Canonical Pydantic models in `git/models.py` | Git objects and their callers |
-| Git credential-helper protocol and Git helper assets | `git/credentials/` and `git/resources/` | Approved Git operations; host services supply the authorized credential binding |
+| Standalone Git credential-helper mechanics and protocol-generic assets | `git/credentials/` and `git/resources/` | Approved host-side Git operations; the current helper stays standard-library-only and GitHub-host-bound, with dynamic credential lookup |
 
 The current code shows why consolidation is needed: Agent workspace preparation
 and the GitHub Git transport each implement Git process-tree timeout handling.
@@ -167,15 +167,26 @@ Policy stays with the caller:
   publish. It asks Git objects to inspect/import the admitted bundle and perform
   an approved operation.
 
-`git/` must not import Agents, Skills, GitHub workflows or publication policy.
-Those consumers depend on the Git module. GitHub-specific transport wrappers may
-remain only as policy adapters; they must not contain a second Git executor.
-GitHub Actions workflow decisions remain outside `git/`, even when Git supplies
-the file diff they inspect.
+`git/` must not import Agents, Skills, GitHub workflows, publication policy, host
+mediation or host credential-policy implementations. Those consumers depend on
+the Git module and supply scoped bindings at the boundary. GitHub-specific
+transport wrappers may remain only as policy adapters; they must not contain a
+second Git executor. GitHub Actions workflow decisions remain outside `git/`,
+even when Git supplies the file diff they inspect.
 
-Preserve the existing host-controlled remote and credential scope. Centralizing
-credential-helper mechanics does not move credential ownership, copying rights
-or authorization into the Agent. Keep credentials out of logs, Git arguments,
+Mediation-protocol clients, including `agent_git_remote.mjs` and
+`agent_gh_adapter.mjs`, remain with host mediation resources. Their run-capability
+and mediator exchange is an integration boundary, not generic Git mechanics.
+They do not move into `git/resources/` merely because one implements Git's
+remote-helper protocol. Keep the distinction between a host Git operation and
+Git invoked by an Agent inside its container; container tooling is not rerouted
+through the host `GitCommandRunner`.
+
+Preserve the existing host-controlled remote and credential scope. The standalone
+credential helper retains its standard-library-only runtime, dynamic lookups,
+environment filtering and existing GitHub host restriction. Centralizing its
+mechanics does not move credential ownership, copying rights or authorization
+into the Agent. Keep credentials out of logs, Git arguments,
 persisted configuration and model-visible resources. Preserve existing bounded
 execution, exact cleanup, bundle identity and uncertain-effect/no-blind-retry
 semantics. Do not broaden supported transports or authentication behavior as a
@@ -184,9 +195,10 @@ side effect of this structural change.
 Before replacement, inventory Git entrypoints in workspace preparation, Skills,
 GitHub transport, verified publication and remote/credential helper resources.
 Move the common behavior and migrate its callers together, deleting the replaced
-Git command paths. Preserve actual standalone helper and installed-resource
-contracts. Add an import/command-ownership regression check so raw Git execution
-cannot quietly spread back into consumers. This is a target design; none of
+host-side Git command paths. Preserve actual standalone helper and installed-resource
+contracts. Add an import/command-ownership regression check for host-side Git so
+raw execution cannot quietly spread back into consumers. The check must not
+forbid or reroute normal Agent container Git tooling. This is a target design; none of
 these runtime migrations has been performed by editing this README.
 
 ## Provider ownership
