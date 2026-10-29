@@ -2,7 +2,6 @@
   "laomedo.agents.local_runner": "laomedo.agents.providers.codex.cli",
   "laomedo.agents.providers.claude_runner": "laomedo.agents.providers.claude.cli",
   "laomedo.agents.runtime.cli": "laomedo.agents.providers.codex.cli",
-  "laomedo.agents.runtime.servers": "laomedo.agents.providers.codex.native.server",
   "laomedo.bundle_verifier": "laomedo.host.publication.cli",
   "laomedo.claude_runner": "laomedo.agents.providers.claude.cli",
   "laomedo.container_lease": "laomedo.host.leases.process_cli",
