@@ -43,7 +43,9 @@ kernel setting or unconfined container was used. These prototype checks do not
 establish final graph acceptance. After the cutover, a separate production-runner
 check observed Fresh and Resume on one native thread, accepted prechecks, local
 OTLP receipt and confirmed cleanup on image
-`sha256:3dbc4c17805aa7ff18c66223a33dc118812c8db110b8c2804a34b2499642db93`.
+`sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa`.
+The model/effort record is host-requested and adapter-asserted configuration;
+it is not an independent native report of effective selection.
 Split production, app-owned OAuth, mediation and graph checks remain pending.
 
 Saved runs retain exact image, policy and execution-mode bindings. Pre-ACP runs

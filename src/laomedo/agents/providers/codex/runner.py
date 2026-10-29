@@ -777,8 +777,9 @@ class CodexRunner(Runner):
             record["precheck"]["installed"] = bool(record.get("output_requirements"))
             record["effective_model"] = record["requested_model"]
             record["effective_effort"] = record["requested_effort"]
-            record["effective_model_source"] = "confirmed_acp_configuration"
-            record["effective_effort_source"] = "confirmed_acp_configuration"
+            # ACP echoes adapter configuration, not an independent native report.
+            record["effective_model_source"] = "host_requested_adapter_asserted"
+            record["effective_effort_source"] = "host_requested_adapter_asserted"
             _runtime_utils._json(run_dir / "record.json", record)
             if cancelled.is_set():
                 record.update(

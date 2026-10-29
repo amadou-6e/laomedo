@@ -874,6 +874,8 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertIs(json.loads(first_attempt.read_text())['fresh_thread'],True)
         self.assertEqual(first["status"], "completed")
         self.assertEqual(first["thread_id"], "native-thread")
+        self.assertEqual(first["effective_model_source"], "host_requested_adapter_asserted")
+        self.assertEqual(first["effective_effort_source"], "host_requested_adapter_asserted")
         self.assertEqual(first["skill"]["use_evidence"], "offered")
         self.assertEqual(first["answer"], "synthetic answer")
         command = FakeServer.calls[-1]
