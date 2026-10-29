@@ -1,0 +1,199 @@
+"""Provider-neutral ACP lifecycle using the upstream Python SDK."""
+
+import asyncio
+import time
+
+from acp import RequestError, connect_to_agent
+from acp.schema import (
+    ClientCapabilities,
+    DeniedOutcome,
+    Implementation,
+    RequestPermissionResponse,
+    TextContentBlock,
+)
+
+from laomedo.agents.protocol.acp.models import AcpTurn
+from laomedo.agents.protocol.acp.transport import DockerTransport
+from laomedo.agents.runtime.errors import RunnerError
+
+
+class AcpSession:
+    """Communicate with any ACP agent; provider policy stays in its launch config.
+
+    Parameters
+    ----------
+    session : py_docker.sessions.session.Session
+        Session created on this thread. Close removes its exact owned container.
+    on_update : callable or None
+        Persist observed session updates; capture completeness belongs to its owner.
+    on_extension : callable or None
+        Optional provider telemetry extension receiver, never a tool executor.
+
+    The client advertises no host filesystem or terminal capabilities. It denies
+    every permission request and implements no host execution callbacks. Tool
+    access must be configured explicitly in the controller and its MCP server.
+    """
+
+    def __init__(self, session, *, on_update=None, on_extension=None):
+        """Connect the SDK to one session on the current asyncio event loop."""
+        self.session = session
+        self.on_update = on_update
+        self.on_extension = on_extension
+        self.updates = []
+        self.session_id = None
+        self.capabilities = None
+        self.cancel_sent = False
+        self.connection = connect_to_agent(self, DockerTransport(session))
+
+    async def initialize(self):
+        """Negotiate ACP v1 without logging authentication or native payloads."""
+        reply = await self._request(
+            self.connection.initialize(
+                protocol_version=1,
+                client_capabilities=ClientCapabilities(),
+                client_info=Implementation(name="laomedo", version="0.1.0"),
+            ),
+            "initialize",
+            45,
+        )
+        if reply.protocol_version != 1:
+            raise RunnerError("runner_transport_failed")
+        self.capabilities = reply.agent_capabilities
+        return reply
+
+    async def open(
+        self, *, cwd="/draft", session_id=None, mcp_servers=(), metadata=None
+    ):
+        """Create or load the actual persisted agent session, without a model turn.
+
+        A resume uses loadSession only when the agent advertises support. Failure
+        never falls back to creating a fresh session or dispatching another turn.
+        """
+        arguments = {"cwd": cwd, "mcp_servers": list(mcp_servers), **(metadata or {})}
+        if session_id is None:
+            reply = await self._request(
+                self.connection.new_session(**arguments), "session/new", 60
+            )
+            self.session_id = reply.session_id
+        else:
+            if self.capabilities is None or not self.capabilities.load_session:
+                raise RunnerError("resume_provider_binding_mismatch")
+            reply = await self._request(
+                self.connection.load_session(session_id=session_id, **arguments),
+                "session/load",
+                60,
+            )
+            self.session_id = session_id
+        self.updates.clear()  # Replayed history belongs to the earlier prompt.
+        return reply
+
+    async def configure(self, config_id: str, value: str) -> None:
+        """Set an agent-advertised config option; never silently use a default."""
+        await self._request(
+            self.connection.set_config_option(
+                session_id=self.session_id, config_id=config_id, value=value
+            ),
+            "session/set_config_option",
+            30,
+        )
+
+    async def prompt(self, text: str, *, cancelled, seconds: float) -> AcpTurn:
+        """Await a terminal response, forwarding cancellation within 100 ms.
+
+        Cancellation and timeout have a five-second protocol grace period. The
+        caller must close this session before trusting descendant cleanup. A
+        transport failure never implies a confirmed remote completion.
+        """
+        if self.session_id is None:
+            raise RunnerError("runner_transport_failed")
+        self.updates.clear()
+        self.cancel_sent = False
+        deadline = time.monotonic() + seconds
+        pending = asyncio.create_task(
+            self.connection.prompt(
+                session_id=self.session_id,
+                prompt=[TextContentBlock(type="text", text=text)],
+            )
+        )
+        timed_out = False
+        try:
+            while not pending.done():
+                if not self.cancel_sent and (
+                    cancelled.is_set() or time.monotonic() >= deadline
+                ):
+                    timed_out = not cancelled.is_set()
+                    await self._request(
+                        self.connection.cancel(session_id=self.session_id),
+                        "session/cancel",
+                        5,
+                    )
+                    self.cancel_sent = True
+                    deadline = time.monotonic() + 5
+                elif self.cancel_sent and time.monotonic() >= deadline:
+                    raise RunnerError(
+                        "turn_timeout" if timed_out else "cancel_native_unconfirmed"
+                    )
+                await asyncio.wait({pending}, timeout=0.1)
+            reply = await pending
+            if timed_out:
+                raise RunnerError("turn_timeout")
+            return AcpTurn(
+                session_id=self.session_id,
+                stop_reason=reply.stop_reason,
+                answer="".join(
+                    update["content"]["text"]
+                    for update in self.updates
+                    if update.get("sessionUpdate") == "agent_message_chunk"
+                    and update.get("content", {}).get("type") == "text"
+                ),
+                updates=list(self.updates),
+                usage=reply.usage.model_dump(
+                    mode="json", by_alias=True, exclude_none=True
+                )
+                if getattr(reply, "usage", None) is not None
+                else None,
+            )
+        except RequestError:
+            raise RunnerError("runner_transport_failed") from None
+        finally:
+            if not pending.done():
+                pending.cancel()
+            await asyncio.gather(pending, return_exceptions=True)
+
+    async def request_permission(self, session_id, tool_call, options, **kwargs):
+        """Deny host permission requests regardless of agent labels or options."""
+        return RequestPermissionResponse(outcome=DeniedOutcome(outcome="cancelled"))
+
+    async def session_update(self, session_id, update, **kwargs):
+        """Retain real updates and forward them to the owning activity capture."""
+        if self.session_id is not None and session_id != self.session_id:
+            raise RunnerError("runner_transport_failed")
+        value = update.model_dump(mode="json", by_alias=True, exclude_none=True)
+        self.updates.append(value)
+        if self.on_update is not None:
+            self.on_update(session_id, value)
+
+    async def ext_method(self, method, params):
+        """Reject every extension request; none may become a host tool call."""
+        raise RequestError.method_not_found(method)
+
+    async def ext_notification(self, method, params):
+        """Forward provider telemetry only, without interpreting it as execution."""
+        if self.on_extension is not None:
+            self.on_extension(method, params)
+
+    async def close(self) -> None:
+        """Unblock the reader through creator-owned cleanup before closing SDK I/O."""
+        try:
+            self.session.close()
+        finally:
+            await self.connection.close()
+
+    async def _request(self, request, method: str, seconds: float):
+        """Map bounded SDK failures to existing safe runner error contracts."""
+        try:
+            return await asyncio.wait_for(request, timeout=seconds)
+        except TimeoutError:
+            raise RunnerError("request_timeout:" + method) from None
+        except (RequestError, ConnectionError, OSError, ValueError):
+            raise RunnerError("runner_transport_failed") from None
