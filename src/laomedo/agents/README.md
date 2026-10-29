@@ -364,7 +364,11 @@ owning objects and standalone functions in focused function-only modules.
 These conventions are recorded in the [contributor instructions](../../../AGENTS.md).
 The reusable coding skill contains before/after examples for owner inspection.
 This documentation update does not apply those examples to the runtime; review
-the examples before continuing the implementation refactor.
+the examples before continuing the implementation refactor. Apply them to new or
+reworked code in the owned task, recording remaining violations rather than
+starting an unrelated repository-wide or test-suite rewrite. Resolve import
+cycles through ownership or safe point-of-use symbol imports, not module-prefix
+aliases.
 
 ## Adding a provider
 

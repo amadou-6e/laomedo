@@ -23,6 +23,9 @@
 
 ## Python module cohesion
 
+- Apply these conventions to new and reworked code within the owned task. Record
+  existing violations for the planned refactor; do not launch an unrelated
+  repository-wide or test-suite rewrite merely by adding these instructions.
 - Group cohesive features into packages; do not stop at a fixed nesting depth.
   Repeated filename prefixes are a signal to review the package boundary.
 - A Python implementation file introduces classes or standalone functions, never
@@ -33,6 +36,8 @@
   `_handoffs_errors.HandoffError(...)` through callers. Use a descriptive symbol
   alias only for a real name collision. Preserve necessary optional-import
   boundaries and update affected patch targets when changing import bindings.
+  If a direct import exposes a cycle, correct the dependency boundary or import
+  the symbol at its safe point of use instead of spreading module-prefix aliases.
 - Extract large configuration/definition literals into typed Pydantic objects in
   the owning feature's `models.py`. Pass the varying inputs into the object and
   let an explicit method such as `to_config()` construct the external dictionary.
