@@ -187,6 +187,22 @@ that it fixes the original failure. This reconciliation is not a successful
 original live capture or proof of production delegation controls. End-to-end
 capture requires a separately authorized new child run with export diagnostics.
 
+The owner authorized one additional instrumented child on the same date. A real
+saved graph at runtime revision `f303cdb` completed in 47.2 seconds from the browser
+Run component action. Its original capture was complete: native Task metadata and
+the child's `parentID` identified exactly one child, which used no tools. Activity
+showed both conversations; selecting the child displayed its actual answer and
+separate usage. The retained native counters matched Activity exactly: 3,694 parent
+tokens plus 1,669 child tokens, or 5,363 in total. Reasoning is included in output
+tokens and is not added again. Both export jobs exited successfully in 9.5 seconds
+overall; owned containers and cleanup receipts were absent after the run.
+
+This is one successful end-to-end capture, not proof of the cause or repair of the
+earlier partial capture, repeatability, live child streaming, or production
+delegation controls. It used the explicitly authorized one-shot test policy above;
+normal runners retain their default permission handling. Owner inspection of the
+final graph remains required before merge.
+
 The Agent node waits 210 seconds by default, with a 240-second maximum. OpenCode
 can need startup, a 180-second prompt and final export; Resume also needs a baseline
 export. These phases can exceed the node's wait, and cancellation can still be
