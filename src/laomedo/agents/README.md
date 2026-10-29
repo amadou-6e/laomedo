@@ -1,8 +1,9 @@
 # Agent architecture redesign
 
-**Status: PROPOSED, NOT IMPLEMENTED.** This document records the target design
-discussed with the owner. It is not a description of the current folder layout,
-a completed refactor, or approval to merge. The owner selected the nested
+**Status: IN PROGRESS, NOT VALIDATED.** This document records the target design
+and the migration status discussed with the owner. Package ownership has been
+relocated; object/interface integration and real validation remain unfinished.
+The target below is not a completed refactor or approval to merge. The owner selected the nested
 `agents/agents/{claude,codex,opencode,base}` layout and the Agent-only module
 boundary below. Implementation contracts and migration still require the checks
 below; earlier Claude reviews do not approve later edits or implementation.
@@ -21,6 +22,18 @@ Canonical requirements remain in the separate specs repository.
 The owner has authorized implementation of this design. The target tree below
 remains a target until the corresponding code and checks are recorded. The first
 increment relocates existing behavior; it does not establish lifecycle unification.
+
+The physical relocation and first import/resource/migration-map integration are
+recorded in `eb1f5e8` and `75ce39d`. Concrete implementations now live under
+`agents/agents/`; graph dispatch records are in `work_graph/runs/`, provider-native
+Activity/authentication have provider owners and the public component entrypoint
+delegates into `agents/interface/langflow/`. Initial class names and provider
+pipeline overrides still remain. Reusable Git execution, canonical Activity
+adapters and shared lifecycle consolidation are not completed by those commits.
+
+Read the [implementation index](agents/README.md), [public boundary](interface/README.md),
+[working-state contract](workspaces/README.md), [artifact contract](artifacts/README.md)
+and [handoff contract](orchestration/README.md) for object and method nomenclature.
 
 Agent run records currently belong to the shared Runner's file-backed lifecycle
 (`_run_dir`, `_reserve_turn`, status and terminal-record helpers). They initially
