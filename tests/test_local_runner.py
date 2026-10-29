@@ -901,6 +901,23 @@ class LocalRunnerTests(unittest.TestCase):
         self.assertEqual(len(resumed["turns"]), 2)
         self.assertEqual(self.runner._observed_turns, 2)
 
+    def test_creator_owned_cleanup_records_confirmation_only_after_all_resources_close(self):
+        original_close = FakeServer.close
+        for fail_executor in (False, True):
+            with self.subTest(fail_executor=fail_executor):
+                async def close(server):
+                    await original_close(server)
+                    server.cleanup_confirmed = True  # Controller removed.
+                    if fail_executor:
+                        raise RunnerError('executor_termination_unverified')
+                with patch.object(FakeServer, 'close', close):
+                    result = self.runner.start(self.request())
+                self.assertEqual(result['container_ownership']['cleanup_verified'], not fail_executor)
+                self.assertEqual(result['controller_cleanup'], 'unverified' if fail_executor else 'confirmed')
+                if fail_executor:
+                    self.assertEqual(result['status'], 'failed')
+                    self.assertEqual(result['error_category'], 'executor_termination_unverified')
+
     def test_app_owned_resume_refuses_changed_account_and_runner_restart(self):
         completed = self.runner.start(self.request())
         record_path = self.runner._run_dir(completed["run_id"]) / "record.json"

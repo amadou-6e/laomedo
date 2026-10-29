@@ -1070,6 +1070,10 @@ class CodexRunner(Runner):
                     await server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
+                        if not self.supervise_containers and getattr(server, "cleanup_confirmed", False):
+                            record["container_ownership"].update(
+                                cleanup_verified=True, cleanup_detail="removed"
+                            )
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
             except Exception as close_failure:
