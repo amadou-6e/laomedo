@@ -13,6 +13,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_acp*.py' -v
           python -m unittest discover -s tests -p test_codex_acp_controller.py -v
+          python -m unittest discover -s tests -p 'test_runtime_failure*.py' -v
           python -m unittest discover -s tests -p test_codex_docker_preflight.py -v
           python -m unittest discover -s tests -p test_codex_native_session.py -v
           python -m unittest discover -s tests -p test_runner_sandbox_policy.py -v

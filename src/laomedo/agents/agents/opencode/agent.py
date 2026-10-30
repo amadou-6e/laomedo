@@ -14,6 +14,7 @@ from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.utils import inventory
 from laomedo.skills.registry.utils import tree_hash
@@ -114,6 +115,7 @@ class OpenCodeAgent(BaseAgent):
                 raise RunnerError("runner_busy")
             root = self.state / "catalog" / str(uuid4())
             backend = None
+            primary = None
             try:
                 for name in ("workspace", "canonical", "store"):
                     (root / name).mkdir(parents=True)
@@ -128,10 +130,18 @@ class OpenCodeAgent(BaseAgent):
                 if not models:
                     raise RunnerError("opencode_model_not_connected")
                 result = {"models": models, "submitted_turns": 0}
+            except Exception as error:
+                primary = failure_observation(error, stage="startup")
+                raise
             finally:
                 try:
                     if backend is not None:
-                        backend.close()
+                        try:
+                            backend.close()
+                        except RunnerError as cleanup:
+                            raise RunnerError(
+                                cleanup.code, observation=primary or cleanup.observation
+                            ) from None
                 finally:
                     try:
                         if root.exists() and not list(
@@ -291,6 +301,7 @@ class OpenCodeAgent(BaseAgent):
         reader = capture = baseline = None
         baseline_available = True
         metadata_cleanup_unverified = False
+        primary_failure = cleanup_failure = None
         catalog = []
         launch_attempted = False
         try:
@@ -444,6 +455,7 @@ class OpenCodeAgent(BaseAgent):
             )
             self._verify_protected_mounts(root, record)
         except Exception as exc:
+            primary_failure = failure_observation(exc, stage="execution")
             if record is None or attempt is None:
                 raise
             record.update(
@@ -564,6 +576,16 @@ class OpenCodeAgent(BaseAgent):
                             and getattr(backend, "termination_verified", False)
                         )
             except Exception as error:
+                cleanup_failure = failure_observation(
+                    error,
+                    stage="cleanup",
+                    code=(
+                        "opencode_transport_cleanup_failed"
+                        if not isinstance(error, RunnerError)
+                        else None
+                    ),
+                )
+                primary_failure = primary_failure or cleanup_failure
                 if record is not None:
                     verified = backend is not None and getattr(
                         backend, "termination_verified", False
@@ -604,9 +626,30 @@ class OpenCodeAgent(BaseAgent):
                             )
                             _json(root / "record.json", record)
                 finally:
-                    self.active_backends.pop(run_id, None)
-                    self.cancel_flags.pop(run_id, None)
-                    self.lock.release()
+                    try:
+                        observed = getattr(backend, "cleanup_observed", None)
+                        if metadata_cleanup_unverified:
+                            observed = False
+                        source = (
+                            "opencode_owned_resources"
+                            if type(observed) is bool
+                            else None
+                        )
+                        self._retain_attempt_failure(
+                            root,
+                            record,
+                            attempt,
+                            primary_failure,
+                            cleanup_failure,
+                            cleanup_source=source,
+                            cleanup_verified=observed if source else None,
+                        )
+                    except Exception:
+                        pass
+                    finally:
+                        self.active_backends.pop(run_id, None)
+                        self.cancel_flags.pop(run_id, None)
+                        self.lock.release()
         return record
 
     def cancel(self, run_id):

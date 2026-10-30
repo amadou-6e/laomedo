@@ -12,6 +12,7 @@ from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch, CodexTurn
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.utils import failure_observation
 
 
 class CodexController:
@@ -126,18 +127,26 @@ class CodexController:
             )
         except Exception as primary:
             # Constructor failures occur before an ACP reader exists.
+            observation = failure_observation(
+                primary, stage="startup", code="runner_transport_failed"
+            )
             try:
                 self._close_resources()
-            except RunnerError:
-                raise
+            except RunnerError as cleanup:
+                raise RunnerError(
+                    cleanup.code, observation=observation or cleanup.observation
+                ) from None
             if isinstance(primary, RunnerError):
                 raise primary
             from py_docker.errors import CleanupUnconfirmedError
 
             raise RunnerError(
-                "container_termination_unverified"
-                if isinstance(primary, CleanupUnconfirmedError)
-                else "runner_transport_failed"
+                (
+                    "container_termination_unverified"
+                    if isinstance(primary, CleanupUnconfirmedError)
+                    else "runner_transport_failed"
+                ),
+                observation=observation,
             ) from None
 
     async def initialize(self):
@@ -404,12 +413,21 @@ class CodexController:
             if self.acp is not None:
                 await self.acp.close()
                 self.streams_closed = True
-        except Exception:
-            error = RunnerError("container_termination_unverified")
+        except Exception as failure:
+            error = RunnerError(
+                "container_termination_unverified",
+                observation=failure_observation(
+                    failure, stage="cleanup", code="container_termination_unverified"
+                ),
+            )
         try:
             self._close_resources()
         except RunnerError as failure:
-            error = failure
+            error = RunnerError(
+                failure.code,
+                observation=(error.observation if error else None)
+                or failure.observation,
+            )
         self._closed = True
         if error:
             raise error
@@ -421,13 +439,22 @@ class CodexController:
             if self.session is not None:
                 self.session.close()
                 self.cleanup_confirmed = True
-        except Exception:
-            error = RunnerError("container_termination_unverified")
+        except Exception as failure:
+            error = RunnerError(
+                "container_termination_unverified",
+                observation=failure_observation(
+                    failure, stage="cleanup", code="container_termination_unverified"
+                ),
+            )
         try:
             if self.executor is not None:
                 self.executor.close()
         except RunnerError as failure:
-            error = failure
+            error = RunnerError(
+                failure.code,
+                observation=(error.observation if error else None)
+                or failure.observation,
+            )
         for resource in (*self.logs, self.telemetry, self.client):
             if resource is not None:
                 try:

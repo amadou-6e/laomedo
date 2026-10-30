@@ -11,6 +11,85 @@ import os
 import time
 
 
+def failure_observation(error=None, *, stage="execution", code=None):
+    """Observe only known exception types and fixed scalars; never inspect receipts.
+
+    Unknown or dynamic metadata is omitted. Diagnostic failures return None and
+    cannot replace the execution or cleanup error being observed.
+    """
+    try:
+        from laomedo.agents.agents.base.models import FailureObservation
+        from laomedo.agents.agents.base.settings import SDK_FAILURE_CODES
+
+        if type(error) is RunnerError:
+            if type(error.observation) is FailureObservation:
+                return error.observation
+            code = error.code if code is None else code
+        try:
+            from py_docker.errors import (
+                DockerOperationError,
+                ConnectionConfigurationError,
+                OwnershipConflictError,
+                ImageResolutionError,
+                OutputLimitError,
+                DeadlineError,
+                CreateNotSentDeadlineError,
+                JobCancelledError,
+                CreationUnconfirmedError,
+                CreationRejectedError,
+                CleanupUnconfirmedError,
+                PendingReceiptError,
+                ReceiptInUseError,
+            )
+
+            trusted_types = (
+                DockerOperationError,
+                ConnectionConfigurationError,
+                OwnershipConflictError,
+                ImageResolutionError,
+                OutputLimitError,
+                DeadlineError,
+                CreateNotSentDeadlineError,
+                JobCancelledError,
+                CreationUnconfirmedError,
+                CreationRejectedError,
+                CleanupUnconfirmedError,
+                PendingReceiptError,
+                ReceiptInUseError,
+            )
+        except ImportError:
+            trusted_types = ()
+        trusted = next((kind for kind in trusted_types if type(error) is kind), None)
+        if trusted is None:
+            return FailureObservation.from_values(stage=stage, code=code)
+        name = trusted.__name__
+        if trusted.code != SDK_FAILURE_CODES.get(name):
+            return FailureObservation.from_values(stage=stage, code=code)
+        primary = (
+            error.primary
+            if trusted in (CleanupUnconfirmedError, PendingReceiptError)
+            else None
+        )
+        primary_type = next(
+            (kind for kind in trusted_types if type(primary) is kind), None
+        )
+        if primary_type is not None and primary_type.code != SDK_FAILURE_CODES.get(
+            primary_type.__name__
+        ):
+            primary_type = None
+        return FailureObservation.from_values(
+            stage=stage,
+            code=code,
+            sdk_class=name,
+            sdk_code=trusted.code,
+            operation=error.operation,
+            primary_sdk_code=primary_type.code if primary_type is not None else None,
+            primary_operation=primary.operation if primary_type is not None else None,
+        )
+    except Exception:
+        return None
+
+
 def _git_tree(path: Path) -> bool:
     return any((parent / ".git").exists() for parent in (path, *path.parents))
 
