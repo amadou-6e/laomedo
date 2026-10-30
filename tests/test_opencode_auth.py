@@ -6,7 +6,7 @@ import time
 import unittest
 from pathlib import Path
 
-from laomedo.host.credentials.opencode.utils import console_provider; from laomedo.host.credentials.opencode.utils import credential; from laomedo.host.credentials.opencode.transport import NoRedirect
+from laomedo.agents.agents.opencode.auth.utils import console_provider; from laomedo.agents.agents.opencode.auth.utils import credential; from laomedo.agents.agents.opencode.auth.transport import NoRedirect
 
 
 class ConsoleAuthTests(unittest.TestCase):

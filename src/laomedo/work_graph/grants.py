@@ -6,10 +6,11 @@ from contextlib import closing
 from datetime import datetime
 from datetime import timezone
 from uuid import uuid4
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.work_graph.grant_utils as _work_graph_grant_utils
-import laomedo.work_graph.launch as _work_graph_launch
-import laomedo.work_graph.models as _work_graph_models
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.grant_utils import _host_principal
+from laomedo.work_graph.grant_utils import _private_path
+from laomedo.work_graph.launch import relevant_content_digest
+from laomedo.work_graph.models import GraphSnapshot
 import sqlite3
 
 
@@ -17,7 +18,7 @@ class LocalGrantAuthority:
     """Issue on the host, then atomically redeem a one-use launch grant."""
 
     def __init__(self, path):
-        self.path = _work_graph_grant_utils._private_path(path)
+        self.path = _private_path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         with closing(self._connect()) as db, db:
             db.execute("""CREATE TABLE IF NOT EXISTS grants (
@@ -38,7 +39,7 @@ class LocalGrantAuthority:
             if "content_digest" not in columns:
                 db.execute("ALTER TABLE grants ADD COLUMN content_digest TEXT")
         if not self.path.is_file():
-            raise _workflow_errors.LaunchError("grant_store_unavailable")
+            raise LaunchError("grant_store_unavailable")
         self.path.chmod(0o600)
 
     def _connect(self):
@@ -55,7 +56,7 @@ class LocalGrantAuthority:
                 isinstance(value, str) and value.strip()
                 for value in (work_key, expires_at)
             )
-            or not isinstance(graph_snapshot, _work_graph_models.GraphSnapshot)
+            or not isinstance(graph_snapshot, GraphSnapshot)
             or not graph_snapshot.source_complete
             or work_key not in {item.key for item in graph_snapshot.items}
             or type(timeout_seconds) is not int
@@ -63,16 +64,16 @@ class LocalGrantAuthority:
             or type(max_turns) is not int
             or max_turns != 0
         ):
-            raise _workflow_errors.LaunchError("grant_issue_invalid")
+            raise LaunchError("grant_issue_invalid")
         try:
             expiry = datetime.fromisoformat(expires_at)
         except ValueError:
-            raise _workflow_errors.LaunchError("grant_expiry_invalid") from None
+            raise LaunchError("grant_expiry_invalid") from None
         if expiry.tzinfo is None or expiry <= datetime.now(timezone.utc):
-            raise _workflow_errors.LaunchError("grant_expired")
+            raise LaunchError("grant_expired")
         grant_id = str(uuid4())
-        operator_id = _work_graph_grant_utils._host_principal()
-        content_digest = _work_graph_launch.relevant_content_digest(
+        operator_id = _host_principal()
+        content_digest = relevant_content_digest(
             graph_snapshot, work_key
         )
         with closing(self._connect()) as db, db:
@@ -100,24 +101,24 @@ class LocalGrantAuthority:
     def __call__(self, grant_id, binding):
         """Return only nonsecret fields, consuming a matching grant once."""
         if not isinstance(grant_id, str) or not isinstance(binding, dict):
-            raise _workflow_errors.LaunchError("grant_invalid")
+            raise LaunchError("grant_invalid")
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT * FROM grants WHERE grant_id=?", (grant_id,)
             ).fetchone()
             if row is None or row["redeemed_at"] is not None:
-                raise _workflow_errors.LaunchError("grant_invalid")
-            if row["operator_id"] != _work_graph_grant_utils._host_principal():
-                raise _workflow_errors.LaunchError("grant_operator_mismatch")
+                raise LaunchError("grant_invalid")
+            if row["operator_id"] != _host_principal():
+                raise LaunchError("grant_operator_mismatch")
             if (
                 row["work_key"] != binding.get("work_snapshot", {}).get("key")
                 or not row["content_digest"]
                 or row["content_digest"] != binding.get("selected_content_digest")
             ):
-                raise _workflow_errors.LaunchError("grant_binding_mismatch")
+                raise LaunchError("grant_binding_mismatch")
             if datetime.fromisoformat(row["expires_at"]) <= datetime.now(timezone.utc):
-                raise _workflow_errors.LaunchError("grant_expired")
+                raise LaunchError("grant_expired")
             db.execute(
                 "UPDATE grants SET redeemed_at=? WHERE grant_id=? AND redeemed_at IS NULL",
                 (datetime.now(timezone.utc).isoformat(), grant_id),

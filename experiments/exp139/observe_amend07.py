@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import socket
 import sqlite3
-from laomedo.agents.contracts.output import evaluate_envelope; from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import evaluate_envelope; from laomedo.agents.interface.output.utils import requirements
 from laomedo.host.credentials.siwc.utils import _outside_git
 
 RUN = "f1db640f-9f02-4655-88b8-76b1bd467f24"

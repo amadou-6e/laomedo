@@ -5,11 +5,11 @@ import threading
 import json
 
 import test_local_runner as fixtures
-from laomedo.agents.providers.opencode.runner import OpenCodeRunner
-from laomedo.agents.runtime.errors import RunnerError
-from laomedo.agents.protocol.acp.models import AcpTurn
-from laomedo.agents.runtime.utils import _hash_tree
-from laomedo.agents.runtime.utils import _json
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.acp.models import AcpTurn
+from laomedo.agents.workspaces.utils import _hash_tree
+from laomedo.agents.agents.base.utils import _json
 
 
 class Backend:
@@ -454,7 +454,7 @@ class OpenCodeTests(unittest.TestCase):
     def setUp(self):
         # Reuse only the fixture setup, not the Codex provider test cases.
         fixtures.LocalRunnerTests.setUp(self)
-        self.runner = OpenCodeRunner(
+        self.runner = OpenCodeAgent(
             self.root.parent / (self.root.name + "-runner"),
             self.root.parent / (self.root.name + "-skill-store"),
             self.source,
@@ -530,7 +530,7 @@ class OpenCodeTests(unittest.TestCase):
             (root / "activity-attempts" / (selected + ".json")).read_text()
         )
         self.assertEqual(attempt["native_start"], initial["native_end"])
-        from laomedo.activity.runner.feed import read_feed
+        from laomedo.agents.activity.runner.feed import read_feed
 
         events = read_feed(
             root / "activity-events.jsonl",
@@ -559,8 +559,8 @@ class OpenCodeTests(unittest.TestCase):
     def test_otel_attempt_boundaries_isolate_resume_feed(self):
         from unittest.mock import patch
         from uuid import uuid4
-        from laomedo.activity.runner.feed import read_feed
-        from laomedo.activity.runner.feed import receipt
+        from laomedo.agents.activity.runner.feed import read_feed
+        from laomedo.agents.activity.runner.feed import receipt
 
         def export(root, start, session, model):
             with (root / "otel-events.jsonl").open("a") as stream:
@@ -581,7 +581,7 @@ class OpenCodeTests(unittest.TestCase):
             return True
 
         with patch(
-            "laomedo.activity.opencode.telemetry.export_attempt", side_effect=export
+            "laomedo.agents.agents.opencode.activity.telemetry.export_attempt", side_effect=export
         ):
             first = self.runner.start(self.payload)
             root = self.runner._run_dir(first["run_id"])
@@ -619,7 +619,7 @@ class OpenCodeTests(unittest.TestCase):
         from unittest.mock import patch
 
         with patch(
-            "laomedo.activity.acp.capture.AcpCapture.update",
+            "laomedo.agents.activity.acp.capture.AcpCapture.update",
             side_effect=RunnerError("runner_transport_failed"),
         ):
             result = self.runner.start(self.payload)
@@ -642,7 +642,7 @@ class OpenCodeTests(unittest.TestCase):
         # ACP titles are display text, not evidence that a native skill ran.
         self.assertEqual(run["skills"][0]["use_evidence"], "offered")
         self.assertIsNone(run["usage"])
-        restarted = OpenCodeRunner(
+        restarted = OpenCodeAgent(
             self.runner.state,
             self.runner.store.root,
             self.source,

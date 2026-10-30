@@ -1,0 +1,133 @@
+"""Codex protocol/security pins and native feature configuration."""
+import threading
+from laomedo._paths import package_root
+
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1"
+
+
+IMAGE_ID = "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa"
+
+
+GIT_IMAGE = IMAGE
+
+
+GIT_IMAGE_ID = IMAGE_ID
+
+
+CLI_VERSION = "codex-cli 0.159.2"
+NATIVE_TURN_SECONDS = 180
+NATIVE_RECEIPT_FILENAME = "container-receipt.json"
+
+
+VOLUME = "laomedo-122-docker-auth"
+
+
+SPLIT_TOOLS = frozenset(
+    {
+        "apply_patch",
+        "clock__curr_time",
+        "create_goal",
+        "exec_command",
+        "get_goal",
+        "update_goal",
+        "view_image",
+        "wait_for_environment",
+        "write_stdin",
+    }
+)
+
+
+CONFIG = package_root() / "agents" / "agents" / "codex" / "resources" / "runner-config.toml"
+
+
+SECCOMP = package_root() / "agents" / "agents" / "codex" / "resources" / "codex-seccomp.json"
+
+
+SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf50691"
+
+
+MEDIATION_CLIENT = (
+    package_root()
+    / "host"
+    / "mediation"
+    / "resources"
+    / "agent_mediation_client.mjs"
+)
+
+
+CONFIG_SHA256 = "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4"
+
+
+CONFIG_LF_SHA256 = "a1472e6d63ac71307af791767cc22fb76959549d9371114ff3382e4dfb3ad11b"
+
+
+_CATALOG_INIT_LOCK = threading.Lock()
+
+
+NATIVE_ERROR_KINDS = frozenset(
+    {
+        "contextWindowExceeded",
+        "sessionBudgetExceeded",
+        "usageLimitExceeded",
+        "rateLimitExceeded",
+        "flexUnavailable",
+        "serverOverloaded",
+        "cyberPolicy",
+        "misalignmentPolicyViolation",
+        "tooManyDenials",
+        "internalServerError",
+        "unauthorized",
+        "badRequest",
+        "threadRollbackFailed",
+        "sandboxError",
+        "other",
+        "httpConnectionFailed",
+        "responseStreamConnectionFailed",
+        "responseStreamDisconnected",
+        "responseTooManyFailedAttempts",
+        "activeTurnNotSteerable",
+    }
+)
+
+
+NATIVE_HTTP_ERROR_KINDS = frozenset(
+    {
+        "httpConnectionFailed",
+        "responseStreamConnectionFailed",
+        "responseStreamDisconnected",
+        "responseTooManyFailedAttempts",
+    }
+)
+
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Read at point of use; no cached environment, dotenv or credential contents.
+
+    Strings preserve missing/empty values and exact ``== "1"`` flag behavior.
+    Existing consumers own URL/path validation and stable public errors.
+    """
+
+    model_config = SettingsConfigDict(
+        case_sensitive=True, env_file=None, secrets_dir=None,
+        env_nested_delimiter=None, enable_decoding=False,
+        extra="ignore", frozen=True, hide_input_in_errors=True,
+    )
+
+    @classmethod
+    def settings_customise_sources(cls, settings_cls, init_settings, env_settings,
+                                   dotenv_settings, file_secret_settings):
+        """Only explicit arguments and the process environment supply settings."""
+        return init_settings, env_settings
+
+    multi_agent: str | None = Field(default=None, validation_alias='LAOMEDO_RUNNER_MULTI_AGENT', repr=False, exclude=True)
+
+# Credential-free startup probe; these bound I/O, not total Docker wall time.
+PREFLIGHT_API_TIMEOUT_SECONDS = 15
+PREFLIGHT_STREAM_SECONDS = 20
+PREFLIGHT_MAX_OUTPUT_BYTES = 65536
+PREFLIGHT_WAIT_SECONDS = 20
+PREFLIGHT_RECEIPT_FILENAME = "docker-preflight-receipt.json"

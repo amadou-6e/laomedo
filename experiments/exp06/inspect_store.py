@@ -3,7 +3,7 @@
 import json
 import sys
 
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 record = WorkflowRunStore("/state/runs.sqlite3").get(sys.argv[1])

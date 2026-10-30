@@ -1,9 +1,12 @@
 """Materialize trusted command wrappers; never install into the host PATH."""
 
 from pathlib import Path
-import laomedo.agents.workspace.git as _workspace_git
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.errors import GitCommandTimeout
+from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
+from laomedo.git.repository import GitRepository
+from laomedo.agents.interface.errors import GitWorkspaceError
 import re
-import tempfile
 
 
 def prepare_commands(root: Path, repository: str, branch: str) -> Path:
@@ -39,20 +42,16 @@ def prepare_commands(root: Path, repository: str, branch: str) -> Path:
 
 def configure_remote(workspace: Path, repository: str) -> None:
     """Read/write only the fixed remote with isolated host Git configuration."""
-    with tempfile.TemporaryDirectory(prefix="laomedo-cli-home-") as home:
-        environment = _workspace_git._git_environment(home)
-        prefix = [
-            "git",
-            "-c",
-            "core.fsmonitor=false",
-            "-c",
-            "core.hooksPath=" + home,
-            "-C",
-            str(workspace),
-        ]
+    runner = GitCommandRunner()
+    with runner.isolated_home(GitEnvironmentProfile.WORKSPACE, prefix="laomedo-cli-home-") as home:
+        git = GitRepository(workspace, runner=runner, context=GitExecutionContext(
+            profile=GitEnvironmentProfile.WORKSPACE, home=home, hardened=True))
 
         def run(*args):
-            return _workspace_git._bounded_git([*prefix, *args], environment)
+            try:
+                return git.run(list(args))
+            except GitCommandTimeout as error:
+                raise GitWorkspaceError(error.code) from error
 
         remote = run("config", "--local", "--get-all", "remote.origin.url")
         expected = "laomedo::" + repository

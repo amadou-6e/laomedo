@@ -10,10 +10,10 @@ import time
 import unittest
 from unittest.mock import Mock, patch
 
-from laomedo.agents.providers.claude.container import CommandService
-from laomedo.agents.providers.opencode.boundary import CommandBroker, IsolatedOpenCode
-from laomedo.agents.providers.opencode.runner import OpenCodeRunner
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.claude.container import CommandService
+from laomedo.agents.agents.opencode.boundary import CommandBroker, IsolatedOpenCode
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+from laomedo.agents.errors import RunnerError
 
 
 class ProviderRecoveryTests(unittest.TestCase):
@@ -27,7 +27,7 @@ class ProviderRecoveryTests(unittest.TestCase):
             receipt = state.joinpath("catalog/earlier/docker-receipts/controller.json")
             receipt.parent.mkdir(parents=True)
             receipt.write_text("private test intent", encoding="utf-8")
-            runner = OpenCodeRunner.__new__(OpenCodeRunner)
+            runner = OpenCodeAgent.__new__(OpenCodeAgent)
             runner.state, runner.transport_factory, runner.lock = state, object(), threading.Lock()
             with patch("py_docker.Client") as client:
                 recover = client.return_value.__enter__.return_value.sessions.recover
@@ -39,7 +39,7 @@ class ProviderRecoveryTests(unittest.TestCase):
 
     def test_catalogue_factory_failure_retains_pending_intent(self):
         with tempfile.TemporaryDirectory() as temporary:
-            runner = OpenCodeRunner.__new__(OpenCodeRunner)
+            runner = OpenCodeAgent.__new__(OpenCodeAgent)
             runner.state, runner.lock = Path(temporary), threading.Lock()
             runner._opencode_catalog_lock = threading.Lock()
             runner._opencode_catalog_cached = None
@@ -123,8 +123,8 @@ class ProviderRecoveryTests(unittest.TestCase):
 
     def test_retired_cli_paths_and_dynamic_codes_are_guarded(self):
         root = Path(__file__).resolve().parents[1]
-        for relative in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py"):
-            tree = ast.parse(root.joinpath("src/laomedo/agents/providers", relative).read_text(encoding="utf-8"))
+        for relative in ("claude/container.py", "claude/agent.py", "opencode/boundary.py", "opencode/utils.py"):
+            tree = ast.parse(root.joinpath("src/laomedo/agents/agents", relative).read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
                     self.assertNotIn((node.func.value.id, node.func.attr), {("subprocess", "Popen"), ("subprocess", "run")})
@@ -132,6 +132,6 @@ class ProviderRecoveryTests(unittest.TestCase):
         for code in ("workspace_command_output_too_large", "opencode_workspace_command_failed", "opencode_command_service_closed", "opencode_controller_output_failed"):
             for field in ("title", "description", "recovery"):
                 self.assertTrue(catalogue[code][field].strip())
-        component = ast.parse(root.joinpath("src/laomedo/integrations/langflow/agent/component.py").read_text(encoding="utf-8"))
+        component = ast.parse(root.joinpath("src/laomedo/agents/interface/langflow/component.py").read_text(encoding="utf-8"))
         routed = next(ast.literal_eval(n.value) for n in component.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "_ROUTABLE_ERRORS" for t in n.targets))
         self.assertTrue({"workspace_command_output_too_large", "opencode_workspace_command_failed", "opencode_command_service_closed", "opencode_controller_output_failed"} <= routed)

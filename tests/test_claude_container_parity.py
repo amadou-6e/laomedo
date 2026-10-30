@@ -10,11 +10,11 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.models import ClaudePolicy
-from laomedo.agents.providers.claude.container import ClaudeContainer; from laomedo.agents.providers.claude.container import CommandService
-from laomedo.activity.agent_activity.projection import project
-from laomedo.agents.runtime.errors import RunnerError
-from laomedo.agents.handoffs.utils import envelope
+from laomedo.agents.agents.claude.agent import ClaudeAgent; from laomedo.agents.agents.claude.models import ClaudePolicy
+from laomedo.agents.agents.claude.container import ClaudeContainer; from laomedo.agents.agents.claude.container import CommandService
+from laomedo.agents.activity.projection import project
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.orchestration.utils import envelope
 import test_claude_runner as controls
 
 
@@ -81,7 +81,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         self.assertIs(continued['fresh_thread'], False)
 
     def test_resume_http_validates_and_forwards_execution_timeout(self):
-        from laomedo.agents.runtime.serving import RunnerServer as serve
+        from laomedo.host.runner.http.server import RunnerServer as serve
         from urllib import request; from urllib import error
         server = serve(self.runner, port=0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -156,7 +156,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         with self.invoke():
             first = self.runner.start(self.payload)
         runtime = self.runner.container
-        restarted = ClaudeRunner(self.runner.state, self.runner.store.root, self.source, container=runtime)
+        restarted = ClaudeAgent(self.runner.state, self.runner.store.root, self.source, container=runtime)
         self.assertNotEqual(self.runner.instance_id, restarted.instance_id)
         with patch.object(restarted, '_check_auth', return_value='sha256:'+'a'*64), \
              patch.object(restarted, '_invoke', side_effect=lambda root, record, prompt, flag, **kw:
@@ -256,10 +256,10 @@ class ClaudeContainerParityTests(unittest.TestCase):
     def test_cancel_ack_does_not_race_execution_cleanup(self):
         record = self.runner._prepare(self.payload)
         record['status'] = 'running'
-        from laomedo.agents.runtime.utils import _json
+        from laomedo.agents.agents.base.utils import _json
         _json(self.runner._run_dir(record['run_id'])/'record.json', record)
         flag = self.runner.cancel_flags[record['run_id']] = threading.Event()
-        with patch('laomedo.host.leases.utils.cleanup_exact', side_effect=AssertionError('execution owns cleanup')):
+        with patch('laomedo.agents.agents.claude.agent.cleanup_exact', side_effect=AssertionError('execution owns cleanup')):
             result = self.runner.cancel(record['run_id'])
         self.assertTrue(flag.is_set())
         self.assertTrue(result['cancel_requested'])

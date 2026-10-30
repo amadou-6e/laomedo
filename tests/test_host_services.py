@@ -10,7 +10,7 @@ import unittest
 from urllib.request import urlopen
 
 from laomedo.host.host_services import build_services; from laomedo.host.host_services import serve_services
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError
 
 
 class HostServicesTests(unittest.TestCase):

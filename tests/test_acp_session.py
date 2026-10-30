@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 try:
     from acp import RequestError
-    from laomedo.agents.protocol.acp.session import AcpSession
-    from laomedo.agents.protocol.acp.transport import DockerTransport
+    from laomedo.agents.agents.base.acp.session import AcpSession
+    from laomedo.agents.agents.base.acp.transport import DockerTransport
 except ImportError:
     AcpSession = None
 
@@ -38,7 +38,7 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
             close=AsyncMock(),
         )
         with patch(
-            "laomedo.agents.protocol.acp.session.connect_to_agent",
+            "laomedo.agents.agents.base.acp.session.connect_to_agent",
             return_value=self.connection,
         ):
             self.client = AcpSession(self.container)
@@ -193,7 +193,7 @@ class AcpSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.answer, "actual answer")
 
     async def test_host_health_failure_cancels_and_preserves_its_safe_code(self):
-        from laomedo.agents.runtime.errors import RunnerError
+        from laomedo.agents.errors import RunnerError
 
         await self.client.initialize()
         await self.client.open()

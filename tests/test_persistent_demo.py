@@ -13,7 +13,7 @@ from uuid import uuid4
 from experiments.exp139.persistent_demo import PerRunWriteBudget; from experiments.exp139.persistent_demo import PersistentRunner; from experiments.exp139.persistent_demo import policy
 from experiments.exp139.prepare import REPOSITORY; from experiments.exp139.prepare import save
 from laomedo.host.mediation.errors import KnownRejected; from laomedo.host.mediation.store import MediationStore
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.errors import RunnerError
 
 
 class StandingBudgetTests(unittest.TestCase):
@@ -101,7 +101,7 @@ class StandingBudgetTests(unittest.TestCase):
             authorize.assert_not_called()
 
     def test_draft_budget_requires_pending_handoff_and_is_per_run(self):
-        from laomedo.agents.contracts.output import requirements
+        from laomedo.agents.interface.output.utils import requirements
         for run_id in (str(uuid4()), str(uuid4())):
             branch = "laomedo-dev-" + run_id.replace("-", "")
             grant, token = self.store.issue(run_id=run_id, invocation_id=run_id,
@@ -121,8 +121,8 @@ class StandingBudgetTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 2)
 
     def test_new_manual_requests_get_fresh_branches_and_host_tasks(self):
-        from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
-        from laomedo.agents.contracts.output import requirements
+        from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+        from laomedo.agents.interface.output.utils import requirements
         save(self.root / "standing-policy.json", {"repository": REPOSITORY,
              "turns_per_run": 4, "pushes_per_run": 1, "draft_prs_per_run": 1, "enabled": True})
         (self.root / "flow-input").mkdir()

@@ -9,11 +9,11 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from laomedo.agents.providers.claude.runner import ClaudeRunner
-from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode
-from laomedo.agents.providers.opencode.settings import CLI_VERSION
-from laomedo.agents.providers.opencode.utils import model_metadata
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.claude.agent import ClaudeAgent
+from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.agents.opencode.settings import CLI_VERSION
+from laomedo.agents.agents.opencode.utils import model_metadata
+from laomedo.agents.errors import RunnerError
 
 
 @unittest.skipUnless(find_spec('acp'), 'Requires the optional runner ACP dependency')
@@ -25,7 +25,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                 (1, 'cancelled', False, 'claude_cancelled'),
                 (1, 'end_turn', True, 'claude_session_identity_mismatch')):
             with self.subTest(count=count, stop=stop, mismatch=mismatch), tempfile.TemporaryDirectory() as directory:
-                runner = ClaudeRunner.__new__(ClaudeRunner)
+                runner = ClaudeAgent.__new__(ClaudeAgent)
                 runner._event = Mock(); runner._native_event = Mock()
                 identity = '11111111-1111-4111-8111-111111111111'
                 record = {'thread_id':None, 'requested_model':'sonnet', 'requested_effort':'low',
@@ -43,7 +43,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                         client.on_extension('claude/sdkMessage', {'sessionId':'other' if mismatch else identity, 'message':receipt})
                     runner._native_event.assert_not_called()
                 client.open.side_effect = emit_before_binding
-                with patch('laomedo.agents.protocol.acp.session.AcpSession', side_effect=factory):
+                with patch('laomedo.agents.agents.base.acp.session.AcpSession', side_effect=factory):
                     operation = runner._communicate_acp(Mock(), Path(directory), record,
                         'Internal task', threading.Event(), time.monotonic()+10, Mock(), resume=False, output_only=False)
                     if error:
@@ -75,7 +75,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(client.on_update, capture.update)
                     return SimpleNamespace(stop_reason='end_turn', usage=None)
                 client.prompt.side_effect = prompt_after_binding
-                with patch('laomedo.agents.protocol.acp.session.AcpSession', return_value=client):
+                with patch('laomedo.agents.agents.base.acp.session.AcpSession', return_value=client):
                     operation = runner._run_acp('Internal task', 'provider/model', None, threading.Event(), capture, on_session)
                     if error:
                         with self.assertRaisesRegex(RunnerError, error): await operation

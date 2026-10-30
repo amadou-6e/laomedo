@@ -12,30 +12,32 @@ from threading import Thread
 from time import monotonic
 from uuid import uuid4
 import json
-import laomedo._paths as _package_paths
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.work_graph.settings as _work_graph_settings
-import laomedo.work_graph.serialization as _work_graph_serialization
+from laomedo._paths import import_root
+from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.settings import IMAGE
+from laomedo.work_graph.settings import MAX_RESULT_CHARS
+from laomedo.work_graph.serialization import _digest
 import subprocess
 
 
 class DockerLangflowStage:
     def __init__(self, exported_flow, *, source_root=None):
         if not isinstance(exported_flow, dict):
-            raise _workflow_errors.LaunchError("unresolved_graph_identity")
+            raise LaunchError("unresolved_graph_identity")
         self.export = deepcopy(exported_flow)
         self.graph = self.export.get("data")
         if not isinstance(self.graph, dict) or not isinstance(
             self.graph.get("nodes"), list
         ):
-            raise _workflow_errors.LaunchError("unresolved_graph_identity")
+            raise LaunchError("unresolved_graph_identity")
         self.code = {}
         for node in self.graph["nodes"]:
             try:
                 node_id = node["id"]
                 source = node["data"]["node"]["template"]["code"]["value"]
             except (KeyError, TypeError):
-                raise _workflow_errors.LaunchError(
+                raise LaunchError(
                     "unresolved_component_identity"
                 ) from None
             if (
@@ -45,9 +47,9 @@ class DockerLangflowStage:
                 or not source.strip()
                 or node_id in self.code
             ):
-                raise _workflow_errors.LaunchError("unresolved_component_identity")
+                raise LaunchError("unresolved_component_identity")
             self.code[node_id] = source
-        self.graph_revision = _work_graph_serialization._digest(self.graph)
+        self.graph_revision = _digest(self.graph)
         self.component_revisions = {
             node_id: "sha256:" + sha256(code.encode("utf-8")).hexdigest()
             for node_id, code in self.code.items()
@@ -56,7 +58,7 @@ class DockerLangflowStage:
             self.export, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")
         self.flow_digest = "sha256:" + sha256(self.flow_bytes).hexdigest()
-        self.source_root = Path(source_root or _package_paths.import_root()).resolve()
+        self.source_root = Path(source_root or import_root()).resolve()
         # Existing host configurations pass the checkout root. Accept that fixed
         # src-layout location as well as an installed/importable package root.
         if not (
@@ -68,15 +70,15 @@ class DockerLangflowStage:
         if not (
             self.source_root / "laomedo" / "work_graph" / "stage_worker.py"
         ).is_file():
-            raise _workflow_errors.LaunchError("stage_worker_source_unavailable")
+            raise LaunchError("stage_worker_source_unavailable")
 
     @classmethod
     def from_saved_flow(cls, flow_id, fetch_export, **kwargs):
         if not isinstance(flow_id, str) or not flow_id or not callable(fetch_export):
-            raise _workflow_errors.LaunchError("saved_flow_identity_unavailable")
+            raise LaunchError("saved_flow_identity_unavailable")
         exported = fetch_export(flow_id)
         if not isinstance(exported, dict) or exported.get("id") != flow_id:
-            raise _workflow_errors.LaunchError("saved_flow_identity_mismatch")
+            raise LaunchError("saved_flow_identity_mismatch")
         return cls(exported, **kwargs)
 
     def _command(self, name, flow_dir, mode):
@@ -116,7 +118,7 @@ class DockerLangflowStage:
             "HOME=/tmp",
             "--entrypoint",
             "python",
-            _work_graph_settings.IMAGE,
+            IMAGE,
             "-m",
             "laomedo.work_graph.stage_worker",
             mode,
@@ -135,11 +137,11 @@ class DockerLangflowStage:
                 timeout=30,
             )
             if result.returncode != 0:
-                raise _workflow_errors.LaunchError("stage_validation_failed")
+                raise LaunchError("stage_validation_failed")
         except subprocess.TimeoutExpired:
-            raise _workflow_errors.LaunchError("stage_validation_timeout") from None
+            raise LaunchError("stage_validation_timeout") from None
         except OSError as exc:
-            raise _workflow_errors.LaunchError("stage_container_unavailable") from exc
+            raise LaunchError("stage_container_unavailable") from exc
         finally:
             subprocess.run(
                 ["docker", "rm", "-f", name], capture_output=True, timeout=10
@@ -155,7 +157,7 @@ class DockerLangflowStage:
             try:
                 while chunk := process.stdout.read(4096):
                     size += len(chunk)
-                    if size > _work_graph_settings.MAX_RESULT_CHARS:
+                    if size > MAX_RESULT_CHARS:
                         queue.put((False, "stage_output_limit"))
                         return
                     parts.append(chunk)
@@ -171,14 +173,14 @@ class DockerLangflowStage:
             process.stdin.close()
             valid, output = queue.get(timeout=timeout)
             if not valid:
-                raise _workflow_errors.ExternalOutcomeUnknown(output)
+                raise ExternalOutcomeUnknown(output)
             process.wait(timeout=max(0.001, timeout - (monotonic() - started)))
         except (Empty, subprocess.TimeoutExpired, BrokenPipeError, OSError):
-            raise _workflow_errors.ExternalOutcomeUnknown(
+            raise ExternalOutcomeUnknown(
                 "stage_result_unknown"
             ) from None
         if process.returncode != 0:
-            raise _workflow_errors.LaunchError("stage_execution_failed")
+            raise LaunchError("stage_execution_failed")
         return output.strip()
 
     def execute(
@@ -190,10 +192,10 @@ class DockerLangflowStage:
             else None
         )
         if not isinstance(limits, dict) or limits.get("max_turns") != 0:
-            raise _workflow_errors.LaunchError("isolated_stage_zero_turn_only")
+            raise LaunchError("isolated_stage_zero_turn_only")
         timeout = limits.get("timeout_seconds")
         if type(timeout) is not int or not 1 <= timeout <= 3600:
-            raise _workflow_errors.LaunchError("stage_timeout_invalid")
+            raise LaunchError("stage_timeout_invalid")
         with TemporaryDirectory(prefix="laomedo-stage-") as directory:
             flow_dir = Path(directory)
             (flow_dir / "flow.json").write_bytes(self.flow_bytes)
@@ -201,11 +203,11 @@ class DockerLangflowStage:
                 "sha256:" + sha256((flow_dir / "flow.json").read_bytes()).hexdigest()
                 != self.flow_digest
             ):
-                raise _workflow_errors.LaunchError("stage_input_identity_mismatch")
+                raise LaunchError("stage_input_identity_mismatch")
             self._validate(flow_dir)
             config = {
                 **resolved_config,
-                "stage_image": _work_graph_settings.IMAGE,
+                "stage_image": IMAGE,
                 "stage_input_digest": self.flow_digest,
                 "stage_control": "host-owned-v2",
             }
@@ -220,7 +222,7 @@ class DockerLangflowStage:
                 record["graph_revision"] != self.graph_revision
                 or record["component_revisions"] != self.component_revisions
             ):
-                raise _workflow_errors.LaunchError("recorded_stage_identity_mismatch")
+                raise LaunchError("recorded_stage_identity_mismatch")
 
             name = "laomedo-stage-" + uuid4().hex
             command = self._command(name, flow_dir, "execute")
@@ -254,7 +256,7 @@ class DockerLangflowStage:
                                 process.kill()
                                 process.wait(timeout=5)
                 except OSError as exc:
-                    raise _workflow_errors.ExternalOutcomeUnknown(
+                    raise ExternalOutcomeUnknown(
                         "stage_container_unavailable"
                     ) from exc
                 finally:

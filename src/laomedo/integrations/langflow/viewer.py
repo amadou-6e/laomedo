@@ -11,9 +11,9 @@ import laomedo.integrations.langflow.settings as _langflow_settings
 
 
 def install_routes(app, root: Path, authenticate):
-    import laomedo.activity.agent_activity.routes as _agent_activity_routes
+    from laomedo.agents.activity.routes import install_activity_routes
 
-    _agent_activity_routes.install_activity_routes(app, authenticate)
+    install_activity_routes(app, authenticate)
     import laomedo.host.runner.routes as _runner_routes
 
     _runner_routes.install_runner_service_routes(app, authenticate)

@@ -6,7 +6,7 @@ import unittest
 
 from experiments.exp05.evidence import EvidenceError; from experiments.exp05.evidence import EvidenceStore
 from experiments.exp05.probe import PHASES; from experiments.exp05.probe import parent
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 class EvidenceStoreTests(unittest.TestCase):

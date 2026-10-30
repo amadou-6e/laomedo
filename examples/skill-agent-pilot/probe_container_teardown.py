@@ -6,7 +6,7 @@ from py_docker import Client
 from py_docker.containers.models import ContainerSpec
 from py_docker.sessions.models import ContainerSession
 from py_docker.streams.models import StreamLimits
-from laomedo.agents.providers.codex.settings import IMAGE
+from laomedo.agents.agents.codex.settings import IMAGE
 
 
 def main():

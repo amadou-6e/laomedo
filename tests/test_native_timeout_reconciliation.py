@@ -8,10 +8,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from uuid import uuid4
-from laomedo.agents.workflow.store import WorkflowRunStore; from laomedo.agents.workflow.errors import LaunchError
-from laomedo.agents.handoffs.transport import RunnerAdapter
-from laomedo.activity.runner.trace_bridge import RunnerTraceBridge
-from laomedo.agents.handoffs.errors import HandoffError; from laomedo.agents.handoffs.utils import envelope
+from laomedo.work_graph.runs.store import WorkflowRunStore; from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.agents.interface.bridge import HttpAgentBridge
+from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
+from laomedo.agents.orchestration.errors import HandoffError; from laomedo.agents.orchestration.utils import envelope
 
 class NativeTimeoutReconciliationTests(unittest.TestCase):
     def setUp(self):
@@ -110,7 +110,7 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
     def adapter(self):
         token = Path(self.temp.name) / "token"
         token.write_text("a" * 64)
-        return RunnerAdapter({"codex": "http://127.0.0.1:1"}, {"codex": token})
+        return HttpAgentBridge({"codex": "http://127.0.0.1:1"}, {"codex": token})
 
     def test_authenticated_status_whitelists_fields_and_rejects_wrong_run(self):
         adapter = self.adapter()
@@ -119,11 +119,11 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
             self.assertEqual(req.get_header("Authorization"), "Bearer " + "a" * 64)
             return io.BytesIO(json.dumps({"run_id": self.native, "status": "cancelled",
                 "cancel_confirmed": True, "task": "PRIVATE", "auth": "SECRET"}).encode())
-        with patch("laomedo.agents.handoffs.transport.urlopen", side_effect=response):
+        with patch("laomedo.agents.interface.bridge.urlopen", side_effect=response):
             value = adapter.status("codex", self.native)
         self.assertNotIn("PRIVATE", str(value))
         self.assertNotIn("SECRET", str(value))
-        with patch("laomedo.agents.handoffs.transport.urlopen", return_value=io.BytesIO(
+        with patch("laomedo.agents.interface.bridge.urlopen", return_value=io.BytesIO(
                 json.dumps({"run_id": str(uuid4())}).encode())):
             with self.assertRaisesRegex(HandoffError, "runner_status_identity_mismatch"):
                 adapter.status("codex", self.native)
@@ -166,7 +166,7 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
         bridge = RunnerTraceBridge(self.store, adapter)
         raw = {"run_id": self.native, "status": "unknown", "attempt_finished": True,
                "task": "PRIVATE", "auth": "SECRET"}
-        with patch("laomedo.agents.handoffs.transport.urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
+        with patch("laomedo.agents.interface.bridge.urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
             result = bridge.observe_terminal(self.run, self.inv)
         self.assertIs(result["attempt_finished"], True)
         self.assertNotIn("SECRET", str(result))
@@ -186,8 +186,8 @@ class NativeTimeoutReconciliationTests(unittest.TestCase):
                             "raw_event_ref": f"laomedo:run:{self.native}:events"}).encode())
                     now[0] = poll_time
                     raise TimeoutError("fixture")
-                with patch("laomedo.agents.handoffs.transport.time.monotonic", side_effect=lambda: now[0]), \
-                        patch("laomedo.agents.handoffs.transport.urlopen", side_effect=respond):
+                with patch("laomedo.agents.interface.bridge.time.monotonic", side_effect=lambda: now[0]), \
+                        patch("laomedo.agents.interface.bridge.urlopen", side_effect=respond):
                     with self.assertRaises(error):
                         self.adapter().dispatch(handoff, deadline=1.0, cancelled=threading.Event(), early_start=True)
 

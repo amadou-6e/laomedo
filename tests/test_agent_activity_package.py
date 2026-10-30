@@ -6,15 +6,16 @@ from unittest.mock import patch
 
 class AgentActivityPackageTests(unittest.TestCase):
     def test_package_exports_store_api(self):
-        from laomedo.activity import agent_activity
-        import laomedo.activity.agent_activity.store as store
-        from laomedo.activity.agent_activity import utils
+        from laomedo.agents import activity as agent_activity
+        import laomedo.agents.activity.store as store
+        from laomedo.agents.activity import utils
         self.assertIs(agent_activity.ActivityStore, store.ActivityStore)
         for name in ("capture_for", "now"):
             self.assertIs(getattr(agent_activity, name), getattr(utils, name))
 
     def test_capture_uses_canonical_globals(self):
-        from laomedo.activity.agent_activity.capture import RunnerCapture
+        from laomedo.agents.activity.capture import ActivityCapture
         component = SimpleNamespace(runner_url="http://localhost:1", timeout_seconds=1)
-        with patch("laomedo.activity.agent_activity.utils.capture_for", return_value=None):
-            self.assertIsNone(RunnerCapture(component).capture)
+        with patch("laomedo.agents.activity.capture.capture_for", return_value=None) as capture:
+            self.assertIsNone(ActivityCapture(component).capture)
+        capture.assert_called_once_with(component)

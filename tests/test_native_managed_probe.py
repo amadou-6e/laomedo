@@ -6,9 +6,39 @@ import json
 import tempfile
 import unittest
 from experiments.exp104 import native_managed_probe as probe
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCommand, GitExecutionContext
+from experiments.exp104 import native_managed_worker, probe_active_delivery
+from experiments.retired_git_api import refuse_private_git_api
+
+
+class HistoricalProbeRefusalTests(unittest.TestCase):
+    def test_live_probe_environment_bindings_still_refuse_without_process_work(self):
+        for module in (probe, native_managed_worker, probe_active_delivery):
+            with self.subTest(module=module.__name__):
+                self.assertIs(module._base_git_environment, refuse_private_git_api)
+                with self.assertRaisesRegex(RuntimeError, 'private Git process helpers were removed'):
+                    module._base_git_environment()
+
+    def test_historical_git_entrypoint_refuses_before_starting_a_process(self):
+        with patch.object(probe.subprocess, 'run') as process:
+            with self.assertRaisesRegex(RuntimeError, 'private Git process helpers were removed'):
+                probe.git('status')
+            process.assert_not_called()
 
 
 class NativeManagedProbeTests(unittest.TestCase):
+    def setUp(self):
+        # Historical live entrypoints remain refused. Explicitly bind only this
+        # credential-free control's environment to the reviewed public API.
+        home = tempfile.TemporaryDirectory(prefix='managed-probe-control-home-')
+        self.addCleanup(home.cleanup)
+        environment = GitCommandRunner().environment(
+            GitCommand(arguments=[], context=GitExecutionContext()), Path(home.name))
+        binding = patch.object(probe, '_base_git_environment', return_value=environment)
+        binding.start()
+        self.addCleanup(binding.stop)
+
     def test_owned_local_clone_origin_is_replaced_but_other_origin_refused(self):
         with tempfile.TemporaryDirectory(prefix="laomedo-managed-clone-test-") as directory:
             root = Path(directory)

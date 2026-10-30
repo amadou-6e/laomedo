@@ -8,7 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.agents.runtime.utils import _json
+from laomedo.agents.agents.base.utils import _json
 
 
 def main():

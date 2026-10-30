@@ -56,9 +56,9 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            'agents/providers/codex/controller/service.py': {'otel', 'multi_agent'},
-            'agents/providers/claude/runner.py': {'mirror_host_login'},
-            'activity/opencode/telemetry.py': {'otel'},
+            'agents/agents/codex/controller/service.py': {'otel', 'multi_agent'},
+            'agents/agents/claude/agent.py': {'mirror_host_login'},
+            'agents/agents/opencode/activity/telemetry.py': {'otel'},
         }
         for relative, fields in consumers.items():
             tree = ast.parse((SOURCE / relative).read_text())
@@ -71,8 +71,8 @@ class SettingsContractTests(unittest.TestCase):
 
     def test_native_stream_settings_validate_positive_numeric_environment(self):
         from pydantic import ValidationError
-        from laomedo.agents.providers.codex.controller.settings import Settings
-        from laomedo.agents.runtime.errors import RunnerError
+        from laomedo.agents.agents.codex.controller.settings import Settings
+        from laomedo.agents.errors import RunnerError
         for field, alias in (("max_bytes","LAOMEDO_CODEX_STREAM_MAX_BYTES"),
                              ("startup_margin","LAOMEDO_CODEX_STREAM_STARTUP_MARGIN")):
             with self.subTest(field=field), patch.dict(os.environ, {}, clear=True):
@@ -111,24 +111,23 @@ class SettingsContractTests(unittest.TestCase):
     def test_raw_environment_boundaries_stay_explicit(self):
         protected = {
             'host/runner/utils.py': 'os.environ.items()',
-            'agents/workspace/git.py': 'os.environ.items()',
-            'github/transport/git/utils.py': 'os.environ.items()',
-            'host/credentials/claude/utils.py': 'os.environ if environment is None',
+            'git/command.py': 'os.environ.items()',
+            'agents/agents/claude/auth/utils.py': 'os.environ if environment is None',
             'skills/sources/service.py': 'os.environ.items()',
                         'host/publication/cli.py': 'key in os.environ',
             'github/issues/cli.py': 'os.environ.get(args.github_token_env)',
             'github/pull_requests/cli.py': 'os.environ.get(args.github_token_env)',
-            'agents/handoffs/transport.py': '"LAOMEDO_" + provider.upper()',
+            'agents/interface/bridge.py': '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
-        claude=(SOURCE / 'agents/providers/claude/container.py').read_text(encoding='utf-8')
+        claude=(SOURCE / 'agents/agents/claude/container.py').read_text(encoding='utf-8')
         self.assertNotIn('os.environ', claude)
         self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
-        split=(SOURCE / 'agents/providers/codex/split/executor.py').read_text()
+        split=(SOURCE / 'agents/agents/codex/split/executor.py').read_text()
         self.assertNotIn('os.environ',split)
         self.assertIn('environment=environment',split)
-        helper = (SOURCE / 'host/credentials/git_credential_helper.py').read_text()
+        helper = (SOURCE / 'git/credentials/helper.py').read_text()
         self.assertIn('os.environ.get("LAOMEDO_MEDIATED_GIT_TOKEN", "")', helper)
         self.assertNotIn('pydantic', helper)
         self.assertNotIn('import laomedo', helper)
@@ -149,6 +148,14 @@ class ErrorContractTests(unittest.TestCase):
                         self.assertEqual(error.code, 'runner_transport_failed')
                         self.assertEqual(error.run_reference['run_id'], 'retained-run')
                         continue  # Graph invocation errors retain a record, unlike scalar domain errors.
+                    if cls.__name__ == 'GitCommandTimeout':
+                        error = cls(['git', '--version'], .5, False)
+                        self.assertEqual(error.code, 'git_timeout_cleanup_unverified')
+                        self.assertFalse(error.cleanup_verified)
+                        restored = pickle.loads(pickle.dumps(error))
+                        self.assertEqual(restored.__dict__, error.__dict__)
+                        self.assertEqual(str(restored), str(error))
+                        continue  # Cleanup-aware subprocess timeouts retain native constructor arguments.
                     if cls.__name__ == 'PushOutcomeUnknown':
                         error = cls('timeout', None)
                         code = 'push_outcome_unknown'

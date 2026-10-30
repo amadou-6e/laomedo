@@ -121,11 +121,11 @@ class S11ProbeTests(unittest.TestCase):
                 probe._reviewed_record(path, "def")
 
     def test_reviewed_source_refuses_uncommitted_change(self):
-        with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
+        with patch.object(probe.GitRepository, "run", return_value=subprocess.CompletedProcess(
                 [], 0, b" M experiments/exp104/s11_probe.py\n", b"")), \
              self.assertRaisesRegex(RuntimeError, "reviewed_source_not_clean"):
             probe._require_clean_source(Path("synthetic"))
-        with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
+        with patch.object(probe.GitRepository, "run", return_value=subprocess.CompletedProcess(
                 [], 0, b"", b"")):
             probe._require_clean_source(Path("synthetic"))
 

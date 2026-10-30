@@ -6,6 +6,7 @@ from laomedo.host.mediation.service import JournaledTransport as _owned_mediatio
 from laomedo.host.mediation.service import MediationHTTPService as _owned_mediation_service_MediationHTTPService
 
 import json
+from contextlib import nullcontext
 from pathlib import Path
 import sys
 import tempfile
@@ -97,7 +98,9 @@ class MediationServiceStartupTests(unittest.TestCase):
 
                 state = self.state / entry.__name__.split(".")[-1]
                 with patch("laomedo.host.publication.verified.utils.make_grant_bundle_freezer", factory), \
-                        patch("laomedo.host.mediation.store.MediationStore", store_factory):
+                        patch("laomedo.host.mediation.store.MediationStore", store_factory), \
+                        (patch.object(entry, "make_grant_bundle_freezer", factory) if entry is mediation_service else nullcontext()), \
+                        (patch.object(entry, "MediationStore", store_factory) if entry is mediation_service else nullcontext()):
                     if entry is host_services:
                         lease, mediator = entry.build_services(
                             state=state, repository="example/disposable",

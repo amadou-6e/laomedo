@@ -1,8 +1,11 @@
 # Agent architecture redesign
 
-**Status: PROPOSED, NOT IMPLEMENTED.** This document records the target design
-discussed with the owner. It is not a description of the current folder layout,
-a completed refactor, or approval to merge. The owner selected the nested
+**Status: integrated; final validation in progress.** This document distinguishes
+the implemented ownership increment from the longer-term target design. Package
+ownership, object names, interface bindings, shared Git mechanics and workspace
+integration have been migrated. Real workflow validation remains in progress;
+the target below is not a claim that every proposed abstraction exists or an
+approval to merge. The owner selected the nested
 `agents/agents/{claude,codex,opencode,base}` layout and the Agent-only module
 boundary below. Implementation contracts and migration still require the checks
 below; earlier Claude reviews do not approve later edits or implementation.
@@ -15,6 +18,69 @@ reflect shared behavior rather than three independent pipelines.
 
 For current product documentation, see the [Agents guide](../../../docs/features/agents/README.md).
 Canonical requirements remain in the separate specs repository.
+
+## Current migration increment
+
+The owner has authorized implementation of this design. The target tree below
+remains a target until the corresponding code and checks are recorded. The first
+increment relocates existing behavior; it does not establish lifecycle unification.
+
+The physical relocation and first import/resource/migration-map integration are
+recorded in `eb1f5e8` and `75ce39d`. Concrete implementations now live under
+`agents/agents/`; graph dispatch records are in `work_graph/runs/`, provider-native
+Activity/authentication have provider owners and the public component entrypoint
+delegates into `agents/interface/langflow/`. The integration now uses `BaseAgent`,
+the three concrete `*Agent` names, `HttpAgentBridge`, `AgentHandoffController`,
+`AgentRequest` and `ActivityCapture`. The five HTTP handlers are module-level
+collaborators; `OpenCodeConfig.to_config()` owns the private native configuration.
+Provider pipeline overrides still remain. The integration replaces distributed
+Git process helpers with `git/GitCommandRunner`, `GitRepository` and
+`GitWorkingTree`; `AgentWorkspace` owns source admission and preparation, with
+`WorkspacePaths` and `WorkspaceSnapshot` as its canonical data. GitHub workflow
+classification stays under `github/workflows`. These changes require the checks
+below; canonical Activity adapter and shared lifecycle consolidation remain later
+replacements, not consequences of matching folders.
+
+Read the [implementation index](agents/README.md), [public boundary](interface/README.md),
+[working-state contract](workspaces/README.md), [artifact contract](artifacts/README.md)
+and [handoff contract](orchestration/README.md) for object and method nomenclature.
+
+Agent run records currently belong to the shared Runner's file-backed lifecycle
+(`_run_dir`, `_reserve_turn`, status and terminal-record helpers). They initially
+move with `BaseAgent`; extracting the proposed `agents/runs/RunStore` is a later
+replacement, not an already existing store. `WorkflowRunStore` moves to
+`work_graph/runs/`, including its `freeze_runner_request`, `bind_runner_ack` and
+`record_runner_*` methods: those are graph-side correlations. Existing persisted
+`runner_*` fields, wire formats and machine codes do not change with class names.
+
+Migration checkpoints are ordered as follows:
+
+1. Record pure physical moves separately from import and symbol edits so the
+   large provider files remain reviewable. These intermediate commits are not
+   runnable deliverables; the relocation checkpoint includes integration fixes.
+2. In the same relocation checkpoint, update imports, string patch targets,
+   launcher commands, filesystem resources, package-data ownership and documented
+   CLI commands. Flatten all older migration-map targets directly to their final
+   defining modules; add the newly retired paths without chained mappings.
+3. Dry-run the migration tool on owned components and example flows, preserve
+   backups, then apply only recognized changes. Unknown external saved flows
+   remain an explicit retirement/merge constraint. Migration never dispatches work.
+4. Write module and leaf READMEs describing actual object/method nomenclature
+   before semantic integration. Rename objects separately from physical moves;
+   update symbol maps without renaming persisted fields or public node identities.
+5. Extract all five nested handlers in owned code, replace module-alias usage
+   with direct symbols and model the native OpenCode configuration. Other domains'
+   handlers remain outside this increment.
+6. Consolidate Git command mechanics with caller-specific error translation;
+   establish canonical Activity adapters; consolidate provider lifecycles in
+   separate reviewable replacements. Do not claim consolidation from relocation.
+
+The trusted HTTP server entrypoint under `host/runner/http/` is an explicit
+composition-boundary exception: it may bind the base Agent implementation, while
+public interface contracts must remain independent of that implementation.
+Workspace tree hashing and source admission are Agent working-state responsibilities;
+reusable Git invocation belongs to the shared Git owner. The base's private-state
+repository detection remains in `agents/base/utils.py` during this increment.
 
 ## Module boundary and owning objects
 
@@ -151,12 +217,13 @@ empty files or duplicate models solely to make folder contents identical.
 | Commit identities, remotes, bundles, requests and results | Canonical Pydantic models in `git/models.py` | Git objects and their callers |
 | Standalone Git credential-helper mechanics and protocol-generic assets | `git/credentials/` and `git/resources/` | Approved host-side Git operations; the current helper stays standard-library-only and GitHub-host-bound, with dynamic credential lookup |
 
-The current code shows why consolidation is needed: Agent workspace preparation
-and the GitHub Git transport each implement Git process-tree timeout handling.
-Skills and mediation reuse private Agent workspace helpers, while verified
-publication imports Git environment/process helpers from the GitHub transport.
-Consolidate those mechanics with a caller and error-contract audit; do not merely
-relocate files while leaving multiple command paths.
+Before this increment, Agent workspace preparation and the GitHub Git transport
+each implemented Git process-tree timeout handling. Skills and mediation reused
+private Agent workspace helpers, while verified publication imported Git
+environment/process helpers from the GitHub transport. These callers now use
+the shared Git objects, with their existing authorization and error translations
+kept at the calling boundary. Structural controls prevent the retired private
+process helpers and their duplicate implementations from returning.
 
 Policy stays with the caller:
 

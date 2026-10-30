@@ -4,7 +4,7 @@ import unittest
 from uuid import uuid4
 
 from laomedo.agents.artifacts.errors import ArtifactError; from laomedo.agents.artifacts.utils import selections
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 import test_local_runner as fixtures
 
 
@@ -64,7 +64,7 @@ class ArtifactTests(unittest.TestCase):
             self.runner.start({**self.fixture.request(), "artifact_refs": [self.ref]})
 
     def test_shared_workspace_and_hardlinks_are_not_imported(self):
-        from laomedo.agents.runtime.errors import RunnerError
+        from laomedo.agents.errors import RunnerError
         request = {**self.fixture.request(), "handoff": {"execution_id": str(uuid4()),
             "step": 1, "source": None, "workspace_policy": "shared"}}
         with self.assertRaisesRegex(RunnerError, "invalid_handoff"):

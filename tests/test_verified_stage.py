@@ -13,7 +13,7 @@ from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.
 from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
 from laomedo.host.publication.verified.errors import VerifiedStageError; from laomedo.host.publication.verified.utils import resolve_verified_stage
 from laomedo.host.publication.verified.errors import VerifiedGitStageError; from laomedo.host.publication.verified.utils import stage_verified_git
-from laomedo.github.transport.git.utils import _run_bounded_tree
+from git_runner_controls import CallbackGitRunner
 from laomedo.github.transport.git.transport import GitHubGitTransport
 from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.errors import KnownRejected
 from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
@@ -369,9 +369,9 @@ class VerifiedStageTests(unittest.TestCase):
         (self.repo / "change").write_text("changed by agent", encoding="ascii")
         with stage_verified_git(snapshot) as staged:
             self.assertFalse(staged.classify_workflow_change())
-            self.assertEqual(staged.git("rev-parse", "refs/stage/validated").stdout.strip(),
+            self.assertEqual(staged.repository.run(["rev-parse", "refs/stage/validated"]).stdout.strip(),
                              snapshot.commit.encode())
-            self.assertEqual(staged.git("cat-file", "-t", snapshot.commit).stdout.strip(),
+            self.assertEqual(staged.repository.run(["cat-file", "-t", snapshot.commit]).stdout.strip(),
                              b"commit")
             self.assertTrue(staged.bare.is_dir())
         self.assertFalse(staged.bare.exists())
@@ -384,9 +384,9 @@ class VerifiedStageTests(unittest.TestCase):
                 broken = bare / "refs" / "stage" / "broken"
                 broken.parent.mkdir(parents=True, exist_ok=True)
                 broken.write_text("0" * 40 + "\n", encoding="ascii")
-            return _run_bounded_tree(args, **options)
+            return subprocess.run(args, **options)
         with self.assertRaises(VerifiedGitStageError):
-            with stage_verified_git(snapshot, run=inject_broken_ref):
+            with stage_verified_git(snapshot, runner=CallbackGitRunner(inject_broken_ref)):
                 pass
 
     def test_workflow_change_and_missing_baseline_are_distinguished(self):
@@ -575,7 +575,7 @@ class VerifiedStageTests(unittest.TestCase):
         seen = []
         def fake_git(args, **options):
             if "push" not in args:
-                return _run_bounded_tree(args, **options)
+                return subprocess.run(args, **options)
             bare = Path(args[args.index("-C") + 1])
             verified = subprocess.run(
                 ["git", "-C", str(bare), "rev-parse", "refs/stage/validated"],
@@ -586,7 +586,7 @@ class VerifiedStageTests(unittest.TestCase):
         credentials = []
         transport = GitHubGitTransport("example/disposable", self.repo,
             self.baseline, lambda *_args: credentials.append(1) or "synthetic-only",
-            run=fake_git, require_verified_stage=True)
+            runner=CallbackGitRunner(fake_git), require_verified_stage=True)
         transport._stage = lambda *_args: self.fail("checkout fallback used")
         self.verified.write_bytes(b"changed after resolution")
         result = transport("example/disposable", "git_push",

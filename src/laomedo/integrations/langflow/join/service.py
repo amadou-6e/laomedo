@@ -6,25 +6,25 @@ files and a private run store outside Git; it never prints token contents.
 
 from pathlib import Path
 import argparse
-import laomedo.agents.workflow.errors as _workflow_errors
-import laomedo.agents.workflow.store as _workflow_store
-import laomedo.integrations.langflow.join.controller as _join_controller
-import laomedo.integrations.langflow.join.server as _join_server
-import laomedo.integrations.langflow.join.transport as _join_transport
-import laomedo.work_graph.client as _work_graph_client
-import laomedo.work_graph.grant_utils as _work_graph_grant_utils
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
+from laomedo.integrations.langflow.join.controller import LangflowJoinController
+from laomedo.integrations.langflow.join.server import JoinServer
+from laomedo.integrations.langflow.join.transport import RunnerHTTPTransport
+from laomedo.work_graph.client import LangflowLocalClient
+from laomedo.work_graph.grant_utils import _private_path
 
 
 def _token_file(path):
-    source = _work_graph_grant_utils._private_path(path)
+    source = _private_path(path)
     if not source.is_file():
-        raise _workflow_errors.LaunchError("join_token_file_unavailable")
+        raise LaunchError("join_token_file_unavailable")
     try:
         value = source.read_text(encoding="utf-8").strip()
     except OSError:
-        raise _workflow_errors.LaunchError("join_token_file_unavailable") from None
+        raise LaunchError("join_token_file_unavailable") from None
     if not value:
-        raise _workflow_errors.LaunchError("join_token_file_empty")
+        raise LaunchError("join_token_file_empty")
     return value
 
 
@@ -38,22 +38,22 @@ def build_service(
     port,
     provider="codex",
 ):
-    store = _work_graph_grant_utils._private_path(store_path)
-    bridge_source = _work_graph_grant_utils._private_path(bridge_token_file)
-    runner_source = _work_graph_grant_utils._private_path(runner_token_file)
+    store = _private_path(store_path)
+    bridge_source = _private_path(bridge_token_file)
+    runner_source = _private_path(runner_token_file)
     if len({store, bridge_source, runner_source}) != 3:
-        raise _workflow_errors.LaunchError("join_private_paths_must_differ")
+        raise LaunchError("join_private_paths_must_differ")
     bridge_token = _token_file(bridge_source)
     runner_token = _token_file(runner_source)
-    client = _work_graph_client.LangflowLocalClient(langflow_url)
-    controller = _join_controller.LangflowJoinController(
-        _workflow_store.WorkflowRunStore(store),
-        _join_transport.RunnerHTTPTransport(
+    client = LangflowLocalClient(langflow_url)
+    controller = LangflowJoinController(
+        WorkflowRunStore(store),
+        RunnerHTTPTransport(
             runner_url, runner_token, provider=provider
         ),
         client.fetch,
     )
-    return _join_server.JoinServer(controller, bridge_token, port=port)
+    return JoinServer(controller, bridge_token, port=port)
 
 
 def main(argv=None):

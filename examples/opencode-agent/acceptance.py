@@ -11,11 +11,11 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.utils import _private
-from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode
-from laomedo.agents.providers.opencode.runner import OpenCodeRunner
-from experiments.turn_harness import VerificationOpenCodeRunner as OpenCodeRunner
-from laomedo.host.credentials.opencode.utils import console_provider
+from laomedo.agents.agents.base.utils import _json; from laomedo.agents.agents.base.utils import _private
+from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
+from experiments.turn_harness import VerificationOpenCodeRunner as OpenCodeAgent
+from laomedo.agents.agents.opencode.auth.utils import console_provider
 from laomedo.skills.registry.store import SkillStore; from laomedo.skills.registry.errors import ConflictError; from laomedo.skills.registry.utils import inventory; from laomedo.skills.registry.utils import tree_hash
 
 IMAGE = "laomedo-opencode-controller:1.18.33"
@@ -126,7 +126,7 @@ def runner(max_model_turns=2):
     second = pin("laomedo-result-format", ROOT / "examples/opencode-agent/skill")
     refs = [ref, {key: second[key] for key in ("skill_id", "revision_id", "tree_hash")}]
     _json(STATE / "skill-references.json", {"skills": refs})
-    obj = OpenCodeRunner(STATE / "runs-state", store.root, ROOT / "examples/skill-agent-pilot/source",
+    obj = OpenCodeAgent(STATE / "runs-state", store.root, ROOT / "examples/skill-agent-pilot/source",
                          transport_factory=factory, max_model_turns=max_model_turns)
     return obj, ref
 
@@ -143,7 +143,7 @@ def main():
     elif args.phase == "auth":
         auth()
     elif args.phase == "serve":
-        from laomedo.agents.runtime.serving import RunnerServer as serve
+        from laomedo.host.runner.http.server import RunnerServer as serve
         obj, _ = runner(args.max_model_turns)
         serve(obj, port=args.port).serve_forever()
     else:

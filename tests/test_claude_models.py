@@ -8,8 +8,8 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from laomedo.agents.providers.claude.runner import ClaudeRunner; from laomedo.agents.providers.claude.models import ClaudePolicy; from laomedo.agents.providers.claude.utils import normalize_models
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.claude.agent import ClaudeAgent; from laomedo.agents.agents.claude.models import ClaudePolicy; from laomedo.agents.agents.claude.utils import normalize_models
+from laomedo.agents.errors import RunnerError
 
 
 def native(model='fable', levels=None):
@@ -20,7 +20,7 @@ def native(model='fable', levels=None):
 class ClaudeModelTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
-        self.runner=object.__new__(ClaudeRunner)
+        self.runner=object.__new__(ClaudeAgent)
         self.runner.state=Path(self.temp.name)
         self.runner.executable='claude'
         self.runner.container=SimpleNamespace(control=lambda *a,**k:None)

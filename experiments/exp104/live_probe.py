@@ -8,6 +8,7 @@ state directory or automatically retry an uncertain remote effect.
 
 from __future__ import annotations
 
+
 from laomedo.host.leases.models import ContainerIdentity
 
 import argparse
@@ -23,7 +24,11 @@ import time
 from urllib import error; from urllib import request
 
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
-from laomedo.github.transport.git.utils import _base_git_environment; from laomedo.github.transport.git.utils import _credential_environment; from laomedo.github.transport.git.utils import _push_failure_category
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment; from experiments.retired_git_api import refuse_private_git_api as _credential_environment; from laomedo.github.transport.git.utils import _push_failure_category
+from pydantic import SecretStr
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCredential, GitExecutionContext
+from laomedo.git.repository import GitRepository
 from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.host.leases.client import LeaseClient
@@ -251,19 +256,14 @@ def _secret_canary(state: Path, token: str) -> dict:
 
 
 def _dry_run_preflight(token: str, checkout: Path, commit: str,
-                       branch: str, *, run=subprocess.run) -> dict:
+                       branch: str, *, runner: GitCommandRunner | None = None) -> dict:
     """Check the new ref without sending updates or persisting Git output."""
     ref = "refs/heads/" + branch
-    environment, helper = _credential_environment(token)
-    try:
-        result = run(["git", "-C", str(checkout), "-c", "credential.helper=",
-                      "-c", "credential.helper=" + helper, "push", "--dry-run",
-                      "--porcelain", "--force-with-lease=" + ref + ":",
-                      "https://github.com/" + REPOSITORY + ".git",
-                      commit + ":" + ref], env=environment, capture_output=True,
-                     timeout=30)
-    finally:
-        environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
+    repository = GitRepository(checkout, context=GitExecutionContext(), runner=runner)
+    result = repository.run(["push", "--dry-run", "--porcelain",
+                             "--force-with-lease=" + ref + ":",
+                             "https://github.com/" + REPOSITORY + ".git", commit + ":" + ref],
+                            credential=GitCredential(token=SecretStr(token)))
     return {"exit_code": result.returncode,
             "category": _push_failure_category(result.stderr, result.stdout)
             if result.returncode else None}

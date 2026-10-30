@@ -1,6 +1,6 @@
 """Dependency-light CI regressions; genuine graph acceptance is separate."""
 import unittest
-from laomedo.activity.agent_activity.projection import project
+from laomedo.agents.activity.projection import project
 
 
 def event(method, **params):

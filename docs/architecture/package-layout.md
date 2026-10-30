@@ -70,9 +70,9 @@ src/laomedo/
 ```
 
 Each implementation has one owner. The neutral lifecycle is
-`laomedo.agents.runtime.runner.Runner`; Codex execution is
-`laomedo.agents.providers.codex.runner.CodexRunner`. Use
-`laomedo.skills.registry.store` and `laomedo.activity.agent_activity.capture`.
+`laomedo.agents.agents.base.agent.BaseAgent`; Codex execution is
+`laomedo.agents.agents.codex.agent.CodexAgent`. Use
+`laomedo.skills.registry.store` and `laomedo.agents.activity.capture`.
 The activity package exports `ActivityStore`, `capture_for` and `now`;
 module patch targets live in their defining modules. Docker build definitions
 live in `docker/`; registry documentation is in [the Skills registry guide](../features/skills/registry.md).
@@ -80,8 +80,8 @@ live in `docker/`; registry documentation is in [the Skills registry guide](../f
 Launchers use canonical names:
 
 ```text
-python -m laomedo.agents.providers.codex.cli ...
-python -m laomedo.agents.providers.claude.cli ...
+python -m laomedo.agents.agents.codex.cli ...
+python -m laomedo.agents.agents.claude.cli ...
 python -m laomedo.host.leases.service_cli serve ...
 python -m laomedo.host.managed_service ...
 ```
@@ -92,6 +92,12 @@ Resource bytes, image pins, schemas, request acknowledgement and cleanup
 behavior stay unchanged. Resource paths follow their owning package.
 
 ## One-time migration
+
+Recognized Langflow component source hashes are refreshed with migrated code so
+the graph does not retain an obsolete component cache key. IDs, connections,
+settings, pinned skills and existing run references remain unchanged. Unknown
+hash formats require manual component-revision migration. This operation does
+not run or retry the graph; retain its exclusive backups.
 
 Old flat imports are removed. Migrate older saved graph component code and
 external launcher commands before running them with this version:
@@ -164,13 +170,13 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 
 | Owner | Models and purpose |
 | --- | --- |
-| agents/runtime | RuntimeBinding groups provider-owned public record metadata |
-| agents/contracts | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
+| agents/agents/base | RuntimeBinding groups provider-owned public record metadata |
+| agents/interface | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
 | host/publication/verified | VerifiedStage carries the immutable verified bundle and its provenance |
 | host/leases | ContainerIdentity carries exact name, run ID and a secret launch token |
-| activity/agent_activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
+| agents/activity | CaptureIdentity carries graph provenance; ActivityInvocation replaces the anonymous store/invocation tuple |
 
 Models own validation, constructors and explicit projections. HTTP/provider JSON
 and persisted records retain their existing fields and identities. Strict models
@@ -198,13 +204,13 @@ pinned-stage-image and real graph evidence remain separate from internal tests.
 
 ## Provider-neutral Agent boundary
 
-The shared `Runner` is a template-method lifecycle, not a default Codex provider.
+The shared `BaseAgent` owns the current lifecycle and is not a default Codex provider.
 It owns private state, durable request identity and acknowledgement, workspace
 preparation, immutable skill/artifact inputs and host authorization orchestration.
 Codex, Claude and OpenCode extend it directly. They own their constructors,
 request policy, model discovery/cache, native execution, resume binding,
 pre-dispatch authentication, cancellation and exact restart cleanup.
-`RuntimeBinding` in `agents/runtime/models.py` groups the public record fields;
+`RuntimeBinding` in `agents/agents/base/models.py` groups the public record fields;
 it never carries an access token. Credential identity metadata is distinct from
 login material. The record key set remains stable, including explicit nulls.
 OpenCode prepared records now report its own CLI and `opencode_acp` mode, with
@@ -224,8 +230,9 @@ supervision flag did not implement mediated execution. Existing
 new remote-write capability for either provider.
 
 Graph components keep their public names and ports. Their shared implementation
-lives in `integrations/langflow/agent/component.py`, imported by the installed
-package, so no additional base node is exposed by the component category loader.
+lives in `agents/interface/langflow/component.py`, with the established
+`integrations/langflow/agent/component.py` public entrypoint delegating to it,
+so no additional base node is exposed by the component category loader.
 Concrete adapters declare capabilities instead of the common component choosing
 behavior by node name. Embedded Claude/OpenCode sources inheriting the old Codex
 component must be migrated with the one-time tool; custom methods and graph
@@ -233,8 +240,10 @@ identities are retained. Regenerate templates when current dependency metadata i
 needed. Current source templates are distinct from historical execution evidence.
 
 Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
-Git ownership, mediation server extraction and frontend feature directories remain
-separate follow-ups (#206?#210).
+Git command execution now belongs to `git/`; `AgentWorkspace` composes its objects
+for Agent admission, while GitHub workflow rules and host publication policy keep
+their own owners. Mediation server extraction and frontend feature directories
+remain separate follow-ups (#206 through #210).
 
 Concrete Codex components reject stale subclass inheritance before model discovery,
 bridge selection or dispatch with `agent_component_migration_required`. The shared
@@ -242,3 +251,14 @@ error catalogue explains updating the node or explicitly migrating saved source;
 unmigrated Claude/OpenCode code cannot silently route through Codex configuration.
 OpenCode owns its worker image pin independently in its settings. It initially uses
 the same reviewed sandbox bytes as Codex, without importing Codex configuration.
+
+The migration tool refuses retired procedural Git symbols even when they appear
+in comments or docstrings. Review those references manually; the tool never
+guesses a new object call signature. Unchanged component code leaves its revision
+key untouched. Changed code uses the pinned LFX hash, checked against the actual
+`lfx.custom.utils._generate_code_hash` implementation in the Langflow suite.
+
+Direct-symbol imports also change private monkeypatch bindings. Patch the name
+where a consumer uses it, for example `agents.activity.capture.capture_for`, not
+the original utility module's `capture_for`. Public component/error import paths
+remain explicit delegates; they do not proxy private test bindings.

@@ -15,7 +15,7 @@ from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.grants import LocalGrantAuthority
 from laomedo.work_graph.__main__ import main as work_graph_main
 from laomedo.work_graph.launch import launch_github_work_stage; from laomedo.work_graph.launch import launch_work_stage; from laomedo.work_graph.launch import preflight; from laomedo.work_graph.launch import relevant_content_digest
-from laomedo.agents.workflow.errors import ExternalOutcomeUnknown; from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown; from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 CORPUS = Path(__file__).resolve().parents[1] / "experiments" / "exp16" / "corpus.json"
@@ -237,7 +237,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
             graph_snapshot=self.frozen,
             expires_at=expiry,
             timeout_seconds=30, max_turns=0)
-        with patch("laomedo.work_graph.grant_utils._host_principal", return_value="other-user"):
+        with patch("laomedo.work_graph.grants._host_principal", return_value="other-user"):
             with self.assertRaisesRegex(LaunchError, "grant_operator_mismatch"):
                 authority(ref, binding)
         record, result = launch_work_stage(frozen=self.frozen,

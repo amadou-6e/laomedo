@@ -1,5 +1,6 @@
 """S13 production-launch controller; explicit independent pre-run review gate."""
 
+
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from hashlib import sha256
@@ -24,9 +25,9 @@ def identities(side):
 
 from laomedo.host.mediation.agent_cli import configure_remote
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
-from laomedo.github.transport.git.utils import _base_git_environment
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 from laomedo.host.credentials.token.connection import HostTokenConnection
-from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
 from laomedo.host.mediation.authority import RunGrantAuthority
 
 CHECKOUT = Path(__file__).resolve().parents[2]
@@ -283,7 +284,7 @@ def run(root, token_file, source, review_record, approval):
             save(root / (service + ".json"), configuration)
         # Fail before task registration if the task interpreter cannot import
         # this source/dependencies; no package installation or login fallback.
-        checked = subprocess.run([sys.executable, "-c", "import laomedo.host.managed_service; import laomedo.agents.providers.codex.cli"],
+        checked = subprocess.run([sys.executable, "-c", "import laomedo.host.managed_service; import laomedo.agents.agents.codex.cli"],
             cwd=CHECKOUT, env=_base_git_environment(), capture_output=True, timeout=15)
         if checked.returncode:
             raise ValueError("task_interpreter_dependencies_missing")

@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.activity.acp.capture import AcpCapture
-from laomedo.activity.runner.feed import read_feed
+from laomedo.agents.activity.acp.capture import AcpCapture
+from laomedo.agents.activity.runner.feed import read_feed
 
 
 class AcpCaptureTests(unittest.TestCase):
@@ -108,7 +108,7 @@ class AcpCaptureTests(unittest.TestCase):
         )
 
     def test_oversized_record_is_explicit_capture_failure(self):
-        with patch("laomedo.activity.acp.capture.MAX_RECORD_BYTES", 150):
+        with patch("laomedo.agents.activity.acp.capture.MAX_RECORD_BYTES", 150):
             with self.assertRaisesRegex(ValueError, "retention limit"):
                 self.update(
                     sessionUpdate="agent_message_chunk",

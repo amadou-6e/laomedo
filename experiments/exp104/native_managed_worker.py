@@ -4,6 +4,7 @@ Not a product runner or a capture entry point. The reviewed controller must
 prepare/bind the trusted scope and paths before starting this process.
 """
 
+
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 import json
@@ -16,9 +17,9 @@ import time
 from experiments.exp104.native_managed_checks import BASELINE; from experiments.exp104.native_managed_checks import IDENTITY; from experiments.exp104.native_managed_checks import REPOSITORY
 from laomedo.host.mediation.agent_cli import prepare_commands
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
-from laomedo.github.transport.git.utils import _base_git_environment
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 from laomedo.host.leases.client import LeaseClient
-from laomedo.agents.providers.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 

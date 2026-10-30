@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import ast
 import codecs
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,7 @@ from migration_errors import ManualMigrationRequired
 MODULE_PATHS = json.loads(Path(__file__).with_name("module-paths.json").read_text())
 
 SYMBOL_PATHS = json.loads(Path(__file__).with_name("symbol-paths.json").read_text())
+MANUAL_SYMBOLS = json.loads(Path(__file__).with_name("manual-symbols.json").read_text())
 CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
@@ -92,6 +94,9 @@ def _physical_lines(source: str) -> list[str]:
 
 def migrate_source(source: str) -> str:
     """Rewrite published imports to defining modules; refuse ambiguous symbols."""
+    for symbol, explanation in MANUAL_SYMBOLS.items():
+        if re.search(r"(?<![\w.])" + re.escape(symbol) + r"(?!\w)", source):
+            raise ManualMigrationRequired(symbol + ": " + explanation)
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -142,11 +147,44 @@ def migrate_source(source: str) -> str:
                 )
             )
 
+        imported_modules = {item.asname or item.name: item.name for node in ast.walk(tree)
+                            if isinstance(node, ast.Import) for item in node.names}
+        imported_modules.update({item.asname or item.name: node.module + "." + item.name
+                                 for node in ast.walk(tree)
+                                 if isinstance(node, ast.ImportFrom) and node.module and not node.level
+                                 for item in node.names})
+
+        def imported_reference(node):
+            """Resolve module aliases without evaluating arbitrary saved Python."""
+            if isinstance(node, ast.Name):
+                return imported_modules.get(node.id, "")
+            if isinstance(node, ast.Attribute):
+                parent = imported_reference(node.value)
+                return parent + "." + node.attr if parent else ""
+            return ""
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                reference = imported_reference(node.func)
+                target = SYMBOL_PATHS.get(reference, reference)
+                if target in {
+                    "laomedo.github.transport.git.transport.GitHubGitTransport",
+                    "laomedo.host.publication.verified.utils.stage_verified_git",
+                } and any(keyword.arg == "run" for keyword in node.keywords):
+                    raise ManualMigrationRequired(
+                        reference + ": run= was replaced by an explicit GitCommandRunner object; manual migration is required"
+                    )
+            if isinstance(node, ast.Attribute):
+                full = imported_reference(node)
+                if full in MANUAL_SYMBOLS:
+                    raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module and not node.level:
                 statements, changed = [], False
                 for item in node.names:
                     full = node.module + "." + item.name
+                    if full in MANUAL_SYMBOLS:
+                        raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
                     if legacy_agent is not None and full == "laomedo.codex_agent.LaomedoCodexAgent":
                         alias = item.asname or item.name
                         statements.append("from laomedo.integrations.langflow.agent.component import AgentComponent as " + alias)
@@ -500,12 +538,60 @@ def _selected_field(path: tuple, graph: bool) -> bool:
     )
 
 
+def _component_hash_updates(value):
+    """Refresh recognized Langflow source hashes without changing graph identity.
+
+    Langflow 1.12 uses the first twelve SHA-256 hex characters of UTF-8 component
+    source. Unknown formats are not rewritten under an assumed revision scheme.
+    """
+    if not _is_graph(value):
+        return {}
+    prefix = () if isinstance(value.get("nodes"), list) else ("data",)
+    nodes = value["nodes"] if not prefix else value["data"]["nodes"]
+    updates = {}
+    for index, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            continue
+        data = node.get("data")
+        if not isinstance(data, dict):
+            continue
+        definition = data.get("node", {})
+        if not isinstance(definition, dict):
+            continue
+        metadata = definition.get("metadata")
+        template = definition.get("template")
+        code_field = template.get("code") if isinstance(template, dict) else None
+        code = code_field.get("value") if isinstance(code_field, dict) else None
+        if not isinstance(metadata, dict) or "code_hash" not in metadata or not isinstance(code, str) or not code:
+            continue
+        migrated = migrate_source(code)
+        if migrated == code:
+            continue  # Unchanged code is not permission to repair an unrelated revision key.
+        existing = metadata["code_hash"]
+        if not isinstance(existing, str) or not re.fullmatch(r"[0-9a-f]{12}", existing):
+            if migrated != code:
+                raise ManualMigrationRequired(
+                    "Unknown component code hash format; manual component-revision migration is required"
+                )
+            continue
+        if existing != sha256(code.encode("utf-8")).hexdigest()[:12]:
+            raise ManualMigrationRequired(
+                "Component code hash does not match its original source; manual component-revision migration is required"
+            )
+        path = prefix + ("nodes", index, "data", "node", "metadata", "code_hash")
+        updates[path] = sha256(migrated.encode("utf-8")).hexdigest()[:12]
+    return updates
+
+
 def migrate_value(value):
-    """Migrate graph code or explicit launcher fields, leaving other values alone."""
+    """Migrate code, recognized derived code hashes and explicit launcher fields."""
     graph = _is_graph(value)
+    hashes = _component_hash_updates(value)
 
     def walk(item, path):
         if isinstance(item, str):
+            if path in hashes:
+                return hashes[path]
             return (
                 _migrate_selected(item, path) if _selected_field(path, graph) else item
             )
@@ -519,8 +605,10 @@ def migrate_value(value):
 
 
 def migrate_json_source(source: str) -> str:
-    """Splice changed JSON string tokens only; preserve all other source bytes."""
-    graph = _is_graph(json.loads(source))
+    """Splice code/hash tokens only; preserve unrelated source bytes and values."""
+    parsed = json.loads(source)
+    graph = _is_graph(parsed)
+    hashes = _component_hash_updates(parsed)
     decoder = json.JSONDecoder()
     replacements = []
 
@@ -554,8 +642,8 @@ def migrate_json_source(source: str) -> str:
                 index = whitespace(index + 1)
                 count += 1
         item, end = decoder.raw_decode(source, index)
-        if isinstance(item, str) and _selected_field(path, graph):
-            migrated = _migrate_selected(item, path)
+        if isinstance(item, str) and (path in hashes or _selected_field(path, graph)):
+            migrated = hashes[path] if path in hashes else _migrate_selected(item, path)
             if migrated != item:
                 token = source[index:end]
                 replacements.append(
@@ -602,7 +690,15 @@ def main() -> None:
     args = parser.parse_args()
     plans = []
     try:
+        project_root = Path(__file__).resolve().parents[2]
+        history = json.loads((project_root / "examples/agent-module-history.json").read_text(encoding="utf-8"))
+        immutable = {(project_root / record["historical_original"]).resolve()
+                     for record in history["files"] if record.get("immutable")}
         for path in args.files:
+            if path.resolve() in immutable:
+                raise ManualMigrationRequired(
+                    "Historical execution evidence is immutable; migrate an explicitly named copy instead"
+                )
             if (
                 path.is_symlink()
                 or not path.is_file()

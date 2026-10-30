@@ -1,5 +1,6 @@
 """S13 production LocalRunner fixture held at native initialize; zero turns."""
 
+
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from hashlib import sha256
@@ -9,8 +10,8 @@ from pathlib import Path
 import time
 
 from laomedo.host.leases.utils import inspect_exact
-from laomedo.github.transport.git.utils import _base_git_environment
-from laomedo.agents.providers.codex.controller.service import CodexController as AppServer; from laomedo.agents.runtime.errors import RunnerError
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
+from laomedo.agents.agents.codex.controller.service import CodexController as AppServer; from laomedo.agents.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.mediation.authority import RunGrantAuthority
 import laomedo.skills.workspace.utils as workspace_skills

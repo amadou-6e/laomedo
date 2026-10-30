@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import tempfile
 
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.providers.codex.settings import SPLIT_TOOLS; from laomedo.agents.providers.codex.utils import _split_profile
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.agents.codex.settings import SPLIT_TOOLS; from laomedo.agents.agents.codex.utils import _split_profile
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection; from laomedo.host.credentials.siwc.settings import NEEDED
 from laomedo.skills.registry.store import SkillStore

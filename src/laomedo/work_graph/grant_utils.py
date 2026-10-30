@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import csv
-import laomedo.agents.workflow.errors as _workflow_errors
+from laomedo.work_graph.runs.errors import LaunchError
 import os
 import re
 import subprocess
@@ -13,13 +13,13 @@ import subprocess
 def _private_path(path):
     target = Path(path).expanduser()
     if not target.is_absolute() or target.is_symlink():
-        raise _workflow_errors.LaunchError("grant_store_path_invalid")
+        raise LaunchError("grant_store_path_invalid")
     resolved = target.resolve()
     if any(
         (parent / ".git").exists()
         for parent in (resolved.parent, *resolved.parent.parents)
     ):
-        raise _workflow_errors.LaunchError("grant_store_inside_git")
+        raise LaunchError("grant_store_inside_git")
     return resolved
 
 
@@ -39,5 +39,5 @@ def _host_principal():
     except (OSError, subprocess.TimeoutExpired, IndexError):
         sid = ""
     if not re.fullmatch(r"S-\d+(?:-\d+)+", sid):
-        raise _workflow_errors.LaunchError("host_operator_identity_unavailable")
+        raise LaunchError("host_operator_identity_unavailable")
     return "sid:" + sid

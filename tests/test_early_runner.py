@@ -1,6 +1,6 @@
 """Credential-free falsifiers for issue #22's durable early identity."""
 
-from laomedo.agents.runtime.utils import _json as _owned_runner_module__json
+from laomedo.agents.agents.base.utils import _json as _owned_runner_module__json
 
 import json
 from pathlib import Path
@@ -13,12 +13,12 @@ from unittest.mock import patch
 from urllib import error as http_error; from urllib import request as http_request
 from uuid import uuid4
 
-from laomedo.agents.providers.codex.runner import CodexRunner as LocalRunner; from laomedo.agents.runtime.errors import RunnerError; from laomedo.agents.runtime.utils import _json; from laomedo.agents.runtime.serving import RunnerServer as serve
-import laomedo.agents.providers.codex.cli as runner_module
-from laomedo.agents.handoffs.transport import RunnerAdapter
-from laomedo.activity.runner.trace_bridge import RunnerTraceBridge
-from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
-from laomedo.agents.handoffs.errors import HandoffError; from laomedo.agents.handoffs.utils import envelope
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.base.utils import _json; from laomedo.host.runner.http.server import RunnerServer as serve
+import laomedo.agents.agents.codex.cli as runner_module
+from laomedo.agents.interface.bridge import HttpAgentBridge
+from laomedo.agents.activity.runner.trace_bridge import RunnerTraceBridge
+from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
+from laomedo.agents.orchestration.errors import HandoffError; from laomedo.agents.orchestration.utils import envelope
 from laomedo.skills.registry.store import SkillStore
 from test_local_runner import FakeServer
 
@@ -206,7 +206,7 @@ class EarlyRunnerTests(unittest.TestCase):
 
     def test_controller_adapter_exposes_id_before_wait_and_can_cancel(self):
         base = self.start_http()
-        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+        adapter = HttpAgentBridge({"codex": base.rsplit("/v1/runs", 1)[0]},
                                 {"codex": self.state / "api-token"})
         skill = self.body["skill_ref"]
         handoff = envelope(None, {"provider": "codex", "model": "test-model",
@@ -236,7 +236,7 @@ class EarlyRunnerTests(unittest.TestCase):
 
     def test_trace_bridge_binds_real_local_http_ack_and_cancel(self):
         base = self.start_http()
-        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+        adapter = HttpAgentBridge({"codex": base.rsplit("/v1/runs", 1)[0]},
                                 {"codex": self.state / "api-token"})
         trace_path = Path(self.temp.name) / "trace.sqlite3"
         trace = WorkflowRunStore(trace_path)
@@ -295,7 +295,7 @@ class EarlyRunnerTests(unittest.TestCase):
         # checks and explicitly cancel it, with a finite failsafe.
         BlockingServer.wait_seconds = 30
         base = self.start_http()
-        class DroppedAckAdapter(RunnerAdapter):
+        class DroppedAckAdapter(HttpAgentBridge):
             def dispatch(self, handoff, **kwargs):
                 kwargs["on_ack"] = lambda _: None
                 return super().dispatch(handoff, **kwargs)
@@ -352,7 +352,7 @@ class EarlyRunnerTests(unittest.TestCase):
 
     def test_binding_write_failure_can_reconcile_same_native_run(self):
         base = self.start_http()
-        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+        adapter = HttpAgentBridge({"codex": base.rsplit("/v1/runs", 1)[0]},
                                 {"codex": self.state / "api-token"})
         trace_path = Path(self.temp.name) / "binding-failure.sqlite3"
         trace = WorkflowRunStore(trace_path)
@@ -417,7 +417,7 @@ class EarlyRunnerTests(unittest.TestCase):
 
     def test_cancel_pending_at_ack_is_forwarded_by_adapter(self):
         base = self.start_http()
-        class CountingAdapter(RunnerAdapter):
+        class CountingAdapter(HttpAgentBridge):
             cancel_calls = 0
             def cancel(self, execution_id):
                 self.cancel_calls += 1
@@ -453,7 +453,7 @@ class EarlyRunnerTests(unittest.TestCase):
         # Test the acknowledged wait deadline, not a subsecond HTTP-start race.
         BlockingServer.wait_seconds = 30
         base = self.start_http()
-        adapter = RunnerAdapter({"codex": base.rsplit("/v1/runs", 1)[0]},
+        adapter = HttpAgentBridge({"codex": base.rsplit("/v1/runs", 1)[0]},
                                 {"codex": self.state / "api-token"})
         handoff = envelope(None, {"provider": "codex", "model": "test-model",
                                   "effort": "low"}, "Synthetic task",
@@ -496,7 +496,7 @@ class EarlyRunnerTests(unittest.TestCase):
             return original_json(path, value)
         def cancel():
             result["cancel"] = self.runner.cancel(run_id)
-        with patch("laomedo.agents.runtime.utils._json", side_effect=delayed_json):
+        with patch("laomedo.agents.agents.base.agent._json", side_effect=delayed_json):
             caller = threading.Thread(target=cancel)
             caller.start()
             try:

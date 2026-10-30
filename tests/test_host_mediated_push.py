@@ -1,6 +1,7 @@
 """Synthetic end-to-end grant, exact-commit push, and selective revocation."""
 
 from pathlib import Path
+from git_runner_controls import CallbackGitRunner
 import subprocess
 import tempfile
 import unittest
@@ -44,7 +45,7 @@ class HostMediatedPushTests(unittest.TestCase):
 
         self.transport = GitHubGitTransport(
             "example/disposable", self.checkout, baseline,
-            self.connection.token, run=run)
+            self.connection.token, runner=CallbackGitRunner(run))
         self.store = MediationStore(
             self.path / "mediator.sqlite",
             workflow_change_classifier=self.transport.classify_workflow_diff,

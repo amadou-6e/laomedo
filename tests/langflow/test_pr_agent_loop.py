@@ -13,7 +13,7 @@ from lfx.custom.custom_component.component import Component
 from laomedo.github.pull_requests.gateway import GitHubPRGateway
 from laomedo.host.mediation.store import MediationStore
 from laomedo.github.transport.rest.transport import GitHubRestTransport
-from laomedo.agents.feedback.pr import operation_value
+from laomedo.integrations.langflow.feedback.pr import operation_value
 import test_live_github_pr as fixtures
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -154,7 +154,7 @@ class PRAgentLoopTests(unittest.IsolatedAsyncioTestCase):
         async def pending_agent(component, seed):
             started.set()
             await asyncio.Future()
-        with patch('laomedo.agents.feedback.pr.agent_operation',new=pending_agent):
+        with patch('laomedo.integrations.langflow.feedback.pr.agent_operation',new=pending_agent):
             run = asyncio.create_task(self.execute())
             await asyncio.wait_for(started.wait(),timeout=10)
             run.cancel()

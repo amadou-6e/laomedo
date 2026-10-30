@@ -5,6 +5,7 @@ from unittest import mock
 import importlib.util
 from contextlib import closing
 import json
+from git_runner_controls import CallbackGitRunner
 import os
 from pathlib import Path
 import sqlite3
@@ -112,7 +113,7 @@ class LiveProbeConfigurationTests(unittest.TestCase):
 
         result = live_probe._dry_run_preflight(
             "secret", Path("synthetic-checkout"), "a" * 40,
-            "exp104-s4-20261007-01-a", run=fake_run)
+            "exp104-s4-20261007-01-a", runner=CallbackGitRunner(fake_run))
         self.assertEqual(result, {"exit_code": 1, "category": "remote_rejected"})
         self.assertIn("--dry-run", seen[0]["args"])
         self.assertNotIn("secret", " ".join(seen[0]["args"]))

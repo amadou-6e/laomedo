@@ -8,7 +8,7 @@ import unittest
 from contextlib import closing
 from unittest.mock import patch
 from experiments.exp139.observe_recovery import observe
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import requirements
 
 
 class ObservationTests(unittest.TestCase):

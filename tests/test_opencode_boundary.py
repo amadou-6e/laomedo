@@ -14,11 +14,11 @@ from unittest.mock import patch
 from urllib import error
 from urllib import request
 
-from laomedo.agents.providers.opencode.boundary import CommandBroker
-from laomedo.agents.providers.opencode.boundary import IsolatedOpenCode
-from laomedo.agents.providers.opencode.utils import check_auth_fresh
-from laomedo.agents.providers.codex.settings import IMAGE_ID
-from laomedo.agents.runtime.errors import RunnerError
+from laomedo.agents.agents.opencode.boundary import CommandBroker
+from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
+from laomedo.agents.agents.opencode.utils import check_auth_fresh
+from laomedo.agents.agents.codex.settings import IMAGE_ID
+from laomedo.agents.errors import RunnerError
 
 if find_spec("py_docker"):
     from py_docker.errors import DockerOperationError, CleanupUnconfirmedError
@@ -162,12 +162,14 @@ class BoundaryTests(unittest.TestCase):
             with (
                 patch("py_docker.Client") as client,
                 patch(
-                    "laomedo.agents.providers.opencode.boundary.CommandBroker"
+                    "laomedo.agents.agents.opencode.boundary.CommandBroker"
                 ) as broker,
             ):
                 client.return_value.__enter__.return_value.connection.endpoint = (
                     ENDPOINT
                 )
+                broker.return_value.server.server_port = 12345
+                broker.return_value.token = "internal-test-broker-capability"
                 with self.assertRaisesRegex(
                     RunnerError, "opencode_organization_context_invalid"
                 ):
@@ -191,7 +193,7 @@ class BoundaryTests(unittest.TestCase):
             with (
                 patch("py_docker.Client") as client,
                 patch(
-                    "laomedo.agents.providers.opencode.boundary.CommandBroker"
+                    "laomedo.agents.agents.opencode.boundary.CommandBroker"
                 ) as broker,
             ):
                 client.return_value.__enter__.return_value.connection.endpoint = (
@@ -245,7 +247,7 @@ class BoundaryTests(unittest.TestCase):
             with (
                 patch("py_docker.Client") as client,
                 patch(
-                    "laomedo.agents.providers.opencode.boundary.CommandBroker"
+                    "laomedo.agents.agents.opencode.boundary.CommandBroker"
                 ) as broker,
             ):
                 client.return_value.__enter__.return_value.connection.endpoint = (
@@ -329,7 +331,7 @@ class BoundaryTests(unittest.TestCase):
                 broker.execute("pwd")
 
     def test_credential_binding_is_keyed_stable_and_changes_with_credentials(self):
-        from laomedo.agents.providers.opencode.utils import _credential_binding
+        from laomedo.agents.agents.opencode.utils import _credential_binding
 
         with tempfile.TemporaryDirectory() as tmp:
             profile, _, _ = self.fixture(Path(tmp), mode="provider_key")

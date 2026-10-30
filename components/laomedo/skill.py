@@ -10,7 +10,7 @@ from lfx.schema import Data; from lfx.schema import Message
 from laomedo.skills.sources.client import source_request
 from laomedo.skills.operations.client import skill_request
 from laomedo.skills.operations.utils import proposal
-from laomedo.agents.feedback.pr import feedback_edge; from laomedo.agents.feedback.pr import bind_feedback_parameters; from laomedo.agents.feedback.pr import agent_operation
+from laomedo.integrations.langflow.feedback.pr import feedback_edge; from laomedo.integrations.langflow.feedback.pr import bind_feedback_parameters; from laomedo.integrations.langflow.feedback.pr import agent_operation
 
 
 class LaomedoSkill(Component):

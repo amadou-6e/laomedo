@@ -10,7 +10,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from laomedo.integrations.langflow.join.controller import LangflowJoinController
-from laomedo.agents.workflow.errors import LaunchError; from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 class FakeRunner:

@@ -13,6 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PackageLayoutTests(unittest.TestCase):
+    def test_retired_module_files_cannot_return_even_in_an_editable_checkout(self):
+        retired = json.loads((ROOT/'tools/migrations/module-paths.json').read_text())
+        self.assertTrue(retired)
+        for name in retired:
+            path = package_root().parent.joinpath(*name.split('.')).with_suffix('.py')
+            self.assertFalse(path.exists(), name)
+
     def test_installed_package_has_no_retired_python_modules(self):
         """Catch stale build output copied into an otherwise successful wheel."""
         source = ROOT.joinpath("src/laomedo")
@@ -31,6 +38,11 @@ class PackageLayoutTests(unittest.TestCase):
                 try:
                     module = importlib.import_module(canonical)
                 except ModuleNotFoundError as error:
+                    if error.name == 'acp' and canonical in {
+                        'laomedo.agents.agents.base.acp.session',
+                        'laomedo.agents.agents.base.acp.transport',
+                    }:
+                        self.skipTest('Optional runner ACP dependency is not installed')
                     if (error.name or "").split(".")[0] in {"fastapi", "starlette", "lfx", "langflow"}:
                         self.skipTest("Optional app dependencies are not installed")
                     raise
@@ -38,22 +50,22 @@ class PackageLayoutTests(unittest.TestCase):
                 self.assertNotIn("alias_module", Path(module.__file__).read_text())
 
     def test_resource_owners_and_bytes(self):
-        from laomedo.agents.providers.codex.settings import CONFIG; from laomedo.agents.providers.codex.settings import SECCOMP; from laomedo.agents.providers.codex.settings import MEDIATION_CLIENT
+        from laomedo.agents.agents.codex.settings import CONFIG; from laomedo.agents.agents.codex.settings import SECCOMP; from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
         from laomedo.host.publication.bundle.settings import SCRIPT
         paths = [CONFIG, SECCOMP, MEDIATION_CLIENT, SCRIPT,
                  MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs"), MEDIATION_CLIENT.with_name("agent_git_remote.mjs"),
                  package_root() / "skills/resources/skill-summary/SKILL.md",
-                 package_root() / "host/credentials/git_credential_helper.py"]
+                 package_root() / "git/credentials/helper.py"]
         for path in paths:
             self.assertEqual(path.read_bytes(), (ROOT / "src/laomedo" / path.relative_to(package_root())).read_bytes())
-        self.assertEqual(CONFIG.parent, package_root() / "agents/providers/codex/resources")
+        self.assertEqual(CONFIG.parent, package_root() / "agents/agents/codex/resources")
         self.assertEqual(SECCOMP.parent, CONFIG.parent)
-        self.assertEqual(MEDIATION_CLIENT.parent, package_root() / "agents/resources/mediation")
+        self.assertEqual(MEDIATION_CLIENT.parent, package_root() / "host/mediation/resources")
         self.assertEqual(SCRIPT.parent, package_root() / "host/publication/resources")
 
     def test_canonical_clis_work_outside_checkout(self):
         env = dict(os.environ, PYTHONPATH=str(import_root()))
-        modules = ["laomedo.host.managed_service", "laomedo.agents.providers.codex.cli", "laomedo.agents.providers.claude.cli",
+        modules = ["laomedo.host.managed_service", "laomedo.agents.agents.codex.cli", "laomedo.agents.agents.claude.cli",
                    "laomedo.host.leases.process_cli", "laomedo.host.leases.service_cli", "laomedo.work_graph"]
         with tempfile.TemporaryDirectory() as cwd:
             for module in modules:

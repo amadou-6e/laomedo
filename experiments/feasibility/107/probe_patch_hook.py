@@ -1,13 +1,13 @@
 """Credential-free disposable check of a proposed Codex patch-deny hook."""
 
-from laomedo.agents.providers.codex.settings import CONFIG as _owned_runner_CONFIG
-from laomedo.agents.providers.codex.settings import IMAGE as _owned_runner_IMAGE
-from laomedo.agents.providers.codex.controller.service import CodexController
-from laomedo.agents.providers.codex.controller.models import CodexLaunch, SplitPolicy
-from laomedo.agents.providers.codex.settings import IMAGE_ID
+from laomedo.agents.agents.codex.settings import CONFIG as _owned_runner_CONFIG
+from laomedo.agents.agents.codex.settings import IMAGE as _owned_runner_IMAGE
+from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.agents.codex.controller.models import CodexLaunch, SplitPolicy
+from laomedo.agents.agents.codex.settings import IMAGE_ID
 import asyncio
-from laomedo.agents.providers.codex.utils import _ensure_split_profile as _owned_runner__ensure_split_profile
-from laomedo.agents.providers.codex.utils import _split_profile as _owned_runner__split_profile
+from laomedo.agents.agents.codex.utils import _ensure_split_profile as _owned_runner__ensure_split_profile
+from laomedo.agents.agents.codex.utils import _split_profile as _owned_runner__split_profile
 
 import json
 from pathlib import Path
@@ -19,7 +19,7 @@ import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-import laomedo.agents.providers.codex.cli as runner
+import laomedo.agents.agents.codex.cli as runner
 from probe_mock_responses import MockResponses
 
 

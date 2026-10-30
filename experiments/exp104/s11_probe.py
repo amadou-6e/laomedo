@@ -7,6 +7,7 @@ GitHub token stays in the host process; Docker receives only a run capability.
 
 from __future__ import annotations
 
+
 from laomedo.host.leases.models import ContainerIdentity
 
 import argparse
@@ -25,7 +26,7 @@ from urllib import error; from urllib import request
 from laomedo.host.leases.utils import inspect_exact
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.host.leases.client import LeaseClient; from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
-from laomedo.agents.providers.codex.settings import IMAGE; from laomedo.agents.providers.codex.controller.models import CodexLaunch
+from laomedo.agents.agents.codex.settings import IMAGE; from laomedo.agents.agents.codex.controller.models import CodexLaunch
 from laomedo.host.mediation.authority import RunGrantAuthority
 
 _helper_spec = importlib.util.spec_from_file_location(
@@ -37,7 +38,9 @@ _helper_spec.loader.exec_module(_helpers)
 BASELINE, REPOSITORY, REPOSITORY_ID = (
     _helpers.BASELINE, _helpers.REPOSITORY, _helpers.REPOSITORY_ID)
 _api = _helpers._api
-_base_git_environment = _helpers._base_git_environment
+from experiments.native_environment import host_environment
+from laomedo.git.models import GitExecutionContext
+from laomedo.git.repository import GitRepository
 _call_count = _helpers._call_count
 _git = _helpers._git
 _kill_runner = _helpers._kill_runner
@@ -66,13 +69,13 @@ def _source_pythonpath() -> str:
 
 
 def _host_environment() -> dict[str, str]:
-    environment = _base_git_environment()
+    environment = host_environment()
     environment["PYTHONPATH"] = _source_pythonpath()
     return environment
 
 
 def _agent_environment() -> dict[str, str]:
-    environment = _base_git_environment()
+    environment = host_environment()
     environment.pop("GH_LAOMEDO", None)
     environment.pop("LAOMEDO_MEDIATED_GIT_TOKEN", None)
     environment["PYTHONPATH"] = _source_pythonpath()
@@ -286,9 +289,8 @@ def _reviewed_record(path: Path, code_sha: str) -> str:
 
 
 def _require_clean_source(root: Path) -> None:
-    checked = subprocess.run(
-        ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
-        env=_base_git_environment(), capture_output=True, timeout=20)
+    checked = GitRepository(root, context=GitExecutionContext(timeout=20)).run(
+        ["status", "--porcelain", "--untracked-files=all"])
     if checked.returncode or checked.stdout.strip():
         raise RuntimeError("reviewed_source_not_clean")
 
