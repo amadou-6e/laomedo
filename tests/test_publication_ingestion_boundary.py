@@ -14,6 +14,7 @@ from unittest.mock import Mock
 
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.publication.ingestion.errors import BundleIngestError
+from test_http_handler_boundaries import HandlerStructureTests
 
 ROOT = Path(__file__).resolve().parents[1]
 OWNER = "laomedo.host.publication.ingestion"
@@ -199,6 +200,50 @@ class PublicationIngestionBoundaryTests(unittest.TestCase):
             f"__import__('{RETIRED}.utils')",
         ]:
             self.assertTrue(self.retired_imports(source), source)
+
+    def test_maintained_example_code_has_no_retired_ingestion_imports(self):
+        historical = {
+            item["historical_original"]: item["sha256"]
+            for item in json.loads(
+                (ROOT / "examples/agent-module-history.json").read_text()
+            )["files"]
+        }
+        historical.update(
+            {
+                "examples/github-pr/original-agent/historical-flow-before-skill-input.json": "3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f",
+                "examples/skill-operations/historical-flow-before-skill-input.json": "45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf",
+            }
+        )
+        tracked = (
+            subprocess.check_output(
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={ROOT.as_posix()}",
+                    "ls-files",
+                    "-z",
+                    "--",
+                    "examples/*.json",
+                ],
+                cwd=ROOT,
+            )
+            .decode()
+            .split("\0")
+        )
+        for relative in filter(None, tracked):
+            path = ROOT / relative
+            if relative in historical:
+                self.assertEqual(
+                    hashlib.sha256(path.read_bytes()).hexdigest(),
+                    historical[relative],
+                    relative,
+                )
+                continue
+            for source in HandlerStructureTests.embedded_code(
+                json.loads(path.read_text(encoding="utf-8-sig"))
+            ):
+                if "laomedo." in source:
+                    self.assertFalse(self.retired_imports(source), relative)
 
     def test_retained_probe_migration_changes_only_imports_and_leaves_bytes(self):
         records = json.loads(
