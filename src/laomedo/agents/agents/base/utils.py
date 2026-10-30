@@ -88,21 +88,6 @@ def failure_observation(error=None, *, stage="execution", code=None):
         return None
 
 
-def write_attempt_failure(root, attempt_id, observation):
-    """Best-effort private snapshot; callers keep finalization and lock ownership.
-
-    The typed record is never merged into a run/attempt HTTP response. A failed
-    write preserves the caller's existing outcome and exception.
-    """
-    try:
-        directory = root / "diagnostics"
-        directory.mkdir(mode=0o700, exist_ok=True)
-        _json(directory / (attempt_id + ".json"), observation.to_record())
-    except Exception:
-        return False
-    return True
-
-
 def _git_tree(path: Path) -> bool:
     return any((parent / ".git").exists() for parent in (path, *path.parents))
 

@@ -11,12 +11,10 @@ from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import RuntimeBinding
-from laomedo.agents.agents.base.models import AttemptFailureRecord
-from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
-from laomedo.agents.agents.base.utils import failure_observation, write_attempt_failure
+from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.utils import inventory
 from laomedo.skills.registry.utils import tree_hash
@@ -629,39 +627,23 @@ class OpenCodeAgent(BaseAgent):
                             _json(root / "record.json", record)
                 finally:
                     try:
-                        if (
-                            record is not None
-                            and attempt is not None
-                            and record.get("status") != "completed"
-                        ):
-                            primary_failure = primary_failure or failure_observation(
-                                stage="terminal", code=record.get("error_category")
-                            )
-                            observed = getattr(backend, "cleanup_observed", None)
-                            if metadata_cleanup_unverified:
-                                observed = False
-                            source = (
-                                "opencode_owned_resources"
-                                if type(observed) is bool
-                                else None
-                            )
-                            if primary_failure is not None:
-                                write_attempt_failure(
-                                    root,
-                                    attempt["id"],
-                                    AttemptFailureRecord(
-                                        primary=primary_failure,
-                                        cleanup=cleanup_failure,
-                                        final_category=(
-                                            record.get("error_category")
-                                            if record.get("error_category")
-                                            in RUNNER_FAILURE_CODES
-                                            else None
-                                        ),
-                                        cleanup_source=source,
-                                        cleanup_verified=observed if source else None,
-                                    ),
-                                )
+                        observed = getattr(backend, "cleanup_observed", None)
+                        if metadata_cleanup_unverified:
+                            observed = False
+                        source = (
+                            "opencode_owned_resources"
+                            if type(observed) is bool
+                            else None
+                        )
+                        self._retain_attempt_failure(
+                            root,
+                            record,
+                            attempt,
+                            primary_failure,
+                            cleanup_failure,
+                            cleanup_source=source,
+                            cleanup_verified=observed if source else None,
+                        )
                     except Exception:
                         pass
                     finally:

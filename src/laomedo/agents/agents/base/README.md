@@ -53,6 +53,10 @@ fact. `from_*` constructs trusted observations and `to_record()` projects privat
 JSON. Existing atomic `_json` writes `diagnostics/<attempt-id>.json` after normal
 attempt/run writes; no new Store, reader API, HTTP fields or historical migration.
 Diagnostic errors never replace execution errors or prevent lock release.
+The existing `BaseAgent._retain_attempt_failure` method owns the shared guarded
+construction and atomic write. Providers supply already observed primary/cleanup
+facts and their own cleanup domain; the base does not inspect lease or Docker
+objects. Provider finalizers keep unconditional release of their locks/maps.
 
 `cleanup_source=lease_result` describes only the exact leased resource's result;
 `opencode_owned_resources` describes that backend's complete allocated resource

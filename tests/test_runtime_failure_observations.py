@@ -15,7 +15,8 @@ if find_spec("py_docker"):
     from py_docker.errors import CleanupUnconfirmedError, DockerOperationError
 
 from laomedo.agents.agents.base.models import AttemptFailureRecord, FailureObservation
-from laomedo.agents.agents.base.utils import failure_observation, write_attempt_failure
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.errors import RunnerError
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.models import LeaseCleanupObservation, LeaseLossObservation
@@ -108,11 +109,20 @@ class RuntimeFailureObservationTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch(
-                "laomedo.agents.agents.base.utils._json",
+                "laomedo.agents.agents.base.agent._json",
                 side_effect=PermissionError("PRIVATE_PATH"),
             ),
         ):
-            self.assertFalse(write_attempt_failure(Path(directory), "attempt", value))
+            self.assertIsNone(
+                BaseAgent._retain_attempt_failure(
+                    Mock(),
+                    Path(directory),
+                    {"status": "failed", "error_category": "runner_transport_failed"},
+                    {"id": "attempt"},
+                    value.primary,
+                    None,
+                )
+            )
 
     def test_os_log_never_contains_message_or_filename(self):
         error = PermissionError(13, "SECRET_MESSAGE", "SECRET_PATH")

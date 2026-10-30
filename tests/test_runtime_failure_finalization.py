@@ -316,7 +316,7 @@ class CodexFailureFinalizationTests(unittest.TestCase):
                 return_value=(True, "absent"),
             ),
             patch(
-                "laomedo.agents.agents.codex.agent.AttemptFailureRecord",
+                "laomedo.agents.agents.base.agent.AttemptFailureRecord",
                 side_effect=RuntimeError("diagnostic validation"),
             ),
         ):
@@ -326,9 +326,7 @@ class CodexFailureFinalizationTests(unittest.TestCase):
 
     def test_record_write_failure_still_attempts_sidecar_and_releases_lock(self):
         written = []
-        original = __import__(
-            "laomedo.agents.agents.codex.agent", fromlist=["_json"]
-        )._json
+        from laomedo.agents.agents.codex.agent import _json as original
 
         def write(path, value):
             if path.name == "record.json" and value.get("attempt_finished"):
@@ -342,15 +340,16 @@ class CodexFailureFinalizationTests(unittest.TestCase):
                 side_effect=RunnerError("runner_transport_failed"),
             ),
             patch("laomedo.agents.agents.codex.agent._json", side_effect=write),
-            patch(
-                "laomedo.agents.agents.codex.agent.write_attempt_failure",
-                side_effect=lambda *args: written.append(args),
+            patch.object(
+                self.runner,
+                "_retain_attempt_failure",
+                side_effect=lambda *args, **kwargs: written.append(args),
             ),
         ):
             with self.assertRaises(PermissionError):
                 self.runner.start(self.request())
         self.assertEqual(len(written), 1)
-        self.assertEqual(written[0][2].primary.code, "runner_transport_failed")
+        self.assertEqual(written[0][3].code, "runner_transport_failed")
         self.assertFalse(self.runner.lock.locked())
         self.assertEqual(self.runner.cancel_flags, {})
 
@@ -387,6 +386,14 @@ class OpenCodeFailureFinalizationTests(unittest.TestCase):
 
     def setUp(self):
         opencode_fixtures.OpenCodeTests.setUp(self)
+
+    def test_completed_run_has_no_private_failure_snapshot(self):
+        record = self.runner.start(self.payload)
+        self.assertEqual(record["status"], "completed")
+        self.assertFalse(
+            (self.runner._run_dir(record["run_id"]) / "diagnostics").exists()
+        )
+        self.assertFalse(self.runner.lock.locked())
 
     def test_standalone_discovery_keeps_safe_primary_without_inventing_attempt_store(
         self,

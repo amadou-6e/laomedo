@@ -40,9 +40,7 @@ from laomedo.agents.agents.codex.controller.service import CodexController
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
-from laomedo.agents.agents.base.utils import failure_observation, write_attempt_failure
-from laomedo.agents.agents.base.models import AttemptFailureRecord
-from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
+from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.host.credentials.siwc.utils import _outside_git
@@ -1322,23 +1320,15 @@ class CodexAgent(BaseAgent):
                                     "lease_result",
                                     observed.verified,
                                 )
-                            if primary_failure is not None:
-                                write_attempt_failure(
-                                    run_dir,
-                                    activity_attempt["id"],
-                                    AttemptFailureRecord(
-                                        primary=primary_failure,
-                                        cleanup=cleanup_failure,
-                                        final_category=(
-                                            record.get("error_category")
-                                            if record.get("error_category")
-                                            in RUNNER_FAILURE_CODES
-                                            else None
-                                        ),
-                                        cleanup_source=source,
-                                        cleanup_verified=verified_cleanup,
-                                    ),
-                                )
+                            self._retain_attempt_failure(
+                                run_dir,
+                                record,
+                                activity_attempt,
+                                primary_failure,
+                                cleanup_failure,
+                                cleanup_source=source,
+                                cleanup_verified=verified_cleanup,
+                            )
                     except Exception:
                         pass  # Diagnostics cannot replace finalization or lock release.
                     finally:
