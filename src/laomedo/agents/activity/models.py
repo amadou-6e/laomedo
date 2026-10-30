@@ -1,6 +1,6 @@
 """Typed capture provenance and its reserved local invocation."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 from pydantic import JsonValue
 from laomedo.agents.activity.store import ActivityStore
 
@@ -123,6 +123,109 @@ class ActivityAttemptRecord(BaseModel):
             "ended_at",
         )
         return {key: value[key] for key in order if key in value}
+
+
+class ActivityProjection(BaseModel):
+    """Strict app metadata around existing, reference-preserving observations.
+
+    SkipValidation applies only to externally observed native-bearing structures.
+    Their existing partial/unknown values are not normalized token counters. Use
+    the explicit wire projections instead of recursive Pydantic serialization.
+    Frozen fields do not make the retained nested observations immutable.
+    """
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    turns: SkipValidation[list[dict[str, JsonValue]]] = Field(
+        repr=False,
+        description="Existing observed turn lanes; native extensions retained.",
+    )
+    items: SkipValidation[list[dict[str, JsonValue]]] = Field(
+        repr=False,
+        description="Existing observed native item records, without copying.",
+    )
+    threads: SkipValidation[list[dict[str, JsonValue]]] = Field(
+        repr=False,
+        description="Existing observed thread metadata and native extensions.",
+    )
+    diagnostics: SkipValidation[list[dict[str, JsonValue]] | None] = Field(
+        default=None,
+        repr=False,
+        description="Existing native diagnostics; omission differs from an explicit empty list or null.",
+    )
+    telemetry: SkipValidation[list[dict[str, JsonValue]]] = Field(
+        repr=False,
+        description="Existing observed telemetry including arbitrary native attributes.",
+    )
+    telemetry_coverage: str = Field(
+        description="Application explanation of observed telemetry completeness."
+    )
+    uncorrelated_thread_count: int = Field(
+        description="Application count of observed threads outside the selected scope."
+    )
+    usage: SkipValidation[dict[str, JsonValue] | None] = Field(
+        repr=False,
+        description="Existing inclusive native usage; partial counters and unknown null retained.",
+    )
+    usage_by_thread: SkipValidation[dict[str, dict[str, JsonValue] | None]] = Field(
+        repr=False,
+        description="Existing thread-indexed native snapshots, including partial and unknown usage.",
+    )
+    usage_points: SkipValidation[list[dict[str, JsonValue]]] = Field(
+        repr=False,
+        description="Existing observed usage points with native extensions and cost evidence.",
+    )
+    clock: str = Field(
+        description="Application explanation of the projection's timestamp source."
+    )
+    cost: SkipValidation[dict[str, JsonValue]] = Field(
+        repr=False,
+        description="Existing observed pricing evidence and unknown estimates, without normalization.",
+    )
+    cost_reason: str = Field(
+        description="Application explanation of the projected cost basis or uncertainty."
+    )
+
+    def to_payload(self) -> dict[str, JsonValue]:
+        """Return shared wire order and original references, preserving omission."""
+        value = {"turns": self.turns, "items": self.items, "threads": self.threads}
+        if "diagnostics" in self.model_fields_set:
+            value["diagnostics"] = self.diagnostics
+        value.update(
+            telemetry=self.telemetry,
+            telemetry_coverage=self.telemetry_coverage,
+            uncorrelated_thread_count=self.uncorrelated_thread_count,
+            usage=self.usage,
+            usage_by_thread=self.usage_by_thread,
+            usage_points=self.usage_points,
+            clock=self.clock,
+            cost=self.cost,
+            cost_reason=self.cost_reason,
+        )
+        return value
+
+    def to_usage_first_payload(self) -> dict[str, JsonValue]:
+        """Return the existing OpenCode usage-first wire order without copying values."""
+        return {
+            "turns": self.turns,
+            "items": self.items,
+            "threads": self.threads,
+            **(
+                {"diagnostics": self.diagnostics}
+                if "diagnostics" in self.model_fields_set
+                else {}
+            ),
+            "usage": self.usage,
+            "usage_by_thread": self.usage_by_thread,
+            "usage_points": self.usage_points,
+            "telemetry": self.telemetry,
+            "telemetry_coverage": self.telemetry_coverage,
+            "uncorrelated_thread_count": self.uncorrelated_thread_count,
+            "clock": self.clock,
+            "cost": self.cost,
+            "cost_reason": self.cost_reason,
+        }
 
 
 class TokenUsage(BaseModel):

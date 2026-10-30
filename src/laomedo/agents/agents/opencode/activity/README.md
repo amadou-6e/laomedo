@@ -14,3 +14,12 @@ counters. `to_activity_usage()` derives the shared `TokenUsage` object; its
 `to_payload()` preserves the six existing normalized fields and arithmetic.
 The projection retains native admission and incomplete-usage handling. These
 objects introduce no new model, price, version or provider capability assumptions.
+
+## Shared response envelope
+
+Native parsing remains here; the final response composes the shared
+`ActivityProjection` in `agents/activity/models.py`. Its explicit
+`to_usage_first_payload()` method names this provider's existing field ordering
+and retains absent diagnostics. No provider-specific envelope model or new native
+validation is introduced. See the shared Activity README for method vocabulary,
+reference preservation and the internal-only byte compatibility controls.
