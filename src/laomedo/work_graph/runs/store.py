@@ -313,9 +313,7 @@ class WorkflowRunStore:
             ).fetchone()
             if existing is not None:
                 if existing["client_request_hash"] != client_request_hash:
-                    raise LaunchError(
-                        "client_request_identity_conflict"
-                    )
+                    raise LaunchError("client_request_identity_conflict")
                 if existing["run_id"] != run_id:
                     changed = db.execute(
                         """UPDATE runs SET status='cancelled',
@@ -330,9 +328,7 @@ class WorkflowRunStore:
                         (run_id, invocation_id),
                     ).rowcount
                     if changed != 1 or invocation_changed != 1:
-                        raise LaunchError(
-                            "duplicate_reservation_not_reserved"
-                        )
+                        raise LaunchError("duplicate_reservation_not_reserved")
                     self._receipt(
                         db,
                         run_id,
@@ -366,9 +362,7 @@ class WorkflowRunStore:
                     ),
                 )
             except sqlite3.IntegrityError as exc:
-                raise LaunchError(
-                    "client_request_binding_conflict"
-                ) from exc
+                raise LaunchError("client_request_binding_conflict") from exc
             self._receipt(
                 db,
                 run_id,

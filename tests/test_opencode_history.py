@@ -103,10 +103,15 @@ class OpenCodeHistoryTests(unittest.TestCase):
         for table in ("account", "account_state", "control_account", "credential"):
             with self.subTest(table=table):
                 with closing(sqlite3.connect(self.store / "opencode.db")) as database:
-                    database.execute('INSERT INTO "' + table + '" VALUES (?)', ("private-test-value",))
+                    database.execute(
+                        'INSERT INTO "' + table + '" VALUES (?)',
+                        ("private-test-value",),
+                    )
                     database.commit()
                 with patch("py_docker.Client") as client:
-                    with self.assertRaisesRegex(ValueError, "^opencode_history_credentials_present$"):
+                    with self.assertRaisesRegex(
+                        ValueError, "^opencode_history_credentials_present$"
+                    ):
                         self.reader.read("ses_root")
                     client.assert_not_called()
                 self.assertEqual(list(self.root.glob("history-*")), [])
@@ -129,7 +134,9 @@ class OpenCodeHistoryTests(unittest.TestCase):
 
     def test_native_session_token_counters_are_not_account_credentials(self):
         with closing(sqlite3.connect(self.store / "opencode.db")) as database:
-            database.execute("CREATE TABLE session(tokens_input INTEGER, tokens_output INTEGER)")
+            database.execute(
+                "CREATE TABLE session(tokens_input INTEGER, tokens_output INTEGER)"
+            )
             database.execute("INSERT INTO session VALUES (10, 5)")
             database.commit()
         destination = self.root / "usage.db"
@@ -140,10 +147,16 @@ class OpenCodeHistoryTests(unittest.TestCase):
         for column in ("key", "api_key", "apikey", "bearer", "cookie"):
             with self.subTest(column=column):
                 with closing(sqlite3.connect(self.store / "opencode.db")) as database:
-                    database.execute('CREATE TABLE external_store("' + column + '" TEXT)')
-                    database.execute("INSERT INTO external_store VALUES ('private-test-value')")
+                    database.execute(
+                        'CREATE TABLE external_store("' + column + '" TEXT)'
+                    )
+                    database.execute(
+                        "INSERT INTO external_store VALUES ('private-test-value')"
+                    )
                     database.commit()
-                with self.assertRaisesRegex(ValueError, "opencode_history_credentials_present"):
+                with self.assertRaisesRegex(
+                    ValueError, "opencode_history_credentials_present"
+                ):
                     self.reader._copy_database(self.root / "refused-key.db")
                 self.assertFalse((self.root / "refused-key.db").exists())
                 with closing(sqlite3.connect(self.store / "opencode.db")) as database:
@@ -154,9 +167,13 @@ class OpenCodeHistoryTests(unittest.TestCase):
         with closing(sqlite3.connect(self.store / "opencode.db")) as database:
             database.execute("DROP TABLE credential")
             database.commit()
-        with self.assertRaisesRegex(ValueError, "opencode_history_credentials_unverified"):
+        with self.assertRaisesRegex(
+            ValueError, "opencode_history_credentials_unverified"
+        ):
             self.reader._copy_database(self.root / "refused.db")
-        with patch("laomedo.agents.agents.opencode.history.reader.Settings") as configured:
+        with patch(
+            "laomedo.agents.agents.opencode.history.reader.Settings"
+        ) as configured:
             configured.return_value.max_database_bytes = 1
             with self.assertRaisesRegex(ValueError, "opencode_history_database_limit"):
                 self.reader._copy_database(self.root / "too-large.db")
@@ -276,22 +293,36 @@ class OpenCodeHistoryTests(unittest.TestCase):
     def test_child_export_keeps_its_budget_after_slow_parent_startup(self):
         """A parent export must not reduce its child's 30s budget to five seconds."""
         parent = self.exported()
-        parent.messages[0]["parts"].append({
-            "type": "tool", "tool": "task", "callID": "call",
-            "state": {"metadata": {"sessionId": "ses_child", "parentSessionId": "ses_root"}},
-        })
+        parent.messages[0]["parts"].append(
+            {
+                "type": "tool",
+                "tool": "task",
+                "callID": "call",
+                "state": {
+                    "metadata": {
+                        "sessionId": "ses_child",
+                        "parentSessionId": "ses_root",
+                    }
+                },
+            }
+        )
         child = self.exported("ses_child", "ses_root", "child")
         calls = []
 
         def export(docker, private, identity, seconds):
             calls.append((identity, seconds))
-            return (parent if identity == "ses_root" else child).model_dump_json().encode()
+            return (
+                (parent if identity == "ses_root" else child).model_dump_json().encode()
+            )
 
         with (
             patch.object(self.reader, "_copy_database"),
             patch.object(self.reader, "_export", side_effect=export),
             patch("py_docker.Client"),
-            patch("laomedo.agents.agents.opencode.history.reader.time.monotonic", side_effect=[0, 0, 25]),
+            patch(
+                "laomedo.agents.agents.opencode.history.reader.time.monotonic",
+                side_effect=[0, 0, 25],
+            ),
         ):
             history = self.reader.read("ses_root")
         self.assertEqual(calls, [("ses_root", 30), ("ses_child", 30)])
@@ -302,7 +333,10 @@ class OpenCodeHistoryTests(unittest.TestCase):
             patch.object(self.reader, "_copy_database"),
             patch.object(self.reader, "_export") as export,
             patch("py_docker.Client"),
-            patch("laomedo.agents.agents.opencode.history.reader.time.monotonic", side_effect=[0, 120]),
+            patch(
+                "laomedo.agents.agents.opencode.history.reader.time.monotonic",
+                side_effect=[0, 120],
+            ),
         ):
             with self.assertRaisesRegex(ValueError, "batch exceeded its deadline"):
                 self.reader.read("ses_root")
@@ -313,13 +347,17 @@ class OpenCodeHistoryTests(unittest.TestCase):
         from laomedo.agents.agents.opencode.history.settings import Settings
         from pydantic import ValidationError
 
-        with patch.dict("os.environ", {"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": "180"}):
+        with patch.dict(
+            "os.environ", {"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": "180"}
+        ):
             self.assertEqual(Settings().export_batch_seconds, 180)
         for value in (44, 601):
             with self.subTest(seconds=value), self.assertRaises(ValidationError):
                 Settings(**{"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": value})
         with (
-            patch.dict("os.environ", {"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": "601"}),
+            patch.dict(
+                "os.environ", {"LAOMEDO_OPENCODE_HISTORY_EXPORT_SECONDS": "601"}
+            ),
             patch("py_docker.Client") as client,
         ):
             with self.assertRaises(ValidationError):

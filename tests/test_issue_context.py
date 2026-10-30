@@ -5,8 +5,9 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from laomedo.github.issues.errors import IssueContextError; from laomedo.github.issues.utils import _gh_json; from laomedo.github.issues.utils import fetch_context
-
+from laomedo.github.issues.errors import IssueContextError
+from laomedo.github.issues.utils import _gh_json
+from laomedo.github.issues.utils import fetch_context
 
 REPO = "example/work"
 BASE = f"repos/{REPO}/issues/7"
@@ -15,29 +16,39 @@ BASE = f"repos/{REPO}/issues/7"
 def issue(**changes):
     return {
         "repository_url": f"https://api.github.com/repos/{REPO}",
-        "number": 7, "node_id": "I_7",
+        "number": 7,
+        "node_id": "I_7",
         "html_url": f"https://github.com/{REPO}/issues/7",
-        "title": "Current title", "body": "Current body", "state": "open",
-        "updated_at": "2026-10-02T12:00:00Z", **changes,
+        "title": "Current title",
+        "body": "Current body",
+        "state": "open",
+        "updated_at": "2026-10-02T12:00:00Z",
+        **changes,
     }
 
 
 def cross_reference(number=9, state="open", repository=REPO):
     return {
         "event": "cross-referenced",
-        "source": {"issue": {
-            "repository_url": f"https://api.github.com/repos/{repository}",
-            "number": number, "node_id": f"PR_{number}",
-            "html_url": f"https://github.com/{repository}/pull/{number}",
-            "state": state, "pull_request": {"url": "api-ref"},
-        }},
+        "source": {
+            "issue": {
+                "repository_url": f"https://api.github.com/repos/{repository}",
+                "number": number,
+                "node_id": f"PR_{number}",
+                "html_url": f"https://github.com/{repository}/pull/{number}",
+                "state": state,
+                "pull_request": {"url": "api-ref"},
+            }
+        },
     }
 
 
 def responder(first=None, timeline=None, second=None):
-    responses = [first if first is not None else issue(),
-                 timeline if timeline is not None else [cross_reference()],
-                 second if second is not None else issue()]
+    responses = [
+        first if first is not None else issue(),
+        timeline if timeline is not None else [cross_reference()],
+        second if second is not None else issue(),
+    ]
     calls = []
 
     def request(path):
@@ -49,9 +60,15 @@ def responder(first=None, timeline=None, second=None):
 
 class IssueContextTests(unittest.TestCase):
     def test_transport_classifies_unavailable_without_leaking_stderr(self):
-        for status, expected in ((301, "issue_moved"), (403, "github_forbidden"),
-                                 (404, "issue_unavailable"), (410, "issue_gone")):
-            response = subprocess.CompletedProcess([], 1, "", f"HTTP {status}: secret detail")
+        for status, expected in (
+            (301, "issue_moved"),
+            (403, "github_forbidden"),
+            (404, "issue_unavailable"),
+            (410, "issue_gone"),
+        ):
+            response = subprocess.CompletedProcess(
+                [], 1, "", f"HTTP {status}: secret detail"
+            )
             with patch("subprocess.run", return_value=response):
                 with self.assertRaises(IssueContextError) as caught:
                     _gh_json(BASE)
@@ -59,10 +76,16 @@ class IssueContextTests(unittest.TestCase):
             self.assertNotIn("secret", str(caught.exception))
 
     def test_discovered_pr_does_not_become_supplied_target(self):
-        request, calls = responder(timeline=[cross_reference(), cross_reference(),
-                                             cross_reference(10, "closed")])
-        context = fetch_context(REPO, 7, request=request,
-                                fetched_at="2026-10-02T12:01:00Z")
+        request, calls = responder(
+            timeline=[
+                cross_reference(),
+                cross_reference(),
+                cross_reference(10, "closed"),
+            ]
+        )
+        context = fetch_context(
+            REPO, 7, request=request, fetched_at="2026-10-02T12:01:00Z"
+        )
         self.assertEqual(context["issue"]["node_id"], "I_7")
         self.assertEqual(context["issue"]["body"], "Current body")
         self.assertEqual([pr["number"] for pr in context["related_open_prs"]], [9])
@@ -78,7 +101,12 @@ class IssueContextTests(unittest.TestCase):
 
     def test_cross_repository_pr_and_second_timeline_page(self):
         first = [{"event": "commented"} for _ in range(100)]
-        replies = [issue(), first, [cross_reference(3, repository="other/work")], issue()]
+        replies = [
+            issue(),
+            first,
+            [cross_reference(3, repository="other/work")],
+            issue(),
+        ]
         calls = []
 
         def request(path):
@@ -104,7 +132,9 @@ class IssueContextTests(unittest.TestCase):
         self.assertEqual(result["related_prs_warning"], "timeline_unavailable")
 
     def test_moved_inaccessible_and_changed_issues_fail_explicitly(self):
-        request, _ = responder(first=issue(repository_url="https://api.github.com/repos/other/work"))
+        request, _ = responder(
+            first=issue(repository_url="https://api.github.com/repos/other/work")
+        )
         with self.assertRaisesRegex(IssueContextError, "issue_moved_or_mismatched"):
             fetch_context(REPO, 7, request=request)
         request, _ = responder(second=issue(updated_at="2026-10-02T12:02:00Z"))

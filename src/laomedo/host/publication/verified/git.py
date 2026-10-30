@@ -27,18 +27,21 @@ class VerifiedGitStage:
     ):
         self.bare = bare
         self.snapshot = snapshot
-        self.repository = GitRepository(bare,
-            context=GitExecutionContext(ignore_home_cleanup_errors=False), runner=runner)
-
-
+        self.repository = GitRepository(
+            bare,
+            context=GitExecutionContext(ignore_home_cleanup_errors=False),
+            runner=runner,
+        )
 
     def classify_workflow_change(self) -> bool:
         """Classify the exact object store that a later push must use."""
         baseline, commit = self.snapshot.baseline, self.snapshot.commit
         try:
-            if (self.repository.object_type(baseline) != b"commit"
-                    or self.repository.object_type(commit) != b"commit"
-                    or not self.repository.is_ancestor(baseline, commit)):
+            if (
+                self.repository.object_type(baseline) != b"commit"
+                or self.repository.object_type(commit) != b"commit"
+                or not self.repository.is_ancestor(baseline, commit)
+            ):
                 raise VerifiedGitStageError("stage_history_invalid")
             paths = self.repository.changed_paths(baseline, commit)
             if paths is None:

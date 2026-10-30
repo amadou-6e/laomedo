@@ -168,9 +168,13 @@ class ActivityCapture:
                         getattr(getattr(self, "component", None), "name", None)
                         == "LaomedoOpenCodeAgent"
                     ):
-                        terminal_native = attempt.get(
-                            "capture_complete", attempt.get("native_stream_complete")
-                        ) is True
+                        terminal_native = (
+                            attempt.get(
+                                "capture_complete",
+                                attempt.get("native_stream_complete"),
+                            )
+                            is True
+                        )
                     if status in {"completed", "failed", "cancelled", "timeout"}:
                         store.finish(
                             invocation,

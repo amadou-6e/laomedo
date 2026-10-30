@@ -1,7 +1,8 @@
 """Credential-free native Windows network boundary check for issue 122."""
 
 import argparse
-from http.server import BaseHTTPRequestHandler; from http.server import HTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import HTTPServer
 import json
 from pathlib import Path
 import sys
@@ -9,7 +10,9 @@ import tempfile
 from threading import Thread
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "120"))
-from _shared import AppServer; from _shared import construct_env; from _shared import inside_git_tree
+from _shared import AppServer
+from _shared import construct_env
+from _shared import inside_git_tree
 
 
 class FixtureHandler(BaseHTTPRequestHandler):
@@ -27,60 +30,107 @@ class FixtureHandler(BaseHTTPRequestHandler):
 
 def execute(server, env: dict, draft: Path, url: str, network: bool) -> dict:
     before = FixtureHandler.hits
-    response = server.send("command/exec", {
-        "command": [str(Path(env["SystemRoot"]) / "System32" / "curl.exe"),
-                    "--noproxy", "*", "-fsS", "--connect-timeout", "3",
-                    "--max-time", "5", url],
-        "cwd": str(draft),
-        "sandboxPolicy": {"type": "workspaceWrite",
-                          "writableRoots": [str(draft)],
-                          "networkAccess": network},
-        "timeoutMs": 15000,
-    }, timeout=90)
+    response = server.send(
+        "command/exec",
+        {
+            "command": [
+                str(Path(env["SystemRoot"]) / "System32" / "curl.exe"),
+                "--noproxy",
+                "*",
+                "-fsS",
+                "--connect-timeout",
+                "3",
+                "--max-time",
+                "5",
+                url,
+            ],
+            "cwd": str(draft),
+            "sandboxPolicy": {
+                "type": "workspaceWrite",
+                "writableRoots": [str(draft)],
+                "networkAccess": network,
+            },
+            "timeoutMs": 15000,
+        },
+        timeout=90,
+    )
     result = response.get("result") or {}
-    return {"rpc_result": "result" in response,
-            "exit_code": result.get("exitCode"),
-            "fixture_response_seen": "laomedo-network-fixture-122" in
-            result.get("stdout", ""),
-            "server_hit": FixtureHandler.hits > before,
-            "error_code": (response.get("error") or {}).get("code")}
+    return {
+        "rpc_result": "result" in response,
+        "exit_code": result.get("exitCode"),
+        "fixture_response_seen": "laomedo-network-fixture-122"
+        in result.get("stdout", ""),
+        "server_hit": FixtureHandler.hits > before,
+        "error_code": (response.get("error") or {}).get("code"),
+    }
 
 
 def identity(server, env: dict, draft: Path, network: bool) -> dict:
-    response = server.send("command/exec", {
-        "command": [str(Path(env["SystemRoot"]) / "System32" / "whoami.exe"),
-                    "/user", "/fo", "csv", "/nh"],
-        "cwd": str(draft),
-        "sandboxPolicy": {"type": "workspaceWrite",
-                          "writableRoots": [str(draft)],
-                          "networkAccess": network},
-        "timeoutMs": 10000,
-    }, timeout=30)
+    response = server.send(
+        "command/exec",
+        {
+            "command": [
+                str(Path(env["SystemRoot"]) / "System32" / "whoami.exe"),
+                "/user",
+                "/fo",
+                "csv",
+                "/nh",
+            ],
+            "cwd": str(draft),
+            "sandboxPolicy": {
+                "type": "workspaceWrite",
+                "writableRoots": [str(draft)],
+                "networkAccess": network,
+            },
+            "timeoutMs": 10000,
+        },
+        timeout=30,
+    )
     result = response.get("result") or {}
     output = result.get("stdout", "")
-    return {"rpc_result": "result" in response,
-            "exit_code": result.get("exitCode"),
-            "sandbox_user": ("offline" if "CodexSandboxOffline" in output else
-                             "online" if "CodexSandboxOnline" in output else
-                             "other_or_unknown")}
+    return {
+        "rpc_result": "result" in response,
+        "exit_code": result.get("exitCode"),
+        "sandbox_user": (
+            "offline"
+            if "CodexSandboxOffline" in output
+            else "online" if "CodexSandboxOnline" in output else "other_or_unknown"
+        ),
+    }
 
 
 def external(server, env: dict, draft: Path, network: bool) -> dict:
-    response = server.send("command/exec", {
-        "command": [str(Path(env["SystemRoot"]) / "System32" / "curl.exe"),
-                    "--noproxy", "*", "-fsS", "--connect-timeout", "3",
-                    "--max-time", "7", "https://example.com/"],
-        "cwd": str(draft),
-        "sandboxPolicy": {"type": "workspaceWrite",
-                          "writableRoots": [str(draft)],
-                          "networkAccess": network},
-        "timeoutMs": 10000,
-    }, timeout=30)
+    response = server.send(
+        "command/exec",
+        {
+            "command": [
+                str(Path(env["SystemRoot"]) / "System32" / "curl.exe"),
+                "--noproxy",
+                "*",
+                "-fsS",
+                "--connect-timeout",
+                "3",
+                "--max-time",
+                "7",
+                "https://example.com/",
+            ],
+            "cwd": str(draft),
+            "sandboxPolicy": {
+                "type": "workspaceWrite",
+                "writableRoots": [str(draft)],
+                "networkAccess": network,
+            },
+            "timeoutMs": 10000,
+        },
+        timeout=30,
+    )
     result = response.get("result") or {}
-    return {"rpc_result": "result" in response,
-            "exit_code": result.get("exitCode"),
-            "stdout_nonempty": bool(result.get("stdout")),
-            "error_code": (response.get("error") or {}).get("code")}
+    return {
+        "rpc_result": "result" in response,
+        "exit_code": result.get("exitCode"),
+        "stdout_nonempty": bool(result.get("stdout")),
+        "error_code": (response.get("error") or {}).get("code"),
+    }
 
 
 def main() -> None:
@@ -91,8 +141,9 @@ def main() -> None:
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument("--identity-only", action="store_true")
     mode_group.add_argument("--loopback-only", action="store_true")
-    parser.add_argument("--windows-mode", choices=("elevated", "unelevated"),
-                        required=True)
+    parser.add_argument(
+        "--windows-mode", choices=("elevated", "unelevated"), required=True
+    )
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
     if bool(args.profile_dir) != bool(args.state_dir):
@@ -101,9 +152,13 @@ def main() -> None:
     if private:
         profile = args.profile_dir.resolve(strict=True)
         log_state = args.state_dir.resolve(strict=True)
-        if (profile.is_symlink() or log_state.is_symlink() or
-                log_state != profile / "issue-122" or
-                inside_git_tree(profile) or inside_git_tree(log_state)):
+        if (
+            profile.is_symlink()
+            or log_state.is_symlink()
+            or log_state != profile / "issue-122"
+            or inside_git_tree(profile)
+            or inside_git_tree(log_state)
+        ):
             raise ValueError("private_roots_invalid")
         parent = log_state / "runs"
     else:
@@ -119,26 +174,41 @@ def main() -> None:
     fixture = HTTPServer(("127.0.0.1", 0), FixtureHandler)
     thread = Thread(target=fixture.serve_forever, daemon=True)
     thread.start()
-    report = {"model_calls": 0, "credential_used": False,
-              "config_file_changed": False,
-              "tested_endpoint": "local_loopback_fixture",
-              "reused_existing_private_profile": private,
-              "requested_windows_mode": args.windows_mode}
-    with tempfile.TemporaryDirectory(prefix="laomedo-122-network-", dir=parent,
-                                     ignore_cleanup_errors=True) as scratch:
+    report = {
+        "model_calls": 0,
+        "credential_used": False,
+        "config_file_changed": False,
+        "tested_endpoint": "local_loopback_fixture",
+        "reused_existing_private_profile": private,
+        "requested_windows_mode": args.windows_mode,
+    }
+    with tempfile.TemporaryDirectory(
+        prefix="laomedo-122-network-", dir=parent, ignore_cleanup_errors=True
+    ) as scratch:
         state = Path(scratch)
         draft = state / "draft"
         home = (log_state / "home") if private else (state / "home")
         codex_home = (profile / "codex-home") if private else (state / "codex-home")
         environment_state = log_state if private else state
-        for path in (draft, home, codex_home, environment_state / "appdata",
-                     environment_state / "localappdata", environment_state / "tmp"):
+        for path in (
+            draft,
+            home,
+            codex_home,
+            environment_state / "appdata",
+            environment_state / "localappdata",
+            environment_state / "tmp",
+        ):
             path.mkdir(exist_ok=True)
         env = construct_env(home, codex_home, environment_state, codex.parent)
         env["TEMP"] = env["TMP"] = str(environment_state / "tmp")
         url = f"http://127.0.0.1:{fixture.server_port}/fixture"
-        server = AppServer(codex, draft, env, environment_state,
-                           startup_args=["-c", f'windows.sandbox="{args.windows_mode}"'])
+        server = AppServer(
+            codex,
+            draft,
+            env,
+            environment_state,
+            startup_args=["-c", f'windows.sandbox="{args.windows_mode}"'],
+        )
         try:
             ok, _ = server.initialize()
             report["initialized"] = ok
@@ -146,7 +216,8 @@ def main() -> None:
                 config = server.send("config/read", {}, timeout=20)
                 settings = (config.get("result") or {}).get("config") or {}
                 report["configured_windows_sandbox"] = (
-                    (settings.get("windows") or {}).get("sandbox"))
+                    settings.get("windows") or {}
+                ).get("sandbox")
                 if not args.identity_only:
                     report["phase"] = "network_enabled"
                     report["network_enabled"] = execute(server, env, draft, url, True)
@@ -163,16 +234,18 @@ def main() -> None:
                     report["phase"] = "external_disabled"
                     report["external_disabled"] = external(server, env, draft, False)
                     report["network_boundary_passed"] = (
-                        report["network_enabled"]["fixture_response_seen"] and
-                        report["network_enabled"]["server_hit"] and
-                        not report["network_disabled"]["fixture_response_seen"] and
-                        not report["network_disabled"]["server_hit"] and
-                        report["external_enabled"]["exit_code"] == 0 and
-                        report["external_disabled"]["exit_code"] != 0)
+                        report["network_enabled"]["fixture_response_seen"]
+                        and report["network_enabled"]["server_hit"]
+                        and not report["network_disabled"]["fixture_response_seen"]
+                        and not report["network_disabled"]["server_hit"]
+                        and report["external_enabled"]["exit_code"] == 0
+                        and report["external_disabled"]["exit_code"] != 0
+                    )
                 elif args.loopback_only:
                     report["loopback_blocked_when_disabled"] = (
-                        not report["network_disabled"]["fixture_response_seen"] and
-                        not report["network_disabled"]["server_hit"])
+                        not report["network_disabled"]["fixture_response_seen"]
+                        and not report["network_disabled"]["server_hit"]
+                    )
                 report["phase"] = "complete"
         except Exception as exc:
             report["error_class"] = type(exc).__name__

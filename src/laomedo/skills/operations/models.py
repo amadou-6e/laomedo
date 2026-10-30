@@ -22,11 +22,18 @@ from laomedo.skills.registry.utils import _safe_relative
 
 class FileEdit(BaseModel):
     """One admitted relative file replacement or deletion."""
+
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    path: str = Field(min_length=1, max_length=512, description="Admitted relative path in the editable skill bundle.")
-    content: str | None = Field(description="UTF-8 replacement text; null requests deletion.")
+    path: str = Field(
+        min_length=1,
+        max_length=512,
+        description="Admitted relative path in the editable skill bundle.",
+    )
+    content: str | None = Field(
+        description="UTF-8 replacement text; null requests deletion."
+    )
 
     @field_validator("path")
     @classmethod
@@ -52,9 +59,19 @@ class SkillProposal(BaseModel):
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    action: Literal["modify"] = Field(description="Only atomic multi-file modification is admitted.")
-    message: str = Field(min_length=1, max_length=2000, description="Human-readable explanation retained with the commit.")
-    files: tuple[FileEdit, ...] = Field(min_length=1, max_length=128, description="Unique admitted file replacements and deletions.")
+    action: Literal["modify"] = Field(
+        description="Only atomic multi-file modification is admitted."
+    )
+    message: str = Field(
+        min_length=1,
+        max_length=2000,
+        description="Human-readable explanation retained with the commit.",
+    )
+    files: tuple[FileEdit, ...] = Field(
+        min_length=1,
+        max_length=128,
+        description="Unique admitted file replacements and deletions.",
+    )
 
     @model_validator(mode="after")
     def validate_unique_paths(self):
@@ -74,9 +91,7 @@ class SkillProposal(BaseModel):
             try:
                 value = json.loads(value)
             except ValueError:
-                raise SkillStoreError(
-                    "skill_operation_invalid"
-                ) from None
+                raise SkillStoreError("skill_operation_invalid") from None
         if (
             not isinstance(value, dict)
             or set(value) != {"action", "message", "files"}
@@ -119,14 +134,25 @@ class SkillProposal(BaseModel):
 
 class EditorProvenance(BaseModel):
     """Host-supplied editing identity, distinct from proposed content."""
+
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
     )
-    kind: Literal["operator", "agent"] = Field(description="Existing journal attribution vocabulary.")
-    run_id: str | None = Field(default=None, description="Required run identity for an agent-authored edit.")
-    thread_id: str | None = Field(default=None, description="Optional native conversation identity.")
-    turn_id: str | None = Field(default=None, description="Optional native turn identity.")
-    trace_ref: str | None = Field(default=None, description="Optional safe retained trace reference.")
+    kind: Literal["operator", "agent"] = Field(
+        description="Existing journal attribution vocabulary."
+    )
+    run_id: str | None = Field(
+        default=None, description="Required run identity for an agent-authored edit."
+    )
+    thread_id: str | None = Field(
+        default=None, description="Optional native conversation identity."
+    )
+    turn_id: str | None = Field(
+        default=None, description="Optional native turn identity."
+    )
+    trace_ref: str | None = Field(
+        default=None, description="Optional safe retained trace reference."
+    )
 
     @model_validator(mode="after")
     def validate_provenance(self):
@@ -160,25 +186,54 @@ class EditorProvenance(BaseModel):
 class ImportedSkillEditor(BaseModel):
     """Attribution of the initial immutable revision import."""
 
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid", hide_input_in_errors=True)
-    kind: Literal["import"] = Field(default="import", description="Import provenance; not an operator or agent edit.")
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    kind: Literal["import"] = Field(
+        default="import",
+        description="Import provenance; not an operator or agent edit.",
+    )
 
 
 class SkillCommit(BaseModel):
     """New commit hash preimage; the journal service computes and stores its ID."""
 
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid", hide_input_in_errors=True)
-    skill_id: str = Field(description="Skill whose append-only history receives this commit.")
-    revision_id: str = Field(description="Immutable byte revision associated with this commit.")
-    parent_commit: str | None = Field(description="Previous history identity; explicitly null for the initial import.")
-    created_at: str = Field(description="Existing host UTC timestamp string, preserved verbatim.")
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    skill_id: str = Field(
+        description="Skill whose append-only history receives this commit."
+    )
+    revision_id: str = Field(
+        description="Immutable byte revision associated with this commit."
+    )
+    parent_commit: str | None = Field(
+        description="Previous history identity; explicitly null for the initial import."
+    )
+    created_at: str = Field(
+        description="Existing host UTC timestamp string, preserved verbatim."
+    )
     message: str = Field(description="Explanation of the import or admitted edit.")
-    files: list[str] = Field(description="Changed relative paths; empty for the initial import.")
-    patch: str = Field(description="Exact existing unified patch bytes represented as text.")
-    editor: EditorProvenance | ImportedSkillEditor = Field(description="Host provenance, independent of model-supplied content.")
-    draft_id: str | None = Field(default=None, description="Originating edit draft; key omitted for initial import.")
-    policy_ref: SkillPolicyReference | None = Field(default=None, description="Admitted edit policy; key omitted for initial import.")
-    nonce: str = Field(description="Existing random history salt; unchanged format and generation.")
+    files: list[str] = Field(
+        description="Changed relative paths; empty for the initial import."
+    )
+    patch: str = Field(
+        description="Exact existing unified patch bytes represented as text."
+    )
+    editor: EditorProvenance | ImportedSkillEditor = Field(
+        description="Host provenance, independent of model-supplied content."
+    )
+    draft_id: str | None = Field(
+        default=None,
+        description="Originating edit draft; key omitted for initial import.",
+    )
+    policy_ref: SkillPolicyReference | None = Field(
+        default=None,
+        description="Admitted edit policy; key omitted for initial import.",
+    )
+    nonce: str = Field(
+        description="Existing random history salt; unchanged format and generation."
+    )
 
     def to_record(self) -> dict:
         """Preserve omission, provenance and ordering in the canonical hash preimage."""
@@ -193,9 +248,13 @@ class SkillCommit(BaseModel):
 class SkillCommitReceipt(BaseModel):
     """Computed journal identity paired with its newly written commit value."""
 
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
     commit_id: str = Field(description="Canonical hash of the exact commit preimage.")
-    record: SkillCommit = Field(description="New commit whose identity was computed by the journal service.")
+    record: SkillCommit = Field(
+        description="New commit whose identity was computed by the journal service."
+    )
 
     def to_payload(self) -> dict:
         """Flatten only at the existing public journal boundary."""
@@ -205,11 +264,21 @@ class SkillCommitReceipt(BaseModel):
 class SkillOperationResult(BaseModel):
     """Existing public receipt after a proposal is frozen and journalled."""
 
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid", hide_input_in_errors=True)
-    status: Literal["proposed"] = Field(default="proposed", description="An edit has been proposed, not promoted.")
-    promotion_performed: Literal[False] = Field(default=False, description="Skill operations do not update canonical latest.")
-    commit: SkillCommitReceipt = Field(description="New typed commit and its computed history identity.")
-    skill: SkillReference = Field(description="Existing three-field skill/revision/tree public binding.")
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    status: Literal["proposed"] = Field(
+        default="proposed", description="An edit has been proposed, not promoted."
+    )
+    promotion_performed: Literal[False] = Field(
+        default=False, description="Skill operations do not update canonical latest."
+    )
+    commit: SkillCommitReceipt = Field(
+        description="New typed commit and its computed history identity."
+    )
+    skill: SkillReference = Field(
+        description="Existing three-field skill/revision/tree public binding."
+    )
 
     @field_serializer("commit")
     def serialize_commit(self, value: SkillCommitReceipt) -> dict:
@@ -229,24 +298,42 @@ class SkillOperationResult(BaseModel):
 class SkillFileChange(BaseModel):
     """A changed path in a historical-to-current file comparison."""
 
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
     path: str = Field(description="Relative path in either immutable byte inventory.")
-    status: Literal["added", "deleted", "modified"] = Field(description="Change relative to the selected historical revision.")
-    before_hash: str | None = Field(description="Old file hash, explicitly null for additions.")
-    after_hash: str | None = Field(description="Current file hash, explicitly null for deletions.")
+    status: Literal["added", "deleted", "modified"] = Field(
+        description="Change relative to the selected historical revision."
+    )
+    before_hash: str | None = Field(
+        description="Old file hash, explicitly null for additions."
+    )
+    after_hash: str | None = Field(
+        description="Current file hash, explicitly null for deletions."
+    )
     binary: bool = Field(description="Whether either existing side is non-text.")
 
 
 class SkillComparison(BaseModel):
     """File changes and exact patch between a selected commit and current revision."""
 
-    model_config = ConfigDict(strict=True, frozen=True, extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
     skill_id: str = Field(description="Skill shared by both admitted revisions.")
-    base_commit: dict[str, JsonValue] = Field(description="Retained historical commit metadata, preserving legacy extension fields.")
-    base_revision: str = Field(description="Immutable byte revision selected from history.")
+    base_commit: dict[str, JsonValue] = Field(
+        description="Retained historical commit metadata, preserving legacy extension fields."
+    )
+    base_revision: str = Field(
+        description="Immutable byte revision selected from history."
+    )
     current_revision: str = Field(description="Pinned byte revision currently viewed.")
-    files: list[SkillFileChange] = Field(description="Sorted changed paths, with independently typed per-file metadata.")
-    patch: str = Field(description="Exact unified patch including missing-final-newline evidence.")
+    files: list[SkillFileChange] = Field(
+        description="Sorted changed paths, with independently typed per-file metadata."
+    )
+    patch: str = Field(
+        description="Exact unified patch including missing-final-newline evidence."
+    )
 
     def to_payload(self) -> dict:
         """Return the existing public comparison; the service enforces response size."""

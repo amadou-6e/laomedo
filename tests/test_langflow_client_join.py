@@ -2,12 +2,13 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from threading import Event; from threading import Thread
+from threading import Event
+from threading import Thread
 import unittest
 from uuid import uuid4
 
-from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
-
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 HASH = "sha256:" + "1" * 64
 OTHER_HASH = "sha256:" + "2" * 64
@@ -25,7 +26,8 @@ class LangflowClientJoinTests(unittest.TestCase):
             graph={"nodes": [{"id": "agent"}]},
             component_code={"agent": "synthetic source"},
             resolved_config={"task": "synthetic"},
-            trigger={"kind": "playground"})
+            trigger={"kind": "playground"},
+        )
         invocation = self.store.reserve_invocation(run["run_id"], "agent")
         if freeze:
             self.store.freeze_runner_request(run["run_id"], invocation, HASH)
@@ -33,9 +35,14 @@ class LangflowClientJoinTests(unittest.TestCase):
 
     def claim(self, client, run, invocation, digest=HASH):
         return self.store.claim_langflow_client(
-            client, digest, run_id=run, invocation_id=invocation,
-            flow_id="saved-flow", graph_run_id="reported-graph",
-            graph_basis="saved_flow_export")
+            client,
+            digest,
+            run_id=run,
+            invocation_id=invocation,
+            flow_id="saved-flow",
+            graph_run_id="reported-graph",
+            graph_basis="saved_flow_export",
+        )
 
     def test_stop_before_claim_fences_late_start_after_reopen(self):
         client = str(uuid4())
@@ -43,15 +50,22 @@ class LangflowClientJoinTests(unittest.TestCase):
         run, invocation = self.reserve()
         self.assertTrue(self.claim(client, run, invocation)[1])
         reopened = WorkflowRunStore(self.path)
-        self.assertEqual(reopened.begin_langflow_client(client),
-                         "cancelled_before_dispatch")
-        self.assertEqual(reopened.begin_langflow_client(client),
-                         "cancelled_before_dispatch")
+        self.assertEqual(
+            reopened.begin_langflow_client(client), "cancelled_before_dispatch"
+        )
+        self.assertEqual(
+            reopened.begin_langflow_client(client), "cancelled_before_dispatch"
+        )
         trace = reopened.trace_snapshot(run)
         self.assertEqual(trace["dispatch_attempts"], 0)
         self.assertEqual(trace["run_status"], "cancelled")
-        self.assertEqual(sum(row["kind"] == "client_cancelled_before_dispatch"
-                             for row in trace["receipts"]), 1)
+        self.assertEqual(
+            sum(
+                row["kind"] == "client_cancelled_before_dispatch"
+                for row in trace["receipts"]
+            ),
+            1,
+        )
 
     def test_begin_waits_for_concurrent_stop_write_then_refuses_post(self):
         client = str(uuid4())
@@ -70,8 +84,11 @@ class LangflowClientJoinTests(unittest.TestCase):
             thread = Thread(target=begin)
             thread.start()
             self.assertTrue(entered.wait(3))
-            db.execute("""INSERT INTO langflow_cancel_intents
-                (client_request_id) VALUES (?)""", (client,))
+            db.execute(
+                """INSERT INTO langflow_cancel_intents
+                (client_request_id) VALUES (?)""",
+                (client,),
+            )
             self.assertFalse(finished.is_set())
         thread.join(timeout=5)
         self.assertFalse(thread.is_alive())
@@ -86,8 +103,12 @@ class LangflowClientJoinTests(unittest.TestCase):
         self.assertEqual(self.store.begin_langflow_client(client), "dispatching")
         retry = WorkflowRunStore(self.path)
         second, created = retry.claim_langflow_client(
-            client, HASH, run_id=run, invocation_id=invocation,
-            graph_basis="saved_flow_export")
+            client,
+            HASH,
+            run_id=run,
+            invocation_id=invocation,
+            graph_basis="saved_flow_export",
+        )
         self.assertFalse(created)
         self.assertEqual(first["run_id"], second["run_id"])
         self.assertEqual(retry.begin_langflow_client(client), "already_dispatching")
@@ -106,8 +127,10 @@ class LangflowClientJoinTests(unittest.TestCase):
         discarded = self.store.trace_snapshot(loser)
         self.assertEqual(discarded["run_status"], "cancelled")
         self.assertEqual(discarded["dispatch_attempts"], 0)
-        self.assertIn("duplicate_reservation_discarded",
-                      [item["kind"] for item in discarded["receipts"]])
+        self.assertIn(
+            "duplicate_reservation_discarded",
+            [item["kind"] for item in discarded["receipts"]],
+        )
 
     def test_changed_body_and_unfrozen_identity_refuse_before_dispatch(self):
         client = str(uuid4())
@@ -120,8 +143,12 @@ class LangflowClientJoinTests(unittest.TestCase):
             self.claim(client, run, invocation, OTHER_HASH)
         with self.assertRaisesRegex(LaunchError, "invalid_graph_basis"):
             self.store.claim_langflow_client(
-                str(uuid4()), HASH, run_id=run, invocation_id=invocation,
-                graph_basis="executing_graph_verified")
+                str(uuid4()),
+                HASH,
+                run_id=run,
+                invocation_id=invocation,
+                graph_basis="executing_graph_verified",
+            )
         self.assertEqual(self.store.trace_snapshot(run)["dispatch_attempts"], 0)
 
     def test_stranded_reservation_never_dispatches_after_crash_sweep(self):

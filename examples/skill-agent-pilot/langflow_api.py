@@ -5,11 +5,11 @@ import json
 import os
 from pathlib import Path
 import sys
-from urllib import error; from urllib import request
+from urllib import error
+from urllib import request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from laomedo.agents.agents.base.utils import _private
-
 
 HERE = Path(__file__).resolve().parent
 
@@ -19,9 +19,12 @@ def call(base: str, method: str, path: str, payload: dict) -> dict:
     key = os.environ.get("LANGFLOW_API_KEY")
     if key:
         headers["x-api-key"] = key
-    req = request.Request(base.rstrip("/") + path,
-                          data=json.dumps(payload).encode("utf-8"),
-                          headers=headers, method=method)
+    req = request.Request(
+        base.rstrip("/") + path,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method=method,
+    )
     try:
         with request.urlopen(req, timeout=240) as response:
             return json.load(response)
@@ -48,9 +51,12 @@ def main():
         parser.error("run requires --flow-id, --task, and --private-report")
     report = _private(args.private_report)
     report.parent.mkdir(parents=True, exist_ok=True)
-    result = call(args.base, "POST", "/api/v1/run/" + args.flow_id,
-                  {"input_value": args.task, "input_type": "chat",
-                   "output_type": "chat"})
+    result = call(
+        args.base,
+        "POST",
+        "/api/v1/run/" + args.flow_id,
+        {"input_value": args.task, "input_type": "chat", "output_type": "chat"},
+    )
     report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print("langflow_response_saved_outside_git=true")
     print("flow_id=" + args.flow_id)

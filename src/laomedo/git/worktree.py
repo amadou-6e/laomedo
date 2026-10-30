@@ -16,38 +16,71 @@ class GitWorkingTree:
         self.repository = repository
 
     @classmethod
-    def clone_from(cls, source: Path, destination: Path, *, context: GitExecutionContext,
-                   runner: GitCommandRunner) -> "GitWorkingTree":
+    def clone_from(
+        cls,
+        source: Path,
+        destination: Path,
+        *,
+        context: GitExecutionContext,
+        runner: GitCommandRunner,
+    ) -> "GitWorkingTree":
         """Clone independent objects without checkout, local shortcuts or hardlinks.
 
         The caller owns source admission, destination lifetime and error mapping.
         A failed clone never returns an admitted working-tree object.
         """
-        result = runner.run(GitCommand(arguments=["clone", "--no-local", "--no-hardlinks", "--no-checkout",
-                                                 "--single-branch", "--quiet", str(source), str(destination)],
-                                       context=context))
+        result = runner.run(
+            GitCommand(
+                arguments=[
+                    "clone",
+                    "--no-local",
+                    "--no-hardlinks",
+                    "--no-checkout",
+                    "--single-branch",
+                    "--quiet",
+                    str(source),
+                    str(destination),
+                ],
+                context=context,
+            )
+        )
         if result.returncode:
             raise GitOperationError("git_clone_failed")
         return cls(GitRepository(destination, context=context, runner=runner))
 
     def checkout_detached(self, commit: str) -> bool:
         """Check out the caller-selected commit without attaching a branch."""
-        return self.repository.run(["checkout", "--quiet", "--detach", commit]).returncode == 0
+        return (
+            self.repository.run(["checkout", "--quiet", "--detach", commit]).returncode
+            == 0
+        )
 
     def index_entries(self) -> list[bytes] | None:
         """Read stage/mode records without interpreting caller admission policy."""
         result = self.repository.run(["ls-files", "--stage", "-z"])
-        return [row for row in result.stdout.split(b"\0") if row] if result.returncode == 0 else None
+        return (
+            [row for row in result.stdout.split(b"\0") if row]
+            if result.returncode == 0
+            else None
+        )
 
     def status_porcelain(self) -> bytes | None:
         """Inspect tracked and untracked changes using the existing stable format."""
-        result = self.repository.run(["status", "--porcelain=v1", "--untracked-files=all"])
+        result = self.repository.run(
+            ["status", "--porcelain=v1", "--untracked-files=all"]
+        )
         return result.stdout if result.returncode == 0 else None
 
     def sparse_enabled(self) -> bool:
         """Preserve the existing local sparse-checkout truth-value interpretation."""
-        result = self.repository.run(["config", "--local", "--get", "core.sparseCheckout"])
-        return result.returncode == 0 and result.stdout.strip().lower() in {b"true", b"1", b"yes"}
+        result = self.repository.run(
+            ["config", "--local", "--get", "core.sparseCheckout"]
+        )
+        return result.returncode == 0 and result.stdout.strip().lower() in {
+            b"true",
+            b"1",
+            b"yes",
+        }
 
     def remove_remote(self, name: str) -> bool:
         """Remove only the caller-selected remote configuration."""

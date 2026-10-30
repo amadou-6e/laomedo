@@ -16,8 +16,11 @@ class HostTokenConnectionTests(unittest.TestCase):
 
     def connection(self):
         return HostTokenConnection(
-            connection_id="selected", generation=1,
-            repository="example/disposable", token_file=self.path)
+            connection_id="selected",
+            generation=1,
+            repository="example/disposable",
+            token_file=self.path,
+        )
 
     def test_exact_selection_and_rotation_fail_closed(self):
         selected = self.connection()
@@ -34,11 +37,16 @@ class HostTokenConnectionTests(unittest.TestCase):
 
     def test_file_inside_agent_mount_or_duplicate_key_is_refused(self):
         with self.assertRaisesRegex(ValueError, "credential_inside_agent_mount"):
-            HostTokenConnection(connection_id="selected", generation=1,
-                repository="example/disposable", token_file=self.path,
-                forbidden_mount=self.root.name)
-        self.path.write_text("GH=synthetic-first\nGH=synthetic-second\n",
-                             encoding="utf-8")
+            HostTokenConnection(
+                connection_id="selected",
+                generation=1,
+                repository="example/disposable",
+                token_file=self.path,
+                forbidden_mount=self.root.name,
+            )
+        self.path.write_text(
+            "GH=synthetic-first\nGH=synthetic-second\n", encoding="utf-8"
+        )
         with self.assertRaisesRegex(ValueError, "credential_file_unavailable"):
             self.connection()
 

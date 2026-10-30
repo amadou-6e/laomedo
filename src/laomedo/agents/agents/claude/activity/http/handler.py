@@ -54,9 +54,7 @@ class ClaudeTelemetryRequestHandler(BaseHTTPRequestHandler):
                     self.server.owner.output.write(
                         json.dumps(
                             {
-                                "received_at": datetime.now(
-                                    timezone.utc
-                                ).isoformat(),
+                                "received_at": datetime.now(timezone.utc).isoformat(),
                                 "event": {
                                     "method": "otel/record",
                                     "params": value,

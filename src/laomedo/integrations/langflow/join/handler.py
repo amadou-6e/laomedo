@@ -1,4 +1,5 @@
 """Authenticated join HTTP adapter; values come from leaf interface models."""
+
 from hmac import compare_digest
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlsplit
@@ -33,7 +34,9 @@ class JoinRequestHandler(BaseHTTPRequestHandler):
 
     def presented(self, snapshot):
         """Preserve the runner-status contract, independent of graph output."""
-        return RunnerStatusRecord.from_snapshot(snapshot, provider=self.server.controller.provider).to_payload()
+        return RunnerStatusRecord.from_snapshot(
+            snapshot, provider=self.server.controller.provider
+        ).to_payload()
 
     def execute(self, action):
         """Keep conflict and uncertain-run errors distinct from rejected input."""
@@ -82,9 +85,7 @@ class JoinRequestHandler(BaseHTTPRequestHandler):
             try:
                 payload = json.loads(self.rfile.read(length))
             except (ValueError, TypeError):
-                raise LaunchError(
-                    "invalid_join_body"
-                ) from None
+                raise LaunchError("invalid_join_body") from None
             if path.path == "/v1/invocations":
                 if not isinstance(payload, dict) or set(payload) != {
                     "client_request_id",
@@ -108,7 +109,9 @@ class JoinRequestHandler(BaseHTTPRequestHandler):
                 if snapshot.get("status") == "pending_start":
                     self.reply(202, snapshot)
                 else:
-                    self.reply(202, self.presented(self.server.controller.status(parts[2])))
+                    self.reply(
+                        202, self.presented(self.server.controller.status(parts[2]))
+                    )
                 return
             self.reply(404, {"error_category": "unknown_route"})
 

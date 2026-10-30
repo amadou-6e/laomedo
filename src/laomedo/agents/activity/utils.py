@@ -32,9 +32,7 @@ def dispatch_with_capture(component, prepared):
         category = (
             reference.get("error_category") if isinstance(reference, dict) else None
         )
-        refused = (
-            isinstance(category, str) and category in REFUSALS
-        )
+        refused = isinstance(category, str) and category in REFUSALS
         raise
     finally:
         capture.dispatched(result=result, refused=refused)

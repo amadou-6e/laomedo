@@ -43,9 +43,16 @@ def prepare_commands(root: Path, repository: str, branch: str) -> Path:
 def configure_remote(workspace: Path, repository: str) -> None:
     """Read/write only the fixed remote with isolated host Git configuration."""
     runner = GitCommandRunner()
-    with runner.isolated_home(GitEnvironmentProfile.WORKSPACE, prefix="laomedo-cli-home-") as home:
-        git = GitRepository(workspace, runner=runner, context=GitExecutionContext(
-            profile=GitEnvironmentProfile.WORKSPACE, home=home, hardened=True))
+    with runner.isolated_home(
+        GitEnvironmentProfile.WORKSPACE, prefix="laomedo-cli-home-"
+    ) as home:
+        git = GitRepository(
+            workspace,
+            runner=runner,
+            context=GitExecutionContext(
+                profile=GitEnvironmentProfile.WORKSPACE, home=home, hardened=True
+            ),
+        )
 
         def run(*args):
             try:

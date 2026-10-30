@@ -1,4 +1,5 @@
 """Codex graph adapter; common lifecycle lives in the optional Langflow integration."""
+
 from copy import deepcopy
 from laomedo.integrations.langflow.agent.component import AgentComponent
 
@@ -15,6 +16,7 @@ class LaomedoCodexAgent(AgentComponent):
     bridge_token_env = "LAOMEDO_BRIDGE_TOKEN_FILE"
     runner_token_env = "LAOMEDO_RUNNER_TOKEN_FILE"
     runner_token_default = "/run/secrets/laomedo-runner-token"
+
     def _validate_adapter(self):
         # A concrete adapter is a leaf. Old saved Claude/OpenCode code must
         # migrate its base before inheriting provider routing capabilities.

@@ -14,24 +14,50 @@ SPEC = importlib.util.spec_from_file_location("laomedo_output_contract_component
 MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
-FORM = {"schema_version": 1, "fields": [
-    {"name": "task_outcome", "type": "string", "required": True, "checks": {"enum": ["success", "failure"]}},
-    {"name": "report", "type": "string", "required": True, "checks": {"nonempty": True}}]}
+FORM = {
+    "schema_version": 1,
+    "fields": [
+        {
+            "name": "task_outcome",
+            "type": "string",
+            "required": True,
+            "checks": {"enum": ["success", "failure"]},
+        },
+        {
+            "name": "report",
+            "type": "string",
+            "required": True,
+            "checks": {"nonempty": True},
+        },
+    ],
+}
 
 
 class OutputContractComponentTests(unittest.TestCase):
     def node(self, submission, outcome="success", revision=None):
         node = MODULE.LaomedoOutputContract()
         node.requirements_json = json.dumps(FORM)
-        node.agent_submission = Data(data={"schema_version": "laomedo.agent-submission.v1",
-            "submission": submission, "task_outcome": outcome, "executor_status": "completed",
-            "run_reference": {"run_id": "synthetic"},
-            "requirements_revision": revision or requirements(FORM)["requirements_revision"]})
+        node.agent_submission = Data(
+            data={
+                "schema_version": "laomedo.agent-submission.v1",
+                "submission": submission,
+                "task_outcome": outcome,
+                "executor_status": "completed",
+                "run_reference": {"run_id": "synthetic"},
+                "requirements_revision": revision
+                or requirements(FORM)["requirements_revision"],
+            }
+        )
         return node
 
     def test_ports_are_grouped_and_final_evaluation_preserves_outcome(self):
-        self.assertEqual([port.name for port in MODULE.LaomedoOutputContract.outputs], ["success", "failure", "rejection", "recovery"])
-        self.assertFalse(any(port.hidden for port in MODULE.LaomedoOutputContract.outputs))
+        self.assertEqual(
+            [port.name for port in MODULE.LaomedoOutputContract.outputs],
+            ["success", "failure", "rejection", "recovery"],
+        )
+        self.assertFalse(
+            any(port.hidden for port in MODULE.LaomedoOutputContract.outputs)
+        )
         for outcome in ("success", "failure"):
             node = self.node({"task_outcome": outcome, "report": "fixture"}, outcome)
             result = node.validation_output().data
@@ -45,7 +71,14 @@ class OutputContractComponentTests(unittest.TestCase):
         self.assertEqual(result["errors"], [{"path": "/report", "code": "required"}])
 
     def test_changed_downstream_contract_rejects_precheck_pin(self):
-        result = self.node({"task_outcome": "success", "report": "fixture"}, revision="sha256:" + "a" * 64).validation_output().data
+        result = (
+            self.node(
+                {"task_outcome": "success", "report": "fixture"},
+                revision="sha256:" + "a" * 64,
+            )
+            .validation_output()
+            .data
+        )
         self.assertEqual(result["errors"][0]["code"], "requirements_revision_mismatch")
 
     def test_configuration_error_is_build_error(self):
@@ -56,13 +89,17 @@ class OutputContractComponentTests(unittest.TestCase):
 
     def test_agent_payload_and_bridge_use_same_requirement_pin(self):
         from test_codex_component import component
-        node = component(output_requirements=Data(data=requirements(FORM)), output_retries=1)
+
+        node = component(
+            output_requirements=Data(data=requirements(FORM)), output_retries=1
+        )
         endpoint, payload, method = node._prepare()
         self.assertEqual(payload["output_requirements"], requirements(FORM))
         self.assertEqual(payload["output_retries"], 1)
 
     def test_incompatible_form_refuses_before_dispatch(self):
         from test_codex_component import component
+
         reference = requirements(FORM)
         reference["requirements_revision"] = "changed"
         node = component(output_requirements=Data(data=reference))

@@ -1,11 +1,15 @@
 """Independent Agent file-tree hashing and verified copying."""
+
 from pathlib import Path
 import hashlib
 import os
 import shutil
 import stat
 from laomedo.agents.errors import RunnerError
-from .settings import MAX_GIT_WORKSPACE_SNAPSHOT_BYTES, MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
+from .settings import (
+    MAX_GIT_WORKSPACE_SNAPSHOT_BYTES,
+    MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES,
+)
 
 
 def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
@@ -34,14 +38,11 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
                 if exclude_root_git:
                     total_bytes += item.stat().st_size
                     if (
-                        total_bytes
-                        > MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
+                        total_bytes > MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
                         or len(files) + len(directories)
                         >= MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
                     ):
-                        raise RunnerError(
-                            "git_workspace_snapshot_limit"
-                        )
+                        raise RunnerError("git_workspace_snapshot_limit")
                 files[item.relative_to(path).as_posix()] = item.read_bytes()
             else:
                 directories.append(item.relative_to(path).as_posix())

@@ -19,11 +19,7 @@ def install_activity_routes(app, authenticate, store=None):
             raise HTTPException(
                 503, detail={"code": "agent_activity_capture_not_started"}
             )
-        return (
-            store
-            if store is not None
-            else ActivityStore(path, read_only=True)
-        )
+        return store if store is not None else ActivityStore(path, read_only=True)
 
     def owner(user):
         identity = getattr(user, "id", None)

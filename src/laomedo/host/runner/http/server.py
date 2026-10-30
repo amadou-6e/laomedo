@@ -28,7 +28,6 @@ class RunnerServer(ThreadingHTTPServer):
         if host not in ("127.0.0.1", "::1"):
             raise RunnerError("loopback_only")
 
-
         self.runner = runner
         gate = Settings().startup_gate
         if gate:

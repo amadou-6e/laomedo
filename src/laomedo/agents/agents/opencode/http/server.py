@@ -1,4 +1,5 @@
 """Listener with an explicit typed owner; lifecycle remains with its caller."""
+
 from __future__ import annotations
 
 from http.server import ThreadingHTTPServer

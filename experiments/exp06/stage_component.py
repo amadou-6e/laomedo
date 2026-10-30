@@ -5,7 +5,9 @@ import sys
 import time
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io import StrInput
+from lfx.io import MessageTextInput
+from lfx.io import Output
+from lfx.io import StrInput
 from lfx.schema.message import Message
 
 sys.path.insert(0, "/laomedo-src")
@@ -15,8 +17,10 @@ from laomedo.work_graph.runs.store import WorkflowRunStore
 class Exp06Stage(Component):
     display_name = "EXP-06 synthetic stage"
     name = "Exp06Stage"
-    inputs = [MessageTextInput(name="task", display_name="Task", required=True),
-              StrInput(name="mode", display_name="Mode", required=True)]
+    inputs = [
+        MessageTextInput(name="task", display_name="Task", required=True),
+        StrInput(name="mode", display_name="Mode", required=True),
+    ]
     outputs = [Output(name="result", display_name="Result", method="invoke")]
 
     def invoke(self) -> Message:
@@ -29,7 +33,10 @@ class Exp06Stage(Component):
             graph={"nodes": [{"id": "Exp06Stage-exp06"}]},
             component_code={"Exp06Stage-exp06": "EXP06_SYNTHETIC_STAGE_V1"},
             resolved_config={"mode": mode},
-            trigger={"type": "direct", "task": str(getattr(self.task, "text", self.task))},
+            trigger={
+                "type": "direct",
+                "task": str(getattr(self.task, "text", self.task)),
+            },
         )
 
         def wait_for_release(run_id):

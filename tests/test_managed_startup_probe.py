@@ -3,8 +3,9 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-
-path = Path(__file__).resolve().parents[1] / "experiments/exp104/probe_managed_startup.py"
+path = (
+    Path(__file__).resolve().parents[1] / "experiments/exp104/probe_managed_startup.py"
+)
 spec = importlib.util.spec_from_file_location("managed_startup_probe", path)
 probe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(probe)

@@ -15,7 +15,8 @@ from urllib.request import Request
 
 from laomedo.github.transport.git.transport import GitHubGitTransport
 from laomedo.github.transport.rest.transport import GitHubRestTransport
-from experiments.retired_git_api import refuse_private_git_api as _git_environment; from experiments.retired_git_api import refuse_private_git_api as _bounded_git
+from experiments.retired_git_api import refuse_private_git_api as _git_environment
+from experiments.retired_git_api import refuse_private_git_api as _bounded_git
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.github.issues.utils import fetch_context
 from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
@@ -31,27 +32,44 @@ CONNECTION = "exp139-20261011-a-github"  # Existing approved host connection.
 
 
 def save(path, value):
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def connection(root, token_file):
-    return HostTokenConnection(connection_id=CONNECTION, generation=1,
-        repository=REPOSITORY, token_file=token_file, key="GH_LAOMEDO",
-        forbidden_mount=root / "runner")
+    return HostTokenConnection(
+        connection_id=CONNECTION,
+        generation=1,
+        repository=REPOSITORY,
+        token_file=token_file,
+        key="GH_LAOMEDO",
+        forbidden_mount=root / "runner",
+    )
 
 
 def report_task(report, branch):
-    return ("Bounded demonstration, not arbitrary issue implementation. Read the selected skill and frozen issue. "
+    return (
+        "Bounded demonstration, not arbitrary issue implementation. Read the selected skill and frozen issue. "
         "First call laomedo_output_precheck with a success submission missing report and observe rejection; "
         "then submit a success form with report='EXP-139 completed' and observe acceptance within this request. "
-        "Create exactly experiments/exp139/issue-report.md by decoding this base64 into bytes (do not use a heredoc or add a newline): " +
-        base64.b64encode(report.encode()).decode() + ". Verify its SHA-256 equals " +
-        sha256(report.encode()).hexdigest() + " before committing; correct any mismatch locally before the single push. "
+        "Create exactly experiments/exp139/issue-report.md by decoding this base64 into bytes (do not use a heredoc or add a newline): "
+        + base64.b64encode(report.encode()).decode()
+        + ". Verify its SHA-256 equals "
+        + sha256(report.encode()).hexdigest()
+        + " before committing; correct any mismatch locally before the single push. "
         "Create the parent folders. Set local Git author Laomedo Agent <agent@laomedo.local>. "
-        "Create branch " + branch + " from the detached checkout with git switch -c before committing. Commit only that report. Push exactly once using git push origin HEAD:refs/heads/" + branch + ". "
+        "Create branch "
+        + branch
+        + " from the detached checkout with git switch -c before committing. Commit only that report. Push exactly once using git push origin HEAD:refs/heads/"
+        + branch
+        + ". "
         "Wait for the push shell command to finish, polling its existing session if needed. "
         "Do not create a PR; downstream publication owns it. Do not retry an uncertain push. "
-        "Finish with only the accepted JSON form; report failure honestly on any error.")
+        "Finish with only the accepted JSON form; report failure honestly on any error."
+    )
 
 
 def prepare(root, token_file, *, interactive=False):
@@ -62,21 +80,33 @@ def prepare(root, token_file, *, interactive=False):
     provider = connection(root, token_file)
     rest = GitHubRestTransport(REPOSITORY, provider.token)
     reads = []
+
     def read(path):
         reads.append(path)
         if "/timeline?" in path:
-            call = Request("https://api.github.com/" + path, headers={
-                "Accept": "application/vnd.github+json", "Authorization": "Bearer " + provider.token(CONNECTION, 1),
-                "X-GitHub-Api-Version": "2026-03-10", "User-Agent": "laomedo-local-demo/0.1"})
+            call = Request(
+                "https://api.github.com/" + path,
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": "Bearer " + provider.token(CONNECTION, 1),
+                    "X-GitHub-Api-Version": "2026-03-10",
+                    "User-Agent": "laomedo-local-demo/0.1",
+                },
+            )
             with rest.opener.open(call, timeout=15) as response:
                 content = response.read(1024 * 1024 + 1)
             if len(content) > 1024 * 1024:
                 raise ValueError("timeline_response_too_large")
             events = json.loads(content)
-            if not isinstance(events, list) or any(not isinstance(event, dict) for event in events):
+            if not isinstance(events, list) or any(
+                not isinstance(event, dict) for event in events
+            ):
                 raise ValueError("timeline_response_invalid")
             return {"items": events}
-        return rest._call("GET", "/" + path, None, CONNECTION, 1, allow_list=path.endswith("/issues"))
+        return rest._call(
+            "GET", "/" + path, None, CONNECTION, 1, allow_list=path.endswith("/issues")
+        )
+
     repo = read("repos/" + REPOSITORY)
     base = repo["default_branch"]
     listing = read("repos/" + REPOSITORY + "/issues")
@@ -84,46 +114,79 @@ def prepare(root, token_file, *, interactive=False):
     if not candidates:
         raise ValueError("existing_issue_required")
     number = min(item["number"] for item in candidates)
+
     # _call wraps list responses; fetch_context needs the underlying array.
     def issue_read(path):
         value = read(path)
         return value["items"] if "/timeline?" in path else value
-    context = fetch_context(REPOSITORY, number, request=issue_read, max_timeline_pages=2)
+
+    context = fetch_context(
+        REPOSITORY, number, request=issue_read, max_timeline_pages=2
+    )
     if context["related_prs_complete"] is not True:
         raise ValueError("complete_issue_context_required")
-    snapshot = {"source": "host_frozen_github", "context": context,
-        "snapshot_id": "sha256:" + sha256(json.dumps(context, sort_keys=True,
-            separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()}
+    snapshot = {
+        "source": "host_frozen_github",
+        "context": context,
+        "snapshot_id": "sha256:"
+        + sha256(
+            json.dumps(
+                context, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+        ).hexdigest(),
+    }
     source = root / "source"
     source.mkdir()
     git_transport = GitHubGitTransport(REPOSITORY, source, "0" * 40, provider.token)
     refs = git_transport._fetch({"action": "list"}, CONNECTION, 1, branch, base)
     if any(item["ref"] == "refs/heads/" + branch for item in refs["refs"]):
         raise ValueError("experiment_branch_exists")
-    baseline = next(item["commit"] for item in refs["refs"] if item["ref"] == "refs/heads/" + base)
-    fetched = git_transport._fetch({"action": "fetch", "ref": "refs/heads/" + base,
-                                    "commit": baseline}, CONNECTION, 1, branch, base)
+    baseline = next(
+        item["commit"] for item in refs["refs"] if item["ref"] == "refs/heads/" + base
+    )
+    fetched = git_transport._fetch(
+        {"action": "fetch", "ref": "refs/heads/" + base, "commit": baseline},
+        CONNECTION,
+        1,
+        branch,
+        base,
+    )
     bundle = root / "baseline.bundle"
     bundle.write_bytes(base64.b64decode(fetched["bundle"], validate=True))
     with tempfile.TemporaryDirectory(prefix="exp139-git-home-") as home:
         environment = _git_environment(home)
-        for args in (("init", "--template=", "--quiet"),
-                     ("fetch", "--no-tags", str(bundle), "refs/heads/laomedo-read"),
-                     ("checkout", "--quiet", "-b", base, baseline)):
-            result = _bounded_git(["git", "-c", "core.hooksPath=" + home, "-C", str(source), *args], environment)
+        for args in (
+            ("init", "--template=", "--quiet"),
+            ("fetch", "--no-tags", str(bundle), "refs/heads/laomedo-read"),
+            ("checkout", "--quiet", "-b", base, baseline),
+        ):
+            result = _bounded_git(
+                ["git", "-c", "core.hooksPath=" + home, "-C", str(source), *args],
+                environment,
+            )
             if result.returncode:
                 raise ValueError("baseline_checkout_failed")
-    skill = SkillStore(root / "skill-store").import_skill("live-report",
-        ROOT / "examples/langflow-workgraph-live/skill")
+    skill = SkillStore(root / "skill-store").import_skill(
+        "live-report", ROOT / "examples/langflow-workgraph-live/skill"
+    )
     body_hash = sha256(context["issue"]["body"].encode()).hexdigest()
-    report = "\n".join(("# EXP-139 issue report", context["issue"]["url"],
-                         "body_sha256: " + body_hash, snapshot["snapshot_id"], ""))
+    report = "\n".join(
+        (
+            "# EXP-139 issue report",
+            context["issue"]["url"],
+            "body_sha256: " + body_hash,
+            snapshot["snapshot_id"],
+            "",
+        )
+    )
     task = report_task(report, branch)
-    tasks = {"success": task,
-             "failure": "Do not edit files, use Git or access a remote. Return only "
-                        "{\"task_outcome\":\"failure\",\"report\":\"Deliberate bounded failure route\"}.",
-             "rejection": "Do not edit files, use Git or access a remote. Use the precheck then return only "
-                          "{\"task_outcome\":\"success\",\"report\":\"Deliberate contract pin mismatch\"}."}
+    tasks = {
+        "success": task,
+        "failure": "Do not edit files, use Git or access a remote. Return only "
+        '{"task_outcome":"failure","report":"Deliberate bounded failure route"}.',
+        "rejection": "Do not edit files, use Git or access a remote. Use the precheck then return only "
+        '{"task_outcome":"success","report":"Deliberate contract pin mismatch"}.',
+    }
     if interactive:
         tasks = {"success": task}
     inputs = root / "flow-input"
@@ -143,25 +206,75 @@ for case,task in data['tasks'].items():
         node['data']['node']['template']['requirements_json']['value']=json.dumps(changed)
     Path('/input/'+case+'.json').write_text(json.dumps(flow,indent=2)+'\\n')
 """
-    result = subprocess.run(["docker", "run", "--rm", "--pull=never", "--network", "none",
-        "--mount", f"type=bind,source={ROOT},target=/work,readonly",
-        "--mount", f"type=bind,source={inputs},target=/input", "--env", "PYTHONPATH=/work",
-        "--entrypoint", "python", LANGFLOW, "-c", script], capture_output=True, timeout=60)
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network",
+            "none",
+            "--mount",
+            f"type=bind,source={ROOT},target=/work,readonly",
+            "--mount",
+            f"type=bind,source={inputs},target=/input",
+            "--env",
+            "PYTHONPATH=/work",
+            "--entrypoint",
+            "python",
+            LANGFLOW,
+            "-c",
+            script,
+        ],
+        capture_output=True,
+        timeout=60,
+    )
     if result.returncode:
         raise ValueError("graph_export_failed")
-    save(root / "config.json", {"identity": identity, "repository": REPOSITORY,
-        "branch": branch, "base": base, "baseline": baseline, "turn_cap": 4,
-        "runner_port": 8779, "handoff_seconds": 600, "token_file": str(token_file.resolve()),
-        "connection_id": CONNECTION, "connection_generation": 1,
-        "baseline_sha256": sha256(bundle.read_bytes()).hexdigest(),
-        "report_sha256": sha256(report.encode()).hexdigest(),
-        "skill": {key: skill[key] for key in ("skill_id", "revision_id", "tree_hash")}})
-    save(root / "preparation.json", {"model_turns": 0, "github_writes": 0,
-        "host_read_paths": reads, "git_reads": ["selected_ref_listing", "baseline_bundle_fetch"],
-        "graph_hashes": {case: sha256((inputs / (case + ".json")).read_bytes()).hexdigest() for case in tasks},
-        "issue_snapshot": snapshot["snapshot_id"], "agent_image": GIT_IMAGE_ID, "langflow_image": LANGFLOW})
-    return {"identity": identity, "state": str(root), "model_turns": 0,
-            "github_writes": 0, "configuration": "draft_not_activated"}
+    save(
+        root / "config.json",
+        {
+            "identity": identity,
+            "repository": REPOSITORY,
+            "branch": branch,
+            "base": base,
+            "baseline": baseline,
+            "turn_cap": 4,
+            "runner_port": 8779,
+            "handoff_seconds": 600,
+            "token_file": str(token_file.resolve()),
+            "connection_id": CONNECTION,
+            "connection_generation": 1,
+            "baseline_sha256": sha256(bundle.read_bytes()).hexdigest(),
+            "report_sha256": sha256(report.encode()).hexdigest(),
+            "skill": {
+                key: skill[key] for key in ("skill_id", "revision_id", "tree_hash")
+            },
+        },
+    )
+    save(
+        root / "preparation.json",
+        {
+            "model_turns": 0,
+            "github_writes": 0,
+            "host_read_paths": reads,
+            "git_reads": ["selected_ref_listing", "baseline_bundle_fetch"],
+            "graph_hashes": {
+                case: sha256((inputs / (case + ".json")).read_bytes()).hexdigest()
+                for case in tasks
+            },
+            "issue_snapshot": snapshot["snapshot_id"],
+            "agent_image": GIT_IMAGE_ID,
+            "langflow_image": LANGFLOW,
+        },
+    )
+    return {
+        "identity": identity,
+        "state": str(root),
+        "model_turns": 0,
+        "github_writes": 0,
+        "configuration": "draft_not_activated",
+    }
 
 
 if __name__ == "__main__":
@@ -171,7 +284,19 @@ if __name__ == "__main__":
     parser.add_argument("--interactive", action="store_true")
     args = parser.parse_args()
     try:
-        print(json.dumps(prepare(args.state.resolve(), args.token_file.resolve(), interactive=args.interactive)))
+        print(
+            json.dumps(
+                prepare(
+                    args.state.resolve(),
+                    args.token_file.resolve(),
+                    interactive=args.interactive,
+                )
+            )
+        )
     except Exception as failure:
-        print(json.dumps({"status": "preparation_failed", "error_class": type(failure).__name__}))
+        print(
+            json.dumps(
+                {"status": "preparation_failed", "error_class": type(failure).__name__}
+            )
+        )
         raise SystemExit(1)

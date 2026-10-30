@@ -21,16 +21,9 @@ import laomedo.host.leases.service as lease_service
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.service import LeaseService
-
-
-def _result(directory: Path) -> dict:
-    path = directory / "result.json"
-    deadline = time.monotonic() + 3
-    while time.monotonic() < deadline:
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-        time.sleep(0.01)
-    raise AssertionError("lease result not written")
+from laomedo.host.leases.settings import LOSS_SECONDS
+from lease_controls import result as _result
+from lease_controls import wait_for_cleanup
 
 
 class LeaseServiceTests(unittest.TestCase):
@@ -170,8 +163,11 @@ class LeaseServiceTests(unittest.TestCase):
             )
             return True, "removed_after_loss"
 
-        self.service = LeaseService(self.state, loss_seconds=0.5, cleanup=cleanup)
+        self.service = LeaseService(
+            self.state, loss_seconds=LOSS_SECONDS, cleanup=cleanup
+        )
         self.addCleanup(self.service.server.server_close)
+        self.addCleanup(wait_for_cleanup, self.service)
 
     def register(self, token="token-one"):
         lease_dir = self.state / "leases" / token

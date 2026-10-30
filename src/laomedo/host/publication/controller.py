@@ -100,9 +100,7 @@ class PublicationController:
                     "evidence_complete": record.get("evidence_complete", "unknown"),
                     "requirements_revision": record.get("requirements_revision"),
                 }
-                checked = evaluate_envelope(
-                    record["output_requirements"], envelope
-                )
+                checked = evaluate_envelope(record["output_requirements"], envelope)
                 if (
                     checked["contract_status"] != "accepted"
                     or envelope["task_outcome"] != "success"

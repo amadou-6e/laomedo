@@ -27,12 +27,16 @@ class GitCommandTimeout(TimeoutExpired):
         """Preserve TimeoutExpired compatibility without retaining an environment."""
         super().__init__(arguments, timeout)
         self.cleanup_verified = cleanup_verified
-        self.code = "git_timeout" if cleanup_verified else "git_timeout_cleanup_unverified"
+        self.code = (
+            "git_timeout" if cleanup_verified else "git_timeout_cleanup_unverified"
+        )
 
     def __str__(self) -> str:
         """Describe the deadline without rendering command arguments or paths."""
         cleanup = "confirmed" if self.cleanup_verified else "not confirmed"
-        return f"A local Git command exceeded its deadline; process cleanup was {cleanup}."
+        return (
+            f"A local Git command exceeded its deadline; process cleanup was {cleanup}."
+        )
 
     def __reduce__(self):
         """Retain cleanup observation when an exception crosses a process boundary."""

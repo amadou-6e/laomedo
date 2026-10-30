@@ -6,10 +6,14 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.host.publication.bundle.errors import BundleStageError; from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID; from laomedo.host.publication.bundle.stage import _read_frozen; from laomedo.host.publication.bundle.stage import verify_frozen_bundle
+from laomedo.host.publication.bundle.errors import BundleStageError
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle.stage import _read_frozen
+from laomedo.host.publication.bundle.stage import verify_frozen_bundle
 
-PROBE_PATH = (Path(__file__).resolve().parents[1] / "experiments" /
-              "exp100" / "probe_stage_s7.py")
+PROBE_PATH = (
+    Path(__file__).resolve().parents[1] / "experiments" / "exp100" / "probe_stage_s7.py"
+)
 SPEC = importlib.util.spec_from_file_location("exp100_stage_s7", PROBE_PATH)
 probe_stage_s7 = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(probe_stage_s7)
@@ -24,14 +28,20 @@ class ProbeS7Preflight(unittest.TestCase):
         def checkpoint():
             checkpoints.append(observation["cases"].copy())
 
-        with patch.object(probe_stage_s7, "verify_frozen_bundle",
-                          return_value={"status": "unknown"}), \
-             patch.object(probe_stage_s7, "_run") as inspect:
+        with (
+            patch.object(
+                probe_stage_s7,
+                "verify_frozen_bundle",
+                return_value={"status": "unknown"},
+            ),
+            patch.object(probe_stage_s7, "_run") as inspect,
+        ):
             inspect.return_value.returncode = 1
             probe_stage_s7.run_once(observation, checkpoint)
         self.assertEqual(observation["status"], "failed")
-        self.assertEqual(observation["cases"]["positive"]["result"],
-                         {"status": "unknown"})
+        self.assertEqual(
+            observation["cases"]["positive"]["result"], {"status": "unknown"}
+        )
         self.assertGreaterEqual(len(checkpoints), 2)
 
     def test_two_synthetic_fixtures_and_wrong_commit_refusal(self):
@@ -43,8 +53,11 @@ class ProbeS7Preflight(unittest.TestCase):
             self.assertNotEqual(negative["commit"], negative["baseline"])
             self.assertNotEqual(positive["run_id"], negative["run_id"])
             attempt, frozen = _read_frozen(
-                positive["runner"], positive["private"],
-                positive["run_id"], positive["attempt_id"])
+                positive["runner"],
+                positive["private"],
+                positive["run_id"],
+                positive["attempt_id"],
+            )
             self.assertTrue(attempt.is_dir())
             self.assertEqual(frozen["advertised_commit"], positive["commit"])
             calls = []
@@ -53,16 +66,18 @@ class ProbeS7Preflight(unittest.TestCase):
                 calls.append((args, kwargs))
                 raise AssertionError("negative case reached Docker")
 
-            with self.assertRaisesRegex(BundleStageError,
-                                        "candidate_commit_mismatch"):
+            with self.assertRaisesRegex(BundleStageError, "candidate_commit_mismatch"):
                 verify_frozen_bundle(
-                    negative["runner"], negative["private"],
+                    negative["runner"],
+                    negative["private"],
                     run_id=negative["run_id"],
                     attempt_id=negative["attempt_id"],
                     baseline_bundle=negative["baseline_bundle"],
                     expected_baseline_sha256=negative["baseline_sha256"],
-                    commit=negative["baseline"], image_id=PINNED_IMAGE_ID,
-                    docker=no_docker)
+                    commit=negative["baseline"],
+                    image_id=PINNED_IMAGE_ID,
+                    docker=no_docker,
+                )
             self.assertEqual(calls, [])
 
 

@@ -37,9 +37,7 @@ class DockerLangflowStage:
                 node_id = node["id"]
                 source = node["data"]["node"]["template"]["code"]["value"]
             except (KeyError, TypeError):
-                raise LaunchError(
-                    "unresolved_component_identity"
-                ) from None
+                raise LaunchError("unresolved_component_identity") from None
             if (
                 not isinstance(node_id, str)
                 or not node_id
@@ -176,9 +174,7 @@ class DockerLangflowStage:
                 raise ExternalOutcomeUnknown(output)
             process.wait(timeout=max(0.001, timeout - (monotonic() - started)))
         except (Empty, subprocess.TimeoutExpired, BrokenPipeError, OSError):
-            raise ExternalOutcomeUnknown(
-                "stage_result_unknown"
-            ) from None
+            raise ExternalOutcomeUnknown("stage_result_unknown") from None
         if process.returncode != 0:
             raise LaunchError("stage_execution_failed")
         return output.strip()
@@ -256,9 +252,7 @@ class DockerLangflowStage:
                                 process.kill()
                                 process.wait(timeout=5)
                 except OSError as exc:
-                    raise ExternalOutcomeUnknown(
-                        "stage_container_unavailable"
-                    ) from exc
+                    raise ExternalOutcomeUnknown("stage_container_unavailable") from exc
                 finally:
                     subprocess.run(
                         ["docker", "rm", "-f", name], capture_output=True, timeout=10

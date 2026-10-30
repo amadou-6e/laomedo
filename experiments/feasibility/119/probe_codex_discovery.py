@@ -57,7 +57,9 @@ def request(process, messages: queue.Queue, payload: dict, timeout: int = 20) ->
         message = messages.get(timeout=timeout)
         if message.get("id") == payload["id"]:
             if "error" in message:
-                raise RuntimeError(f"app-server error code: {message['error'].get('code')}")
+                raise RuntimeError(
+                    f"app-server error code: {message['error'].get('code')}"
+                )
             return message.get("result", {})
 
 
@@ -76,7 +78,9 @@ def main() -> None:
 
     # On Windows, a just-terminated app-server child can briefly retain a
     # directory handle. Do not let that cleanup race hide the probe result.
-    with tempfile.TemporaryDirectory(prefix="laomedo-119-", ignore_cleanup_errors=True) as temporary:
+    with tempfile.TemporaryDirectory(
+        prefix="laomedo-119-", ignore_cleanup_errors=True
+    ) as temporary:
         scratch = Path(temporary)
         home = scratch / "home"
         codex_home = scratch / "codex-home"
@@ -102,7 +106,9 @@ def main() -> None:
             "TMP": str(scratch),
             "SystemRoot": system_root,
             "WINDIR": system_root,
-            "PATH": os.pathsep.join([str(codex.parent), str(Path(system_root) / "System32")]),
+            "PATH": os.pathsep.join(
+                [str(codex.parent), str(Path(system_root) / "System32")]
+            ),
         }
         process = subprocess.Popen(
             [str(codex), "app-server", "--stdio"],
@@ -115,7 +121,9 @@ def main() -> None:
             encoding="utf-8",
         )
         messages: queue.Queue = queue.Queue()
-        reader = threading.Thread(target=read_lines, args=(process.stdout, messages), daemon=True)
+        reader = threading.Thread(
+            target=read_lines, args=(process.stdout, messages), daemon=True
+        )
         reader.start()
         try:
             request(
@@ -133,12 +141,18 @@ def main() -> None:
                     },
                 },
             )
-            process.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
+            process.stdin.write(
+                json.dumps({"method": "initialized", "params": {}}) + "\n"
+            )
             process.stdin.flush()
             result = request(
                 process,
                 messages,
-                {"method": "skills/list", "id": 2, "params": {"cwds": [str(project)], "forceReload": True}},
+                {
+                    "method": "skills/list",
+                    "id": 2,
+                    "params": {"cwds": [str(project)], "forceReload": True},
+                },
             )
         finally:
             process.terminate()
@@ -168,7 +182,11 @@ def main() -> None:
             scratch_skill_count += 1
             if skill_path.is_relative_to(system_skill_root):
                 system_skill_count += 1
-            elif skill.get("name") not in {"fixture-repo", "fixture-user", "fixture-codex-home"}:
+            elif skill.get("name") not in {
+                "fixture-repo",
+                "fixture-user",
+                "fixture-codex-home",
+            }:
                 other_private_skill_count += 1
         elif skill_path.is_relative_to(real_home_resolved):
             personal_skill_count += 1
@@ -178,7 +196,9 @@ def main() -> None:
                 "fixture_repo_discovered": "fixture-repo" in names,
                 "fixture_user_discovered": "fixture-user" in names,
                 "fixture_codex_home_discovered": "fixture-codex-home" in names,
-                "other_skill_count": len(names - {"fixture-repo", "fixture-user", "fixture-codex-home"}),
+                "other_skill_count": len(
+                    names - {"fixture-repo", "fixture-user", "fixture-codex-home"}
+                ),
                 "personal_skill_count": personal_skill_count,
                 "scratch_skill_count": scratch_skill_count,
                 "system_skill_count": system_skill_count,

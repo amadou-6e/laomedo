@@ -11,7 +11,12 @@ from uuid import uuid4
 from laomedo.skills.registry.settings import HASH
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.models import FrozenSkillDraft, SkillDraft, SkillPolicyReference, SkillRevision
+from laomedo.skills.registry.models import (
+    FrozenSkillDraft,
+    SkillDraft,
+    SkillPolicyReference,
+    SkillRevision,
+)
 from laomedo.skills.registry.utils import _hash
 from laomedo.skills.registry.utils import _is_link
 from laomedo.skills.registry.utils import _read_json
@@ -98,8 +103,11 @@ class SkillStore:
             if tree_hash(copied_files) != revision_id:
                 raise SkillStoreError("source_changed_while_copying")
             revision = SkillRevision(
-                skill_id=skill_id, revision_id=revision_id, tree_hash=revision_id,
-                file_hashes=file_hashes(copied_files), parent_revision=parent_revision,
+                skill_id=skill_id,
+                revision_id=revision_id,
+                tree_hash=revision_id,
+                file_hashes=file_hashes(copied_files),
+                parent_revision=parent_revision,
                 draft_id=draft_id,
             )
             record = revision.to_record()
@@ -148,9 +156,7 @@ class SkillStore:
             pointer = _read_json(self._skill(skill_id) / "latest.json")
             revision_id = pointer["revision_id"]
             if pointer.get("tree_hash") != revision_id:
-                raise SkillStoreError(
-                    "latest_pointer_integrity_failure"
-                )
+                raise SkillStoreError("latest_pointer_integrity_failure")
         folder = self._revision_dir(skill_id, revision_id)
         record = _read_json(folder / "record.json")
         files = inventory(folder / "bundle")
@@ -193,17 +199,15 @@ class SkillStore:
                 self._revision_dir(skill_id, base_revision) / "bundle",
                 self._workspace(draft_id),
             )
-            if (
-                tree_hash(
-                    inventory(self._workspace(draft_id))
-                )
-                != base_revision
-            ):
+            if tree_hash(inventory(self._workspace(draft_id))) != base_revision:
                 raise SkillStoreError("draft_copy_mismatch")
             _write_json(folder / "policy.json", policy)
             draft = SkillDraft(
-                draft_id=draft_id, skill_id=skill_id, base_revision=base_revision,
-                base_tree_hash=base["tree_hash"], policy_ref=SkillPolicyReference(**policy_reference),
+                draft_id=draft_id,
+                skill_id=skill_id,
+                base_revision=base_revision,
+                base_tree_hash=base["tree_hash"],
+                policy_ref=SkillPolicyReference(**policy_reference),
             )
             _write_json(folder / "record.json", draft.to_record())
             return draft.to_record()
@@ -250,22 +254,23 @@ class SkillStore:
         except SkillStoreError as exc:
             proposed = None
             errors = [str(exc)]
-        if (
-            proposed is not None
-            and tree_hash(proposed) == record["base_tree_hash"]
-        ):
+        if proposed is not None and tree_hash(proposed) == record["base_tree_hash"]:
             errors.append("no_change")
         frozen = folder / "frozen"
         if proposed is not None and not errors:
             if not frozen.exists():
                 shutil.copytree(workspace, frozen)
-            if tree_hash(
-                inventory(frozen)
-            ) != tree_hash(proposed):
+            if tree_hash(inventory(frozen)) != tree_hash(proposed):
                 raise ConflictError("interrupted_freeze_conflict")
         result = FrozenSkillDraft.from_review(
-            record, base, proposed, errors, draft_id=draft_id, editor_kind=editor_kind,
-            edit_run_id=edit_run_id, trace_ref=trace_ref,
+            record,
+            base,
+            proposed,
+            errors,
+            draft_id=draft_id,
+            editor_kind=editor_kind,
+            edit_run_id=edit_run_id,
+            trace_ref=trace_ref,
         ).to_record()
         _write_json(folder / "result.json", result)
         record["status"] = "frozen"

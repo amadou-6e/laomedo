@@ -15,11 +15,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = ["black==26.10.1"]
 runner = [
     "py-docker @ git+https://github.com/amadou-6e/py-docker.git@c0d92a785eccd3d423a8d00f856d82fa47afc461",
     "agent-client-protocol==0.12.1",
 ]
 observability = ["opentelemetry-proto==1.45.1", "opentelemetry-sdk==1.45.1", "opentelemetry-exporter-otlp-proto-http==1.45.1"]
+
+[tool.black]
+required-version = "26.10.1"
+target-version = ["py310"]
+line-length = 88
+# Exact archived sources still matching retained evidence; new files stay in scope.
+# See docs/architecture/python-formatting.md before changing these exceptions.
+force-exclude = '''
+^/experiments/(
+    exp100/(bundle_transfer|probe_s4_bundle|probe_s4_diag|probe_stage_s8)\.py
+  | exp139/(run_flow|verifier_control)\.py
+  | feasibility/agent-observability/analyze\.py
+)$
+'''
 
 [project.scripts]
 laomedo-work-graph = "laomedo.work_graph.__main__:main"

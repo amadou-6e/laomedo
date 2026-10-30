@@ -4,7 +4,8 @@ import argparse
 import json
 import sys
 from urllib.error import HTTPError
-from urllib.request import Request; from urllib.request import urlopen
+from urllib.request import Request
+from urllib.request import urlopen
 
 
 def main():
@@ -16,11 +17,21 @@ def main():
     parser.add_argument("operation")
     parser.add_argument("--payload", default="{}")
     args = parser.parse_args()
-    request = {"grant": args.grant, "repo": args.repo, "operation": args.operation,
-               "effect_id": args.effect_id, "payload": json.loads(args.payload)}
+    request = {
+        "grant": args.grant,
+        "repo": args.repo,
+        "operation": args.operation,
+        "effect_id": args.effect_id,
+        "payload": json.loads(args.payload),
+    }
     encoded = json.dumps(request).encode()
     try:
-        with urlopen(Request(args.url + "/command", encoded, {"Content-Type": "application/json"}), timeout=20) as response:
+        with urlopen(
+            Request(
+                args.url + "/command", encoded, {"Content-Type": "application/json"}
+            ),
+            timeout=20,
+        ) as response:
             status, result = response.status, json.load(response)
     except HTTPError as error:
         status, result = error.code, json.load(error)

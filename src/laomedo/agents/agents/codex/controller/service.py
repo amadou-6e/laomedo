@@ -95,7 +95,9 @@ class CodexController:
                     "-c",
                     "agents.max_depth=1",
                 ]
-            from laomedo.agents.activity.runner.settings import Settings as ActivitySettings
+            from laomedo.agents.activity.runner.settings import (
+                Settings as ActivitySettings,
+            )
 
             if ActivitySettings().otel == "1":
                 from laomedo.agents.activity.runner.telemetry import LaunchTelemetry
@@ -119,8 +121,7 @@ class CodexController:
                     limits=StreamLimits(
                         seconds=lifetime_seconds, max_bytes=Settings.load().max_bytes
                     ),
-                    receipt_path=receipt_path
-                    or evidence / NATIVE_RECEIPT_FILENAME,
+                    receipt_path=receipt_path or evidence / NATIVE_RECEIPT_FILENAME,
                 )
             )
         except Exception as primary:
@@ -211,9 +212,11 @@ class CodexController:
             "policy": "split" if self.executor else "normal",
             "model": record["requested_model"],
             "effort": record["requested_effort"],
-            "dynamicTools": [dynamic_tool(self.output_requirements)]
-            if self.output_requirements
-            else [],
+            "dynamicTools": (
+                [dynamic_tool(self.output_requirements)]
+                if self.output_requirements
+                else []
+            ),
         }
         if self.executor:
             policy["environmentId"] = self.executor.environment_id
@@ -284,11 +287,11 @@ class CodexController:
             if len(started) == 1 and isinstance(started[0].get("id"), str):
                 return CodexTurn(
                     turn_id=started[0]["id"],
-                    status="cancelled"
-                    if cancelled.is_set()
-                    else "timeout"
-                    if failure == "turn_timeout"
-                    else "unknown",
+                    status=(
+                        "cancelled"
+                        if cancelled.is_set()
+                        else "timeout" if failure == "turn_timeout" else "unknown"
+                    ),
                     error=failure or "cancel_native_unconfirmed",
                 )
         if len(terminal) != 1 or not isinstance(terminal[0].get("id"), str):
