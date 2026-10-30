@@ -205,7 +205,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
         session.wait.return_value = 0
         session.cleanup_confirmed = True
-        with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
+        with patch('laomedo.agents.agents.claude.agent.cleanup_exact',return_value=(True,'absent')), \
              patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')), patch.object(self.runner, '_communicate_acp', new=__import__('unittest.mock',fromlist=['AsyncMock']).AsyncMock(return_value=receipt)):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         self.assertEqual(result['result'],'done')
@@ -217,7 +217,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         # A secondary absence check must never promote failed SDK cleanup.
         session.cleanup_confirmed = False
         session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
-        with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')) as secondary:
+        with patch('laomedo.agents.agents.claude.agent.cleanup_exact',return_value=(True,'absent')) as secondary:
             with self.assertRaisesRegex(RunnerError,'container_termination_unverified'):
                 self.runner._invoke(root,record,'task',threading.Event(),resume=False)
         secondary.assert_not_called()
@@ -247,7 +247,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         session.read_line.side_effect = [Line(channel="stdout", data=(json.dumps(receipt)+'\n').encode()), None]
         session.wait.return_value = 0
         session.cleanup_confirmed = True
-        with patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
+        with patch('laomedo.agents.agents.claude.agent.cleanup_exact',return_value=(True,'absent')), \
              patch('subprocess.Popen',side_effect=AssertionError('retired CLI transport')), patch.object(self.runner, '_communicate_acp', new=__import__('unittest.mock',fromlist=['AsyncMock']).AsyncMock(return_value=receipt)), \
              patch.object(ClaudeTelemetry,'close',broken_close):
             result = self.runner._invoke(root,record,'task',threading.Event(),resume=False)
@@ -285,7 +285,7 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.runner.container.session = MagicMock()
         root = self.runner._run_dir(record['run_id'])
         with patch('laomedo.agents.agents.claude.activity.telemetry.ClaudeTelemetry',side_effect=OSError('private detail')), \
-             patch('laomedo.host.leases.utils.cleanup_exact',return_value=(True,'absent')), \
+             patch('laomedo.agents.agents.claude.agent.cleanup_exact',return_value=(True,'absent')), \
              patch('subprocess.Popen') as launch:
             with self.assertRaisesRegex(RunnerError,'^claude_telemetry_start_failed$'):
                 self.runner._invoke(root,record,'task',threading.Event(),resume=False)

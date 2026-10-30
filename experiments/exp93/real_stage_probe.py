@@ -1,6 +1,5 @@
 """Single-use, independently reviewed real-agent crash test. No GitHub writes."""
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
@@ -19,7 +18,7 @@ from experiments.exp104 import native_managed_tasks as tasks
 from experiments.exp104.native_localrunner_probe import api; from experiments.exp104.native_localrunner_probe import git; from experiments.exp104.native_localrunner_probe import wait_json; from experiments.exp104.native_localrunner_probe import readiness; from experiments.exp104.native_localrunner_probe import journal; from experiments.exp104.native_localrunner_probe import scan_owned; from experiments.exp104.native_localrunner_probe import configure_owned_clone
 from experiments.exp104.probe_active_delivery import stage_cleanup
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
-from laomedo.github.transport.git.utils import _base_git_environment
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 from laomedo.host.mediation.store import MediationStore
 from laomedo.github.transport.rest.transport import _NoRedirect
 from laomedo.host.credentials.token.connection import HostTokenConnection

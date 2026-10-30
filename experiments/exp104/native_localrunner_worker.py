@@ -1,6 +1,5 @@
 """S13 production LocalRunner fixture held at native initialize; zero turns."""
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
@@ -11,7 +10,7 @@ from pathlib import Path
 import time
 
 from laomedo.host.leases.utils import inspect_exact
-from laomedo.github.transport.git.utils import _base_git_environment
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 from laomedo.agents.agents.codex.controller.service import CodexController as AppServer; from laomedo.agents.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.mediation.authority import RunGrantAuthority

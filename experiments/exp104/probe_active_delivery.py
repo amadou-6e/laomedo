@@ -1,6 +1,5 @@
 """Frozen no-model active-container delivery with explicit fake connectors."""
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 
 from laomedo.host.leases.models import ContainerIdentity
 from hashlib import sha256
@@ -22,7 +21,7 @@ from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
 from laomedo.host.publication.bundle.ownership import _inspect; from laomedo.host.publication.bundle.ownership import reconcile_orphan
 from laomedo.host.publication.verifier import BundleVerifier
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
-from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 from laomedo.github.transport.rest.transport import GitHubRestTransport
 from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError
 from laomedo.host.mediation.service import MediationHTTPService

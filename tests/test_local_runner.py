@@ -183,7 +183,7 @@ class LocalRunnerTests(unittest.TestCase):
         _json(runner.state / 'runs/prior/record.json', {'attempt_number': 7})
         (runner.state / 'attempt-count.json').write_text('broken accounting')
         self.assertEqual(restarted._reserve_turn(), 8)
-        with patch('laomedo.agents.agents.base.utils._json', side_effect=PermissionError('unwritable diagnostic')):
+        with patch('laomedo.agents.agents.base.agent._json', side_effect=PermissionError('unwritable diagnostic')):
             self.assertEqual(restarted._reserve_turn(), 9)
 
 
@@ -353,7 +353,7 @@ class LocalRunnerTests(unittest.TestCase):
                 # The CI success path below substitutes a fake route. First
                 # assert that the actual Linux route fails before dispatch.
                 unverified = prepare("unverified")
-                with patch("laomedo.host.leases.utils.cleanup_exact",
+                with patch("laomedo.agents.agents.codex.agent.cleanup_exact",
                            return_value=(True, "absent")):
                     refused = mediated._execute(
                         unverified["run_id"], "Synthetic task", resume=False)
@@ -380,7 +380,7 @@ class LocalRunnerTests(unittest.TestCase):
                            patch.object(mediated, "_mediator_route", side_effect=ci_route))
             with route_check:
                 prepared = prepare(1)
-                with patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")):
+                with patch("laomedo.agents.agents.codex.agent.cleanup_exact", return_value=(True, "absent")):
                     result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
                 self.assertEqual(result["status"], "completed", result.get("error_category"))
                 self.assertEqual(len(FakeServer.calls), 1)
@@ -397,7 +397,7 @@ class LocalRunnerTests(unittest.TestCase):
                 status = json.loads(status_path.read_text(encoding="utf-8"))
                 status_path.write_text(json.dumps({**status, "instance": "0" * 32}),
                                        encoding="utf-8")
-                with patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")):
+                with patch("laomedo.agents.agents.codex.agent.cleanup_exact", return_value=(True, "absent")):
                     result = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
                 self.assertEqual(result["status"], "failed")
                 self.assertEqual(result["error_category"], "mediator_unavailable")
@@ -516,7 +516,7 @@ class LocalRunnerTests(unittest.TestCase):
                                          "launch_token": "token-one", "supervised": True,
                                          "cleanup_verified": False}
         path.write_text(json.dumps(saved), encoding="utf-8")
-        with patch("laomedo.host.leases.utils.cleanup_exact", return_value=(False, "conflict")) as cleanup:
+        with patch("laomedo.agents.agents.codex.agent.cleanup_exact", return_value=(False, "conflict")) as cleanup:
             restarted = LocalRunner(self.runner.state, self.runner.store.root, self.source,
                                     transport=FakeServer, check_docker=False)
         after = restarted.status(record["run_id"])
@@ -821,10 +821,10 @@ class LocalRunnerTests(unittest.TestCase):
         (private_lease / "grant.secret").write_text("synthetic-capability", encoding="utf-8")
         lease = SimpleNamespace(instance="fixture-instance", grant_id="fixture-grant",
                                 dir=private_lease, lost=threading.Event(), finish=Mock())
-        with patch("laomedo.host.leases.client.LeaseClient", return_value=lease), \
+        with patch("laomedo.agents.agents.codex.agent.LeaseClient", return_value=lease), \
                 patch.object(mediated, "_mediator_route",
                              return_value=("http://host.docker.internal:1234/v1/mediate", "fixture-instance")), \
-                patch("laomedo.host.leases.utils.cleanup_exact", return_value=(True, "absent")):
+                patch("laomedo.agents.agents.codex.agent.cleanup_exact", return_value=(True, "absent")):
             completed = mediated._execute(prepared["run_id"], "Synthetic task", resume=False)
             self.assertEqual(completed["status"], "completed", completed.get("error_category"))
             exclusion = completed["skill_git_exclusion"]

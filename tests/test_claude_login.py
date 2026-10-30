@@ -45,13 +45,13 @@ class LoginMirrorTests(TestCase):
             control=lambda *args, **kw: SimpleNamespace(exit_code=0,
                 stdout=b'{"loggedIn":true,"authMethod":"claude.ai","orgId":"unit"}'))
         with patch.dict('os.environ', {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN': '1'}), \
-             patch('laomedo.agents.agents.claude.auth.utils.mirror_login') as mirror:
+             patch('laomedo.agents.agents.claude.agent.mirror_login') as mirror:
             self.assertTrue(runner._check_auth().startswith('sha256:'))
             mirror.assert_called_once_with('laomedo-claude-unit', IMAGE, minimum_validity_seconds=180)
         for code in CODES:
             with self.subTest(code=code), \
                  patch.dict('os.environ', {'LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN': '1'}), \
-                 patch('laomedo.agents.agents.claude.auth.utils.mirror_login', side_effect=LocalClaudeLoginError(code)), \
+                 patch('laomedo.agents.agents.claude.agent.mirror_login', side_effect=LocalClaudeLoginError(code)), \
                  self.assertRaisesRegex(RunnerError, '^'+code+'$'):
                 runner._check_auth()
 

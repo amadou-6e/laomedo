@@ -259,7 +259,7 @@ class ClaudeContainerParityTests(unittest.TestCase):
         from laomedo.agents.agents.base.utils import _json
         _json(self.runner._run_dir(record['run_id'])/'record.json', record)
         flag = self.runner.cancel_flags[record['run_id']] = threading.Event()
-        with patch('laomedo.host.leases.utils.cleanup_exact', side_effect=AssertionError('execution owns cleanup')):
+        with patch('laomedo.agents.agents.claude.agent.cleanup_exact', side_effect=AssertionError('execution owns cleanup')):
             result = self.runner.cancel(record['run_id'])
         self.assertTrue(flag.is_set())
         self.assertTrue(result['cancel_requested'])

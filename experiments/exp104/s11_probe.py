@@ -7,7 +7,6 @@ GitHub token stays in the host process; Docker receives only a run capability.
 
 from __future__ import annotations
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 
 from laomedo.host.leases.models import ContainerIdentity
 

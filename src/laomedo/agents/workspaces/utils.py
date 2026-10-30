@@ -82,5 +82,3 @@ def _copy_tree(source: Path, target: Path, *, exclude_root_git: bool = False) ->
     if _hash_tree(target) != expected:
         raise RunnerError("workspace_copy_mismatch")
     return expected
-
-

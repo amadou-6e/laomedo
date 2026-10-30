@@ -1,7 +1,9 @@
 # Historical Git experiment constraint
 
 The following one-shot experiments depended on removed private Git process or
-credential-environment helpers. They now stop explicitly before imports or effects.
+credential-environment helpers. They now stop explicitly at the first retired helper call, before that Git
+operation. Pure metadata imports used by current verifier tests remain available.
+The experiment-only refusal helper performs no Git or credential work.
 Historical evidence remains unchanged. They are not current launcher examples or
 acceptance proof. Before rerunning, migrate to `laomedo.git` with explicit context
 and credential models, revalidate their external effect authorization, and update

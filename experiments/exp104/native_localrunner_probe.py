@@ -1,6 +1,5 @@
 """S13 production-launch controller; explicit independent pre-run review gate."""
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
@@ -26,7 +25,7 @@ def identities(side):
 
 from laomedo.host.mediation.agent_cli import configure_remote
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
-from laomedo.github.transport.git.utils import _base_git_environment
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
 from laomedo.host.mediation.authority import RunGrantAuthority

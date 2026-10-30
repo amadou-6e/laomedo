@@ -1,6 +1,5 @@
 """Single-use credential-free verifier-loss diagnostic; frozen protocol peer."""
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 from hashlib import sha256
 import argparse
 import json
@@ -17,7 +16,7 @@ from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.
 from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID; from laomedo.host.publication.bundle.stage import verify_frozen_bundle
 from laomedo.host.publication.verifier import BundleVerifier
 from laomedo.host.publication.bundle.ownership import _inspect
-from laomedo.github.transport.git.utils import _base_git_environment
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 
 IDENTITY = "exp104-verifier-loss-s2-20261009"
 

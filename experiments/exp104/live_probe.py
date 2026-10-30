@@ -8,7 +8,6 @@ state directory or automatically retry an uncertain remote effect.
 
 from __future__ import annotations
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 
 from laomedo.host.leases.models import ContainerIdentity
 
@@ -25,7 +24,7 @@ import time
 from urllib import error; from urllib import request
 
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact
-from laomedo.github.transport.git.utils import _base_git_environment; from laomedo.github.transport.git.utils import _credential_environment; from laomedo.github.transport.git.utils import _push_failure_category
+from experiments.retired_git_api import refuse_private_git_api as _base_git_environment; from experiments.retired_git_api import refuse_private_git_api as _credential_environment; from laomedo.github.transport.git.utils import _push_failure_category
 from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.host.leases.client import LeaseClient

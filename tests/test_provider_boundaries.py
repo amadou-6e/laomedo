@@ -148,7 +148,8 @@ class ProviderBoundaryTests(unittest.TestCase):
         record = control.runner._prepare(control.payload)
         record.update(status='running', image=codex_settings.IMAGE, cli_version=codex_settings.CLI_VERSION)
         _json(control.runner._run_dir(record['run_id'])/'record.json',record)
-        with patch('laomedo.host.leases.utils.cleanup_exact',side_effect=AssertionError('no owned controller')):
+        with patch('laomedo.agents.agents.codex.agent.cleanup_exact', side_effect=AssertionError('no Codex controller')), \
+             patch('laomedo.agents.agents.claude.agent.cleanup_exact', side_effect=AssertionError('no Claude controller')):
             restarted = OpenCodeAgent(control.runner.state,control.runner.store.root,control.source)
         historical = restarted.status(record['run_id'])
         self.assertEqual(historical['image'],codex_settings.IMAGE)

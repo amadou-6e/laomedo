@@ -496,7 +496,7 @@ class EarlyRunnerTests(unittest.TestCase):
             return original_json(path, value)
         def cancel():
             result["cancel"] = self.runner.cancel(run_id)
-        with patch("laomedo.agents.agents.base.utils._json", side_effect=delayed_json):
+        with patch("laomedo.agents.agents.base.agent._json", side_effect=delayed_json):
             caller = threading.Thread(target=cancel)
             caller.start()
             try:

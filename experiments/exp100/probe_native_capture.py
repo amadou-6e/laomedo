@@ -1,6 +1,5 @@
 """Single-use S10 local-provider capture; no real token or model turn."""
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 
 from laomedo.host.leases.models import ContainerIdentity
 from hashlib import sha256
@@ -21,7 +20,7 @@ from experiments.exp104.probe_active_delivery import FakeGitHub; from experiment
 from laomedo.host.mediation.agent_cli import configure_remote; from laomedo.host.mediation.agent_cli import prepare_commands
 from laomedo.host.publication.verifier import BundleVerifier
 from laomedo.host.leases.utils import cleanup_exact; from laomedo.host.leases.utils import inspect_exact; from laomedo.host.leases.settings import LABEL_RUN; from laomedo.host.leases.settings import LABEL_TOKEN
-from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from laomedo.github.transport.git.utils import _base_git_environment
+from laomedo.github.transport.git.transport import GitHubGitTransport; from laomedo.github.transport.git.transport import GitHubMediatedTransport; from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
 from laomedo.github.transport.rest.transport import GitHubRestTransport
 from laomedo.host.mediation.store import MediationStore
 from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID

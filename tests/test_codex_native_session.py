@@ -82,7 +82,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         codes=set()
         producers=[root.joinpath("src/laomedo/agents/agents/codex/controller",module) for module in ("service.py","models.py","settings.py")]
         producers += [root.joinpath("src/laomedo/agents/agents/codex/split",module) for module in ("executor.py","models.py")]
-        producers += [root.joinpath("src/laomedo/agents/agents", module) for module in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py")]
+        producers += [root.joinpath("src/laomedo/agents/agents", module) for module in ("claude/container.py", "claude/agent.py", "opencode/boundary.py", "opencode/utils.py")]
         for module in producers:
             tree=ast.parse(module.read_text())
             for node in ast.walk(tree):
@@ -115,7 +115,7 @@ class RetirementAndCatalogueTests(unittest.TestCase):
         """An invalid host setting must not be recorded as dispatch."""
         root=Path(__file__).resolve().parents[1]
         source=root.joinpath("src/laomedo/agents/agents/codex/agent.py").read_text()
-        self.assertLess(source.index("transport_settings = _native_settings.Settings.load()"), source.index("launch_attempted = True"))
+        self.assertLess(source.index("transport_settings = Settings.load()"), source.index("launch_attempted = True"))
 
 
     @unittest.skipUnless(find_spec("py_docker"),"Requires optional Docker runtime")

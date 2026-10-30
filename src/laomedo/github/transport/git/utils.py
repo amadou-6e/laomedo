@@ -51,9 +51,3 @@ def _push_failure_category(stderr: bytes, stdout: bytes = b"") -> str:
     ):
         return "network_or_transport"
     return "unclassified"
-
-
-
-
-
-

@@ -4,7 +4,6 @@ This explicit command uses the selected host connection for repository reads.
 It starts no runner, spends no model turn and performs no GitHub write.
 """
 
-raise RuntimeError("Historical experiment: private Git process helpers were removed. Migrate to laomedo.git and revalidate its effect authorization before running.")
 import argparse
 import base64
 from hashlib import sha256
@@ -16,7 +15,7 @@ from urllib.request import Request
 
 from laomedo.github.transport.git.transport import GitHubGitTransport
 from laomedo.github.transport.rest.transport import GitHubRestTransport
-from laomedo.agents.workspaces.git import _git_environment; from laomedo.agents.workspaces.git import _bounded_git
+from experiments.retired_git_api import refuse_private_git_api as _git_environment; from experiments.retired_git_api import refuse_private_git_api as _bounded_git
 from laomedo.host.credentials.token.connection import HostTokenConnection
 from laomedo.github.issues.utils import fetch_context
 from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
