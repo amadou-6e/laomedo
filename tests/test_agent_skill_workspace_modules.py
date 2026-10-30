@@ -110,7 +110,7 @@ class AgentSkillWorkspaceModuleTests(unittest.TestCase):
                 "from laomedo.local_runner import workspace_skills\n"
             )
         with self.assertRaises(MIGRATION["ManualMigrationRequired"]):
-            MIGRATION["migrate_source"]("import laomedo.skills.workspace as old\n")
+            MIGRATION["migrate_source"]("import laomedo.skills.workspace\n")
 
     def test_preserved_exp104_sources_allow_only_explicit_import_migration(self):
         for item in RECORD["retained_files"]:
