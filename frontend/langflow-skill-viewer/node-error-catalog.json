@@ -1327,7 +1327,7 @@
   "opencode_model_discovery_in_progress": {
     "title": "OpenCode model discovery is still in progress",
     "description": "Another discovery operation still owns the dedicated profile, so this request could not begin execution.",
-    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+    "recovery": "Wait for model discovery to finish, then open Provider/Model and choose Refresh list. Run the node after the list loads. This refused request did not start an agent task."
   },
   "opencode_native_capture_size_limit": {
     "title": "The native activity capture reached its limit",

@@ -31,6 +31,14 @@ def producer_path(filename):
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_opencode_discovery_recovery_names_the_existing_user_controls(self):
+        catalogue = json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text(encoding='utf-8'))
+        recovery = catalogue['opencode_model_discovery_in_progress']['recovery']
+        self.assertNotIn('operator', recovery.lower())
+        self.assertIn('Provider/Model', recovery)
+        self.assertIn('Refresh list', recovery)
+        self.assertIn('did not start an agent task', recovery)
+
     def test_reworked_working_state_and_git_producers_are_catalogued_and_routable(self):
         catalogue = json.loads((ROOT/'frontend/langflow-skill-viewer/node-error-catalog.json').read_text())
         component = ast.parse((ROOT/'src/laomedo/agents/interface/langflow/component.py').read_text())
