@@ -7,10 +7,10 @@ responsibilities together makes the host trust boundary visible to callers.
 | Concern | Package or module | Vocabulary |
 | --- | --- | --- |
 | Untrusted bytes admitted from a known run | `ingestion/` | `freeze_run_bundle`, `read_run_binding`, `validate_ingestion_roots` |
-| Git-object verification | `verifier.py` | `BundleVerifier`: verify, reconcile |
-| Bounded disposable staging | `bundle/` | `BundleStage`; owned stage admission and cleanup |
-| Verified delivery | `verified/` | verify, publish and status functions preserve existing protocol |
-| Authorized publication handoffs | `handoff/` | `PublicationHandoff`; persist and select explicit handoffs |
+| Verification worker | `verifier.py` | `BundleVerifier`: check_attempt, scan_once, serve |
+| Bounded disposable staging | `bundle/` | `verify_frozen_bundle`, stage_lock, reserve_container, reconcile_orphan |
+| Verified output snapshot | `verified/` | `VerifiedStage`, `VerifiedStageIdentity`; resolve_verified_stage, stage_verified_git |
+| Authorized publication handoffs | `handoff/` | `HandoffStore`, `PullRequestPublicationRequest`; begin, freeze, publish and end publication handoffs |
 
 Names describe the responsibility. Base is reserved for an actual abstract
 contract; a function is not wrapped in a controller simply to obtain an object.
