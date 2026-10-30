@@ -15,14 +15,23 @@ from uuid import uuid4
 import difflib
 import hashlib
 import json
-import laomedo.skills.authoring.summary as _authoring_summary
-import laomedo.skills.inspection.utils as _inspection_utils
-import laomedo.skills.operations.models as _operations_models
-import laomedo.skills.operations.utils as _operations_utils
-import laomedo.skills.registry.errors as _registry_errors
-import laomedo.skills.registry.store as _registry_store
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.sources.utils as _sources_utils
+from laomedo.skills.authoring.summary import has_description
+from laomedo.skills.authoring.summary import summary_authoring
+from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.skills.operations.models import EditorProvenance
+from laomedo.skills.operations.models import SkillProposal
+from laomedo.skills.operations.models import ImportedSkillEditor, SkillCommit, SkillCommitReceipt, SkillComparison, SkillFileChange, SkillOperationResult
+from laomedo.skills.registry.models import SkillPolicyReference, SkillReference
+from laomedo.skills.registry.errors import ConflictError
+from laomedo.skills.registry.errors import SkillStoreError
+from laomedo.skills.registry.store import SkillStore
+from laomedo.skills.registry.utils import _canonical_json
+from laomedo.skills.registry.utils import inventory
+from laomedo.skills.registry.utils import patch_for
+from laomedo.skills.registry.utils import tree_hash
+from laomedo.skills.registry.utils import validate_draft
+from laomedo.skills.registry.utils import validate_policy
+from laomedo.skills.sources.utils import _bundle
 import secrets
 import sqlite3
 import time
@@ -30,13 +39,13 @@ import time
 
 class SkillOperations:
     def __init__(
-        self, store: _registry_store.SkillStore, database: Path, policies: dict
+        self, store: SkillStore, database: Path, policies: dict
     ):
         self.store = store
         self.database = Path(database)
         self.policies = deepcopy(policies)
         for policy in self.policies.values():
-            _registry_utils.validate_policy(policy)
+            validate_policy(policy)
         with self.connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS commits (
@@ -58,10 +67,12 @@ class SkillOperations:
         finally:
             db.close()
 
-    def _commit(self, db, record):
+    def _commit(self, db, commit: SkillCommit) -> SkillCommitReceipt:
+        """Hash and persist one newly constructed commit inside the caller transaction."""
+        record = commit.to_record()
         identity = (
             "sha256:"
-            + hashlib.sha256(_registry_utils._canonical_json(record)).hexdigest()
+            + hashlib.sha256(_canonical_json(record)).hexdigest()
         )
         db.execute(
             "INSERT INTO commits VALUES (?,?,?)",
@@ -71,31 +82,31 @@ class SkillOperations:
             "INSERT INTO heads VALUES (?,?) ON CONFLICT(skill) DO UPDATE SET id=excluded.id",
             (record["skill_id"], identity),
         )
-        return {"commit_id": identity, **record}
+        return SkillCommitReceipt(commit_id=identity, record=commit)
 
     def _read(self, db, skill, identity):
         row = db.execute(
             "SELECT record FROM commits WHERE id=? AND skill=?", (identity, skill)
         ).fetchone()
         if row is None:
-            raise _registry_errors.SkillStoreError("skill_commit_unavailable")
+            raise SkillStoreError("skill_commit_unavailable")
         record = json.loads(row["record"])
         if (
             "sha256:"
-            + hashlib.sha256(_registry_utils._canonical_json(record)).hexdigest()
+            + hashlib.sha256(_canonical_json(record)).hexdigest()
             != identity
         ):
-            raise _registry_errors.SkillStoreError("skill_history_integrity_failure")
+            raise SkillStoreError("skill_history_integrity_failure")
         return {"commit_id": identity, **record}
 
     def prepare(self, skill_id, revision_id, commit_id=""):
         policy = self.policies.get(skill_id)
         if policy is None:
-            raise _registry_errors.SkillStoreError("skill_edit_not_authorized")
-        snapshot = _inspection_utils.inspect_skill(
+            raise SkillStoreError("skill_edit_not_authorized")
+        snapshot = inspect_skill(
             self.store.root, skill_id, revision_id
         )
-        authoring = _authoring_summary.summary_authoring(snapshot)
+        authoring = summary_authoring(snapshot)
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             head = db.execute(
@@ -106,22 +117,17 @@ class SkillOperations:
                     commit_id
                     or self.store.revision(skill_id)["revision_id"] != revision_id
                 ):
-                    raise _registry_errors.ConflictError("skill_base_changed")
+                    raise ConflictError("skill_base_changed")
                 head = {
                     "id": self._commit(
                         db,
-                        {
-                            "skill_id": skill_id,
-                            "revision_id": revision_id,
-                            "parent_commit": None,
-                            "created_at": datetime.now(timezone.utc).isoformat(),
-                            "message": "Import existing immutable skill",
-                            "files": [],
-                            "patch": "",
-                            "editor": {"kind": "import"},
-                            "nonce": uuid4().hex,
-                        },
-                    )["commit_id"]
+                        SkillCommit(
+                            skill_id=skill_id, revision_id=revision_id, parent_commit=None,
+                            created_at=datetime.now(timezone.utc).isoformat(),
+                            message="Import existing immutable skill", files=[], patch="",
+                            editor=ImportedSkillEditor(), nonce=uuid4().hex,
+                        ),
+                    ).commit_id
                 }
             base = self._read(db, skill_id, head["id"])
             if base["revision_id"] != revision_id or (
@@ -129,7 +135,7 @@ class SkillOperations:
                 if commit_id
                 else base["parent_commit"] is not None
             ):
-                raise _registry_errors.ConflictError("skill_base_changed")
+                raise ConflictError("skill_base_changed")
             ticket = secrets.token_hex(32)
             db.execute(
                 "INSERT INTO requests(ticket,skill,base,policy,expires,monotonic) VALUES (?,?,?,?,?,?)",
@@ -151,35 +157,35 @@ class SkillOperations:
         }
 
     def apply(self, ticket, operation, editor=None):
-        operation = _operations_models.SkillProposal.from_payload(operation)
+        operation = SkillProposal.from_payload(operation)
         encoded = json.dumps(operation.to_payload(), sort_keys=True)
         if not isinstance(ticket, str) or len(ticket) != 64:
-            raise _registry_errors.SkillStoreError("skill_ticket_invalid")
-        editor = _operations_models.EditorProvenance.from_payload(editor)
+            raise SkillStoreError("skill_ticket_invalid")
+        editor = EditorProvenance.from_payload(editor)
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT * FROM requests WHERE ticket=?", (ticket,)
             ).fetchone()
             if row is None:
-                raise _registry_errors.SkillStoreError("skill_ticket_invalid")
+                raise SkillStoreError("skill_ticket_invalid")
             elapsed = time.monotonic() - row["monotonic"]
             if time.time() > row["expires"] or elapsed < 0 or elapsed > 300:
-                raise _registry_errors.SkillStoreError("skill_ticket_expired")
+                raise SkillStoreError("skill_ticket_expired")
             policy = json.loads(row["policy"])
             if self.policies.get(row["skill"]) != policy:
-                raise _registry_errors.SkillStoreError("skill_edit_not_authorized")
+                raise SkillStoreError("skill_edit_not_authorized")
             if row["result"]:
                 if row["proposal"] != encoded:
-                    raise _registry_errors.ConflictError("skill_request_conflict")
+                    raise ConflictError("skill_request_conflict")
                 return json.loads(row["result"])
             head = db.execute(
                 "SELECT id FROM heads WHERE skill=?", (row["skill"],)
             ).fetchone()
             if head["id"] != row["base"]:
-                raise _registry_errors.ConflictError("skill_base_changed")
+                raise ConflictError("skill_base_changed")
             base = self._read(db, row["skill"], row["base"])
-            before = _registry_utils.inventory(
+            before = inventory(
                 self.store._revision_dir(row["skill"], base["revision_id"]) / "bundle"
             )
             self.store.revision(row["skill"], base["revision_id"])
@@ -187,20 +193,20 @@ class SkillOperations:
             for edit in operation.files:
                 if edit.content is None:
                     if edit.path not in after:
-                        raise _registry_errors.SkillStoreError("skill_file_missing")
+                        raise SkillStoreError("skill_file_missing")
                     del after[edit.path]
                 else:
                     after[edit.path] = edit.content.encode()
-            if not _authoring_summary.has_description(
+            if not has_description(
                 after.get("SKILL.md", b"").decode("utf-8-sig")
             ):
-                raise _registry_errors.SkillStoreError("skill_summary_required")
-            _sources_utils._bundle(after)
-            errors = _registry_utils.validate_draft(before, after, policy)
+                raise SkillStoreError("skill_summary_required")
+            _bundle(after)
+            errors = validate_draft(before, after, policy)
             if errors:
-                raise _registry_errors.SkillStoreError("skill_edit_policy_denied")
+                raise SkillStoreError("skill_edit_policy_denied")
             if after == before:
-                raise _registry_errors.SkillStoreError("skill_edit_no_change")
+                raise SkillStoreError("skill_edit_no_change")
             draft = self.store.create_draft(row["skill"], base["revision_id"], policy)
             workspace = self.store.draft_workspace(draft["draft_id"])
             for path in before.keys() - after.keys():
@@ -225,8 +231,8 @@ class SkillOperations:
             )
             if not frozen["promotion_eligible"] or frozen[
                 "proposed_tree_hash"
-            ] != _registry_utils.tree_hash(after):
-                raise _registry_errors.SkillStoreError("skill_draft_validation_failed")
+            ] != tree_hash(after):
+                raise SkillStoreError("skill_draft_validation_failed")
             revision = self.store._store_revision(
                 row["skill"],
                 self.store._draft(draft["draft_id"]) / "frozen",
@@ -235,29 +241,19 @@ class SkillOperations:
             )
             record = self._commit(
                 db,
-                {
-                    "skill_id": row["skill"],
-                    "revision_id": revision["revision_id"],
-                    "parent_commit": row["base"],
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "message": operation.message,
-                    "files": frozen["changed_paths"],
-                    "patch": _registry_utils.patch_for(before, after),
-                    "editor": editor.to_payload(),
-                    "draft_id": draft["draft_id"],
-                    "policy_ref": _registry_utils.validate_policy(policy),
-                    "nonce": uuid4().hex,
-                },
+                SkillCommit(
+                    skill_id=row["skill"], revision_id=revision["revision_id"], parent_commit=row["base"],
+                    created_at=datetime.now(timezone.utc).isoformat(), message=operation.message,
+                    files=frozen["changed_paths"], patch=patch_for(before, after), editor=editor,
+                    draft_id=draft["draft_id"], policy_ref=SkillPolicyReference(**validate_policy(policy)),
+                    nonce=uuid4().hex,
+                ),
             )
-            result = {
-                "status": "proposed",
-                "promotion_performed": False,
-                "commit": record,
-                "skill": {
-                    key: revision[key]
-                    for key in ("skill_id", "revision_id", "tree_hash")
-                },
-            }
+            result = SkillOperationResult(
+                commit=record, skill=SkillReference(**{
+                    key: revision[key] for key in ("skill_id", "revision_id", "tree_hash")
+                }),
+            ).to_payload()
             db.execute(
                 "UPDATE requests SET proposal=?, result=? WHERE ticket=?",
                 (encoded, json.dumps(result), ticket),
@@ -265,7 +261,7 @@ class SkillOperations:
             return result
 
     def history(self, skill_id, revision_id, before=""):
-        _inspection_utils.inspect_skill(self.store.root, skill_id, revision_id)
+        inspect_skill(self.store.root, skill_id, revision_id)
         with self.connect() as db:
             head = db.execute(
                 "SELECT id FROM heads WHERE skill=?", (skill_id,)
@@ -274,7 +270,7 @@ class SkillOperations:
             current = before or (head["id"] if head else None)
             while current and len(items) < 100:
                 if current in visited:
-                    raise _registry_errors.SkillStoreError("skill_history_limit")
+                    raise SkillStoreError("skill_history_limit")
                 visited.add(current)
                 record = self._read(db, skill_id, current)
                 self.store.revision(skill_id, record["revision_id"])
@@ -292,7 +288,7 @@ class SkillOperations:
     def diff(self, skill_id, commit_id):
         with self.connect() as db:
             record = self._read(db, skill_id, commit_id)
-            snapshot = _inspection_utils.inspect_skill(
+            snapshot = inspect_skill(
                 self.store.root, skill_id, record["revision_id"]
             )
             parent = (
@@ -300,22 +296,22 @@ class SkillOperations:
                 if record["parent_commit"]
                 else None
             )
-            after = _registry_utils.inventory(
+            after = inventory(
                 self.store._revision_dir(skill_id, snapshot["revision_id"]) / "bundle"
             )
             before = (
-                _registry_utils.inventory(
+                inventory(
                     self.store._revision_dir(skill_id, parent["revision_id"]) / "bundle"
                 )
                 if parent
                 else after
             )
             if parent:
-                _inspection_utils.inspect_skill(
+                inspect_skill(
                     self.store.root, skill_id, parent["revision_id"]
                 )
-            if _registry_utils.patch_for(before, after) != record["patch"]:
-                raise _registry_errors.SkillStoreError(
+            if patch_for(before, after) != record["patch"]:
+                raise SkillStoreError(
                     "skill_history_integrity_failure"
                 )
             return record
@@ -324,10 +320,10 @@ class SkillOperations:
         """Compare a historical snapshot to the viewer's pinned current bytes."""
         with self.connect() as db:
             commit = self._read(db, skill_id, commit_id)
-        base = _inspection_utils.inspect_skill(
+        base = inspect_skill(
             self.store.root, skill_id, commit["revision_id"]
         )
-        current = _inspection_utils.inspect_skill(
+        current = inspect_skill(
             self.store.root, skill_id, revision_id
         )
         before = {file["path"]: file for file in base["files"]}
@@ -339,17 +335,17 @@ class SkillOperations:
                 continue
             binary = any(file and file["kind"] == "binary" for file in (old, new))
             files.append(
-                {
-                    "path": path,
-                    "status": (
+                SkillFileChange(
+                    path=path,
+                    status=(
                         "added"
                         if old is None
                         else "deleted" if new is None else "modified"
                     ),
-                    "before_hash": old["file_hash"] if old else None,
-                    "after_hash": new["file_hash"] if new else None,
-                    "binary": binary,
-                }
+                    before_hash=old["file_hash"] if old else None,
+                    after_hash=new["file_hash"] if new else None,
+                    binary=binary,
+                )
             )
             chunks.append("diff --git a/" + path + " b/" + path + "\n")
             if binary:
@@ -378,16 +374,14 @@ class SkillOperations:
             if not lines:  # Added/deleted empty files still have a visible diff entry.
                 chunks.append("--- " + ("a/" + path if old else "/dev/null") + "\n")
                 chunks.append("+++ " + ("b/" + path if new else "/dev/null") + "\n")
-        result = {
-            "skill_id": skill_id,
-            "base_commit": {
+        result = SkillComparison(
+            skill_id=skill_id,
+            base_commit={
                 key: value for key, value in commit.items() if key != "patch"
             },
-            "base_revision": commit["revision_id"],
-            "current_revision": revision_id,
-            "files": files,
-            "patch": "".join(chunks),
-        }
+            base_revision=commit["revision_id"], current_revision=revision_id,
+            files=files, patch="".join(chunks),
+        ).to_payload()
         if len(json.dumps(result).encode()) > 16 * 1024 * 1024:
-            raise _registry_errors.SkillStoreError("skill_diff_too_large")
+            raise SkillStoreError("skill_diff_too_large")
         return result
