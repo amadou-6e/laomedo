@@ -4,9 +4,6 @@ This leaf owns run-local Git exclusion evidence and verification of already
 materialized immutable skills. It does not own registry editing, remote source
 selection, GitHub workflows or native provider skill execution.
 
-This is the D3 README-first target; its helper relocation is not implemented in
-this documentation checkpoint.
-
 ## Ownership and nomenclature
 
 | Concern | Defining owner | Vocabulary |

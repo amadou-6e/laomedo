@@ -5,9 +5,6 @@ immutable snapshots and run-local skill integrity. Reusable native Git commands,
 process isolation and process-tree termination belong to `laomedo/git`.
 Repository authorization and protected-file policy stay with their callers.
 
-The focused helper ownership below is the D3 README-first target. The helper
-relocation has not yet been implemented in this documentation checkpoint.
-
 ## Concerns and nomenclature
 
 | Concern | Defining owner | Object or function vocabulary |
@@ -45,5 +42,5 @@ this relocation does not reclassify it or change its translation to RunnerError.
 
 The [skill delivery README](skills/README.md) identifies its canonical records
 and exact function vocabulary. The old general Skills workspace package is
-removed when this relocation is implemented. Known helper imports migrate to
+removed; these are the current defining owners. Known helper imports migrate to
 their defining functions; a split namespace is not recreated by a facade.

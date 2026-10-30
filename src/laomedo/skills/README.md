@@ -48,9 +48,8 @@ launcher is retained. Registry helpers own path/byte/policy/diff mechanics; they
 do not acquire Agent, host publication or GitHub responsibilities.
 
 Agent-only delivery and working-state helpers belong under
-[agents/workspaces](../agents/workspaces/README.md). Their relocation is proposed
-in this README-first checkpoint; no compatibility workspace namespace is intended
-under general Skills. Generic run-bound bundle ingress belongs to
+[agents/workspaces](../agents/workspaces/README.md). Their defining owners are Agent-specific; no compatibility workspace namespace
+remains under general Skills. Generic run-bound bundle ingress belongs to
 host/publication/ingestion and does not inspect or modify skills. The dependency
 direction is callers into Skills; core Skills does not depend on Agents, host,
 GitHub, work_graph or a graph framework.

@@ -151,7 +151,10 @@ class RegistryModuleTests(unittest.TestCase):
                         self.assertNotIn(
                             "utils", {item.name for item in node.names}, relative
                         )
-                    if node.module == "laomedo.skills.workspace.utils":
+                    if node.module in {
+                        "laomedo.skills.workspace.utils",
+                        "laomedo.agents.workspaces.skills.utils",
+                    }:
                         self.assertNotIn(
                             "_is_link", {item.name for item in node.names}, relative
                         )
@@ -178,6 +181,11 @@ class RegistryModuleTests(unittest.TestCase):
                         self.assertNotEqual(
                             node.args[0].value,
                             "laomedo.skills.workspace.utils._is_link",
+                            (relative, node.lineno),
+                        )
+                        self.assertNotEqual(
+                            node.args[0].value,
+                            "laomedo.agents.workspaces.skills.utils._is_link",
                             (relative, node.lineno),
                         )
                         self.assertFalse(

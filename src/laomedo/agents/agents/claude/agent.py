@@ -38,7 +38,7 @@ from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.utils import mirror_login
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.utils import cleanup_exact
-from laomedo.skills.workspace.utils import verify
+from laomedo.agents.workspaces.skills.utils import verify
 from laomedo.agents.agents.claude.auth.settings import Settings
 import re
 import subprocess
