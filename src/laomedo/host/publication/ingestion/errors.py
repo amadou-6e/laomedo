@@ -1,4 +1,4 @@
-"""Error types for skills / ingestion."""
+"""Error contracts for host publication ingestion."""
 
 from __future__ import annotations
 

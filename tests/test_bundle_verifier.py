@@ -9,9 +9,9 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.ingestion.utils import freeze_run_bundle
-from laomedo.skills.ingestion.settings import HANDOFF_NAME
-from laomedo.skills.ingestion.utils import _durable_json
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.utils import write_durable_json
 from laomedo.host.publication.verifier import BundleVerifier
 from laomedo.host.publication.status import _publish_status
 from laomedo.host.publication.bundle.errors import BundleStageError
@@ -61,7 +61,9 @@ class BundleVerifierTests(unittest.TestCase):
                 "run_id": kwargs["run_id"],
                 "attempt_id": kwargs["attempt_id"],
             }
-            _durable_json(private / "run-a" / "attempt-a" / "verification.json", result)
+            write_durable_json(
+                private / "run-a" / "attempt-a" / "verification.json", result
+            )
             if mutation:
                 mutation()
             return result

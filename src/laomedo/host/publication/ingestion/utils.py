@@ -10,13 +10,19 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import json
-import laomedo.skills.ingestion.settings as _ingestion_settings
-import laomedo.skills.ingestion.errors as _ingestion_errors
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.settings import MAX_BUNDLE_BYTES
+from laomedo.host.publication.ingestion.settings import MAX_RECORD_BYTES
+from laomedo.host.publication.ingestion.settings import _BRANCH
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
+from laomedo.host.publication.ingestion.settings import _REPOSITORY
+from laomedo.host.publication.ingestion.settings import _SHA
+from laomedo.host.publication.ingestion.errors import BundleIngestError
 import os
 import stat
 
 
-def _redirected(path: Path) -> bool:
+def is_redirected_path(path: Path) -> bool:
     try:
         metadata = path.lstat()
     except OSError:
@@ -31,14 +37,16 @@ def _outside_git(path: Path) -> bool:
     return not any((parent / ".git").exists() for parent in (path, *path.parents))
 
 
-def _bound_roots(runner_state: Path, private_root: Path) -> tuple[Path, Path]:
+def validate_ingestion_roots(
+    runner_state: Path, private_root: Path
+) -> tuple[Path, Path]:
     if (
-        _redirected(runner_state)
-        or _redirected(private_root)
+        is_redirected_path(runner_state)
+        or is_redirected_path(private_root)
         or not runner_state.is_dir()
         or not private_root.is_dir()
     ):
-        raise _ingestion_errors.BundleIngestError("stage_boundary_invalid")
+        raise BundleIngestError("stage_boundary_invalid")
     runner_state = runner_state.resolve(strict=True)
     private_root = private_root.resolve(strict=True)
     if (
@@ -48,40 +56,38 @@ def _bound_roots(runner_state: Path, private_root: Path) -> tuple[Path, Path]:
         or private_root.is_relative_to(runner_state)
         or runner_state.is_relative_to(private_root)
     ):
-        raise _ingestion_errors.BundleIngestError("stage_boundary_invalid")
+        raise BundleIngestError("stage_boundary_invalid")
     return runner_state, private_root
 
 
-def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
-    if not isinstance(run_id, str) or not _ingestion_settings._IDENTITY.fullmatch(
-        run_id
-    ):
-        raise _ingestion_errors.BundleIngestError("run_identity_invalid")
+def read_run_binding(runner_state: Path, run_id: str) -> tuple[Path, dict]:
+    if not isinstance(run_id, str) or not RUN_IDENTITY.fullmatch(run_id):
+        raise BundleIngestError("run_identity_invalid")
     run_dir = runner_state / "runs" / run_id
     if (
-        _redirected(runner_state / "runs")
-        or _redirected(run_dir)
+        is_redirected_path(runner_state / "runs")
+        or is_redirected_path(run_dir)
         or not run_dir.is_dir()
         or run_dir.resolve(strict=True).parent
         != (runner_state / "runs").resolve(strict=True)
     ):
-        raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+        raise BundleIngestError("run_binding_invalid")
     source = run_dir / "record.json"
-    if _redirected(source) or not source.is_file():
-        raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+    if is_redirected_path(source) or not source.is_file():
+        raise BundleIngestError("run_binding_invalid")
     try:
         with source.open("rb") as stream:
-            record_bytes = stream.read(_ingestion_settings.MAX_RECORD_BYTES + 1)
-        if len(record_bytes) > _ingestion_settings.MAX_RECORD_BYTES:
-            raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+            record_bytes = stream.read(MAX_RECORD_BYTES + 1)
+        if len(record_bytes) > MAX_RECORD_BYTES:
+            raise BundleIngestError("run_binding_invalid")
         record = json.loads(record_bytes)
     except (OSError, ValueError) as error:
-        raise _ingestion_errors.BundleIngestError("run_binding_invalid") from error
+        raise BundleIngestError("run_binding_invalid") from error
     if not isinstance(record, dict):
-        raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+        raise BundleIngestError("run_binding_invalid")
     scope = record.get("github_scope") or {}
     if not isinstance(scope, dict):
-        raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+        raise BundleIngestError("run_binding_invalid")
     branch = scope.get("branch")
     repository = scope.get("repository")
     baseline = record.get("git_baseline")
@@ -91,22 +97,22 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
         or (status != "running" and status != "completed")
         or record.get("workspace_mode") != "git"
         or not isinstance(branch, str)
-        or not _ingestion_settings._BRANCH.fullmatch(branch)
+        or not _BRANCH.fullmatch(branch)
         or branch.startswith("/")
         or ".." in branch
         or not isinstance(repository, str)
-        or not _ingestion_settings._REPOSITORY.fullmatch(repository)
+        or not _REPOSITORY.fullmatch(repository)
         or not isinstance(baseline, str)
-        or not _ingestion_settings._SHA.fullmatch(baseline)
+        or not _SHA.fullmatch(baseline)
     ):
-        raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+        raise BundleIngestError("run_binding_invalid")
     workspace = run_dir / "workspace"
     if (
-        _redirected(workspace)
+        is_redirected_path(workspace)
         or not workspace.is_dir()
         or workspace.resolve(strict=True).parent != run_dir.resolve(strict=True)
     ):
-        raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+        raise BundleIngestError("run_binding_invalid")
     binding = {
         "run_id": run_id,
         "repository": repository,
@@ -124,11 +130,11 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
             or owner.get("cleanup_verified") is not False
             or any(
                 not isinstance(owner.get(key), str)
-                or not _ingestion_settings._IDENTITY.fullmatch(owner[key])
+                or not RUN_IDENTITY.fullmatch(owner[key])
                 for key in ("name", "launch_token", "grant_id")
             )
         ):
-            raise _ingestion_errors.BundleIngestError("run_binding_invalid")
+            raise BundleIngestError("run_binding_invalid")
         stable = {
             **binding,
             "workspace_mode": "git",
@@ -150,9 +156,9 @@ def _record(runner_state: Path, run_id: str) -> tuple[Path, dict]:
     return run_dir, binding
 
 
-def _bundle_bytes(path: Path) -> bytes:
-    if _redirected(path) or not path.is_file():
-        raise _ingestion_errors.BundleIngestError("bundle_not_regular")
+def read_bundle_bytes(path: Path) -> bytes:
+    if is_redirected_path(path) or not path.is_file():
+        raise BundleIngestError("bundle_not_regular")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -161,27 +167,27 @@ def _bundle_bytes(path: Path) -> bytes:
             if (
                 not stat.S_ISREG(before.st_mode)
                 or before.st_nlink != 1
-                or before.st_size > _ingestion_settings.MAX_BUNDLE_BYTES
+                or before.st_size > MAX_BUNDLE_BYTES
             ):
-                raise _ingestion_errors.BundleIngestError("bundle_size_or_type")
-            payload = source.read(_ingestion_settings.MAX_BUNDLE_BYTES + 1)
+                raise BundleIngestError("bundle_size_or_type")
+            payload = source.read(MAX_BUNDLE_BYTES + 1)
             after = os.fstat(source.fileno())
             current = path.lstat()
             if (
                 len(payload) != before.st_size
-                or len(payload) > _ingestion_settings.MAX_BUNDLE_BYTES
+                or len(payload) > MAX_BUNDLE_BYTES
                 or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
                 != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
                 or (before.st_dev, before.st_ino) != (current.st_dev, current.st_ino)
-                or _redirected(path)
+                or is_redirected_path(path)
             ):
-                raise _ingestion_errors.BundleIngestError("bundle_changed_or_oversized")
+                raise BundleIngestError("bundle_changed_or_oversized")
             return payload
     except OSError as error:
-        raise _ingestion_errors.BundleIngestError("bundle_unreadable") from error
+        raise BundleIngestError("bundle_unreadable") from error
 
 
-def _durable_json(path: Path, value: dict) -> None:
+def write_durable_json(path: Path, value: dict) -> None:
     pending = path.with_name(path.name + ".pending")
     with pending.open("x", encoding="utf-8", newline="\n") as output:
         output.write(json.dumps(value, sort_keys=True) + "\n")
@@ -201,19 +207,19 @@ def _require_reconciled_prior_attempts(
 ) -> None:
     """Never let an unverified or unknown freeze be superseded silently."""
     for prior in run_home.iterdir():
-        if _redirected(prior) or not prior.is_dir():
-            raise _ingestion_errors.BundleIngestError("attempt_unreconciled")
+        if is_redirected_path(prior) or not prior.is_dir():
+            raise BundleIngestError("attempt_unreconciled")
         outcome = prior / "result.json"
-        if _redirected(outcome) or not outcome.is_file():
-            raise _ingestion_errors.BundleIngestError("attempt_unreconciled")
+        if is_redirected_path(outcome) or not outcome.is_file():
+            raise BundleIngestError("attempt_unreconciled")
         try:
             with outcome.open("rb") as stream:
-                raw = stream.read(_ingestion_settings.MAX_RECORD_BYTES + 1)
-            if len(raw) > _ingestion_settings.MAX_RECORD_BYTES:
-                raise _ingestion_errors.BundleIngestError("attempt_unreconciled")
+                raw = stream.read(MAX_RECORD_BYTES + 1)
+            if len(raw) > MAX_RECORD_BYTES:
+                raise BundleIngestError("attempt_unreconciled")
             result = json.loads(raw)
         except (OSError, ValueError) as error:
-            raise _ingestion_errors.BundleIngestError("attempt_unreconciled") from error
+            raise BundleIngestError("attempt_unreconciled") from error
         if (
             isinstance(result, dict)
             and result.get("status") == "frozen"
@@ -230,7 +236,7 @@ def _require_reconciled_prior_attempts(
             or result.get("status") != "refused"
             or (prior / "input.bundle").exists()
         ):
-            raise _ingestion_errors.BundleIngestError("attempt_unreconciled")
+            raise BundleIngestError("attempt_unreconciled")
 
 
 def freeze_run_bundle(
@@ -247,16 +253,16 @@ def freeze_run_bundle(
     The host may later verify the immutable private file in a bounded stage.
     A crash leaves an attempt or lock that must be reconciled, never replayed.
     """
-    runner_state, private_root = _bound_roots(Path(runner_state), Path(private_root))
-    run_dir, binding = _record(runner_state, run_id)
-    if not isinstance(attempt_id, str) or not _ingestion_settings._IDENTITY.fullmatch(
-        attempt_id
-    ):
-        raise _ingestion_errors.BundleIngestError("attempt_identity_invalid")
+    runner_state, private_root = validate_ingestion_roots(
+        Path(runner_state), Path(private_root)
+    )
+    run_dir, binding = read_run_binding(runner_state, run_id)
+    if not isinstance(attempt_id, str) or not RUN_IDENTITY.fullmatch(attempt_id):
+        raise BundleIngestError("attempt_identity_invalid")
     run_home = private_root / run_id
     run_home.mkdir(mode=0o700, exist_ok=True)
-    if _redirected(run_home):
-        raise _ingestion_errors.BundleIngestError("stage_boundary_invalid")
+    if is_redirected_path(run_home):
+        raise BundleIngestError("stage_boundary_invalid")
     lock = private_root / (run_id + ".lock")
     try:
         with lock.open("x", encoding="ascii") as output:
@@ -264,22 +270,18 @@ def freeze_run_bundle(
             output.flush()
             os.fsync(output.fileno())
     except FileExistsError as error:
-        raise _ingestion_errors.BundleIngestError(
-            "run_transfer_busy_or_unreconciled"
-        ) from error
+        raise BundleIngestError("run_transfer_busy_or_unreconciled") from error
     try:
         attempt = run_home / attempt_id
         if attempt.exists() or attempt.is_symlink():
-            raise _ingestion_errors.BundleIngestError("attempt_already_reserved")
+            raise BundleIngestError("attempt_already_reserved")
         # Only a trusted host callback may recognize a fully verified and
         # confirmed prior delivery; no agent request can set this callback.
         _require_reconciled_prior_attempts(run_home, prior_attempt_authorizer)
         try:
             attempt.mkdir(mode=0o700)
         except FileExistsError as error:
-            raise _ingestion_errors.BundleIngestError(
-                "attempt_already_reserved"
-            ) from error
+            raise BundleIngestError("attempt_already_reserved") from error
         result = {
             **binding,
             "attempt_id": attempt_id,
@@ -287,11 +289,9 @@ def freeze_run_bundle(
             "bundle_sha256": None,
             "bundle_bytes": None,
         }
-        _durable_json(attempt / "result.json", result)
+        write_durable_json(attempt / "result.json", result)
         try:
-            payload = _bundle_bytes(
-                run_dir / "workspace" / _ingestion_settings.HANDOFF_NAME
-            )
+            payload = read_bundle_bytes(run_dir / "workspace" / HANDOFF_NAME)
             frozen = attempt / "input.bundle"
             with frozen.open("xb") as output:
                 output.write(payload)
@@ -302,9 +302,9 @@ def freeze_run_bundle(
                 bundle_sha256=hashlib.sha256(payload).hexdigest(),
                 bundle_bytes=len(payload),
             )
-        except _ingestion_errors.BundleIngestError as error:
+        except BundleIngestError as error:
             result.update(status="refused", reason=str(error))
-        _durable_json(attempt / "result.json", result)
+        write_durable_json(attempt / "result.json", result)
         return result
     finally:
         lock.unlink()

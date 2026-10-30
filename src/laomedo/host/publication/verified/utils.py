@@ -17,13 +17,13 @@ from laomedo.host.publication.verified.settings import _COMMIT
 from laomedo.host.publication.verified.errors import VerifiedGitStageError
 from laomedo.host.publication.verified.errors import VerifiedStageError
 from laomedo.host.publication.verified.models import VerifiedStage
-from laomedo.skills.ingestion.settings import MAX_RECORD_BYTES
-from laomedo.skills.ingestion.settings import _IDENTITY
-from laomedo.skills.ingestion.errors import BundleIngestError
-from laomedo.skills.ingestion.utils import _bound_roots
-from laomedo.skills.ingestion.utils import _record
-from laomedo.skills.ingestion.utils import _redirected
-from laomedo.skills.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.ingestion.settings import MAX_RECORD_BYTES
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
+from laomedo.host.publication.ingestion.errors import BundleIngestError
+from laomedo.host.publication.ingestion.utils import validate_ingestion_roots
+from laomedo.host.publication.ingestion.utils import read_run_binding
+from laomedo.host.publication.ingestion.utils import is_redirected_path
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
 import os
 import stat
 import subprocess
@@ -34,7 +34,9 @@ def make_grant_stage_resolver(
     runner_state: Path, private_root: Path, agent_mount: Path
 ):
     """Create a host-only resolver; the request never selects filesystem roots."""
-    runner_state, private_root = _bound_roots(Path(runner_state), Path(private_root))
+    runner_state, private_root = validate_ingestion_roots(
+        Path(runner_state), Path(private_root)
+    )
     mounted = Path(agent_mount).resolve()
     if (
         private_root == mounted
@@ -70,7 +72,9 @@ def make_grant_bundle_freezer(
     This copies bytes only; Docker verification and provider effects remain
     separate. No request field selects a host path or a run identity.
     """
-    runner_state, private_root = _bound_roots(Path(runner_state), Path(private_root))
+    runner_state, private_root = validate_ingestion_roots(
+        Path(runner_state), Path(private_root)
+    )
     mounted = Path(agent_mount).resolve()
     if (
         private_root == mounted
@@ -82,7 +86,7 @@ def make_grant_bundle_freezer(
     def freeze(grant, payload: dict) -> dict:
         if set(payload) != {"attempt_id"}:
             raise BundleIngestError("freeze_request_invalid")
-        _, before = _record(runner_state, grant["run_id"])
+        _, before = read_run_binding(runner_state, grant["run_id"])
         if (
             before.get("binding_mode") != "active"
             or before.get("grant_id") != grant["grant_id"]
@@ -118,7 +122,7 @@ def make_grant_bundle_freezer(
                 confirm_prior if confirmed_stage_authorizer is not None else None
             ),
         )
-        _, after = _record(runner_state, grant["run_id"])
+        _, after = read_run_binding(runner_state, grant["run_id"])
         if after != before or any(
             result.get(key) != value for key, value in before.items()
         ):
@@ -182,7 +186,7 @@ def stage_verified_git(
 
 
 def _read_regular(path: Path, limit: int) -> bytes:
-    if _redirected(path) or not path.is_file():
+    if is_redirected_path(path) or not path.is_file():
         raise VerifiedStageError("stage_file_invalid")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
@@ -209,7 +213,7 @@ def _read_regular(path: Path, limit: int) -> bytes:
                 or len(payload) > limit
                 or identity(before) != identity(after)
                 or identity(before) != identity(current)
-                or _redirected(path)
+                or is_redirected_path(path)
             ):
                 raise VerifiedStageError("stage_file_changed")
             return payload
@@ -233,15 +237,15 @@ def resolve_verified_stage(
     This is a credential-free local read. The caller must take ``run_id``,
     ``repository`` and ``branch`` from the validated grant, not from a request.
     """
-    if not isinstance(stage_attempt_id, str) or not _IDENTITY.fullmatch(
+    if not isinstance(stage_attempt_id, str) or not RUN_IDENTITY.fullmatch(
         stage_attempt_id
     ):
         raise VerifiedStageError("stage_identity_invalid")
     try:
-        runner_state, private_root = _bound_roots(
+        runner_state, private_root = validate_ingestion_roots(
             Path(runner_state), Path(private_root)
         )
-        _, binding = _record(runner_state, run_id)
+        _, binding = read_run_binding(runner_state, run_id)
         attempt, frozen = _read_frozen(
             runner_state, private_root, run_id, stage_attempt_id
         )

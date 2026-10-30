@@ -9,9 +9,9 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.skills.ingestion.settings import HANDOFF_NAME
-from laomedo.skills.ingestion.utils import freeze_run_bundle
-from laomedo.skills.ingestion.utils import _record
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.ingestion.utils import read_run_binding
 from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
 from laomedo.host.publication.verified.errors import VerifiedStageError
 from laomedo.host.publication.verified.utils import resolve_verified_stage
@@ -188,7 +188,7 @@ class VerifiedStageTests(unittest.TestCase):
         # Synthetic existing stage: change its binding to the live fixture.
         manifest = self.attempt / "result.json"
         frozen = json.loads(manifest.read_bytes())
-        frozen.update(_record(self.runner, "run-a")[1])
+        frozen.update(read_run_binding(self.runner, "run-a")[1])
         frozen.pop("run_record_sha256", None)
         manifest.write_text(json.dumps(frozen), encoding="utf-8")
         store.stage_freezer = make_grant_bundle_freezer(
@@ -663,9 +663,9 @@ class VerifiedStageTests(unittest.TestCase):
                 },
             )
             self.record.write_text(json.dumps(record), encoding="utf-8")
-            from laomedo.skills.ingestion.utils import _record
+            from laomedo.host.publication.ingestion.utils import read_run_binding
 
-            binding = _record(self.runner, "run-a")[1]
+            binding = read_run_binding(self.runner, "run-a")[1]
             frozen = json.loads((self.attempt / "result.json").read_text())
             frozen.pop("run_record_sha256")
             frozen.update(binding)

@@ -9,15 +9,20 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import laomedo._paths as _package_paths
-import laomedo.host.publication.bundle.settings as _bundle_settings
-import laomedo.host.publication.bundle.errors as _bundle_errors
-import laomedo.host.publication.bundle.ownership as _bundle_ownership
-import laomedo.host.publication.bundle.stage as _bundle_stage
-import laomedo.host.publication.status as _publication_status
-import laomedo.skills.ingestion.settings as _ingestion_settings
-import laomedo.skills.ingestion.errors as _ingestion_errors
-import laomedo.skills.ingestion.utils as _ingestion_utils
+from laomedo._paths import package_root
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle.errors import BundleStageError
+from laomedo.host.publication.bundle.ownership import reconcile_orphan
+from laomedo.host.publication.bundle.stage import _read_frozen
+from laomedo.host.publication.bundle.stage import _run
+from laomedo.host.publication.bundle.stage import verify_frozen_bundle
+from laomedo.host.publication.status import _publish_status
+from laomedo.host.publication.ingestion.settings import RUN_IDENTITY
+from laomedo.host.publication.ingestion.errors import BundleIngestError
+from laomedo.host.publication.ingestion.utils import validate_ingestion_roots
+from laomedo.host.publication.ingestion.utils import write_durable_json
+from laomedo.host.publication.ingestion.utils import read_run_binding
+from laomedo.host.publication.ingestion.utils import is_redirected_path
 import os
 import secrets
 import threading
@@ -33,15 +38,15 @@ class BundleVerifier:
         agent_mount: Path,
         baseline_bundle: Path,
         baseline_sha256: str,
-        verify=_bundle_stage.verify_frozen_bundle,
+        verify=verify_frozen_bundle,
     ):
-        self.runner_state, self.private_root = _ingestion_utils._bound_roots(
+        self.runner_state, self.private_root = validate_ingestion_roots(
             runner_state, private_root
         )
         mounted = Path(agent_mount).resolve()
         self.baseline = Path(baseline_bundle)
         if (
-            _ingestion_utils._redirected(self.baseline)
+            is_redirected_path(self.baseline)
             or not self.baseline.is_file()
             or self.baseline.resolve().is_relative_to(mounted)
             or self.private_root.is_relative_to(mounted)
@@ -60,12 +65,12 @@ class BundleVerifier:
     def check_attempt(self, run_id: str, attempt_id: str) -> dict:
         # Trusted host roots, frozen bytes and the live record provide identity.
         # Neither the mediator capability nor provider identity enters here.
-        attempt, frozen = _bundle_stage._read_frozen(
+        attempt, frozen = _read_frozen(
             self.runner_state, self.private_root, run_id, attempt_id
         )
-        _, before = _ingestion_utils._record(self.runner_state, run_id)
+        _, before = read_run_binding(self.runner_state, run_id)
         if before.get("binding_mode") != "active":
-            raise _bundle_errors.BundleStageError("verifier_run_not_active")
+            raise BundleStageError("verifier_run_not_active")
         # Persistent exclusive claim fences accidentally duplicated workers.
         # It is never removed: a crash cannot cause another Docker dispatch.
         with (attempt / "verifier-claim.json").open("xb") as claim:
@@ -88,7 +93,7 @@ class BundleVerifier:
                 baseline_bundle=self.baseline,
                 expected_baseline_sha256=self.baseline_sha256,
                 commit=frozen["advertised_commit"],
-                image_id=_bundle_settings.PINNED_IMAGE_ID,
+                image_id=PINNED_IMAGE_ID,
             )
         except Exception as failure:
             journal = attempt / "verification.json"
@@ -102,19 +107,17 @@ class BundleVerifier:
                     "run_id": run_id,
                     "attempt_id": attempt_id,
                     "status": (
-                        "failed"
-                        if isinstance(failure, _bundle_errors.BundleStageError)
-                        else "unknown"
+                        "failed" if isinstance(failure, BundleStageError) else "unknown"
                     ),
                     "error_class": type(failure).__name__,
                 }
-                _ingestion_utils._durable_json(journal, result)
+                write_durable_json(journal, result)
                 return result
             raise
         try:
-            _, after = _ingestion_utils._record(self.runner_state, run_id)
+            _, after = read_run_binding(self.runner_state, run_id)
             unchanged = before == after
-        except _ingestion_errors.BundleIngestError:
+        except BundleIngestError:
             unchanged = False
         if not unchanged:
             result = {
@@ -122,23 +125,23 @@ class BundleVerifier:
                 "status": "unknown",
                 "error_class": "run_binding_changed",
             }
-            _ingestion_utils._durable_json(attempt / "verification.json", result)
+            write_durable_json(attempt / "verification.json", result)
         return result
 
     def scan_once(self) -> list[dict]:
         results = []
         for run in self.private_root.iterdir():
             if (
-                _ingestion_utils._redirected(run)
+                is_redirected_path(run)
                 or not run.is_dir()
-                or not _ingestion_settings._IDENTITY.fullmatch(run.name)
+                or not RUN_IDENTITY.fullmatch(run.name)
             ):
                 continue
             for attempt in run.iterdir():
                 if (
-                    _ingestion_utils._redirected(attempt)
+                    is_redirected_path(attempt)
                     or not attempt.is_dir()
-                    or not _ingestion_settings._IDENTITY.fullmatch(attempt.name)
+                    or not RUN_IDENTITY.fullmatch(attempt.name)
                 ):
                     continue
                 # Claimed attempts remain one-shot, but orphan lookup/cleanup
@@ -159,9 +162,7 @@ class BundleVerifier:
                     except (OSError, ValueError, TypeError, AttributeError):
                         pass
                     if not completed:
-                        _bundle_ownership.reconcile_orphan(
-                            attempt, docker=_bundle_stage._run
-                        )
+                        reconcile_orphan(attempt, docker=_run)
                 if (
                     (attempt / "verifier-claim.json").exists()
                     or (attempt / "verification.json").exists()
@@ -192,7 +193,7 @@ class BundleVerifier:
         status = {
             "instance": secrets.token_hex(16),
             "pid": os.getpid(),
-            "module_root": str(_package_paths.package_root()),
+            "module_root": str(package_root()),
             "started_monotonic": time.monotonic(),
             "scan_started_monotonic": None,
             "scan_completed_monotonic": None,
@@ -201,11 +202,11 @@ class BundleVerifier:
         try:
             while not stopping.is_set():
                 status.update(phase="scanning", scan_started_monotonic=time.monotonic())
-                _publication_status._publish_status(path, status)
+                _publish_status(path, status)
                 self.scan_once()
                 status.update(phase="idle", scan_completed_monotonic=time.monotonic())
-                _publication_status._publish_status(path, status)
+                _publish_status(path, status)
                 stopping.wait(0.2)
         finally:
             status.update(phase="stopped")
-            _publication_status._publish_status(path, status)
+            _publish_status(path, status)

@@ -1,0 +1,43 @@
+{
+  "ingestion_codes": [
+    "attempt_already_reserved",
+    "attempt_identity_invalid",
+    "attempt_unreconciled",
+    "bundle_changed_or_oversized",
+    "bundle_not_regular",
+    "bundle_size_or_type",
+    "bundle_unreadable",
+    "run_binding_invalid",
+    "run_identity_invalid",
+    "run_transfer_busy_or_unreconciled",
+    "stage_boundary_invalid"
+  ],
+  "mediation_refusal_codes": [
+    "bundle_not_regular",
+    "bundle_size_or_type",
+    "bundle_changed_or_oversized",
+    "bundle_unreadable"
+  ],
+  "unknown_exception_codes": [
+    "attempt_already_reserved",
+    "attempt_identity_invalid",
+    "attempt_unreconciled",
+    "run_binding_invalid",
+    "run_identity_invalid",
+    "run_transfer_busy_or_unreconciled",
+    "stage_boundary_invalid"
+  ],
+  "additional_freezer_exception_codes": [
+    "freeze_request_invalid",
+    "run_grant_mismatch",
+    "run_changed_during_freeze"
+  ],
+  "boundaries": {
+    "host_publication_ingestion": "All codes are existing RuntimeError diagnostics. Four read_bundle_bytes refusals are saved as result.reason by freeze_run_bundle. Others raise and preserve one-shot/unknown behavior.",
+    "host_mediation_store": "invoke(bundle_freeze) catches all freezer exceptions as state=unknown,resent=false. Frozen status returns confirmed; refused status returns rejected,error=reason. Only the four saved refusal codes are exported unchanged. There is no new node or graph route.",
+    "bundle_stage": "BundleIngestError from frozen input read becomes frozen_bundle_invalid; baseline read becomes baseline_bundle_invalid.",
+    "verified_stage": "Admission exceptions are collapsed to stage_binding_invalid; no raw ingestion code is exposed here.",
+    "verifier": "Live binding read failure after verification becomes status=unknown,error_class=run_binding_changed. scan_once omits failed attempts. No automatic redispatch."
+  },
+  "catalogue_gap": "The four exported refusal codes lacked shared descriptions before C2. Added entries document byte refusal, not Git verification or push outcome. The remaining internal diagnostics are explicitly classified; no unrelated catalogue policy is changed."
+}

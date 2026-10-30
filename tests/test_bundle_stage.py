@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.ingestion.settings import HANDOFF_NAME
-from laomedo.skills.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
 from laomedo.host.publication.bundle.errors import BundleStageError
 from laomedo.host.publication.bundle.settings import MEMORY_BYTES
 from laomedo.host.publication.bundle.settings import SCRIPT

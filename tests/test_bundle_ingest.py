@@ -9,11 +9,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.ingestion.errors import BundleIngestError
-from laomedo.skills.ingestion.settings import HANDOFF_NAME
-from laomedo.skills.ingestion.settings import MAX_BUNDLE_BYTES
-from laomedo.skills.ingestion.utils import _record
-from laomedo.skills.ingestion.utils import freeze_run_bundle
+from laomedo.host.publication.ingestion.errors import BundleIngestError
+from laomedo.host.publication.ingestion.settings import HANDOFF_NAME
+from laomedo.host.publication.ingestion.settings import MAX_BUNDLE_BYTES
+from laomedo.host.publication.ingestion.utils import read_run_binding
+from laomedo.host.publication.ingestion.utils import freeze_run_bundle
 
 
 class BundleIngestTests(unittest.TestCase):
@@ -94,7 +94,7 @@ class BundleIngestTests(unittest.TestCase):
         self.record.update(thread_id="thread-a", turns=[{"status": "running"}])
         self._save_record()
         self.assertEqual(
-            _record(self.runner, "run-a")[1],
+            read_run_binding(self.runner, "run-a")[1],
             {
                 key: frozen[key]
                 for key in (
@@ -111,12 +111,14 @@ class BundleIngestTests(unittest.TestCase):
         self.record["container_ownership"]["grant_id"] = "grant-b"
         self._save_record()
         self.assertNotEqual(
-            _record(self.runner, "run-a")[1]["run_binding_sha256"],
+            read_run_binding(self.runner, "run-a")[1]["run_binding_sha256"],
             frozen["run_binding_sha256"],
         )
         self.record["status"] = "completed"
         self._save_record()
-        self.assertNotIn("run_binding_sha256", _record(self.runner, "run-a")[1])
+        self.assertNotIn(
+            "run_binding_sha256", read_run_binding(self.runner, "run-a")[1]
+        )
 
     def test_running_run_without_supervised_grant_refuses_before_attempt(self):
         self.record["status"] = "running"
@@ -149,7 +151,7 @@ class BundleIngestTests(unittest.TestCase):
 
     def test_unknown_prior_attempt_blocks_fresh_identity(self):
         with patch(
-            "laomedo.skills.ingestion.utils._bundle_bytes",
+            "laomedo.host.publication.ingestion.utils.read_bundle_bytes",
             side_effect=RuntimeError("unreported disk failure"),
         ):
             with self.assertRaises(RuntimeError):

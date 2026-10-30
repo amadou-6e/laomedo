@@ -1,0 +1,16 @@
+{
+  "baseline": "4551ce52524f6ec997f4df04a984f0c850170e55",
+  "policy": "Preserve exact legacy probe source. Direct execution requires an explicitly selected migrated copy; internal controls may use the import-only published transform in memory. No Skills compatibility facade or current historical seal-validity claim.",
+  "files": [
+    {
+      "path": "experiments/exp100/probe_stage_s7.py",
+      "sha256": "1046a41c3d5167fbf78beca93481b29a7b473e9c06bf0740c6ffa073cffab38d",
+      "classification": "retained protocol fixture with historical context; current-file seal validity not established"
+    },
+    {
+      "path": "experiments/exp104/probe_verifier_crash.py",
+      "sha256": "aba92fdf21a212a1721d6172ff820fb0ea28703cf3850d8d048fd283717a981f",
+      "classification": "retained protocol fixture with historical context; current-file seal validity not established"
+    }
+  ]
+}

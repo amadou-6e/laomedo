@@ -99,7 +99,9 @@ class ModuleMigrationTests(unittest.TestCase):
                                 if isinstance(item, ast.Name)
                             )
             self.assertLessEqual(
-                set(symbols), definitions, old
+                {target.rsplit(".", 1)[1] for target in symbols.values()},
+                definitions,
+                old,
             )  # New constants were never part of the retired generation.
             for name, target in symbols.items():
                 for source in (
