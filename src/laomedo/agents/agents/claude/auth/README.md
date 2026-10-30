@@ -42,6 +42,16 @@ The proposed removal of the duplicate Resume admission copy changes error
 precedence and is under named review. Catalog preparation and cache freshness are
 also a separate named proposal; they are not implemented by this checkpoint.
 
+### Payload model checkpoint
+
+`ClaudeAccessLoginRecord` is now implemented and has internal compatibility
+controls against 96 frozen old-writer outputs. The existing mirror coordinator
+still uses its original code; no new Docker copy, authentication or native turn
+has run. The record keeps each named optional field as already parsed JSON with
+`SkipValidation[JsonValue]`, preserving the old writer's opaque native values and
+recursion behavior. This exception is an explicit external-format boundary,
+not an untyped application payload. Every field is excluded from ordinary dumps.
+
 ## Current object interface inventory
 
 This inventory names existing methods; the vocabulary above explains their
