@@ -360,3 +360,25 @@ index 4069ff6..0edaa72 100644
                isCustomComponent={isCustomComponent}
                onCode={handleCodeModal}
                onToggleInspectionPanel={handleToggleInspectionPanel}
+diff --git a/src/frontend/src/pages/FlowPage/components/PageComponent/index.tsx b/src/frontend/src/pages/FlowPage/components/PageComponent/index.tsx
+--- a/src/frontend/src/pages/FlowPage/components/PageComponent/index.tsx
++++ b/src/frontend/src/pages/FlowPage/components/PageComponent/index.tsx
+@@ -417,12 +417,16 @@ export default function Page({
+     };
+   }, [lastCopiedSelection, lastSelection, takeSnapshot, selectionMenuVisible]);
+ 
+-  const { isFetching } = useGetBuildsQuery({ flowId: currentFlowId });
++  const {
++    isLoading: isBuildsLoading,
++    isFetching: isBuildsFetching,
++    isPlaceholderData: isBuildsPlaceholder,
++  } = useGetBuildsQuery({ flowId: currentFlowId });
+ 
+   const showCanvas =
+     Object.keys(templates).length > 0 &&
+     Object.keys(types).length > 0 &&
+-    !isFetching;
++    !(isBuildsLoading || (isBuildsFetching && isBuildsPlaceholder));
+ 
+   useEffect(() => {
+     setIsLoading(!showCanvas);

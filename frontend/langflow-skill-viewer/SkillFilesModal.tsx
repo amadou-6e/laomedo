@@ -1,6 +1,6 @@
 import { dismissSkillActions } from "./SkillActions";
 import SkillNavigation from "./SkillNavigation";
-import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from "react";
 import * as monaco from "monaco-editor/editor";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 import "monaco-editor/languages/definitions/markdown/register";
@@ -18,6 +18,8 @@ import BaseModal from "@/modals/baseModal";
 import CommitTree, { RevisionDiff, type Commit, type SkillFile, type Snapshot } from "./SkillHistory";
 import SkillSplitPane from "./SkillSplitPane";
 import SkillOverview from "./SkillOverview";
+import SkillInspectionError, { describeInspectionFailure } from "./SkillInspectionError";
+import { describeNodeFailure, type NodeFailure } from "@/components/laomedoErrors/nodeErrors";
 
 // Bundle the editor and worker locally. No Monaco CDN or remote file loader.
 (self as typeof self & { MonacoEnvironment?: object }).MonacoEnvironment = {
@@ -59,6 +61,12 @@ function Folder({ item, select, active }: { item: Branch; select: (path: string)
   </li>;
 }
 
+function isolateSourceKeyboard(event: KeyboardEvent<HTMLDivElement>) {
+  // Native EditContext focuses a DIV, so canvas hotkeys' form-tag filter does
+  // not protect it. Keep Monaco's target/default handling and Escape intact.
+  if (event.key !== "Escape") event.stopPropagation();
+}
+
 function Source({ file, closeFind }: { file: SkillFile; closeFind: MutableRefObject<(() => boolean) | null> }) {
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -78,21 +86,19 @@ function Source({ file, closeFind }: { file: SkillFile; closeFind: MutableRefObj
     };
     return () => { closeFind.current = null; editor.current = null; instance.dispose(); model.dispose(); };
   }, [file, dark]);
-  return <div className="flex min-h-0 flex-1 flex-col">
+  return <div className="flex min-h-0 flex-1 flex-col" onKeyDown={isolateSourceKeyboard} onKeyUp={isolateSourceKeyboard}>
     <button type="button" className="self-end rounded px-3 py-1 text-sm hover:bg-muted"
       onClick={() => { editor.current?.focus(); void editor.current?.getAction("actions.find")?.run(); }}>Find in file</button>
     <div ref={container} className="min-h-0 flex-1" data-testid="skill-file-source" aria-label={`Read-only source: ${file.path}`} />
   </div>;
 }
 
-const ERROR_CODES = new Set(["invalid_skill_id", "immutable_skill_revision_required", "skill_revision_unavailable", "skill_revision_unsafe", "skill_revision_too_large"]);
-
 export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   skillId: string; revision: string; open: boolean; setOpen: (value: boolean) => void;
 }) {
   const closeFind = useRef<(() => boolean) | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<NodeFailure | null>(null);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
   const [tabs, setTabs] = useState<string[]>([]);
@@ -102,10 +108,10 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    setSnapshot(null); setTabs([]); setActive(""); setError(""); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]);
+    setSnapshot(null); setTabs([]); setActive(""); setError(null); setLoading(true); setPreview(false); setSelectedCommit(null); setHistoricalFiles([]);
     if (!open) { setLoading(false); return () => controller.abort(); }
     if (!skillId || !revision) {
-      setError("Select a skill and revision first."); setLoading(false);
+      setError(describeNodeFailure(!skillId ? "invalid_skill_id" : "immutable_skill_revision_required", undefined)); setLoading(false);
       return () => controller.abort();
     }
     const url = `${getBaseUrl()}laomedo/skills/${encodeURIComponent(skillId)}/${encodeURIComponent(revision)}`;
@@ -117,8 +123,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
       setTabs(first ? [first] : []); setActive(first);
     }).catch((failure) => {
       if (controller.signal.aborted) return;
-      const code = failure.response?.data?.detail?.code;
-      setError(ERROR_CODES.has(code) ? code : "skill_inspection_unavailable");
+      setError(describeInspectionFailure(failure));
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [open, skillId, revision, reload]);
@@ -136,8 +141,7 @@ export default function SkillFilesModal({ skillId, revision, open, setOpen }: {
     <BaseModal.Content overflowHidden>
       <div className="mb-2 text-sm" data-testid="skill-selection">{skillId}<br /><code title={revision}>{revision.startsWith("sha256:") ? `sha256:${revision.slice(7, 15)}…` : revision}</code></div>
       {loading && <p role="status">Loading selected skill revision…</p>}
-      {error && <div role="alert"><p>Skill files unavailable: {error}</p>
-        <button type="button" className="mt-2 rounded border px-3 py-1" onClick={() => setReload(reload + 1)}>Retry</button></div>}
+      {error && <SkillInspectionError failure={error} onReload={() => setReload((value) => value + 1)} reloadLabel="Reload files" />}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision &&
         <SkillOverview key={`${skillId}:${revision}`} snapshot={snapshot} />}
       {snapshot && snapshot.skill_id === skillId && snapshot.revision_id === revision && <SkillSplitPane navigation={<SkillNavigation files={<>

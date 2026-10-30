@@ -26,6 +26,21 @@ test("clipboard rejection offers selectable text and never claims success", asyn
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Copy unavailable"));
   expect(screen.queryByText("Copied")).toBeNull(); expect(document.body.textContent).not.toContain("private-payload");
 });
+
+test.each(["github_pat_" + "a".repeat(36), "GITHUB_PAT_" + "A".repeat(36)])("credential-shaped node identifiers are absent from popup DOM and copy: %s", async (nodeId) => {
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  const { container } = render(<ErrorPopup message="skill_operation_invalid" context={{ nodeId }} onDismiss={() => {}} />);
+  expect(container.textContent).not.toContain(nodeId);
+  expect(document.body.textContent).not.toContain(nodeId);
+  expect(screen.getByText(/"code": "skill_operation_invalid"/)).not.toHaveTextContent("node_id");
+  fireEvent.click(screen.getByRole("button", { name: "Copy error" }));
+  await screen.findByText("Copied");
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(writeText.mock.calls[0][0]).not.toContain(nodeId);
+  expect(writeText.mock.calls[0][0]).not.toContain('"node_id"');
+  expect(writeText.mock.calls[0][0]).toContain('"code": "skill_operation_invalid"');
+});
 test("concurrent cards share one stack and removing one preserves the other", () => {
   const view = render(<><ErrorPopup message="prior_run_required" onDismiss={() => {}} /><ErrorPopup message="runner_status_unknown" onDismiss={() => {}} /></>);
   expect(document.querySelectorAll("#laomedo-error-popup-stack")).toHaveLength(1);

@@ -45,9 +45,116 @@ the upstream Langflow license also applies to its patched files.
 The selected LaomedoSkill node exposes Skill files instead of primary Code.
 A read-only Monaco viewer includes nested folder navigation, open-file tabs,
 source search, Markdown preview and binary metadata. The panel snapshots the
-selected ID/revision, clears old data while loading, and handles fixed errors
-with Retry. Opening, browsing or closing never executes the graph or changes a
+selected ID/revision and clears old data while loading. Opening, browsing or closing never executes the graph or changes a
 skill revision. Other component nodes keep the existing Code action.
+
+## Skill source keyboard boundary
+
+The `Source` component owns keyboard isolation for its read-only Monaco host.
+Monaco must handle editing prevention, selection, navigation and Find first;
+non-Escape keydown and keyup events must then stop before canvas shortcuts.
+Escape keeps the existing Find-first, dialog-second dismissal behavior.
+This boundary also covers Monaco's native EditContext DIV, which is not an HTML
+form field and therefore bypasses the canvas hotkeys' form-tag exclusion.
+
+The actual Edge run of candidate `67177b1` exposed this failure: clicking inside
+the editor and typing printable text closed Skill files and opened Assistant.
+The editor and registry bytes remained unchanged, but keyboard isolation failed.
+This is a product failure, not a passing read-only demonstration. A source correction alone does not establish verification. Record the exact
+revision, frontend/browser evidence and focused review separately; the earlier
+`67177b1` assets do not contain the correction.
+
+Observable acceptance: printable keys remain in the open read-only viewer without
+opening Assistant or invoking graph actions; source and registry bytes do not
+change. Keyboard selection/navigation and Find still work. Escape closes Find
+before closing the viewer. Internal native-EditContext/event tests support this
+contract but do not replace the actual Edge recheck or owner validation.
+
+## Canvas lifetime during background reads
+
+`PageComponent` waits for initial builds loading or an active fetch whose data
+is only a previous-flow placeholder: `isLoading || (isFetching &&
+isPlaceholderData)`. The local aliases are `isBuildsLoading`, `isBuildsFetching`
+and `isBuildsPlaceholder`. A same-flow cached refresh preserves the mounted
+ReactFlow tree, selected node and open viewer. A new flow's active history read
+still gates its initial canvas even when `keepPreviousData` supplies a placeholder.
+An initially paused request or completed error keeps the former non-fetching
+gate behavior. Flow changes reset `flowPool`; no old-build-data leak is claimed.
+No global viewer store is introduced.
+
+On reconnect, the existing Reload files/history controls remain in the same
+viewer and repeat only their read. Background build monitoring must not dismiss
+it. `7492045` exposed the old `isFetching` gate unmounting the canvas before a
+response returned; record corrected behavior with exact-source browser evidence
+separately. The focused `tests/browser/canvas_refresh.cjs <loopback-flow-url>
+<skill-node-id>` regression holds a real builds response in transit to check the
+same mounted child during refresh. Its controlled interception is supporting
+coverage, not a replacement for the complete real no-interception recovery path.
+`CanvasQueryState.test.ts` separately checks the actual query observer's first
+fetch, new-key placeholder, same-key refresh, paused and error flags. These
+internal contract controls do not replace a real flow-loading/browser check.
+
+Cancellation retires the client's interest and ignores results for a closed or
+changed selection. It does not guarantee that a server read stops or that the
+browser emits a network-aborted event; an already-issued read can finish.
+
+## Skill inspection failures
+
+The existing file-view dialog renders failures as inline viewer content,
+through the shared `describeNodeFailure` catalogue and reusable `ErrorExplanation`
+body/copy formatter. It will not mount a notification portal, add another modal,
+change notification placement/focus, or offer runner/graph/model/write actions.
+`ErrorExplanation` names the shared descriptive body; `formatErrorCopy` formats
+only that presenter's safe title, explanation, recovery and allowlisted technical
+details. Existing `CopyIcon` supplies the subtle copy affordance. Shared code
+lives under `components/laomedoErrors`; viewer code depends on that boundary.
+
+| User story | Observable acceptance criterion |
+| --- | --- |
+| Open the selected/current revision when inspection fails | Show a plain-language title, explanation and truthful recovery inline; retain the stable code under Technical details; no raw response/payload/trace appears. |
+| Load history or a previous revision when its read fails | Show the same shared explanation in the affected pane; a history failure leaves current files usable and a failed comparison does not show stale files. |
+| Choose a missing, mutable, unsafe or oversized revision | Explain selecting an immutable/available/safe revision or the viewer limit; no blanket Retry or Reload control claims to repair an immutable refusal. |
+| Read fails for an unrecognized external reason | Use a neutral inspection-specific safe fallback with cause unconfirmed; expose only allowlisted diagnostics. Read-only Reload files/history may repeat the same GET, without operation/model rerun. |
+| Change selection or close while a request is pending | Cancel client observation of the old request; late success/failure cannot overwrite the current selection or reopen dismissed content. |
+| Copy a failure | Existing subtle icon copies the shared safe explanation and technical details, never arbitrary backend bodies or traces; manual text selection remains available if clipboard access fails. |
+
+`Reload files` and `Reload history` refer only to repeating the read of the same
+selection. Known immutable/unsafe/oversized/invalid refusals have no reload
+button. Selecting another revision remains an existing node/dialog navigation
+action. No automatic request replay, editing, graph execution or model call is
+introduced. Summary-source and invalid-operation codes have catalogue
+entries based on their actual pre-publication/proposal effects. `describeInspectionFailure`
+reads only the public response code and delegates to the shared presenter. Unknown
+codes retain safe diagnostics but use the neutral read-only viewer explanation.
+The shared code filter rejects unknown credential-prefixed values (`sk_`,
+`gh[pousr]_`, `github_pat_`, case-insensitively) before rendering or copying them.
+Exact catalogue codes and admitted native timeout codes retain priority; ordinary
+safe unknown machine codes remain inspectable. Internal prefix-only sentinels
+exercise shared text/structured errors and the viewer's DOM/copy boundary.
+Comparison read failures use the comparison-specific fallback, including when
+the response has no code or an unknown safe code. Its recovery refers to the
+existing Current source/history controls; Reload files repeats only that
+historical revision read. Copied explanations retain this comparison context.
+The decoder accepts only the declared public `response.data.code` and existing
+`response.data.detail.code` slots. Installed Langflow's 404 handler unwraps the
+detail object into the first shape; standalone FastAPI retains the second.
+The real `67177b1` missing-revision check exposed that the first shape previously
+lost its known refusal and offered a futile reload. Both shapes must preserve
+known refusal codes and the shared unknown-code/redaction policy without echoing
+response text or changing the HTTP payload. Record browser verification against
+the exact installed revision and frontend assets separately from this contract.
+Node identifiers use the same credential-prefix exclusion as unknown codes,
+before they can appear in Technical details or copied explanations. This does
+not change the deliberate safe unknown-code policy described above.
+Edit-attribution and missing-agent-provenance codes also have descriptive entries;
+no admission or operation behavior changes. Existing operation HTTP wrappers
+still collapse refused proposals to `skill_operation_refused`; catalogue coverage
+does not claim that those wrappers expose the original inner code.
+
+Frontend/catalogue tests are internal controls only. Full real-browser normal,
+failure, stale-selection, copy, focus and read-only paths on the final installed
+app require revision-bound browser evidence and user validation recorded
+separately; internal fixtures do not establish acceptance.
 
 The optional `laomedo.integrations.langflow.viewer:create_app` backend factory registers
 GET `/api/v1/laomedo/skills/{id}/{sha256-revision}` before the SPA catch-all,
