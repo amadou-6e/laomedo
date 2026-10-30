@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from laomedo.skills.registry.paths import validate_relative_path
+
 from pathlib import Path
 from pathlib import PurePosixPath
 from urllib.parse import urlsplit
@@ -9,7 +11,6 @@ import json
 import laomedo.skills.inspection.settings as _inspection_settings
 import laomedo.skills.registry.settings as _registry_settings
 import laomedo.skills.registry.errors as _registry_errors
-import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.sources.settings as _sources_settings
 import laomedo.skills.sources.errors as _sources_errors
 import os
@@ -74,7 +75,7 @@ def _bundle(files):
 
 def _bundle_path(path):
     try:
-        _registry_utils._safe_relative(path)
+        validate_relative_path(path)
     except _registry_errors.SkillStoreError:
         raise _sources_errors.SourceError("source_bundle_unsafe") from None
     if any(

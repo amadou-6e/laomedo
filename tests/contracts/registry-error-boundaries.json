@@ -1,0 +1,38 @@
+{
+  "baseline": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+  "runner_error_categories": [
+    "invalid_skill_id",
+    "unsafe_relative_path",
+    "invalid_tree_root",
+    "linked_path",
+    "special_file",
+    "hardlinked_file",
+    "missing_skill_file",
+    "empty_directory",
+    "invalid_record"
+  ],
+  "policy_refusals_collapsed_by_skill_http": [
+    "invalid_allowed_paths",
+    "invalid_policy",
+    "invalid_policy_boolean",
+    "invalid_policy_limit",
+    "invalid_policy_list",
+    "invalid_policy_revision",
+    "invalid_suffixes",
+    "policy_grants_disallowed_assets",
+    "policy_grants_disallowed_dependencies",
+    "policy_grants_disallowed_scripts"
+  ],
+  "draft_validation_record_codes": [
+    "deletion_forbidden",
+    "file_too_large",
+    "forbidden_path",
+    "frontmatter_field_missing",
+    "frontmatter_missing",
+    "new_file_forbidden",
+    "non_utf8_changed_file",
+    "skill_not_utf8",
+    "too_many_files"
+  ],
+  "notes": "Registry materialization uses paths/files from BaseAgent; runner POST preserves SkillStoreError as error_category. Skill operations HTTP collapses policy refusal exceptions to skill_operation_refused; draft validation codes are review-record data, not direct node failure categories. Existing store-only/other producers are outside this moved-helper inventory. No source payload, traceback or credential is added to errors."
+}

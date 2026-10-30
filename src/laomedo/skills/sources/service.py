@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.paths import validate_relative_path
+
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
@@ -14,7 +18,6 @@ import laomedo.skills.inspection.settings as _inspection_settings
 import laomedo.skills.inspection.utils as _inspection_utils
 import laomedo.skills.registry.errors as _registry_errors
 import laomedo.skills.registry.store as _registry_store
-import laomedo.skills.registry.utils as _registry_utils
 import laomedo.skills.sources.settings as _sources_settings
 import laomedo.skills.sources.errors as _sources_errors
 import laomedo.skills.sources.utils as _sources_utils
@@ -101,7 +104,7 @@ class SkillSources:
             raise _sources_errors.SourceError("local_source_not_allowed")
         # Resolve only after checking every component, including the configured root.
         for component in [path, *path.parents]:
-            if _registry_utils._is_link(component):
+            if is_link(component):
                 raise _sources_errors.SourceError("local_source_unsafe")
         if (require_exists and not path.is_dir()) or not path.resolve().is_relative_to(
             permitted.resolve()
@@ -268,7 +271,7 @@ class SkillSources:
             mode, kind, oid = header.decode().split()
             path = path.decode("utf-8")
             try:
-                _registry_utils._safe_relative(path)
+                validate_relative_path(path)
             except _registry_errors.SkillStoreError:
                 raise _sources_errors.SourceError("source_bundle_unsafe") from None
             if any(ord(c) < 32 for c in path):
@@ -307,7 +310,7 @@ class SkillSources:
                 or len(Path(parent).relative_to(root).parts) > 16
             ):
                 raise _sources_errors.SourceError("source_limit_exceeded")
-            if any(_registry_utils._is_link(Path(parent) / d) for d in dirs):
+            if any(is_link(Path(parent) / d) for d in dirs):
                 raise _sources_errors.SourceError("local_source_unsafe")
             if "SKILL.md" in files:
                 relative = Path(parent).relative_to(root).as_posix()
@@ -332,7 +335,7 @@ class SkillSources:
                 skills = [
                     {"choice": p.name, "name": p.name, "path": "skills/" + p.name}
                     for p in sorted((self.store.root / "skills").iterdir())
-                    if p.is_dir() and not _registry_utils._is_link(p)
+                    if p.is_dir() and not is_link(p)
                 ]
             elif kind == "local":
                 skills = self._local_skills(Path(location))
@@ -410,7 +413,7 @@ class SkillSources:
                 raise _sources_errors.SourceError("discovered_skill_required")
             if skill["path"] != ".":
                 try:
-                    _registry_utils._safe_relative(skill["path"])
+                    validate_relative_path(skill["path"])
                 except _registry_errors.SkillStoreError:
                     raise _sources_errors.SourceError("source_bundle_unsafe") from None
             options = dict(cached.get("revisions", {}).get(choice, {}))
@@ -418,7 +421,7 @@ class SkillSources:
 
             def offer(files, label, origin):
                 _sources_utils._bundle(files)
-                revision = _registry_utils.tree_hash(files)
+                revision = tree_hash(files)
                 reference = {
                     "skill_id": skill["name"],
                     "revision_id": revision,
@@ -454,7 +457,7 @@ class SkillSources:
                     options[description + " | " + reference["revision_id"]] = reference
             elif kind == "local":
                 folder = Path(location) / skill["path"]
-                if any(_registry_utils._is_link(p) for p in [folder, *folder.parents]):
+                if any(is_link(p) for p in [folder, *folder.parents]):
                     raise _sources_errors.SourceError("local_source_unsafe")
                 if not (folder / "SKILL.md").exists():
                     return {
@@ -471,9 +474,7 @@ class SkillSources:
                         raise _sources_errors.SourceError("source_limit_exceeded")
                     dirs[:] = [d for d in dirs if not _sources_utils._excluded((d,))]
                     count += len(dirs)
-                    if count > 128 or any(
-                        _registry_utils._is_link(Path(parent) / d) for d in dirs
-                    ):
+                    if count > 128 or any(is_link(Path(parent) / d) for d in dirs):
                         raise _sources_errors.SourceError("local_source_unsafe")
                     for name in names:
                         if len(files) >= _inspection_settings.MAX_FILES:
@@ -492,7 +493,7 @@ class SkillSources:
                     _sources_utils._name(files["SKILL.md"], folder.name)
                     == skill["name"]
                 ):
-                    revision = _registry_utils.tree_hash(_sources_utils._bundle(files))
+                    revision = tree_hash(_sources_utils._bundle(files))
                     if not any(v["revision_id"] == revision for v in options.values()):
                         timestamp = datetime.now(timezone.utc).strftime(
                             "%Y-%m-%d %H:%M:%S UTC"

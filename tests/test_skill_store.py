@@ -1,3 +1,6 @@
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.policy import validate_policy
 import json
 import os
 from pathlib import Path
@@ -10,9 +13,6 @@ import unittest
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
-from laomedo.skills.registry.utils import validate_policy
 
 BASE = (
     "---\nname: fixture-core\ndescription: Synthetic skill.\n---\n\n"

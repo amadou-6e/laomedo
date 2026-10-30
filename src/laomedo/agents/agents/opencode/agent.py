@@ -1,6 +1,9 @@
 """OpenCode provider adapter. Production Docker/auth deployment is intentionally gated."""
 
 from __future__ import annotations
+
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
 from laomedo.agents.activity.models import ActivityAttemptRecord
 
 from uuid import uuid4
@@ -15,8 +18,6 @@ from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
 from laomedo.skills.workspace.utils import verify
 import re
 import shutil

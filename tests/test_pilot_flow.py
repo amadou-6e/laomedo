@@ -1,10 +1,10 @@
 """Check that the saved Langflow flow binds the reviewed pilot fixture."""
 
+from laomedo.skills.registry.hashing import tree_hash
+
 import json
 from pathlib import Path
 import unittest
-
-from laomedo.skills.registry.utils import tree_hash
 
 
 class PilotFlowTests(unittest.TestCase):

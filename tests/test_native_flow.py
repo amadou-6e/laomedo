@@ -1,10 +1,10 @@
 """Validate the exported native flow's input pins and serialized component identity."""
 
+from laomedo.skills.registry.hashing import tree_hash
+
 import json
 from pathlib import Path
 import unittest
-
-from laomedo.skills.registry.utils import tree_hash
 
 
 class NativeFlowTests(unittest.TestCase):

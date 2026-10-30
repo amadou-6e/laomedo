@@ -6,6 +6,13 @@ when a later edit returns to the same bytes. No operation promotes canonical lat
 
 from __future__ import annotations
 
+from laomedo.skills.registry.diff import patch_for
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import canonical_json
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.policy import validate_draft
+from laomedo.skills.registry.policy import validate_policy
+
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
@@ -32,12 +39,6 @@ from laomedo.skills.registry.models import SkillPolicyReference, SkillReference
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.registry.utils import _canonical_json
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import patch_for
-from laomedo.skills.registry.utils import tree_hash
-from laomedo.skills.registry.utils import validate_draft
-from laomedo.skills.registry.utils import validate_policy
 from laomedo.skills.sources.utils import _bundle
 import secrets
 import sqlite3
@@ -75,7 +76,7 @@ class SkillOperations:
     def _commit(self, db, commit: SkillCommit) -> SkillCommitReceipt:
         """Hash and persist one newly constructed commit inside the caller transaction."""
         record = commit.to_record()
-        identity = "sha256:" + hashlib.sha256(_canonical_json(record)).hexdigest()
+        identity = "sha256:" + hashlib.sha256(canonical_json(record)).hexdigest()
         db.execute(
             "INSERT INTO commits VALUES (?,?,?)",
             (identity, record["skill_id"], json.dumps(record)),
@@ -93,7 +94,7 @@ class SkillOperations:
         if row is None:
             raise SkillStoreError("skill_commit_unavailable")
         record = json.loads(row["record"])
-        if "sha256:" + hashlib.sha256(_canonical_json(record)).hexdigest() != identity:
+        if "sha256:" + hashlib.sha256(canonical_json(record)).hexdigest() != identity:
             raise SkillStoreError("skill_history_integrity_failure")
         return {"commit_id": identity, **record}
 

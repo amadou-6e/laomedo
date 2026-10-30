@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.hashing import tree_hash
+
 from pathlib import Path
 import hashlib
 from laomedo.git.command import GitCommandRunner
@@ -9,9 +13,6 @@ from laomedo.git.errors import GitCommandTimeout
 from laomedo.git.models import GitEnvironmentProfile, GitExecutionContext
 from laomedo.git.repository import GitRepository
 from laomedo.skills.registry.settings import NAME
-from laomedo.skills.registry.utils import _is_link
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
 from laomedo.skills.workspace.errors import WorkspaceSkillError
 import os
 import shutil
@@ -22,14 +23,14 @@ def _exclude(workspace: Path):
     git = workspace / ".git"
     if not git.exists():
         return None
-    if not git.is_dir() or _is_link(git):
+    if not git.is_dir() or is_link(git):
         raise WorkspaceSkillError("external_git_directory_unsupported")
     # Inspect entry metadata only, not Git object contents.
     for parent, dirs, names in os.walk(git, followlinks=False):
         for name in dirs + names:
             item = Path(parent) / name
             if (
-                _is_link(item)
+                is_link(item)
                 or not (item.is_dir() or item.is_file())
                 or (item.is_file() and item.stat().st_nlink > 1)
             ):
@@ -80,7 +81,7 @@ def initialize(workspace: Path) -> None:
         # Git marks newly created loose objects read-only on Windows. These are
         # private baseline files, so allow ordinary disposable-fixture cleanup.
         for item in (workspace / ".git" / "objects").rglob("*"):
-            if item.is_file() and not _is_link(item):
+            if item.is_file() and not is_link(item):
                 item.chmod(item.stat().st_mode | stat.S_IWRITE)
 
 
@@ -89,7 +90,7 @@ def remove_owned_tree(path: Path, state: Path) -> None:
     if (
         root == state.resolve()
         or not root.is_relative_to(state.resolve())
-        or _is_link(path)
+        or is_link(path)
     ):
         raise WorkspaceSkillError("cleanup_path_outside_run_state")
 
@@ -98,7 +99,7 @@ def remove_owned_tree(path: Path, state: Path) -> None:
         if (
             not isinstance(error[1], PermissionError)
             or not target.resolve().is_relative_to(root)
-            or _is_link(target)
+            or is_link(target)
         ):
             raise error[1]
         target.chmod(target.stat().st_mode | stat.S_IWRITE)
@@ -129,7 +130,7 @@ def install(workspace: Path, skills: list[dict]) -> dict:
 
 def verify(workspace: Path, skills: list[dict], exclusion: dict) -> None:
     for parent in (workspace / ".agents", workspace / ".agents" / "skills"):
-        if _is_link(parent) or not parent.is_dir():
+        if is_link(parent) or not parent.is_dir():
             raise WorkspaceSkillError("unsafe_materialized_skill_path")
     if {entry.name for entry in (workspace / ".agents" / "skills").iterdir()} != {
         skill["skill_id"] for skill in skills

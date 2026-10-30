@@ -78,6 +78,7 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             self.assertIn("-m " + cli, MIGRATION["migrate_source"]("python -m " + old))
 
     def test_example_patch_targets_and_viewer_commands_use_current_interfaces(self):
+        """Cover bare literal patch calls and the source-service command in two viewer docs."""
         for path in ROOT.joinpath("examples").rglob("*.py"):
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
                 if not isinstance(node, ast.Call) or not node.args:
@@ -98,7 +99,7 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             "frontend/langflow-skill-viewer/SOURCE-DEPLOYMENT.md",
             "frontend/langflow-skill-viewer/README.md",
         ):
-            text = ROOT.joinpath(relative).read_text()
+            text = ROOT.joinpath(relative).read_text(encoding="utf-8")
             self.assertIn(current, text, relative)
             self.assertNotIn("laomedo.skills.sources.cli", text, relative)
         target = "laomedo.github.interface.pull_requests.client.pr_request"

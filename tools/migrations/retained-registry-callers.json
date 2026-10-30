@@ -1,0 +1,16 @@
+{
+  "baseline": "61d8cb066bd6b49e2bd0d7ff1666b513135414ed",
+  "policy": "Original sources remain unchanged. CI runs explicitly selected temporary import-only migrated copies; no runtime facade, regenerated observation or live acceptance claim.",
+  "files": [
+    {
+      "path": "experiments/exp08/probe.py",
+      "sha256": "1441490a404ec09e882c224ca510249c229ec7e0505970327f782dc3b7726eca",
+      "classification": "retained internal historical control; current historical seal validity not asserted"
+    },
+    {
+      "path": "experiments/exp08/test_probe.py",
+      "sha256": "dff0a4fab8a16e8ec1ae4b14601a66eab767d2b7146ff6c89e428fc7b957a510",
+      "classification": "retained internal historical control; current historical seal validity not asserted"
+    }
+  ]
+}

@@ -5,6 +5,18 @@ for an untrusted editing process; the runner must enforce that boundary."""
 
 from __future__ import annotations
 
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.files import read_json
+from laomedo.skills.registry.files import write_json
+from laomedo.skills.registry.hashing import file_hashes
+from laomedo.skills.registry.hashing import hash_bytes
+from laomedo.skills.registry.hashing import tree_hash
+from laomedo.skills.registry.paths import validate_name
+from laomedo.skills.registry.paths import validate_relative_path
+from laomedo.skills.registry.policy import validate_draft
+from laomedo.skills.registry.policy import validate_policy
+
 from pathlib import Path
 from pathlib import PurePosixPath
 from uuid import uuid4
@@ -17,17 +29,6 @@ from laomedo.skills.registry.models import (
     SkillPolicyReference,
     SkillRevision,
 )
-from laomedo.skills.registry.utils import _hash
-from laomedo.skills.registry.utils import _is_link
-from laomedo.skills.registry.utils import _read_json
-from laomedo.skills.registry.utils import _safe_name
-from laomedo.skills.registry.utils import _safe_relative
-from laomedo.skills.registry.utils import _write_json
-from laomedo.skills.registry.utils import file_hashes
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
-from laomedo.skills.registry.utils import validate_draft
-from laomedo.skills.registry.utils import validate_policy
 import os
 import shutil
 
@@ -37,9 +38,9 @@ class SkillStore:
         self.root = root.resolve()
         draft_root = draft_root or (self.root.parent / (self.root.name + "-drafts"))
         self.draft_root = draft_root.resolve()
-        if _is_link(root):
+        if is_link(root):
             raise SkillStoreError("linked_store_root")
-        if _is_link(draft_root):
+        if is_link(draft_root):
             raise SkillStoreError("linked_draft_root")
         if (
             self.root == self.draft_root
@@ -57,7 +58,7 @@ class SkillStore:
         self.draft_root.mkdir(parents=True, exist_ok=True)
 
     def _skill(self, skill_id: str) -> Path:
-        return self.root / "skills" / _safe_name(skill_id)
+        return self.root / "skills" / validate_name(skill_id)
 
     def _draft(self, draft_id: str) -> Path:
         try:
@@ -111,7 +112,7 @@ class SkillStore:
                 draft_id=draft_id,
             )
             record = revision.to_record()
-            _write_json(staging / "record.json", record)
+            write_json(staging / "record.json", record)
             staging.rename(target)
             return record
         finally:
@@ -120,7 +121,7 @@ class SkillStore:
 
     def import_skill(self, skill_id: str, source: Path) -> dict:
         """Import an initial immutable revision; never replace an existing latest."""
-        _safe_name(skill_id)
+        validate_name(skill_id)
         resolved_source = source.resolve()
         if (
             self.root == resolved_source
@@ -140,7 +141,7 @@ class SkillStore:
             if (skill / "latest.json").exists():
                 raise ConflictError("skill_already_exists")
             record = self._store_revision(skill_id, source, None)
-            _write_json(
+            write_json(
                 skill / "latest.json",
                 {
                     "revision_id": record["revision_id"],
@@ -153,12 +154,12 @@ class SkillStore:
 
     def revision(self, skill_id: str, revision_id: str | None = None) -> dict:
         if revision_id is None:
-            pointer = _read_json(self._skill(skill_id) / "latest.json")
+            pointer = read_json(self._skill(skill_id) / "latest.json")
             revision_id = pointer["revision_id"]
             if pointer.get("tree_hash") != revision_id:
                 raise SkillStoreError("latest_pointer_integrity_failure")
         folder = self._revision_dir(skill_id, revision_id)
-        record = _read_json(folder / "record.json")
+        record = read_json(folder / "record.json")
         files = inventory(folder / "bundle")
         if (
             record.get("skill_id") != skill_id
@@ -170,7 +171,7 @@ class SkillStore:
         return record
 
     def read_file(self, skill_id: str, revision_id: str, relative: str) -> dict:
-        relative = _safe_relative(relative)
+        relative = validate_relative_path(relative)
         record = self.revision(skill_id, revision_id)
         if relative not in record["file_hashes"]:
             raise SkillStoreError("file_not_in_revision")
@@ -179,7 +180,7 @@ class SkillStore:
             / "bundle"
             / PurePosixPath(relative)
         ).read_bytes()
-        if _hash(data) != record["file_hashes"][relative]:
+        if hash_bytes(data) != record["file_hashes"][relative]:
             raise SkillStoreError("revision_integrity_failure")
         return {
             "content": data,
@@ -201,7 +202,7 @@ class SkillStore:
             )
             if tree_hash(inventory(self._workspace(draft_id))) != base_revision:
                 raise SkillStoreError("draft_copy_mismatch")
-            _write_json(folder / "policy.json", policy)
+            write_json(folder / "policy.json", policy)
             draft = SkillDraft(
                 draft_id=draft_id,
                 skill_id=skill_id,
@@ -209,7 +210,7 @@ class SkillStore:
                 base_tree_hash=base["tree_hash"],
                 policy_ref=SkillPolicyReference(**policy_reference),
             )
-            _write_json(folder / "record.json", draft.to_record())
+            write_json(folder / "record.json", draft.to_record())
             return draft.to_record()
         except Exception:
             shutil.rmtree(folder)
@@ -220,7 +221,7 @@ class SkillStore:
 
     def draft_workspace(self, draft_id: str) -> Path:
         folder = self._draft(draft_id)
-        record = _read_json(folder / "record.json")
+        record = read_json(folder / "record.json")
         if record.get("status") != "open":
             raise SkillStoreError("draft_not_open")
         return self._workspace(draft_id)
@@ -235,10 +236,10 @@ class SkillStore:
         ):
             raise SkillStoreError("invalid_editor_provenance")
         folder = self._draft(draft_id)
-        record = _read_json(folder / "record.json")
+        record = read_json(folder / "record.json")
         if record.get("status") != "open":
             raise SkillStoreError("draft_not_open")
-        policy = _read_json(folder / "policy.json")
+        policy = read_json(folder / "policy.json")
         if validate_policy(policy) != record["policy_ref"]:
             raise SkillStoreError("policy_integrity_failure")
         base_record = self.revision(record["skill_id"], record["base_revision"])
@@ -272,9 +273,9 @@ class SkillStore:
             edit_run_id=edit_run_id,
             trace_ref=trace_ref,
         ).to_record()
-        _write_json(folder / "result.json", result)
+        write_json(folder / "result.json", result)
         record["status"] = "frozen"
-        _write_json(folder / "record.json", record)
+        write_json(folder / "record.json", record)
         return result
 
     def promote_draft(
@@ -287,11 +288,11 @@ class SkillStore:
     ) -> dict:
         """Separate reviewed operation with a compare-and-swap latest update."""
         folder = self._draft(draft_id)
-        record = _read_json(folder / "record.json")
-        result = _read_json(folder / "result.json")
+        record = read_json(folder / "record.json")
+        result = read_json(folder / "result.json")
         if record.get("status") != "frozen" or not result.get("promotion_eligible"):
             raise SkillStoreError("draft_not_eligible")
-        policy = _read_json(folder / "policy.json")
+        policy = read_json(folder / "policy.json")
         if validate_policy(policy) != record.get("policy_ref"):
             raise SkillStoreError("policy_integrity_failure")
         if (
@@ -318,7 +319,7 @@ class SkillStore:
             raise ConflictError("promotion_busy") from None
         try:
             os.close(descriptor)
-            current = _read_json(skill / "latest.json")
+            current = read_json(skill / "latest.json")
             if (
                 current.get("revision_id") == reviewed_draft_hash
                 and current.get("draft_id") == draft_id
@@ -346,7 +347,7 @@ class SkillStore:
             )
             if promoted["tree_hash"] != reviewed_draft_hash:
                 raise SkillStoreError("promoted_hash_mismatch")
-            _write_json(
+            write_json(
                 skill / "latest.json",
                 {
                     "revision_id": promoted["revision_id"],
@@ -386,10 +387,10 @@ class SkillStore:
         }
         log.parent.mkdir(exist_ok=True)
         if log.exists():
-            if _read_json(log) != entry:
+            if read_json(log) != entry:
                 raise SkillStoreError("promotion_log_conflict")
         else:
-            _write_json(log, entry)
+            write_json(log, entry)
         result["promotion_performed"] = True
         result["promoted_revision"] = reviewed_hash
-        _write_json(folder / "result.json", result)
+        write_json(folder / "result.json", result)
