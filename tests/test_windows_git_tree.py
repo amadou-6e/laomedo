@@ -1,5 +1,7 @@
 """Actual owned Windows children; internal containment, not live source acceptance."""
 
+import ctypes
+from ctypes.wintypes import BOOL, DWORD, HANDLE, LONG, WCHAR
 import json
 import os
 from pathlib import Path
@@ -22,6 +24,23 @@ from laomedo.git.models import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class NativeProcessEntry(ctypes.Structure):
+    """PROCESSENTRY32W for an independent, read-only descendant snapshot."""
+
+    _fields_ = [
+        ("dwSize", DWORD),
+        ("cntUsage", DWORD),
+        ("th32ProcessID", DWORD),
+        ("th32DefaultHeapID", ctypes.c_size_t),
+        ("th32ModuleID", DWORD),
+        ("cntThreads", DWORD),
+        ("th32ParentProcessID", DWORD),
+        ("pcPriClassBase", LONG),
+        ("dwFlags", DWORD),
+        ("szExeFile", WCHAR * 260),
+    ]
+
+
 @unittest.skipUnless(os.name == "nt", "Windows Job Object contract")
 class WindowsGitTreeTests(unittest.TestCase):
     def setUp(self):
@@ -42,6 +61,41 @@ class WindowsGitTreeTests(unittest.TestCase):
                 stdout_limit=128, operation_deadline=deadline or time.monotonic() + 5
             ),
         )
+
+    def descendants(self, pid):
+        """Inspect parent links independently of the job-accounting implementation."""
+        native = ctypes.WinDLL("kernel32", use_last_error=True)
+        native.CreateToolhelp32Snapshot.argtypes = [DWORD, DWORD]
+        native.CreateToolhelp32Snapshot.restype = HANDLE
+        native.Process32FirstW.argtypes = [HANDLE, ctypes.POINTER(NativeProcessEntry)]
+        native.Process32FirstW.restype = BOOL
+        native.Process32NextW.argtypes = [HANDLE, ctypes.POINTER(NativeProcessEntry)]
+        native.Process32NextW.restype = BOOL
+        native.CloseHandle.argtypes = [HANDLE]
+        native.CloseHandle.restype = BOOL
+        snapshot = native.CreateToolhelp32Snapshot(2, 0)
+        if snapshot == ctypes.c_void_p(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            entry = NativeProcessEntry()
+            entry.dwSize = ctypes.sizeof(entry)
+            parents = {}
+            available = native.Process32FirstW(snapshot, ctypes.byref(entry))
+            while available:
+                parents[entry.th32ProcessID] = entry.th32ParentProcessID
+                entry.dwSize = ctypes.sizeof(entry)
+                available = native.Process32NextW(snapshot, ctypes.byref(entry))
+            self.assertEqual(ctypes.get_last_error(), 18)
+        finally:
+            native.CloseHandle(snapshot)
+        owned = {pid}
+        while True:
+            expanded = owned | {
+                child for child, parent in parents.items() if parent in owned
+            }
+            if expanded == owned:
+                return owned - {pid}
+            owned = expanded
 
     def test_job_accounts_for_all_descendants_after_active_limit_and_root_success(self):
         import _winapi
@@ -171,14 +225,41 @@ class WindowsGitTreeTests(unittest.TestCase):
     ):
         from laomedo.git.windows.tree import WindowsProcessTree
 
+        base = Path(sys._base_executable).resolve(strict=True)
+        self.assertTrue(base.is_file())
+        probe = subprocess.run(
+            [
+                str(base),
+                "-I",
+                "-S",
+                "-c",
+                "import json,sys; print(json.dumps([sys.executable,sys.prefix,sys.base_prefix]))",
+            ],
+            capture_output=True,
+            check=True,
+            timeout=5,
+        )
+        executable, prefix, base_prefix = json.loads(probe.stdout)
+        self.assertEqual(Path(executable).resolve(strict=True), base)
+        self.assertEqual(
+            prefix, base_prefix, "The control must use a direct base interpreter"
+        )
         outer, inner = WindowsProcessTree(), WindowsProcessTree()
         root = None
         unrelated = subprocess.Popen(
-            [sys.executable, str(ROOT / "tests/git_process_control.py"), "wait", "30"],
+            [
+                str(base),
+                "-I",
+                "-S",
+                str(ROOT / "tests/git_process_control.py"),
+                "wait",
+                "30",
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         try:
+            self.assertEqual(self.descendants(unrelated.pid), set())
             root = subprocess.Popen(
                 [
                     sys.executable,
@@ -200,6 +281,7 @@ class WindowsGitTreeTests(unittest.TestCase):
             self.assertEqual(inner.active_processes(), 0)
             self.assertEqual(outer.active_processes(), 0)
             self.assertIsNone(unrelated.poll())
+            self.assertEqual(self.descendants(unrelated.pid), set())
         finally:
             inner.close()
             outer.close()
@@ -208,3 +290,5 @@ class WindowsGitTreeTests(unittest.TestCase):
                 root.wait(timeout=5)
             unrelated.kill()
             unrelated.wait(timeout=5)
+            self.assertIsNotNone(unrelated.poll())
+            self.assertEqual(self.descendants(unrelated.pid), set())
