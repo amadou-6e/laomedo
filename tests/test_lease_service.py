@@ -551,7 +551,7 @@ class LeaseClientTests(unittest.TestCase):
             original_write(path, value)
 
         with (
-            patch("laomedo.host.leases.utils._write_json", side_effect=checked_write),
+            patch("laomedo.host.leases.client._write_json", side_effect=checked_write),
             patch("laomedo.host.leases.service.os.getpid", return_value=-2),
         ):
             client = LeaseClient(

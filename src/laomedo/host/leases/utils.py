@@ -5,10 +5,10 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import json
-import laomedo.host.leases.settings as _leases_settings
-import laomedo.host.leases.models as _leases_models
-import laomedo.host.mediation.errors as _mediation_errors
-import laomedo.host.mediation.store as _mediation_store
+from laomedo.host.leases.settings import LEASE_SECONDS, POST_LOSS_WATCH_SECONDS
+from laomedo.host.leases.models import ContainerIdentity
+
+
 import os
 import queue
 import secrets
@@ -82,7 +82,7 @@ def _detached_process_options() -> dict:
     return {"start_new_session": True}
 
 
-def inspect_exact(identity: _leases_models.ContainerIdentity) -> tuple[str, str | None]:
+def inspect_exact(identity: ContainerIdentity) -> tuple[str, str | None]:
     """Inspect on the original endpoint; legacy missing endpoint stays unknown."""
     try:
         with identity.client() as client:
@@ -94,15 +94,15 @@ def inspect_exact(identity: _leases_models.ContainerIdentity) -> tuple[str, str 
         return "unknown", None
 
 
-def cleanup_exact(identity: _leases_models.ContainerIdentity) -> tuple[bool, str]:
+def cleanup_exact(identity: ContainerIdentity) -> tuple[bool, str]:
     """Delegate exact removal and confirmation to the endpoint-bound runtime."""
     return cleanup_after_loss(identity, watch_seconds=0)
 
 
 def cleanup_after_loss(
-    identity: _leases_models.ContainerIdentity,
+    identity: ContainerIdentity,
     *,
-    watch_seconds: float = _leases_settings.POST_LOSS_WATCH_SECONDS,
+    watch_seconds: float = POST_LOSS_WATCH_SECONDS,
 ) -> tuple[bool, str]:
     """Revoke in Laomedo first; delegate Docker's delayed-create watch to runtime."""
     try:
@@ -140,19 +140,19 @@ def supervise(
     ):
         return 2
     ready_path.write_text(token, encoding="utf-8")
-    deadline = time.monotonic() + _leases_settings.LEASE_SECONDS
+    deadline = time.monotonic() + LEASE_SECONDS
     while True:
         try:
             event = events.get(timeout=min(0.5, max(0.01, deadline - time.monotonic())))
         except queue.Empty:
             event = "EXPIRED" if time.monotonic() >= deadline else ""
         if event == "HEARTBEAT":
-            deadline = time.monotonic() + _leases_settings.LEASE_SECONDS
+            deadline = time.monotonic() + LEASE_SECONDS
             continue
         if event == "DONE":
             # The parent must have stopped and verified the container first.
             state, _ = inspect_exact(
-                _leases_models.ContainerIdentity(
+                ContainerIdentity(
                     name=name,
                     run_id=run_id,
                     token=token,
@@ -165,7 +165,7 @@ def supervise(
             return 0 if state == "absent" else 3
         if event in {"EOF", "EXPIRED"}:
             verified, state = cleanup_after_loss(
-                _leases_models.ContainerIdentity(
+                ContainerIdentity(
                     name=name,
                     run_id=run_id,
                     token=token,

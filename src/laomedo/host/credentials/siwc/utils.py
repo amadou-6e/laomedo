@@ -14,8 +14,7 @@ from urllib.request import build_opener
 from uuid import uuid4
 import json
 import jwt
-import laomedo.host.credentials.siwc.settings as _siwc_settings
-import laomedo.host.credentials.siwc.errors as _siwc_errors
+from laomedo.host.credentials.siwc.settings import AUTH_ORIGIN
 import os
 import secrets
 import ssl
@@ -37,7 +36,7 @@ def _tls_context():
 
 
 def _https_json(url: str, *, fields: dict | None = None) -> dict:
-    import laomedo.host.credentials.siwc.connection as _siwc_connection
+    from laomedo.host.credentials.siwc.connection import _NoRedirect
 
     parts = urlsplit(url)
     if (
@@ -47,45 +46,43 @@ def _https_json(url: str, *, fields: dict | None = None) -> dict:
         or parts.password
         or parts.fragment
     ):
-        raise _siwc_errors.AuthError("auth_endpoint_untrusted")
+        raise AuthError("auth_endpoint_untrusted")
     body = urlencode(fields).encode() if fields is not None else None
     headers = {"Accept": "application/json"}
     if body is not None:
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     try:
-        with build_opener(
-            HTTPSHandler(context=_tls_context()), _siwc_connection._NoRedirect()
-        ).open(Request(url, data=body, headers=headers), timeout=20) as response:
+        with build_opener(HTTPSHandler(context=_tls_context()), _NoRedirect()).open(
+            Request(url, data=body, headers=headers), timeout=20
+        ) as response:
             result = json.load(response)
-    except _siwc_errors.AuthError:
+    except AuthError:
         raise
     except HTTPError as exc:
         # Status is safe to report; never include the URL, headers, or body.
         status = exc.code if type(exc.code) is int and 400 <= exc.code <= 599 else 0
         exc.close()
-        raise _siwc_errors.AuthError(f"auth_http_{status}") from None
+        raise AuthError(f"auth_http_{status}") from None
     except URLError as exc:
         if isinstance(exc.reason, ssl.SSLCertVerificationError):
-            raise _siwc_errors.AuthError("auth_tls_verify_failed") from None
-        raise _siwc_errors.AuthError("auth_transport_failed") from None
+            raise AuthError("auth_tls_verify_failed") from None
+        raise AuthError("auth_transport_failed") from None
     except ssl.SSLCertVerificationError:
-        raise _siwc_errors.AuthError("auth_tls_verify_failed") from None
+        raise AuthError("auth_tls_verify_failed") from None
     except (TimeoutError, OSError):
-        raise _siwc_errors.AuthError("auth_transport_failed") from None
+        raise AuthError("auth_transport_failed") from None
     except (ValueError, TypeError):
-        raise _siwc_errors.AuthError("auth_response_invalid") from None
+        raise AuthError("auth_response_invalid") from None
     except Exception:
-        raise _siwc_errors.AuthError("auth_exchange_failed") from None
+        raise AuthError("auth_exchange_failed") from None
     if not isinstance(result, dict):
-        raise _siwc_errors.AuthError("auth_response_invalid")
+        raise AuthError("auth_response_invalid")
     return result
 
 
 def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
     try:
-        discovery = _https_json(
-            _siwc_settings.AUTH_ORIGIN + "/.well-known/openid-configuration"
-        )
+        discovery = _https_json(AUTH_ORIGIN + "/.well-known/openid-configuration")
         jwks_uri = discovery.get("jwks_uri")
         parts = urlsplit(jwks_uri)
         if (
@@ -95,7 +92,7 @@ def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
             or parts.password
             or parts.fragment
         ):
-            raise _siwc_errors.AuthError("auth_jwks_untrusted")
+            raise AuthError("auth_jwks_untrusted")
         key = (
             jwt.PyJWKClient(jwks_uri, ssl_context=_tls_context())
             .get_signing_key_from_jwt(token)
@@ -106,26 +103,24 @@ def _verify_id_token(token: str, client_id: str, nonce: str) -> dict:
             key,
             algorithms=["RS256"],
             audience=client_id,
-            issuer=_siwc_settings.AUTH_ORIGIN,
+            issuer=AUTH_ORIGIN,
             options={"require": ["exp", "iss", "aud", "sub"]},
         )
         if not isinstance(claims.get("sub"), str) or not secrets.compare_digest(
             str(claims.get("nonce", "")), nonce
         ):
-            raise _siwc_errors.AuthError("auth_identity_invalid")
+            raise AuthError("auth_identity_invalid")
         return claims
-    except _siwc_errors.AuthError:
+    except AuthError:
         raise
     except Exception:
-        raise _siwc_errors.AuthError("auth_identity_invalid") from None
+        raise AuthError("auth_identity_invalid") from None
 
 
 def _revoke(refresh_token: str, client_id: str) -> bool:
-    import laomedo.host.credentials.siwc.connection as _siwc_connection
+    from laomedo.host.credentials.siwc.connection import _NoRedirect
 
-    discovery = _https_json(
-        _siwc_settings.AUTH_ORIGIN + "/.well-known/openid-configuration"
-    )
+    discovery = _https_json(AUTH_ORIGIN + "/.well-known/openid-configuration")
     endpoint = discovery.get("revocation_endpoint")
     parts = urlsplit(endpoint)
     if (
@@ -135,7 +130,7 @@ def _revoke(refresh_token: str, client_id: str) -> bool:
         or parts.password
         or parts.fragment
     ):
-        raise _siwc_errors.AuthError("auth_revocation_endpoint_untrusted")
+        raise AuthError("auth_revocation_endpoint_untrusted")
     data = urlencode(
         {
             "token": refresh_token,
@@ -143,9 +138,7 @@ def _revoke(refresh_token: str, client_id: str) -> bool:
             "client_id": client_id,
         }
     ).encode()
-    with build_opener(
-        HTTPSHandler(context=_tls_context()), _siwc_connection._NoRedirect()
-    ).open(
+    with build_opener(HTTPSHandler(context=_tls_context()), _NoRedirect()).open(
         Request(
             endpoint,
             data=data,
@@ -173,10 +166,10 @@ def _atomic_private(path: Path, value: dict) -> None:
 def _outside_git(path: Path) -> Path:
     original = path.expanduser().absolute()
     if any(parent.is_symlink() for parent in (original, *original.parents)):
-        raise _siwc_errors.AuthError("auth_store_symlink_rejected")
+        raise AuthError("auth_store_symlink_rejected")
     path = original.resolve()
     if any((parent / ".git").exists() for parent in (path, *path.parents)):
-        raise _siwc_errors.AuthError("auth_store_must_be_outside_git")
+        raise AuthError("auth_store_must_be_outside_git")
     return path
 
 
@@ -203,9 +196,7 @@ def _locked(path: Path):
                     break
                 except OSError:
                     if time.monotonic() >= deadline:
-                        raise _siwc_errors.AuthError(
-                            "auth_refresh_lock_unavailable"
-                        ) from None
+                        raise AuthError("auth_refresh_lock_unavailable") from None
                     time.sleep(0.1)
         else:
             import fcntl

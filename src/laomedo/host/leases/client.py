@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import laomedo.host.leases.settings as _leases_settings
-import laomedo.host.leases.models as _leases_models
-import laomedo.host.leases.utils as _leases_utils
+from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
+from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.utils import _read_float, _read_json, _write_float, _write_json
 import logging
 import os
 import secrets
@@ -32,23 +32,21 @@ class LeaseClient:
     ):
         if not isinstance(docker_endpoint, str) or not docker_endpoint:
             raise RuntimeError("lease_service_unavailable")
-        identity = _leases_models.ContainerIdentity(
+        identity = ContainerIdentity(
             name=name, run_id=run_id, token=token, docker_endpoint=docker_endpoint
         )
         self.state = Path(service_state).resolve()
-        info = _leases_utils._read_json(self.state / "service.json")
-        alive = _leases_utils._read_float(self.state / "service.alive")
-        alive_monotonic = _leases_utils._read_float(
-            self.state / "service.alive.monotonic"
-        )
+        info = _read_json(self.state / "service.json")
+        alive = _read_float(self.state / "service.alive")
+        alive_monotonic = _read_float(self.state / "service.alive.monotonic")
         now_monotonic = time.monotonic()
         if (
             info is None
             or alive is None
             or alive_monotonic is None
             or alive_monotonic > now_monotonic + 1
-            or now_monotonic - alive_monotonic > _leases_settings.SERVICE_STALE_SECONDS
-            or time.time() - alive > _leases_settings.SERVICE_STALE_SECONDS
+            or now_monotonic - alive_monotonic > SERVICE_STALE_SECONDS
+            or time.time() - alive > SERVICE_STALE_SECONDS
             or info.get("pid") == os.getpid()
         ):
             raise RuntimeError("lease_service_unavailable")
@@ -64,9 +62,9 @@ class LeaseClient:
         pending.mkdir(mode=0o700)
         self.lost = threading.Event()
         self.stop_event = threading.Event()
-        _leases_utils._write_float(pending / "heartbeat", time.time())
-        _leases_utils._write_float(pending / "heartbeat.monotonic", time.monotonic())
-        _leases_utils._write_json(
+        _write_float(pending / "heartbeat", time.time())
+        _write_float(pending / "heartbeat.monotonic", time.monotonic())
+        _write_json(
             pending / "lease.json",
             identity.registration(
                 runner_pid=os.getpid(),
@@ -80,12 +78,12 @@ class LeaseClient:
         deadline = time.monotonic() + accept_timeout
         accepted = None
         while time.monotonic() < deadline:
-            accepted = _leases_utils._read_json(self.dir / "accepted.json")
+            accepted = _read_json(self.dir / "accepted.json")
             if accepted is not None:
                 break
-            refused = _leases_utils._read_json(self.dir / "result.json")
+            refused = _read_json(self.dir / "result.json")
             if refused is None:
-                refused = _leases_utils._read_json(self.dir / "refused.json")
+                refused = _read_json(self.dir / "refused.json")
             if refused is not None:
                 code = refused.get("error_code") or refused.get("reason", "unknown")
                 raise RuntimeError(f"lease_service_refused:{code}")
@@ -104,11 +102,9 @@ class LeaseClient:
             while not self.stop_event.wait(1):
                 stage = "client_wall"
                 try:
-                    _leases_utils._write_float(self.dir / "heartbeat", time.time())
+                    _write_float(self.dir / "heartbeat", time.time())
                     stage = "client_monotonic"
-                    _leases_utils._write_float(
-                        self.dir / "heartbeat.monotonic", time.monotonic()
-                    )
+                    _write_float(self.dir / "heartbeat.monotonic", time.monotonic())
                 except OSError as error:
                     log_heartbeat_failure(stage, error)
                 self._check_service(cancelled)
@@ -118,11 +114,9 @@ class LeaseClient:
 
     def _check_service(self, cancelled):
         """Apply existing health comparisons; signal security before diagnostics."""
-        alive_at = _leases_utils._read_float(self.state / "service.alive")
-        alive_monotonic = _leases_utils._read_float(
-            self.state / "service.alive.monotonic"
-        )
-        current = _leases_utils._read_json(self.state / "service.json")
+        alive_at = _read_float(self.state / "service.alive")
+        alive_monotonic = _read_float(self.state / "service.alive.monotonic")
+        current = _read_json(self.state / "service.json")
         now_monotonic = time.monotonic()
         reason, age = None, None
         if alive_at is None:
@@ -131,11 +125,9 @@ class LeaseClient:
             reason = "monotonic_heartbeat_unavailable"
         elif alive_monotonic > now_monotonic + 1:
             reason, age = "monotonic_heartbeat_future", now_monotonic - alive_monotonic
-        elif now_monotonic - alive_monotonic > _leases_settings.SERVICE_STALE_SECONDS:
+        elif now_monotonic - alive_monotonic > SERVICE_STALE_SECONDS:
             reason, age = "monotonic_heartbeat_stale", now_monotonic - alive_monotonic
-        elif (
-            wall_age := time.time() - alive_at
-        ) > _leases_settings.SERVICE_STALE_SECONDS:
+        elif (wall_age := time.time() - alive_at) > SERVICE_STALE_SECONDS:
             reason, age = "wall_heartbeat_stale", wall_age
         elif current is None:
             reason = "service_record_unavailable"
@@ -148,9 +140,7 @@ class LeaseClient:
             if first_loss:
                 try:
                     self.loss = LeaseLossObservation(reason=reason, age_seconds=age)
-                    _leases_utils._write_json(
-                        self.dir / "loss.json", self.loss.to_record()
-                    )
+                    _write_json(self.dir / "loss.json", self.loss.to_record())
                 except Exception:
                     pass
 
@@ -168,7 +158,7 @@ class LeaseClient:
         (self.dir / "done").write_text("done", encoding="utf-8")
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            result = _leases_utils._read_json(self.dir / "result.json")
+            result = _read_json(self.dir / "result.json")
             if result is not None:
                 self.result = result
                 if (

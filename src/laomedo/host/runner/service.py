@@ -9,10 +9,10 @@ from urllib.request import ProxyHandler
 from urllib.request import Request
 from urllib.request import build_opener
 import json
-import laomedo._paths as _package_paths
-import laomedo.host.runner.prerequisites as _runner_prerequisites
-import laomedo.host.runner.startup as _runner_startup
-import laomedo.host.runner.utils as _runner_utils
+from laomedo._paths import import_root
+from laomedo.host.runner.prerequisites import check_docker
+from laomedo.host.runner.startup import startup_gate
+from laomedo.host.runner.utils import service_environment
 import socket
 import subprocess
 import sys
@@ -181,9 +181,7 @@ class RunnerService:
                     "runner_state": state["state"],
                 }
             try:
-                self.docker_reason = _runner_prerequisites.check_docker(
-                    _runner_utils.service_environment("codex")
-                )
+                self.docker_reason = check_docker(service_environment("codex"))
                 self.docker_checked_at = time.monotonic()
             finally:
                 self.docker_lock.release()
@@ -252,7 +250,7 @@ class RunnerService:
                 sys.executable,
                 "-c",
                 bootstrap,
-                str(_package_paths.import_root()),
+                str(import_root()),
                 module,
                 "--state",
                 config["state"],
@@ -289,7 +287,7 @@ class RunnerService:
                 command.append("--git-workspace")
             # The trusted host supplies all paths.
             # Neither browser inputs nor model outputs become process arguments.
-            env = _runner_utils.service_environment(config["provider"])
+            env = service_environment(config["provider"])
             if (
                 config.get("mirror_host_claude_login") is True
                 and config["provider"] == "claude"
@@ -306,7 +304,7 @@ class RunnerService:
             with log_path.open("ab") as log:
                 self.process = subprocess.Popen(
                     command,
-                    cwd=_package_paths.import_root(),
+                    cwd=import_root(),
                     env=env,
                     stdin=subprocess.DEVNULL,
                     stdout=log,
@@ -334,7 +332,7 @@ class RunnerService:
                 return current
             # The API takes this same OS lock before binding its listener. It
             # cannot publish a listener after cancellation wins this lock.
-            with _runner_startup.startup_gate(self.startup_gate_path) as listening:
+            with startup_gate(self.startup_gate_path) as listening:
                 if listening.exists():
                     return self.status()
                 # Cooperative: the child finishes its bounded initialization

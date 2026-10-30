@@ -34,9 +34,10 @@ class PackageLayoutTests(unittest.TestCase):
 
     def test_package_root_has_only_shared_infrastructure(self):
         self.assertEqual(
-            {p.name for p in package_root().iterdir() if p.is_file()},
+            {p.name for p in package_root().iterdir() if p.is_file()} - {"README.md"},
             {"__init__.py", "_paths.py"},
         )
+        self.assertTrue((ROOT / "src/laomedo/README.md").is_file())
 
     def test_canonical_modules_import_without_forwarders(self):
         mapping = json.loads((ROOT / "tools/migrations/module-paths.json").read_text())

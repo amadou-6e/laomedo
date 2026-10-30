@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import laomedo._paths as _package_paths
+from laomedo._paths import import_root
 import os
 
 
@@ -40,5 +40,5 @@ def service_environment(provider):
         )
     return {
         **{key: value for key, value in os.environ.items() if key.upper() in allowed},
-        "PYTHONPATH": str(_package_paths.import_root()),
+        "PYTHONPATH": str(import_root()),
     }
