@@ -18,6 +18,13 @@ environments, caches, generated build output and private state. It formats
 Python files, not JavaScript, Markdown, patch payloads, embedded code strings
 or immutable JSON graph/execution exports.
 
+Maintained graph templates still need their embedded component code refreshed
+when the source changes. Preserve graph/run identities and unrelated JSON bytes;
+refresh a recognized component source hash only after confirming its original
+hash matches. The strict source/hash splicer in `tools/migrations/` provides these
+checks. Historical execution exports remain untouched. The saved-flow regression
+tests check that maintained templates embed their current component source.
+
 ## Exact historical exceptions
 
 The existing [migration policy](package-layout.md#one-time-migration)
