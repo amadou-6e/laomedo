@@ -17,3 +17,12 @@ Four deliberate copies stay separate: the self-contained Agent and PR publisher
 components, and the SIWC/OpenCode credential handlers. The credential handlers
 raise their own distinct stable errors and must not use this return-None policy.
 Structural checks name these exceptions so accidental copies do not accumulate.
+
+`GitHubRestTransport` additionally retains the old `_NoRedirect` import binding
+as an identity alias to this canonical class for four provenance-sensitive probe
+callers. It is neither a duplicate class nor a forwarding runtime. Their exact
+baseline bytes and uncertainty are recorded in
+`tools/migrations/retained-http-callers.json`; current-file seal validity is not
+claimed. New/maintained application callers use the canonical defining import.
+Retire this alias only after those consumers can be replaced without rewriting
+retained historical sources or weakening their existing internal controls.

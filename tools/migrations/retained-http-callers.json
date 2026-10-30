@@ -1,0 +1,33 @@
+{
+  "baseline": "422887273038523ca6343234739775b1d218b673",
+  "compatibility_symbol": "laomedo.github.transport.rest.transport._NoRedirect",
+  "canonical_symbol": "laomedo.http.redirect.NoRedirect",
+  "retirement": "Retire only when these consumers can be replaced without rewriting provenance-sensitive retained sources. New application callers import the canonical definition.",
+  "evidence": {
+    "exp100": "LIVE-MANIFEST.json pins a669e9f26fcac1ed90872304c869d3891cc710435f22f3dd3c9d9a7644af869d; current baseline differs, so current-file seal validity is not claimed.",
+    "exp104_managed": "NATIVE-MANAGED-PRE-RUN.md labels the controller an UNEXECUTED candidate; not a completed sealed execution.",
+    "other_probes": "Historical result/protocol context exists; exact current-file seal matches have not been established. Preserve instead of relabeling them as sealed."
+  },
+  "files": [
+    {
+      "path": "experiments/exp100/probe_live.py",
+      "sha256": "aae0b0c5351640551ea61fbc4037ad77d094512275b857d44eb0274f2c15dabd",
+      "classification": "retained legacy caller snapshot; current-file historical seal match not established"
+    },
+    {
+      "path": "experiments/exp104/native_localrunner_probe.py",
+      "sha256": "3fa619fc23b95d2bee803d5fedda5e4b06ae6b9fda57b299d84f5dcb009564ae",
+      "classification": "retained legacy caller snapshot; current-file historical seal match not established"
+    },
+    {
+      "path": "experiments/exp104/native_managed_probe.py",
+      "sha256": "3a1f38b61917afed13c6887984f13e83504dbbac098e4214c3367c508bdd5483",
+      "classification": "retained legacy caller snapshot; current-file historical seal match not established"
+    },
+    {
+      "path": "experiments/exp93/real_stage_probe.py",
+      "sha256": "8fca0d76fa8d7046b1a1cf02a50fd8602a57642f3060dede057d1a75bd32e93c",
+      "classification": "retained legacy caller snapshot; current-file historical seal match not established"
+    }
+  ]
+}

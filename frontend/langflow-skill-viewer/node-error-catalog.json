@@ -1990,7 +1990,7 @@
     "recovery": "Read the current issue and update the selection before proposing another change."
   },
   "selected_issue_required": {
-    "title": "Select a issue",
+    "title": "Select an issue",
     "description": "This operation needs a selected issue.",
     "recovery": "Choose the intended issue on the node before running the operation."
   },

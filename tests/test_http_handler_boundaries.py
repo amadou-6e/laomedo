@@ -3,13 +3,17 @@
 import ast
 import hashlib
 import json
+import importlib
+import os
 from pathlib import Path
 import subprocess
 import sys
 import threading
+import tempfile
 import unittest
+import runpy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, build_opener
 
@@ -19,8 +23,10 @@ from laomedo.github.pull_requests.server import PullRequestServer
 from laomedo.github.pull_requests.contract import ERROR_CODES as PR_CODES
 from laomedo.http.redirect import NoRedirect
 from laomedo.skills.operations.server import SkillOperationServer
+from laomedo.skills.operations.client import skill_request
 from laomedo.skills.sources.server import SkillSourceServer
 from laomedo.skills.sources.errors import SourceError
+from laomedo.skills.sources.client import source_request
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src/laomedo"
@@ -30,6 +36,7 @@ HANDLERS = {
     "skills/sources": "SkillSourceRequestHandler",
     "skills/operations": "SkillOperationRequestHandler",
 }
+CONTRACT_TOOLS = runpy.run_path(str(ROOT / "tools/capture_http_handler_contracts.py"))
 
 
 class RedirectControlHandler(BaseHTTPRequestHandler):
@@ -48,19 +55,91 @@ class RedirectControlHandler(BaseHTTPRequestHandler):
 
 
 class HandlerStructureTests(unittest.TestCase):
+    @staticmethod
+    def retired_bindings(tree):
+        """Find executable retired imports, not strings used as migration fixtures."""
+        retired = "laomedo.skills.sources.transport"
+        modules = {
+            "laomedo.github.transport.rest.transport",
+            "laomedo.integrations.langflow.join.transport",
+        }
+        aliases = {}
+        failures = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.module == retired:
+                    failures.append(retired)
+                if node.module in modules and any(
+                    alias.name == "_NoRedirect" for alias in node.names
+                ):
+                    failures.append(node.module + "._NoRedirect")
+                for alias in node.names:
+                    imported = (node.module or "") + "." + alias.name
+                    if imported in modules:
+                        aliases[alias.asname or alias.name] = imported
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == retired:
+                        failures.append(retired)
+                    if alias.name in modules:
+                        aliases[alias.asname or alias.name] = alias.name
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "_NoRedirect":
+                owner = ast.unparse(node.value)
+                if owner in modules or owner in aliases:
+                    failures.append(aliases.get(owner, owner) + "._NoRedirect")
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "getattr"
+                and len(node.args) >= 2
+            ):
+                owner = ast.unparse(node.args[0])
+                member = node.args[1]
+                if (
+                    (owner in modules or owner in aliases)
+                    and isinstance(member, ast.Constant)
+                    and member.value == "_NoRedirect"
+                ):
+                    failures.append(aliases.get(owner, owner) + "._NoRedirect")
+        return failures
+
+    @staticmethod
+    def embedded_code(value):
+        """Yield embedded code fields from maintained exports, without executing them."""
+        pending = [value]
+        while pending:
+            item = pending.pop()
+            if isinstance(item, dict):
+                code = item.get("code")
+                if isinstance(code, str):
+                    yield code
+                elif isinstance(code, dict) and isinstance(code.get("value"), str):
+                    yield code["value"]
+                pending.extend(item.values())
+            elif isinstance(item, list):
+                pending.extend(item)
+
     def test_extracted_handler_control_flow_matches_the_formatted_baseline(self):
         golden = json.loads(
             (ROOT / "tests/contracts/http-handlers-4228872.json").read_text()
         )
         self.assertEqual(golden["baseline"], "422887273038523ca6343234739775b1d218b673")
         for relative, record in golden["handlers"].items():
+            self.assertEqual(
+                CONTRACT_TOOLS["contract_for_source"](
+                    record["baseline_source"], record["service_binding"]
+                ),
+                record,
+                relative,
+            )
             folder = SOURCE / relative
             tree = ast.parse((folder / "handler.py").read_text())
             handler = next(node for node in tree.body if isinstance(node, ast.ClassDef))
             handler.name = "Handler"
             if ast.get_docstring(handler):
                 handler.body.pop(0)
-            observed = hashlib.sha256(ast.dump(handler).encode()).hexdigest()
+            observed = CONTRACT_TOOLS["ast_digest"](handler)
             self.assertEqual(observed, record["handler_ast_sha256"], relative)
             server = ast.parse((folder / "server.py").read_text())
             owner = next(node for node in server.body if isinstance(node, ast.ClassDef))
@@ -69,11 +148,11 @@ class HandlerStructureTests(unittest.TestCase):
             )
             admission = next(node for node in init.body if isinstance(node, ast.If))
             self.assertEqual(
-                hashlib.sha256(ast.dump(admission).encode()).hexdigest(),
+                CONTRACT_TOOLS["ast_digest"](admission),
                 record["admission_ast_sha256"],
             )
             self.assertEqual(
-                hashlib.sha256(ast.dump(init.args).encode()).hexdigest(),
+                CONTRACT_TOOLS["ast_digest"](init.args),
                 record["arguments_ast_sha256"],
             )
 
@@ -161,14 +240,115 @@ class HandlerStructureTests(unittest.TestCase):
                 for value in [*modules.values(), *symbols.values()]
             )
         )
-        for path in SOURCE.rglob("*.py"):
-            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
-                if isinstance(node, ast.ImportFrom):
-                    self.assertNotEqual(node.module, retired, str(path))
-                elif isinstance(node, ast.Import):
-                    self.assertFalse(
-                        any(alias.name == retired for alias in node.names), str(path)
+        tracked = (
+            subprocess.check_output(
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={ROOT.as_posix()}",
+                    "ls-files",
+                    "-z",
+                    "*.py",
+                    "examples/*.json",
+                ],
+                cwd=ROOT,
+            )
+            .decode()
+            .split("\0")
+        )
+        sealed = {
+            record["path"]: record["sha256"]
+            for record in json.loads(
+                (ROOT / "tools/formatting/historical-sources.json").read_text()
+            )
+        }
+        sealed.update(
+            {
+                record["historical_original"]: record["sha256"]
+                for record in json.loads(
+                    (ROOT / "examples/agent-module-history.json").read_text()
+                )["files"]
+            }
+        )
+        sealed.update(
+            {
+                "examples/github-pr/original-agent/historical-flow-before-skill-input.json": "3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f",
+                "examples/skill-operations/historical-flow-before-skill-input.json": "45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf",
+            }
+        )
+        retained_contract = json.loads(
+            (ROOT / "tools/migrations/retained-http-callers.json").read_text()
+        )
+        retained = {
+            record["path"]: record["sha256"] for record in retained_contract["files"]
+        }
+        for relative in tracked:
+            if not relative:
+                continue
+            path = ROOT / relative
+            if relative in sealed:
+                self.assertEqual(
+                    hashlib.sha256(path.read_bytes()).hexdigest(), sealed[relative]
+                )
+                continue  # Exact archived runtime source is evidence, not a maintained caller.
+            if relative in retained:
+                self.assertEqual(
+                    hashlib.sha256(path.read_bytes()).hexdigest(), retained[relative]
+                )
+                continue  # Preserved caller snapshot; no historical seal-validity claim.
+            if path.suffix == ".py":
+                snippets = [path.read_text(encoding="utf-8-sig")]
+            else:
+                snippets = self.embedded_code(
+                    json.loads(path.read_text(encoding="utf-8-sig"))
+                )
+            for snippet in snippets:
+                if "laomedo." in snippet:
+                    self.assertEqual(
+                        self.retired_bindings(ast.parse(snippet)), [], str(path)
                     )
+
+    def test_retained_probe_import_is_only_an_identity_alias(self):
+        module = importlib.import_module("laomedo.github.transport.rest.transport")
+        contract = json.loads(
+            (ROOT / "tools/migrations/retained-http-callers.json").read_text()
+        )
+        self.assertIs(
+            getattr(module, contract["compatibility_symbol"].rsplit(".", 1)[1]),
+            NoRedirect,
+        )
+
+    def test_retired_symbol_guard_covers_aliases_and_preserves_contract_strings(self):
+        for source in (
+            "from laomedo.github.transport.rest.transport import _NoRedirect",
+            "import laomedo.github.transport.rest.transport as transport\nx = transport._NoRedirect",
+            "from laomedo.github.transport.rest import transport\nx = getattr(transport, '_NoRedirect')",
+            "from laomedo.skills.sources.transport import NoRedirect",
+        ):
+            self.assertTrue(self.retired_bindings(ast.parse(source)), source)
+        self.assertEqual(
+            self.retired_bindings(
+                ast.parse(
+                    "from laomedo.http.redirect import NoRedirect\nvalue = 'from laomedo.skills.sources.transport import NoRedirect'"
+                )
+            ),
+            [],
+        )
+
+    def test_canonical_ast_ignores_only_empty_version_metadata(self):
+        tree = ast.parse("class Example:\n    pass\n")
+        original = CONTRACT_TOOLS["ast_digest"](tree)
+        owner = tree.body[0]
+        if "type_params" not in owner._fields:
+            owner._fields = (*owner._fields, "type_params")
+        owner.type_params = []
+        self.assertEqual(CONTRACT_TOOLS["ast_digest"](tree), original)
+        owner.type_params = [ast.Name(id="Meaningful", ctx=ast.Load())]
+        self.assertNotEqual(CONTRACT_TOOLS["ast_digest"](tree), original)
+        self.assertNotEqual(
+            CONTRACT_TOOLS["ast_digest"](ast.parse("class Changed:\n    pass\n")),
+            original,
+        )
 
     def test_skill_clients_stay_domain_leafs_and_use_this_worktree(self):
         script = """
@@ -340,9 +520,46 @@ class HandlerSocketTests(unittest.TestCase):
             (status, result), (400, {"error_category": "local_source_not_allowed"})
         )
 
+    def test_skill_clients_keep_existing_http_to_node_error_projection(self):
+        for server_type, method, failure, client, arguments, prefix, expected in (
+            (
+                SkillSourceServer,
+                "discover",
+                SourceError("local_source_not_allowed"),
+                source_request,
+                {"source": "source"},
+                "LAOMEDO_SKILL_SOURCE",
+                "source_discovery_failed",
+            ),
+            (
+                SkillOperationServer,
+                "history",
+                RuntimeError("private-detail"),
+                skill_request,
+                {"skill_id": "skill", "revision_id": "revision", "before": ""},
+                "LAOMEDO_SKILL_OPERATION",
+                "skill_operation_unavailable",
+            ),
+        ):
+            service = Mock()
+            getattr(service, method).side_effect = failure
+            token = "internal-client-" + "k" * 32
+            base = self.start(server_type(service, token, port=0))
+            with tempfile.TemporaryDirectory() as temporary:
+                token_file = Path(temporary) / "client-token"
+                token_file.write_text(token, encoding="utf-8")
+                with patch.dict(
+                    os.environ,
+                    {prefix + "_URL": base, prefix + "_TOKEN_FILE": str(token_file)},
+                ):
+                    with self.assertRaisesRegex(ValueError, "^" + expected + "$"):
+                        client(method, **arguments)
+
 
 class HandlerCatalogueTests(unittest.TestCase):
-    def test_classified_public_codes_have_descriptions_and_existing_recovery(self):
+    def test_classified_boundary_and_node_codes_have_descriptions_and_existing_recovery(
+        self,
+    ):
         manifest = json.loads(
             (ROOT / "tests/contracts/node-http-error-boundaries.json").read_text()
         )
@@ -351,7 +568,10 @@ class HandlerCatalogueTests(unittest.TestCase):
                 ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json"
             ).read_text()
         )
-        for group, codes in manifest["public_codes"].items():
+        for group, codes in {
+            **manifest["http_boundary_codes"],
+            **manifest["node_client_codes"],
+        }.items():
             for code in codes:
                 self.assertIn(code, catalogue, (group, code))
                 for field in ("title", "description", "recovery"):
@@ -371,7 +591,7 @@ class HandlerCatalogueTests(unittest.TestCase):
     def test_code_guard_tracks_actual_issue_and_pr_handler_contracts(self):
         groups = json.loads(
             (ROOT / "tests/contracts/node-http-error-boundaries.json").read_text()
-        )["public_codes"]
+        )["http_boundary_codes"]
         statuses = {
             "github_http_401",
             "github_http_403",
@@ -380,6 +600,18 @@ class HandlerCatalogueTests(unittest.TestCase):
         }
         self.assertEqual(set(groups["issue_handler"]), set(ISSUE_CODES) | statuses)
         self.assertEqual(set(groups["pr_handler"]), set(PR_CODES) | statuses)
+
+    def test_manifest_distinguishes_actual_node_client_allowlists(self):
+        manifest = json.loads(
+            (ROOT / "tests/contracts/node-http-error-boundaries.json").read_text()
+        )
+        node = manifest["node_client_codes"]
+        self.assertEqual(set(node["issue_client"]), set(ISSUE_CODES))
+        self.assertEqual(set(node["pr_client"]), set(PR_CODES))
+        self.assertIn("github_http_403", node["issue_client"])
+        self.assertNotIn("github_http_403", node["pr_client"])
+        self.assertNotIn("local_source_not_allowed", node["source_client"])
+        self.assertNotIn("skill_operation_refused", node["operation_client"])
 
     def test_source_guard_follows_domain_passthrough_and_safe_fallbacks(self):
         manifest = json.loads(
@@ -407,7 +639,9 @@ class HandlerCatalogueTests(unittest.TestCase):
                     and isinstance(argument.value, str)
                 ):
                     observed.add(argument.value)
-        self.assertEqual(observed, set(manifest["public_codes"]["source_handler"]))
+        self.assertEqual(
+            observed, set(manifest["http_boundary_codes"]["source_handler"])
+        )
         self.assertEqual(
             manifest["internal_only"]["operation_handler"], ["skill_request_invalid"]
         )
@@ -416,7 +650,15 @@ class HandlerCatalogueTests(unittest.TestCase):
         manifest = json.loads(
             (ROOT / "tests/contracts/node-http-error-boundaries.json").read_text()
         )
-        public = set().union(*map(set, manifest["public_codes"].values()))
+        public = set().union(
+            *map(
+                set,
+                {
+                    **manifest["http_boundary_codes"],
+                    **manifest["node_client_codes"],
+                }.values(),
+            )
+        )
         for relative in HANDLERS:
             path = SOURCE / relative / "handler.py"
             for node in ast.walk(ast.parse(path.read_text())):
@@ -439,7 +681,13 @@ class HandlerCatalogueTests(unittest.TestCase):
                     if isinstance(value, ast.Constant) and isinstance(value.value, str):
                         self.assertIn(
                             value.value,
-                            manifest["public_codes"]["skill_clients"],
+                            manifest["node_client_codes"][
+                                (
+                                    "source_client"
+                                    if relative.startswith("skills/sources")
+                                    else "operation_client"
+                                )
+                            ],
                             (relative, value.value),
                         )
 
