@@ -76,7 +76,13 @@ file/depth/count limits retain their existing values and boundary behavior.
 The old source Popen/taskkill/killpg launcher is removed in the same checkpoint.
 
 One explicit failure contract is strengthened: shared process-tree cleanup is
-bounded by one five-second deadline shared across taskkill, pipe draining and final wait. Native process creation, killing and polling have operating-system overhead; this is not a hard real-time guarantee. Legacy Git profiles keep their existing per-substep waits. If termination cannot be confirmed,
+bounded by one five-second deadline shared across job/process-group termination,
+pipe draining and final wait. Budgeted Windows reads are launched suspended and
+assigned to an owned Job Object before resuming; job accounting must confirm zero
+active processes, including after a successful root exit. Legacy profiles retain
+their old launch and taskkill behavior. Native process creation, killing and
+polling have operating-system overhead; this is not a hard real-time guarantee.
+Legacy Git profiles keep their existing per-substep waits. If termination cannot be confirmed,
 retain the owned clone staging and return `repository_cleanup_unverified`; do not claim the process stopped or advise
 an immediate repeat. Confirmed cleanup preserves the prior categories. This new
 uncertainty path needs its own catalogue/producer guard and remains live-unverified
@@ -91,6 +97,9 @@ same 128 MiB cache budget, including partial files. They are not automatically
 evicted: later source reads can refuse with `repository_limit_exceeded`. Do not
 remove retained staging until its owned process tree is confirmed stopped; no
 staging-reconciliation or removal button is provided by the current UI.
+`KeyboardInterrupt` and `SystemExit` retain their identity and arguments after a
+cleanup attempt. When that observation is uncertain, interrupted clone staging
+is retained too; preserving an interrupt does not authorize deleting its files.
 
 Index/origin JSON shapes, replacement order, retained choices, labels, sort order,
 LF/CRLF byte identities and canonical latest behavior remain unchanged. Pydantic

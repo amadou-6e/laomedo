@@ -89,8 +89,11 @@ class GitSkillSource:
                         ],
                         deadline=deadline,
                     )
-                except SourceError as error:
-                    if error.code == "repository_cleanup_unverified":
+                except BaseException as error:
+                    if (
+                        getattr(error, "code", None) == "repository_cleanup_unverified"
+                        or getattr(error, "cleanup_verified", None) is False
+                    ):
                         staging.preserve()
                     raise
                 pending.rename(folder)
