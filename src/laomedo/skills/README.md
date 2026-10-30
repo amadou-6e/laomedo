@@ -31,3 +31,8 @@ The later reviewed `interface/` target means actual public contracts and adapter
 used by the app, as in Agents. Adapter relocation is C3. The misplaced generic
 publication ingress, Agent-only workspace helpers and source Git launcher are
 recorded redesign work; C1 does not claim they are fixed.
+
+C2 moves generic run-bound bundle ingress to `host/publication/ingestion/`.
+It does not inspect or modify skills and therefore has no compatibility owner
+under this package. Registry, source and operation behavior remain unchanged;
+Agent-only workspace helpers and source Git launcher changes are later work.
