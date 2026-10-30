@@ -19,6 +19,7 @@ dev = ["black==26.10.1"]
 runner = [
     "py-docker @ git+https://github.com/amadou-6e/py-docker.git@49652f4281b37e62fb43404532a376a3f1f2e07d",
     "agent-client-protocol==0.12.1",
+    "pywin32>=304; sys_platform == 'win32'",
 ]
 observability = ["opentelemetry-proto==1.45.1", "opentelemetry-sdk==1.45.1", "opentelemetry-exporter-otlp-proto-http==1.45.1"]
 

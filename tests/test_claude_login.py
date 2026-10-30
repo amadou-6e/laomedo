@@ -1,14 +1,21 @@
 import ast
+import io
 import json
 from pathlib import Path
 import tempfile
 import time
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from laomedo.agents.agents.claude.auth.utils import mirror_login
 from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.settings import CODES
+from laomedo.agents.agents.claude.auth.resources.write_login import write_login
+
+try:
+    import py_docker
+except ImportError:
+    py_docker = None
 
 IMAGE = "sha256:" + "a" * 64
 
@@ -32,31 +39,13 @@ class LoginMirrorTests(TestCase):
         self.assertFalse(any("run" in call.args[0] for call in run.call_args_list))
 
     def test_existing_refresh_capable_login_is_preserved(self):
-        import subprocess
-        import sys
-
-        with patch(
-            "laomedo.agents.agents.claude.auth.utils.subprocess.run",
-            side_effect=self.docker,
-        ) as run:
-            mirror_login(
-                "laomedo-claude-profile", IMAGE, source=self.source, environment={}
-            )
-        call = run.call_args
-        script = call.args[0][-1]
         profile = Path(self.temp.name) / "profile"
         profile.mkdir()
         credentials = profile / ".credentials.json"
         original = b'{"claudeAiOauth":{"refreshToken":"internal-existing-login"}}'
         credentials.write_bytes(original)
-        script = script.replace("p='/profile/config'", "p=" + repr(str(profile)))
-        result = subprocess.run(
-            [sys.executable, "-c", script],
-            input=call.kwargs["input"],
-            capture_output=True,
-            timeout=10,
-        )
-        self.assertNotEqual(result.returncode, 0)
+        with self.assertRaisesRegex(ValueError, "login_write_refused"):
+            write_login(profile, 3, io.BytesIO(b"new"))
         self.assertEqual(credentials.read_bytes(), original)
 
     def test_runtime_opt_in_mirrors_before_auth_and_preserves_safe_error(self):
@@ -94,8 +83,24 @@ class LoginMirrorTests(TestCase):
                 runner._check_auth()
 
     def setUp(self):
+        if py_docker is None:
+            self.skipTest("optional runner SDK is not installed")
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
+        self.client = MagicMock()
+        self.client.volumes.has_labels.return_value = True
+        self.session = self.client.sessions.open.return_value.__enter__.return_value
+        self.session.wait.return_value = 0
+        self.session.read_frame.return_value = None
+        factory = patch("py_docker.Client", return_value=self.client)
+        self.factory = factory.start()
+        self.addCleanup(factory.stop)
+        directory = patch(
+            "laomedo.agents.agents.claude.auth.utils._private_directory",
+            return_value=Path(self.temp.name),
+        )
+        directory.start()
+        self.addCleanup(directory.stop)
         self.source = Path(self.temp.name) / "login.json"
         self.source.write_text(
             json.dumps(
@@ -141,20 +146,26 @@ class LoginMirrorTests(TestCase):
                 source=self.source,
                 environment={"PATH": "host", "ANTHROPIC_API_KEY": "excluded"},
             )
-        call = run.call_args
-        payload = json.loads(call.kwargs["input"])
+        written = self.session.write.call_args.args[0]
+        payload = json.loads(written)
         self.assertEqual(payload["claudeAiOauth"]["accessToken"], "internal-access")
         self.assertEqual(payload["claudeAiOauth"]["refreshToken"], "")
-        self.assertNotIn("internal-refresh", call.kwargs["input"].decode())
-        self.assertNotIn("private-profile", call.kwargs["input"].decode())
-        self.assertNotIn("ANTHROPIC_API_KEY", call.kwargs["env"])
-        self.assertIn("--network=none", call.args[0])
-        self.assertEqual(
-            call.args[0][1:3], ["--host", "npipe:////./pipe/dockerDesktopLinuxEngine"]
+        self.assertNotIn("internal-refresh", written.decode())
+        self.assertNotIn("private-profile", written.decode())
+        self.assertNotIn(
+            "ANTHROPIC_API_KEY", self.factory.call_args.kwargs["environment"]
         )
-        self.assertNotIn("DOCKER_CONTEXT", call.kwargs["env"])
-        self.assertNotIn("DOCKER_HOST", call.kwargs["env"])
-        self.assertEqual(call.kwargs["timeout"], 20)
+        self.assertEqual(
+            self.client.sessions.open.call_args.args[0].spec.network_mode, "none"
+        )
+        self.assertEqual(
+            self.factory.call_args.args[0].endpoint,
+            "npipe:////./pipe/dockerDesktopLinuxEngine",
+        )
+        self.assertNotIn("DOCKER_CONTEXT", self.factory.call_args.kwargs["environment"])
+        self.assertNotIn("DOCKER_HOST", self.factory.call_args.kwargs["environment"])
+        self.assertEqual(run.call_args.args[0], ["docker", "context", "inspect"])
+        self.assertFalse(any("run" in call.args[0] for call in run.call_args_list))
 
     def test_local_context_is_pinned_despite_remote_host_override(self):
         with patch(
@@ -170,13 +181,14 @@ class LoginMirrorTests(TestCase):
                     "DOCKER_HOST": "tcp://remote:2375",
                 },
             )
-        for call in run.call_args_list[1:]:
-            self.assertEqual(
-                call.args[0][1:3],
-                ["--host", "npipe:////./pipe/dockerDesktopLinuxEngine"],
-            )
-            self.assertNotIn("DOCKER_CONTEXT", call.kwargs["env"])
-            self.assertNotIn("DOCKER_HOST", call.kwargs["env"])
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0], ["docker", "context", "inspect"])
+        self.assertEqual(
+            self.factory.call_args.args[0].endpoint,
+            "npipe:////./pipe/dockerDesktopLinuxEngine",
+        )
+        self.assertNotIn("DOCKER_CONTEXT", self.factory.call_args.kwargs["environment"])
+        self.assertNotIn("DOCKER_HOST", self.factory.call_args.kwargs["environment"])
 
     def test_remote_context_overrides_local_host_and_is_refused_before_read(self):
         source = SimpleNamespace(
@@ -253,9 +265,16 @@ class LoginMirrorTests(TestCase):
     def test_public_mirror_codes_have_catalogue_coverage(self):
         import laomedo.agents.agents.claude.auth.utils as claude_login
 
-        tree = ast.parse(Path(claude_login.__file__).read_text(encoding="utf-8-sig"))
+        trees = [
+            ast.parse(path.read_text(encoding="utf-8-sig"))
+            for path in (
+                Path(claude_login.__file__),
+                Path(claude_login.__file__).with_name("models.py"),
+            )
+        ]
         emitted = {
             n.value
+            for tree in trees
             for n in ast.walk(tree)
             if isinstance(n, ast.Constant)
             and isinstance(n.value, str)

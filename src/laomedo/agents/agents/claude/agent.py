@@ -235,14 +235,16 @@ class ClaudeAgent(BaseAgent):
         self.profile = self.container.profile
         self.image, self.image_id = image, self.container.image_id
 
-    def _mirror_host_login(self, *, minimum_validity_seconds=None):
+    def _mirror_host_login(self, *, minimum_validity_seconds=None, deadline=None):
         if Settings().mirror_host_login == "1":
             try:
+                options = {"deadline": deadline} if deadline is not None else {}
                 mirror_login(
                     self.container.profile,
                     self.container.image_id,
                     minimum_validity_seconds=minimum_validity_seconds
                     or self.turn_timeout,
+                    **options,
                 )
             except LocalClaudeLoginError as error:
                 if str(error) == "claude_host_login_unavailable":
@@ -251,9 +253,18 @@ class ClaudeAgent(BaseAgent):
                     raise RunnerError("claude_host_login_expired") from None
                 raise RunnerError("claude_local_login_copy_failed") from None
 
-    def _check_auth(self, *, timeout=20, minimum_validity_seconds=None):
-        self._mirror_host_login(minimum_validity_seconds=minimum_validity_seconds)
-        checked = self.container.control(["auth", "status"], timeout=timeout)
+    def _check_auth(self, *, timeout=20, minimum_validity_seconds=None, deadline=None):
+        self._mirror_host_login(
+            minimum_validity_seconds=minimum_validity_seconds, deadline=deadline
+        )
+        options = {}
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RunnerError("claude_turn_timeout")
+            timeout = min(timeout, remaining)
+            options["deadline"] = deadline
+        checked = self.container.control(["auth", "status"], timeout=timeout, **options)
         try:
             auth = json.loads(checked.stdout)
         except ValueError:
@@ -949,7 +960,9 @@ class ClaudeAgent(BaseAgent):
             if remaining <= 0:
                 raise RunnerError("claude_turn_timeout")
             identity = self._check_auth(
-                timeout=min(60, remaining), minimum_validity_seconds=remaining
+                timeout=min(60, remaining),
+                minimum_validity_seconds=remaining,
+                deadline=record["_attempt_deadline"],
             )
             if resume and (
                 not identity or record.get("credential_subject_hash") != identity

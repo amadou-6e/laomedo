@@ -500,6 +500,7 @@ observability = [
 runner = [
     { name = "agent-client-protocol" },
     { name = "py-docker" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 
 [package.metadata]
@@ -513,6 +514,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13,<2.14" },
     { name = "pydantic-settings", specifier = ">=2.14.2,<2.16" },
     { name = "pyjwt", extras = ["crypto"], specifier = "==2.15.1" },
+    { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'runner'", specifier = ">=304" },
     { name = "truststore", specifier = "==0.10.4" },
 ]
 provides-extras = ["dev", "runner", "observability"]
