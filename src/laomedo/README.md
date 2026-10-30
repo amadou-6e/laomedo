@@ -31,7 +31,7 @@ workspace owner. Graph launch records are distinct from an Agent's own run state
 | Working state | `AgentWorkspace` owns Agent admission; `GitRepository`, `GitWorkingTree`, `GitCommandRunner` own reusable Git operations |
 | Persistence | `ActivityStore`, `SkillStore`; use Store for objects that own retained state |
 | Authorized behavior | `SkillOperations`, `GitHubIssueGateway`, `GitHubPRGateway`; identities do not grant authority |
-| HTTP lifetime and protocol | A `*Server` owns state and lifetime; a module-level `*Handler` owns request handling |
+| HTTP lifetime and protocol | A `*Server` owns state and lifetime; a module-level `*RequestHandler` owns request handling |
 | Correlated values | Canonical Pydantic records live in the owning feature's `models.py` |
 | Configuration | Feature-local `settings.py`; external configuration uses a Pydantic settings object |
 
