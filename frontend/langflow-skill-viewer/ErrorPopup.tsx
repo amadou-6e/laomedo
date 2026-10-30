@@ -1,4 +1,5 @@
 import CopyIcon from "./CopyIcon";
+import ErrorExplanation, { formatErrorCopy } from "./ErrorExplanation";
 import ApplicationErrorPopup from "./ApplicationErrorPopup";
 import RecoveryPopup from "@/components/laomedoRecovery/RecoveryPopup";
 import { isRunnerConnectionError } from "@/components/laomedoRecovery/RunnerRecovery";
@@ -9,13 +10,11 @@ export default function ErrorPopup({ message, status, context = {}, failure: sup
 }) {
   const failure = supplied ?? describeNodeFailure(message, status, context);
   const name = (context.nodeLabel || context.nodeType || "Application").replace(/^Laomedo\s*/, "").slice(0, 120);
-  const diagnostics = JSON.stringify(failure.diagnostics, null, 2);
   return <PopupFrame label="Error details" code={failure.diagnostics.code} nodeId={failure.diagnostics.node_id} operation={failure.diagnostics.operation} autoFocus={autoFocus} onClose={onDismiss}
-    tools={<CopyIcon text={[failure.title, failure.description, failure.recovery, diagnostics].filter(Boolean).join("\n\n")} />}
+    tools={<CopyIcon text={formatErrorCopy(failure)} />}
     heading={<><h3 className="text-sm font-bold">{failure.title}</h3><span className="w-full min-w-0 break-words text-sm text-muted-foreground">{name}{failure.diagnostics.operation ? ` / ${failure.diagnostics.operation}` : ""}</span></>}
     footer={<><button type="button" style={{ ...popupButtonStyle, width: 112, maxWidth: "100%" }} onClick={onDismiss}>Dismiss</button></>}>
-    <div className="select-text"><p>{failure.description}</p>{failure.recovery && <p className="mt-2">{failure.recovery}</p>}
-    <details className="mt-2 text-xs"><summary className="cursor-pointer">Technical details</summary><pre style={{ fontFamily: "inherit" }} className="my-2 select-text whitespace-pre-wrap break-all text-xs">{diagnostics}</pre></details></div>
+    <ErrorExplanation failure={failure} />
   </PopupFrame>;
 }
 
