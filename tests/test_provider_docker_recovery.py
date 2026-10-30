@@ -123,7 +123,7 @@ class ProviderRecoveryTests(unittest.TestCase):
 
     def test_retired_cli_paths_and_dynamic_codes_are_guarded(self):
         root = Path(__file__).resolve().parents[1]
-        for relative in ("claude/container.py", "claude/runner.py", "opencode/boundary.py", "opencode/utils.py"):
+        for relative in ("claude/container.py", "claude/agent.py", "opencode/boundary.py", "opencode/utils.py"):
             tree = ast.parse(root.joinpath("src/laomedo/agents/agents", relative).read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):

@@ -162,7 +162,7 @@ class LocalRunnerTests(unittest.TestCase):
     def test_snapshot_io_error_is_not_reported_as_container_cleanup_failure(self):
         freeze = self.runner._freeze_workspace
         def denied(root, record):
-            with patch("laomedo.agents.workspaces.workspace._copy_tree", side_effect=PermissionError("private local path")):
+            with patch("laomedo.agents.agents.base.agent._copy_tree", side_effect=PermissionError("private local path")):
                 return freeze(root, record)
         with patch.object(self.runner, "_freeze_workspace", side_effect=denied):
             result = self.runner.start(self.request())

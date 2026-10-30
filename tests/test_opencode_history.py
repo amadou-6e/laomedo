@@ -156,7 +156,7 @@ class OpenCodeHistoryTests(unittest.TestCase):
             database.commit()
         with self.assertRaisesRegex(ValueError, "opencode_history_credentials_unverified"):
             self.reader._copy_database(self.root / "refused.db")
-        with patch("laomedo.agents.agents.opencode.history.reader.settings.Settings") as configured:
+        with patch("laomedo.agents.agents.opencode.history.reader.Settings") as configured:
             configured.return_value.max_database_bytes = 1
             with self.assertRaisesRegex(ValueError, "opencode_history_database_limit"):
                 self.reader._copy_database(self.root / "too-large.db")
