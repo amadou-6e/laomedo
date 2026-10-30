@@ -236,8 +236,8 @@
   },
   "runner_model_catalog_unavailable_check_runner_connection": {
     "title": "The model list could not be loaded",
-    "description": "The configured runner did not return a usable capability catalogue.",
-    "recovery": "If the local runner is offline, use Start local runner. Once it is online, open Model and use its Refresh control, then select an available model and effort before running. Starting the runner and refreshing models do not submit an agent task. If discovery still fails, check the configured runner account login."
+    "description": "The configured runner did not return a usable capability catalogue. Claude login copying and model discovery may outlast the caller's wait; this does not establish that the runner is offline or discovery has stopped.",
+    "recovery": "If the local runner is offline, use Start local runner. Once it is online, open Model and use Refresh to load available models and efforts. For Claude, a timed-out discovery may still be active: avoid repeated Refresh or restarting a healthy runner. There is no discovery-progress or discovery-cancel control. If discovery continues to fail, check the configured runner account login. Starting the runner and refreshing models do not submit an agent task."
   },
   "model_list_rejected": {
     "title": "The model list could not be loaded",
@@ -1147,7 +1147,7 @@
   "claude_local_login_copy_failed": {
     "title": "The local Claude login could not be copied",
     "description": "The app could not update the dedicated local runner profile. No host profile or sessions were copied.",
-    "recovery": "Check local Docker access and the dedicated runner volume. Host credentials are only copied to a verified local Docker endpoint."
+    "recovery": "Check local Docker access, the dedicated runner volume and the login-state directory's current-user ownership and private permissions. An earlier incomplete copy or a copy already in progress can also prevent this update. Confirm the earlier copy's state before retrying; do not delete a pending receipt or change an existing directory's permissions while a copy may still be active."
   },
   "runner_service_configuration_unavailable": {
     "title": "Local backend recovery is unavailable",

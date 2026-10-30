@@ -27,6 +27,8 @@ class StructuredRecordStructureTests(unittest.TestCase):
             "host.publication.verified.models",
             "agents.activity.models",
             "agents.agents.claude.activity.models",
+            "agents.agents.claude.auth.models",
+            "host.private_state.models",
             "agents.agents.opencode.activity.models",
             "agents.agents.opencode.models",
         )

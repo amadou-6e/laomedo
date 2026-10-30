@@ -10,6 +10,11 @@ CODES = frozenset(
     }
 )
 
+# Normal copy admission and a distinct exact-cleanup reserve. These are operation
+# policies, not a verification allowance or a hard wall-time guarantee.
+COPY_SECONDS = 90.0
+CLEANUP_SECONDS = 20.0
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -49,4 +54,11 @@ class Settings(BaseSettings):
         validation_alias="LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN",
         repr=False,
         exclude=True,
+    )
+    private_state_directory: str | None = Field(
+        default=None,
+        validation_alias="LAOMEDO_CLAUDE_LOGIN_STATE_DIR",
+        repr=False,
+        exclude=True,
+        description="Trusted host override for private copy receipts outside checkouts.",
     )

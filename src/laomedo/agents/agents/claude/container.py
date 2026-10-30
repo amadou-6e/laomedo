@@ -83,9 +83,12 @@ class ClaudeContainer:
             raise RunnerError("unsupported_claude_cli_version")
 
     @contextmanager
-    def client(self, *, output_code="workspace_command_output_too_large"):
+    def client(
+        self, *, output_code="workspace_command_output_too_large", deadline=None
+    ):
         """Pin the daemon and translate library failures at the provider boundary."""
         from py_docker import Client
+        from py_docker.connection.settings import ConnectionSettings
         from py_docker.errors import (
             CleanupUnconfirmedError,
             JobCancelledError,
@@ -95,7 +98,20 @@ class ClaudeContainer:
         )
 
         try:
-            with Client(environment={"DOCKER_HOST": self.docker_endpoint}) as docker:
+            options = {"environment": {"DOCKER_HOST": self.docker_endpoint}}
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RunnerError("claude_turn_timeout")
+                options = {
+                    "settings": ConnectionSettings(
+                        endpoint=self.docker_endpoint,
+                        context=None,
+                        timeout_seconds=min(30.0, remaining),
+                    ),
+                    "environment": {},
+                }
+            with Client(**options) as docker:
                 yield docker
         except CleanupUnconfirmedError:
             raise RunnerError("container_termination_unverified") from None
@@ -188,12 +204,18 @@ class ClaudeContainer:
             *command,
         ]
 
-    def job(self, spec, *, timeout, cancelled=None):
+    def job(self, spec, *, timeout, cancelled=None, deadline=None):
         """Collect one bounded binary result only after exact cleanup is confirmed."""
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
+        from laomedo.agents.agents.claude.auth.settings import CLEANUP_SECONDS
 
-        with self.client() as docker:
+        options = {}
+        if deadline is not None:
+            options = {"deadline": float(deadline), "cleanup_seconds": CLEANUP_SECONDS}
+        with self.client(
+            **({"deadline": deadline} if deadline is not None else {})
+        ) as docker:
             return docker.jobs.run(
                 ContainerJob(
                     spec=spec,
@@ -206,6 +228,7 @@ class ClaudeContainer:
                     wait_timeout_seconds=10.0,
                 ),
                 cancelled=cancelled,
+                **options,
             )
 
     @contextmanager
@@ -224,7 +247,7 @@ class ClaudeContainer:
             ) as session:
                 yield session
 
-    def control(self, args, *, input=None, timeout=45):
+    def control(self, args, *, input=None, timeout=45, deadline=None):
         """Run a zero-turn CLI request; input files avoid Windows pipe half-close."""
         from py_docker.containers.models import Mount
 
@@ -244,10 +267,12 @@ class ClaudeContainer:
                     )
                 ]
                 command = ["sh", "-c", 'exec "$@" < /run/laomedo/input', "sh", *command]
-            spec = self.spec(
-                self.guarded(command, time.monotonic() + timeout), mounts=mounts
-            )
-            return self.job(spec, timeout=timeout)
+            until = time.monotonic() + timeout
+            if deadline is not None:
+                until = min(until, deadline)
+            spec = self.spec(self.guarded(command, until), mounts=mounts)
+            options = {"deadline": until} if deadline is not None else {}
+            return self.job(spec, timeout=timeout, **options)
 
     def check_supervisor(self):
         """Never advertise a runnable API without independent cleanup supervision."""
