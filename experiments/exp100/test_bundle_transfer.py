@@ -14,8 +14,9 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from experiments.exp100.bundle_transfer import git; from experiments.exp100.bundle_transfer import git_env; from experiments.exp100.bundle_transfer import verify_bundle
-
+from experiments.exp100.bundle_transfer import git
+from experiments.exp100.bundle_transfer import git_env
+from experiments.exp100.bundle_transfer import verify_bundle
 
 REF = "refs/heads/run-a"
 
@@ -32,7 +33,9 @@ class BundleTransferTests(unittest.TestCase):
         self._git(self.source, "init", "--quiet")
         (self.source / "base.txt").write_bytes(b"baseline\n")
         self._commit(self.source, "base")
-        self.baseline = self._git(self.source, "rev-parse", "HEAD").stdout.decode().strip()
+        self.baseline = (
+            self._git(self.source, "rev-parse", "HEAD").stdout.decode().strip()
+        )
         self._git(None, "clone", "--quiet", str(self.source), str(self.agent))
         self._git(self.agent, "checkout", "-q", "-b", "run-a")
         (self.agent / "change.txt").write_bytes(b"first\n")
@@ -41,12 +44,20 @@ class BundleTransferTests(unittest.TestCase):
 
     def _git(self, directory, *args):
         env = git_env()
-        env.update({"GIT_AUTHOR_NAME": "Fixture", "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
-                    "GIT_COMMITTER_NAME": "Fixture", "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
-                    "GIT_AUTHOR_DATE": "2020-01-01T00:00:00+00:00",
-                    "GIT_COMMITTER_DATE": "2020-01-01T00:00:00+00:00"})
+        env.update(
+            {
+                "GIT_AUTHOR_NAME": "Fixture",
+                "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+                "GIT_COMMITTER_NAME": "Fixture",
+                "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+                "GIT_AUTHOR_DATE": "2020-01-01T00:00:00+00:00",
+                "GIT_COMMITTER_DATE": "2020-01-01T00:00:00+00:00",
+            }
+        )
         result = git(list(args), directory=directory, env=env)
-        self.assertEqual(result.returncode, 0, (args, result.stderr.decode(errors="replace")))
+        self.assertEqual(
+            result.returncode, 0, (args, result.stderr.decode(errors="replace"))
+        )
         return result
 
     def _commit(self, directory, message):
@@ -59,14 +70,23 @@ class BundleTransferTests(unittest.TestCase):
         return path.read_bytes()
 
     def _verify(self, data, **overrides):
-        args = {"trusted_source": self.source, "baseline": self.baseline,
-                "expected_ref": REF}
+        args = {
+            "trusted_source": self.source,
+            "baseline": self.baseline,
+            "expected_ref": REF,
+        }
         args.update(overrides)
         result = verify_bundle(data, **args)
         if self.capture is not None:
-            self.capture.append({"bundle_sha256": hashlib.sha256(data).hexdigest(),
-                                 "reason": result["reason"], "stage": result["stage"],
-                                 "commit": result["commit"], "tree": result["tree"]})
+            self.capture.append(
+                {
+                    "bundle_sha256": hashlib.sha256(data).hexdigest(),
+                    "reason": result["reason"],
+                    "stage": result["stage"],
+                    "commit": result["commit"],
+                    "tree": result["tree"],
+                }
+            )
         return result
 
     def _control_import(self, data):
@@ -84,8 +104,9 @@ class BundleTransferTests(unittest.TestCase):
         self.assertEqual(result["commit"], self.first)
         self.assertEqual(result["stage"], "complete")
         self.assertIsNotNone(result["tree"])
-        self.assertEqual(self._verify(data, expected_ref="refs/heads/other")["reason"],
-                         "ref_name")
+        self.assertEqual(
+            self._verify(data, expected_ref="refs/heads/other")["reason"], "ref_name"
+        )
         self._control_import(data)
 
     def test_second_commit_requires_host_confirmed_seed(self):
@@ -96,8 +117,10 @@ class BundleTransferTests(unittest.TestCase):
         self._git(host, "bundle", "unbundle", str(self.root / "first.bundle"))
         self.assertEqual(self._verify(first_bundle)["reason"], "accepted")
         journal = self.root / "host-confirmed.json"
-        journal.write_text(json.dumps({"run_ref": REF, "confirmed_commit": self.first}),
-                           encoding="utf-8")
+        journal.write_text(
+            json.dumps({"run_ref": REF, "confirmed_commit": self.first}),
+            encoding="utf-8",
+        )
         (self.agent / "change.txt").write_bytes(b"second\n")
         self._commit(self.agent, "second")
         second = self._git(self.agent, "rev-parse", "HEAD").stdout.decode().strip()
@@ -105,8 +128,9 @@ class BundleTransferTests(unittest.TestCase):
         self.assertEqual(self._verify(thin)["reason"], "missing_prerequisite")
         confirmed = json.loads(journal.read_text(encoding="utf-8"))
         self.assertEqual(confirmed["run_ref"], REF)
-        accepted = self._verify(thin, trusted_source=host,
-                                confirmed_commit=confirmed["confirmed_commit"])
+        accepted = self._verify(
+            thin, trusted_source=host, confirmed_commit=confirmed["confirmed_commit"]
+        )
         self.assertEqual(accepted["reason"], "accepted", accepted)
         self.assertEqual(accepted["commit"], second)
 
@@ -119,8 +143,9 @@ class BundleTransferTests(unittest.TestCase):
         self.assertEqual(self._verify(good)["reason"], "accepted")
         truncated = good[:-20]
         bad = self._verify(truncated)
-        self.assertEqual((bad["reason"], bad["stage"]),
-                         ("object_invalid", "import"), bad)
+        self.assertEqual(
+            (bad["reason"], bad["stage"]), ("object_invalid", "import"), bad
+        )
 
     def test_unrelated_history_and_workflow_diff(self):
         self._git(self.agent, "checkout", "-q", "--orphan", "unrelated")
@@ -129,7 +154,9 @@ class BundleTransferTests(unittest.TestCase):
         self._commit(self.agent, "unrelated")
         unrelated = self._bundle("unrelated.bundle", "unrelated")
         # Header ref rename is the only mutation: the pack remains valid.
-        unrelated = unrelated.replace(b"refs/heads/unrelated\n", b"refs/heads/run-a\n", 1)
+        unrelated = unrelated.replace(
+            b"refs/heads/unrelated\n", b"refs/heads/run-a\n", 1
+        )
         self._control_import(unrelated)
         self.assertEqual(self._verify(unrelated)["reason"], "baseline_ancestry")
         self._git(self.agent, "checkout", "-q", "run-a")
@@ -139,18 +166,19 @@ class BundleTransferTests(unittest.TestCase):
         self._commit(self.agent, "workflow")
         workflow_data = self._bundle("workflow.bundle", "run-a")
         self._control_import(workflow_data)
-        self.assertEqual(self._verify(workflow_data)["reason"],
-                         "workflow_change")
+        self.assertEqual(self._verify(workflow_data)["reason"], "workflow_change")
 
     def test_bundle_capabilities_and_tag_object(self):
         good = self._bundle("good.bundle", "run-a")
         self.assertEqual(self._verify(good)["reason"], "accepted")
         v3 = good.replace(b"# v2 git bundle\n", b"# v3 git bundle\n", 1)
-        filtered = v3.replace(b"# v3 git bundle\n",
-                              b"# v3 git bundle\n@filter=blob:none\n", 1)
+        filtered = v3.replace(
+            b"# v3 git bundle\n", b"# v3 git bundle\n@filter=blob:none\n", 1
+        )
         self.assertEqual(self._verify(filtered)["reason"], "bundle_version")
-        different_format = v3.replace(b"# v3 git bundle\n",
-                                      b"# v3 git bundle\n@object-format=sha256\n", 1)
+        different_format = v3.replace(
+            b"# v3 git bundle\n", b"# v3 git bundle\n@object-format=sha256\n", 1
+        )
         self.assertEqual(self._verify(different_format)["reason"], "object_format")
         self.assertEqual(self._verify(v3)["reason"], "accepted")
         self._git(self.agent, "tag", "-a", "tagged", "-m", "tagged")
@@ -158,8 +186,9 @@ class BundleTransferTests(unittest.TestCase):
         tagged = tagged.replace(b"refs/tags/tagged\n", b"refs/heads/run-a\n", 1)
         self._control_import(tagged)
         result = self._verify(tagged)
-        self.assertEqual((result["reason"], result["stage"]),
-                         ("ref_type", "type"), result)
+        self.assertEqual(
+            (result["reason"], result["stage"]), ("ref_type", "type"), result
+        )
 
     def test_host_global_and_inherited_trace_controls(self):
         bundle = self._bundle("first.bundle", "run-a")
@@ -168,27 +197,39 @@ class BundleTransferTests(unittest.TestCase):
         config = hostile_home / ".gitconfig"
         global_trace = self.root / "global-trace.log"
         inherited_trace = self.root / "inherited-trace.log"
-        config.write_text("[trace2]\n\tnormalTarget = " +
-                          global_trace.as_posix() + "\n", encoding="utf-8")
+        config.write_text(
+            "[trace2]\n\tnormalTarget = " + global_trace.as_posix() + "\n",
+            encoding="utf-8",
+        )
         control_env = git_env(home=hostile_home)
         control_env.pop("GIT_CONFIG_GLOBAL", None)
-        loaded = git(["config", "--global", "--get", "trace2.normalTarget"],
-                     env=control_env)
+        loaded = git(
+            ["config", "--global", "--get", "trace2.normalTarget"], env=control_env
+        )
         self.assertEqual(loaded.stdout.decode().strip(), global_trace.as_posix())
-        control = git(["status", "--porcelain"], directory=self.source,
-                      env=control_env)
+        control = git(["status", "--porcelain"], directory=self.source, env=control_env)
         self.assertEqual(control.returncode, 0)
         self.assertTrue(global_trace.exists(), "global config control did not fire")
         global_trace.unlink()
-        control = git(["status", "--porcelain"], directory=self.source,
-                      env=git_env(trace=str(inherited_trace)))
+        control = git(
+            ["status", "--porcelain"],
+            directory=self.source,
+            env=git_env(trace=str(inherited_trace)),
+        )
         self.assertEqual(control.returncode, 0)
-        self.assertTrue(inherited_trace.exists(), "inherited trace control did not fire")
+        self.assertTrue(
+            inherited_trace.exists(), "inherited trace control did not fire"
+        )
         inherited_trace.unlink()
-        with patch.dict(os.environ, {"HOME": str(hostile_home),
-                                     "USERPROFILE": str(hostile_home),
-                                     "XDG_CONFIG_HOME": str(hostile_home),
-                                     "GIT_TRACE": str(inherited_trace)}):
+        with patch.dict(
+            os.environ,
+            {
+                "HOME": str(hostile_home),
+                "USERPROFILE": str(hostile_home),
+                "XDG_CONFIG_HOME": str(hostile_home),
+                "GIT_TRACE": str(inherited_trace),
+            },
+        ):
             self.assertEqual(self._verify(bundle)["reason"], "accepted")
         self.assertFalse(global_trace.exists())
         self.assertFalse(inherited_trace.exists())
@@ -196,32 +237,51 @@ class BundleTransferTests(unittest.TestCase):
     def test_complete_pack_with_missing_object_is_rejected_at_integrity(self):
         def raw_git(args, payload):
             env = git_env()
-            env.update({"HOME": str(self.root), "USERPROFILE": str(self.root),
-                        "XDG_CONFIG_HOME": str(self.root)})
-            result = subprocess.run(["git", "-C", str(self.agent), *args],
-                                    input=payload, capture_output=True,
-                                    timeout=10, check=False, env=env)
+            env.update(
+                {
+                    "HOME": str(self.root),
+                    "USERPROFILE": str(self.root),
+                    "XDG_CONFIG_HOME": str(self.root),
+                }
+            )
+            result = subprocess.run(
+                ["git", "-C", str(self.agent), *args],
+                input=payload,
+                capture_output=True,
+                timeout=10,
+                check=False,
+                env=env,
+            )
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout
 
         def handmade_bundle(blob: bytes, *, include_blob: bool):
-            tree = raw_git(["hash-object", "--literally", "-t", "tree", "-w",
-                            "--stdin"], b"100644 missing.txt\x00" + blob).strip()
-            commit_data = (b"tree " + tree + b"\nparent " +
-                           self.baseline.encode() +
-                           b"\nauthor Fixture <fixture@example.invalid> "
-                           b"1577836800 +0000\ncommitter Fixture "
-                           b"<fixture@example.invalid> 1577836800 +0000\n\ninvalid\n")
-            commit = raw_git(["hash-object", "--literally", "-t", "commit",
-                              "-w", "--stdin"], commit_data).strip()
+            tree = raw_git(
+                ["hash-object", "--literally", "-t", "tree", "-w", "--stdin"],
+                b"100644 missing.txt\x00" + blob,
+            ).strip()
+            commit_data = (
+                b"tree "
+                + tree
+                + b"\nparent "
+                + self.baseline.encode()
+                + b"\nauthor Fixture <fixture@example.invalid> "
+                b"1577836800 +0000\ncommitter Fixture "
+                b"<fixture@example.invalid> 1577836800 +0000\n\ninvalid\n"
+            )
+            commit = raw_git(
+                ["hash-object", "--literally", "-t", "commit", "-w", "--stdin"],
+                commit_data,
+            ).strip()
             objects = commit + b"\n" + tree + b"\n"
             if include_blob:
                 objects += blob.hex().encode() + b"\n"
             pack = raw_git(["pack-objects", "--stdout"], objects)
             return b"# v2 git bundle\n" + commit + b" refs/heads/run-a\n\n" + pack
 
-        present = raw_git(["hash-object", "-t", "blob", "-w", "--stdin"],
-                          b"present\n").strip()
+        present = raw_git(
+            ["hash-object", "-t", "blob", "-w", "--stdin"], b"present\n"
+        ).strip()
         control = handmade_bundle(bytes.fromhex(present.decode()), include_blob=True)
         self.assertEqual(self._verify(control)["reason"], "accepted")
         missing = bytes.fromhex("11" * 20)
@@ -273,11 +333,15 @@ class BundleTransferTests(unittest.TestCase):
         hostile_home.mkdir()
         (hostile_home / ".gitconfig").write_text(
             f'[url "{url}"]\n\tinsteadOf = https://hostile.invalid/hostile\n',
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         control_env = git_env(home=hostile_home)
         control_env.pop("GIT_CONFIG_GLOBAL", None)
-        rewritten = git(["ls-remote", "https://hostile.invalid/hostile"],
-                        directory=self.agent, env=control_env)
+        rewritten = git(
+            ["ls-remote", "https://hostile.invalid/hostile"],
+            directory=self.agent,
+            env=control_env,
+        )
         self.assertNotEqual(rewritten.returncode, 0)
         self.assertEqual(len(contacts), 2, "global rewrite detector did not fire")
         self.assertEqual(self._verify(bundle)["reason"], "accepted")
@@ -289,18 +353,25 @@ class BundleTransferTests(unittest.TestCase):
         before = self._verify(bundle)
         self.assertEqual(before["reason"], "accepted")
         alternate = self.agent / ".git" / "objects" / "info" / "alternates"
-        alternate.write_text((self.source / ".git" / "objects").as_posix() + "\n",
-                             encoding="utf-8", newline="\n")
+        alternate.write_text(
+            (self.source / ".git" / "objects").as_posix() + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         replacement = self.agent / ".git" / "refs" / "replace" / self.first
         replacement.parent.mkdir(parents=True, exist_ok=True)
         replacement.write_text(self.baseline + "\n", encoding="ascii", newline="\n")
         control_env = git_env()
         control_env.pop("GIT_NO_REPLACE_OBJECTS", None)
-        visible = git(["rev-parse", self.first + "^{tree}"],
-                      directory=self.agent, env=control_env)
+        visible = git(
+            ["rev-parse", self.first + "^{tree}"], directory=self.agent, env=control_env
+        )
         self.assertEqual(visible.returncode, 0, visible.stderr)
-        self.assertNotEqual(visible.stdout.decode().strip(), before["tree"],
-                            "replace-ref detector did not fire")
+        self.assertNotEqual(
+            visible.stdout.decode().strip(),
+            before["tree"],
+            "replace-ref detector did not fire",
+        )
         after = self._verify(bundle)
         self.assertEqual(after, before, "host decision changed with agent repository")
 

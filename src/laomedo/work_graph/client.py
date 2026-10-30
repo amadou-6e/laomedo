@@ -34,9 +34,7 @@ class LangflowLocalClient:
             ) as response:
                 token = json.load(response)["access_token"]
         except (OSError, ValueError, KeyError):
-            raise LaunchError(
-                "langflow_local_login_unavailable"
-            ) from None
+            raise LaunchError("langflow_local_login_unavailable") from None
         if not isinstance(token, str) or not token:
             raise LaunchError("langflow_local_login_unavailable")
         return token

@@ -11,14 +11,17 @@ import threading
 import time
 from types import ModuleType
 import unittest
-from unittest.mock import Mock; from unittest.mock import patch
+from unittest.mock import Mock
+from unittest.mock import patch
 
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.leases.service import LeaseService
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.host.mediation.service import MediationHTTPService
 
-_probe_path = Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s11_probe.py"
+_probe_path = (
+    Path(__file__).resolve().parents[1] / "experiments" / "exp104" / "s11_probe.py"
+)
 _probe_spec = importlib.util.spec_from_file_location("exp104_s11_probe", _probe_path)
 if _probe_spec is None or _probe_spec.loader is None:
     raise RuntimeError("s11_probe_unavailable")
@@ -35,9 +38,10 @@ class S11ProbeTests(unittest.TestCase):
             service.poll.return_value = None
 
             def publish() -> None:
-                time.sleep(.15)
+                time.sleep(0.15)
                 (state / "service.alive.monotonic").write_text(
-                    str(time.monotonic()), encoding="utf-8")
+                    str(time.monotonic()), encoding="utf-8"
+                )
 
             publisher = threading.Thread(target=publish)
             publisher.start()
@@ -46,27 +50,42 @@ class S11ProbeTests(unittest.TestCase):
                 result = probe._wait_service_heartbeat(state, service, timeout=2)
             finally:
                 publisher.join(timeout=2)
-            self.assertGreaterEqual(time.monotonic() - start, .1)
-            self.assertLess(result["monotonic_age_seconds"],
-                            probe.SERVICE_STALE_SECONDS)
+            self.assertGreaterEqual(time.monotonic() - start, 0.1)
+            self.assertLess(
+                result["monotonic_age_seconds"], probe.SERVICE_STALE_SECONDS
+            )
 
     def test_host_python_process_has_direct_identity_and_source_import(self):
         root = _probe_path.parents[2]
-        child = subprocess.Popen([
-            probe._direct_python(), "-c",
-            "import os,laomedo.host.host_services; "
-            "print(os.getpid()); print(laomedo.host.host_services.__file__)"],
-            cwd=root, env=probe._host_environment(), stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, text=True)
+        child = subprocess.Popen(
+            [
+                probe._direct_python(),
+                "-c",
+                "import os,laomedo.host.host_services; "
+                "print(os.getpid()); print(laomedo.host.host_services.__file__)",
+            ],
+            cwd=root,
+            env=probe._host_environment(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         output, errors = child.communicate(timeout=10)
         self.assertEqual(child.returncode, 0, errors)
         lines = output.splitlines()
         self.assertEqual(int(lines[0]), child.pid)
-        self.assertTrue(Path(lines[1]).resolve().is_relative_to(root / "src" / "laomedo"))
+        self.assertTrue(
+            Path(lines[1]).resolve().is_relative_to(root / "src" / "laomedo")
+        )
 
     def test_agent_process_environment_drops_host_token_override(self):
-        with patch.dict(os.environ, {"GH_LAOMEDO": "synthetic-provider-token",
-                                  "LAOMEDO_MEDIATED_GIT_TOKEN": "another-secret"}):
+        with patch.dict(
+            os.environ,
+            {
+                "GH_LAOMEDO": "synthetic-provider-token",
+                "LAOMEDO_MEDIATED_GIT_TOKEN": "another-secret",
+            },
+        ):
             environment = probe._agent_environment()
         self.assertNotIn("GH_LAOMEDO", environment)
         self.assertNotIn("LAOMEDO_MEDIATED_GIT_TOKEN", environment)
@@ -77,72 +96,125 @@ class S11ProbeTests(unittest.TestCase):
                 return {"login": "ga84jog"}
             if path.endswith("/git/ref/heads/main"):
                 return {"object": {"sha": probe.BASELINE}}
-            return {"id": probe.REPOSITORY_ID, "default_branch": "main",
-                    "permissions": {"push": True}}
+            return {
+                "id": probe.REPOSITORY_ID,
+                "default_branch": "main",
+                "permissions": {"push": True},
+            }
 
-        with patch.object(probe, "_api", side_effect=api), \
-             patch.object(probe, "_absent_ref") as absent, \
-             patch.object(probe, "_read_list", return_value=[]), \
-             patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
-                 [], 0, b"", b"")):
+        with (
+            patch.object(probe, "_api", side_effect=api),
+            patch.object(probe, "_absent_ref") as absent,
+            patch.object(probe, "_read_list", return_value=[]),
+            patch.object(
+                probe.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, b"", b""),
+            ),
+        ):
             probe._preflight("synthetic")
         self.assertEqual(absent.call_count, 2)
 
-        with patch.object(probe, "_api", side_effect=api), \
-             patch.object(probe, "_absent_ref"), \
-             patch.object(probe, "_read_list", return_value=[{
-                 "body": probe.MARKERS["a"]}]), \
-             self.assertRaisesRegex(RuntimeError, "pr_marker_preflight_uncertain"):
+        with (
+            patch.object(probe, "_api", side_effect=api),
+            patch.object(probe, "_absent_ref"),
+            patch.object(
+                probe, "_read_list", return_value=[{"body": probe.MARKERS["a"]}]
+            ),
+            self.assertRaisesRegex(RuntimeError, "pr_marker_preflight_uncertain"),
+        ):
             probe._preflight("synthetic")
 
     def test_inconclusive_write_does_not_count_as_confirmed(self):
-        for status, response in ((200, {"state": "unknown"}),
-                                 (500, {"state": "confirmed", "result": {}}),
-                                 (200, {"state": "confirmed", "result": []})):
-            with self.subTest(status=status, response=response), \
-                 self.assertRaisesRegex(RuntimeError, "no_retry"):
+        for status, response in (
+            (200, {"state": "unknown"}),
+            (500, {"state": "confirmed", "result": {}}),
+            (200, {"state": "confirmed", "result": []}),
+        ):
+            with (
+                self.subTest(status=status, response=response),
+                self.assertRaisesRegex(RuntimeError, "no_retry"),
+            ):
                 probe._check_effect(status, response, "sample")
 
     def test_client_response_must_not_expose_secrets(self):
-        with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
-                [], 0, '{"state":"confirmed","secret":"provider-token"}', "")), \
-             self.assertRaisesRegex(RuntimeError, "secret_in_agent_response"):
-            probe._container_call("synthetic", "pr_create", {}, "effect",
-                                  ("provider-token", "run-capability"))
+        with (
+            patch.object(
+                probe.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    [], 0, '{"state":"confirmed","secret":"provider-token"}', ""
+                ),
+            ),
+            self.assertRaisesRegex(RuntimeError, "secret_in_agent_response"),
+        ):
+            probe._container_call(
+                "synthetic",
+                "pr_create",
+                {},
+                "effect",
+                ("provider-token", "run-capability"),
+            )
 
     def test_review_record_binds_exact_identity_and_head(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "review.json"
-            path.write_text(json.dumps({"identity": probe.IDENTITY,
-                                        "source_sha": "abc", "verdict": "approve"}),
-                            encoding="utf-8")
+            path.write_text(
+                json.dumps(
+                    {
+                        "identity": probe.IDENTITY,
+                        "source_sha": "abc",
+                        "verdict": "approve",
+                    }
+                ),
+                encoding="utf-8",
+            )
             self.assertEqual(len(probe._reviewed_record(path, "abc")), 64)
             with self.assertRaisesRegex(RuntimeError, "pre_run_review_not_approved"):
                 probe._reviewed_record(path, "def")
 
     def test_reviewed_source_refuses_uncommitted_change(self):
-        with patch.object(probe.GitRepository, "run", return_value=subprocess.CompletedProcess(
-                [], 0, b" M experiments/exp104/s11_probe.py\n", b"")), \
-             self.assertRaisesRegex(RuntimeError, "reviewed_source_not_clean"):
+        with (
+            patch.object(
+                probe.GitRepository,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    [], 0, b" M experiments/exp104/s11_probe.py\n", b""
+                ),
+            ),
+            self.assertRaisesRegex(RuntimeError, "reviewed_source_not_clean"),
+        ):
             probe._require_clean_source(Path("synthetic"))
-        with patch.object(probe.GitRepository, "run", return_value=subprocess.CompletedProcess(
-                [], 0, b"", b"")):
+        with patch.object(
+            probe.GitRepository,
+            "run",
+            return_value=subprocess.CompletedProcess([], 0, b"", b""),
+        ):
             probe._require_clean_source(Path("synthetic"))
 
     def test_reviewed_modules_must_resolve_inside_checkout(self):
         root = _probe_path.parents[2]
         foreign = ModuleType("laomedo.synthetic_foreign")
         foreign.__file__ = str(Path(tempfile.gettempdir()) / "laomedo" / "foreign.py")
-        with patch.dict(sys.modules, {"laomedo.synthetic_foreign": foreign}), \
-             self.assertRaisesRegex(RuntimeError, "reviewed_module_origin_mismatch"):
+        with (
+            patch.dict(sys.modules, {"laomedo.synthetic_foreign": foreign}),
+            self.assertRaisesRegex(RuntimeError, "reviewed_module_origin_mismatch"),
+        ):
             probe._require_module_origin(root)
 
     def test_run_refuses_wrong_identity_before_token_or_provider(self):
         with tempfile.TemporaryDirectory() as directory:
-            with patch.object(probe, "HostTokenConnection") as connection, \
-                 self.assertRaisesRegex(RuntimeError, "specific_live_approval_required"):
-                probe.run(Path(directory) / "fresh", Path(directory) / "token",
-                          "abc", "other-identity", Path(directory) / "review")
+            with (
+                patch.object(probe, "HostTokenConnection") as connection,
+                self.assertRaisesRegex(RuntimeError, "specific_live_approval_required"),
+            ):
+                probe.run(
+                    Path(directory) / "fresh",
+                    Path(directory) / "token",
+                    "abc",
+                    "other-identity",
+                    Path(directory) / "review",
+                )
             connection.assert_not_called()
 
     def test_scan_rejects_token_in_agent_mount(self):
@@ -151,9 +223,14 @@ class S11ProbeTests(unittest.TestCase):
             for side in ("a", "b"):
                 (state / ("agent-" + side)).mkdir()
             (state / "agent-a" / "leak.txt").write_text("provider-token")
-            with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
-                    [], 0, b"safe", b"")), \
-                 self.assertRaisesRegex(RuntimeError, "secret_in_agent_mount"):
+            with (
+                patch.object(
+                    probe.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess([], 0, b"safe", b""),
+                ),
+                self.assertRaisesRegex(RuntimeError, "secret_in_agent_mount"),
+            ):
                 probe._scan_agent_exposure(state, "provider-token", ("cap-a", "cap-b"))
 
     def test_persisted_scan_allows_only_designated_capability_file(self):
@@ -162,23 +239,33 @@ class S11ProbeTests(unittest.TestCase):
             secret = state / "lease" / "leases" / "lease-a" / "grant.secret"
             secret.parent.mkdir(parents=True)
             secret.write_text("cap-a", encoding="utf-8")
-            self.assertEqual(probe._scan_persisted_exposure(
-                state, "provider-token", ("cap-a",))["unexpected_exact_hits"], 0)
+            self.assertEqual(
+                probe._scan_persisted_exposure(state, "provider-token", ("cap-a",))[
+                    "unexpected_exact_hits"
+                ],
+                0,
+            )
             (state / "observation.json").write_text("cap-a", encoding="utf-8")
-            with self.assertRaisesRegex(RuntimeError, "capability_outside_designated_mount"):
+            with self.assertRaisesRegex(
+                RuntimeError, "capability_outside_designated_mount"
+            ):
                 probe._scan_persisted_exposure(state, "provider-token", ("cap-a",))
 
-    @unittest.skipUnless(os.name == "nt" and
-                         os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",
-                         "requires pinned image and Windows Docker Desktop route")
+    @unittest.skipUnless(
+        os.name == "nt" and os.environ.get("LAOMEDO_DOCKER_MEDIATION_TEST") == "1",
+        "requires pinned image and Windows Docker Desktop route",
+    )
     def test_s11_runner_uses_its_mounted_capability_with_synthetic_provider(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
             (state / "mediator").mkdir()
             store = MediationStore(state / "mediator" / "mediator.sqlite")
             authority = RunGrantAuthority(state / "authority.sqlite")
-            lease = LeaseService(state / "lease", mediator=store,
-                                 mediation_authority=authority.authorize_lease)
+            lease = LeaseService(
+                state / "lease",
+                mediator=store,
+                mediation_authority=authority.authorize_lease,
+            )
             calls = []
 
             def fake_transport(repository, operation, payload, **_binding):
@@ -186,9 +273,12 @@ class S11ProbeTests(unittest.TestCase):
                 return {"synthetic": True}
 
             mediator = MediationHTTPService(store, fake_transport)
-            status = {"pid": os.getpid(), "port": mediator.port,
-                      "instance": mediator.instance,
-                      "repository": probe.REPOSITORY}
+            status = {
+                "pid": os.getpid(),
+                "port": mediator.port,
+                "instance": mediator.instance,
+                "repository": probe.REPOSITORY,
+            }
             (state / "mediator" / "mediator.json").write_text(json.dumps(status))
             mediator_thread = threading.Thread(target=mediator.serve, daemon=True)
             lease_thread = threading.Thread(target=lease.serve, daemon=True)
@@ -200,8 +290,11 @@ class S11ProbeTests(unittest.TestCase):
                 probe._wait(state / "lease" / "service.json", 5)
                 reference = authority.approve(
                     invocation_id="invocation-" + probe.RUNS["a"],
-                    repository=probe.REPOSITORY, branch=probe.BRANCHES["a"],
-                    operations={"actions_read"}, reviewed_by="synthetic-test")
+                    repository=probe.REPOSITORY,
+                    branch=probe.BRANCHES["a"],
+                    operations={"actions_read"},
+                    reviewed_by="synthetic-test",
+                )
                 authority.bind_run(reference, probe.RUNS["a"])
                 script = (
                     "from pathlib import Path; "
@@ -211,35 +304,52 @@ class S11ProbeTests(unittest.TestCase):
                     "Path(__import__('sys').argv[2]))"
                 )
                 ready = state / "ready.json"
-                runner = subprocess.Popen([__import__("sys").executable, "-c", script,
-                                           str(state), str(ready)],
-                                          stdout=subprocess.DEVNULL,
-                                          stderr=subprocess.DEVNULL)
+                runner = subprocess.Popen(
+                    [
+                        __import__("sys").executable,
+                        "-c",
+                        script,
+                        str(state),
+                        str(ready),
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
                 probe._wait(ready, 25)
                 status_code, response = probe._container_call(
-                    local_name, "actions_read", {"resource": "runs"},
-                    "synthetic-read", ("synthetic-provider-token",))
+                    local_name,
+                    "actions_read",
+                    {"resource": "runs"},
+                    "synthetic-read",
+                    ("synthetic-provider-token",),
+                )
                 self.assertEqual(status_code, 200)
                 self.assertEqual(response["state"], "confirmed")
-                self.assertEqual(calls, [(probe.REPOSITORY, "actions_read",
-                                          {"resource": "runs"})])
-                stopped = subprocess.run(["docker", "stop", local_name],
-                                         capture_output=True, timeout=20)
+                self.assertEqual(
+                    calls, [(probe.REPOSITORY, "actions_read", {"resource": "runs"})]
+                )
+                stopped = subprocess.run(
+                    ["docker", "stop", local_name], capture_output=True, timeout=20
+                )
                 self.assertEqual(stopped.returncode, 0)
                 runner.wait(timeout=20)
-                result = probe._wait(state / "lease" / "leases" /
-                                     probe.LEASES["a"] / "result.json", 20)
+                result = probe._wait(
+                    state / "lease" / "leases" / probe.LEASES["a"] / "result.json", 20
+                )
                 self.assertEqual(result["reason"], "done")
-                self.assertEqual(result["revoked_grants"], [
-                    json.loads(ready.read_text())["grant_id"]])
+                self.assertEqual(
+                    result["revoked_grants"],
+                    [json.loads(ready.read_text())["grant_id"]],
+                )
                 self.assertIs(result["cleanup_verified"], True)
             finally:
                 if runner is not None and runner.poll() is None:
                     runner.kill()
                     runner.wait(timeout=5)
                 # Only this exact test container may be removed.
-                subprocess.run(["docker", "rm", "-f", local_name],
-                               capture_output=True, timeout=20)
+                subprocess.run(
+                    ["docker", "rm", "-f", local_name], capture_output=True, timeout=20
+                )
                 lease.stopping.set()
                 mediator.close()
                 lease_thread.join(timeout=5)

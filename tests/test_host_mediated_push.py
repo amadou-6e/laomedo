@@ -7,7 +7,8 @@ import tempfile
 import unittest
 
 from laomedo.github.transport.git.transport import GitHubGitTransport
-from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
+from laomedo.host.mediation.errors import MediationError
+from laomedo.host.mediation.store import MediationStore
 from laomedo.host.credentials.token.connection import HostTokenConnection
 
 
@@ -32,9 +33,12 @@ class HostMediatedPushTests(unittest.TestCase):
         token_file.write_text("GH=synthetic-provider-token\n", encoding="utf-8")
         self.token_file = token_file
         self.connection = HostTokenConnection(
-            connection_id="selected", generation=1,
-            repository="example/disposable", token_file=token_file,
-            forbidden_mount=self.checkout)
+            connection_id="selected",
+            generation=1,
+            repository="example/disposable",
+            token_file=token_file,
+            forbidden_mount=self.checkout,
+        )
         self.provider_calls = []
 
         def run(args, **kwargs):
@@ -44,30 +48,45 @@ class HostMediatedPushTests(unittest.TestCase):
             return subprocess.run(args, **kwargs)
 
         self.transport = GitHubGitTransport(
-            "example/disposable", self.checkout, baseline,
-            self.connection.token, runner=CallbackGitRunner(run))
+            "example/disposable",
+            self.checkout,
+            baseline,
+            self.connection.token,
+            runner=CallbackGitRunner(run),
+        )
         self.store = MediationStore(
             self.path / "mediator.sqlite",
             workflow_change_classifier=self.transport.classify_workflow_diff,
-            connection_is_current=self.connection.current)
+            connection_is_current=self.connection.current,
+        )
 
     def _git(self, *args):
-        return subprocess.run(["git", "-C", str(self.checkout), *args],
-                              check=True, capture_output=True)
+        return subprocess.run(
+            ["git", "-C", str(self.checkout), *args], check=True, capture_output=True
+        )
 
     def _grant(self, run: str, branch: str) -> str:
         _, bearer = self.store.issue(
-            run_id=run, invocation_id="invocation-" + run,
-            repository="example/disposable", branch=branch,
-            operations={"git_push"}, ttl_seconds=60,
-            connection_id="selected", connection_generation=1)
+            run_id=run,
+            invocation_id="invocation-" + run,
+            repository="example/disposable",
+            branch=branch,
+            operations={"git_push"},
+            ttl_seconds=60,
+            connection_id="selected",
+            connection_generation=1,
+        )
         return bearer
 
     def _push(self, bearer: str, branch: str, effect: str):
         return self.store.invoke(
-            token=bearer, repository="example/disposable", operation="git_push",
+            token=bearer,
+            repository="example/disposable",
+            operation="git_push",
             payload={"branch": branch, "commit": self.commit},
-            effect_id=effect, transport=self.transport)
+            effect_id=effect,
+            transport=self.transport,
+        )
 
     def test_one_revoked_run_does_not_reach_provider_or_stop_other_run(self):
         a = self._grant("run-a", "branch-a")

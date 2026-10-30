@@ -3,9 +3,12 @@
 import json
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput; from lfx.io import MultilineInput; from lfx.io import Output
+from lfx.io import DataInput
+from lfx.io import MultilineInput
+from lfx.io import Output
 from lfx.schema import Data
-from laomedo.agents.interface.output.utils import evaluate_envelope; from laomedo.agents.interface.output.utils import requirements
+from laomedo.agents.interface.output.utils import evaluate_envelope
+from laomedo.agents.interface.output.utils import requirements
 
 
 class LaomedoOutputContractLegacy(Component):
@@ -13,10 +16,28 @@ class LaomedoOutputContractLegacy(Component):
     description = "Configure an output form, expose its pinned precheck requirements and validate agent submissions for graph routing."
     icon = "ClipboardCheck"
     name = "LaomedoOutputContractLegacy"
-    inputs = [MultilineInput(name="requirements_json", display_name="Output Form", value='{"schema_version":1,"fields":[]}'),
-              DataInput(name="agent_submission", display_name="Agent Submission")]
-    outputs = [Output(name="requirements", display_name="Precheck Requirements", method="requirements_output", group_outputs=True),
-               Output(name="validation", display_name="Validation Outcome", method="validation_output", group_outputs=True)]
+    inputs = [
+        MultilineInput(
+            name="requirements_json",
+            display_name="Output Form",
+            value='{"schema_version":1,"fields":[]}',
+        ),
+        DataInput(name="agent_submission", display_name="Agent Submission"),
+    ]
+    outputs = [
+        Output(
+            name="requirements",
+            display_name="Precheck Requirements",
+            method="requirements_output",
+            group_outputs=True,
+        ),
+        Output(
+            name="validation",
+            display_name="Validation Outcome",
+            method="validation_output",
+            group_outputs=True,
+        ),
+    ]
 
     def requirements_output(self) -> Data:
         try:

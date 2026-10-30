@@ -1,16 +1,20 @@
 """Credential-free tests of the opt-in local HTTP boundary."""
 
-from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
-from urllib import error; from urllib import request
-from uuid import UUID; from uuid import uuid4
+from urllib import error
+from urllib import request
+from uuid import UUID
+from uuid import uuid4
 
 from laomedo.integrations.langflow.join.controller import LangflowJoinController
-from laomedo.integrations.langflow.join.transport import RunnerHTTPTransport; from laomedo.integrations.langflow.join.server import JoinServer as serve_langflow_join
+from laomedo.integrations.langflow.join.transport import RunnerHTTPTransport
+from laomedo.integrations.langflow.join.server import JoinServer as serve_langflow_join
 from laomedo.work_graph.runs.store import WorkflowRunStore
 from test_langflow_join_controller import FakeRunner
 
@@ -21,10 +25,22 @@ class LangflowJoinHTTPTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.store = WorkflowRunStore(Path(temporary.name) / "runs.sqlite3")
         self.runner = FakeRunner()
-        flow = {"id": "saved-flow", "data": {"nodes": [{"id": "agent",
-            "data": {"node": {"template": {"code": {"value": "synthetic code"}}}}}]}}
+        flow = {
+            "id": "saved-flow",
+            "data": {
+                "nodes": [
+                    {
+                        "id": "agent",
+                        "data": {
+                            "node": {"template": {"code": {"value": "synthetic code"}}}
+                        },
+                    }
+                ]
+            },
+        }
         self.controller = LangflowJoinController(
-            self.store, self.runner, lambda _flow: flow)
+            self.store, self.runner, lambda _flow: flow
+        )
         self.token = uuid4().hex
         self.server = serve_langflow_join(self.controller, self.token, port=0)
         self.thread = Thread(target=self.server.serve_forever, daemon=True)
@@ -41,9 +57,12 @@ class LangflowJoinHTTPTests(unittest.TestCase):
         headers = {"Content-Type": "application/json"}
         if token is not False:
             headers["Authorization"] = "Bearer " + (token or self.token)
-        req = request.Request(self.base + path,
+        req = request.Request(
+            self.base + path,
             data=None if body is None else json.dumps(body).encode("utf-8"),
-            headers=headers, method=method)
+            headers=headers,
+            method=method,
+        )
         try:
             with request.urlopen(req, timeout=5) as response:
                 return response.status, json.load(response)
@@ -52,24 +71,37 @@ class LangflowJoinHTTPTests(unittest.TestCase):
 
     @staticmethod
     def body(client):
-        return {"client_request_id": client, "flow_id": "saved-flow",
-                "graph_run_id": "reported-graph", "stage_id": "agent",
-                "runner_body": {"task": "synthetic task", "model": "synthetic",
-                                "effort": "low", "skill_ref": {"skill_id": "fixture"}}}
+        return {
+            "client_request_id": client,
+            "flow_id": "saved-flow",
+            "graph_run_id": "reported-graph",
+            "stage_id": "agent",
+            "runner_body": {
+                "task": "synthetic task",
+                "model": "synthetic",
+                "effort": "low",
+                "skill_ref": {"skill_id": "fixture"},
+            },
+        }
 
     def test_claude_ack_and_run_poll_preserve_provider_and_attempt_after_restart(self):
-        self.runner.provider = self.controller.provider = 'claude'
+        self.runner.provider = self.controller.provider = "claude"
         client = str(uuid4())
-        code, started = self.call('POST', '/v1/invocations', self.body(client))
+        code, started = self.call("POST", "/v1/invocations", self.body(client))
         self.assertEqual(code, 202)
-        self.assertEqual(started['provider'], 'claude')
-        native_id = started['run_id']
-        self.assertIsNone(self.store.langflow_runner_binding(native_id, provider='codex'))
+        self.assertEqual(started["provider"], "claude")
+        native_id = started["run_id"]
+        self.assertIsNone(
+            self.store.langflow_runner_binding(native_id, provider="codex")
+        )
         self.controller.store = WorkflowRunStore(self.store.path)
-        code, current = self.call('GET', '/v1/runs/'+native_id)
+        code, current = self.call("GET", "/v1/runs/" + native_id)
         self.assertEqual(code, 200)
-        self.assertEqual(current['provider'], 'claude')
-        self.assertEqual(current['activity_initial_attempt_id'], started['activity_initial_attempt_id'])
+        self.assertEqual(current["provider"], "claude")
+        self.assertEqual(
+            current["activity_initial_attempt_id"],
+            started["activity_initial_attempt_id"],
+        )
         self.assertEqual(len(self.runner.starts), 1)
 
     def test_unconfirmed_native_cancel_is_incomplete_until_explicit_confirmation(self):
@@ -92,13 +124,14 @@ class LangflowJoinHTTPTests(unittest.TestCase):
     def test_authenticated_start_retry_status_and_cancel(self):
         client = str(uuid4())
         body = self.body(client)
-        self.assertEqual(self.call("POST", "/v1/invocations", body,
-                                   token=False)[0], 401)
+        self.assertEqual(
+            self.call("POST", "/v1/invocations", body, token=False)[0], 401
+        )
         code, started = self.call("POST", "/v1/invocations", body)
         self.assertEqual(code, 202)
         self.assertEqual(started["client_request_id"], client)
         self.assertIsNotNone(started["run_id"])
-        attempt = started['activity_initial_attempt_id']
+        attempt = started["activity_initial_attempt_id"]
         self.assertEqual(str(UUID(attempt)), attempt)
         self.assertFalse(started["executing_graph_verified"])
         self.assertEqual(len(self.runner.starts), 1)
@@ -106,12 +139,12 @@ class LangflowJoinHTTPTests(unittest.TestCase):
         code, retry = self.call("POST", "/v1/invocations", body)
         self.assertEqual(code, 202)
         self.assertEqual(retry["run_id"], started["run_id"])
-        self.assertEqual(retry['activity_initial_attempt_id'], attempt)
+        self.assertEqual(retry["activity_initial_attempt_id"], attempt)
         self.assertEqual(len(self.runner.starts), 1)
         code, by_client = self.call("GET", "/v1/requests/" + client)
         self.assertEqual(code, 200)
         self.assertEqual(by_client["run_id"], started["run_id"])
-        self.assertEqual(by_client['activity_initial_attempt_id'], attempt)
+        self.assertEqual(by_client["activity_initial_attempt_id"], attempt)
         code, by_run = self.call("GET", "/v1/runs/" + started["run_id"])
         self.assertEqual(code, 200)
         self.assertEqual(by_run["invocation_id"], started["invocation_id"])
@@ -128,8 +161,12 @@ class LangflowJoinHTTPTests(unittest.TestCase):
         client = str(uuid4())
         self.call("POST", "/v1/invocations", self.body(client))
         native = next(iter(self.runner.records.values()))
-        native.update(status="unknown", attempt_finished=True, snapshot_ready=False,
-                      error_category="outstanding_command_completion_unknown")
+        native.update(
+            status="unknown",
+            attempt_finished=True,
+            snapshot_ready=False,
+            error_category="outstanding_command_completion_unknown",
+        )
         code, observed = self.call("GET", "/v1/requests/" + client)
         self.assertEqual(code, 200)
         self.assertEqual(observed["status"], "unknown")
@@ -150,32 +187,42 @@ class LangflowJoinHTTPTests(unittest.TestCase):
 
     def test_runner_redirect_does_not_forward_host_token(self):
         hits = []
+
         class Target(BaseHTTPRequestHandler):
             def log_message(self, *_):
                 return
+
             def do_POST(self):
                 hits.append(self.headers.get("Authorization"))
                 self.send_response(200)
                 self.end_headers()
+
         target = ThreadingHTTPServer(("127.0.0.1", 0), Target)
         target_thread = Thread(target=target.serve_forever, daemon=True)
         target_thread.start()
+
         class Redirect(BaseHTTPRequestHandler):
             def log_message(self, *_):
                 return
+
             def do_POST(self):
                 self.send_response(307)
-                self.send_header("Location", "http://127.0.0.1:" +
-                                 str(target.server_port) + "/capture")
+                self.send_header(
+                    "Location",
+                    "http://127.0.0.1:" + str(target.server_port) + "/capture",
+                )
                 self.end_headers()
+
         redirect = ThreadingHTTPServer(("127.0.0.1", 0), Redirect)
         redirect_thread = Thread(target=redirect.serve_forever, daemon=True)
         redirect_thread.start()
         try:
             transport = RunnerHTTPTransport(
-                "http://127.0.0.1:" + str(redirect.server_port), "dummy-secret")
-            with self.assertRaisesRegex(RuntimeError,
-                                        "runner_http_rejected|runner_transport_unknown"):
+                "http://127.0.0.1:" + str(redirect.server_port), "dummy-secret"
+            )
+            with self.assertRaisesRegex(
+                RuntimeError, "runner_http_rejected|runner_transport_unknown"
+            ):
                 transport.start_async({"request_id": str(uuid4()), "task": "synthetic"})
             self.assertEqual(hits, [])
         finally:

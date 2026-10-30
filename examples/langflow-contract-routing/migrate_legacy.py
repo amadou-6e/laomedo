@@ -1,4 +1,5 @@
 """Explicit offline migration of known two-port contract exports. Never overwrites input."""
+
 from copy import deepcopy
 import argparse
 import json
@@ -9,9 +10,11 @@ from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
 
 ROOT = Path(__file__).resolve().parents[2]
-_spec = importlib.util.spec_from_file_location("module_path_migration", ROOT / "tools/migrations/migrate_module_paths.py")
+_spec = importlib.util.spec_from_file_location(
+    "module_path_migration", ROOT / "tools/migrations/migrate_module_paths.py"
+)
 _module_paths = importlib.util.module_from_spec(_spec)
-sys.path.insert(0, str(ROOT / 'tools/migrations'))
+sys.path.insert(0, str(ROOT / "tools/migrations"))
 try:
     _spec.loader.exec_module(_module_paths)
 finally:
@@ -20,8 +23,12 @@ finally:
 
 def migrate(flow):
     result = deepcopy(flow)
-    code = (ROOT / "components/laomedo/output_contract_legacy.py").read_text(encoding="utf-8")
-    original = code.replace("LaomedoOutputContractLegacy", "LaomedoOutputContract").replace("Laomedo Output Contract (legacy)", "Laomedo Output Contract")
+    code = (ROOT / "components/laomedo/output_contract_legacy.py").read_text(
+        encoding="utf-8"
+    )
+    original = code.replace(
+        "LaomedoOutputContractLegacy", "LaomedoOutputContract"
+    ).replace("Laomedo Output Contract (legacy)", "Laomedo Output Contract")
     changed = set()
     for node in result["data"]["nodes"]:
         if node["data"]["type"] != "LaomedoOutputContract":
@@ -30,7 +37,11 @@ def migrate(flow):
         ports = [port["name"] for port in old["outputs"]]
         if ports == ["success", "failure", "rejection", "recovery"]:
             continue
-        if ports != ["requirements", "validation"] or _module_paths.migrate_source(old["template"]["code"]["value"]).strip() != original.strip():
+        if (
+            ports != ["requirements", "validation"]
+            or _module_paths.migrate_source(old["template"]["code"]["value"]).strip()
+            != original.strip()
+        ):
             raise ValueError("unsupported_legacy_contract_source")
         template, _ = build_custom_component_template(Component(_code=code))
         for name, field in old["template"].items():
@@ -43,13 +54,13 @@ def migrate(flow):
         if edge["source"] in changed:
             handle = edge["data"]["sourceHandle"]
             raw = edge["sourceHandle"]
-            encoded = '\u0153' in raw
-            decoded = json.loads(raw.replace('\u0153', '"') if encoded else raw)
+            encoded = "\u0153" in raw
+            decoded = json.loads(raw.replace("\u0153", '"') if encoded else raw)
             if decoded != handle or handle.get("id") != edge["source"]:
                 raise ValueError("inconsistent_legacy_source_handle")
             handle["dataType"] = "LaomedoOutputContractLegacy"
             raw = json.dumps(handle, ensure_ascii=False, separators=(",", ":"))
-            edge["sourceHandle"] = raw.replace('"', '\u0153') if encoded else raw
+            edge["sourceHandle"] = raw.replace('"', "\u0153") if encoded else raw
     return result
 
 

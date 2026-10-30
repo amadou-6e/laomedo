@@ -23,7 +23,22 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import AppServer; from _shared import RequestTimeout; from _shared import codex_version; from _shared import compare_personal_roots; from _shared import construct_env; from _shared import credential_gate; from _shared import fingerprint; from _shared import hash_personal_roots; from _shared import read_turn_context; from _shared import reserve_model_turn; from _shared import restore_workspace_snapshot; from _shared import select_supported_pair; from _shared import snapshot_workspace; from _shared import summarize_methods; from _shared import validate_pair; from _shared import write_skill
+from _shared import AppServer
+from _shared import RequestTimeout
+from _shared import codex_version
+from _shared import compare_personal_roots
+from _shared import construct_env
+from _shared import credential_gate
+from _shared import fingerprint
+from _shared import hash_personal_roots
+from _shared import read_turn_context
+from _shared import reserve_model_turn
+from _shared import restore_workspace_snapshot
+from _shared import select_supported_pair
+from _shared import snapshot_workspace
+from _shared import summarize_methods
+from _shared import validate_pair
+from _shared import write_skill
 
 
 def await_turn(server, timeout=90):
@@ -45,10 +60,16 @@ def count_attempted_turn(summary, state):
 
 
 def create_and_run(server, model, project, summary, label):
-    started = server.send("thread/start", {
-        "model": model, "cwd": str(project), "approvalPolicy": "never",
-        "sandbox": "read-only",
-    }, timeout=30)
+    started = server.send(
+        "thread/start",
+        {
+            "model": model,
+            "cwd": str(project),
+            "approvalPolicy": "never",
+            "sandbox": "read-only",
+        },
+        timeout=30,
+    )
     if "result" not in started:
         summary[f"{label}_thread_error"] = started.get("error")
         return None
@@ -57,13 +78,20 @@ def create_and_run(server, model, project, summary, label):
     summary[f"{label}_thread_id"] = thread_id
     thread_path = result["thread"].get("path")
     summary[f"{label}_cli_version"] = result["thread"].get("cliVersion")
-    summary[f"{label}_instruction_source_count"] = len(result.get("instructionSources") or [])
+    summary[f"{label}_instruction_source_count"] = len(
+        result.get("instructionSources") or []
+    )
     count_attempted_turn(summary, server.state)
-    turn = server.send("turn/start", {
-        "threadId": thread_id,
-        "input": [{"type": "text", "text": "Reply with the single word ready."}],
-        "model": model, "effort": "low",
-    }, timeout=30)
+    turn = server.send(
+        "turn/start",
+        {
+            "threadId": thread_id,
+            "input": [{"type": "text", "text": "Reply with the single word ready."}],
+            "model": model,
+            "effort": "low",
+        },
+        timeout=30,
+    )
     if "error" in turn:
         summary[f"{label}_turn_error"] = turn["error"]
         return thread_id
@@ -71,23 +99,39 @@ def create_and_run(server, model, project, summary, label):
     summary[f"{label}_turn_id"] = turn_id
     summary[f"{label}_turn_status"] = await_turn(server)
     summary[f"{label}_effective_context"] = read_turn_context(
-        Path(server.state) / "codex-home", thread_path, turn_id)
+        Path(server.state) / "codex-home", thread_path, turn_id
+    )
     return thread_id
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--codex", type=Path, required=True)
-    parser.add_argument("--state-dir", type=Path,
-                        help="provisioned private state dir with codex-home/auth.json")
-    parser.add_argument("--credential-mode", choices=("chatgpt_handoff", "api_key"),
-                        default="chatgpt_handoff")
-    parser.add_argument("--credential-ref", help="API-key secret-store reference, not a key")
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        help="provisioned private state dir with codex-home/auth.json",
+    )
+    parser.add_argument(
+        "--credential-mode",
+        choices=("chatgpt_handoff", "api_key"),
+        default="chatgpt_handoff",
+    )
+    parser.add_argument(
+        "--credential-ref", help="API-key secret-store reference, not a key"
+    )
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
     if not args.state_dir:
-        print(json.dumps({"blocked": "no_state_dir",
-                          "detail": "pass --state-dir with provisioned private auth"}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "blocked": "no_state_dir",
+                    "detail": "pass --state-dir with provisioned private auth",
+                },
+                indent=2,
+            )
+        )
         return
     state = args.state_dir.resolve(strict=True)
     if not state.is_dir():
@@ -102,8 +146,15 @@ def main():
     env = construct_env(private_home, codex_home, state, codex.parent)
 
     summary = {"version": codex_version(codex, env)}
-    gate = credential_gate(codex, project, env, codex_home, state,
-                           args.credential_mode, args.credential_ref)
+    gate = credential_gate(
+        codex,
+        project,
+        env,
+        codex_home,
+        state,
+        args.credential_mode,
+        args.credential_ref,
+    )
     summary["credential_gate"] = gate
     if not gate.get("permitted"):
         print(json.dumps(summary, indent=2))
@@ -125,7 +176,8 @@ def main():
             if ok:
                 listing = server.send("model/list", {"limit": 100})
                 model, effort, capabilities = select_supported_pair(
-                    listing, preferred_model="gpt-6-luna")
+                    listing, preferred_model="gpt-6-luna"
+                )
                 summary["requested_settings"] = {"model": model, "effort": effort}
                 summary["pair_validation"] = validate_pair(capabilities, model, effort)
                 thread_id = create_and_run(server, model, project, summary, "run1")
@@ -140,8 +192,7 @@ def main():
             return
 
         pre_restart = fingerprint(project)
-        summary["read_only_workspace_unchanged"] = (
-            pre_restart == source_workspace_hash)
+        summary["read_only_workspace_unchanged"] = pre_restart == source_workspace_hash
         if not summary["read_only_workspace_unchanged"]:
             summary["resume_skipped"] = "read_only_workspace_changed"
             return
@@ -155,16 +206,18 @@ def main():
         (project / "_probe_workspace_drift.txt").write_text("drift", encoding="utf-8")
         summary["workspace_drift_detected"] = fingerprint(project) != snapshot_hash
         summary["restored_workspace_hash"] = restore_workspace_snapshot(
-            state, project, snapshot, snapshot_hash)
+            state, project, snapshot, snapshot_hash
+        )
         summary["restored_workspace_matches_snapshot"] = (
-            fingerprint(project) == snapshot_hash == pre_restart)
+            fingerprint(project) == snapshot_hash == pre_restart
+        )
         if not summary["restored_workspace_matches_snapshot"]:
             summary["resume_skipped"] = "workspace_restore_mismatch"
             return
         try:
-            restore_workspace_snapshot(state, project,
-                                       state / "workspace-snapshots" / "missing",
-                                       snapshot_hash)
+            restore_workspace_snapshot(
+                state, project, state / "workspace-snapshots" / "missing", snapshot_hash
+            )
         except FileNotFoundError:
             summary["missing_snapshot_rejected"] = True
         else:
@@ -189,7 +242,8 @@ def main():
                 threads = payload.get("data") or payload.get("threads") or []
                 summary["thread_list_count"] = len(threads)
                 summary["thread_found_after_restart"] = any(
-                    (t.get("id") or t.get("threadId")) == thread_id for t in threads)
+                    (t.get("id") or t.get("threadId")) == thread_id for t in threads
+                )
 
             resumed = server.send("thread/resume", {"threadId": thread_id}, timeout=30)
             summary["resume_ok"] = "result" in resumed
@@ -200,25 +254,43 @@ def main():
                 resumed_thread = result.get("thread", {})
                 summary["resume_same_id"] = resumed_thread.get("id") == thread_id
                 summary["resume_cli_version"] = resumed_thread.get("cliVersion")
-                summary["resume_instruction_source_count"] = len(result.get("instructionSources") or [])
+                summary["resume_instruction_source_count"] = len(
+                    result.get("instructionSources") or []
+                )
                 if model:
                     count_attempted_turn(summary, state)
-                    turn = server.send("turn/start", {
-                        "threadId": thread_id,
-                        "input": [{"type": "text", "text": "Reply with the single word resumed."}],
-                        "model": model, "effort": "low",
-                    }, timeout=30)
+                    turn = server.send(
+                        "turn/start",
+                        {
+                            "threadId": thread_id,
+                            "input": [
+                                {
+                                    "type": "text",
+                                    "text": "Reply with the single word resumed.",
+                                }
+                            ],
+                            "model": model,
+                            "effort": "low",
+                        },
+                        timeout=30,
+                    )
                     if "error" in turn:
                         summary["resume_turn_error"] = turn["error"]
                     else:
-                        summary["resume_turn_id"] = turn.get("result", {}).get("turn", {}).get("id")
+                        summary["resume_turn_id"] = (
+                            turn.get("result", {}).get("turn", {}).get("id")
+                        )
                         summary["resume_turn_status"] = await_turn(server)
                         summary["resume_effective_context"] = read_turn_context(
-                            codex_home, resumed_thread.get("path"),
-                            summary["resume_turn_id"])
+                            codex_home,
+                            resumed_thread.get("path"),
+                            summary["resume_turn_id"],
+                        )
 
             # Unknown thread id must fail explicitly.
-            unknown = server.send("thread/resume", {"threadId": "thr_does_not_exist_120"}, timeout=20)
+            unknown = server.send(
+                "thread/resume", {"threadId": "thr_does_not_exist_120"}, timeout=20
+            )
             summary["unknown_thread"] = {
                 "outcome": "rejected" if "error" in unknown else "accepted",
                 "error": unknown.get("error"),
@@ -237,7 +309,11 @@ def main():
         try:
             ok, _ = server.initialize()
             summary["run3_initialized"] = ok
-            moved = server.send("thread/resume", {"threadId": thread_id, "cwd": str(other_cwd)}, timeout=20)
+            moved = server.send(
+                "thread/resume",
+                {"threadId": thread_id, "cwd": str(other_cwd)},
+                timeout=20,
+            )
             summary["resume_other_cwd"] = {
                 "outcome": "accepted" if "result" in moved else "rejected",
                 "error": moved.get("error"),
@@ -251,14 +327,19 @@ def main():
         summary["fatal"] = type(exc).__name__
     finally:
         # One summary print on every path, including a crash mid-run.
-        summary["model_calls_note"] = ("upper bound on billable model calls: a "
-                                       "turn/start is counted when submitted, "
-                                       "before any response")
+        summary["model_calls_note"] = (
+            "upper bound on billable model calls: a "
+            "turn/start is counted when submitted, "
+            "before any response"
+        )
         summary["personal_roots_unchanged"] = compare_personal_roots(
-            before, hash_personal_roots())
-        summary["note"] = ("The spike guards and restores a private post-run "
-                           "snapshot; a production runner registry remains "
-                           "out of scope (see 120.md).")
+            before, hash_personal_roots()
+        )
+        summary["note"] = (
+            "The spike guards and restores a private post-run "
+            "snapshot; a production runner registry remains "
+            "out of scope (see 120.md)."
+        )
         print(json.dumps(summary, indent=2))
 
 

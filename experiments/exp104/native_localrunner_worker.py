@@ -1,6 +1,5 @@
 """S13 production LocalRunner fixture held at native initialize; zero turns."""
 
-
 from laomedo.host.leases.models import ContainerIdentity
 import argparse
 from hashlib import sha256
@@ -11,7 +10,8 @@ import time
 
 from laomedo.host.leases.utils import inspect_exact
 from experiments.retired_git_api import refuse_private_git_api as _base_git_environment
-from laomedo.agents.agents.codex.controller.service import CodexController as AppServer; from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
+from laomedo.agents.errors import RunnerError
 from experiments.turn_harness import VerificationLocalRunner as LocalRunner
 from laomedo.host.mediation.authority import RunGrantAuthority
 import laomedo.skills.workspace.utils as workspace_skills
@@ -22,8 +22,10 @@ IDENTITY = "exp104-localrunner-s13-20261010-a"
 def identities(side, root=None):
     if side not in ("a", "b"):
         raise ValueError("invalid_side")
-    value = {"branch": IDENTITY + "-" + side,
-             "invocation_id": IDENTITY + "-invocation-" + side}
+    value = {
+        "branch": IDENTITY + "-" + side,
+        "invocation_id": IDENTITY + "-invocation-" + side,
+    }
     if root is not None:
         records = []
         for path in (root / "runner/runs").glob("*/record.json"):
@@ -35,8 +37,11 @@ def identities(side, root=None):
         if records:
             record = records[0]
             owner = record.get("container_ownership") or {}
-            value.update(run_id=record["run_id"], name=owner.get("name"),
-                         token=owner.get("launch_token"))
+            value.update(
+                run_id=record["run_id"],
+                name=owner.get("name"),
+                token=owner.get("launch_token"),
+            )
     return value
 
 
@@ -48,14 +53,28 @@ def zero_turns(state):
 
 def run(root, side):
     from experiments.exp104.native_managed_probe import save
+
     authority = RunGrantAuthority(root / "host/authority.sqlite")
 
     class HeldInitialize(AppServer):
         """Only instrument the native response boundary, never the launch args."""
+
         def __init__(self, command, evidence, **kwargs):
-            owner = json.loads((evidence / "record.json").read_bytes())["container_ownership"]
-            capability = (root / "host/lease/leases" / owner["launch_token"] / "grant.secret").read_text().strip()
-            super().__init__(command, evidence, secret_redactions=tuple(kwargs.pop("secret_redactions", ())) + (capability,), **kwargs)
+            owner = json.loads((evidence / "record.json").read_bytes())[
+                "container_ownership"
+            ]
+            capability = (
+                (root / "host/lease/leases" / owner["launch_token"] / "grant.secret")
+                .read_text()
+                .strip()
+            )
+            super().__init__(
+                command,
+                evidence,
+                secret_redactions=tuple(kwargs.pop("secret_redactions", ()))
+                + (capability,),
+                **kwargs,
+            )
 
         async def models(self):
             raise RunnerError("fixture_forbids_model_or_thread_request")
@@ -69,48 +88,92 @@ def run(root, side):
         async def initialize(self):
             await super().initialize()
             selected = identities(side, root)
-            state, container_id = inspect_exact(ContainerIdentity(name=selected['name'], run_id=selected['run_id'], token=selected['token']))
+            state, container_id = inspect_exact(
+                ContainerIdentity(
+                    name=selected["name"],
+                    run_id=selected["run_id"],
+                    token=selected["token"],
+                )
+            )
             if state != "owned":
                 raise RunnerError("fixture_container_not_owned")
             record = runner.status(selected["run_id"])
             workspace = runner.state / "runs" / selected["run_id"] / "workspace"
-            workspace_skills.verify(workspace, record["skills"], record["skill_git_exclusion"])
+            workspace_skills.verify(
+                workspace, record["skills"], record["skill_git_exclusion"]
+            )
             zero_turns(runner.state)
-            save(root / (side + "-ready.json"), {
-                **selected, "pid": os.getpid(), "container_id": container_id,
-                "grant_id": record["container_ownership"]["grant_id"],
-                "native_initialize": True, "requests": ["initialize"],
-                "raw_events_sha256": sha256((workspace.parent / "raw-events.jsonl").read_bytes()).hexdigest(),
-                "record_sha256": sha256((workspace.parent / "record.json").read_bytes()).hexdigest(),
-                "skill_exclude_sha256": record["skill_git_exclusion"]["exclude_sha256"],
-                "model_turns": 0, "production_launch": True})
+            save(
+                root / (side + "-ready.json"),
+                {
+                    **selected,
+                    "pid": os.getpid(),
+                    "container_id": container_id,
+                    "grant_id": record["container_ownership"]["grant_id"],
+                    "native_initialize": True,
+                    "requests": ["initialize"],
+                    "raw_events_sha256": sha256(
+                        (workspace.parent / "raw-events.jsonl").read_bytes()
+                    ).hexdigest(),
+                    "record_sha256": sha256(
+                        (workspace.parent / "record.json").read_bytes()
+                    ).hexdigest(),
+                    "skill_exclude_sha256": record["skill_git_exclusion"][
+                        "exclude_sha256"
+                    ],
+                    "model_turns": 0,
+                    "production_launch": True,
+                },
+            )
             deadline = float((root / "deadline").read_text())
-            while not (root / (side + "-stop")).exists() and time.monotonic() < deadline:
-                time.sleep(.1)
+            while (
+                not (root / (side + "-stop")).exists() and time.monotonic() < deadline
+            ):
+                time.sleep(0.1)
             # Do not return a success and let production proceed to a thread.
             raise RunnerError("fixture_hold_finished_before_turn")
 
     # This constructor uses real image/volume checks and startup recovery.
     # Both instances finish construction BEFORE the controller opens the gate.
-    runner = LocalRunner(root / "runner", root / "skill-store", root / ("source-" + side),
-        transport=HeldInitialize, git_workspace=True,
-        supervise_containers=True, lease_service=root / "host/lease",
-        github_authority=authority, mediator_state=root / "host/mediator")
+    runner = LocalRunner(
+        root / "runner",
+        root / "skill-store",
+        root / ("source-" + side),
+        transport=HeldInitialize,
+        git_workspace=True,
+        supervise_containers=True,
+        lease_service=root / "host/lease",
+        github_authority=authority,
+        mediator_state=root / "host/mediator",
+    )
     save(root / (side + "-initialized.json"), {"pid": os.getpid(), "constructed": True})
     deadline = float((root / "deadline").read_text())
     while not (root / "start-gate").exists():
         if time.monotonic() >= deadline:
             raise TimeoutError("fixture_gate_deadline")
-        time.sleep(.1)
+        time.sleep(0.1)
     authorization = json.loads((root / (side + "-authorization.json")).read_bytes())
     reference = json.loads((root / "skill-reference.json").read_bytes())
-    prepared = runner._prepare({"task": "No model turn; native initialize hold only",
-        "model": "gpt-6-luna", "effort": "low", "skill_ref": reference,
-        "github_authorization_ref": authorization})
+    prepared = runner._prepare(
+        {
+            "task": "No model turn; native initialize hold only",
+            "model": "gpt-6-luna",
+            "effort": "low",
+            "skill_ref": reference,
+            "github_authorization_ref": authorization,
+        }
+    )
     result = runner._execute(prepared["run_id"], "No model turn", resume=False)
     zero_turns(runner.state)
-    save(root / (side + "-finished.json"), {"run_id": result["run_id"],
-         "status": result["status"], "error_category": result["error_category"], "model_turns": 0})
+    save(
+        root / (side + "-finished.json"),
+        {
+            "run_id": result["run_id"],
+            "status": result["status"],
+            "error_category": result["error_category"],
+            "model_turns": 0,
+        },
+    )
 
 
 if __name__ == "__main__":
@@ -121,5 +184,9 @@ if __name__ == "__main__":
     try:
         run(args.root.resolve(), args.side)
     except Exception as failure:
-        print(json.dumps({"status": "fixture_failed", "error_class": type(failure).__name__}))
+        print(
+            json.dumps(
+                {"status": "fixture_failed", "error_class": type(failure).__name__}
+            )
+        )
         raise SystemExit(1)

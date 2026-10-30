@@ -35,10 +35,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
     def _body(self):
         """Read a bounded JSON body after validating its media type and declared size."""
         if (
-            self.headers.get("Content-Type", "")
-            .split(";", 1)[0]
-            .strip()
-            .lower()
+            self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
             != "application/json"
         ):
             raise RunnerError("json_content_type_required")
@@ -50,10 +47,10 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
     def _authorized(self):
         """Check the configured bearer and send the existing rejection on mismatch."""
         supplied = self.headers.get("Authorization", "")
-        if not secrets.compare_digest(supplied, "Bearer " + self.server.runner.api_token):
-            self._reply(
-                401, {"status": "failed", "error_category": "unauthorized"}
-            )
+        if not secrets.compare_digest(
+            supplied, "Bearer " + self.server.runner.api_token
+        ):
+            self._reply(401, {"status": "failed", "error_category": "unauthorized"})
             return False
         return True
 
@@ -82,11 +79,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     },
                 )
                 return
-            if (
-                len(parts) == 4
-                and parts[:2] == ["v1", "runs"]
-                and parts[3] == "events"
-            ):
+            if len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "events":
                 from laomedo.agents.activity.runner.feed import read_feed
 
                 query = parse_qs(parsed.query)
@@ -111,12 +104,8 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     )
                     return
                 if attempt.get("id") != attempt_id:
-                    raise RunnerError(
-                        "activity_attempt_identity_mismatch"
-                    )
-                boundary = (
-                    attempt if attempt.get("native_end") is not None else None
-                )
+                    raise RunnerError("activity_attempt_identity_mismatch")
+                boundary = attempt if attempt.get("native_end") is not None else None
                 native_after = max(
                     int(query.get("after", ["0"])[0]), attempt["native_start"]
                 )
@@ -150,9 +139,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                         "status": record.get("status"),
                         "thread_id": record.get("thread_id"),
                         "model": record.get("effective_model"),
-                        "attempt_finished": record.get(
-                            "attempt_finished", False
-                        ),
+                        "attempt_finished": record.get("attempt_finished", False),
                     },
                 )
                 return
@@ -183,21 +170,19 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             parts = self.path.strip("/").split("/")
             body = self._body()
             is_cancel_endpoint = (
-                len(parts) == 4
-                and parts[:2] == ["v1", "runs"]
-                and parts[3] == "cancel"
+                len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel"
             )
             if parts == ["v1", "runs", "async"]:
                 response_gate = threading.Event()
-                result = self.server.runner.start_async(body, response_gate=response_gate)
+                result = self.server.runner.start_async(
+                    body, response_gate=response_gate
+                )
                 self._reply(202, result)
                 return
             if parts == ["v1", "runs"]:
                 result = self.server.runner.start(body)
             elif (
-                len(parts) == 4
-                and parts[:2] == ["v1", "runs"]
-                and parts[3] == "resume"
+                len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "resume"
             ):
                 extra = self.server.runner.prepare_resume(parts[2], body)
                 result = self.server.runner.resume(
@@ -211,9 +196,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     **extra,
                 )
             elif (
-                len(parts) == 4
-                and parts[:2] == ["v1", "runs"]
-                and parts[3] == "cancel"
+                len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel"
             ):
                 result = self.server.runner.cancel(parts[2])
             elif (
@@ -222,9 +205,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 and parts[3] == "publish"
             ):
                 if body != {}:
-                    raise RunnerError(
-                        "publication_body_must_be_empty"
-                    )
+                    raise RunnerError("publication_body_must_be_empty")
                 result = self.server.runner.publish(parts[2])
             elif (
                 len(parts) == 4
@@ -255,10 +236,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                     else (
                         200
                         if result["status"] == "completed"
-                        or (
-                            is_cancel_endpoint
-                            and result["status"] == "cancelled"
-                        )
+                        or (is_cancel_endpoint and result["status"] == "cancelled")
                         else 502
                     )
                 )

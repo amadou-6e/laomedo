@@ -48,9 +48,7 @@ def build_service(
     client = LangflowLocalClient(langflow_url)
     controller = LangflowJoinController(
         WorkflowRunStore(store),
-        RunnerHTTPTransport(
-            runner_url, runner_token, provider=provider
-        ),
+        RunnerHTTPTransport(runner_url, runner_token, provider=provider),
         client.fetch,
     )
     return JoinServer(controller, bridge_token, port=port)

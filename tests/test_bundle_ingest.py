@@ -9,7 +9,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from laomedo.skills.ingestion.errors import BundleIngestError; from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.ingestion.settings import MAX_BUNDLE_BYTES; from laomedo.skills.ingestion.utils import _record; from laomedo.skills.ingestion.utils import freeze_run_bundle
+from laomedo.skills.ingestion.errors import BundleIngestError
+from laomedo.skills.ingestion.settings import HANDOFF_NAME
+from laomedo.skills.ingestion.settings import MAX_BUNDLE_BYTES
+from laomedo.skills.ingestion.utils import _record
+from laomedo.skills.ingestion.utils import freeze_run_bundle
 
 
 class BundleIngestTests(unittest.TestCase):
@@ -23,21 +27,29 @@ class BundleIngestTests(unittest.TestCase):
         self.workspace = self.run_dir / "workspace"
         self.workspace.mkdir(parents=True)
         self.private.mkdir()
-        self.record = {"run_id": "run-a", "status": "completed",
-                       "workspace_mode": "git", "git_baseline": "a" * 40,
-                       "github_scope": {"repository": "example/disposable",
-                                        "branch": "run-branch"}}
+        self.record = {
+            "run_id": "run-a",
+            "status": "completed",
+            "workspace_mode": "git",
+            "git_baseline": "a" * 40,
+            "github_scope": {
+                "repository": "example/disposable",
+                "branch": "run-branch",
+            },
+        }
         self._save_record()
         self.bundle = self.workspace / HANDOFF_NAME
         self.bundle.write_bytes(b"synthetic bundle bytes")
 
     def _save_record(self):
         (self.run_dir / "record.json").write_text(
-            json.dumps(self.record), encoding="utf-8")
+            json.dumps(self.record), encoding="utf-8"
+        )
 
     def _freeze(self, attempt="attempt-1"):
-        return freeze_run_bundle(self.runner, self.private,
-                                 run_id="run-a", attempt_id=attempt)
+        return freeze_run_bundle(
+            self.runner, self.private, run_id="run-a", attempt_id=attempt
+        )
 
     def test_freezes_only_fixed_run_file_with_hash_and_reserved_result(self):
         self.record["agent_selected_path"] = str(self.root / "wrong.bundle")
@@ -47,10 +59,14 @@ class BundleIngestTests(unittest.TestCase):
         self.assertEqual(result["repository"], "example/disposable")
         self.assertEqual(result["branch"], "run-branch")
         self.assertEqual(result["baseline"], "a" * 40)
-        self.assertEqual(result["run_record_sha256"], hashlib.sha256(
-            (self.run_dir / "record.json").read_bytes()).hexdigest())
-        self.assertEqual(result["bundle_sha256"], hashlib.sha256(
-            b"synthetic bundle bytes").hexdigest())
+        self.assertEqual(
+            result["run_record_sha256"],
+            hashlib.sha256((self.run_dir / "record.json").read_bytes()).hexdigest(),
+        )
+        self.assertEqual(
+            result["bundle_sha256"],
+            hashlib.sha256(b"synthetic bundle bytes").hexdigest(),
+        )
         frozen = self.private / "run-a" / "attempt-1" / "input.bundle"
         self.assertEqual(frozen.read_bytes(), b"synthetic bundle bytes")
         self.bundle.write_bytes(b"changed after freeze")
@@ -60,10 +76,16 @@ class BundleIngestTests(unittest.TestCase):
         self.assertFalse((self.private / "run-a.lock").exists())
 
     def test_running_run_uses_stable_lease_binding_not_mutable_record_hash(self):
-        self.record.update(status="running", container_ownership={
-            "name": "laomedo-codex-a", "launch_token": "launch-a",
-            "grant_id": "grant-a", "supervised": True,
-            "cleanup_verified": False})
+        self.record.update(
+            status="running",
+            container_ownership={
+                "name": "laomedo-codex-a",
+                "launch_token": "launch-a",
+                "grant_id": "grant-a",
+                "supervised": True,
+                "cleanup_verified": False,
+            },
+        )
         self._save_record()
         frozen = self._freeze()
         self.assertEqual(frozen["status"], "frozen")
@@ -71,14 +93,27 @@ class BundleIngestTests(unittest.TestCase):
         self.assertNotIn("run_record_sha256", frozen)
         self.record.update(thread_id="thread-a", turns=[{"status": "running"}])
         self._save_record()
-        self.assertEqual(_record(self.runner, "run-a")[1], {
-            key: frozen[key] for key in
-            ("run_id", "repository", "branch", "baseline", "binding_mode",
-             "grant_id", "run_binding_sha256")})
+        self.assertEqual(
+            _record(self.runner, "run-a")[1],
+            {
+                key: frozen[key]
+                for key in (
+                    "run_id",
+                    "repository",
+                    "branch",
+                    "baseline",
+                    "binding_mode",
+                    "grant_id",
+                    "run_binding_sha256",
+                )
+            },
+        )
         self.record["container_ownership"]["grant_id"] = "grant-b"
         self._save_record()
-        self.assertNotEqual(_record(self.runner, "run-a")[1][
-            "run_binding_sha256"], frozen["run_binding_sha256"])
+        self.assertNotEqual(
+            _record(self.runner, "run-a")[1]["run_binding_sha256"],
+            frozen["run_binding_sha256"],
+        )
         self.record["status"] = "completed"
         self._save_record()
         self.assertNotIn("run_binding_sha256", _record(self.runner, "run-a")[1])
@@ -100,22 +135,28 @@ class BundleIngestTests(unittest.TestCase):
         self._freeze()
         with self.assertRaisesRegex(BundleIngestError, "attempt_already_reserved"):
             self._freeze()
-        self.assertEqual((self.private / "run-a" / "attempt-1" /
-                          "input.bundle").read_bytes(), b"synthetic bundle bytes")
+        self.assertEqual(
+            (self.private / "run-a" / "attempt-1" / "input.bundle").read_bytes(),
+            b"synthetic bundle bytes",
+        )
 
     def test_stale_lock_blocks_new_attempt(self):
         (self.private / "run-a.lock").write_text("unknown attempt\n")
-        with self.assertRaisesRegex(BundleIngestError,
-                                    "run_transfer_busy_or_unreconciled"):
+        with self.assertRaisesRegex(
+            BundleIngestError, "run_transfer_busy_or_unreconciled"
+        ):
             self._freeze("attempt-2")
 
     def test_unknown_prior_attempt_blocks_fresh_identity(self):
-        with patch("laomedo.skills.ingestion.utils._bundle_bytes",
-                   side_effect=RuntimeError("unreported disk failure")):
+        with patch(
+            "laomedo.skills.ingestion.utils._bundle_bytes",
+            side_effect=RuntimeError("unreported disk failure"),
+        ):
             with self.assertRaises(RuntimeError):
                 self._freeze()
-        saved = json.loads((self.private / "run-a" / "attempt-1" /
-                            "result.json").read_text())
+        saved = json.loads(
+            (self.private / "run-a" / "attempt-1" / "result.json").read_text()
+        )
         self.assertEqual(saved["status"], "unknown")
         self.assertFalse((self.private / "run-a.lock").exists())
         with self.assertRaisesRegex(BundleIngestError, "attempt_unreconciled"):
@@ -131,8 +172,9 @@ class BundleIngestTests(unittest.TestCase):
         result = self._freeze()
         self.assertEqual(result["status"], "refused")
         self.assertEqual(result["reason"], "bundle_size_or_type")
-        self.assertFalse((self.private / "run-a" / "attempt-1" /
-                          "input.bundle").exists())
+        self.assertFalse(
+            (self.private / "run-a" / "attempt-1" / "input.bundle").exists()
+        )
         with self.assertRaisesRegex(BundleIngestError, "attempt_already_reserved"):
             self._freeze()
 
@@ -191,8 +233,9 @@ class BundleIngestTests(unittest.TestCase):
         self._save_record()
         self.workspace.rename(self.run_dir / "real-workspace")
         try:
-            self.workspace.symlink_to(self.run_dir / "real-workspace",
-                                      target_is_directory=True)
+            self.workspace.symlink_to(
+                self.run_dir / "real-workspace", target_is_directory=True
+            )
         except (OSError, NotImplementedError):
             self.skipTest("host does not permit directory symlinks")
         with self.assertRaisesRegex(BundleIngestError, "run_binding_invalid"):
@@ -207,8 +250,9 @@ class BundleIngestTests(unittest.TestCase):
         inside_runner = self.runner / "private-stage"
         inside_runner.mkdir()
         with self.assertRaisesRegex(BundleIngestError, "stage_boundary_invalid"):
-            freeze_run_bundle(self.runner, inside_runner,
-                              run_id="run-a", attempt_id="attempt-1")
+            freeze_run_bundle(
+                self.runner, inside_runner, run_id="run-a", attempt_id="attempt-1"
+            )
         (self.root / ".git").mkdir()
         with self.assertRaisesRegex(BundleIngestError, "stage_boundary_invalid"):
             self._freeze()

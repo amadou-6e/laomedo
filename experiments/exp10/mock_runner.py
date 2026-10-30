@@ -1,22 +1,32 @@
 """No-model, loopback-only runner that records a delayed external effect."""
 
-from datetime import datetime; from datetime import timezone
-from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
+from datetime import datetime
+from datetime import timezone
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
 import time
 from uuid import uuid4
 
-
 EVENTS = Path("/state/runner-events.jsonl")
 DELAYS = {"control": 0.2, "client": 4.0, "component": 5.0, "server": 6.0}
 
 
 def record(case: str, event: str) -> None:
-    row = json.dumps({"case": case, "event": event,
-                      "utc": datetime.now(timezone.utc).isoformat(),
-                      "monotonic": time.monotonic()}, sort_keys=True) + "\n"
+    row = (
+        json.dumps(
+            {
+                "case": case,
+                "event": event,
+                "utc": datetime.now(timezone.utc).isoformat(),
+                "monotonic": time.monotonic(),
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
     fd = os.open(EVENTS, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
     try:
         os.write(fd, row.encode("utf-8"))
@@ -37,7 +47,10 @@ class Handler(BaseHTTPRequestHandler):
             size = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(size))
             case = str(payload["task"])
-            if case not in DELAYS or self.headers.get("Authorization") != "Bearer synthetic-exp10-token":
+            if (
+                case not in DELAYS
+                or self.headers.get("Authorization") != "Bearer synthetic-exp10-token"
+            ):
                 self.send_error(400)
                 return
         except (ValueError, KeyError, TypeError):
@@ -47,8 +60,11 @@ class Handler(BaseHTTPRequestHandler):
         time.sleep(DELAYS[case])
         record(case, "effect")
         result = {
-            "run_id": str(uuid4()), "status": "completed", "answer": "synthetic-effect",
-            "requested_model": "synthetic", "requested_effort": "none",
+            "run_id": str(uuid4()),
+            "status": "completed",
+            "answer": "synthetic-effect",
+            "requested_model": "synthetic",
+            "requested_effort": "none",
             "skill": {"revision_id": "sha256:" + "a" * 64, "use_evidence": "offered"},
             "raw_event_ref": "synthetic:exp10",
         }

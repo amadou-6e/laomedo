@@ -8,7 +8,10 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import DataInput; from lfx.io import IntInput; from lfx.io import Output; from lfx.io import StrInput
+from lfx.io import DataInput
+from lfx.io import IntInput
+from lfx.io import Output
+from lfx.io import StrInput
 from lfx.schema import Data
 
 
@@ -22,10 +25,25 @@ class LaomedoPRPublisher(Component):
     description = "Request draft publication through the controller-owned trusted handoff. No GitHub credential or grant enters the graph."
     name = "LaomedoPRPublisher"
     icon = "GitPullRequest"
-    inputs = [DataInput(name="validation", display_name="Accepted Output", required=True),
-              StrInput(name="runner_url", display_name="Runner URL", value="http://host.docker.internal:8765", advanced=True),
-              IntInput(name="timeout_seconds", display_name="HTTP Timeout", value=30, advanced=True)]
-    outputs = [Output(name="publication", display_name="Publication Outcome", method="publication_output")]
+    inputs = [
+        DataInput(name="validation", display_name="Accepted Output", required=True),
+        StrInput(
+            name="runner_url",
+            display_name="Runner URL",
+            value="http://host.docker.internal:8765",
+            advanced=True,
+        ),
+        IntInput(
+            name="timeout_seconds", display_name="HTTP Timeout", value=30, advanced=True
+        ),
+    ]
+    outputs = [
+        Output(
+            name="publication",
+            display_name="Publication Outcome",
+            method="publication_output",
+        )
+    ]
 
     def publication_output(self) -> Data:
         validation = self.validation.data
@@ -33,17 +51,23 @@ class LaomedoPRPublisher(Component):
         if not isinstance(validation, dict):
             return Data(data=rejected)
         if "route" in validation:
-            if validation["route"] != "success" or not isinstance(validation.get("validation"), dict):
+            if validation["route"] != "success" or not isinstance(
+                validation.get("validation"), dict
+            ):
                 return Data(data=rejected)
             validation = validation["validation"]
         envelope = validation.get("agent_submission", {})
         if not isinstance(envelope, dict):
             return Data(data=rejected)
-        if (validation.get("contract_status") != "accepted" or
-                envelope.get("task_outcome") != "success" or
-                envelope.get("executor_status") != "completed" or
-                envelope.get("evidence_complete") is not True):
-            return Data(data={"phase": "rejected", "publication_state": "not_dispatched"})
+        if (
+            validation.get("contract_status") != "accepted"
+            or envelope.get("task_outcome") != "success"
+            or envelope.get("executor_status") != "completed"
+            or envelope.get("evidence_complete") is not True
+        ):
+            return Data(
+                data={"phase": "rejected", "publication_state": "not_dispatched"}
+            )
         # This is only a convenience check. The host recomputes validation
         # from its own frozen data; a forged accepted result cannot authorize.
         reference = envelope.get("run_reference", {})
@@ -52,33 +76,72 @@ class LaomedoPRPublisher(Component):
             raise ValueError("publication_run_id_required")
         base = str(self.runner_url).rstrip("/")
         url = urlsplit(base)
-        if (url.scheme != "http" or url.hostname not in {"127.0.0.1", "localhost", "host.docker.internal"}
-                or url.username or url.password or url.path or url.query or url.fragment):
+        if (
+            url.scheme != "http"
+            or url.hostname not in {"127.0.0.1", "localhost", "host.docker.internal"}
+            or url.username
+            or url.password
+            or url.path
+            or url.query
+            or url.fragment
+        ):
             raise ValueError("local_runner_url_required")
         timeout = self.timeout_seconds
         if type(timeout) is not int or not 1 <= timeout <= 300:
             raise ValueError("publication_timeout_invalid")
         try:
-            token = Path(os.environ.get("LAOMEDO_RUNNER_TOKEN_FILE", "/run/secrets/laomedo-runner-token")).read_text(encoding="utf-8").strip()
+            token = (
+                Path(
+                    os.environ.get(
+                        "LAOMEDO_RUNNER_TOKEN_FILE", "/run/secrets/laomedo-runner-token"
+                    )
+                )
+                .read_text(encoding="utf-8")
+                .strip()
+            )
             if not token:
                 raise ValueError("missing_runner_token")
-            req = request.Request(base + "/v1/runs/" + run_id + "/publish", data=b"{}",
-                headers={"Content-Type": "application/json", "Authorization": "Bearer " + token}, method="POST")
+            req = request.Request(
+                base + "/v1/runs/" + run_id + "/publish",
+                data=b"{}",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token,
+                },
+                method="POST",
+            )
             # No automatic resend, including redirects. Lost acknowledgement
             # is unknown even if a draft PR was successfully created.
-            with request.build_opener(_NoRedirect()).open(req, timeout=timeout) as response:
+            with request.build_opener(_NoRedirect()).open(
+                req, timeout=timeout
+            ) as response:
                 result = json.load(response)
             if result.get("run_id") != run_id:
                 raise ValueError("publication_identity_mismatch")
             handoff = result["publication_handoff"]
             phase = handoff["phase"]
             state = handoff.get("publication", {}).get("state", "not_dispatched")
-            if phase not in {"completed", "rejected", "failed", "unknown", "expired", "cancelled"}:
+            if phase not in {
+                "completed",
+                "rejected",
+                "failed",
+                "unknown",
+                "expired",
+                "cancelled",
+            }:
                 raise ValueError("publication_phase_invalid")
             if state not in {"confirmed", "rejected", "unknown", "not_dispatched"}:
                 raise ValueError("publication_state_invalid")
-            return Data(data={"run_id": run_id, "phase": phase, "publication_state": state})
+            return Data(
+                data={"run_id": run_id, "phase": phase, "publication_state": state}
+            )
         except Exception:
             # A transport exception may follow a POST. Never call it safely
             # failed or leak provider text/token paths into the graph.
-            return Data(data={"run_id": run_id, "phase": "unknown", "publication_state": "unknown"})
+            return Data(
+                data={
+                    "run_id": run_id,
+                    "phase": "unknown",
+                    "publication_state": "unknown",
+                }
+            )

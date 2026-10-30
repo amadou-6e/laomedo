@@ -184,11 +184,13 @@ class AcpSession:
                 stop_reason=reply.stop_reason,
                 answer=self._answer(),
                 updates=list(self.updates),
-                usage=reply.usage.model_dump(
-                    mode="json", by_alias=True, exclude_none=True
-                )
-                if getattr(reply, "usage", None) is not None
-                else None,
+                usage=(
+                    reply.usage.model_dump(
+                        mode="json", by_alias=True, exclude_none=True
+                    )
+                    if getattr(reply, "usage", None) is not None
+                    else None
+                ),
             )
         except RunnerError:
             raise

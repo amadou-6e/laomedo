@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 OBSERVATION = ROOT / "experiments" / "exp93" / "observation.json"
 EXPECTED_SHA256 = "042ce591787d527a80ac5f334696e1e9a071cc45a512ceef8aa7ac9e24f55f64"

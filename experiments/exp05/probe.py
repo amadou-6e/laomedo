@@ -8,12 +8,10 @@ import sys
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from laomedo.work_graph.runs.store import WorkflowRunStore  # noqa: E402
 from experiments.exp05.evidence import EvidenceStore  # noqa: E402
-
 
 PHASES = (
     "before_invocation_reserve",
@@ -38,8 +36,12 @@ def child(phase, database):
     if phase == "before_invocation_reserve":
         os._exit(11)
     invocation_id = str(uuid4())
-    evidence.reserve(run_id=run["run_id"], trace_id=run["trace_id"],
-                     stage_id="synthetic-provider", invocation_id=invocation_id)
+    evidence.reserve(
+        run_id=run["run_id"],
+        trace_id=run["trace_id"],
+        stage_id="synthetic-provider",
+        invocation_id=invocation_id,
+    )
     if phase == "after_invocation_reserve":
         os._exit(12)
 
@@ -50,7 +52,9 @@ def child(phase, database):
         if phase == "after_native_id":
             os._exit(14)
         evidence.append_raw_event(
-            invocation_id, source_event_id="synthetic-event-1", kind="tool_call",
+            invocation_id,
+            source_event_id="synthetic-event-1",
+            kind="tool_call",
             payload={"summary": "synthetic read", "tool": "fixture"},
         )
         if phase == "after_event_flush":
@@ -71,7 +75,10 @@ def parent(output_path=None):
             database = Path(root) / phase / "evidence.sqlite3"
             process = subprocess.run(
                 [sys.executable, str(Path(__file__)), "--child", phase, str(database)],
-                capture_output=True, text=True, timeout=20, check=False,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
             )
             run_store = WorkflowRunStore(database)
             evidence = EvidenceStore(database)
@@ -80,7 +87,11 @@ def parent(output_path=None):
             crashed_invocations = evidence.sweep_crashed()
             crashed_runs = run_store.sweep_crashed()
             after = evidence.inspect()
-            run = run_store.get(after["invocations"][0]["run_id"]) if after["invocations"] else None
+            run = (
+                run_store.get(after["invocations"][0]["run_id"])
+                if after["invocations"]
+                else None
+            )
             observations[phase] = {
                 "exit_code": process.returncode,
                 "stderr": process.stderr[-500:],
@@ -93,10 +104,20 @@ def parent(output_path=None):
                 "invocation_after_restart": after["invocations"],
                 "raw_events_after_restart": after["raw_events"],
                 "projections_after_restart": after["projections"],
-                "run_after_restart": {
-                    key: run[key] for key in
-                    ("run_id", "trace_id", "status", "evidence_complete", "dispatch_attempts")
-                } if run else None,
+                "run_after_restart": (
+                    {
+                        key: run[key]
+                        for key in (
+                            "run_id",
+                            "trace_id",
+                            "status",
+                            "evidence_complete",
+                            "dispatch_attempts",
+                        )
+                    }
+                    if run
+                    else None
+                ),
             }
     expected = {
         "before_invocation_reserve": (11, 0, 0, 0, 0, False, "crashed", "unknown"),
@@ -107,8 +128,16 @@ def parent(output_path=None):
         "after_projection": (16, 1, 1, 1, 1, True, "crashed", "partial"),
         "normal": (0, 1, 1, 1, 1, True, "completed", "complete"),
     }
-    for phase, (exit_code, invocations, attempts, raw, before_projection,
-                native_known, status, stream) in expected.items():
+    for phase, (
+        exit_code,
+        invocations,
+        attempts,
+        raw,
+        before_projection,
+        native_known,
+        status,
+        stream,
+    ) in expected.items():
         observation = observations[phase]
         after = observation["invocation_after_restart"]
         actual = (
@@ -121,8 +150,16 @@ def parent(output_path=None):
             after[0]["status"] if after else "crashed",
             after[0]["stream_state"] if after else "unknown",
         )
-        if actual != (exit_code, invocations, attempts, raw, before_projection,
-                      native_known, status, stream):
+        if actual != (
+            exit_code,
+            invocations,
+            attempts,
+            raw,
+            before_projection,
+            native_known,
+            status,
+            stream,
+        ):
             raise AssertionError(f"{phase}: {actual!r}")
         if observation["stderr"]:
             raise AssertionError(f"{phase}: child wrote stderr")
@@ -133,17 +170,25 @@ def parent(output_path=None):
             run = observation["run_after_restart"]
             assert item["run_id"] == run["run_id"]
             assert item["trace_id"] == run["trace_id"]
-            assert all(event["invocation_id"] == item["invocation_id"]
-                       for event in observation["raw_events_after_restart"])
-            raw_ids = [event["receipt_sequence"]
-                       for event in observation["raw_events_after_restart"]]
-            projected_ids = [event["receipt_sequence"]
-                             for event in observation["projections_after_restart"]]
+            assert all(
+                event["invocation_id"] == item["invocation_id"]
+                for event in observation["raw_events_after_restart"]
+            )
+            raw_ids = [
+                event["receipt_sequence"]
+                for event in observation["raw_events_after_restart"]
+            ]
+            projected_ids = [
+                event["receipt_sequence"]
+                for event in observation["projections_after_restart"]
+            ]
             assert raw_ids == projected_ids
             assert run["status"] == status
         elif observation["run_counters_before_restart"]["runs"] != 1:
             raise AssertionError(f"{phase}: missing reserved run")
-        assert (len(observation["swept_invocation_ids"]) == (0 if status == "completed" else invocations))
+        assert len(observation["swept_invocation_ids"]) == (
+            0 if status == "completed" else invocations
+        )
     if output_path is not None:
         output = Path(output_path)
         with output.open("w", encoding="utf-8", newline="\n") as stream:

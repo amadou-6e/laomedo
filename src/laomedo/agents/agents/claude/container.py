@@ -66,17 +66,11 @@ class ClaudeContainer:
                 if not docker.volumes.exists(profile):
                     docker.volumes.create(name=profile, labels=labels)
                 if not docker.volumes.has_labels(profile, labels):
-                    raise RunnerError(
-                        "claude_container_profile_unavailable"
-                    )
+                    raise RunnerError("claude_container_profile_unavailable")
         except CleanupUnconfirmedError:
-            raise RunnerError(
-                "container_termination_unverified"
-            ) from None
+            raise RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:
-            raise RunnerError(
-                "claude_container_configuration_invalid"
-            ) from None
+            raise RunnerError("claude_container_configuration_invalid") from None
         except ImageResolutionError:
             raise RunnerError("claude_container_image_missing") from None
         except DockerOperationError:
@@ -84,8 +78,7 @@ class ClaudeContainer:
         version = self.control(["--version"], timeout=60)
         if (
             version.exit_code
-            or version.stdout.decode().strip()
-            != CLI_VERSION + " (Claude Code)"
+            or version.stdout.decode().strip() != CLI_VERSION + " (Claude Code)"
         ):
             raise RunnerError("unsupported_claude_cli_version")
 
@@ -105,9 +98,7 @@ class ClaudeContainer:
             with Client(environment={"DOCKER_HOST": self.docker_endpoint}) as docker:
                 yield docker
         except CleanupUnconfirmedError:
-            raise RunnerError(
-                "container_termination_unverified"
-            ) from None
+            raise RunnerError("container_termination_unverified") from None
         except JobCancelledError:
             raise RunnerError("claude_cancelled") from None
         except OutputLimitError:
@@ -173,12 +164,14 @@ class ClaudeContainer:
             mounts=selected,
             environment=env,
             extra_hosts=extra_hosts or {},
-            labels={
-                LABEL_RUN: run_id,
-                LABEL_TOKEN: token,
-            }
-            if run_id
-            else {},
+            labels=(
+                {
+                    LABEL_RUN: run_id,
+                    LABEL_TOKEN: token,
+                }
+                if run_id
+                else {}
+            ),
         )
 
     def guarded(self, command, deadline):
@@ -272,12 +265,8 @@ class ClaudeContainer:
                 or not info.get("instance")
                 or not math.isfinite(wall)
                 or not math.isfinite(monotonic)
-                or not -1
-                <= time.time() - wall
-                <= SERVICE_STALE_SECONDS
-                or not -1
-                <= time.monotonic() - monotonic
-                <= SERVICE_STALE_SECONDS
+                or not -1 <= time.time() - wall <= SERVICE_STALE_SECONDS
+                or not -1 <= time.monotonic() - monotonic <= SERVICE_STALE_SECONDS
             ):
                 raise ValueError()
         except (OSError, ValueError, TypeError, AttributeError):
@@ -314,7 +303,6 @@ class CommandService:
         self.stopping = threading.Event()
         self.closed = False
 
-
         self.server = CommandHttpServer(self, ("127.0.0.1", 0))
         self.server.daemon_threads = True
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -333,10 +321,7 @@ class CommandService:
         if not value["command"].strip() or len(value["command"]) > 60000:
             raise RunnerError("claude_workspace_command_invalid")
         with self.lock:
-            if (
-                self.closed
-                or self.cancelled.is_set()
-            ):
+            if self.closed or self.cancelled.is_set():
                 raise RunnerError("claude_cancelled")
             if time.monotonic() >= self.deadline:
                 raise RunnerError("claude_turn_timeout")
@@ -389,9 +374,7 @@ class CommandService:
                 if not verified:
                     self.cleanup_failed = True
                     self.cancelled.set()
-                    raise RunnerError(
-                        "container_termination_unverified"
-                    )
+                    raise RunnerError("container_termination_unverified")
 
     def mediate(self, value):
         from urllib.request import Request
@@ -427,9 +410,7 @@ class CommandService:
         except Exception:
             self.record["mediation_outcome"] = "unknown"
             self.cancelled.set()
-            raise RunnerError(
-                "claude_mediation_outcome_unknown"
-            ) from None
+            raise RunnerError("claude_mediation_outcome_unknown") from None
 
     def close(self):
         """Cancel the owned job and await its journal cleanup before freezing files."""

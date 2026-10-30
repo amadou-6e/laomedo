@@ -6,7 +6,12 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import BudgetLedger; from _shared import fingerprint; from _shared import prepare_state_dir; from _shared import redact_message; from _shared import restore_workspace_snapshot; from _shared import snapshot_workspace
+from _shared import BudgetLedger
+from _shared import fingerprint
+from _shared import prepare_state_dir
+from _shared import redact_message
+from _shared import restore_workspace_snapshot
+from _shared import snapshot_workspace
 
 
 class ProbeGuardTests(unittest.TestCase):
@@ -15,8 +20,9 @@ class ProbeGuardTests(unittest.TestCase):
             root = Path(temporary)
             (root / ".git").mkdir()
             state = root / "private-state"
-            self.assertEqual(prepare_state_dir(state)["refused"],
-                             "state_dir_inside_git_tree")
+            self.assertEqual(
+                prepare_state_dir(state)["refused"], "state_dir_inside_git_tree"
+            )
             self.assertFalse(state.exists())
 
     def test_snapshot_restore_and_missing_snapshot_refusal(self):
@@ -32,10 +38,12 @@ class ProbeGuardTests(unittest.TestCase):
             drifted = fingerprint(project)
             with self.assertRaises(FileNotFoundError):
                 restore_workspace_snapshot(
-                    state, project, state / "snapshots" / "missing", expected)
+                    state, project, state / "snapshots" / "missing", expected
+                )
             self.assertEqual(fingerprint(project), drifted)
-            self.assertEqual(restore_workspace_snapshot(
-                state, project, snapshot, expected), expected)
+            self.assertEqual(
+                restore_workspace_snapshot(state, project, snapshot, expected), expected
+            )
             self.assertFalse((project / "drift.txt").exists())
 
     def test_budget_is_shared_and_persistent(self):
@@ -55,8 +63,11 @@ class ProbeGuardTests(unittest.TestCase):
     def test_sanitizer_keeps_only_synthetic_skill_names(self):
         class SystemMessage:
             subtype = "init"
-            data = {"skills": ["fixture-121-project", "private-skill-name"],
-                    "session_id": "synthetic-id", "model": "synthetic-model"}
+            data = {
+                "skills": ["fixture-121-project", "private-skill-name"],
+                "session_id": "synthetic-id",
+                "model": "synthetic-model",
+            }
 
         class ToolUseBlock:
             id = "synthetic-tool-id"
@@ -82,12 +93,15 @@ class ProbeGuardTests(unittest.TestCase):
             usage = {}
             model_usage = {}
 
-        views = [redact_message(message) for message in
-                 (SystemMessage(), AssistantMessage(), ResultMessage())]
+        views = [
+            redact_message(message)
+            for message in (SystemMessage(), AssistantMessage(), ResultMessage())
+        ]
         self.assertEqual(views[0]["skill_names"], ["fixture-121-project"])
         self.assertEqual(views[0]["unrecognized_skill_count"], 1)
-        self.assertEqual(views[1]["blocks"][0]["skill_args"],
-                         {"safe": "fixture-121-project"})
+        self.assertEqual(
+            views[1]["blocks"][0]["skill_args"], {"safe": "fixture-121-project"}
+        )
         self.assertNotIn("private-skill-name", str(views))
         self.assertNotIn("private error text", str(views))
 

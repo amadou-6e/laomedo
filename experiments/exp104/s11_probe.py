@@ -21,26 +21,34 @@ import sys
 import sysconfig
 import threading
 import time
-from urllib import error; from urllib import request
+from urllib import error
+from urllib import request
 
 from laomedo.host.leases.utils import inspect_exact
 from laomedo.host.credentials.token.connection import HostTokenConnection
-from laomedo.host.leases.client import LeaseClient; from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
-from laomedo.agents.agents.codex.settings import IMAGE; from laomedo.agents.agents.codex.controller.models import CodexLaunch
+from laomedo.host.leases.client import LeaseClient
+from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
+from laomedo.agents.agents.codex.settings import IMAGE
+from laomedo.agents.agents.codex.controller.models import CodexLaunch
 from laomedo.host.mediation.authority import RunGrantAuthority
 
 _helper_spec = importlib.util.spec_from_file_location(
-    "exp104_live_probe_helpers", Path(__file__).with_name("live_probe.py"))
+    "exp104_live_probe_helpers", Path(__file__).with_name("live_probe.py")
+)
 if _helper_spec is None or _helper_spec.loader is None:
     raise RuntimeError("live_probe_helpers_unavailable")
 _helpers = importlib.util.module_from_spec(_helper_spec)
 _helper_spec.loader.exec_module(_helpers)
 BASELINE, REPOSITORY, REPOSITORY_ID = (
-    _helpers.BASELINE, _helpers.REPOSITORY, _helpers.REPOSITORY_ID)
+    _helpers.BASELINE,
+    _helpers.REPOSITORY,
+    _helpers.REPOSITORY_ID,
+)
 _api = _helpers._api
 from experiments.native_environment import host_environment
 from laomedo.git.models import GitExecutionContext
 from laomedo.git.repository import GitRepository
+
 _call_count = _helpers._call_count
 _git = _helpers._git
 _kill_runner = _helpers._kill_runner
@@ -64,8 +72,12 @@ def _direct_python() -> str:
 
 
 def _source_pythonpath() -> str:
-    return os.pathsep.join((str(Path(__file__).resolve().parents[2] / "src"),
-                            sysconfig.get_path("purelib")))
+    return os.pathsep.join(
+        (
+            str(Path(__file__).resolve().parents[2] / "src"),
+            sysconfig.get_path("purelib"),
+        )
+    )
 
 
 def _host_environment() -> dict[str, str]:
@@ -83,12 +95,15 @@ def _agent_environment() -> dict[str, str]:
 
 
 def _read_list(token: str, path: str) -> list[dict]:
-    call = request.Request("https://api.github.com" + path, headers={
-        "Authorization": "Bearer " + token,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "laomedo-exp104-s11/0.1",
-    })
+    call = request.Request(
+        "https://api.github.com" + path,
+        headers={
+            "Authorization": "Bearer " + token,
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "laomedo-exp104-s11/0.1",
+        },
+    )
     with request.urlopen(call, timeout=15) as response:
         value = json.load(response)
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
@@ -110,23 +125,34 @@ def _remote_pr(token: str, number: int, side: str, *, title: str | None = None) 
     value = _api(token, f"/repos/{REPOSITORY}/pulls/{number}")
     head = value.get("head") or {}
     base = value.get("base") or {}
-    if (head.get("ref") != BRANCHES[side] or
-            (head.get("repo") or {}).get("full_name") != REPOSITORY or
-            base.get("ref") != "main" or MARKERS[side] not in value.get("body", "") or
-            (title is not None and value.get("title") != title)):
+    if (
+        head.get("ref") != BRANCHES[side]
+        or (head.get("repo") or {}).get("full_name") != REPOSITORY
+        or base.get("ref") != "main"
+        or MARKERS[side] not in value.get("body", "")
+        or (title is not None and value.get("title") != title)
+    ):
         raise RuntimeError("remote_pr_mismatch")
-    return {"number": number, "head": head["ref"], "base": base["ref"],
-            "title": value.get("title"), "marker_present": True}
+    return {
+        "number": number,
+        "head": head["ref"],
+        "base": base["ref"],
+        "title": value.get("title"),
+        "marker_present": True,
+    }
 
 
 def _preflight(token: str) -> None:
     repo = _api(token, "/repos/" + REPOSITORY)
     main = _api(token, "/repos/" + REPOSITORY + "/git/ref/heads/main")
     user = _api(token, "/user")
-    if (repo.get("id") != REPOSITORY_ID or repo.get("default_branch") != "main" or
-            repo.get("permissions", {}).get("push") is not True or
-            main.get("object", {}).get("sha") != BASELINE or
-            user.get("login") != "ga84jog"):
+    if (
+        repo.get("id") != REPOSITORY_ID
+        or repo.get("default_branch") != "main"
+        or repo.get("permissions", {}).get("push") is not True
+        or main.get("object", {}).get("sha") != BASELINE
+        or user.get("login") != "ga84jog"
+    ):
         raise RuntimeError("github_baseline_mismatch")
     for branch in BRANCHES.values():
         _absent_ref(token, branch)
@@ -134,11 +160,14 @@ def _preflight(token: str) -> None:
     # than mistaking an unseen marker for absence.
     pulls = _read_list(token, f"/repos/{REPOSITORY}/pulls?state=all&per_page=100")
     if len(pulls) == 100 or any(
-            any(marker in str(pr.get(field, "")) for field in ("title", "body"))
-            for pr in pulls for marker in MARKERS.values()):
+        any(marker in str(pr.get(field, "")) for field in ("title", "body"))
+        for pr in pulls
+        for marker in MARKERS.values()
+    ):
         raise RuntimeError("pr_marker_preflight_uncertain")
-    image = subprocess.run(["docker", "image", "inspect", IMAGE],
-                           capture_output=True, timeout=20)
+    image = subprocess.run(
+        ["docker", "image", "inspect", IMAGE], capture_output=True, timeout=20
+    )
     if image.returncode:
         raise RuntimeError("pinned_image_unavailable")
 
@@ -146,8 +175,7 @@ def _preflight(token: str) -> None:
 def _prepare_commits(checkout: Path) -> dict[str, str]:
     if checkout.exists():
         raise RuntimeError("checkout_already_exists")
-    _git("clone", "--quiet", "https://github.com/" + REPOSITORY + ".git",
-         str(checkout))
+    _git("clone", "--quiet", "https://github.com/" + REPOSITORY + ".git", str(checkout))
     if _git("rev-parse", "HEAD", cwd=checkout) != BASELINE:
         raise RuntimeError("clone_baseline_mismatch")
     _git("config", "user.name", "Laomedo EXP-104", cwd=checkout)
@@ -164,21 +192,41 @@ def _prepare_commits(checkout: Path) -> dict[str, str]:
 
 
 def _check_effect(status: int, response: dict, operation: str) -> dict:
-    if status != 200 or response.get("state") != "confirmed" or not isinstance(
-            response.get("result"), dict):
+    if (
+        status != 200
+        or response.get("state") != "confirmed"
+        or not isinstance(response.get("result"), dict)
+    ):
         raise RuntimeError(operation + "_not_confirmed_no_retry")
     return response["result"]
 
 
-def _mediate(port: int, instance: str, capability: str, operation: str,
-             payload: dict, effect_id: str) -> tuple[int, dict]:
-    body = json.dumps({"repository": REPOSITORY, "operation": operation,
-                       "payload": payload, "effect_id": effect_id}).encode()
-    call = request.Request(f"http://127.0.0.1:{port}/v1/mediate", data=body,
-                           method="POST", headers={
-                               "Authorization": "Bearer " + capability,
-                               "X-Laomedo-Mediator-Instance": instance,
-                               "Content-Type": "application/json"})
+def _mediate(
+    port: int,
+    instance: str,
+    capability: str,
+    operation: str,
+    payload: dict,
+    effect_id: str,
+) -> tuple[int, dict]:
+    body = json.dumps(
+        {
+            "repository": REPOSITORY,
+            "operation": operation,
+            "payload": payload,
+            "effect_id": effect_id,
+        }
+    ).encode()
+    call = request.Request(
+        f"http://127.0.0.1:{port}/v1/mediate",
+        data=body,
+        method="POST",
+        headers={
+            "Authorization": "Bearer " + capability,
+            "X-Laomedo-Mediator-Instance": instance,
+            "Content-Type": "application/json",
+        },
+    )
     try:
         with request.urlopen(call, timeout=35) as response:
             return response.status, json.load(response)
@@ -186,15 +234,28 @@ def _mediate(port: int, instance: str, capability: str, operation: str,
         return failure.code, json.load(failure)
 
 
-def _container_call(name: str, operation: str, payload: dict,
-                    effect_id: str, forbidden: tuple[str, ...]) -> tuple[int, dict]:
-    body = json.dumps({"repository": REPOSITORY, "operation": operation,
-                       "payload": payload, "effect_id": effect_id})
-    result = subprocess.run(["docker", "exec", "-i", name, "node",
-                             "/run/laomedo/mediate.mjs"], input=body,
-                            text=True, capture_output=True, timeout=35,
-                            env=_agent_environment())
-    if any(secret and secret in (result.stdout + result.stderr) for secret in forbidden):
+def _container_call(
+    name: str, operation: str, payload: dict, effect_id: str, forbidden: tuple[str, ...]
+) -> tuple[int, dict]:
+    body = json.dumps(
+        {
+            "repository": REPOSITORY,
+            "operation": operation,
+            "payload": payload,
+            "effect_id": effect_id,
+        }
+    )
+    result = subprocess.run(
+        ["docker", "exec", "-i", name, "node", "/run/laomedo/mediate.mjs"],
+        input=body,
+        text=True,
+        capture_output=True,
+        timeout=35,
+        env=_agent_environment(),
+    )
+    if any(
+        secret and secret in (result.stdout + result.stderr) for secret in forbidden
+    ):
         raise RuntimeError("secret_in_agent_response")
     if result.returncode not in (0, 1):
         raise RuntimeError("container_mediation_transport_unknown")
@@ -211,22 +272,64 @@ def _agent_runner(state: Path, side: str, ready: Path) -> None:
     from py_docker import Client
     from py_docker.sessions.models import ContainerSession
     from py_docker.streams.models import StreamLimits
+
     run_id, token, name = RUNS[side], LEASES[side], NAMES[side]
     with Client(environment=_agent_environment()) as client:
-        lease = LeaseClient(state / "lease", run_id=run_id, name=name, token=token,
-            docker_endpoint=client.connection.endpoint, cancelled=threading.Event(), mediation_request={
-                "invocation_id":"invocation-"+run_id,"repository":REPOSITORY,"branch":BRANCHES[side]})
-        info=json.loads((state / "mediator" / "mediator.json").read_text(encoding="utf-8"))
-        workspace=state / ("agent-"+side)
-        for child in (workspace,workspace / "canonical",workspace / "store"):
-            child.mkdir(parents=True,exist_ok=True)
-        spec=CodexLaunch(workspace=workspace,canonical=workspace / "canonical",store_mount=workspace / "store",
-            image=client.images.resolve(IMAGE),name=name,run_id=run_id,launch_token=token,
-            capability=lease.dir / "grant.secret",mediator_url=f"http://host.docker.internal:{info['port']}/v1/mediate",
-            mediator_instance=info["instance"]).to_container_spec().model_copy(update={"command":["sh","-c","sleep 180"]})
-        with client.sessions.open(ContainerSession(spec=spec,limits=StreamLimits(seconds=190,max_bytes=65536),
-                receipt_path=workspace / "container-receipt.json")) as container:
-            ready.write_text(json.dumps({"pid":os.getpid(),"name":name,"run_id":run_id,"grant_id":lease.grant_id})+"\n",encoding="utf-8",newline="\n")
+        lease = LeaseClient(
+            state / "lease",
+            run_id=run_id,
+            name=name,
+            token=token,
+            docker_endpoint=client.connection.endpoint,
+            cancelled=threading.Event(),
+            mediation_request={
+                "invocation_id": "invocation-" + run_id,
+                "repository": REPOSITORY,
+                "branch": BRANCHES[side],
+            },
+        )
+        info = json.loads(
+            (state / "mediator" / "mediator.json").read_text(encoding="utf-8")
+        )
+        workspace = state / ("agent-" + side)
+        for child in (workspace, workspace / "canonical", workspace / "store"):
+            child.mkdir(parents=True, exist_ok=True)
+        spec = (
+            CodexLaunch(
+                workspace=workspace,
+                canonical=workspace / "canonical",
+                store_mount=workspace / "store",
+                image=client.images.resolve(IMAGE),
+                name=name,
+                run_id=run_id,
+                launch_token=token,
+                capability=lease.dir / "grant.secret",
+                mediator_url=f"http://host.docker.internal:{info['port']}/v1/mediate",
+                mediator_instance=info["instance"],
+            )
+            .to_container_spec()
+            .model_copy(update={"command": ["sh", "-c", "sleep 180"]})
+        )
+        with client.sessions.open(
+            ContainerSession(
+                spec=spec,
+                limits=StreamLimits(seconds=190, max_bytes=65536),
+                receipt_path=workspace / "container-receipt.json",
+            )
+        ) as container:
+            ready.write_text(
+                json.dumps(
+                    {
+                        "pid": os.getpid(),
+                        "name": name,
+                        "run_id": run_id,
+                        "grant_id": lease.grant_id,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
             container.wait(180)
         lease.finish()
 
@@ -235,32 +338,40 @@ def _journal_count(state: Path) -> int:
     return _call_count(state / "mediator" / "provider-attempts.jsonl")
 
 
-def _scan_agent_exposure(state: Path, provider_token: str,
-                         capabilities: tuple[str, ...]) -> dict:
+def _scan_agent_exposure(
+    state: Path, provider_token: str, capabilities: tuple[str, ...]
+) -> dict:
     """Check persisted agent-visible files and live Docker inspection, never log secrets."""
     inspected = 0
     for side in ("a", "b"):
-        inspect = subprocess.run(["docker", "inspect", NAMES[side]],
-                                 capture_output=True, timeout=20)
+        inspect = subprocess.run(
+            ["docker", "inspect", NAMES[side]], capture_output=True, timeout=20
+        )
         if inspect.returncode:
             raise RuntimeError("agent_inspection_unavailable")
         if provider_token.encode() in inspect.stdout or any(
-                capability.encode() in inspect.stdout for capability in capabilities):
+            capability.encode() in inspect.stdout for capability in capabilities
+        ):
             raise RuntimeError("secret_in_agent_inspection")
         inspected += 1
         for path in (state / ("agent-" + side)).rglob("*"):
             if path.is_file():
                 content = path.read_bytes()
                 if provider_token.encode() in content or any(
-                        capability.encode() in content for capability in capabilities):
+                    capability.encode() in content for capability in capabilities
+                ):
                     raise RuntimeError("secret_in_agent_mount")
                 inspected += 1
-    return {"inspected_locations": inspected, "unexpected_exact_hits": 0,
-            "designated_capability_mounts": 2}
+    return {
+        "inspected_locations": inspected,
+        "unexpected_exact_hits": 0,
+        "designated_capability_mounts": 2,
+    }
 
 
-def _scan_persisted_exposure(state: Path, provider_token: str,
-                             capabilities: tuple[str, ...]) -> dict:
+def _scan_persisted_exposure(
+    state: Path, provider_token: str, capabilities: tuple[str, ...]
+) -> dict:
     scanned = 0
     for path in state.rglob("*"):
         if not path.is_file():
@@ -268,11 +379,14 @@ def _scan_persisted_exposure(state: Path, provider_token: str,
         content = path.read_bytes()
         if provider_token.encode() in content:
             raise RuntimeError("provider_token_in_probe_state")
-        designated = (path.name == "grant.secret" and
-                      path.parent.parent.name == "leases" and
-                      path.parent.parent.parent.name == "lease")
-        if not designated and any(capability.encode() in content
-                                  for capability in capabilities):
+        designated = (
+            path.name == "grant.secret"
+            and path.parent.parent.name == "leases"
+            and path.parent.parent.parent.name == "lease"
+        )
+        if not designated and any(
+            capability.encode() in content for capability in capabilities
+        ):
             raise RuntimeError("capability_outside_designated_mount")
         scanned += 1
     return {"files_scanned": scanned, "unexpected_exact_hits": 0}
@@ -281,16 +395,20 @@ def _scan_persisted_exposure(state: Path, provider_token: str,
 def _reviewed_record(path: Path, code_sha: str) -> str:
     raw = path.read_bytes()
     value = json.loads(raw)
-    if (not isinstance(value, dict) or value.get("identity") != IDENTITY or
-            value.get("source_sha") != code_sha or
-            value.get("verdict") != "approve"):
+    if (
+        not isinstance(value, dict)
+        or value.get("identity") != IDENTITY
+        or value.get("source_sha") != code_sha
+        or value.get("verdict") != "approve"
+    ):
         raise RuntimeError("pre_run_review_not_approved")
     return sha256(raw).hexdigest()
 
 
 def _require_clean_source(root: Path) -> None:
     checked = GitRepository(root, context=GitExecutionContext(timeout=20)).run(
-        ["status", "--porcelain", "--untracked-files=all"])
+        ["status", "--porcelain", "--untracked-files=all"]
+    )
     if checked.returncode or checked.stdout.strip():
         raise RuntimeError("reviewed_source_not_clean")
 
@@ -310,37 +428,45 @@ def _require_module_origin(root: Path) -> str:
     return str(package_root)
 
 
-def _wait_service_heartbeat(lease_state: Path, service: subprocess.Popen,
-                            timeout: float = 20.0) -> dict[str, float]:
+def _wait_service_heartbeat(
+    lease_state: Path, service: subprocess.Popen, timeout: float = 20.0
+) -> dict[str, float]:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if service.poll() is not None:
             raise RuntimeError("host_service_exited_before_ready")
         try:
             wall = float((lease_state / "service.alive").read_text(encoding="utf-8"))
-            monotonic = float((lease_state / "service.alive.monotonic").read_text(
-                encoding="utf-8"))
+            monotonic = float(
+                (lease_state / "service.alive.monotonic").read_text(encoding="utf-8")
+            )
         except (FileNotFoundError, PermissionError, OSError, ValueError):
-            time.sleep(.05)
+            time.sleep(0.05)
             continue
         wall_age = time.time() - wall
         monotonic_age = time.monotonic() - monotonic
-        if (0 <= wall_age < SERVICE_STALE_SECONDS and
-                -1 <= monotonic_age < SERVICE_STALE_SECONDS):
-            return {"wall_age_seconds": wall_age,
-                    "monotonic_age_seconds": monotonic_age}
-        time.sleep(.05)
+        if (
+            0 <= wall_age < SERVICE_STALE_SECONDS
+            and -1 <= monotonic_age < SERVICE_STALE_SECONDS
+        ):
+            return {
+                "wall_age_seconds": wall_age,
+                "monotonic_age_seconds": monotonic_age,
+            }
+        time.sleep(0.05)
     raise RuntimeError("host_service_heartbeat_not_ready")
 
 
-def run(state: Path, token_file: Path, code_sha: str, approval: str,
-        review_record: Path) -> dict:
+def run(
+    state: Path, token_file: Path, code_sha: str, approval: str, review_record: Path
+) -> dict:
     if not approval or approval != IDENTITY:
         raise RuntimeError("specific_live_approval_required")
     if os.name != "nt":
         raise RuntimeError("windows_docker_route_required")
-    if state.exists() or any((parent / ".git").exists() for parent in
-                             (state.parent, *state.parent.parents)):
+    if state.exists() or any(
+        (parent / ".git").exists() for parent in (state.parent, *state.parent.parents)
+    ):
         raise RuntimeError("fresh_private_state_outside_checkout_required")
     root = Path(__file__).resolve().parents[2]
     if _git("rev-parse", "HEAD", cwd=root) != code_sha:
@@ -348,148 +474,274 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
     _require_clean_source(root)
     module_root = _require_module_origin(root)
     review_hash = _reviewed_record(review_record, code_sha)
-    connection = HostTokenConnection(connection_id=CONNECTION_ID,
-                                     generation=GENERATION, repository=REPOSITORY,
-                                     token_file=token_file, key="GH_LAOMEDO",
-                                     forbidden_mount=state)
+    connection = HostTokenConnection(
+        connection_id=CONNECTION_ID,
+        generation=GENERATION,
+        repository=REPOSITORY,
+        token_file=token_file,
+        key="GH_LAOMEDO",
+        forbidden_mount=state,
+    )
     provider_token = connection.token(CONNECTION_ID, GENERATION)
     _preflight(provider_token)
     state.mkdir(parents=True)
     checkout = state / "trusted-checkout"
     commits = _prepare_commits(checkout)
-    record = {"identity": IDENTITY, "source_sha": code_sha,
-              "loaded_laomedo_root": module_root,
-              "repository": REPOSITORY, "baseline": BASELINE,
-              "review_record_sha256": review_hash, "commits": commits,
-              "planned_effect_ids": [IDENTITY + suffix for suffix in (
-                  "-setup-push-a", "-setup-push-b", "-pr-create-a",
-                  "-pr-update-a-denied", "-pr-create-b")],
-              "events": [], "status": "incomplete",
-              "model_turns": 0}
+    record = {
+        "identity": IDENTITY,
+        "source_sha": code_sha,
+        "loaded_laomedo_root": module_root,
+        "repository": REPOSITORY,
+        "baseline": BASELINE,
+        "review_record_sha256": review_hash,
+        "commits": commits,
+        "planned_effect_ids": [
+            IDENTITY + suffix
+            for suffix in (
+                "-setup-push-a",
+                "-setup-push-b",
+                "-pr-create-a",
+                "-pr-update-a-denied",
+                "-pr-create-b",
+            )
+        ],
+        "events": [],
+        "status": "incomplete",
+        "model_turns": 0,
+    }
     path = state / "observation.json"
 
     def save() -> None:
         pending = path.with_suffix(".pending")
-        pending.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n",
-                           encoding="utf-8", newline="\n")
+        pending.write_text(
+            json.dumps(record, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         os.replace(pending, path)
 
     save()
     service = runner_a = runner_b = None
     capabilities: tuple[str, ...] = ()
     try:
-        service = _process("-m", "laomedo.host.host_services", "--state", str(state),
-                           "--repository", REPOSITORY, "--checkout", str(checkout),
-                           "--baseline", BASELINE, "--agent-mount", str(state / "agent-a"),
-                           "--connection-id", CONNECTION_ID,
-                           "--connection-generation", str(GENERATION),
-                           "--token-file", str(token_file), "--token-key", "GH_LAOMEDO",
-                           cwd=root, executable=_direct_python(),
-                           environment=_host_environment())
+        service = _process(
+            "-m",
+            "laomedo.host.host_services",
+            "--state",
+            str(state),
+            "--repository",
+            REPOSITORY,
+            "--checkout",
+            str(checkout),
+            "--baseline",
+            BASELINE,
+            "--agent-mount",
+            str(state / "agent-a"),
+            "--connection-id",
+            CONNECTION_ID,
+            "--connection-generation",
+            str(GENERATION),
+            "--token-file",
+            str(token_file),
+            "--token-key",
+            "GH_LAOMEDO",
+            cwd=root,
+            executable=_direct_python(),
+            environment=_host_environment(),
+        )
         mediator = _wait(state / "mediator" / "mediator.json")
         lease_service = _wait(state / "lease" / "service.json")
-        if (mediator.get("pid") != service.pid or lease_service.get("pid") != service.pid or
-                mediator.get("module_root") != module_root or
-                not isinstance(mediator.get("instance"), str)):
+        if (
+            mediator.get("pid") != service.pid
+            or lease_service.get("pid") != service.pid
+            or mediator.get("module_root") != module_root
+            or not isinstance(mediator.get("instance"), str)
+        ):
             raise RuntimeError("host_service_identity_mismatch")
-        record["host_service"] = {"pid": service.pid,
-                                  "module_root": mediator["module_root"]}
+        record["host_service"] = {
+            "pid": service.pid,
+            "module_root": mediator["module_root"],
+        }
         record["host_service"]["initial_heartbeat"] = _wait_service_heartbeat(
-            state / "lease", service)
+            state / "lease", service
+        )
         save()
-        authority = RunGrantAuthority(state / "authority.sqlite",
-                                      connection_authorizer=connection.authorize)
+        authority = RunGrantAuthority(
+            state / "authority.sqlite", connection_authorizer=connection.authorize
+        )
         for side in ("a", "b"):
             setup_run = IDENTITY + "-setup-" + side
             setup_lease = IDENTITY + "-setup-lease-" + side
-            ref = authority.approve(invocation_id="invocation-" + setup_run,
-                                    repository=REPOSITORY, branch=BRANCHES[side],
-                                    operations={"git_push"}, reviewed_by=IDENTITY,
-                                    connection_id=CONNECTION_ID,
-                                    connection_generation=GENERATION)
+            ref = authority.approve(
+                invocation_id="invocation-" + setup_run,
+                repository=REPOSITORY,
+                branch=BRANCHES[side],
+                operations={"git_push"},
+                reviewed_by=IDENTITY,
+                connection_id=CONNECTION_ID,
+                connection_generation=GENERATION,
+            )
             authority.bind_run(ref, setup_run)
             from py_docker import Client as _DockerClient
+
             with _DockerClient() as _lease_docker:
                 _lease_endpoint = _lease_docker.connection.endpoint
-            setup = LeaseClient(state / "lease", docker_endpoint=_lease_endpoint, run_id=setup_run,
-                                name="laomedo-" + setup_run, token=setup_lease,
-                                cancelled=threading.Event(), mediation_request={
-                                    "invocation_id": "invocation-" + setup_run,
-                                    "repository": REPOSITORY, "branch": BRANCHES[side]})
+            setup = LeaseClient(
+                state / "lease",
+                docker_endpoint=_lease_endpoint,
+                run_id=setup_run,
+                name="laomedo-" + setup_run,
+                token=setup_lease,
+                cancelled=threading.Event(),
+                mediation_request={
+                    "invocation_id": "invocation-" + setup_run,
+                    "repository": REPOSITORY,
+                    "branch": BRANCHES[side],
+                },
+            )
             try:
                 before = _journal_count(state)
-                status, response = _mediate(mediator["port"], mediator["instance"],
-                                            setup.grant_secret(), "git_push",
-                                            {"branch": BRANCHES[side],
-                                             "commit": commits[side]},
-                                            IDENTITY + "-setup-push-" + side)
-                record["events"].append({"name": "setup_push_" + side,
-                                         "http": status, "state": response.get("state"),
-                                         "provider_delta": _journal_count(state) - before})
+                status, response = _mediate(
+                    mediator["port"],
+                    mediator["instance"],
+                    setup.grant_secret(),
+                    "git_push",
+                    {"branch": BRANCHES[side], "commit": commits[side]},
+                    IDENTITY + "-setup-push-" + side,
+                )
+                record["events"].append(
+                    {
+                        "name": "setup_push_" + side,
+                        "http": status,
+                        "state": response.get("state"),
+                        "provider_delta": _journal_count(state) - before,
+                    }
+                )
                 save()
                 _check_effect(status, response, "setup_push_" + side)
                 if _journal_count(state) - before != 1:
                     raise RuntimeError("setup_provider_attempt_count_invalid")
-                remote = _api(provider_token, "/repos/" + REPOSITORY +
-                              "/git/ref/heads/" + BRANCHES[side])
+                remote = _api(
+                    provider_token,
+                    "/repos/" + REPOSITORY + "/git/ref/heads/" + BRANCHES[side],
+                )
                 if remote.get("object", {}).get("sha") != commits[side]:
                     raise RuntimeError("setup_ref_readback_mismatch")
             finally:
                 setup.finish()
         for side in ("a", "b"):
-            ref = authority.approve(invocation_id="invocation-" + RUNS[side],
-                                    repository=REPOSITORY, branch=BRANCHES[side],
-                                    operations={"pr_create", "pr_update"},
-                                    reviewed_by=IDENTITY, connection_id=CONNECTION_ID,
-                                    connection_generation=GENERATION)
-            authority.bind_run(ref, RUNS[side],
-                               allowed_operations=frozenset({"pr_create", "pr_update",
-                                                             "actions_read"}))
+            ref = authority.approve(
+                invocation_id="invocation-" + RUNS[side],
+                repository=REPOSITORY,
+                branch=BRANCHES[side],
+                operations={"pr_create", "pr_update"},
+                reviewed_by=IDENTITY,
+                connection_id=CONNECTION_ID,
+                connection_generation=GENERATION,
+            )
+            authority.bind_run(
+                ref,
+                RUNS[side],
+                allowed_operations=frozenset(
+                    {"pr_create", "pr_update", "actions_read"}
+                ),
+            )
         runner_args = (str(Path(__file__).resolve()), "--runner", "--state", str(state))
-        launch_options = ({"creationflags": subprocess.CREATE_NO_WINDOW}
-                          if os.name == "nt" else {"start_new_session": True})
+        launch_options = (
+            {"creationflags": subprocess.CREATE_NO_WINDOW}
+            if os.name == "nt"
+            else {"start_new_session": True}
+        )
         runner_a = subprocess.Popen(
-            [_direct_python(), *runner_args, "--side", "a", "--ready",
-             str(state / "runner-a.json")], env=_agent_environment(),
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, cwd=root, **launch_options)
+            [
+                _direct_python(),
+                *runner_args,
+                "--side",
+                "a",
+                "--ready",
+                str(state / "runner-a.json"),
+            ],
+            env=_agent_environment(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            cwd=root,
+            **launch_options,
+        )
         runner_b = subprocess.Popen(
-            [_direct_python(), *runner_args, "--side", "b", "--ready",
-             str(state / "runner-b.json")], env=_agent_environment(),
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, cwd=root, **launch_options)
+            [
+                _direct_python(),
+                *runner_args,
+                "--side",
+                "b",
+                "--ready",
+                str(state / "runner-b.json"),
+            ],
+            env=_agent_environment(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            cwd=root,
+            **launch_options,
+        )
         ready_by_side = {}
         for side, process in (("a", runner_a), ("b", runner_b)):
             ready = _wait(state / ("runner-" + side + ".json"))
             if ready.get("pid") != process.pid or ready.get("run_id") != RUNS[side]:
                 raise RuntimeError("runner_identity_mismatch")
-            owned, container_id = inspect_exact(ContainerIdentity(name=NAMES[side], run_id=RUNS[side], token=LEASES[side]))
+            owned, container_id = inspect_exact(
+                ContainerIdentity(
+                    name=NAMES[side], run_id=RUNS[side], token=LEASES[side]
+                )
+            )
             if owned != "owned" or not container_id:
                 raise RuntimeError("container_identity_unverified")
             ready_by_side[side] = ready
             record.setdefault("containers", {})[side] = {
-                "id": container_id, "name": NAMES[side],
-                "run_label": RUNS[side], "launch_label": LEASES[side]}
+                "id": container_id,
+                "name": NAMES[side],
+                "run_label": RUNS[side],
+                "launch_label": LEASES[side],
+            }
         save()
-        capabilities = tuple((state / "lease" / "leases" / LEASES[side] /
-                              "grant.secret").read_text(encoding="utf-8")
-                             for side in ("a", "b"))
-        record["exposure_scan"] = _scan_agent_exposure(state, provider_token, capabilities)
+        capabilities = tuple(
+            (state / "lease" / "leases" / LEASES[side] / "grant.secret").read_text(
+                encoding="utf-8"
+            )
+            for side in ("a", "b")
+        )
+        record["exposure_scan"] = _scan_agent_exposure(
+            state, provider_token, capabilities
+        )
         save()
         title_a = "EXP-104 S11 A " + IDENTITY
-        payload_a = {"title": title_a, "body": MARKERS["a"],
-                     "head": BRANCHES["a"], "base": "main", "marker": MARKERS["a"]}
+        payload_a = {
+            "title": title_a,
+            "body": MARKERS["a"],
+            "head": BRANCHES["a"],
+            "base": "main",
+            "marker": MARKERS["a"],
+        }
         before = _journal_count(state)
-        status, response = _container_call(NAMES["a"], "pr_create", payload_a,
-                                           IDENTITY + "-pr-create-a",
-                                           (provider_token, *capabilities))
+        status, response = _container_call(
+            NAMES["a"],
+            "pr_create",
+            payload_a,
+            IDENTITY + "-pr-create-a",
+            (provider_token, *capabilities),
+        )
         result = _check_effect(status, response, "pr_create_a")
         number_a = result.get("number")
         if type(number_a) is not int or number_a < 1:
             raise RuntimeError("pr_create_a_number_unknown")
-        record["events"].append({"name": "pr_create_a", "number": number_a,
-                                 "provider_delta": _journal_count(state) - before,
-                                 "readback": _remote_pr(provider_token, number_a, "a")})
+        record["events"].append(
+            {
+                "name": "pr_create_a",
+                "number": number_a,
+                "provider_delta": _journal_count(state) - before,
+                "readback": _remote_pr(provider_token, number_a, "a"),
+            }
+        )
         save()
         if _journal_count(state) - before != 1:
             raise RuntimeError("a_provider_attempt_count_invalid")
@@ -499,82 +751,130 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
         save()
         revoked = _wait(state / "lease" / "leases" / LEASES["a"] / "revoked.json", 40)
         revocation_at = revoked.get("revoked_at_monotonic")
-        if (revoked.get("reason") != "heartbeat_lost" or
-                revoked.get("revoked_grants") != [ready_by_side["a"]["grant_id"]] or
-                not isinstance(revocation_at, (int, float)) or
-                revocation_at - killed["completed_monotonic"] > 60 or
-                revocation_at < killed["completed_monotonic"]):
+        if (
+            revoked.get("reason") != "heartbeat_lost"
+            or revoked.get("revoked_grants") != [ready_by_side["a"]["grant_id"]]
+            or not isinstance(revocation_at, (int, float))
+            or revocation_at - killed["completed_monotonic"] > 60
+            or revocation_at < killed["completed_monotonic"]
+        ):
             raise RuntimeError("runner_a_revocation_gate_failed")
         record["runner_a_revocation"] = revoked
         save()
         before = _journal_count(state)
-        capability_a = (state / "lease" / "leases" / LEASES["a"] /
-                        "grant.secret").read_text(encoding="utf-8")
-        status, denied = _mediate(mediator["port"], mediator["instance"],
-                                  capability_a, "pr_update", {
-                                      "number": number_a, "head": BRANCHES["a"],
-                                      "base": "main", "marker": MARKERS["a"],
-                                      "title": title_a + " SHOULD NOT APPEAR",
-                                  }, IDENTITY + "-pr-update-a-denied")
-        if (status != 403 or denied.get("error") != "grant_unavailable" or
-                _journal_count(state) != before or
-                _remote_pr(provider_token, number_a, "a", title=title_a)["number"] != number_a):
+        capability_a = (
+            state / "lease" / "leases" / LEASES["a"] / "grant.secret"
+        ).read_text(encoding="utf-8")
+        status, denied = _mediate(
+            mediator["port"],
+            mediator["instance"],
+            capability_a,
+            "pr_update",
+            {
+                "number": number_a,
+                "head": BRANCHES["a"],
+                "base": "main",
+                "marker": MARKERS["a"],
+                "title": title_a + " SHOULD NOT APPEAR",
+            },
+            IDENTITY + "-pr-update-a-denied",
+        )
+        if (
+            status != 403
+            or denied.get("error") != "grant_unavailable"
+            or _journal_count(state) != before
+            or _remote_pr(provider_token, number_a, "a", title=title_a)["number"]
+            != number_a
+        ):
             raise RuntimeError("post_loss_denial_gate_failed")
-        record["events"].append({"name": "a_denied", "http": status,
-                                 "error": denied.get("error"), "provider_delta": 0})
+        record["events"].append(
+            {
+                "name": "a_denied",
+                "http": status,
+                "error": denied.get("error"),
+                "provider_delta": 0,
+            }
+        )
         a_result = _wait(state / "lease" / "leases" / LEASES["a"] / "result.json", 40)
-        absent, _ = inspect_exact(ContainerIdentity(name=NAMES['a'], run_id=RUNS['a'], token=LEASES['a']))
-        if (a_result.get("cleanup_verified") is not True or
-                a_result.get("revoked_grants") != [ready_by_side["a"]["grant_id"]] or
-                not isinstance(a_result.get("cleanup_finished_at_monotonic"), (int, float)) or
-                absent != "absent"):
+        absent, _ = inspect_exact(
+            ContainerIdentity(name=NAMES["a"], run_id=RUNS["a"], token=LEASES["a"])
+        )
+        if (
+            a_result.get("cleanup_verified") is not True
+            or a_result.get("revoked_grants") != [ready_by_side["a"]["grant_id"]]
+            or not isinstance(
+                a_result.get("cleanup_finished_at_monotonic"), (int, float)
+            )
+            or absent != "absent"
+        ):
             raise RuntimeError("runner_a_cleanup_unverified")
         record["runner_a_result"] = a_result
         save()
         title_b = "EXP-104 S11 B " + IDENTITY
-        payload_b = {"title": title_b, "body": MARKERS["b"],
-                     "head": BRANCHES["b"], "base": "main", "marker": MARKERS["b"]}
+        payload_b = {
+            "title": title_b,
+            "body": MARKERS["b"],
+            "head": BRANCHES["b"],
+            "base": "main",
+            "marker": MARKERS["b"],
+        }
         before = _journal_count(state)
-        status, response = _container_call(NAMES["b"], "pr_create", payload_b,
-                                           IDENTITY + "-pr-create-b",
-                                           (provider_token, *capabilities))
+        status, response = _container_call(
+            NAMES["b"],
+            "pr_create",
+            payload_b,
+            IDENTITY + "-pr-create-b",
+            (provider_token, *capabilities),
+        )
         result = _check_effect(status, response, "pr_create_b")
         number_b = result.get("number")
         if type(number_b) is not int or number_b < 1 or number_b == number_a:
             raise RuntimeError("pr_create_b_number_unknown")
-        record["events"].append({"name": "pr_create_b", "number": number_b,
-                                 "provider_delta": _journal_count(state) - before,
-                                 "readback": _remote_pr(provider_token, number_b, "b")})
+        record["events"].append(
+            {
+                "name": "pr_create_b",
+                "number": number_b,
+                "provider_delta": _journal_count(state) - before,
+                "readback": _remote_pr(provider_token, number_b, "b"),
+            }
+        )
         save()
         if _journal_count(state) - before != 1:
             raise RuntimeError("b_provider_attempt_count_invalid")
-        stop = subprocess.run(["docker", "stop", NAMES["b"]],
-                              capture_output=True, timeout=20)
+        stop = subprocess.run(
+            ["docker", "stop", NAMES["b"]], capture_output=True, timeout=20
+        )
         if stop.returncode:
             raise RuntimeError("runner_b_container_stop_failed")
         runner_b.wait(timeout=20)
         runner_b = None
         b_result = _wait(state / "lease" / "leases" / LEASES["b"] / "result.json", 20)
-        if (b_result.get("reason") != "done" or
-                b_result.get("revoked_grants") != [ready_by_side["b"]["grant_id"]] or
-                b_result.get("cleanup_verified") is not True):
+        if (
+            b_result.get("reason") != "done"
+            or b_result.get("revoked_grants") != [ready_by_side["b"]["grant_id"]]
+            or b_result.get("cleanup_verified") is not True
+        ):
             raise RuntimeError("runner_b_normal_revocation_unverified")
         record["runner_b_result"] = b_result
         record["provider_attempts"] = _journal_count(state)
         if record["provider_attempts"] != 4:
             raise RuntimeError("provider_attempt_total_invalid")
         record["persisted_exposure_scan"] = _scan_persisted_exposure(
-            state, provider_token, capabilities)
+            state, provider_token, capabilities
+        )
         record["status"] = "passed"
         save()
         return record
     except BaseException as failure:
         record["status"] = "inconclusive_or_failed"
         record["error_class"] = type(failure).__name__
-        record["error_code"] = str(failure) if type(failure) is RuntimeError else "probe_error"
+        record["error_code"] = (
+            str(failure) if type(failure) is RuntimeError else "probe_error"
+        )
         try:
             record["failure_exposure_scan"] = _scan_persisted_exposure(
-                state, provider_token, capabilities)
+                state, provider_token, capabilities
+            )
         except Exception:
             record["failure_exposure_scan"] = {"status": "unverified"}
         save()
@@ -587,8 +887,12 @@ def run(state: Path, token_file: Path, code_sha: str, approval: str,
                     _kill_runner(process)
                 except Exception:
                     pass
-            if service is not None and (state / "lease" / "leases" /
-                                        LEASES[side] / "accepted.json").exists():
+            if (
+                service is not None
+                and (
+                    state / "lease" / "leases" / LEASES[side] / "accepted.json"
+                ).exists()
+            ):
                 try:
                     _wait(state / "lease" / "leases" / LEASES[side] / "result.json", 40)
                 except Exception:
@@ -614,11 +918,25 @@ def main() -> None:
         _require_module_origin(Path(__file__).resolve().parents[2])
         _agent_runner(args.state, args.side, args.ready)
     else:
-        if any(value is None for value in (args.token_file, args.source_sha,
-                                           args.approval_id, args.review_record)):
-            parser.error("token file, source SHA, approval ID and review record required")
-        run(args.state, args.token_file, args.source_sha, args.approval_id,
-            args.review_record)
+        if any(
+            value is None
+            for value in (
+                args.token_file,
+                args.source_sha,
+                args.approval_id,
+                args.review_record,
+            )
+        ):
+            parser.error(
+                "token file, source SHA, approval ID and review record required"
+            )
+        run(
+            args.state,
+            args.token_file,
+            args.source_sha,
+            args.approval_id,
+            args.review_record,
+        )
 
 
 if __name__ == "__main__":

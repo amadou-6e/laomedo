@@ -61,11 +61,11 @@ class Executor:
                     limits=StreamLimits(
                         seconds=lifetime_seconds, max_bytes=Settings.load().max_bytes
                     ),
-                    receipt_path=receipt_path.with_name(
-                        receipt_path.stem + "-executor.json"
-                    )
-                    if receipt_path
-                    else evidence / "executor-receipt.json",
+                    receipt_path=(
+                        receipt_path.with_name(receipt_path.stem + "-executor.json")
+                        if receipt_path
+                        else evidence / "executor-receipt.json"
+                    ),
                 )
             )
             self.reader = threading.Thread(target=self._drain, daemon=True)
@@ -139,10 +139,7 @@ class Executor:
     def assert_controller_isolated(self, controller) -> None:
         if self._controller_listeners(controller):
             raise RunnerError("controller_listener_gate_failed")
-        if (
-            self._exec(controller.identity, ["codex", "--version"])
-            != CLI_VERSION
-        ):
+        if self._exec(controller.identity, ["codex", "--version"]) != CLI_VERSION:
             raise RunnerError("unsupported_codex_cli_version")
         if self.read_failed or not self.session.state().running:
             raise RunnerError("executor_not_running")
@@ -173,8 +170,6 @@ class Executor:
                 if self.reader.is_alive():
                     raise DockerOperationError("confirm executor reader shutdown")
         except DockerOperationError:
-            raise RunnerError(
-                "executor_termination_unverified"
-            ) from None
+            raise RunnerError("executor_termination_unverified") from None
         finally:
             self.client.close()

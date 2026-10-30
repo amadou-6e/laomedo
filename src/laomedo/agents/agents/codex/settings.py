@@ -1,4 +1,5 @@
 """Codex protocol/security pins and native feature configuration."""
+
 import threading
 from laomedo._paths import package_root
 
@@ -37,21 +38,21 @@ SPLIT_TOOLS = frozenset(
 )
 
 
-CONFIG = package_root() / "agents" / "agents" / "codex" / "resources" / "runner-config.toml"
+CONFIG = (
+    package_root() / "agents" / "agents" / "codex" / "resources" / "runner-config.toml"
+)
 
 
-SECCOMP = package_root() / "agents" / "agents" / "codex" / "resources" / "codex-seccomp.json"
+SECCOMP = (
+    package_root() / "agents" / "agents" / "codex" / "resources" / "codex-seccomp.json"
+)
 
 
 SECCOMP_SHA256 = "b5dd6bafc529bb12e925a7fcef956a6d3c0f2f1b48f811ac030bb9cbebf50691"
 
 
 MEDIATION_CLIENT = (
-    package_root()
-    / "host"
-    / "mediation"
-    / "resources"
-    / "agent_mediation_client.mjs"
+    package_root() / "host" / "mediation" / "resources" / "agent_mediation_client.mjs"
 )
 
 
@@ -112,18 +113,35 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        case_sensitive=True, env_file=None, secrets_dir=None,
-        env_nested_delimiter=None, enable_decoding=False,
-        extra="ignore", frozen=True, hide_input_in_errors=True,
+        case_sensitive=True,
+        env_file=None,
+        secrets_dir=None,
+        env_nested_delimiter=None,
+        enable_decoding=False,
+        extra="ignore",
+        frozen=True,
+        hide_input_in_errors=True,
     )
 
     @classmethod
-    def settings_customise_sources(cls, settings_cls, init_settings, env_settings,
-                                   dotenv_settings, file_secret_settings):
+    def settings_customise_sources(
+        cls,
+        settings_cls,
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
         """Only explicit arguments and the process environment supply settings."""
         return init_settings, env_settings
 
-    multi_agent: str | None = Field(default=None, validation_alias='LAOMEDO_RUNNER_MULTI_AGENT', repr=False, exclude=True)
+    multi_agent: str | None = Field(
+        default=None,
+        validation_alias="LAOMEDO_RUNNER_MULTI_AGENT",
+        repr=False,
+        exclude=True,
+    )
+
 
 # Credential-free startup probe; these bound I/O, not total Docker wall time.
 PREFLIGHT_API_TIMEOUT_SECONDS = 15

@@ -1,4 +1,5 @@
 """Agent working-state admission and preparation, composed with generic Git."""
+
 from pathlib import Path
 import shutil
 from laomedo.git.command import GitCommandRunner
@@ -16,7 +17,9 @@ from .utils import _copy_tree
 class AgentWorkspace:
     """Own preparation of one run's files; dispatch and publication stay outside."""
 
-    def __init__(self, paths: WorkspacePaths, *, runner: GitCommandRunner | None = None):
+    def __init__(
+        self, paths: WorkspacePaths, *, runner: GitCommandRunner | None = None
+    ):
         """Retain the canonical path pair; perform admission only when preparing."""
         self.paths = paths
         self.runner = runner if runner is not None else GitCommandRunner()
@@ -25,7 +28,9 @@ class AgentWorkspace:
         """Prepare the working directory and its canonical snapshot in existing order."""
         if git:
             baseline = self.prepare_git()
-            source_hash = _copy_tree(self.paths.directory, canonical, exclude_root_git=True)
+            source_hash = _copy_tree(
+                self.paths.directory, canonical, exclude_root_git=True
+            )
         else:
             baseline = None
             source_hash = _copy_tree(self.paths.source, self.paths.directory)
@@ -50,10 +55,15 @@ class AgentWorkspace:
         if not source.is_dir() or not git_dir.is_dir() or git_dir.is_symlink():
             raise GitWorkspaceError("git_repository_root_required")
         with self.runner.isolated_home(GitEnvironmentProfile.WORKSPACE) as home:
-            context = GitExecutionContext(profile=GitEnvironmentProfile.WORKSPACE, home=home)
+            context = GitExecutionContext(
+                profile=GitEnvironmentProfile.WORKSPACE, home=home
+            )
 
-            source_repository = GitRepository(source,
-                context=context.model_copy(update={"hardened": True}), runner=self.runner)
+            source_repository = GitRepository(
+                source,
+                context=context.model_copy(update={"hardened": True}),
+                runner=self.runner,
+            )
             source_tree = GitWorkingTree(source_repository)
             baseline = source_repository.resolve("HEAD", verify=True)
             if baseline is None or not _SHA.fullmatch(baseline):
@@ -82,12 +92,12 @@ class AgentWorkspace:
             try:
                 destination.mkdir()
             except FileExistsError as error:
-                raise GitWorkspaceError(
-                    "git_workspace_path_invalid"
-                ) from error
+                raise GitWorkspaceError("git_workspace_path_invalid") from error
             try:
                 try:
-                    tree = GitWorkingTree.clone_from(source, destination, context=context, runner=self.runner)
+                    tree = GitWorkingTree.clone_from(
+                        source, destination, context=context, runner=self.runner
+                    )
                 except GitOperationError as error:
                     raise GitWorkspaceError(error.code) from error
                 sha = baseline.decode("ascii")
@@ -95,7 +105,9 @@ class AgentWorkspace:
                     raise GitWorkspaceError("git_checkout_failed")
                 if not tree.remove_remote("origin"):
                     raise GitWorkspaceError("git_remote_removal_failed")
-                tracked_skills = tree.repository.run(["ls-files", "-z", "--", ".agents/skills"])
+                tracked_skills = tree.repository.run(
+                    ["ls-files", "-z", "--", ".agents/skills"]
+                )
                 if tracked_skills.returncode or tracked_skills.stdout:
                     raise GitWorkspaceError("tracked_skill_path_unsupported")
                 with (destination / ".git" / "info" / "exclude").open(

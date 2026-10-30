@@ -532,9 +532,7 @@ class MediationStore(HandoffStore):
                 json.dumps(payload, ensure_ascii=False, allow_nan=False)
             )
         except (TypeError, ValueError) as error:
-            raise MediationError(
-                "request_not_serializable"
-            ) from error
+            raise MediationError("request_not_serializable") from error
         if operation == "bundle_status":
             if effect_id is not None or set(payload) != {"stage_attempt_id", "commit"}:
                 raise MediationError("bundle_status_request_invalid")
@@ -699,9 +697,7 @@ class MediationStore(HandoffStore):
                         raise ValueError("stage_binding_mismatch")
                     changes_workflow = self.verified_workflow_classifier(verified_stage)
                 except Exception as error:
-                    raise MediationError(
-                        "push_stage_unverified"
-                    ) from error
+                    raise MediationError("push_stage_unverified") from error
             elif self.workflow_change_classifier is not None:
                 try:
                     changes_workflow = self.workflow_change_classifier(
@@ -729,13 +725,9 @@ class MediationStore(HandoffStore):
                 payload=payload,
             )
             if operation in READS:
-                _validate_read(
-                    operation, payload, repository, grant, db
-                )
+                _validate_read(operation, payload, repository, grant, db)
             if operation in WRITES:
-                _validate_effect(
-                    operation, payload, grant, db, changes_workflow
-                )
+                _validate_effect(operation, payload, grant, db, changes_workflow)
                 prior = db.execute(
                     "SELECT * FROM effects WHERE run_id=? AND effect_id=?",
                     (grant["run_id"], effect_id),
@@ -756,9 +748,7 @@ class MediationStore(HandoffStore):
                             "error": prior["error_code"],
                         }
                     return {"state": "unknown", "resent": False}
-                target_key = _target_key(
-                    repository, operation, payload
-                )
+                target_key = _target_key(repository, operation, payload)
                 prior_target = db.execute(
                     "SELECT run_id,effect_id FROM effects WHERE target_key=? "
                     "AND state='unknown' ORDER BY rowid DESC LIMIT 1",
@@ -806,9 +796,7 @@ class MediationStore(HandoffStore):
                             or not isinstance(expected_remote_commit, str)
                             or not re.fullmatch(r"[0-9a-f]{40}", expected_remote_commit)
                         ):
-                            raise MediationError(
-                                "push_predecessor_invalid"
-                            )
+                            raise MediationError("push_predecessor_invalid")
                 db.execute(
                     """INSERT INTO effects
                     (run_id,effect_id,request_hash,repository,operation,target_key,

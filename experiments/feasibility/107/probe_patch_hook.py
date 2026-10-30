@@ -6,8 +6,12 @@ from laomedo.agents.agents.codex.controller.service import CodexController
 from laomedo.agents.agents.codex.controller.models import CodexLaunch, SplitPolicy
 from laomedo.agents.agents.codex.settings import IMAGE_ID
 import asyncio
-from laomedo.agents.agents.codex.utils import _ensure_split_profile as _owned_runner__ensure_split_profile
-from laomedo.agents.agents.codex.utils import _split_profile as _owned_runner__split_profile
+from laomedo.agents.agents.codex.utils import (
+    _ensure_split_profile as _owned_runner__ensure_split_profile,
+)
+from laomedo.agents.agents.codex.utils import (
+    _split_profile as _owned_runner__split_profile,
+)
 
 import json
 from pathlib import Path
@@ -31,20 +35,25 @@ async def _run(with_hook=True):
         canary = "SYNTHETIC_PATCH_" + secrets.token_hex(12)
         control = "SYNTHETIC_CONTROL_" + secrets.token_hex(12)
         script = root / "store" / "deny_patch.sh"
-        script.write_text("#!/bin/sh\n"
-            "printf '%s\\n' '{\"hookSpecificOutput\":{\"hookEventName\":"
-            "\"PreToolUse\",\"permissionDecision\":\"deny\","
-            "\"permissionDecisionReason\":\"Controller patch route blocked\"}}'\n")
+        script.write_text(
+            "#!/bin/sh\n"
+            'printf \'%s\\n\' \'{"hookSpecificOutput":{"hookEventName":'
+            '"PreToolUse","permissionDecision":"deny",'
+            '"permissionDecisionReason":"Controller patch route blocked"}}\'\n'
+        )
         config = root / "config.toml"
         config_text = _owned_runner_CONFIG.read_text()
         if with_hook:
             config_text = config_text.replace(
                 '"/home/runner/.codex/auth.json" = "deny"',
                 '"/home/runner/.codex/auth.json" = "deny"\n'
-                '"/home/runner/.codex" = "deny"') + ("\n"
+                '"/home/runner/.codex" = "deny"',
+            ) + (
+                "\n"
                 "[[hooks.PreToolUse]]\nmatcher = '^apply_patch$'\n"
                 "[[hooks.PreToolUse.hooks]]\ntype = 'command'\n"
-                "command = 'sh /store/deny_patch.sh'\ntimeout = 5\n")
+                "command = 'sh /store/deny_patch.sh'\ntimeout = 5\n"
+            )
         config.write_text(config_text)
         profile = _owned_runner__split_profile(root.resolve())
         _owned_runner__ensure_split_profile(profile, state=root)
@@ -57,96 +66,213 @@ async def _run(with_hook=True):
                     'model_providers.laomedo_mock.base_url="' + mock.base_url + '"',
                     'model_providers.laomedo_mock.env_key="ACCESS_TOKEN"',
                     'model_providers.laomedo_mock.wire_api="responses"',
-                    'model_providers.laomedo_mock.requires_openai_auth=false',
-                    'model_providers.laomedo_mock.supports_websockets=false',
+                    "model_providers.laomedo_mock.requires_openai_auth=false",
+                    "model_providers.laomedo_mock.supports_websockets=false",
                 )
-                server = CodexController(CodexLaunch(workspace=root / "workspace", canonical=root / "canonical", store_mount=root / "store", image=IMAGE_ID, profile=profile, config=config), root / "evidence", split=SplitPolicy(provider_config=provider, access_token="SYNTHETIC_ONLY"))
-                patch = ("*** Begin Patch\n*** Add File: "
-                         "/home/runner/.codex/patch-sentinel.txt\n+" +
-                         canary + "\n*** End Patch")
+                server = CodexController(
+                    CodexLaunch(
+                        workspace=root / "workspace",
+                        canonical=root / "canonical",
+                        store_mount=root / "store",
+                        image=IMAGE_ID,
+                        profile=profile,
+                        config=config,
+                    ),
+                    root / "evidence",
+                    split=SplitPolicy(
+                        provider_config=provider, access_token="SYNTHETIC_ONLY"
+                    ),
+                )
+                patch = (
+                    "*** Begin Patch\n*** Add File: "
+                    "/home/runner/.codex/patch-sentinel.txt\n+"
+                    + canary
+                    + "\n*** End Patch"
+                )
                 mock.tool_input = (
-                    "try { const result = await tools.apply_patch(" +
-                    json.dumps(patch) + "); text('PATCH:' + "
+                    "try { const result = await tools.apply_patch("
+                    + json.dumps(patch)
+                    + "); text('PATCH:' + "
                     "(result?.isError ? 'denied' : 'resolved')); } "
-                    "catch { text('PATCH:denied'); }")
+                    "catch { text('PATCH:denied'); }"
+                )
                 await server.initialize()
-                controller_writer = subprocess.run(["docker", "exec",
-                    server.container_name, "sh", "-c",
-                    "printf %s " + control +
-                    " > /home/runner/.codex/controller-control.txt"],
-                    capture_output=True, timeout=5)
+                controller_writer = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        server.container_name,
+                        "sh",
+                        "-c",
+                        "printf %s "
+                        + control
+                        + " > /home/runner/.codex/controller-control.txt",
+                    ],
+                    capture_output=True,
+                    timeout=5,
+                )
                 if controller_writer.returncode:
                     raise RuntimeError("controller_control_setup_failed")
-                await server.open({"requested_model": "gpt-6-luna", "requested_effort": "low"}, resume=False)
-                turn = await server.prompt("Synthetic hook probe", skills=[], seconds=50, cancelled=threading.Event())
+                await server.open(
+                    {"requested_model": "gpt-6-luna", "requested_effort": "low"},
+                    resume=False,
+                )
+                turn = await server.prompt(
+                    "Synthetic hook probe",
+                    skills=[],
+                    seconds=50,
+                    cancelled=threading.Event(),
+                )
                 status, error = turn.status, turn.error
-                archive = subprocess.run(["docker", "run", "--rm",
-                    "--pull=never", "--network", "none", "--user", "10001:10001",
-                    "--mount", f"type=volume,source={profile},target=/profile,readonly",
-                    _owned_runner_IMAGE, "tar", "-cf", "-", "-C", "/", "profile"],
-                    capture_output=True, timeout=15)
+                archive = subprocess.run(
+                    [
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--pull=never",
+                        "--network",
+                        "none",
+                        "--user",
+                        "10001:10001",
+                        "--mount",
+                        f"type=volume,source={profile},target=/profile,readonly",
+                        _owned_runner_IMAGE,
+                        "tar",
+                        "-cf",
+                        "-",
+                        "-C",
+                        "/",
+                        "profile",
+                    ],
+                    capture_output=True,
+                    timeout=15,
+                )
                 if archive.returncode:
                     raise RuntimeError("profile_scan_failed")
-                control_file = subprocess.run(["docker", "run", "--rm",
-                    "--pull=never", "--network", "none", "--user", "10001:10001",
-                    "--mount", f"type=volume,source={profile},target=/profile,readonly",
-                    _owned_runner_IMAGE, "cat", "/profile/controller-control.txt"],
-                    capture_output=True, timeout=15)
-                patch_file = subprocess.run(["docker", "run", "--rm",
-                    "--pull=never", "--network", "none", "--user", "10001:10001",
-                    "--mount", f"type=volume,source={profile},target=/profile,readonly",
-                    _owned_runner_IMAGE, "cat", "/profile/patch-sentinel.txt"],
-                    capture_output=True, timeout=15)
-                executor_file = subprocess.run(["docker", "exec",
-                    server.executor.session.identity.name, "cat",
-                    "/home/runner/.codex/patch-sentinel.txt"],
-                    capture_output=True, timeout=5)
-                config_check = subprocess.run(["docker", "exec",
-                    server.container_name, "grep", "-q", "hooks.PreToolUse",
-                    "/home/runner/.codex/config.toml"], capture_output=True,
-                    timeout=5)
-                result = {"schema_version": 1, "real_model_turns": 0,
-                    "status": status, "error": error,
+                control_file = subprocess.run(
+                    [
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--pull=never",
+                        "--network",
+                        "none",
+                        "--user",
+                        "10001:10001",
+                        "--mount",
+                        f"type=volume,source={profile},target=/profile,readonly",
+                        _owned_runner_IMAGE,
+                        "cat",
+                        "/profile/controller-control.txt",
+                    ],
+                    capture_output=True,
+                    timeout=15,
+                )
+                patch_file = subprocess.run(
+                    [
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--pull=never",
+                        "--network",
+                        "none",
+                        "--user",
+                        "10001:10001",
+                        "--mount",
+                        f"type=volume,source={profile},target=/profile,readonly",
+                        _owned_runner_IMAGE,
+                        "cat",
+                        "/profile/patch-sentinel.txt",
+                    ],
+                    capture_output=True,
+                    timeout=15,
+                )
+                executor_file = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        server.executor.session.identity.name,
+                        "cat",
+                        "/home/runner/.codex/patch-sentinel.txt",
+                    ],
+                    capture_output=True,
+                    timeout=5,
+                )
+                config_check = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        server.container_name,
+                        "grep",
+                        "-q",
+                        "hooks.PreToolUse",
+                        "/home/runner/.codex/config.toml",
+                    ],
+                    capture_output=True,
+                    timeout=5,
+                )
+                result = {
+                    "schema_version": 1,
+                    "real_model_turns": 0,
+                    "status": status,
+                    "error": error,
                     "config_contains_hook": config_check.returncode == 0,
-                    "event_methods": sorted({str(event.get("method")) for event in
-                                              server.events if "hook" in
-                                              str(event.get("method", "")).lower()}),
-                    "patch_reached_controller": (patch_file.returncode == 0 and
-                                                 patch_file.stdout.strip() == canary.encode()),
+                    "event_methods": sorted(
+                        {
+                            str(event.get("method"))
+                            for event in server.events
+                            if "hook" in str(event.get("method", "")).lower()
+                        }
+                    ),
+                    "patch_reached_controller": (
+                        patch_file.returncode == 0
+                        and patch_file.stdout.strip() == canary.encode()
+                    ),
                     "controller_patch_file_absent": (
-                        patch_file.returncode != 0 and
-                        b"No such file" in patch_file.stderr),
-                    "patch_reached_executor": (executor_file.returncode == 0 and
-                                               executor_file.stdout.strip() == canary.encode()),
+                        patch_file.returncode != 0
+                        and b"No such file" in patch_file.stderr
+                    ),
+                    "patch_reached_executor": (
+                        executor_file.returncode == 0
+                        and executor_file.stdout.strip() == canary.encode()
+                    ),
                     "controller_control_present": (
-                        control_file.returncode == 0 and
-                        control_file.stdout.strip() == control.encode()),
+                        control_file.returncode == 0
+                        and control_file.stdout.strip() == control.encode()
+                    ),
                     "file_change_completed": any(
-                        event.get("method") == "item/completed" and
-                        (event.get("params") or {}).get("item", {}).get("type") ==
-                        "fileChange" and
-                        (event.get("params") or {}).get("item", {}).get("status") ==
-                        "completed" for event in server.events),
+                        event.get("method") == "item/completed"
+                        and (event.get("params") or {}).get("item", {}).get("type")
+                        == "fileChange"
+                        and (event.get("params") or {}).get("item", {}).get("status")
+                        == "completed"
+                        for event in server.events
+                    ),
                     "hook_feedback_in_fake_request": any(
                         "PATCH:denied" in output
                         for request in mock.requests
-                        for output in request["tool_outputs"]),
-                    "fake_responses_requests": len(mock.requests)}
+                        for output in request["tool_outputs"]
+                    ),
+                    "fake_responses_requests": len(mock.requests),
+                }
                 print(json.dumps(result, sort_keys=True))
-                if (result["status"] != "completed" or
-                        result["config_contains_hook"] != with_hook or
-                        not result["controller_control_present"] or
-                        not result["controller_patch_file_absent"] or
-                        not result["file_change_completed"] or
-                        result["patch_reached_controller"] or
-                        not result["patch_reached_executor"] or
-                        result["fake_responses_requests"] != 2):
+                if (
+                    result["status"] != "completed"
+                    or result["config_contains_hook"] != with_hook
+                    or not result["controller_control_present"]
+                    or not result["controller_patch_file_absent"]
+                    or not result["file_change_completed"]
+                    or result["patch_reached_controller"]
+                    or not result["patch_reached_executor"]
+                    or result["fake_responses_requests"] != 2
+                ):
                     raise RuntimeError("patch_route_probe_failed")
         finally:
             if server is not None:
                 await server.close()
-            subprocess.run(["docker", "volume", "rm", profile],
-                           capture_output=True, timeout=15)
+            subprocess.run(
+                ["docker", "volume", "rm", profile], capture_output=True, timeout=15
+            )
 
 
 def main(with_hook=True):

@@ -6,7 +6,8 @@ import unittest
 from urllib import error
 
 from laomedo.host.mediation.errors import KnownRejected
-from laomedo.github.transport.rest.transport import GitHubRestTransport; from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
+from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest.transport import ISSUE_GRAPHQL_QUERY
 
 
 class _Response(io.BytesIO):
@@ -27,63 +28,113 @@ class _Opener:
         self.calls.append((call, timeout))
         if self.failure:
             raise self.failure
-        return _Response(self.responses.pop(0) if self.responses else
-                         b'{"number":7,"state":"open"}')
+        return _Response(
+            self.responses.pop(0) if self.responses else b'{"number":7,"state":"open"}'
+        )
 
 
 class GitHubRestTransportTests(unittest.TestCase):
     def setUp(self):
         self.opener = _Opener()
         self.adapter = GitHubRestTransport(
-            "example/disposable", lambda: "synthetic-secret", opener=self.opener)
+            "example/disposable", lambda: "synthetic-secret", opener=self.opener
+        )
 
     def test_list_reads_are_fixed_targets_and_issue_list_excludes_prs(self):
-        self.opener.responses = [b'[{"number":7}]',
-                                 b'[{"number":2},{"number":7,"pull_request":{}}]']
-        self.assertEqual(self.adapter("example/disposable", "pr_list", {}),
-                         {"items": [{"number": 7}]})
-        self.assertEqual(self.adapter("example/disposable", "issue_list", {}),
-                         {"items": [{"number": 2}]})
-        self.assertEqual([call.full_url for call, _ in self.opener.calls], [
-            "https://api.github.com/repos/example/disposable/pulls",
-            "https://api.github.com/repos/example/disposable/issues"])
-        self.assertTrue(all(call.get_method() == "GET" and call.data is None
-                            for call, _ in self.opener.calls))
+        self.opener.responses = [
+            b'[{"number":7}]',
+            b'[{"number":2},{"number":7,"pull_request":{}}]',
+        ]
+        self.assertEqual(
+            self.adapter("example/disposable", "pr_list", {}),
+            {"items": [{"number": 7}]},
+        )
+        self.assertEqual(
+            self.adapter("example/disposable", "issue_list", {}),
+            {"items": [{"number": 2}]},
+        )
+        self.assertEqual(
+            [call.full_url for call, _ in self.opener.calls],
+            [
+                "https://api.github.com/repos/example/disposable/pulls",
+                "https://api.github.com/repos/example/disposable/issues",
+            ],
+        )
+        self.assertTrue(
+            all(
+                call.get_method() == "GET" and call.data is None
+                for call, _ in self.opener.calls
+            )
+        )
         for operation in ("pr_list", "issue_list"):
             with self.assertRaisesRegex(KnownRejected, "list_payload_invalid"):
                 self.adapter("example/disposable", operation, {"path": "/other"})
         self.assertEqual(len(self.opener.calls), 2)
 
     def test_fixed_graphql_read_is_host_constructed_and_repository_bound(self):
-        nodes = [{'number': 8, 'title': 'T', 'body': 'B'}]
-        self.opener.responses = [json.dumps({'data': {'repository': {'issues': {'nodes': nodes}}}}).encode()]
-        self.assertEqual(self.adapter('example/disposable', 'issue_list', {'format': 'fixed_graphql'}),
-                         {'items': nodes})
+        nodes = [{"number": 8, "title": "T", "body": "B"}]
+        self.opener.responses = [
+            json.dumps({"data": {"repository": {"issues": {"nodes": nodes}}}}).encode()
+        ]
+        self.assertEqual(
+            self.adapter(
+                "example/disposable", "issue_list", {"format": "fixed_graphql"}
+            ),
+            {"items": nodes},
+        )
         call, _ = self.opener.calls[0]
-        self.assertEqual(call.get_method(), 'POST')
-        self.assertEqual(call.full_url, 'https://api.github.com/graphql')
-        self.assertEqual(json.loads(call.data), {'query': ISSUE_GRAPHQL_QUERY,
-                         'variables': {'owner': 'example', 'name': 'disposable'}})
-        for operation, payload in [('pr_list', {'format': 'fixed_graphql'}),
-                ('issue_list', {'format': 'fixed_graphql', 'query': 'mutation {}'}),
-                ('issue_list', {'format': 'arbitrary'})]:
-            with self.assertRaisesRegex(KnownRejected, 'list_payload_invalid'):
-                self.adapter('example/disposable', operation, payload)
+        self.assertEqual(call.get_method(), "POST")
+        self.assertEqual(call.full_url, "https://api.github.com/graphql")
+        self.assertEqual(
+            json.loads(call.data),
+            {
+                "query": ISSUE_GRAPHQL_QUERY,
+                "variables": {"owner": "example", "name": "disposable"},
+            },
+        )
+        for operation, payload in [
+            ("pr_list", {"format": "fixed_graphql"}),
+            ("issue_list", {"format": "fixed_graphql", "query": "mutation {}"}),
+            ("issue_list", {"format": "arbitrary"}),
+        ]:
+            with self.assertRaisesRegex(KnownRejected, "list_payload_invalid"):
+                self.adapter("example/disposable", operation, payload)
         self.assertEqual(len(self.opener.calls), 1)
 
     def test_fixed_graphql_partial_errors_or_malformed_response_are_not_success(self):
-        for value in [{'errors': [{'message': 'partial'}], 'data': {'repository': {'issues': {'nodes': []}}}},
-                      {}, {'data': {'repository': None}},
-                      {'data': {'repository': {'issues': {'nodes': [{'number': True, 'title': 'T', 'body': 'B'}]}}}}]:
+        for value in [
+            {
+                "errors": [{"message": "partial"}],
+                "data": {"repository": {"issues": {"nodes": []}}},
+            },
+            {},
+            {"data": {"repository": None}},
+            {
+                "data": {
+                    "repository": {
+                        "issues": {
+                            "nodes": [{"number": True, "title": "T", "body": "B"}]
+                        }
+                    }
+                }
+            },
+        ]:
             self.opener.responses = [json.dumps(value).encode()]
             before = len(self.opener.calls)
-            with self.assertRaisesRegex(ValueError, 'graphql_response_invalid'):
-                self.adapter('example/disposable', 'issue_list', {'format': 'fixed_graphql'})
+            with self.assertRaisesRegex(ValueError, "graphql_response_invalid"):
+                self.adapter(
+                    "example/disposable", "issue_list", {"format": "fixed_graphql"}
+                )
             self.assertEqual(len(self.opener.calls), before + 1)
 
     def test_list_rejects_malformed_provider_items_without_retry(self):
-        for response in (b'{}', b'[1]', b'[{"number":true}]', b'[{"number":0}]',
-                         b'[{"number":"7"}]'):
+        for response in (
+            b"{}",
+            b"[1]",
+            b'[{"number":true}]',
+            b'[{"number":0}]',
+            b'[{"number":"7"}]',
+        ):
             self.opener.responses = [response]
             before = len(self.opener.calls)
             with self.assertRaisesRegex(ValueError, "list_response_invalid"):
@@ -91,13 +142,20 @@ class GitHubRestTransportTests(unittest.TestCase):
             self.assertEqual(len(self.opener.calls), before + 1)
 
     def test_pr_create_is_bound_and_keeps_token_out_of_url_or_body(self):
-        payload = {"title": "Test", "body": "marker-1", "head": "branch-a",
-                   "base": "main", "marker": "marker-1"}
+        payload = {
+            "title": "Test",
+            "body": "marker-1",
+            "head": "branch-a",
+            "base": "main",
+            "marker": "marker-1",
+        }
         result = self.adapter("example/disposable", "pr_create", payload)
         self.assertEqual(result["number"], 7)
         call, timeout = self.opener.calls[0]
         self.assertEqual(call.get_method(), "POST")
-        self.assertEqual(call.full_url, "https://api.github.com/repos/example/disposable/pulls")
+        self.assertEqual(
+            call.full_url, "https://api.github.com/repos/example/disposable/pulls"
+        )
         self.assertEqual(timeout, 15)
         self.assertEqual(json.loads(call.data)["body"], "marker-1")
         self.assertNotIn("synthetic-secret", call.full_url + call.data.decode())
@@ -107,24 +165,42 @@ class GitHubRestTransportTests(unittest.TestCase):
         with self.assertRaisesRegex(KnownRejected, "repository_denied"):
             self.adapter("other/repo", "actions_read", {"job_id": 1})
         with self.assertRaisesRegex(KnownRejected, "pr_payload_invalid"):
-            self.adapter("example/disposable", "pr_create", {
-                "title": "x", "body": "no marker", "head": "b", "base": "main",
-                "marker": "required"})
+            self.adapter(
+                "example/disposable",
+                "pr_create",
+                {
+                    "title": "x",
+                    "body": "no marker",
+                    "head": "b",
+                    "base": "main",
+                    "marker": "required",
+                },
+            )
         self.assertEqual(self.opener.calls, [])
 
     def test_actions_and_repository_scoped_read_only(self):
         self.adapter("example/disposable", "actions_read", {"job_id": 12})
         self.adapter("example/disposable", "actions_read", {"resource": "runs"})
-        self.adapter("example/disposable", "api_rest_read", {
-            "path": "/repos/example/disposable/issues/1"})
-        self.assertEqual([call.full_url for call, _ in self.opener.calls], [
-            "https://api.github.com/repos/example/disposable/actions/jobs/12",
-            "https://api.github.com/repos/example/disposable/actions/runs",
-            "https://api.github.com/repos/example/disposable/issues/1"])
+        self.adapter(
+            "example/disposable",
+            "api_rest_read",
+            {"path": "/repos/example/disposable/issues/1"},
+        )
+        self.assertEqual(
+            [call.full_url for call, _ in self.opener.calls],
+            [
+                "https://api.github.com/repos/example/disposable/actions/jobs/12",
+                "https://api.github.com/repos/example/disposable/actions/runs",
+                "https://api.github.com/repos/example/disposable/issues/1",
+            ],
+        )
         with self.assertRaisesRegex(KnownRejected, "actions_target_invalid"):
             self.adapter("example/disposable", "actions_read", {"resource": "other"})
-        for path in ("/repos/other/repo/issues/1", "/repos/example/disposable/../other",
-                     "/repos/example/disposable/%2e%2e/other"):
+        for path in (
+            "/repos/other/repo/issues/1",
+            "/repos/example/disposable/../other",
+            "/repos/example/disposable/%2e%2e/other",
+        ):
             with self.assertRaisesRegex(KnownRejected, "api_path_denied"):
                 self.adapter("example/disposable", "api_rest_read", {"path": path})
         self.assertEqual(len(self.opener.calls), 3)
@@ -138,82 +214,154 @@ class GitHubRestTransportTests(unittest.TestCase):
         self.assertEqual(self.opener.calls, [])
 
     def test_pr_update_checks_real_head_before_patch(self):
-        payload = {"number": 7, "title": "Changed", "head": "branch-a",
-                   "base": "main", "marker": "marker-1",
-                   "expected": {"title": "Old", "body": "Old body",
-                                "head_sha": "a" * 40}}
+        payload = {
+            "number": 7,
+            "title": "Changed",
+            "head": "branch-a",
+            "base": "main",
+            "marker": "marker-1",
+            "expected": {"title": "Old", "body": "Old body", "head_sha": "a" * 40},
+        }
         with self.assertRaisesRegex(KnownRejected, "pr_target_denied"):
             self.adapter("example/disposable", "pr_update", payload)
         self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET"])
         self.opener.calls.clear()
-        existing = {"number": 7, "title": "Old", "body": "Old body",
-            "head": {"ref": "branch-a", "sha": "a" * 40,
-            "repo": {"full_name": "example/disposable"}},
-            "base": {"ref": "main"}}
+        existing = {
+            "number": 7,
+            "title": "Old",
+            "body": "Old body",
+            "head": {
+                "ref": "branch-a",
+                "sha": "a" * 40,
+                "repo": {"full_name": "example/disposable"},
+            },
+            "base": {"ref": "main"},
+        }
         updated = dict(existing, title="Changed")
-        self.opener.responses = [json.dumps(item).encode()
-                                 for item in (existing, updated, updated)]
+        self.opener.responses = [
+            json.dumps(item).encode() for item in (existing, updated, updated)
+        ]
         self.adapter("example/disposable", "pr_update", payload)
-        self.assertEqual([call.get_method() for call, _ in self.opener.calls], ["GET", "PATCH", "GET"])
+        self.assertEqual(
+            [call.get_method() for call, _ in self.opener.calls],
+            ["GET", "PATCH", "GET"],
+        )
 
     def test_pr_update_refuses_stale_snapshot_without_patch(self):
-        existing = {"number": 7, "title": "Human edit", "body": "Old body",
-                    "head": {"ref": "branch-a", "sha": "a" * 40,
-                             "repo": {"full_name": "example/disposable"}},
-                    "base": {"ref": "main"}}
+        existing = {
+            "number": 7,
+            "title": "Human edit",
+            "body": "Old body",
+            "head": {
+                "ref": "branch-a",
+                "sha": "a" * 40,
+                "repo": {"full_name": "example/disposable"},
+            },
+            "base": {"ref": "main"},
+        }
         self.opener.responses = [json.dumps(existing).encode()]
         with self.assertRaisesRegex(KnownRejected, "pr_snapshot_changed"):
-            self.adapter("example/disposable", "pr_update", {
-                "number": 7, "title": "Changed", "head": "branch-a",
-                "base": "main", "marker": "m",
-                "expected": {"title": "Old", "body": "Old body",
-                             "head_sha": "a" * 40}})
+            self.adapter(
+                "example/disposable",
+                "pr_update",
+                {
+                    "number": 7,
+                    "title": "Changed",
+                    "head": "branch-a",
+                    "base": "main",
+                    "marker": "m",
+                    "expected": {
+                        "title": "Old",
+                        "body": "Old body",
+                        "head_sha": "a" * 40,
+                    },
+                },
+            )
         self.assertEqual([c.get_method() for c, _ in self.opener.calls], ["GET"])
 
     def test_pr_update_readback_mismatch_is_unknown_not_rejected(self):
-        existing = {"number": 7, "title": "Old", "body": "Old body",
-                    "head": {"ref": "branch-a", "sha": "a" * 40,
-                             "repo": {"full_name": "example/disposable"}},
-                    "base": {"ref": "main"}}
+        existing = {
+            "number": 7,
+            "title": "Old",
+            "body": "Old body",
+            "head": {
+                "ref": "branch-a",
+                "sha": "a" * 40,
+                "repo": {"full_name": "example/disposable"},
+            },
+            "base": {"ref": "main"},
+        }
         self.opener.responses = [json.dumps(existing).encode()] * 3
         with self.assertRaisesRegex(ValueError, "pr_update_readback_unknown"):
-            self.adapter("example/disposable", "pr_update", {
-                "number": 7, "title": "Changed", "head": "branch-a",
-                "base": "main", "marker": "m",
-                "expected": {"title": "Old", "body": "Old body",
-                             "head_sha": "a" * 40}})
-        self.assertEqual([c.get_method() for c, _ in self.opener.calls],
-                         ["GET", "PATCH", "GET"])
+            self.adapter(
+                "example/disposable",
+                "pr_update",
+                {
+                    "number": 7,
+                    "title": "Changed",
+                    "head": "branch-a",
+                    "base": "main",
+                    "marker": "m",
+                    "expected": {
+                        "title": "Old",
+                        "body": "Old body",
+                        "head_sha": "a" * 40,
+                    },
+                },
+            )
+        self.assertEqual(
+            [c.get_method() for c, _ in self.opener.calls], ["GET", "PATCH", "GET"]
+        )
 
     def test_pr_read_returns_normalized_bound_readback(self):
-        self.opener.responses = [json.dumps({"number": 7, "title": "Ready",
-            "body": "Reviewed body", "state": "open",
-            "head": {"ref": "branch-a", "sha": "a" * 40,
-                     "repo": {"full_name": "example/disposable"}},
-            "base": {"ref": "main"}}).encode()]
+        self.opener.responses = [
+            json.dumps(
+                {
+                    "number": 7,
+                    "title": "Ready",
+                    "body": "Reviewed body",
+                    "state": "open",
+                    "head": {
+                        "ref": "branch-a",
+                        "sha": "a" * 40,
+                        "repo": {"full_name": "example/disposable"},
+                    },
+                    "base": {"ref": "main"},
+                }
+            ).encode()
+        ]
         result = self.adapter("example/disposable", "pr_read", {"number": 7})
         self.assertEqual(result["body"], "Reviewed body")
         self.assertEqual(result["head"]["sha"], "a" * 40)
         self.assertEqual(self.opener.calls[0][0].get_method(), "GET")
-        self.assertEqual(self.opener.calls[0][0].full_url,
-                         "https://api.github.com/repos/example/disposable/pulls/7")
+        self.assertEqual(
+            self.opener.calls[0][0].full_url,
+            "https://api.github.com/repos/example/disposable/pulls/7",
+        )
         with self.assertRaisesRegex(KnownRejected, "pr_read_target_invalid"):
             self.adapter("example/disposable", "pr_read", {"number": 7, "path": "evil"})
 
     def test_complete_rejection_and_ambiguous_error_are_distinct(self):
-        self.opener.failure = error.HTTPError("https://api.github.com", 403,
-                                               "Forbidden", None, None)
+        self.opener.failure = error.HTTPError(
+            "https://api.github.com", 403, "Forbidden", None, None
+        )
         with self.assertRaisesRegex(KnownRejected, "github_http_403"):
             self.adapter("example/disposable", "actions_read", {"job_id": 1})
-        self.opener.failure = error.HTTPError("https://api.github.com", 500,
-                                               "Server error", None, None)
+        self.opener.failure = error.HTTPError(
+            "https://api.github.com", 500, "Server error", None, None
+        )
         with self.assertRaises(error.HTTPError):
             self.adapter("example/disposable", "actions_read", {"job_id": 1})
 
     def test_bound_connection_requires_context_aware_token_supplier(self):
         with self.assertRaisesRegex(KnownRejected, "provider_credential_unavailable"):
-            self.adapter("example/disposable", "actions_read", {"job_id": 1},
-                         connection_id="connection-a", connection_generation=2)
+            self.adapter(
+                "example/disposable",
+                "actions_read",
+                {"job_id": 1},
+                connection_id="connection-a",
+                connection_generation=2,
+            )
         self.assertEqual(self.opener.calls, [])
         seen = []
 
@@ -223,16 +371,29 @@ class GitHubRestTransportTests(unittest.TestCase):
                 raise KeyError("not current")
             return "synthetic-selected-secret"
 
-        adapter = GitHubRestTransport("example/disposable", selected_token,
-                                     opener=self.opener)
-        adapter("example/disposable", "actions_read", {"job_id": 1},
-                connection_id="connection-a", connection_generation=2)
+        adapter = GitHubRestTransport(
+            "example/disposable", selected_token, opener=self.opener
+        )
+        adapter(
+            "example/disposable",
+            "actions_read",
+            {"job_id": 1},
+            connection_id="connection-a",
+            connection_generation=2,
+        )
         self.assertEqual(seen, [("connection-a", 2)])
-        self.assertEqual(self.opener.calls[0][0].get_header("Authorization"),
-                         "Bearer synthetic-selected-secret")
+        self.assertEqual(
+            self.opener.calls[0][0].get_header("Authorization"),
+            "Bearer synthetic-selected-secret",
+        )
         with self.assertRaisesRegex(KnownRejected, "provider_credential_unavailable"):
-            adapter("example/disposable", "actions_read", {"job_id": 1},
-                    connection_id="connection-a", connection_generation=1)
+            adapter(
+                "example/disposable",
+                "actions_read",
+                {"job_id": 1},
+                connection_id="connection-a",
+                connection_generation=1,
+            )
         self.assertEqual(len(self.opener.calls), 1)
 
 

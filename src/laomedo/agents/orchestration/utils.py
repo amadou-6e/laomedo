@@ -5,7 +5,13 @@ from __future__ import annotations
 from uuid import uuid4
 from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.orchestration.errors import HandoffError
-from laomedo.agents.orchestration.models import AgentHandoff, HandoffPrior, HandoffSkillReference, HandoffSource, HandoffTarget
+from laomedo.agents.orchestration.models import (
+    AgentHandoff,
+    HandoffPrior,
+    HandoffSkillReference,
+    HandoffSource,
+    HandoffTarget,
+)
 from laomedo.agents.artifacts.models import ArtifactReference
 import re
 
@@ -83,9 +89,12 @@ def envelope(
         source=(
             None
             if source is None
-            else HandoffSource(provider=source.get("provider"), run_id=source.get("run_id"))
+            else HandoffSource(
+                provider=source.get("provider"), run_id=source.get("run_id")
+            )
         ),
-        target=HandoffTarget(**target), task=task,
+        target=HandoffTarget(**target),
+        task=task,
         skill_refs=[HandoffSkillReference(**skill) for skill in clean_skills],
         workspace_policy="resume_bound" if operation == "resume" else "independent",
         operation=operation,
@@ -93,16 +102,18 @@ def envelope(
         prior=(
             None
             if operation == "fresh"
-            else HandoffPrior(**{
-                k: source[k]
-                for k in (
-                    "provider",
-                    "run_id",
-                    "thread_id",
-                    "post_run_hash",
-                    "model",
-                    "effort",
-                )
-            })
+            else HandoffPrior(
+                **{
+                    k: source[k]
+                    for k in (
+                        "provider",
+                        "run_id",
+                        "thread_id",
+                        "post_run_hash",
+                        "model",
+                        "effort",
+                    )
+                }
+            )
         ),
     ).to_payload()

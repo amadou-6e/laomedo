@@ -3,6 +3,7 @@
 Not a production authorization service. Grants still only scope runs; a process
 under the same OS user can change host state. No graph supplies an authorization.
 """
+
 from copy import deepcopy
 from contextlib import closing
 import hashlib
@@ -11,19 +12,34 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from laomedo.agents.agents.codex.controller.service import CodexController; from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+from laomedo.agents.errors import RunnerError
 
 
 def request_digest(request):
     body = {key: value for key, value in request.items() if key != "request_id"}
-    return "sha256:" + hashlib.sha256(json.dumps(body, sort_keys=True,
-        separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+        ).hexdigest()
+    )
 
 
 class BoundRunner(LocalRunner):
-    def __init__(self, *args, approved_requests, authorization_factory,
-                 nonpublishing_lease_service=None, binding_state=None,
-                 seed_consumed=(), **kwargs):
+    def __init__(
+        self,
+        *args,
+        approved_requests,
+        authorization_factory,
+        nonpublishing_lease_service=None,
+        binding_state=None,
+        seed_consumed=(),
+        **kwargs,
+    ):
         self.approved_requests = dict(approved_requests)
         self.authorization_factory = authorization_factory
         self.binding_lock = threading.Lock()
@@ -34,8 +50,13 @@ class BoundRunner(LocalRunner):
         self.nonpublishing_lease_service = nonpublishing_lease_service
         if binding_state is not None:
             with closing(sqlite3.connect(binding_state)) as db, db:
-                db.execute("CREATE TABLE IF NOT EXISTS consumed (digest TEXT PRIMARY KEY)")
-                db.executemany("INSERT OR IGNORE INTO consumed VALUES (?)", ((item,) for item in seed_consumed))
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS consumed (digest TEXT PRIMARY KEY)"
+                )
+                db.executemany(
+                    "INSERT OR IGNORE INTO consumed VALUES (?)",
+                    ((item,) for item in seed_consumed),
+                )
         super().__init__(*args, **kwargs)
 
     def resume(self, *args, **kwargs):
@@ -99,14 +120,18 @@ class GitMetadataAppServer(CodexController):
     def __init__(self, launch, evidence, **kwargs):
         """Preserve run-capability redaction while forwarding native transport limits."""
         from experiments.exp139.models import GitMetadataLaunch
+
         redactions = list(kwargs.pop("secret_redactions", ()))
         if launch.capability is not None:
             value = launch.capability.read_text().strip()
             if value not in redactions:
                 redactions.append(value)
-        super().__init__(GitMetadataLaunch.from_launch(launch), evidence,
-                         secret_redactions=tuple(redactions), **kwargs)
-
+        super().__init__(
+            GitMetadataLaunch.from_launch(launch),
+            evidence,
+            secret_redactions=tuple(redactions),
+            **kwargs,
+        )
 
 
 class MailboxAppServer(GitMetadataAppServer):
@@ -115,4 +140,5 @@ class MailboxAppServer(GitMetadataAppServer):
     def __init__(self, launch, evidence, **kwargs):
         """Select only host-owned relay files and preserve the canonical launch."""
         from experiments.exp139.models import MailboxLaunch
+
         super().__init__(MailboxLaunch.from_launch(launch), evidence, **kwargs)

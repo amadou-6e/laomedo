@@ -1,7 +1,10 @@
 """Loopback-only synthetic GitHub identity endpoint for EXP-108."""
 
-from datetime import datetime; from datetime import timedelta; from datetime import timezone
-from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
 import json
 from threading import Thread
 
@@ -13,14 +16,24 @@ class FakeProvider:
         self.requests = []
         self.server = None
 
-    def add_token(self, token, *, account="alice", repositories=("org/repo",),
-                  operations=("contents:write",), token_type="fine_grained",
-                  expired=False):
+    def add_token(
+        self,
+        token,
+        *,
+        account="alice",
+        repositories=("org/repo",),
+        operations=("contents:write",),
+        token_type="fine_grained",
+        expired=False,
+    ):
         expiry = datetime.now(timezone.utc) + timedelta(days=-1 if expired else 1)
-        self.tokens[token] = {"type": token_type, "account": account,
-                              "repositories": list(repositories),
-                              "operations": list(operations),
-                              "expires_at": expiry.isoformat()}
+        self.tokens[token] = {
+            "type": token_type,
+            "account": account,
+            "repositories": list(repositories),
+            "operations": list(operations),
+            "expires_at": expiry.isoformat(),
+        }
 
     def add_code(self, code, token, state):
         self.codes[code] = (token, state)
@@ -40,9 +53,13 @@ class FakeProvider:
                     length = int(self.headers.get("Content-Length", "0"))
                     data = json.loads(self.rfile.read(length))
                     # Retain only route and non-secret fields.
-                    provider.requests.append({"path": self.path,
-                                              "repository": data.get("repository"),
-                                              "operation": data.get("operation")})
+                    provider.requests.append(
+                        {
+                            "path": self.path,
+                            "repository": data.get("repository"),
+                            "operation": data.get("operation"),
+                        }
+                    )
                     if self.path == "/exchange":
                         issued = provider.codes.get(data.get("code"))
                         if issued and issued[1] == data.get("state"):
@@ -54,9 +71,15 @@ class FakeProvider:
                         result = provider.tokens.get(data.get("token"))
                     elif self.path == "/write":
                         token = provider.tokens.get(data.get("token"))
-                        result = {"accepted": True} if (token and
-                            data.get("repository") in token["repositories"] and
-                            data.get("operation") in token["operations"]) else None
+                        result = (
+                            {"accepted": True}
+                            if (
+                                token
+                                and data.get("repository") in token["repositories"]
+                                and data.get("operation") in token["operations"]
+                            )
+                            else None
+                        )
                     else:
                         result = None
                     if result is None:

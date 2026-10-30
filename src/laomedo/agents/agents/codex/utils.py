@@ -14,7 +14,6 @@ from laomedo.agents.errors import RunnerError
 from laomedo.host.credentials.siwc.errors import AuthError
 
 
-
 def _native_error_summary(events: list[dict], turn_id: str) -> dict:
     """Project app-server error events to a closed, nontextual diagnostic schema."""
     counts = {}
@@ -37,9 +36,7 @@ def _native_error_summary(events: list[dict], turn_id: str) -> dict:
             kind = info
         elif isinstance(info, dict) and len(info) == 1:
             candidate, details = next(iter(info.items()))
-            if candidate in NATIVE_ERROR_KINDS and isinstance(
-                details, dict
-            ):
+            if candidate in NATIVE_ERROR_KINDS and isinstance(details, dict):
                 kind = candidate
                 if candidate in NATIVE_HTTP_ERROR_KINDS:
                     status = details.get("httpStatusCode")
@@ -99,22 +96,42 @@ def _ensure_split_profile(name: str, *, state: Path, env=None) -> None:
     from py_docker.jobs.models import ContainerJob
     from py_docker.streams.models import StreamLimits
     from py_docker.errors import CleanupUnconfirmedError
+
     try:
         with Client(environment=env) as client:
             client.jobs.recover(state.joinpath("profile-init.json"))
-            image=client.images.resolve(IMAGE, expected_id=IMAGE_ID)
-            created=False
+            image = client.images.resolve(IMAGE, expected_id=IMAGE_ID)
+            created = False
             if not client.volumes.exists(name):
                 client.volumes.create(name=name)
-                created=True
-            result=client.jobs.run(ContainerJob(
-                spec=ContainerSpec(image=image,name="laomedo-profile-"+uuid4().hex,
-                    user="0:0" if created else "10001:10001",cap_add=["CHOWN"] if created else [],
-                    command=["chown","10001:10001","/home/runner/.codex"] if created else ["stat","-c","%u","/home/runner/.codex"],
-                    mounts=[Mount(type="volume",source=name,target="/home/runner/.codex",read_only=not created)]),
-                limits=StreamLimits(seconds=30,max_bytes=65536),wait_timeout_seconds=30,
-                receipt_path=state.joinpath("profile-init.json")))
-            if result.exit_code or (not created and result.stdout.strip()!=b"10001"):
+                created = True
+            result = client.jobs.run(
+                ContainerJob(
+                    spec=ContainerSpec(
+                        image=image,
+                        name="laomedo-profile-" + uuid4().hex,
+                        user="0:0" if created else "10001:10001",
+                        cap_add=["CHOWN"] if created else [],
+                        command=(
+                            ["chown", "10001:10001", "/home/runner/.codex"]
+                            if created
+                            else ["stat", "-c", "%u", "/home/runner/.codex"]
+                        ),
+                        mounts=[
+                            Mount(
+                                type="volume",
+                                source=name,
+                                target="/home/runner/.codex",
+                                read_only=not created,
+                            )
+                        ],
+                    ),
+                    limits=StreamLimits(seconds=30, max_bytes=65536),
+                    wait_timeout_seconds=30,
+                    receipt_path=state.joinpath("profile-init.json"),
+                )
+            )
+            if result.exit_code or (not created and result.stdout.strip() != b"10001"):
                 raise RunnerError("docker_control_failed")
     except CleanupUnconfirmedError:
         raise RunnerError("container_termination_unverified") from None

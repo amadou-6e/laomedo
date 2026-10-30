@@ -132,9 +132,9 @@ class AcpCapture:
                 identity,
                 {
                     "id": identity,
-                    "type": "agentMessage"
-                    if kind == "agent_message_chunk"
-                    else "reasoning",
+                    "type": (
+                        "agentMessage" if kind == "agent_message_chunk" else "reasoning"
+                    ),
                     "text": "",
                     "provenance": "normalized ACP update",
                 },

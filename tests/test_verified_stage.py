@@ -9,14 +9,22 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.skills.ingestion.settings import HANDOFF_NAME; from laomedo.skills.ingestion.utils import freeze_run_bundle; from laomedo.skills.ingestion.utils import _record
+from laomedo.skills.ingestion.settings import HANDOFF_NAME
+from laomedo.skills.ingestion.utils import freeze_run_bundle
+from laomedo.skills.ingestion.utils import _record
 from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
-from laomedo.host.publication.verified.errors import VerifiedStageError; from laomedo.host.publication.verified.utils import resolve_verified_stage
-from laomedo.host.publication.verified.errors import VerifiedGitStageError; from laomedo.host.publication.verified.utils import stage_verified_git
+from laomedo.host.publication.verified.errors import VerifiedStageError
+from laomedo.host.publication.verified.utils import resolve_verified_stage
+from laomedo.host.publication.verified.errors import VerifiedGitStageError
+from laomedo.host.publication.verified.utils import stage_verified_git
 from git_runner_controls import CallbackGitRunner
 from laomedo.github.transport.git.transport import GitHubGitTransport
-from laomedo.host.mediation.store import MediationStore; from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.errors import KnownRejected
-from laomedo.host.publication.verified.utils import make_grant_stage_resolver; from laomedo.host.publication.verified.utils import make_grant_bundle_freezer; from laomedo.host.publication.verified.utils import classify_verified_workflow
+from laomedo.host.mediation.store import MediationStore
+from laomedo.host.mediation.errors import MediationError
+from laomedo.host.mediation.errors import KnownRejected
+from laomedo.host.publication.verified.utils import make_grant_stage_resolver
+from laomedo.host.publication.verified.utils import make_grant_bundle_freezer
+from laomedo.host.publication.verified.utils import classify_verified_workflow
 
 
 class VerifiedStageTests(unittest.TestCase):
@@ -29,13 +37,29 @@ class VerifiedStageTests(unittest.TestCase):
         self.git("init", "--quiet")
         (self.repo / "base").write_text("base", encoding="ascii")
         self.git("add", "base")
-        self.git("-c", "user.name=Test", "-c", "user.email=t@example.invalid",
-                 "commit", "--quiet", "-m", "base")
+        self.git(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "base",
+        )
         self.baseline = self.git("rev-parse", "HEAD")
         (self.repo / "change").write_text("change", encoding="ascii")
         self.git("add", "change")
-        self.git("-c", "user.name=Test", "-c", "user.email=t@example.invalid",
-                 "commit", "--quiet", "-m", "change")
+        self.git(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "change",
+        )
         self.commit = self.git("rev-parse", "HEAD")
         self.git("branch", "run-branch", self.commit)
         self.git("branch", "validated", self.commit)
@@ -45,43 +69,80 @@ class VerifiedStageTests(unittest.TestCase):
         self.workspace.mkdir(parents=True)
         self.private.mkdir()
         self.record = self.workspace.parent / "record.json"
-        self.record.write_text(json.dumps({
-            "run_id": "run-a", "status": "completed", "workspace_mode": "git",
-            "git_baseline": self.baseline,
-            "github_scope": {"repository": "example/disposable",
-                             "branch": "run-branch"}}), encoding="utf-8")
-        self.git("bundle", "create", str(self.workspace / HANDOFF_NAME),
-                 "refs/heads/run-branch")
-        frozen = freeze_run_bundle(self.runner, self.private, run_id="run-a",
-                                   attempt_id="attempt-1")
+        self.record.write_text(
+            json.dumps(
+                {
+                    "run_id": "run-a",
+                    "status": "completed",
+                    "workspace_mode": "git",
+                    "git_baseline": self.baseline,
+                    "github_scope": {
+                        "repository": "example/disposable",
+                        "branch": "run-branch",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        self.git(
+            "bundle",
+            "create",
+            str(self.workspace / HANDOFF_NAME),
+            "refs/heads/run-branch",
+        )
+        frozen = freeze_run_bundle(
+            self.runner, self.private, run_id="run-a", attempt_id="attempt-1"
+        )
         self.assertEqual(frozen["status"], "frozen")
         self.attempt = self.private / "run-a" / "attempt-1"
         self.verified = self.attempt / "verified.bundle"
         self.git("bundle", "create", str(self.verified), "refs/heads/validated")
         self.verification = self.attempt / "verification.json"
-        self.verification.write_text(json.dumps({
-            "run_id": "run-a", "attempt_id": "attempt-1",
-            "status": "verified", "source_bundle_sha256": frozen["bundle_sha256"],
-            "baseline": self.baseline, "commit": self.commit,
-            "image_id": PINNED_IMAGE_ID,
-            "baseline_bundle_sha256": "a" * 64,
-            "policy_approved": False,
-            "container": {"status": "verified", "cleanup_verified": True,
-                          "success_marker_seen": True, "limits_verified": True,
-                          "export_class": "ok",
-                          "output_sha256": hashlib.sha256(
-                              self.verified.read_bytes()).hexdigest(),
-                          "output_bytes": self.verified.stat().st_size}}),
-            encoding="utf-8")
+        self.verification.write_text(
+            json.dumps(
+                {
+                    "run_id": "run-a",
+                    "attempt_id": "attempt-1",
+                    "status": "verified",
+                    "source_bundle_sha256": frozen["bundle_sha256"],
+                    "baseline": self.baseline,
+                    "commit": self.commit,
+                    "image_id": PINNED_IMAGE_ID,
+                    "baseline_bundle_sha256": "a" * 64,
+                    "policy_approved": False,
+                    "container": {
+                        "status": "verified",
+                        "cleanup_verified": True,
+                        "success_marker_seen": True,
+                        "limits_verified": True,
+                        "export_class": "ok",
+                        "output_sha256": hashlib.sha256(
+                            self.verified.read_bytes()
+                        ).hexdigest(),
+                        "output_bytes": self.verified.stat().st_size,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
 
     def git(self, *args):
-        return subprocess.run(["git", "-C", str(self.repo), *args], check=True,
-                              capture_output=True).stdout.decode().strip()
+        return (
+            subprocess.run(
+                ["git", "-C", str(self.repo), *args], check=True, capture_output=True
+            )
+            .stdout.decode()
+            .strip()
+        )
 
     def resolve(self, **overrides):
-        scope = {"run_id": "run-a", "repository": "example/disposable",
-                 "branch": "run-branch", "commit": self.commit,
-                 "stage_attempt_id": "attempt-1"}
+        scope = {
+            "run_id": "run-a",
+            "repository": "example/disposable",
+            "branch": "run-branch",
+            "commit": self.commit,
+            "stage_attempt_id": "attempt-1",
+        }
         scope.update(overrides)
         return resolve_verified_stage(self.runner, self.private, **scope)
 
@@ -97,14 +158,32 @@ class VerifiedStageTests(unittest.TestCase):
             self.resolve()
 
     def progression_store(self, *, unknown=False, confirm=True):
-        store = MediationStore(self.root / "effects.sqlite",
-            verified_stage_resolver=make_grant_stage_resolver(self.runner, self.private, self.runner),
-            verified_workflow_classifier=classify_verified_workflow)
-        gid, token = store.issue(run_id="run-a", invocation_id="inv-a", repository="example/disposable",
-            branch="run-branch", operations={"git_push"}, ttl_seconds=60)
+        store = MediationStore(
+            self.root / "effects.sqlite",
+            verified_stage_resolver=make_grant_stage_resolver(
+                self.runner, self.private, self.runner
+            ),
+            verified_workflow_classifier=classify_verified_workflow,
+        )
+        gid, token = store.issue(
+            run_id="run-a",
+            invocation_id="inv-a",
+            repository="example/disposable",
+            branch="run-branch",
+            operations={"git_push"},
+            ttl_seconds=60,
+        )
         record = json.loads(self.record.read_bytes())
-        record.update(status="running", container_ownership={"name": "owned-a", "launch_token": "launch-a",
-            "grant_id": gid, "supervised": True, "cleanup_verified": False})
+        record.update(
+            status="running",
+            container_ownership={
+                "name": "owned-a",
+                "launch_token": "launch-a",
+                "grant_id": gid,
+                "supervised": True,
+                "cleanup_verified": False,
+            },
+        )
         self.record.write_text(json.dumps(record), encoding="utf-8")
         # Synthetic existing stage: change its binding to the live fixture.
         manifest = self.attempt / "result.json"
@@ -112,22 +191,42 @@ class VerifiedStageTests(unittest.TestCase):
         frozen.update(_record(self.runner, "run-a")[1])
         frozen.pop("run_record_sha256", None)
         manifest.write_text(json.dumps(frozen), encoding="utf-8")
-        store.stage_freezer = make_grant_bundle_freezer(self.runner, self.private, self.runner,
-            confirmed_stage_authorizer=store.confirmed_stage)
+        store.stage_freezer = make_grant_bundle_freezer(
+            self.runner,
+            self.private,
+            self.runner,
+            confirmed_stage_authorizer=store.confirmed_stage,
+        )
+
         def transport(*args, **kwargs):
             if unknown:
                 raise TimeoutError("synthetic")
             return {"branch": "run-branch", "commit": self.commit}
+
         if confirm:
-            store.invoke(token=token, repository="example/disposable", operation="git_push",
-                payload={"branch": "run-branch", "commit": self.commit, "stage_attempt_id": "attempt-1"},
-                effect_id="first", transport=transport)
+            store.invoke(
+                token=token,
+                repository="example/disposable",
+                operation="git_push",
+                payload={
+                    "branch": "run-branch",
+                    "commit": self.commit,
+                    "stage_attempt_id": "attempt-1",
+                },
+                effect_id="first",
+                transport=transport,
+            )
         return store, token
 
     def next_capture(self, store, token):
-        return store.invoke(token=token, repository="example/disposable", operation="bundle_freeze",
-            payload={"attempt_id": "attempt-2"}, effect_id=None,
-            transport=lambda *_args: self.fail("freeze must not contact provider"))
+        return store.invoke(
+            token=token,
+            repository="example/disposable",
+            operation="bundle_freeze",
+            payload={"attempt_id": "attempt-2"},
+            effect_id=None,
+            transport=lambda *_args: self.fail("freeze must not contact provider"),
+        )
 
     def test_confirmed_clean_same_grant_stage_allows_next_capture(self):
         store, token = self.progression_store()
@@ -168,9 +267,13 @@ class VerifiedStageTests(unittest.TestCase):
         self.assertFalse((self.private / "run-a/attempt-2").exists())
 
     def test_wrong_grant_scope_or_commit_refuses(self):
-        for scope in ({"run_id": "run-b"}, {"repository": "other/disposable"},
-                      {"branch": "other"}, {"commit": "0" * 40},
-                      {"stage_attempt_id": "other"}):
+        for scope in (
+            {"run_id": "run-b"},
+            {"repository": "other/disposable"},
+            {"branch": "other"},
+            {"commit": "0" * 40},
+            {"stage_attempt_id": "other"},
+        ):
             with self.subTest(scope=scope), self.assertRaises(VerifiedStageError):
                 self.resolve(**scope)
 
@@ -178,40 +281,64 @@ class VerifiedStageTests(unittest.TestCase):
         live_workspace = self.runner / "runs" / "run-live" / "workspace"
         live_workspace.mkdir(parents=True)
         live_record = live_workspace.parent / "record.json"
-        owner = {"name": "laomedo-codex-live", "launch_token": "launch-live",
-                 "grant_id": "grant-live", "supervised": True,
-                 "cleanup_verified": False}
-        record = {"run_id": "run-live", "status": "running",
-                  "workspace_mode": "git", "git_baseline": self.baseline,
-                  "github_scope": {"repository": "example/disposable",
-                                   "branch": "run-branch"},
-                  "container_ownership": owner}
+        owner = {
+            "name": "laomedo-codex-live",
+            "launch_token": "launch-live",
+            "grant_id": "grant-live",
+            "supervised": True,
+            "cleanup_verified": False,
+        }
+        record = {
+            "run_id": "run-live",
+            "status": "running",
+            "workspace_mode": "git",
+            "git_baseline": self.baseline,
+            "github_scope": {
+                "repository": "example/disposable",
+                "branch": "run-branch",
+            },
+            "container_ownership": owner,
+        }
         live_record.write_text(json.dumps(record), encoding="utf-8")
         (live_workspace / HANDOFF_NAME).write_bytes(
-            (self.workspace / HANDOFF_NAME).read_bytes())
-        frozen = freeze_run_bundle(self.runner, self.private, run_id="run-live",
-                                   attempt_id="attempt-live")
+            (self.workspace / HANDOFF_NAME).read_bytes()
+        )
+        frozen = freeze_run_bundle(
+            self.runner, self.private, run_id="run-live", attempt_id="attempt-live"
+        )
         attempt = self.private / "run-live" / "attempt-live"
         (attempt / "verified.bundle").write_bytes(self.verified.read_bytes())
         verification = json.loads(self.verification.read_text())
-        verification.update(run_id="run-live", attempt_id="attempt-live",
-                            source_bundle_sha256=frozen["bundle_sha256"])
-        (attempt / "verification.json").write_text(json.dumps(verification),
-                                                     encoding="utf-8")
-        scope = {"run_id": "run-live", "repository": "example/disposable",
-                 "branch": "run-branch", "commit": self.commit,
-                 "stage_attempt_id": "attempt-live",
-                 "expected_grant_id": "grant-live"}
+        verification.update(
+            run_id="run-live",
+            attempt_id="attempt-live",
+            source_bundle_sha256=frozen["bundle_sha256"],
+        )
+        (attempt / "verification.json").write_text(
+            json.dumps(verification), encoding="utf-8"
+        )
+        scope = {
+            "run_id": "run-live",
+            "repository": "example/disposable",
+            "branch": "run-branch",
+            "commit": self.commit,
+            "stage_attempt_id": "attempt-live",
+            "expected_grant_id": "grant-live",
+        }
         first = resolve_verified_stage(self.runner, self.private, **scope)
         record["thread_id"] = "native-thread"
         record["turns"] = [{"status": "running"}]
         live_record.write_text(json.dumps(record), encoding="utf-8")
-        self.assertEqual(resolve_verified_stage(self.runner, self.private,
-                                                **scope).stage_digest,
-                         first.stage_digest)
+        self.assertEqual(
+            resolve_verified_stage(self.runner, self.private, **scope).stage_digest,
+            first.stage_digest,
+        )
         with self.assertRaisesRegex(VerifiedStageError, "stage_grant_mismatch"):
-            resolve_verified_stage(self.runner, self.private,
-                                   **{**scope, "expected_grant_id": "grant-other"})
+            resolve_verified_stage(
+                self.runner,
+                self.private,
+                **{**scope, "expected_grant_id": "grant-other"},
+            )
         owner["grant_id"] = "grant-other"
         live_record.write_text(json.dumps(record), encoding="utf-8")
         with self.assertRaises(VerifiedStageError):
@@ -226,28 +353,53 @@ class VerifiedStageTests(unittest.TestCase):
         workspace = self.runner / "runs" / "run-freeze" / "workspace"
         workspace.mkdir(parents=True)
         (workspace / HANDOFF_NAME).write_bytes(
-            (self.workspace / HANDOFF_NAME).read_bytes())
-        store = MediationStore(self.root / "freeze-effects.sqlite",
+            (self.workspace / HANDOFF_NAME).read_bytes()
+        )
+        store = MediationStore(
+            self.root / "freeze-effects.sqlite",
             stage_freezer=make_grant_bundle_freezer(
-                self.runner, self.private, self.root / "agent-mount"))
-        grant_id, token = store.issue(run_id="run-freeze",
-            invocation_id="invocation-freeze", repository="example/disposable",
-            branch="run-branch", operations={"git_push"}, ttl_seconds=60)
+                self.runner, self.private, self.root / "agent-mount"
+            ),
+        )
+        grant_id, token = store.issue(
+            run_id="run-freeze",
+            invocation_id="invocation-freeze",
+            repository="example/disposable",
+            branch="run-branch",
+            operations={"git_push"},
+            ttl_seconds=60,
+        )
         record_path = workspace.parent / "record.json"
-        record = {"run_id": "run-freeze", "status": "running",
-                  "workspace_mode": "git", "git_baseline": self.baseline,
-                  "github_scope": {"repository": "example/disposable",
-                                   "branch": "run-branch"},
-                  "container_ownership": {
-                      "name": "laomedo-codex-freeze", "launch_token": "launch-freeze",
-                      "grant_id": grant_id, "supervised": True,
-                      "cleanup_verified": False}}
+        record = {
+            "run_id": "run-freeze",
+            "status": "running",
+            "workspace_mode": "git",
+            "git_baseline": self.baseline,
+            "github_scope": {
+                "repository": "example/disposable",
+                "branch": "run-branch",
+            },
+            "container_ownership": {
+                "name": "laomedo-codex-freeze",
+                "launch_token": "launch-freeze",
+                "grant_id": grant_id,
+                "supervised": True,
+                "cleanup_verified": False,
+            },
+        }
         record_path.write_text(json.dumps(record), encoding="utf-8")
         provider_calls = []
+
         def invoke(payload, supplied=token):
-            return store.invoke(token=supplied, repository="example/disposable",
-                operation="bundle_freeze", payload=payload, effect_id=None,
-                transport=lambda *_args: provider_calls.append(1))
+            return store.invoke(
+                token=supplied,
+                repository="example/disposable",
+                operation="bundle_freeze",
+                payload=payload,
+                effect_id=None,
+                transport=lambda *_args: provider_calls.append(1),
+            )
+
         with self.assertRaisesRegex(MediationError, "freeze_request_invalid"):
             invoke({"attempt_id": "attempt-a", "path": str(self.repo)})
         result = invoke({"attempt_id": "attempt-a"})
@@ -272,19 +424,21 @@ class VerifiedStageTests(unittest.TestCase):
             self.resolve()
 
     def test_unverified_or_unclean_attempt_refuses(self):
-        for section, key, value in (("top", "status", "unknown"),
-                                    ("top", "run_id", "run-b"),
-                                    ("top", "attempt_id", "attempt-2"),
-                                    ("top", "policy_approved", True),
-                                    ("top", "image_id", "sha256:" + "0" * 64),
-                                    ("top", "baseline_bundle_sha256", "bad"),
-                                    ("container", "cleanup_verified", False),
-                                    ("container", "success_marker_seen", False),
-                                    ("container", "limits_verified", False),
-                                    ("container", "export_class", "failed"),
-                                    ("container", "output_bytes", 0),
-                                    ("container", "output_sha256", "0" * 64),
-                                    ("top", "source_bundle_sha256", "0" * 64)):
+        for section, key, value in (
+            ("top", "status", "unknown"),
+            ("top", "run_id", "run-b"),
+            ("top", "attempt_id", "attempt-2"),
+            ("top", "policy_approved", True),
+            ("top", "image_id", "sha256:" + "0" * 64),
+            ("top", "baseline_bundle_sha256", "bad"),
+            ("container", "cleanup_verified", False),
+            ("container", "success_marker_seen", False),
+            ("container", "limits_verified", False),
+            ("container", "export_class", "failed"),
+            ("container", "output_bytes", 0),
+            ("container", "output_sha256", "0" * 64),
+            ("top", "source_bundle_sha256", "0" * 64),
+        ):
             original = self.verification.read_bytes()
             record = json.loads(original)
             target = record if section == "top" else record["container"]
@@ -332,10 +486,12 @@ class VerifiedStageTests(unittest.TestCase):
         frozen["run_id"] = "run-b"
         frozen["attempt_id"] = "exclusive-b"
         frozen["run_record_sha256"] = hashlib.sha256(
-            (other / "record.json").read_bytes()).hexdigest()
+            (other / "record.json").read_bytes()
+        ).hexdigest()
         (second_home / "result.json").write_text(json.dumps(frozen))
         (second_home / "input.bundle").write_bytes(
-            (self.attempt / "input.bundle").read_bytes())
+            (self.attempt / "input.bundle").read_bytes()
+        )
         (second_home / "verified.bundle").write_bytes(self.verified.read_bytes())
         verification = json.loads(self.verification.read_text())
         verification.update(run_id="run-b", attempt_id="exclusive-b")
@@ -354,7 +510,8 @@ class VerifiedStageTests(unittest.TestCase):
         frozen["attempt_id"] = "attempt-2"
         (second_attempt / "result.json").write_text(json.dumps(frozen))
         (second_attempt / "input.bundle").write_bytes(
-            (self.attempt / "input.bundle").read_bytes())
+            (self.attempt / "input.bundle").read_bytes()
+        )
         (second_attempt / "verified.bundle").write_bytes(self.verified.read_bytes())
         verification = json.loads(self.verification.read_text())
         verification["attempt_id"] = "attempt-2"
@@ -369,15 +526,24 @@ class VerifiedStageTests(unittest.TestCase):
         (self.repo / "change").write_text("changed by agent", encoding="ascii")
         with stage_verified_git(snapshot) as staged:
             self.assertFalse(staged.classify_workflow_change())
-            self.assertEqual(staged.repository.run(["rev-parse", "refs/stage/validated"]).stdout.strip(),
-                             snapshot.commit.encode())
-            self.assertEqual(staged.repository.run(["cat-file", "-t", snapshot.commit]).stdout.strip(),
-                             b"commit")
+            self.assertEqual(
+                staged.repository.run(
+                    ["rev-parse", "refs/stage/validated"]
+                ).stdout.strip(),
+                snapshot.commit.encode(),
+            )
+            self.assertEqual(
+                staged.repository.run(
+                    ["cat-file", "-t", snapshot.commit]
+                ).stdout.strip(),
+                b"commit",
+            )
             self.assertTrue(staged.bare.is_dir())
         self.assertFalse(staged.bare.exists())
 
     def test_connectivity_check_rejects_a_broken_anchored_ref(self):
         snapshot = self.resolve()
+
         def inject_broken_ref(args, **options):
             if "fsck" in args:
                 bare = Path(args[args.index("-C") + 1])
@@ -385,8 +551,11 @@ class VerifiedStageTests(unittest.TestCase):
                 broken.parent.mkdir(parents=True, exist_ok=True)
                 broken.write_text("0" * 40 + "\n", encoding="ascii")
             return subprocess.run(args, **options)
+
         with self.assertRaises(VerifiedGitStageError):
-            with stage_verified_git(snapshot, runner=CallbackGitRunner(inject_broken_ref)):
+            with stage_verified_git(
+                snapshot, runner=CallbackGitRunner(inject_broken_ref)
+            ):
                 pass
 
     def test_workflow_change_and_missing_baseline_are_distinguished(self):
@@ -395,34 +564,73 @@ class VerifiedStageTests(unittest.TestCase):
         workflow.parent.mkdir(parents=True)
         workflow.write_text("name: test\n", encoding="ascii")
         self.git("add", ".github/workflows/test.yml")
-        self.git("-c", "user.name=Test", "-c", "user.email=t@example.invalid",
-                 "commit", "--quiet", "-m", "workflow")
+        self.git(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "workflow",
+        )
         changed_commit = self.git("rev-parse", "HEAD")
         self.git("branch", "-f", "validated", changed_commit)
         changed_bundle = self.root / "changed.bundle"
         self.git("bundle", "create", str(changed_bundle), "refs/heads/validated")
         payload = changed_bundle.read_bytes()
-        changed = type(snapshot).model_validate({**snapshot.model_dump(), 'commit': changed_commit, 'bundle': payload, 'bundle_sha256': hashlib.sha256(payload).hexdigest()})
+        changed = type(snapshot).model_validate(
+            {
+                **snapshot.model_dump(),
+                "commit": changed_commit,
+                "bundle": payload,
+                "bundle_sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
         with stage_verified_git(changed) as staged:
             self.assertTrue(staged.classify_workflow_change())
-        with stage_verified_git(type(snapshot).model_validate({**snapshot.model_dump(), 'baseline': '0' * 40})) as staged:
+        with stage_verified_git(
+            type(snapshot).model_validate(
+                {**snapshot.model_dump(), "baseline": "0" * 40}
+            )
+        ) as staged:
             with self.assertRaises(VerifiedGitStageError):
                 staged.classify_workflow_change()
 
     def test_bad_bundle_identity_or_integrity_refuses(self):
         snapshot = self.resolve()
         invalid = [
-            type(snapshot).model_validate({**snapshot.model_dump(), 'commit': '0' * 40}),
-            type(snapshot).model_validate({**snapshot.model_dump(), 'bundle': snapshot.bundle + b'tamper'}),
-            type(snapshot).model_validate({**snapshot.model_dump(), 'bundle': snapshot.bundle[:-20], 'bundle_sha256': hashlib.sha256(snapshot.bundle[:-20]).hexdigest()}),
+            type(snapshot).model_validate(
+                {**snapshot.model_dump(), "commit": "0" * 40}
+            ),
+            type(snapshot).model_validate(
+                {**snapshot.model_dump(), "bundle": snapshot.bundle + b"tamper"}
+            ),
+            type(snapshot).model_validate(
+                {
+                    **snapshot.model_dump(),
+                    "bundle": snapshot.bundle[:-20],
+                    "bundle_sha256": hashlib.sha256(snapshot.bundle[:-20]).hexdigest(),
+                }
+            ),
         ]
-        alternate = snapshot.bundle.replace(b"refs/heads/validated",
-                                            b"refs/heads/untrusted", 1)
-        invalid.append(type(snapshot).model_validate({**snapshot.model_dump(), 'bundle': alternate, 'bundle_sha256': hashlib.sha256(alternate).hexdigest()}))
+        alternate = snapshot.bundle.replace(
+            b"refs/heads/validated", b"refs/heads/untrusted", 1
+        )
+        invalid.append(
+            type(snapshot).model_validate(
+                {
+                    **snapshot.model_dump(),
+                    "bundle": alternate,
+                    "bundle_sha256": hashlib.sha256(alternate).hexdigest(),
+                }
+            )
+        )
         for changed in invalid:
-            with self.subTest(commit=changed.commit,
-                              length=len(changed.bundle)), self.assertRaises(
-                                  VerifiedGitStageError):
+            with (
+                self.subTest(commit=changed.commit, length=len(changed.bundle)),
+                self.assertRaises(VerifiedGitStageError),
+            ):
                 with stage_verified_git(changed):
                     pass
 
@@ -430,25 +638,40 @@ class VerifiedStageTests(unittest.TestCase):
         store = MediationStore(
             self.root / "effects.sqlite",
             verified_stage_resolver=make_grant_stage_resolver(
-                self.runner, self.private, self.root / "agent-mount"),
-            verified_workflow_classifier=classifier)
-        grant_id, token = store.issue(run_id=run_id, invocation_id="invocation-a",
-            repository="example/disposable", branch="run-branch",
-            operations={"git_push"}, ttl_seconds=60)
+                self.runner, self.private, self.root / "agent-mount"
+            ),
+            verified_workflow_classifier=classifier,
+        )
+        grant_id, token = store.issue(
+            run_id=run_id,
+            invocation_id="invocation-a",
+            repository="example/disposable",
+            branch="run-branch",
+            operations={"git_push"},
+            ttl_seconds=60,
+        )
         if run_id == "run-a":
             record = json.loads(self.record.read_text())
-            record.update(status="running", container_ownership={
-                "name": "laomedo-codex-a", "launch_token": "launch-a",
-                "grant_id": grant_id, "supervised": True,
-                "cleanup_verified": False})
+            record.update(
+                status="running",
+                container_ownership={
+                    "name": "laomedo-codex-a",
+                    "launch_token": "launch-a",
+                    "grant_id": grant_id,
+                    "supervised": True,
+                    "cleanup_verified": False,
+                },
+            )
             self.record.write_text(json.dumps(record), encoding="utf-8")
             from laomedo.skills.ingestion.utils import _record
+
             binding = _record(self.runner, "run-a")[1]
             frozen = json.loads((self.attempt / "result.json").read_text())
             frozen.pop("run_record_sha256")
             frozen.update(binding)
-            (self.attempt / "result.json").write_text(json.dumps(frozen),
-                                                       encoding="utf-8")
+            (self.attempt / "result.json").write_text(
+                json.dumps(frozen), encoding="utf-8"
+            )
         return store, token
 
     def test_mediator_refuses_completed_run_even_with_unexpired_grant(self):
@@ -458,91 +681,160 @@ class VerifiedStageTests(unittest.TestCase):
         self.record.write_text(json.dumps(record), encoding="utf-8")
         calls = []
         with self.assertRaisesRegex(MediationError, "push_stage_unverified"):
-            store.invoke(token=token, repository="example/disposable",
-                operation="git_push", payload={"branch": "run-branch",
-                    "commit": self.commit, "stage_attempt_id": "attempt-1"},
+            store.invoke(
+                token=token,
+                repository="example/disposable",
+                operation="git_push",
+                payload={
+                    "branch": "run-branch",
+                    "commit": self.commit,
+                    "stage_attempt_id": "attempt-1",
+                },
                 effect_id="effect-after-completion",
-                transport=lambda *_args, **_kwargs: calls.append(1))
+                transport=lambda *_args, **_kwargs: calls.append(1),
+            )
         self.assertEqual(calls, [])
 
     def test_mediator_binds_snapshot_digest_and_never_redispatches(self):
         store, token = self.mediator()
         calls = []
-        payload = {"branch": "run-branch", "commit": self.commit,
-                   "stage_attempt_id": "attempt-1"}
+        payload = {
+            "branch": "run-branch",
+            "commit": self.commit,
+            "stage_attempt_id": "attempt-1",
+        }
+
         def transport(repository, operation, outgoing, *, verified_stage):
             calls.append((repository, operation, verified_stage.stage_digest))
             self.verified.write_bytes(b"changed after preflight")
-            self.assertEqual(verified_stage.bundle_sha256, hashlib.sha256(
-                verified_stage.bundle).hexdigest())
+            self.assertEqual(
+                verified_stage.bundle_sha256,
+                hashlib.sha256(verified_stage.bundle).hexdigest(),
+            )
             return {"stage_digest": verified_stage.stage_digest}
-        result = store.invoke(token=token, repository="example/disposable",
-            operation="git_push", payload=payload, effect_id="effect-a",
-            transport=transport)
+
+        result = store.invoke(
+            token=token,
+            repository="example/disposable",
+            operation="git_push",
+            payload=payload,
+            effect_id="effect-a",
+            transport=transport,
+        )
         self.assertEqual(result["state"], "confirmed")
         self.assertEqual(len(calls), 1)
         effect = store.effect("run-a", "effect-a")
         self.assertEqual(effect["state"], "confirmed")
         # An exact repeat returns the saved outcome without rereading a
         # changed/removed stage or sending a second provider request.
-        repeated = store.invoke(token=token, repository="example/disposable",
-            operation="git_push", payload=payload, effect_id="effect-a",
-            transport=transport)
+        repeated = store.invoke(
+            token=token,
+            repository="example/disposable",
+            operation="git_push",
+            payload=payload,
+            effect_id="effect-a",
+            transport=transport,
+        )
         self.assertEqual(repeated["state"], "confirmed")
         with self.assertRaisesRegex(MediationError, "effect_conflict"):
-            store.invoke(token=token, repository="example/disposable",
+            store.invoke(
+                token=token,
+                repository="example/disposable",
                 operation="git_push",
                 payload={**payload, "stage_attempt_id": "attempt-2"},
-                effect_id="effect-a", transport=transport)
+                effect_id="effect-a",
+                transport=transport,
+            )
         self.assertEqual(len(calls), 1)
 
     def test_wrong_grant_or_workflow_change_never_journals_push(self):
-        payload = {"branch": "run-branch", "commit": self.commit,
-                   "stage_attempt_id": "attempt-1"}
-        for run, classifier in (("run-b", classify_verified_workflow),
-                                ("run-a", lambda _stage: True)):
+        payload = {
+            "branch": "run-branch",
+            "commit": self.commit,
+            "stage_attempt_id": "attempt-1",
+        }
+        for run, classifier in (
+            ("run-b", classify_verified_workflow),
+            ("run-a", lambda _stage: True),
+        ):
             with self.subTest(run=run, classifier=classifier):
                 if (self.root / "effects.sqlite").exists():
                     (self.root / "effects.sqlite").unlink()
                 store, token = self.mediator(run_id=run, classifier=classifier)
                 calls = []
                 with self.assertRaises(MediationError):
-                    store.invoke(token=token, repository="example/disposable",
-                        operation="git_push", payload=payload, effect_id="effect-a",
-                        transport=lambda *_args, **_kwargs: calls.append(1))
+                    store.invoke(
+                        token=token,
+                        repository="example/disposable",
+                        operation="git_push",
+                        payload=payload,
+                        effect_id="effect-a",
+                        transport=lambda *_args, **_kwargs: calls.append(1),
+                    )
                 self.assertEqual(calls, [])
                 self.assertIsNone(store.effect(run, "effect-a"))
 
     def test_configured_transport_cannot_fallback_to_checkout(self):
         supplied = []
-        transport = GitHubGitTransport("example/disposable", self.repo,
-            self.baseline, lambda *_args: supplied.append(1) or "unused",
-            require_verified_stage=True)
+        transport = GitHubGitTransport(
+            "example/disposable",
+            self.repo,
+            self.baseline,
+            lambda *_args: supplied.append(1) or "unused",
+            require_verified_stage=True,
+        )
         with self.assertRaisesRegex(KnownRejected, "push_stage_required"):
-            transport("example/disposable", "git_push",
+            transport(
+                "example/disposable",
+                "git_push",
                 {"branch": "run-branch", "commit": self.commit},
-                connection_id="connection-a", connection_generation=1)
+                connection_id="connection-a",
+                connection_generation=1,
+            )
         self.assertEqual(supplied, [])
 
     def test_unknown_staged_push_blocks_new_effect_on_same_branch(self):
         store, token = self.mediator()
-        payload = {"branch": "run-branch", "commit": self.commit,
-                   "stage_attempt_id": "attempt-1"}
+        payload = {
+            "branch": "run-branch",
+            "commit": self.commit,
+            "stage_attempt_id": "attempt-1",
+        }
         calls = []
+
         def uncertain(_repository, _operation, _payload, *, verified_stage):
             calls.append(verified_stage.stage_digest)
             raise RuntimeError("synthetic lost reply")
-        first = store.invoke(token=token, repository="example/disposable",
-            operation="git_push", payload=payload, effect_id="effect-a",
-            transport=uncertain)
+
+        first = store.invoke(
+            token=token,
+            repository="example/disposable",
+            operation="git_push",
+            payload=payload,
+            effect_id="effect-a",
+            transport=uncertain,
+        )
         self.assertEqual(first["state"], "unknown")
-        self.assertEqual(store.invoke(token=token, repository="example/disposable",
-            operation="git_push", payload=payload, effect_id="effect-a",
-            transport=uncertain), {"state": "unknown", "resent": False})
+        self.assertEqual(
+            store.invoke(
+                token=token,
+                repository="example/disposable",
+                operation="git_push",
+                payload=payload,
+                effect_id="effect-a",
+                transport=uncertain,
+            ),
+            {"state": "unknown", "resent": False},
+        )
         with self.assertRaisesRegex(MediationError, "prior_effect_unknown"):
-            store.invoke(token=token, repository="example/disposable",
-                operation="git_push", payload=payload, effect_id="effect-b",
-                transport=uncertain)
+            store.invoke(
+                token=token,
+                repository="example/disposable",
+                operation="git_push",
+                payload=payload,
+                effect_id="effect-b",
+                transport=uncertain,
+            )
         self.assertEqual(len(calls), 1)
 
     def test_transport_rechecks_real_workflow_diff_before_credential(self):
@@ -551,49 +843,88 @@ class VerifiedStageTests(unittest.TestCase):
         workflow.parent.mkdir(parents=True)
         workflow.write_text("name: test\n", encoding="ascii")
         self.git("add", ".github/workflows/test.yml")
-        self.git("-c", "user.name=Test", "-c", "user.email=t@example.invalid",
-                 "commit", "--quiet", "-m", "workflow")
+        self.git(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "workflow",
+        )
         changed_commit = self.git("rev-parse", "HEAD")
         self.git("branch", "-f", "validated", changed_commit)
         changed_bundle = self.root / "changed.bundle"
         self.git("bundle", "create", str(changed_bundle), "refs/heads/validated")
         bytes_ = changed_bundle.read_bytes()
-        changed = type(snapshot).model_validate({**snapshot.model_dump(), 'commit': changed_commit, 'bundle': bytes_, 'bundle_sha256': hashlib.sha256(bytes_).hexdigest()})
+        changed = type(snapshot).model_validate(
+            {
+                **snapshot.model_dump(),
+                "commit": changed_commit,
+                "bundle": bytes_,
+                "bundle_sha256": hashlib.sha256(bytes_).hexdigest(),
+            }
+        )
         credentials = []
-        transport = GitHubGitTransport("example/disposable", self.repo,
-            self.baseline, lambda *_args: credentials.append(1) or "unused",
-            require_verified_stage=True)
+        transport = GitHubGitTransport(
+            "example/disposable",
+            self.repo,
+            self.baseline,
+            lambda *_args: credentials.append(1) or "unused",
+            require_verified_stage=True,
+        )
         with self.assertRaisesRegex(KnownRejected, "workflow_approval_required"):
-            transport("example/disposable", "git_push",
+            transport(
+                "example/disposable",
+                "git_push",
                 {"branch": "run-branch", "commit": changed_commit},
-                connection_id="connection-a", connection_generation=1,
-                verified_stage=changed)
+                connection_id="connection-a",
+                connection_generation=1,
+                verified_stage=changed,
+            )
         self.assertEqual(credentials, [])
 
     def test_synthetic_push_classifies_and_sends_same_bare_repository(self):
         snapshot = self.resolve()
         seen = []
+
         def fake_git(args, **options):
             if "push" not in args:
                 return subprocess.run(args, **options)
             bare = Path(args[args.index("-C") + 1])
             verified = subprocess.run(
                 ["git", "-C", str(bare), "rev-parse", "refs/stage/validated"],
-                capture_output=True, check=True).stdout.strip()
+                capture_output=True,
+                check=True,
+            ).stdout.strip()
             self.assertEqual(verified, snapshot.commit.encode())
             seen.append((bare, args))
             return subprocess.CompletedProcess(args, 0, b"", b"")
+
         credentials = []
-        transport = GitHubGitTransport("example/disposable", self.repo,
-            self.baseline, lambda *_args: credentials.append(1) or "synthetic-only",
-            runner=CallbackGitRunner(fake_git), require_verified_stage=True)
+        transport = GitHubGitTransport(
+            "example/disposable",
+            self.repo,
+            self.baseline,
+            lambda *_args: credentials.append(1) or "synthetic-only",
+            runner=CallbackGitRunner(fake_git),
+            require_verified_stage=True,
+        )
         transport._stage = lambda *_args: self.fail("checkout fallback used")
         self.verified.write_bytes(b"changed after resolution")
-        result = transport("example/disposable", "git_push",
-            {"branch": "run-branch", "commit": self.commit,
-             "stage_attempt_id": "attempt-1"},
-            connection_id="connection-a", connection_generation=1,
-            verified_stage=snapshot)
+        result = transport(
+            "example/disposable",
+            "git_push",
+            {
+                "branch": "run-branch",
+                "commit": self.commit,
+                "stage_attempt_id": "attempt-1",
+            },
+            connection_id="connection-a",
+            connection_generation=1,
+            verified_stage=snapshot,
+        )
         self.assertEqual(result["stage_digest"], snapshot.stage_digest)
         self.assertEqual(credentials, [1])
         self.assertEqual(len(seen), 1)

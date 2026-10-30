@@ -21,9 +21,10 @@ class LaunchTelemetry:
         self.output = (directory / "otel-events.jsonl").open("a", encoding="utf-8")
         self.lock = threading.Lock()
 
-
         self.server = LaunchTelemetryHttpServer(
-            self, ("127.0.0.1", 0), provenance=provenance,
+            self,
+            ("127.0.0.1", 0),
+            provenance=provenance,
             request_types={
                 "/v1/logs": ExportLogsServiceRequest,
                 "/v1/traces": ExportTraceServiceRequest,

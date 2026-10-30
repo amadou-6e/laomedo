@@ -4,13 +4,15 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from threading import Event; from threading import Thread
+from threading import Event
+from threading import Thread
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
 from laomedo.integrations.langflow.join.controller import LangflowJoinController
-from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 class FakeRunner:
@@ -25,17 +27,25 @@ class FakeRunner:
 
     def start_async(self, body):
         request_id = body["request_id"]
-        canonical = {key: value for key, value in body.items()
-                     if key != "request_id"}
-        digest = "sha256:" + sha256(json.dumps(
-            canonical, sort_keys=True, separators=(",", ":"),
-            ensure_ascii=False).encode()).hexdigest()
+        canonical = {key: value for key, value in body.items() if key != "request_id"}
+        digest = (
+            "sha256:"
+            + sha256(
+                json.dumps(
+                    canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                ).encode()
+            ).hexdigest()
+        )
         run_id = str(uuid4())
-        record = {"client_request_id": request_id, "request_hash": digest,
-                  "provider": getattr(self,"provider","codex"), "run_id": run_id,
-                  "raw_event_ref": f"laomedo:run:{run_id}:events",
-                  "status": "prepared"}
-        record['activity_initial_attempt_id'] = str(uuid4())
+        record = {
+            "client_request_id": request_id,
+            "request_hash": digest,
+            "provider": getattr(self, "provider", "codex"),
+            "run_id": run_id,
+            "raw_event_ref": f"laomedo:run:{run_id}:events",
+            "status": "prepared",
+        }
+        record["activity_initial_attempt_id"] = str(uuid4())
         self.records[request_id] = record
         self.starts.append(request_id)
         self.entered.set()
@@ -51,15 +61,18 @@ class FakeRunner:
         return dict(self.records[request_id])
 
     def status(self, run_id):
-        return dict(next(record for record in self.records.values()
-                         if record["run_id"] == run_id))
+        return dict(
+            next(
+                record for record in self.records.values() if record["run_id"] == run_id
+            )
+        )
 
     def cancel(self, run_id):
-        record = next(record for record in self.records.values()
-                      if record["run_id"] == run_id)
+        record = next(
+            record for record in self.records.values() if record["run_id"] == run_id
+        )
         self.cancels.append(run_id)
-        record.update(status="cancelled", cancel_requested=True,
-                      cancel_confirmed=True)
+        record.update(status="cancelled", cancel_requested=True, cancel_confirmed=True)
         return dict(record)
 
 
@@ -69,31 +82,56 @@ class LangflowJoinControllerTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.store = WorkflowRunStore(Path(temporary.name) / "runs.sqlite3")
         self.runner = FakeRunner()
-        self.export = {"id": "saved-flow", "data": {"nodes": [{"id": "agent",
-            "data": {"node": {"template": {"code": {"value": "synthetic code"}}}}}]}}
+        self.export = {
+            "id": "saved-flow",
+            "data": {
+                "nodes": [
+                    {
+                        "id": "agent",
+                        "data": {
+                            "node": {"template": {"code": {"value": "synthetic code"}}}
+                        },
+                    }
+                ]
+            },
+        }
         self.controller = LangflowJoinController(
-            self.store, self.runner, lambda _flow: self.export)
+            self.store, self.runner, lambda _flow: self.export
+        )
 
     def start(self, client=None, task="synthetic task"):
         return self.controller.start(
-            client_request_id=client or str(uuid4()), flow_id="saved-flow",
-            graph_run_id="reported-graph", stage_id="agent",
-            runner_body={"task": task, "model": "synthetic",
-                         "effort": "low", "skill_ref": {"skill_id": "fixture"}})
+            client_request_id=client or str(uuid4()),
+            flow_id="saved-flow",
+            graph_run_id="reported-graph",
+            stage_id="agent",
+            runner_body={
+                "task": task,
+                "model": "synthetic",
+                "effort": "low",
+                "skill_ref": {"skill_id": "fixture"},
+            },
+        )
 
     def test_claude_is_durably_bound_and_cancelled_without_codex_relabelling(self):
-        self.runner.provider = 'claude'
-        self.controller = LangflowJoinController(self.store,self.runner,lambda _flow:self.export)
+        self.runner.provider = "claude"
+        self.controller = LangflowJoinController(
+            self.store, self.runner, lambda _flow: self.export
+        )
         client = str(uuid4())
         result = self.start(client)
-        self.assertEqual(result['runner_provider'],'claude')
+        self.assertEqual(result["runner_provider"], "claude")
         cancelled = self.controller.cancel(client)
-        self.assertEqual(len(self.runner.starts),1)
-        self.assertEqual(len(self.runner.cancels),1)
-        trace = self.store.trace_snapshot(result['run_id'])
-        self.assertEqual(trace['invocation']['runner_provider'],'claude')
-        frozen = next(x['payload'] for x in trace['receipts'] if x['kind']=='runner_request_frozen')
-        self.assertEqual(frozen['provider'],'claude')
+        self.assertEqual(len(self.runner.starts), 1)
+        self.assertEqual(len(self.runner.cancels), 1)
+        trace = self.store.trace_snapshot(result["run_id"])
+        self.assertEqual(trace["invocation"]["runner_provider"], "claude")
+        frozen = next(
+            x["payload"]
+            for x in trace["receipts"]
+            if x["kind"] == "runner_request_frozen"
+        )
+        self.assertEqual(frozen["provider"], "claude")
 
     def test_stop_before_start_refuses_runner_dispatch(self):
         client = str(uuid4())
@@ -103,8 +141,9 @@ class LangflowJoinControllerTests(unittest.TestCase):
         self.assertEqual(record["dispatch_attempts"], 0)
         self.assertEqual(self.runner.starts, [])
         reopened = WorkflowRunStore(self.store.path)
-        self.assertEqual(reopened.langflow_client_snapshot(client)["run_status"],
-                         "cancelled")
+        self.assertEqual(
+            reopened.langflow_client_snapshot(client)["run_status"], "cancelled"
+        )
 
     def test_lost_ack_reconciles_cancel_without_second_start(self):
         client = str(uuid4())
@@ -112,15 +151,18 @@ class LangflowJoinControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(LaunchError, "runner_start_unknown"):
             self.start(client)
         trace = self.store.trace_snapshot(
-            self.store.langflow_client_snapshot(client)["run_id"])
+            self.store.langflow_client_snapshot(client)["run_id"]
+        )
         self.assertEqual(trace["dispatch_attempts"], 1)
         self.assertIsNone(trace["invocation"]["runner_run_id"])
         self.controller.cancel(client)
         self.assertEqual(len(self.runner.starts), 1)
         self.assertEqual(len(self.runner.cancels), 1)
         reopened = WorkflowRunStore(self.store.path)
-        self.assertEqual(reopened.langflow_client_snapshot(client)["runner_run_id"],
-                         self.runner.cancels[0])
+        self.assertEqual(
+            reopened.langflow_client_snapshot(client)["runner_run_id"],
+            self.runner.cancels[0],
+        )
         self.assertEqual(self.start(client)["dispatch_attempts"], 1)
         self.assertEqual(len(self.runner.starts), 1)
 
@@ -170,8 +212,9 @@ class LangflowJoinControllerTests(unittest.TestCase):
             except Exception as exc:
                 outcome.append(exc)
 
-        with patch.object(self.runner, "start_async",
-                          side_effect=held_before_native_record):
+        with patch.object(
+            self.runner, "start_async", side_effect=held_before_native_record
+        ):
             thread = Thread(target=worker)
             thread.start()
             try:
@@ -187,8 +230,9 @@ class LangflowJoinControllerTests(unittest.TestCase):
         self.assertIsInstance(outcome[0], dict)
         self.assertEqual(len(self.runner.starts), 1)
         self.assertEqual(len(self.runner.cancels), 1)
-        self.assertEqual(self.store.trace_snapshot(outcome[0]["run_id"])["run_status"],
-                         "cancelled")
+        self.assertEqual(
+            self.store.trace_snapshot(outcome[0]["run_id"])["run_status"], "cancelled"
+        )
 
     def test_stop_wins_before_atomic_begin_and_no_native_post_occurs(self):
         client = str(uuid4())
@@ -206,14 +250,14 @@ class LangflowJoinControllerTests(unittest.TestCase):
         def worker():
             outcome.append(self.start(client))
 
-        with patch.object(self.store, "begin_langflow_client",
-                          side_effect=delayed_begin):
+        with patch.object(
+            self.store, "begin_langflow_client", side_effect=delayed_begin
+        ):
             thread = Thread(target=worker)
             thread.start()
             try:
                 self.assertTrue(entered.wait(3))
-                self.assertEqual(self.controller.cancel(client)["status"],
-                                 "cancelled")
+                self.assertEqual(self.controller.cancel(client)["status"], "cancelled")
             finally:
                 release.set()
                 thread.join(timeout=5)
@@ -232,18 +276,17 @@ class LangflowJoinControllerTests(unittest.TestCase):
             return {**ack, "request_hash": "sha256:" + "0" * 64}
 
         with patch.object(self.runner, "start_async", side_effect=mismatched_ack):
-            with self.assertRaisesRegex(LaunchError,
-                                        "runner_ack_identity_mismatch"):
+            with self.assertRaisesRegex(LaunchError, "runner_ack_identity_mismatch"):
                 self.start(client)
         self.assertEqual(len(self.runner.starts), 1)
         self.assertEqual(len(self.runner.cancels), 1)
-        self.assertEqual(self.controller.status(client)["native_status"],
-                         "cancelled")
+        self.assertEqual(self.controller.status(client)["native_status"], "cancelled")
 
     def test_late_native_record_is_cancelled_on_status_reconciliation(self):
         client = str(uuid4())
-        with patch.object(self.runner, "start_async",
-                          side_effect=TimeoutError("synthetic_unknown")):
+        with patch.object(
+            self.runner, "start_async", side_effect=TimeoutError("synthetic_unknown")
+        ):
             with self.assertRaisesRegex(LaunchError, "runner_start_unknown"):
                 self.start(client)
         pending = self.controller.cancel(client)
@@ -254,14 +297,17 @@ class LangflowJoinControllerTests(unittest.TestCase):
         self.runner.records[invocation] = {
             "client_request_id": invocation,
             "request_hash": binding["runner_request_hash"],
-            "provider": "codex", "run_id": native_run,
+            "provider": "codex",
+            "run_id": native_run,
             "raw_event_ref": f"laomedo:run:{native_run}:events",
-            "status": "prepared"}
+            "status": "prepared",
+        }
         observed = self.controller.status(client)
         self.assertEqual(observed["runner_run_id"], native_run)
         self.assertEqual(len(self.runner.cancels), 1)
-        self.assertEqual(self.store.trace_snapshot(binding["run_id"])["run_status"],
-                         "cancelled")
+        self.assertEqual(
+            self.store.trace_snapshot(binding["run_id"])["run_status"], "cancelled"
+        )
 
     def test_saved_flow_mismatch_refuses_without_runner_attempt(self):
         self.export["id"] = "other-flow"
@@ -279,22 +325,32 @@ class LangflowJoinControllerTests(unittest.TestCase):
         self.assertEqual(observed["native_status"], "completed")
         trace = self.store.trace_snapshot(started["run_id"])
         self.assertEqual(trace["run_status"], "completed")
-        self.assertEqual(self.store.get(started["run_id"])["completion_basis"],
-                         "native_runner_status")
+        self.assertEqual(
+            self.store.get(started["run_id"])["completion_basis"],
+            "native_runner_status",
+        )
         self.assertFalse(trace["evidence_complete"])
-        self.assertEqual(sum(item["kind"] == "runner_terminal"
-                             for item in trace["receipts"]), 1)
+        self.assertEqual(
+            sum(item["kind"] == "runner_terminal" for item in trace["receipts"]), 1
+        )
         self.controller.status(client)
-        self.assertEqual(sum(item["kind"] == "runner_terminal"
-                             for item in self.store.trace_snapshot(
-                                 started["run_id"])["receipts"]), 1)
+        self.assertEqual(
+            sum(
+                item["kind"] == "runner_terminal"
+                for item in self.store.trace_snapshot(started["run_id"])["receipts"]
+            ),
+            1,
+        )
 
     def test_finished_unknown_is_durable_and_stop_does_not_send_cancel(self):
         client = str(uuid4())
         started = self.start(client)
         native = self.runner.records[started["invocation_id"]]
-        native.update(status="unknown", attempt_finished=True,
-                      error_category="outstanding_command_completion_unknown")
+        native.update(
+            status="unknown",
+            attempt_finished=True,
+            error_category="outstanding_command_completion_unknown",
+        )
         observed = self.controller.status(client)
         self.assertEqual(observed["native_status"], "unknown")
         self.controller.cancel(client)
@@ -303,7 +359,9 @@ class LangflowJoinControllerTests(unittest.TestCase):
         trace = restarted.trace_snapshot(started["run_id"])
         self.assertEqual(trace["run_status"], "unknown")
         self.assertFalse(trace["evidence_complete"])
-        receipt = [item for item in trace["receipts"] if item["kind"] == "runner_terminal"]
+        receipt = [
+            item for item in trace["receipts"] if item["kind"] == "runner_terminal"
+        ]
         self.assertEqual(len(receipt), 1)
 
     def test_unknown_without_finished_marker_does_not_end_attempt(self):
@@ -314,8 +372,14 @@ class LangflowJoinControllerTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 native.update(status="unknown", attempt_finished=marker)
                 self.controller.status(client)
-                self.assertFalse(any(item["kind"] == "runner_terminal" for item in
-                    self.store.trace_snapshot(started["run_id"])["receipts"]))
+                self.assertFalse(
+                    any(
+                        item["kind"] == "runner_terminal"
+                        for item in self.store.trace_snapshot(started["run_id"])[
+                            "receipts"
+                        ]
+                    )
+                )
 
 
 if __name__ == "__main__":

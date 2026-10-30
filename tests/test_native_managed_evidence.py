@@ -1,4 +1,5 @@
 """Read-only committed S12 capture integrity, not a new experiment."""
+
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -18,16 +19,35 @@ class NativeManagedEvidenceTests(unittest.TestCase):
         for name, digest in pins.items():
             with self.subTest(name=name):
                 self.assertEqual(sha256((ROOT / name).read_bytes()).hexdigest(), digest)
-        value = json.loads((ROOT / "native-managed-s12-b-observation.json").read_bytes())
-        journal = [json.loads(line) for line in
-                   (ROOT / "native-managed-s12-b-provider-attempts.jsonl").read_bytes().splitlines()]
+        value = json.loads(
+            (ROOT / "native-managed-s12-b-observation.json").read_bytes()
+        )
+        journal = [
+            json.loads(line)
+            for line in (ROOT / "native-managed-s12-b-provider-attempts.jsonl")
+            .read_bytes()
+            .splitlines()
+        ]
         self.assertEqual(len(journal), 8)
-        self.assertEqual(value["provider_mutations"],
-                         [event for event in journal if event["operation"] in {"git_push", "pr_create", "pr_update", "issue_create"}])
+        self.assertEqual(
+            value["provider_mutations"],
+            [
+                event
+                for event in journal
+                if event["operation"]
+                in {"git_push", "pr_create", "pr_update", "issue_create"}
+            ],
+        )
         self.assertTrue(validate(value))
-        self.assertAlmostEqual(value["loss"]["revoked"] - value["loss"]["kill_completed"], 4.985, places=3)
-        self.assertGreater(value["loss"]["b_create_intent_monotonic"], value["loss"]["denied"])
-        first = json.loads((ROOT / "native-managed-s12-a-observation.json").read_bytes())
+        self.assertAlmostEqual(
+            value["loss"]["revoked"] - value["loss"]["kill_completed"], 4.985, places=3
+        )
+        self.assertGreater(
+            value["loss"]["b_create_intent_monotonic"], value["loss"]["denied"]
+        )
+        first = json.loads(
+            (ROOT / "native-managed-s12-a-observation.json").read_bytes()
+        )
         self.assertEqual(first["result"], "incomplete")
         self.assertEqual(first["delivery"], {})
         self.assertEqual(first["provider_mutations"], [])

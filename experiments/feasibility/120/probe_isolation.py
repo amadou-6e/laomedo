@@ -18,7 +18,14 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import AppServer; from _shared import codex_version; from _shared import compare_personal_roots; from _shared import construct_env; from _shared import hash_personal_roots; from _shared import resettable_dir; from _shared import summarize_methods; from _shared import write_skill
+from _shared import AppServer
+from _shared import codex_version
+from _shared import compare_personal_roots
+from _shared import construct_env
+from _shared import hash_personal_roots
+from _shared import resettable_dir
+from _shared import summarize_methods
+from _shared import write_skill
 
 
 def main():
@@ -27,7 +34,8 @@ def main():
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
     state, leftovers = resettable_dir(
-        Path(__file__).resolve().parent / "_scratch_120_iso")
+        Path(__file__).resolve().parent / "_scratch_120_iso"
+    )
     private_home = state / "home"
     codex_home = state / "codex-home"
     project = state / "project"
@@ -45,13 +53,16 @@ def main():
     try:
         ok, info = server.initialize()
         summary["initialized"] = ok
-        summary["server_platform"] = {k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")}
+        summary["server_platform"] = {
+            k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")
+        }
         if not ok:
             summary["initialize_error"] = info
             return
 
-        listing = server.send("skills/list", {
-            "cwds": [str(project)], "forceReload": True})
+        listing = server.send(
+            "skills/list", {"cwds": [str(project)], "forceReload": True}
+        )
         skills = listing.get("result", {}).get("data", [{}])[0].get("skills", [])
         names = {s.get("name") for s in skills}
         state_resolved = state.resolve()
@@ -75,38 +86,51 @@ def main():
             "outside_both": outside_both,
         }
         summary["other_skill_count"] = sum(
-            bool(name and not name.startswith("fixture-")) for name in names)
+            bool(name and not name.startswith("fixture-")) for name in names
+        )
 
         models = server.send("model/list", {"limit": 100})
         model_data = models.get("result", {}).get("data", [])
         summary["model_list_ok"] = "result" in models
-        selected = next((m for m in model_data if m.get("isDefault")), None) or (model_data[0] if model_data else None)
+        selected = next((m for m in model_data if m.get("isDefault")), None) or (
+            model_data[0] if model_data else None
+        )
         if selected:
             model = selected.get("id") or selected.get("model")
             summary["selected_model"] = model
-            started = server.send("thread/start", {
-                "model": model, "cwd": str(project), "approvalPolicy": "never",
-                "sandbox": "read-only",
-            }, timeout=30)
+            started = server.send(
+                "thread/start",
+                {
+                    "model": model,
+                    "cwd": str(project),
+                    "approvalPolicy": "never",
+                    "sandbox": "read-only",
+                },
+                timeout=30,
+            )
             if "result" in started:
                 result = started["result"]
                 thread = result.get("thread", {})
                 summary["thread_created"] = True
                 summary["thread_keys"] = sorted(thread.keys())
                 summary["cli_version"] = thread.get("cliVersion")
-                summary["effective_model"] = (result.get("model")
-                                              or thread.get("model"))
-                summary["effective_effort"] = (result.get("reasoningEffort")
-                                               or thread.get("reasoningEffort"))
+                summary["effective_model"] = result.get("model") or thread.get("model")
+                summary["effective_effort"] = result.get(
+                    "reasoningEffort"
+                ) or thread.get("reasoningEffort")
                 sources = result.get("instructionSources") or []
                 summary["instruction_source_count"] = len(sources)
                 summary["instruction_source_under_real_home"] = sum(
-                    1 for source in sources
-                    if Path(source).resolve().is_relative_to(real_home))
+                    1
+                    for source in sources
+                    if Path(source).resolve().is_relative_to(real_home)
+                )
                 summary["instruction_sources_outside_private_state"] = sum(
-                    1 for source in sources
+                    1
+                    for source in sources
                     if not Path(source).resolve().is_relative_to(state_resolved)
-                    and not Path(source).resolve().is_relative_to(real_home))
+                    and not Path(source).resolve().is_relative_to(real_home)
+                )
             else:
                 summary["thread_start_error"] = started.get("error")
 
@@ -118,8 +142,16 @@ def main():
         summary["stderr_signals"] = stderr
         summary["scratch_leftovers"] = leftovers
         print(json.dumps(summary, indent=2))
-        print(json.dumps({"personal_roots_unchanged":
-                          compare_personal_roots(before, hash_personal_roots())}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "personal_roots_unchanged": compare_personal_roots(
+                        before, hash_personal_roots()
+                    )
+                },
+                indent=2,
+            )
+        )
 
 
 if __name__ == "__main__":

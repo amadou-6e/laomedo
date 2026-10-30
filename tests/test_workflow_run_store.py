@@ -5,8 +5,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown; from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
-
+from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.json"
 
@@ -21,8 +22,12 @@ class WorkflowRunStoreTests(unittest.TestCase):
         self.code = {marker["id"]: marker["data"]["node"]["template"]["code"]["value"]}
 
     def reserve(self, **override):
-        args = {"graph": self.graph, "component_code": self.code,
-                "resolved_config": {"mode": "synthetic"}, "trigger": {"type": "direct"}}
+        args = {
+            "graph": self.graph,
+            "component_code": self.code,
+            "resolved_config": {"mode": "synthetic"},
+            "trigger": {"type": "direct"},
+        }
         args.update(override)
         return self.store.reserve(**args)
 
@@ -37,9 +42,16 @@ class WorkflowRunStoreTests(unittest.TestCase):
         self.assertEqual(called, [])
         record = self.reserve()
         self.assertEqual(record["status"], "reserved")
-        self.assertTrue(record["trace_id"] and record["graph_revision"] and
-                        record["resolved_config_ref"] and record["component_revisions"])
-        self.assertEqual(self.store.dispatch(record["run_id"], self.store.record_synthetic_dispatch), 1)
+        self.assertTrue(
+            record["trace_id"]
+            and record["graph_revision"]
+            and record["resolved_config_ref"]
+            and record["component_revisions"]
+        )
+        self.assertEqual(
+            self.store.dispatch(record["run_id"], self.store.record_synthetic_dispatch),
+            1,
+        )
         with self.assertRaisesRegex(LaunchError, "dispatch_not_reserved"):
             self.store.dispatch(record["run_id"], lambda _: called.append(True))
         self.assertEqual(called, [])
@@ -58,12 +70,18 @@ class WorkflowRunStoreTests(unittest.TestCase):
     def test_process_exit_completion_does_not_claim_complete_evidence(self):
         record = self.reserve()
         with self.assertRaisesRegex(LaunchError, "completion_basis_invalid"):
-            self.store.dispatch(record["run_id"], lambda _: "unused",
-                                completion_basis="unverified")
+            self.store.dispatch(
+                record["run_id"], lambda _: "unused", completion_basis="unverified"
+            )
         self.assertEqual(self.store.get(record["run_id"])["status"], "reserved")
-        self.assertEqual(self.store.dispatch(record["run_id"],
-            lambda _: "untrusted output", completion_basis="process_exit"),
-            "untrusted output")
+        self.assertEqual(
+            self.store.dispatch(
+                record["run_id"],
+                lambda _: "untrusted output",
+                completion_basis="process_exit",
+            ),
+            "untrusted output",
+        )
         saved = self.store.get(record["run_id"])
         self.assertEqual(saved["status"], "completed")
         self.assertEqual(saved["completion_basis"], "process_exit")
