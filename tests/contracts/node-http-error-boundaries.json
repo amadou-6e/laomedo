@@ -82,6 +82,7 @@
       "local_source_unavailable",
       "local_source_unsafe",
       "repository_access_unavailable",
+      "repository_cleanup_unverified",
       "repository_limit_exceeded",
       "repository_revision_unavailable",
       "repository_url_invalid",
@@ -155,9 +156,10 @@
       "unauthorized"
     ],
     "source_client": [
-      "source_service_not_configured",
       "invalid_source_operation",
+      "repository_cleanup_unverified",
       "source_discovery_failed",
+      "source_service_not_configured",
       "source_service_unavailable"
     ],
     "operation_client": [
@@ -166,7 +168,7 @@
     ]
   },
   "client_projection": {
-    "source_client": "Every HTTPError becomes source_discovery_failed; other request failures become source_service_unavailable. SourceError categories are HTTP-boundary diagnostics, not current node output.",
+    "source_client": "D2 passes through only repository_cleanup_unverified from an HTTPError body at most 16 KiB. All other HTTPError categories, invalid/oversize/read/close failures become source_discovery_failed; other request failures become source_service_unavailable. Other SourceError categories remain HTTP-boundary diagnostics, not current node output.",
     "operation_client": "Every request/HTTP/parse failure becomes skill_operation_unavailable; handler's skill_operation_refused is not current node output.",
     "issue_client": "Only ERROR_CODES survive response admission; unlisted HTTP categories become github_issue_unavailable or issue_write_unknown when a write may have been dispatched.",
     "pr_client": "Only ERROR_CODES survive response admission; unlisted HTTP categories become github_pr_unavailable or pr_write_unknown when a write may have been dispatched."

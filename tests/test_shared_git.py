@@ -38,7 +38,10 @@ class SharedGitTests(unittest.TestCase):
                 MEDIATED_TOKEN_ENV: "unselected",
             },
         ):
-            for profile in GitEnvironmentProfile:
+            for profile in (
+                GitEnvironmentProfile.WORKSPACE,
+                GitEnvironmentProfile.HOST_TRANSPORT,
+            ):
                 command = GitCommand(
                     arguments=["--version"],
                     context=GitExecutionContext(profile=profile),
@@ -109,7 +112,10 @@ class SharedGitTests(unittest.TestCase):
     def test_profiles_preserve_stdin_and_both_process_group_options(self):
         home = Path(tempfile.gettempdir())
         for platform in ("nt", "posix"):
-            for profile in GitEnvironmentProfile:
+            for profile in (
+                GitEnvironmentProfile.WORKSPACE,
+                GitEnvironmentProfile.HOST_TRANSPORT,
+            ):
                 process = MagicMock(returncode=0)
                 process.communicate.return_value = (b"git version", b"")
                 command = GitCommand(

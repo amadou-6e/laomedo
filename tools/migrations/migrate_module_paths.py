@@ -26,7 +26,10 @@ CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
 # Partial splits preserve the old owner for its remaining members; retired splits
 # require every imported member to resolve to an explicit defining-symbol mapping.
 RETIRED_SPLIT_MODULES = {"laomedo.skills.registry.utils"}
-SPLIT_MODULES = {"laomedo.skills.sources.settings"} | RETIRED_SPLIT_MODULES
+SPLIT_MODULES = {
+    "laomedo.skills.sources.settings",
+    "laomedo.skills.sources.utils",
+} | RETIRED_SPLIT_MODULES
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
 SYMBOL_PATTERN = re.compile(

@@ -39,7 +39,7 @@ from laomedo.skills.registry.models import SkillPolicyReference, SkillReference
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.sources.utils import _bundle
+from laomedo.skills.sources.bundle import validate_bundle
 import secrets
 import sqlite3
 import time
@@ -201,7 +201,7 @@ class SkillOperations:
                     after[edit.path] = edit.content.encode()
             if not has_description(after.get("SKILL.md", b"").decode("utf-8-sig")):
                 raise SkillStoreError("skill_summary_required")
-            _bundle(after)
+            validate_bundle(after)
             errors = validate_draft(before, after, policy)
             if errors:
                 raise SkillStoreError("skill_edit_policy_denied")

@@ -76,7 +76,7 @@ file/depth/count limits retain their existing values and boundary behavior.
 The old source Popen/taskkill/killpg launcher is removed in the same checkpoint.
 
 One explicit failure contract is strengthened: shared process-tree cleanup is
-bounded by the existing five-second Git cleanup substeps (taskkill, pipe draining and final wait: at most three such waits, plus native kill/poll operations). If termination cannot be confirmed,
+bounded by one five-second deadline shared across taskkill, pipe draining and final wait. Native process creation, killing and polling have operating-system overhead; this is not a hard real-time guarantee. Legacy Git profiles keep their existing per-substep waits. If termination cannot be confirmed,
 retain the owned clone staging and return `repository_cleanup_unverified`; do not claim the process stopped or advise
 an immediate repeat. Confirmed cleanup preserves the prior categories. This new
 uncertainty path needs its own catalogue/producer guard and remains live-unverified
@@ -101,3 +101,10 @@ baseline using credential-free repositories and real controlled child processes.
 Preserve historical source/evidence and distinguish these controls from real HTTPS
 source/pin browsing. D3 Agent workspace moves and D4 GitHub domain ownership remain
 separate checkpoints.
+
+The HTTP source client forwards only the exact `repository_cleanup_unverified`
+category from an error response of at most 16 KiB. Every other category, malformed
+body, oversize response or read failure keeps the existing
+`source_discovery_failed` mapping. It always closes HTTPError responses. No remote
+message or payload is presented. This is the sole intentional client/error contract
+change in D2; successful source payloads remain unchanged.

@@ -98,6 +98,22 @@ report successful cleanup or infer a safe retry. Source translation preserves
 confirmed-cleanup categories and introduces the explicit
 `repository_cleanup_unverified` category only for that uncertainty case.
 
+Budgeted source reads share one five-second cleanup deadline across native tree
+termination, pipe draining and final wait. Legacy profiles keep their existing
+five-second bound per cleanup substep. Process creation, polling and native kill
+calls add operating-system overhead; neither rule is a hard real-time guarantee.
+The source operation retains its 60-second deadline and existing 65-second HTTP
+client timeout, so an HTTP timeout can still win that race and retain the safe
+transport fallback rather than deliver a cleanup category.
+
+| D2 object / methods | Contract |
+| --- | --- |
+| `GitExecutionBudget` | Group stdout cap, shared monotonic operation deadline, finite polling interval and excluded caller accounting callback. An expired deadline is admitted; NaN is refused. |
+| `GitCommand.validate_execution_profile` | Validate trusted read-profile construction and recheck mutable argument/configuration containers at execution; never grant caller authorization. |
+| `GitCommandRunner._execute_budgeted` | Reuse the single native launcher, spool stdout and inspect active output, operation time and caller budgets. |
+| `GitCommandRunner._stop_tree`, `_cleanup_timeout` | Apply the selected cleanup budget and retain uncertainty on native failure; no success inferred from an exited root alone. |
+| `GitTreeEntry` | Carry native mode, object kind and object identity; path/blob admission belongs to the source consumer. |
+
 Legacy WORKSPACE/HOST_TRANSPORT environment, argv, stdin, credential helper and
 completed-result behavior remain unchanged. Their existing timeout categories
 and cleanup fields are preserved. The new bounded-source controls compare against
