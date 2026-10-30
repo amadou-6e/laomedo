@@ -1,5 +1,18 @@
 # Contributor instructions
 
+## Python formatting
+
+- Install the pinned formatter with `python -m pip install -e '.[dev]'`.
+- Run `python -m black .` after editing Python and
+  `python -m black --check --diff --no-cache .` before pushing. CI enforces the
+  same project-wide configuration in `pyproject.toml`.
+- Preserve the exact archived sources listed in
+  `docs/architecture/python-formatting.md`; do not broaden exclusions or add
+  `fmt: skip/off` merely to avoid formatting maintained code.
+- Update the Black development dependency, required version and `uv.lock`
+  together when upgrading the formatter.
+
+
 - Before merging any PR, use the Claude reviewer workflow at
   `specs/shared/skills/claude-reviewer/SKILL.md` in the workspace's canonical specs
   checkout (normally the sibling of this implementation checkout).
