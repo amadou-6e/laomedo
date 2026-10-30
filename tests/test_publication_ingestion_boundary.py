@@ -147,7 +147,14 @@ class PublicationIngestionBoundaryTests(unittest.TestCase):
         self.assertEqual(
             (error.code, error.args), ("run_binding_invalid", ("run_binding_invalid",))
         )
-        self.assertTrue(Path(module.__file__).resolve().is_relative_to(ROOT))
+        # Package CI intentionally imports the installed wheel. Compare its
+        # canonical owner/content; the local harness separately pins worktree
+        # imports instead of requiring installed modules to live in checkout.
+        self.assertEqual(module.__name__, OWNER + ".errors")
+        self.assertEqual(
+            Path(module.__file__).read_bytes(),
+            (ROOT / "src/laomedo/host/publication/ingestion/errors.py").read_bytes(),
+        )
 
     def test_tracked_callers_have_no_retired_ingestion_imports(self):
         records = json.loads(
