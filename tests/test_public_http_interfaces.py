@@ -77,6 +77,36 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             self.assertEqual(MIGRATION["CLI_PATHS"][old], cli)
             self.assertIn("-m " + cli, MIGRATION["migrate_source"]("python -m " + old))
 
+    def test_example_patch_targets_and_viewer_commands_use_current_interfaces(self):
+        for path in ROOT.joinpath("examples").rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
+                if not isinstance(node, ast.Call) or not node.args:
+                    continue
+                if not isinstance(node.func, ast.Name) or node.func.id != "patch":
+                    continue
+                target = node.args[0]
+                if not isinstance(target, ast.Constant) or not isinstance(
+                    target.value, str
+                ):
+                    continue
+                for retired in MIGRATION["MODULE_PATHS"]:
+                    self.assertFalse(
+                        target.value.startswith(retired + "."), (path, target.value)
+                    )
+        current = "laomedo.skills.interface.sources.cli"
+        for relative in (
+            "frontend/langflow-skill-viewer/SOURCE-DEPLOYMENT.md",
+            "frontend/langflow-skill-viewer/README.md",
+        ):
+            text = ROOT.joinpath(relative).read_text()
+            self.assertIn(current, text, relative)
+            self.assertNotIn("laomedo.skills.sources.cli", text, relative)
+        target = "laomedo.github.interface.pull_requests.client.pr_request"
+        with patch(target) as request:
+            from laomedo.github.interface.pull_requests.client import pr_request
+
+            self.assertIs(pr_request, request)
+
     def test_partial_source_settings_migration_is_symbol_specific_and_fail_closed(self):
         old = "laomedo.skills.sources.settings"
         new = "laomedo.skills.interface.sources.settings"

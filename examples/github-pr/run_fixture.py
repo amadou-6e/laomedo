@@ -48,26 +48,25 @@ async def run():
                 if ref == "fixture-grant"
                 else None
             ),
+            feedback_grants={"owner/repo#1": "fixture-grant"},
         )
 
         def request(action, **body):
-            return (
-                gateway.discover(**body)
-                if action == "discover"
-                else gateway.execute(**body)
-            )
+            return getattr(gateway, action.replace("-", "_"))(**body)
 
         outcomes = []
         with patch(
-            "laomedo.github.pull_requests.client.pr_request", side_effect=request
+            "laomedo.github.interface.pull_requests.client.pr_request",
+            side_effect=request,
         ):
-            for _ in range(2):
+            for invocation in range(2):
                 graph = Graph.from_payload(builder.build())
                 outcome = await graph.arun(inputs=[{}], outputs=["pr"])
                 outcomes.append(str(outcome))
+                assert len(fake.writes) == invocation + 1, fake.writes
         assert fake.prs[1]["title"] == "PR operation verified"
         assert fake.prs[1]["body"] == "Updated through the two-node PR/Agent loop."
-        assert len(fake.writes) == 1, fake.writes
+        assert len(fake.writes) == 2, fake.writes
         assert all("succeeded" in outcome for outcome in outcomes), outcomes
         return {
             "provider": "fake",
