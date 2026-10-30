@@ -33,3 +33,11 @@ report unsupported capabilities and preserve unknown usage or partial evidence.
 Successful execution, capture completeness and cleanup confirmation remain
 separate facts. Existing stable error codes and persisted records do not change
 with the Python object name.
+
+## Runtime identity value
+
+`OpenCodeRuntimeIdentity` groups the controller/worker images, profile identity,
+CLI version and existing keyed credential fingerprint. `IsolatedOpenCode` keeps
+that object internally; its `runtime_identity` property calls `to_payload()` only
+for the existing provider fingerprint boundary. Profile identity read from legacy
+JSON retains its admitted shape. The fingerprint is metadata, never a login token.

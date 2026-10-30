@@ -4,6 +4,8 @@ Native CLI snapshots retain their explicit source. Historical HTTP/SSE records
 remain readable; a CLI snapshot never claims to be an HTTP/SSE observation.
 """
 
+from laomedo.agents.agents.opencode.activity.models import OpenCodeTokenUsage
+
 from copy import deepcopy
 from datetime import datetime
 from datetime import timezone
@@ -170,9 +172,7 @@ def project(events, *, root_thread=None, model=None):
                         "cancelled"
                         if _object(info.get("error")).get("name")
                         == "MessageAbortedError"
-                        else "failed"
-                        if info.get("error")
-                        else "completed"
+                        else "failed" if info.get("error") else "completed"
                     ),
                 )
         parts = message.get("parts", [])
@@ -278,14 +278,17 @@ def project(events, *, root_thread=None, model=None):
                 continue
             fresh, output, reasoning, read, write = values
             # OpenCode stores non-cached input and non-reasoning output separately.
-            usage = {
-                "inputTokens": fresh + read + write,
-                "cachedInputTokens": read,
-                "cacheWriteInputTokens": write,
-                "outputTokens": output + reasoning,
-                "reasoningOutputTokens": reasoning,
-                "totalTokens": fresh + read + write + output + reasoning,
-            }
+            usage = (
+                OpenCodeTokenUsage(
+                    non_cached_input=fresh,
+                    non_reasoning_output=output,
+                    reasoning=reasoning,
+                    cache_read=read,
+                    cache_write=write,
+                )
+                .to_activity_usage()
+                .to_payload()
+            )
             totals.append(usage)
             thread_totals.setdefault(thread, []).append(usage)
             turn_totals.setdefault((thread, turn_id), []).append(usage)

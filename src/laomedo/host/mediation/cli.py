@@ -1,6 +1,7 @@
 """Implementation owned by host / mediation / cli."""
 
 from __future__ import annotations
+from laomedo.host.mediation.models import MediationServiceRecord
 
 from pathlib import Path
 import argparse
@@ -91,9 +92,7 @@ def main() -> None:
         connection.token,
         require_verified_stage=True,
     )
-    rest_transport = GitHubRestTransport(
-        args.repository, connection.token
-    )
+    rest_transport = GitHubRestTransport(args.repository, connection.token)
     store = MediationStore(
         state / "mediator.sqlite",
         verified_stage_resolver=resolver,
@@ -118,15 +117,15 @@ def main() -> None:
     pending = status.with_suffix(".pending")
     pending.write_text(
         json.dumps(
-            {
-                "pid": os.getpid(),
-                "port": service.port,
-                "instance": service.instance,
-                "started_at": time.time(),
-                "connection_id": args.connection_id,
-                "generation": args.connection_generation,
-                "repository": args.repository,
-            }
+            MediationServiceRecord(
+                pid=os.getpid(),
+                port=service.port,
+                instance=service.instance,
+                started_at=time.time(),
+                connection_id=args.connection_id,
+                generation=args.connection_generation,
+                repository=args.repository,
+            ).to_record()
         )
         + "\n",
         encoding="utf-8",

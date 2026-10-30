@@ -5,7 +5,13 @@ from datetime import timezone
 from hashlib import sha256
 import json
 from laomedo.work_graph.runs.errors import LaunchError
-from laomedo.work_graph.models import GraphSnapshot
+from laomedo.work_graph.models import (
+    GraphSnapshot,
+    RelevantWorkContent,
+    WorkLaunchBinding,
+    WorkOverride,
+    WorkSnapshot,
+)
 
 
 def _digest(value):
@@ -19,13 +25,9 @@ def _item(graph, key):
     return next((item for item in graph.items if item.key == key), None)
 
 
-def relevant_content_digest(
-    graph: GraphSnapshot, work_key: str
-) -> str:
+def relevant_content_digest(graph: GraphSnapshot, work_key: str) -> str:
     """Hash selected work and its transitive prerequisites, excluding fetch time."""
-    if not isinstance(graph, GraphSnapshot) or not isinstance(
-        work_key, str
-    ):
+    if not isinstance(graph, GraphSnapshot) or not isinstance(work_key, str):
         raise LaunchError("invalid_work_graph")
     items = {item.key: item for item in graph.items}
     edges = {}
@@ -39,19 +41,21 @@ def relevant_content_digest(
         seen.add(key)
         pending.extend(edge.prerequisite for edge in edges.get(key, ()))
     relevant_edges = sorted(
-        (edge.model_dump() for edge in graph.dependencies if edge.dependent in seen),
-        key=lambda edge: json.dumps(edge, sort_keys=True, ensure_ascii=False),
+        (edge for edge in graph.dependencies if edge.dependent in seen),
+        key=lambda edge: json.dumps(
+            edge.model_dump(), sort_keys=True, ensure_ascii=False
+        ),
     )
     return _digest(
-        {
-            "repository": graph.repository,
-            "schema_version": graph.schema_version,
-            "connector_version": graph.connector_version,
-            "source_complete": graph.source_complete,
-            "items": [items[key].model_dump() for key in sorted(seen) if key in items],
-            "unresolved_keys": sorted(seen - items.keys()),
-            "edges": relevant_edges,
-        }
+        RelevantWorkContent(
+            repository=graph.repository,
+            schema_version=graph.schema_version,
+            connector_version=graph.connector_version,
+            source_complete=graph.source_complete,
+            items=[items[key] for key in sorted(seen) if key in items],
+            unresolved_keys=sorted(seen - items.keys()),
+            edges=relevant_edges,
+        ).to_payload()
     )
 
 
@@ -111,34 +115,34 @@ def preflight(
     bound_item = _item(bound, work_key)
     if bound_item is None or bound_item.state != "OPEN":
         raise LaunchError("bound_item_unavailable")
-    work = {
-        "key": bound_item.key,
-        "repository": bound_item.repository,
-        "number": bound_item.number,
-        "url": bound_item.url,
-        "updated_at": bound_item.updated_at,
-        "body_digest": _digest(bound_item.body),
-    }
-    return {
-        "work_snapshot": work,
-        "work_snapshot_id": _digest(work),
-        "input_digest": _digest(
+    work = WorkSnapshot(
+        key=bound_item.key,
+        repository=bound_item.repository,
+        number=bound_item.number,
+        url=bound_item.url,
+        updated_at=bound_item.updated_at,
+        body_digest=_digest(bound_item.body),
+    )
+    return WorkLaunchBinding(
+        work_snapshot=work,
+        work_snapshot_id=_digest(work.to_payload()),
+        input_digest=_digest(
             {
-                "work": work,
+                "work": work.to_payload(),
                 "body": bound_item.body,
                 "graph_snapshot_id": bound.snapshot_id,
             }
         ),
-        "selected_graph_snapshot_id": bound.snapshot_id,
-        "authorization_graph_snapshot_id": current.snapshot_id,
-        "selected_content_digest": (
+        selected_graph_snapshot_id=bound.snapshot_id,
+        authorization_graph_snapshot_id=current.snapshot_id,
+        selected_content_digest=(
             current_content if choice == "refreshed" else frozen_content
         ),
-        "frozen_content_digest": frozen_content,
-        "authorization_content_digest": current_content,
-        "source_choice": choice or "unchanged",
-        "override": override,
-    }
+        frozen_content_digest=frozen_content,
+        authorization_content_digest=current_content,
+        source_choice=choice or "unchanged",
+        override=WorkOverride(**override) if override is not None else None,
+    ).to_payload()
 
 
 def launch_work_stage(
@@ -159,9 +163,7 @@ def launch_work_stage(
     now=None,
 ):
     """Refresh source at launch, then require a host-provided grant authority."""
-    if not isinstance(frozen, GraphSnapshot) or not callable(
-        source_fetch
-    ):
+    if not isinstance(frozen, GraphSnapshot) or not callable(source_fetch):
         raise LaunchError("source_refresh_required")
     current = source_fetch(frozen.repository)
     binding = preflight(frozen, current, work_key, choice=choice, override=override)
@@ -267,9 +269,7 @@ def launch_github_saved_flow_stage(
     """Build one saved-flow revision and pass it through the Work Graph gate."""
     from laomedo.integrations.langflow.stage_adapter import FrozenLangflowStage
 
-    stage = FrozenLangflowStage.from_saved_flow(
-        flow_id, fetch_export
-    )
+    stage = FrozenLangflowStage.from_saved_flow(flow_id, fetch_export)
     return launch_github_work_stage(
         frozen=frozen,
         work_key=work_key,

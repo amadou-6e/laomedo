@@ -4,6 +4,7 @@ None of these methods is an agent HTTP operation. A graph's validation result
 is a request to the controller, never authority or proof of a valid artifact."""
 
 from __future__ import annotations
+from laomedo.host.publication.handoff.models import PullRequestPublicationRequest
 
 from contextlib import closing
 from hashlib import sha256
@@ -142,14 +143,14 @@ class HandoffStore:
                 self._end_handoff(db, grant["grant_id"], "unknown")
                 return {"phase": "unknown"}
             marker = "<!-- laomedo-handoff:" + grant["grant_id"] + " -->"
-            request = {
-                "head": grant["branch"],
-                "base": grant["base_branch"],
-                "title": title,
-                "body": body + "\n\n" + marker,
-                "marker": marker,
-                "draft": True,
-            }
+            request = PullRequestPublicationRequest(
+                head=grant["branch"],
+                base=grant["base_branch"],
+                title=title,
+                body=body + "\n\n" + marker,
+                marker=marker,
+                draft=True,
+            ).to_payload()
             db.execute(
                 "UPDATE publication_handoffs SET phase='validation_pending', "
                 "artifact_digest=?,artifact_commit=?,request_json=?,effect_id=?,envelope_json=? WHERE grant_id=?",

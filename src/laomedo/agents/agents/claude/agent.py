@@ -1,6 +1,7 @@
 """Isolated Claude Code runner with persistent sessions and streamed native events."""
 
 from __future__ import annotations
+from laomedo.agents.activity.models import ActivityAttemptRecord
 
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
@@ -185,9 +186,7 @@ class ClaudeAgent(BaseAgent):
                 raise ValueError("catalog_response_missing")
             if not isinstance(responses[0], dict):
                 raise ValueError("invalid_catalog_response")
-            models = normalize_models(
-                responses[0]["models"]
-            )
+            models = normalize_models(responses[0]["models"])
             return {
                 "models": models,
                 "provider": "claude",
@@ -246,16 +245,10 @@ class ClaudeAgent(BaseAgent):
                 )
             except LocalClaudeLoginError as error:
                 if str(error) == "claude_host_login_unavailable":
-                    raise RunnerError(
-                        "claude_host_login_unavailable"
-                    ) from None
+                    raise RunnerError("claude_host_login_unavailable") from None
                 if str(error) == "claude_host_login_expired":
-                    raise RunnerError(
-                        "claude_host_login_expired"
-                    ) from None
-                raise RunnerError(
-                    "claude_local_login_copy_failed"
-                ) from None
+                    raise RunnerError("claude_host_login_expired") from None
+                raise RunnerError("claude_local_login_copy_failed") from None
 
     def _check_auth(self, *, timeout=20, minimum_validity_seconds=None):
         self._mirror_host_login(minimum_validity_seconds=minimum_validity_seconds)
@@ -263,9 +256,7 @@ class ClaudeAgent(BaseAgent):
         try:
             auth = json.loads(checked.stdout)
         except ValueError:
-            raise RunnerError(
-                "claude_subscription_unavailable"
-            ) from None
+            raise RunnerError("claude_subscription_unavailable") from None
         if (
             checked.exit_code
             or not auth.get("loggedIn")
@@ -370,19 +361,13 @@ class ClaudeAgent(BaseAgent):
                             .replace("\r", "\n")
                         )
                     except UnicodeError:
-                        raise RunnerError(
-                            "skill_frontmatter_name_required"
-                        ) from None
+                        raise RunnerError("skill_frontmatter_name_required") from None
                     if re.search(r"!`", text):
-                        raise RunnerError(
-                            "claude_native_skill_policy_unsupported"
-                        )
+                        raise RunnerError("claude_native_skill_policy_unsupported")
                     # Reject ambiguous delimiters rather than guessing how the
                     # native loader interprets whitespace or unterminated YAML.
                     if not text.startswith("---\n") or "\n---\n" not in text[4:]:
-                        raise RunnerError(
-                            "claude_native_skill_policy_unsupported"
-                        )
+                        raise RunnerError("claude_native_skill_policy_unsupported")
                     front = text[4:].split("\n---\n", 1)[0]
                     allowed = {
                         "name",
@@ -403,9 +388,7 @@ class ClaudeAgent(BaseAgent):
                             continue
                         key = re.match(r"^['\"]?([A-Za-z0-9_-]+)['\"]?\s*:", line)
                         if key is None or key.group(1) not in allowed:
-                            raise RunnerError(
-                                "claude_native_skill_policy_unsupported"
-                            )
+                            raise RunnerError("claude_native_skill_policy_unsupported")
         record = super()._prepare(request, **kwargs)
         record.update(
             provider=self.provider,
@@ -435,14 +418,9 @@ class ClaudeAgent(BaseAgent):
     def _verify_skills(self, root, record):
         for skill in record["skills"]:
             path = root / "workspace/.agents/skills" / skill["skill_id"]
-            if (
-                tree_hash(inventory(path))
-                != skill["tree_hash"]
-            ):
+            if tree_hash(inventory(path)) != skill["tree_hash"]:
                 raise RunnerError("pinned_skill_workspace_changed")
-        verify(
-            root / "workspace", record["skills"], record["skill_git_exclusion"]
-        )
+        verify(root / "workspace", record["skills"], record["skill_git_exclusion"])
         if (
             _hash_tree(root / "canonical") != record["source_hash"]
             or (root / "store/sentinel.txt").read_text(encoding="utf-8")
@@ -510,7 +488,9 @@ class ClaudeAgent(BaseAgent):
                 self.container, root, record, flag, deadline, mediation=mediation
             )
             try:
-                from laomedo.agents.agents.claude.activity.telemetry import ClaudeTelemetry
+                from laomedo.agents.agents.claude.activity.telemetry import (
+                    ClaudeTelemetry,
+                )
 
                 telemetry = ClaudeTelemetry(
                     root,
@@ -519,9 +499,7 @@ class ClaudeAgent(BaseAgent):
                     turn_id=record["active_host_turn"],
                 )
             except (ImportError, OSError):
-                raise RunnerError(
-                    "claude_telemetry_start_failed"
-                ) from None
+                raise RunnerError("claude_telemetry_start_failed") from None
             from py_docker.containers.models import Mount
 
             command = ["/opt/acp/node_modules/.bin/claude-agent-acp"]
@@ -709,16 +687,18 @@ class ClaudeAgent(BaseAgent):
             ).sdk_options()
             await client.open(
                 session_id=record["thread_id"] if resume else None,
-                mcp_servers=[]
-                if output_only
-                else [
-                    McpServerStdio(
-                        name="laomedo",
-                        command="python3",
-                        args=["/opt/laomedo/command_mcp.py"],
-                        env=[],
-                    )
-                ],
+                mcp_servers=(
+                    []
+                    if output_only
+                    else [
+                        McpServerStdio(
+                            name="laomedo",
+                            command="python3",
+                            args=["/opt/laomedo/command_mcp.py"],
+                            env=[],
+                        )
+                    ]
+                ),
                 metadata={
                     "claudeCode": {"options": options, "emitRawSDKMessages": True}
                 },
@@ -768,9 +748,7 @@ class ClaudeAgent(BaseAgent):
                 raise RunnerError("claude_native_turn_failed")
             if len(results) != 1:
                 raise RunnerError("claude_terminal_receipt_invalid")
-            return terminal_result(
-                json.dumps(results[0]), record["thread_id"]
-            )
+            return terminal_result(json.dumps(results[0]), record["thread_id"])
         finally:
             await client.close()
 
@@ -989,9 +967,7 @@ class ClaudeAgent(BaseAgent):
             if (folder / (attempt_id + ".json")).exists():
                 raise RunnerError("activity_attempt_already_exists")
             baseline = (
-                activity_usage(
-                    {"modelUsage": record.get("native_model_usage")}
-                )
+                activity_usage({"modelUsage": record.get("native_model_usage")})
                 if resume
                 else {}
             )
@@ -1000,19 +976,19 @@ class ClaudeAgent(BaseAgent):
                 "receiver_error": False,
                 "flush_completeness": "unverified",
             }
-            attempt = {
-                "id": attempt_id,
-                "native_start": line_count(root / "activity-events.jsonl"),
-                "otel_start": line_count(root / "otel-events.jsonl"),
-                "usage_baseline": (
+            attempt = ActivityAttemptRecord(
+                id=attempt_id,
+                native_start=line_count(root / "activity-events.jsonl"),
+                otel_start=line_count(root / "otel-events.jsonl"),
+                usage_baseline=(
                     {record["thread_id"]: {"total": baseline}} if resume else {}
                 ),
-                "native_end": None,
-                "fresh_thread": not resume,
-                "otel_end": None,
-                "status": "running",
-                "ended_at": None,
-            }
+                native_end=None,
+                fresh_thread=not resume,
+                otel_end=None,
+                status="running",
+                ended_at=None,
+            ).to_claude_record()
             _json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
             prompt = self._prompt(root, record, task)
@@ -1206,9 +1182,7 @@ class ClaudeAgent(BaseAgent):
                     "claude_mediation_outcome_unknown"
                     if record.get("mediation_outcome") == "unknown"
                     else (
-                        str(exc)
-                        if isinstance(exc, RunnerError)
-                        else type(exc).__name__
+                        str(exc) if isinstance(exc, RunnerError) else type(exc).__name__
                     )
                 ),
                 snapshot_ready=False,

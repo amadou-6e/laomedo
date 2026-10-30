@@ -23,7 +23,7 @@ manual input checks retain their stable errors before constructing strict models
 Mutable external dictionaries are produced only at compatibility boundaries; this
 pass does not claim every legacy provider lifecycle mutation is typed.
 
-## Planned boundaries
+## Implemented value boundaries
 
 | Concern | Owner | Objects and interface |
 | --- | --- | --- |
@@ -34,6 +34,21 @@ pass does not claim every legacy provider lifecycle mutation is typed.
 | Skill edit journal | `skills/operations` | `SkillCommit` and result records; preserve optional-key omission and canonical hash preimages; transaction effects stay with `SkillOperations` |
 | Normalized GitHub state | `github/issues`, `github/pull_requests` | `GitHubIssue`, `GitHubPullRequest`, `PullRequestHead`; explicit projections after existing response checks, no authorization inferred from identity |
 | Other native and host records | their current owning features | Review each large dictionary; model fixed records, retain dynamic keyed maps and existing typed serializers |
+
+Host value owners now include `OAuthAuthorizationRequest`, `OAuthAttempt`,
+`OAuthCodeExchange` and `OAuthAccount` under credentials; `LeaseGrant`,
+`GrantWindow`, `LeaseClock` and revocation/refusal records under leases;
+`MediationServiceRecord` and `AuthorizedLeaseScope` under mediation; and initial
+bundle/publication/verified identity records under publication. `WorkSnapshot`,
+`RelevantWorkContent`, `WorkLaunchBinding` and local grant/result records keep
+work selection and authorization evidence grouped without changing authority.
+Provider attempt/token/telemetry/runtime values remain with their Agent owners.
+
+The [complete large-block audit](structured-data-audit.md) records 47 migrated
+or reused production constructors and the reasons for retaining 37 dynamic,
+native-observation or existing model projections. It also covers nonproduction
+Python and the JavaScript/TypeScript inventory. These are explicit scope decisions,
+not a claim that every native event or historical lifecycle dictionary is typed.
 
 Sensitive model fields use `SecretStr`, are excluded from ordinary dumps and
 representations, and are unwrapped only by a deliberately named private-boundary

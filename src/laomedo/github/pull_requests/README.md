@@ -10,3 +10,9 @@ explicitly null, a null body is empty, and labels retain existing normalization.
 `to_payload()` means serialization, not authorization. The gateway retains grants,
 feedback tickets, selected-PR checks and unknown-write reconciliation. The shared
 canonical JSON digest and historical journal readers remain unchanged.
+
+Shared `GitHubOperationIntent` groups the existing authenticated intent hash
+inputs. `PullRequestFeedbackContext` in `models.py` groups a newly reserved PR
+snapshot and its two monotonic expiry markers. `to_payload()` preserves the
+existing ticket context; historical ticket readers and authorization stay in
+the gateway. These values neither create tickets nor perform an operation.
