@@ -373,11 +373,13 @@ class LaomedoSkill(Component):
             build_config["discovery_status"][
                 "value"
             ] = f"{len(options)} revisions discovered."
-        except ValueError:
-            build_config["discovery_status"][
-                "value"
-            ] = "Discovery failed. Check source access and refresh."
+        except ValueError as error:
             for key in ("skill_id", "revision_id"):
                 build_config[key].update(value="", options=[])
             clear_resolution()
+            if str(error) == "repository_cleanup_unverified":
+                raise ValueError("repository_cleanup_unverified") from None
+            build_config["discovery_status"][
+                "value"
+            ] = "Discovery failed. Check source access and refresh."
         return build_config

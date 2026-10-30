@@ -3,6 +3,8 @@ import useAlertStore from "@/stores/alertStore";
 import ErrorAlert from "@/alerts/error";
 import { api } from "@/controllers/API/api";
 let mockFlow: any = {nodes:[{data:{type:"LaomedoCodexAgent"}}], buildInfo:null};
+jest.mock("@/modals/issueViewerModal",()=>({nodeKind:jest.fn()}));
+jest.mock("@/i18n",()=>({__esModule:true,default:{t:(key:string)=>key}}));
 jest.mock("@/stores/flowStore",()=>({__esModule:true,default:{getState:()=>mockFlow}}));
 jest.mock("@/utils/reactflowUtils",()=>({customStringify:JSON.stringify}));
 jest.mock("@/components/ui/button",()=>({Button:({size,...props}:any)=><button {...props}/>}));
@@ -48,4 +50,30 @@ test("native application errors retain every message without Agent advice",async
  expect(document.body.textContent).not.toMatch(/runner|existing run|unrecognized_error/);
  fireEvent.click(screen.getByRole("button",{name:"Copy error"}));await screen.findByText("Copied");
  expect(writeText.mock.calls[0][0]).toContain("Choose a folder.");expect(writeText.mock.calls[0][0]).toContain("The flow name is already in use.");
+});
+
+
+test("Skill config cleanup uncertainty uses the shared catalogue without a retry action", async () => {
+ const {mutateTemplate}=require("@/CustomNodes/helpers/mutate-template");
+ const node={template:{source:{value:"https://example.invalid/owned.git"}},outputs:[],tool_mode:false};
+ mockFlow={nodes:[{id:"skill-config-cleanup",data:{type:"LaomedoSkill",node}}],buildInfo:null};
+ const mutateAsync=jest.fn().mockRejectedValue({response:{status:400,data:{detail:"repository_cleanup_unverified"}}});
+ const setNodeClass=jest.fn(),callback=jest.fn();
+ const consoleError=jest.spyOn(console,"error").mockImplementation(()=>{});
+ try {
+  await act(async()=>{await mutateTemplate(node.template.source.value,"skill-config-cleanup",node,setNodeClass,{mutateAsync},useAlertStore.getState().setErrorData,"source",callback,false,true);});
+  expect(mutateAsync).toHaveBeenCalledTimes(1);expect(setNodeClass).not.toHaveBeenCalled();expect(callback).not.toHaveBeenCalled();
+  const item=useAlertStore.getState().tempNotificationList[0],dismiss=jest.fn();
+  expect(item.failure?.diagnostics.code).toBe("repository_cleanup_unverified");
+  render(<ErrorAlert {...item} removeAlert={dismiss}/>);
+  expect(screen.getByRole("heading",{name:"Repository cleanup could not be confirmed"})).toBeVisible();
+  expect(screen.getByText(/Do not repeat the operation or remove retained clone staging/)).toBeVisible();
+  expect(screen.queryByRole("button",{name:/^(Retry|Refresh|Reload files|Restart local backend|Start local runner)$/})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText("Technical details"));expect(screen.getByText(/"code": "repository_cleanup_unverified"/)).toBeVisible();
+  const writeText=jest.fn().mockResolvedValue(undefined);Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText}});
+  fireEvent.click(screen.getByRole("button",{name:"Copy error"}));await screen.findByRole("button",{name:"Copied"});
+  expect(writeText.mock.calls[0][0]).toContain('"code": "repository_cleanup_unverified"');
+  expect(writeText.mock.calls[0][0]).not.toContain("example.invalid");
+  fireEvent.click(screen.getByRole("button",{name:"Dismiss"}));expect(dismiss).toHaveBeenCalledWith(item.id);
+ } finally { consoleError.mockRestore(); }
 });

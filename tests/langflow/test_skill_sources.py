@@ -1,4 +1,5 @@
 import asyncio
+import json
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
@@ -119,3 +120,52 @@ class NativeSkillSourceTests(unittest.TestCase):
             self.config["discovery_status"]["value"],
             "Supply a source to discover skills.",
         )
+
+    def test_cleanup_uncertainty_reaches_the_node_config_error_boundary(self):
+        self.test_discovery_selects_and_returns_native_reference()
+        selected = deepcopy(self.config)
+        request = self.module.source_request.side_effect
+        catalogue = json.loads(
+            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIn("repository_cleanup_unverified", catalogue)
+        for action, field in (
+            ("discover", None),
+            ("revisions", "skill_id"),
+            ("resolve", "revision_id"),
+        ):
+            with self.subTest(action=action):
+                config = deepcopy(selected)
+                calls = []
+
+                def fail_at_action(requested, **body):
+                    calls.append(requested)
+                    if requested == action:
+                        raise ValueError("repository_cleanup_unverified")
+                    return request(requested, **body)
+
+                value = config[field]["value"] if field else None
+                with patch.object(
+                    self.module, "source_request", side_effect=fail_at_action
+                ):
+                    with self.assertRaises(ValueError) as raised:
+                        asyncio.run(
+                            self.component.update_build_config(config, value, field)
+                        )
+                self.assertEqual(
+                    raised.exception.args, ("repository_cleanup_unverified",)
+                )
+                self.assertEqual(calls[-1], action)
+                self.assertEqual(calls.count(action), 1)
+                for name in ("skill_id", "revision_id"):
+                    self.assertEqual(config[name]["value"], "")
+                    self.assertEqual(config[name]["options"], [])
+                for name in (
+                    "resolved_skill_id",
+                    "resolved_revision_id",
+                    "resolved_selection",
+                ):
+                    self.assertEqual(config[name]["value"], "")
+                self.assertNotIn("refresh", config["discovery_status"]["value"].lower())
