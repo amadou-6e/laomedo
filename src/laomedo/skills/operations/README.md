@@ -1,5 +1,22 @@
 # Skill operation records
 
+## HTTP object and method vocabulary (C1)
+
+`SkillOperationServer` in `server.py` owns the operation service and private
+bearer token. `SkillOperationRequestHandler` in `handler.py` is module-level;
+`do_POST` authenticates, admits the exact action fields and delegates through
+`self.server`; `reply` preserves JSON/status/no-store headers; `log_message`
+suppresses private request logging. No credential or service is captured by a
+nested class.
+
+`SkillOperations` retains `prepare`, `apply`, `history`, `diff` and `compare`.
+The current five routes, 4-MiB body cap and generic `skill_operation_refused`
+failure stay intact: parser data, source paths, tickets and traces are not
+exported. No new transaction or persistence abstraction is introduced. Adapter
+relocation is C3, not this handler-extraction checkpoint.
+
+## Canonical values
+
 `SkillProposal` and `FileEdit` admit model-supplied content; `EditorProvenance`
 admits host-supplied attribution. `SkillCommit` groups a new journal entry and
 `SkillOperationResult` groups its public result. `SkillComparison` and

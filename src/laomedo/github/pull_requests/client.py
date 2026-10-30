@@ -1,18 +1,20 @@
 """Backend-only pr client, with no graph credential inputs."""
 
+from laomedo.http.redirect import NoRedirect
+from laomedo.github.pull_requests.contract import ERROR_CODES
+from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
+from laomedo.github.pull_requests.settings import Settings
+
 from pathlib import Path
 from urllib import error
 from urllib import request
 from urllib.parse import urlsplit
 import json
-import laomedo.github.pull_requests.contract as _pull_requests_contract
-import laomedo.skills.sources.transport as _sources_transport
-import laomedo.github.pull_requests.settings as _pull_requests_settings
 import re
 
 
 def pr_request(action, **payload):
-    settings = _pull_requests_settings.Settings()
+    settings = Settings()
     base = settings.url
     url = urlsplit(base)
     if (
@@ -38,9 +40,7 @@ def pr_request(action, **payload):
                 "Authorization": "Bearer " + token,
             },
         )
-        with request.build_opener(_sources_transport.NoRedirect()).open(
-            call, timeout=90
-        ) as response:
+        with request.build_opener(NoRedirect()).open(call, timeout=90) as response:
             data = response.read(1024 * 1024 + 1)
         if len(data) > 1024 * 1024:
             raise ValueError()
@@ -68,17 +68,14 @@ def pr_request(action, **payload):
         category = "github_pr_unavailable"
         try:
             parsed = json.loads(exc.read(1024))
-            if parsed.get("error_category") in _pull_requests_contract.ERROR_CODES:
+            if parsed.get("error_category") in ERROR_CODES:
                 category = parsed["error_category"]
         except Exception:
             pass
         if (
             action in {"execute", "apply-feedback"}
             and payload.get("operation")
-            and (
-                exc.code not in {400, 401}
-                or category not in _pull_requests_contract.PRE_DISPATCH_ERRORS
-            )
+            and (exc.code not in {400, 401} or category not in PRE_DISPATCH_ERRORS)
         ):
             category = "pr_write_unknown"
         raise ValueError(category) from None

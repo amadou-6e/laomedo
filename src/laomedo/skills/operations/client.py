@@ -1,15 +1,16 @@
 """Backend-only Skill operation credentials, never graph inputs."""
 
+from laomedo.http.redirect import NoRedirect
+from laomedo.skills.operations.settings import Settings
+
 from pathlib import Path
 from urllib import request
 from urllib.parse import urlsplit
 import json
-import laomedo.skills.sources.transport as _sources_transport
-import laomedo.skills.operations.settings as _operations_settings
 
 
 def skill_request(action, **body):
-    settings = _operations_settings.Settings()
+    settings = Settings()
     base = settings.url.rstrip("/")
     parsed = urlsplit(base)
     if (
@@ -35,9 +36,7 @@ def skill_request(action, **body):
                 "Content-Type": "application/json",
             },
         )
-        with request.build_opener(_sources_transport.NoRedirect()).open(
-            call, timeout=65
-        ) as response:
+        with request.build_opener(NoRedirect()).open(call, timeout=65) as response:
             raw = response.read(16 * 1024 * 1024 + 1)
         if len(raw) > 16 * 1024 * 1024:
             raise ValueError()
