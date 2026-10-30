@@ -41,3 +41,19 @@ CLI version and existing keyed credential fingerprint. `IsolatedOpenCode` keeps
 that object internally; its `runtime_identity` property calls `to_payload()` only
 for the existing provider fingerprint boundary. Profile identity read from legacy
 JSON retains its admitted shape. The fingerprint is metadata, never a login token.
+
+## Exact resource closure (implementation target)
+
+The backend and broker register exact allocated receipt paths before dispatch.
+`close()` stops admission, closes the controller, drains the broker, reconciles
+those paths through the SDK, then closes the Docker client. Partial construction
+has optional handles and no invented resources. An unresolved drain/receipt/cleanup
+keeps termination unverified; no job or model retry occurs. Existing startup
+receipt scans remain unchanged, including their shared-directory lock limitation.
+
+`models()` maps SDK cleanup uncertainty to `opencode_container_cleanup_unverified`
+before its generic startup mapping, preserving safe SDK metadata. In-run failures
+use the shared private attempt snapshot after normal writes; metadata discovery
+has no attempt or new store and retains its existing HTTP code boundary. A true
+`opencode_owned_resources` cleanup fact requires all allocated catalog/controller/
+worker resources, not controller absence alone. It never accepts a failed run.

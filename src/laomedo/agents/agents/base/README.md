@@ -43,3 +43,20 @@ Provider execution, cancellation, recovery and historical readers still own the
 existing mutable dictionary lifecycle. The new model is a writer, not a strict
 reader for later provider-specific extensions. It performs no filesystem or model
 effects. Native/raw records are not silently coerced into a closed new schema.
+
+## Private failure observations (implementation target)
+
+`models.py` also owns private values, not only public bindings. `FailureObservation`
+contains allowlisted stage/code/SDK metadata; `AttemptFailureRecord` groups the
+first failure, optional cleanup failure, final category and a qualified cleanup
+fact. `from_*` constructs trusted observations and `to_record()` projects private
+JSON. Existing atomic `_json` writes `diagnostics/<attempt-id>.json` after normal
+attempt/run writes; no new Store, reader API, HTTP fields or historical migration.
+Diagnostic errors never replace execution errors or prevent lock release.
+
+`cleanup_source=lease_result` describes only the exact leased resource's result;
+`opencode_owned_resources` describes that backend's complete allocated resource
+set after broker drain. Neither asserts global cleanup. A true private cleanup
+fact does not override a public fail-closed run status. SDK metadata is captured
+only from exact trusted exception classes and fixed code/operation allowlists;
+messages, receipts, owner labels and credentials are excluded.

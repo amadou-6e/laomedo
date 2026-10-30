@@ -27,3 +27,19 @@ report unsupported capabilities and preserve unknown usage or partial evidence.
 Successful execution, capture completeness and cleanup confirmation remain
 separate facts. Existing stable error codes and persisted records do not change
 with the Python object name.
+
+## Failure finalization (implementation target)
+
+Every noncompleted attempt, including early cancellation returns, retains a
+private `AttemptFailureRecord` after ordinary run/attempt writes. Its first code
+is `lease_service_lost` whenever supervision loss is set, never an inferred user
+cancel. The first `LeaseLossObservation` (or unavailable reason) remains in the
+exact private lease directory, correlated through existing ownership; no public
+payload extension is introduced. Unknown dynamic codes are deliberately omitted.
+
+The primary failure survives later close, snapshot and lease-finish failures.
+`LeaseClient.result` retains an actual result before a lost-lease rejection.
+Project it through `LeaseCleanupObservation`: no result means no cleanup fact,
+not false. The sidecar's lease cleanup boolean covers only that leased resource.
+The existing public fail-closed status/category wins even beside verified cleanup.
+Fresh native answers, counters and completion never establish Resume success.
