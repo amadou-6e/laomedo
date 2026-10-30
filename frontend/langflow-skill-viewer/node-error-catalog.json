@@ -1012,7 +1012,7 @@
   "fresh_codex_request_required": {
     "title": "A new agent run is required",
     "description": "This handoff route accepts only Fresh operations targeting Codex or Claude.",
-    "recovery": "Choose Fresh and a supported target agent. Resume must use that agentÃ¢â‚¬â„¢s original completed Run Reference."
+    "recovery": "Choose Fresh and a supported target agent. Resume must use that agent’s original completed Run Reference."
   },
   "runner_token_file_required": {
     "title": "The handoff runner is not connected",

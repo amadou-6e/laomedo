@@ -59,7 +59,7 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             selection={"DOCKER_HOST":"unix:///selected.sock"}
             for split in (False,True):
                 with patch("laomedo.agents.agents.codex.agent.CodexAgent._check_container",return_value=selection) as checked, patch(
-                        "laomedo.agents.agents.codex.utils._ensure_split_profile") as profile, patch("py_docker.Client") as client:
+                        "laomedo.agents.agents.codex.agent._ensure_split_profile") as profile, patch("py_docker.Client") as client:
                     runner=LocalRunner(root / str(split),root / "skills",source,split_executor=split)
                     checked.assert_called_once_with()
                     if split:

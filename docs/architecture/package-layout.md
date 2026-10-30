@@ -251,3 +251,9 @@ error catalogue explains updating the node or explicitly migrating saved source;
 unmigrated Claude/OpenCode code cannot silently route through Codex configuration.
 OpenCode owns its worker image pin independently in its settings. It initially uses
 the same reviewed sandbox bytes as Codex, without importing Codex configuration.
+
+The migration tool refuses retired procedural Git symbols even when they appear
+in comments or docstrings. Review those references manually; the tool never
+guesses a new object call signature. Unchanged component code leaves its revision
+key untouched. Changed code uses the pinned LFX hash, checked against the actual
+`lfx.custom.utils._generate_code_hash` implementation in the Langflow suite.

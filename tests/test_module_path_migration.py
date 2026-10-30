@@ -197,10 +197,10 @@ class ModuleMigrationTests(unittest.TestCase):
         self.assertEqual(migration.migrate_value({'module': 'laomedo.local_runner'}), {'module': 'laomedo.agents.agents.codex.cli'})
 
     def test_inline_import_with_unicode_keeps_statement_structure(self):
-        source = "label = 'ÃƒÅ½Ã‚Â»'; from laomedo import local_runner, skill_store\n"
+        source = "label = '\u03bb'; from laomedo import local_runner, skill_store\n"
         namespace = {}
         exec(migration.migrate_source(source), namespace)
-        self.assertEqual(namespace["label"], "ÃƒÅ½Ã‚Â»")
+        self.assertEqual(namespace["label"], "\u03bb")
         self.assertTrue(hasattr(namespace["local_runner"], "CodexAgent"))
         self.assertTrue(hasattr(namespace["skill_store"], "SkillStore"))
 

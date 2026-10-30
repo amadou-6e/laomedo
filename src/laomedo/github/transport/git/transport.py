@@ -27,9 +27,6 @@ import subprocess
 import tempfile
 
 
-
-
-
 class GitHubGitTransport:
     """Push a locally present commit to a new remote branch, without host login."""
 
@@ -64,7 +61,6 @@ class GitHubGitTransport:
     def _repository(self, directory: Path) -> GitRepository:
         """Bind generic mechanics; connection and publication policy stay here."""
         return GitRepository(directory, context=GitExecutionContext(), runner=self.runner)
-
 
 
     def _valid_commit(self, commit: str) -> bool:
@@ -369,7 +365,6 @@ class GitHubGitTransport:
                 raise KnownRejected("fetch_bundle_too_large")
             return {"ref": payload["ref"], "commit": payload["commit"],
                     "bundle": base64.b64encode(bundle.read_bytes()).decode("ascii")}
-
 
 
 class GitHubMediatedTransport:

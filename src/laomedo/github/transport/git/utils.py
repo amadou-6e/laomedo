@@ -18,9 +18,6 @@ def _redirected_path(path: Path) -> bool:
     )
 
 
-
-
-
 def _push_failure_category(stderr: bytes, stdout: bytes = b"") -> str:
     """Return only a fixed diagnostic label, never Git's untrusted output."""
     lower = (stderr + b"\n" + stdout).lower()

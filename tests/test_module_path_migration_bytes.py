@@ -11,6 +11,13 @@ from test_module_path_migration import TOOL; from test_module_path_migration imp
 
 
 class MigrationFileTests(unittest.TestCase):
+    def test_unchanged_code_keeps_a_stale_or_external_revision_key_byte_exact(self):
+        graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': '0123456789ab'},
+                 'template': {'code': {'value': 'answer = "\u03bb"\n'}}}}}]}
+        source = json.dumps(graph, indent=2, ensure_ascii=False)
+        self.assertEqual(migration.migrate_json_source(source), source)
+        self.assertEqual(migration.migrate_value(graph), graph)
+
     def test_component_revision_hash_follows_code_without_changing_graph_identity(self):
         """Refresh the actual cache key along with imports, preserving saved user data."""
         code = 'from laomedo.local_runner import LocalRunner\n'
@@ -38,7 +45,7 @@ class MigrationFileTests(unittest.TestCase):
             migration.migrate_json_source(json.dumps(graph))
 
     def test_json_splicing_preserves_unrelated_bytes(self):
-        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"CafÃ© Î»", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode('utf-8')
+        source = '\ufeff{\r\n "id":"laomedo.local_runner", "label":"Caf\u00e9 \u03bb", "number":1.2300e+03, "dup":1,"dup":2, "code":"from laomedo.skill_store import SkillStore\\n"\r\n}\r\n'.encode('utf-8')
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'graph.json'; path.write_bytes(source)
             result = subprocess.run([sys.executable, str(TOOL), str(path), '--apply'], capture_output=True, timeout=30)

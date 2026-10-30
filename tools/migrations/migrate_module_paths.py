@@ -541,6 +541,8 @@ def _component_hash_updates(value):
         if not isinstance(metadata, dict) or "code_hash" not in metadata or not isinstance(code, str) or not code:
             continue
         migrated = migrate_source(code)
+        if migrated == code:
+            continue  # Unchanged code is not permission to repair an unrelated revision key.
         existing = metadata["code_hash"]
         if not isinstance(existing, str) or not re.fullmatch(r"[0-9a-f]{12}", existing):
             if migrated != code:
