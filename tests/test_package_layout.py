@@ -38,6 +38,11 @@ class PackageLayoutTests(unittest.TestCase):
                 try:
                     module = importlib.import_module(canonical)
                 except ModuleNotFoundError as error:
+                    if error.name == 'acp' and canonical in {
+                        'laomedo.agents.agents.base.acp.session',
+                        'laomedo.agents.agents.base.acp.transport',
+                    }:
+                        self.skipTest('Optional runner ACP dependency is not installed')
                     if (error.name or "").split(".")[0] in {"fastapi", "starlette", "lfx", "langflow"}:
                         self.skipTest("Optional app dependencies are not installed")
                     raise

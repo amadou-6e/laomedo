@@ -68,7 +68,9 @@ class SharedGitTests(unittest.TestCase):
                 process = MagicMock(returncode=0)
                 process.communicate.return_value = (b'git version', b'')
                 command = GitCommand(arguments=['--version'], context=GitExecutionContext(profile=profile, home=home))
-                with patch('laomedo.git.command.os.name', platform), patch('laomedo.git.command.subprocess.Popen', return_value=process) as spawn:
+                with patch('laomedo.git.command.os.name', platform), \
+                        patch('laomedo.git.command.subprocess.CREATE_NEW_PROCESS_GROUP', 0x200, create=True), \
+                        patch('laomedo.git.command.subprocess.Popen', return_value=process) as spawn:
                     GitCommandRunner().run(command)
                 options = spawn.call_args.kwargs
                 if profile == GitEnvironmentProfile.WORKSPACE:
@@ -76,6 +78,8 @@ class SharedGitTests(unittest.TestCase):
                 else:
                     self.assertNotIn('stdin', options)
                 self.assertEqual('creationflags' in options, platform == 'nt')
+                if platform == 'nt':
+                    self.assertEqual(options['creationflags'], 0x200)
                 self.assertEqual('start_new_session' in options, platform == 'posix')
 
     def test_timeout_closes_inherited_pipes_and_retains_uncertainty(self):
