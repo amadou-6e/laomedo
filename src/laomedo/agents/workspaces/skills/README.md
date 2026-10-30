@@ -47,3 +47,11 @@ module-valued workspace_skills exports require explicit defining imports rather
 than a fake combined namespace. Preserved exp104 probe/worker sources retain
 their exact bytes; direct legacy execution requires migration. Internal import
 migration controls are not live Agent or graph acceptance.
+
+Maintained tests load the preserved EXP104 worker/probe through
+`tests/retained_native_probe_loader.py`: verify original hashes, migrate only
+imports/qualified symbol reads, compare all other AST structure and keep the
+original `__file__` for resource resolution. A temporary test-only worker name
+is removed immediately after import. No canonical runtime alias is installed;
+neither probe's main entrypoint is invoked. Frozen source/blob contracts work
+with shallow CI and compare installed helper bytes to the checkout source.

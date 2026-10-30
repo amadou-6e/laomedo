@@ -5,7 +5,6 @@ import copy
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,18 +50,12 @@ class SkillsDirectImportTests(unittest.TestCase):
             self.assertEqual(
                 hashlib.sha256(old.encode()).hexdigest(), item["source_sha256"]
             )
+            raw = old.encode()
             self.assertEqual(
-                subprocess.check_output(
-                    [
-                        "git",
-                        "-c",
-                        "safe.directory=" + str(ROOT),
-                        "show",
-                        record["base_revision"] + ":" + item["path"],
-                    ],
-                    cwd=ROOT,
-                ).decode(),
-                old,
+                hashlib.sha1(
+                    b"blob " + str(len(raw)).encode() + b"\0" + raw
+                ).hexdigest(),
+                item["git_blob"],
             )
             old_tree = ast.parse(old)
             aliases = {

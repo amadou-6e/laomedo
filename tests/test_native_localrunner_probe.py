@@ -9,14 +9,14 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from experiments.exp104 import native_localrunner_worker as worker
-from experiments.exp104 import native_localrunner_probe as probe
+from retained_native_probe_loader import RetainedNativeProbeLoader
 from experiments.exp104.native_localrunner_checks import IDENTITY
 from experiments.exp104.native_localrunner_checks import validate
 from laomedo.agents.agents.codex.controller.service import CodexController as AppServer
 from laomedo.agents.errors import RunnerError
 
 ROOT = Path(__file__).resolve().parents[1]
+worker, probe = RetainedNativeProbeLoader.load()
 
 
 class LocalRunnerProbeTests(unittest.TestCase):

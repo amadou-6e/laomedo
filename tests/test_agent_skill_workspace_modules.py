@@ -27,18 +27,10 @@ class AgentSkillWorkspaceModuleTests(unittest.TestCase):
         self.assertEqual(
             hashlib.sha256(original.encode()).hexdigest(), RECORD["source_sha256"]
         )
+        raw = original.encode()
         self.assertEqual(
-            subprocess.check_output(
-                [
-                    "git",
-                    "-c",
-                    "safe.directory=" + str(ROOT),
-                    "show",
-                    RECORD["base_revision"] + ":src/laomedo/skills/workspace/utils.py",
-                ],
-                cwd=ROOT,
-            ).decode(),
-            original,
+            hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest(),
+            RECORD["baseline_git_blob"],
         )
         original_nodes = {
             node.name: node
@@ -57,7 +49,8 @@ class AgentSkillWorkspaceModuleTests(unittest.TestCase):
             self.assertEqual(ast.dump(original_nodes[name]), ast.dump(current), name)
             self.assertEqual(MIGRATION["SYMBOL_PATHS"][old], target)
             loaded = importlib.import_module(module)
-            self.assertTrue(Path(loaded.__file__).is_relative_to(ROOT / "src"))
+            self.assertEqual(loaded.__name__, module)
+            self.assertEqual(Path(loaded.__file__).read_bytes(), path.read_bytes())
             self.assertTrue(callable(getattr(loaded, name)))
 
     def test_exception_code_arguments_and_inheritance_are_preserved(self):
