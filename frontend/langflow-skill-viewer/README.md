@@ -76,6 +76,11 @@ introduced. Summary-source and invalid-operation codes have catalogue
 entries based on their actual pre-publication/proposal effects. `describeInspectionFailure`
 reads only the public response code and delegates to the shared presenter. Unknown
 codes retain safe diagnostics but use the neutral read-only viewer explanation.
+The shared code filter rejects unknown credential-prefixed values (`sk_`,
+`gh[pousr]_`, `github_pat_`, case-insensitively) before rendering or copying them.
+Exact catalogue codes and admitted native timeout codes retain priority; ordinary
+safe unknown machine codes remain inspectable. Internal prefix-only sentinels
+exercise shared text/structured errors and the viewer's DOM/copy boundary.
 Edit-attribution and missing-agent-provenance codes also have descriptive entries;
 no admission or operation behavior changes. Existing operation HTTP wrappers
 still collapse refused proposals to `skill_operation_refused`; catalogue coverage

@@ -192,3 +192,19 @@ test("legacy Agent inheritance reports migration without leaking payloads or sug
  expect(JSON.stringify(failure)).not.toContain("private-native-payload");
  expect(failure.recovery).not.toMatch(/retry|operator|restart/i);
 });
+
+test.each(["sk_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
+ .flatMap(prefix => [prefix + "a".repeat(36), prefix.toUpperCase() + "A".repeat(36)]))(
+ "credential-shaped unknown code is redacted from shared diagnostics: %s", code => {
+  for (const failure of [describeNodeFailure(code, undefined), describeNodeFailure(undefined,
+   {data: {outputs: {run: {message: {status: "failed", error_category: code}}}}})]) {
+   expect(failure.diagnostics.code).toBe("unrecognized_error");
+   expect(JSON.stringify(failure)).not.toContain(code);
+  }
+ });
+
+test("credential-prefix filtering preserves admitted catalogue, native timeout and safe unknown codes", () => {
+ expect(describeNodeFailure("skill_operation_invalid", undefined).diagnostics.code).toBe("skill_operation_invalid");
+ expect(describeNodeFailure("request_timeout:session/new", undefined).diagnostics.code).toBe("request_timeout:session/new");
+ expect(describeNodeFailure("future_inspection_condition", undefined).diagnostics.code).toBe("future_inspection_condition");
+});

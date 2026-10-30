@@ -35,3 +35,20 @@ test.each(["Bearer secret-value", { payload: "private-body" }, null])("unsafe fa
   expect(JSON.stringify(value)).not.toMatch(/secret-value|private-body/);
   expect(value.description).toContain("reason has not been established");
 });
+
+test.each(["sk_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
+  .flatMap(prefix => [prefix + "a".repeat(36), prefix.toUpperCase() + "A".repeat(36)]))(
+  "credential-shaped unknown code is absent from viewer DOM and copy: %s", async (code) => {
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const failure = describeInspectionFailure({ response: { data: { detail: { code } } } });
+    const { container } = render(<SkillInspectionError failure={failure} onReload={jest.fn()} reloadLabel="Reload files" />);
+    expect(screen.getByRole("heading")).toHaveTextContent("Skill files could not be loaded");
+    expect(container.textContent).not.toContain(code);
+    expect(container.querySelector("pre")).toHaveTextContent('"code": "unrecognized_error"');
+    fireEvent.click(screen.getByRole("button", { name: "Copy error" }));
+    await act(async () => {});
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).not.toContain(code);
+    expect(writeText.mock.calls[0][0]).toContain('"code": "unrecognized_error"');
+  });

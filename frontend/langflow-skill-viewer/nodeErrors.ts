@@ -25,6 +25,8 @@ function safeCode(value: unknown): string | undefined {
   if (typeof value !== "string") return;
   if (Object.prototype.hasOwnProperty.call(entries, value)) return value;
   if (nativeTimeout.test(value)) return value;
+  // Unknown code slots are untrusted: a credential can also look like snake_case.
+  if (/^(?:sk_|gh[pousr]_|github_pat_)/i.test(value)) return;
   if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+){1,15}$/.test(value) && value.length <= 80 &&
       !/(?:secret|password|credential|bearer|token|api_key)/.test(value)) return value;
 }
