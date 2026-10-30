@@ -1,0 +1,195 @@
+{
+  "baseline": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+  "scope": "Only listed component import source and recognized derived code_hash tokens change; all other graph values and normalized component bodies remain identical. Historical originals remain separately hash-guarded.",
+  "files": [
+    {
+      "path": "examples/claude-agent/flow.json",
+      "baseline_git_blob": "9dbff7434b86324e280c09f3f9c2435a8d149028",
+      "unchanged_graph_values_sha256": "f7ce47762ae196a1b20dac8bf80406c045b80ce11f49cc68c60caff49fa9452c",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "skill",
+          "source_before_sha256": "ea4251bff25ed5b6887ee3b3f37e3d7031058069e389c54283a293ef49874f39",
+          "source_after_sha256": "bdef007d4b034a2f45e5df678f4b086039ebf4e71ee039be4fa330fcf760e7d2",
+          "body_sha256": "6e78f542183a8bbddbb8c9dd9cbcc02ebd58c2f6af0020045a8312259769a8b8",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/github-pr/flow.json",
+      "baseline_git_blob": "8542156d6722aa644acb13d4c660ed4d44e7295a",
+      "unchanged_graph_values_sha256": "3e382cdcc20e2feb41647e5f12ac7ac80772782b999d01e7521d4dbe85a35158",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "pr",
+          "source_before_sha256": "af4f498353a1c3ade9b2b6f10592642dd730a69c7265180c3d7de2688f008d51",
+          "source_after_sha256": "cc75a63e43ecc1d155cf95a9a81893a1e7b799d3c1153e8a9f94cd41c96fb750",
+          "body_sha256": "1300f35e066cd5306ff940b6a6cbca40de4db07a13edd724f31f9b0942c3ae55",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/github-pr/four-node-flow.json",
+      "baseline_git_blob": "233f1243d99dbb2cfbe6098143e44a083f6425f3",
+      "unchanged_graph_values_sha256": "3152092a9fde2f1924e527bf703e80c051fba36dea4abd04037a7150a6d37b75",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "read-pr",
+          "source_before_sha256": "7fe9c9e204ee7c9f6a30f720d13d245b2e3b425680eecbae015be45523f2d620",
+          "source_after_sha256": "b1b1f77f5a4938d0c0003346ac0a2fb48752bb67cb501f0aa8fbcb4493dec4f1",
+          "body_sha256": "30dc3ad0f786f00d16207459f113a2d3c9b17676c4400ded71f754437c3a8a33",
+          "had_code_hash": true
+        },
+        {
+          "index": 2,
+          "node_id": "apply-operation",
+          "source_before_sha256": "7fe9c9e204ee7c9f6a30f720d13d245b2e3b425680eecbae015be45523f2d620",
+          "source_after_sha256": "b1b1f77f5a4938d0c0003346ac0a2fb48752bb67cb501f0aa8fbcb4493dec4f1",
+          "body_sha256": "30dc3ad0f786f00d16207459f113a2d3c9b17676c4400ded71f754437c3a8a33",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/github-pr/original-agent/flow.json",
+      "baseline_git_blob": "4bf54dd34c9b397d3f2c08f9255de762ad406775",
+      "unchanged_graph_values_sha256": "c0be613e7531aaa0ea8650c7cee09466bea85941885ff1cb6c12eff7791cf3b7",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "pr",
+          "source_before_sha256": "af4f498353a1c3ade9b2b6f10592642dd730a69c7265180c3d7de2688f008d51",
+          "source_after_sha256": "cc75a63e43ecc1d155cf95a9a81893a1e7b799d3c1153e8a9f94cd41c96fb750",
+          "body_sha256": "1300f35e066cd5306ff940b6a6cbca40de4db07a13edd724f31f9b0942c3ae55",
+          "had_code_hash": true
+        },
+        {
+          "index": 2,
+          "node_id": "agent-skill",
+          "source_before_sha256": "5cd7860368c5018ee0280d1fe099c9838175833ed1e4bd793cafefef1565dc3f",
+          "source_after_sha256": "2cd523eb2b25727959d2b690cee2be47ce54984df4e9866e0f23980c00db1352",
+          "body_sha256": "93d81d312d6818a0f8063de3c65c31e5a6eae291af74548fb7d35614f282c3a2",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/langflow-contract-routing/flow.json",
+      "baseline_git_blob": "83ed6b60774b2668c5dd94177061f1f430c9b36d",
+      "unchanged_graph_values_sha256": "09d4ec757a9c35613698061ccfb56800f1d94734c6342c8b1eb5e4a85ec22d6f",
+      "nodes": [
+        {
+          "index": 1,
+          "node_id": "skill",
+          "source_before_sha256": "ea4251bff25ed5b6887ee3b3f37e3d7031058069e389c54283a293ef49874f39",
+          "source_after_sha256": "bdef007d4b034a2f45e5df678f4b086039ebf4e71ee039be4fa330fcf760e7d2",
+          "body_sha256": "6e78f542183a8bbddbb8c9dd9cbcc02ebd58c2f6af0020045a8312259769a8b8",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/langflow-workgraph-demo/flow.json",
+      "baseline_git_blob": "d301d0f785f54b8db2e05a35f66e851da9bc02ab",
+      "unchanged_graph_values_sha256": "1959a21f5250966d88b705fe1fe870a4fa82b8359d727dbf34ac905aec58feca",
+      "nodes": [
+        {
+          "index": 1,
+          "node_id": "skill",
+          "source_before_sha256": "ea4251bff25ed5b6887ee3b3f37e3d7031058069e389c54283a293ef49874f39",
+          "source_after_sha256": "bdef007d4b034a2f45e5df678f4b086039ebf4e71ee039be4fa330fcf760e7d2",
+          "body_sha256": "6e78f542183a8bbddbb8c9dd9cbcc02ebd58c2f6af0020045a8312259769a8b8",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/native-codex-node/flow.json",
+      "baseline_git_blob": "39c77d142957cfb0874f6e9355bf559e3390db4d",
+      "unchanged_graph_values_sha256": "6622aefc7c8531f75ab19a23b102438f8e49162a3b07e2d511d03ec513f22153",
+      "nodes": [
+        {
+          "index": 1,
+          "node_id": "LaomedoSkill-native",
+          "source_before_sha256": "ea4251bff25ed5b6887ee3b3f37e3d7031058069e389c54283a293ef49874f39",
+          "source_after_sha256": "bdef007d4b034a2f45e5df678f4b086039ebf4e71ee039be4fa330fcf760e7d2",
+          "body_sha256": "6e78f542183a8bbddbb8c9dd9cbcc02ebd58c2f6af0020045a8312259769a8b8",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/opencode-node/flow.json",
+      "baseline_git_blob": "72885e215416b0d0e94267eda7b7e1237df2dba8",
+      "unchanged_graph_values_sha256": "baef15dbe8c47941792ece09a6b62294a4c15253e4af7d9d75f644534d6a5763",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "OpenCode-pinned-skill",
+          "source_before_sha256": "ea4251bff25ed5b6887ee3b3f37e3d7031058069e389c54283a293ef49874f39",
+          "source_after_sha256": "bdef007d4b034a2f45e5df678f4b086039ebf4e71ee039be4fa330fcf760e7d2",
+          "body_sha256": "6e78f542183a8bbddbb8c9dd9cbcc02ebd58c2f6af0020045a8312259769a8b8",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/skill-operations/flow.json",
+      "baseline_git_blob": "b574b53e61c3a6b3e98722845c2ef460823c071e",
+      "unchanged_graph_values_sha256": "1c25ba8ec4bce024c146da177621b6d92d42251b5cb741c762c18b454d1e1278",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "skill",
+          "source_before_sha256": "5cd7860368c5018ee0280d1fe099c9838175833ed1e4bd793cafefef1565dc3f",
+          "source_after_sha256": "2cd523eb2b25727959d2b690cee2be47ce54984df4e9866e0f23980c00db1352",
+          "body_sha256": "93d81d312d6818a0f8063de3c65c31e5a6eae291af74548fb7d35614f282c3a2",
+          "had_code_hash": true
+        },
+        {
+          "index": 2,
+          "node_id": "agent-skill",
+          "source_before_sha256": "5cd7860368c5018ee0280d1fe099c9838175833ed1e4bd793cafefef1565dc3f",
+          "source_after_sha256": "2cd523eb2b25727959d2b690cee2be47ce54984df4e9866e0f23980c00db1352",
+          "body_sha256": "93d81d312d6818a0f8063de3c65c31e5a6eae291af74548fb7d35614f282c3a2",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/skill-operations/overview-flow.json",
+      "baseline_git_blob": "664931777067c2561ba3d8ed7598111409a05776",
+      "unchanged_graph_values_sha256": "1cb9e39b47e7ef217edda2976d23f95dcd06d44d727f59f1732fe8d1fb81a284",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "skill",
+          "source_before_sha256": "9599679449548c9e6c7248e5fdb8291a500027ffe6848ea561afe0fbe2d49e32",
+          "source_after_sha256": "19a04f26cec16f354076751845b0261df777cadb6eb65d2c28766ac823218608",
+          "body_sha256": "92a2497cfe79920a83a0ed84492d5ce6a18e48c069488ce35226724242d976d7",
+          "had_code_hash": true
+        }
+      ]
+    },
+    {
+      "path": "examples/skill-summary/flow.json",
+      "baseline_git_blob": "cbd75d4d0a05cbcecf578433f37383661cc2e775",
+      "unchanged_graph_values_sha256": "2f1f0c4ec1cef1713edeee68c3c5d7c410af569bfa80c904ebc551d1be7102af",
+      "nodes": [
+        {
+          "index": 0,
+          "node_id": "skill",
+          "source_before_sha256": "3136f150a2dfc52a74c6d00c64a5ec906d9873f54508c6d9ef4464f299f0bf31",
+          "source_after_sha256": "3bc902132f625b79ac8c64a3909016e17061f9d7f458bb9cce48e86477dee98b",
+          "body_sha256": "855e48562e231247ff854cb5e8135c1d68ead5e451aaa4c1b92be4a84c60248e",
+          "had_code_hash": true
+        }
+      ]
+    }
+  ]
+}

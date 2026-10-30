@@ -198,6 +198,8 @@ def migrate_source(source: str) -> str:
                 statements, changed = [], False
                 for item in node.names:
                     full = node.module + "." + item.name
+                    if full in SPLIT_MODULES:
+                        aliases[item.asname or item.name] = full
                     if node.module in SPLIT_MODULES and item.name == "*":
                         raise ManualMigrationRequired(
                             "A star import from a split module requires manual migration to defining symbols"

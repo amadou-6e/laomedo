@@ -1,6 +1,7 @@
 """Protect user-file bytes and safe failure behavior during offline migration."""
 
 from pathlib import Path
+import ast
 from hashlib import sha256
 import json
 import subprocess
@@ -38,12 +39,31 @@ class MigrationFileTests(unittest.TestCase):
         for case in cases:
             with self.subTest(source=case["source_file"], node=case["node_id"]):
                 code, stored = case["code"], case["code_hash"]
+                imported = {
+                    name
+                    for node in ast.walk(ast.parse(code))
+                    for name in (
+                        [node.module or ""]
+                        if isinstance(node, ast.ImportFrom)
+                        else (
+                            [item.name for item in node.names]
+                            if isinstance(node, ast.Import)
+                            else []
+                        )
+                    )
+                }
+                # Keep the baseline case bytes/metadata. C3 can now require
+                # import migration for code that was current in that baseline.
+                requires_migration = case["requires_code_migration"] or any(
+                    module in imported and ".interface." in target
+                    for module, target in migration.MODULE_PATHS.items()
+                )
                 self.assertNotEqual(
                     sha256(code.encode("utf-8")).hexdigest()[:12], stored
                 )
                 self.assertEqual(
                     migration.migrate_source(code) != code,
-                    case["requires_code_migration"],
+                    requires_migration,
                 )
                 graph = {
                     "nodes": [
@@ -57,7 +77,7 @@ class MigrationFileTests(unittest.TestCase):
                         }
                     ]
                 }
-                if case["requires_code_migration"]:
+                if requires_migration:
                     with self.assertRaisesRegex(
                         migration.ManualMigrationRequired,
                         "does not match its original source",

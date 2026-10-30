@@ -2,6 +2,7 @@
 
 import ast
 import importlib
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -190,6 +191,49 @@ for prefix in ('laomedo.host', 'laomedo.agents', 'langflow', 'lfx'):
                 continue
             source = path.read_text(encoding="utf-8-sig")
             self.assertEqual(MIGRATION["migrate_json_source"](source), source, path)
+
+    def test_template_revisions_preserve_every_other_graph_value_and_component_body(
+        self,
+    ):
+        manifest = json.loads(
+            (
+                ROOT / "tests/contracts/interface-template-revisions-23cb115.json"
+            ).read_text()
+        )
+        self.assertEqual(len(manifest["files"]), 11)
+        self.assertEqual(sum(len(item["nodes"]) for item in manifest["files"]), 14)
+        for record in manifest["files"]:
+            graph = json.loads((ROOT / record["path"]).read_text())
+            nodes = graph.get("nodes", graph.get("data", {}).get("nodes", []))
+            for revision in record["nodes"]:
+                node = nodes[revision["index"]]
+                self.assertEqual(node.get("id"), revision["node_id"])
+                definition = node["data"]["node"]
+                code = definition["template"]["code"]["value"]
+                self.assertEqual(
+                    hashlib.sha256(code.encode()).hexdigest(),
+                    revision["source_after_sha256"],
+                )
+                self.assertEqual(
+                    CONTRACTS["source_digest"](code), revision["body_sha256"]
+                )
+                if revision["had_code_hash"]:
+                    self.assertEqual(
+                        definition["metadata"]["code_hash"],
+                        revision["source_after_sha256"][:12],
+                    )
+                    definition["metadata"]["code_hash"] = "C3_RELOCATED_COMPONENT_HASH"
+                definition["template"]["code"][
+                    "value"
+                ] = "C3_RELOCATED_COMPONENT_SOURCE"
+            encoded = json.dumps(
+                graph, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            self.assertEqual(
+                hashlib.sha256(encoded).hexdigest(),
+                record["unchanged_graph_values_sha256"],
+                record["path"],
+            )
 
     def test_defining_error_guard_follows_current_interface_sources(self):
         source = (ROOT / "tests/test_http_handler_boundaries.py").read_text()
