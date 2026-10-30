@@ -86,6 +86,11 @@ Retaining an uncertain clone staging directory is explicit: it must not be remov
 while its process may still use it. The staging owner uses TemporaryDirectory
 cleanup for the ordinary path and detaches its finalizer only when preserving
 that directory. This is one feature-owned lifetime object, not another Git runner.
+Retained `clone-*` directories remain under source state and count toward the
+same 128 MiB cache budget, including partial files. They are not automatically
+evicted: later source reads can refuse with `repository_limit_exceeded`. Do not
+remove retained staging until its owned process tree is confirmed stopped; no
+staging-reconciliation or removal button is provided by the current UI.
 
 Index/origin JSON shapes, replacement order, retained choices, labels, sort order,
 LF/CRLF byte identities and canonical latest behavior remain unchanged. Pydantic
