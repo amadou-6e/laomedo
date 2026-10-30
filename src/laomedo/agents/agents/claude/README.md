@@ -15,6 +15,12 @@ A container opens and closes per turn. Output correction resumes the native sess
 | `recover_interrupted(record)` | Reconcile exact recorded resources, without replaying execution. |
 | `_execute(...)` | Protected provider hook, currently a pipeline override awaiting consolidation. |
 
+Model Refresh, startup catalogue warming and Python preflight can all mirror the
+local login before their native control request. Their stage policies can exceed
+the graph's 75-second catalogue wait or a concurrent request's 65-second wait;
+caller timeout does not cancel discovery. See the authentication adapter's
+[timing and UI constraints](auth/README.md#discovery-preflight-and-startup-timing).
+
 Native `activity/` and authentication under `auth/` (where implemented) belong
 to this provider. `settings.py` owns protocol pins/configuration; `models.py`
 owns structured values where present. No empty auth/model modules are required
