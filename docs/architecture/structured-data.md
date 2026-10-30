@@ -44,11 +44,14 @@ bundle/publication/verified identity records under publication. `WorkSnapshot`,
 work selection and authorization evidence grouped without changing authority.
 Provider attempt/token/telemetry/runtime values remain with their Agent owners.
 
-The [complete large-block audit](structured-data-audit.md) records 47 migrated
-or reused production constructors and the reasons for retaining 37 dynamic,
-native-observation or existing model projections. It also covers nonproduction
-Python and the JavaScript/TypeScript inventory. These are explicit scope decisions,
-not a claim that every native event or historical lifecycle dictionary is typed.
+The [large-block audit](structured-data-audit.md) preserves the initial 84-row
+inventory:47 modeled/reused constructors and 37 retained dynamic, native-observation
+or existing model projections. Its subsequent-changes section records PR #233's
+two superseding Activity envelope conversions to the canonical ActivityProjection.
+That makes 49 modeled/reused and 35 retained within the original 84 rows; the raw
+nested observations remain unchanged. This is not a new repository-wide scan.
+The historical nonproduction Python and JavaScript/TypeScript inventories remain
+intact. None claims every native event or mutable lifecycle dictionary is typed.
 
 Sensitive model fields use `SecretStr`, are excluded from ordinary dumps and
 representations, and are unwrapped only by a deliberately named private-boundary

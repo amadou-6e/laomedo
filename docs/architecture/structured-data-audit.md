@@ -15,8 +15,24 @@ Python files by scope: `{"components": 12, "docker": 1, "examples": 41, "experim
 Large blocks by scope: `{"examples": 32, "experiments": 201, "production": 84, "tests": 87}`.
 Python parse errors: `0`.
 
-47 production constructors migrated or reused canonical models;
-37 retained with the explicit reasons below.
+## Historical initial inventory and subsequent changes
+
+The initial 84-row production disposition table below recorded 47 constructors
+migrated to or reusing canonical models and 37 retained. Its source locations and
+initial decisions are historical; they are not a statement that later follow-ups
+left every retention unchanged.
+
+PR #233 (`822239cff8b82729d9f8c0b286ca2b266bcd874e`) supersedes exactly two
+initial Retain decisions: `agents/activity/projection.py:361` and
+`agents/agents/opencode/activity/projection.py:386`. Both outward envelopes now
+use the shared canonical ActivityProjection in `agents/activity/models.py` and
+its explicit projection. Nested native items, usage points and cost observations
+retain their raw/partial shapes and references; no strict native-history reader
+or billing schema was introduced. The other original retention rows are unchanged
+by this follow-up. Within those original 84 rows, the updated disposition is49
+modeled/reused and 35 retained (verified as47+2 and 37-2), not a new repository-wide
+scan or a count of all models subsequently added. The original table stays intact
+to preserve the baseline decisions and locations.
 
 ## Production dispositions
 

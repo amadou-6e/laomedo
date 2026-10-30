@@ -80,7 +80,7 @@ composition-boundary exception: it may bind the base Agent implementation, while
 public interface contracts must remain independent of that implementation.
 Workspace tree hashing and source admission are Agent working-state responsibilities;
 reusable Git invocation belongs to the shared Git owner. The base's private-state
-repository detection remains in `agents/base/utils.py` during this increment.
+repository detection remains in `agents/agents/base/utils.py` during this increment.
 
 ## Module boundary and owning objects
 
@@ -117,8 +117,11 @@ Run-to-run handoff control through the public Agent interface belongs in
 `agents/orchestration/`. Graph-wired loops between Agent, PR, Skill or other nodes
 belong to the Langflow integration, including their scheduling and edge handling.
 
-`AgentWorkspace` is a behavioral object, not a namespace for filesystem helpers.
-It owns Agent-specific preparation, protected files, pinned skills and snapshots.
+`AgentWorkspace` is a behavioral preparation object, not a namespace for
+filesystem helpers. It currently owns source admission and preparation;
+BaseAgent retains restore/protected-state transitions and composes the focused
+baseline, cleanup and pinned-skill helpers under `agents/workspaces/`. Broader
+workspace lifecycle consolidation remains a target.
 It can use ordinary files or compose a `GitWorkingTree` managed by `GitRepository`.
 Do not introduce separate workspace subclasses solely for those storage choices.
 An abstract workspace base is warranted only if distinct behavioral contracts
@@ -142,7 +145,19 @@ Agent graph adapter is Langflow-specific and targets
 for the same implementation. This proposal does not claim a LangChain adapter
 already exists or add a new framework dependency.
 
-## Target structure
+## Deferred objects and target structure
+
+The tree and composition sketch below are design targets. `AcpRuntime`,
+`AgentRegistry`, `ArtifactStore`, `OutputValidator`, `OutputRequirements` and
+`OutputValidation` have not been extracted as those objects. Agent run persistence
+has no `agents/runs/` package or RunStore/RunRecord/RunReference API yet; BaseAgent
+still owns the file-backed lifecycle. Output validation remains the public
+`interface/output/utils.py` functions, while `ArtifactReference` is already a
+canonical value in `artifacts/models.py` and artifact effects remain functions.
+These future objects are not acceptance claims or requirements for a new provider
+to import nonexistent modules. Current supported interfaces are in leaf READMEs.
+The implemented Agent component is Langflow-specific; LangChain remains a separate
+optional future adapter.
 
 ```text
 laomedo/
@@ -265,12 +280,16 @@ Move the common behavior and migrate its callers together, deleting the replaced
 host-side Git command paths. Preserve actual standalone helper and installed-resource
 contracts. Add an import/command-ownership regression check for host-side Git so
 raw execution cannot quietly spread back into consumers. The check must not
-forbid or reroute normal Agent container Git tooling. This is a target design; none of
-these runtime migrations has been performed by editing this README.
+forbid or reroute normal Agent container Git tooling. Shared Git mechanics are
+implemented by the current Git objects; the deferred lifecycle and adapter
+objects above are not implied by that migration or by this README.
 
 ## Provider ownership
 
-Each provider has the same core responsibilities. Codex illustrates the layout:
+Each provider has the same target responsibilities. The following Codex layout
+illustrates the longer-term object extraction; it includes proposed files and
+objects, not an assertion that every leaf already exists. Read each provider's
+README for its current supported interface.
 
 ```text
 agents/agents/codex/
@@ -313,7 +332,7 @@ CodexAgent ----+
 ClaudeAgent --+-- inherit BaseAgent
 OpenCodeAgent-+
 
-BaseAgent uses:
+Target composition (not all collaborators exist yet):
   AgentWorkspace
   AcpRuntime
   RunStore
@@ -323,9 +342,11 @@ BaseAgent uses:
 ```
 
 `BaseAgent`, defined in `agents/agents/base/`, supplies the inherited common
-lifecycle for all providers and coordinates
-the other objects by composition. It does not absorb Git commands, SQLite
-operations, file copying or validation implementation into one large class.
+lifecycle for all providers. The target composes the additional deferred objects
+rather than absorbing Git commands, SQLite operations, file copying and
+validation implementations into one large class. The current lifecycle still
+uses its existing functions and file-backed records where those extractions
+have not occurred.
 
 Provider hooks cover authentication, launch policy, native model discovery,
 session lifetime, cancellation confirmation and native evidence. The final hook
@@ -356,10 +377,11 @@ blind redispatch.
 - The interface imports domain models, not base or provider implementations.
   It re-exports canonical models from their owning concern where necessary.
 - The Agent response contract is owned by `agents/interface/output/`.
-  `OutputRequirements` and `OutputValidation` are canonical definitions in that
-  package's `models.py`; `BaseAgent`, downstream components and publication
-  checks use the same `OutputValidator`. There is no sibling `agents/output/`
-  package or second validator. Graph-specific discovery of downstream
+  Its current defining API is `interface/output/utils.py`; BaseAgent,
+  downstream components and publication checks use these same functions.
+  OutputValidator/OutputRequirements/OutputValidation extraction and a canonical
+  `models.py` there remain future work. Any extraction must preserve one shared
+  contract; there is no sibling `agents/output/` package or second validator. Graph-specific discovery of downstream
   requirements stays in the Langflow integration outside the Agent module.
 - The base depends on those public data contracts and shared domain objects.
   Concrete providers depend on the base.

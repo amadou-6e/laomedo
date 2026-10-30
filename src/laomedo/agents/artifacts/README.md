@@ -1,8 +1,9 @@
 # Agent artifacts
 
 Retain and transfer explicitly selected output files between Agent runs. Current
-behavior is in `utils.py`; `ArtifactStore` and `ArtifactReference` remain target
-objects until extraction replaces those functions. GitHub publication policy is
+behavior is in `utils.py`; ArtifactStore remains a target object until extraction
+replaces those functions. ArtifactReference is already the canonical selected-file
+value in `models.py`, not an unimplemented storage object. GitHub publication policy is
 not an artifact-storage responsibility.
 
 `selections` validates the retained selection list; `relative_path` validates a
@@ -11,7 +12,7 @@ ownership, paths and size before copying. Read the actual utility signatures rat
 than treating these vocabulary terms as new implemented methods. Errors remain
 `ArtifactError` with unchanged codes and boundary behavior. Retaining files is not
 proof that the originating run or a remote publication completed.
-# Selected file values
+## Selected file values
 
 `ArtifactReference` in `models.py` groups the six already admitted manifest
 fields. Typed preparation and handoff values retain those objects until the

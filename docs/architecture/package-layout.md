@@ -8,66 +8,93 @@ is optional for Langflow/core and stage-worker installations. The pre-PyPI Git
 dependency and retained-receipt recovery are described in
 [Docker runtime adoption](docker-runtime-adoption.md#local-installation-and-recovery).
 The package root contains only `__init__.py` and `_paths.py`; there are no
-forwarding modules, import hooks or checkout bridge.
+flat legacy forwarding modules, import hooks or checkout bridge. Established
+public component entrypoints remain explicit delegates, described below.
+
+## Current ownership
+
+The following is the implemented package layout, not the longer-term Agent
+object target. Deeper files and method vocabulary are documented in each owner's
+README. Native model execution, browser workflows and user acceptance require
+their separate evidence; a package move does not establish those outcomes.
 
 ```text
 src/laomedo/
-|-- activity/
-|   |-- agent_activity/
-|   |-- claude/
-|   |-- opencode/
-|   `-- runner/
-|-- agents/
-|   |-- artifacts/
-|   |-- contracts/
-|   |-- feedback/
-|   |-- handoffs/
-|   |-- runtime/
-|   |-- workflow/
-|   |-- workspace/
-|   |-- providers/
-|   |   |-- codex/
-|   |   |   `-- resources/
-|   |   |-- claude/
-|   |   `-- opencode/
-|   `-- resources/
-|-- skills/
-|   |-- authoring/
-|   |-- ingestion/
-|   |-- inspection/
-|   |-- operations/
-|   |-- registry/
-|   |-- sources/
-|   |-- workspace/
-|   `-- resources/
+|-- agents/                         # Agent-specific concerns
+|   |-- agents/
+|   |   |-- base/                   # BaseAgent, canonical preparation records, acp/
+|   |   |-- codex/                  # Agent, controller, activity, split, resources
+|   |   |-- claude/                 # Agent, auth, activity, HTTP boundary
+|   |   `-- opencode/               # Agent, auth, activity, history, HTTP boundary
+|   |-- interface/
+|   |   |-- langflow/               # Actual Agent component adapter
+|   |   `-- output/                 # Existing response-contract functions
+|   |-- activity/                   # Shared capture/store/projection and runner feed
+|   |-- artifacts/                  # Canonical selected-file values and functions
+|   |-- orchestration/              # Agent handoffs
+|   `-- workspaces/                 # Agent admission, baseline, cleanup, skills/
+|-- git/                            # Reusable bounded native Git mechanics
+|   `-- credentials/                # Standalone standard-library helper
+|-- http/                           # Neutral redirect refusal
 |-- github/
-|   |-- issues/
-|   |-- pull_requests/
-|   `-- transport/
-|       |-- git/
-|       `-- rest/
+|   |-- contract.py                 # Shared admission/digest functions
+|   |-- interface/
+|   |   |-- issues/                 # Client, handler, server, settings, CLI
+|   |   `-- pull_requests/
+|   |-- issues/                     # Values, gateway, context reader and context CLI
+|   |-- pull_requests/              # Values, gateway and feedback
+|   |-- transport/
+|   |   |-- mediated.py             # Composes Git and REST delivery
+|   |   |-- git/                    # GitHub-specific branch/ref/publication policy
+|   |   `-- rest/
+|   `-- workflows/                  # Pure workflow-path classification
+|-- skills/
+|   |-- interface/
+|   |   |-- sources/                # Client, handler, server, settings, CLI
+|   |   `-- operations/
+|   |-- sources/                    # Coordinator, admitted local/Git sources, staging
+|   |-- registry/                   # Store/models, paths, files, hashing, policy, diff
+|   |-- operations/                 # Atomic edit/history service and canonical records
+|   |-- inspection/
+|   |-- authoring/
+|   `-- resources/
 |-- host/
-|   |-- credentials/
-|   |   |-- codex/
-|   |   |   `-- resources/
-|   |   |-- claude/
-|   |   |-- opencode/
-|   |   |-- siwc/
-|   |   `-- token/
+|   |-- credentials/                # Shared SIWC and host-token facilities
+|   |-- private_state/              # Shared private directory policy
 |   |-- leases/
 |   |-- mediation/
-|   |-- runner/
+|   |-- runner/                     # Managed local runner and HTTP composition
 |   `-- publication/
 |       |-- bundle/
 |       |-- handoff/
+|       |-- ingestion/              # Generic run-bound bundle ingress
 |       |-- verified/
 |       `-- resources/
 |-- integrations/
-|   `-- langflow/
+|   `-- langflow/                   # Cross-node routing and established app entrypoints
 |       |-- agent/
-|       `-- join/
+|       |-- feedback/
+|       |-- join/
+|       `-- output/
 `-- work_graph/
+    `-- runs/                       # WorkflowRunStore graph-side correlations
 ```
+
+Agent-only working-state helpers no longer live under Skills. Native provider
+authentication and activity interpretation live with their Agent. Generic bundle
+ingress belongs to host publication, not Skills; Git execution belongs to `git/`,
+while GitHub transports retain GitHub policy and authorization boundaries.
+
+The current framework adapter is **Langflow**. A future LangChain adapter would
+have a separate `agents/interface/langchain/` owner; no such adapter or dependency
+is implemented here. Likewise, `agents/runs/RunStore`, `AcpRuntime`, `AgentRegistry`,
+`ArtifactStore` and `OutputValidator` are proposed replacements, not current APIs.
+Agent file-backed run lifecycle still belongs to BaseAgent. It is distinct from
+the existing graph-side WorkflowRunStore. See the
+[Agent design](../../src/laomedo/agents/README.md) for those explicitly deferred
+objects, and the [Skills](../../src/laomedo/skills/README.md) and
+[GitHub](../../src/laomedo/github/README.md) concern interfaces for current names.
+
 
 Each implementation has one owner. The neutral lifecycle is
 `laomedo.agents.agents.base.agent.BaseAgent`; Codex execution is
@@ -116,11 +143,14 @@ one-time migration data, not runtime compatibility code.
 
 File migration splices changed JSON strings, preserving unrelated bytes,
 formatting, duplicate keys, Unicode, number spelling, BOM and line endings.
-Graph migration selects template code. It preserves `metadata.code_hash` and
-stored dependency metadata; it does not regenerate component-cache metadata.
-Generate current component templates/exports through Langflow or the graph's
-builder when refreshed metadata is required. Import migration alone does not
-certify those fields. Launcher fields are selected only at
+Graph migration selects template code and updates an existing recognized
+`metadata.code_hash` only when that code changes. The old value must be the
+matching twelve lowercase SHA-256 hex characters of the original UTF-8 code;
+the replacement is the same digest prefix for migrated code. Unknown formats
+or mismatched old hashes require manual migration. Unchanged code leaves its
+hash untouched, and absent hashes remain absent. Stored dependency metadata is
+preserved, not regenerated or certified; generate current templates/exports
+through Langflow or the graph builder when dependency metadata needs refreshing. Launcher fields are selected only at
 the root or in an explicit root `launcher` object. Unparseable retired imports
 require manual migration. `--check` exits 1 when changes are needed.
 Backup conflicts are checked before writing; replacement is atomic per file.
@@ -140,13 +170,16 @@ tests do not establish a live workflow.
 Package boundaries follow a feature's responsibilities and dependencies, with no
 fixed nesting depth. Repeated filename prefixes trigger an ownership review.
 Implementation files introduce classes or standalone functions, never both.
-Request-handler classes may be nested in their owning server constructor.
+Request-handler classes are module-level collaborators in focused handler files,
+bound to their owning server instance; never define a class inside a constructor
+or another function.
 Exceptions live in class-only `errors.py`. Helpers that belong to an object become
 methods; independent helpers stay in that feature's function-only `utils.py` or a
 focused module such as `serialization.py`. `settings.py` owns genuinely shared
 constants and mutable locks exactly once. Initializers expose only deliberate
-package APIs. Feature imports use explicit module owners; distinct dependencies
-must never rebind the same module alias.
+package APIs. Feature callers import the used symbol from its defining module,
+not a module alias used as a repeated prefix. Preserve actual lazy/optional import
+boundaries and use symbol aliases only for real name collisions.
 
 Use `settings.py`, not `constants.py`. Externally supplied feature configuration
 lives in a feature-owned Pydantic `Settings` object in that file, constructed at
@@ -171,7 +204,7 @@ Recurring values travel as canonical Pydantic models in the feature's `models.py
 | Owner | Models and purpose |
 | --- | --- |
 | agents/agents/base | RuntimeBinding groups provider-owned public record metadata |
-| agents/interface | RunnerRequest groups endpoint, payload and method; its projection preserves saved component HTTP interfaces |
+| agents/interface | AgentRequest groups the runner endpoint, payload and method; its projection preserves saved component HTTP interfaces |
 | work_graph | WorkItem, Dependency and GraphSnapshot retain immutable source identity, ordering and snapshot hashes |
 | skills/operations | FileEdit, SkillProposal and EditorProvenance carry a multi-file edit and authenticated editor context |
 | host/publication/verified | VerifiedStage carries the immutable verified bundle and its provenance |
@@ -239,8 +272,8 @@ component must be migrated with the one-time tool; custom methods and graph
 identities are retained. Regenerate templates when current dependency metadata is
 needed. Current source templates are distinct from historical execution evidence.
 
-Issue #205 covers this boundary. General helper decomposition, cross-feature HTTP/
-Git command execution now belongs to `git/`; `AgentWorkspace` composes its objects
+Issue #205 covers this boundary. Reusable Git command execution now belongs to
+`git/`; neutral HTTP redirect refusal belongs to `http/`; `AgentWorkspace` composes its objects
 for Agent admission, while GitHub workflow rules and host publication policy keep
 their own owners. Mediation server extraction and frontend feature directories
 remain separate follow-ups (#206 through #210).
