@@ -1,0 +1,492 @@
+{
+  "prepared_empty": {
+    "schema_version": 1,
+    "run_id": "55555555-5555-4555-8555-555555555555",
+    "status": "prepared",
+    "error_category": null,
+    "source_hash": "sha256:d548c45ae2553787ba3a75e1451206761d44fc7af6a705408d739ea7c20f62af",
+    "workspace_mode": "files",
+    "git_baseline": null,
+    "post_run_hash_scope": "all_files",
+    "effective_hash": "sha256:4c280bb1985a600faa2c33fe4645eb7e9a5599709c64826ae719cda090611c65",
+    "post_run_hash": null,
+    "input_hash": "sha256:43a3b9eb0abb6ad8403e3e6825775cf70aca1349ce5c2e367efc91f5ba942c77",
+    "skill": null,
+    "skills": [],
+    "skill_git_exclusion": {
+      "enabled": true,
+      "rules": [],
+      "exclude_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    "provider": "codex",
+    "handoff": null,
+    "imported_artifacts": [],
+    "requested_model": "test-model",
+    "requested_effort": "low",
+    "effective_model": null,
+    "effective_effort": null,
+    "profile": "laomedo-122-docker-auth",
+    "image": "laomedo-codex-acp:0.159.2-2.1.1",
+    "image_id": "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa",
+    "execution_mode": "codex_acp",
+    "cli_version": "codex-cli 0.159.2",
+    "config_sha256": "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4",
+    "credential": null,
+    "thread_id": null,
+    "runner_instance_id": "instance-id",
+    "turns": [],
+    "answer": null,
+    "output_ref": null,
+    "raw_event_ref": "laomedo:run:55555555-5555-4555-8555-555555555555:events",
+    "client_request_id": "request-id",
+    "activity_initial_attempt_id": "55555555-5555-4555-8555-555555555555",
+    "output_requirements": null,
+    "requirements_revision": null,
+    "output_retries": 1,
+    "precheck": {
+      "installed": false,
+      "call_count": 0
+    },
+    "request_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "cancel_requested": false,
+    "cancel_confirmed": false
+  },
+  "prepared_skill": {
+    "schema_version": 1,
+    "run_id": "55555555-5555-4555-8555-555555555555",
+    "status": "prepared",
+    "error_category": null,
+    "source_hash": "sha256:d548c45ae2553787ba3a75e1451206761d44fc7af6a705408d739ea7c20f62af",
+    "workspace_mode": "files",
+    "git_baseline": null,
+    "post_run_hash_scope": "all_files",
+    "effective_hash": "sha256:d09d8416d40576105589b631736ed0da6522984fe63e49f387375f6310d44b27",
+    "post_run_hash": null,
+    "input_hash": "sha256:43a3b9eb0abb6ad8403e3e6825775cf70aca1349ce5c2e367efc91f5ba942c77",
+    "skill": {
+      "skill_id": "sample",
+      "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+      "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+      "file_hashes": {
+        "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+      },
+      "delivery_mode": "project_discovery",
+      "use_evidence": "offered"
+    },
+    "skills": [
+      {
+        "skill_id": "sample",
+        "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+        "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+        "file_hashes": {
+          "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+        },
+        "delivery_mode": "project_discovery",
+        "use_evidence": "offered"
+      }
+    ],
+    "skill_git_exclusion": {
+      "enabled": true,
+      "rules": [
+        "/.agents/skills/sample/"
+      ],
+      "exclude_sha256": "efcb77f624d0a81e8008c201af4ec683768e4bc32ddf97b39f7ee4455222a7f8"
+    },
+    "provider": "codex",
+    "handoff": null,
+    "imported_artifacts": [],
+    "requested_model": "test-model",
+    "requested_effort": "low",
+    "effective_model": null,
+    "effective_effort": null,
+    "profile": "laomedo-122-docker-auth",
+    "image": "laomedo-codex-acp:0.159.2-2.1.1",
+    "image_id": "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa",
+    "execution_mode": "codex_acp",
+    "cli_version": "codex-cli 0.159.2",
+    "config_sha256": "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4",
+    "credential": null,
+    "thread_id": null,
+    "runner_instance_id": "instance-id",
+    "turns": [],
+    "answer": null,
+    "output_ref": null,
+    "raw_event_ref": "laomedo:run:55555555-5555-4555-8555-555555555555:events",
+    "client_request_id": "request-id",
+    "activity_initial_attempt_id": "55555555-5555-4555-8555-555555555555",
+    "output_requirements": null,
+    "requirements_revision": null,
+    "output_retries": 1,
+    "precheck": {
+      "installed": false,
+      "call_count": 0
+    },
+    "request_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "cancel_requested": false,
+    "cancel_confirmed": false
+  },
+  "references": [
+    {
+      "input": {
+        "schema_version": 1,
+        "run_id": "55555555-5555-4555-8555-555555555555",
+        "status": "prepared",
+        "error_category": null,
+        "source_hash": "sha256:d548c45ae2553787ba3a75e1451206761d44fc7af6a705408d739ea7c20f62af",
+        "workspace_mode": "files",
+        "git_baseline": null,
+        "post_run_hash_scope": "all_files",
+        "effective_hash": "sha256:d09d8416d40576105589b631736ed0da6522984fe63e49f387375f6310d44b27",
+        "post_run_hash": null,
+        "input_hash": "sha256:43a3b9eb0abb6ad8403e3e6825775cf70aca1349ce5c2e367efc91f5ba942c77",
+        "skill": {
+          "skill_id": "sample",
+          "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+          "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+          "file_hashes": {
+            "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+          },
+          "delivery_mode": "project_discovery",
+          "use_evidence": "offered"
+        },
+        "skills": [
+          {
+            "skill_id": "sample",
+            "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+            "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+            "file_hashes": {
+              "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+            },
+            "delivery_mode": "project_discovery",
+            "use_evidence": "offered"
+          }
+        ],
+        "skill_git_exclusion": {
+          "enabled": true,
+          "rules": [
+            "/.agents/skills/sample/"
+          ],
+          "exclude_sha256": "efcb77f624d0a81e8008c201af4ec683768e4bc32ddf97b39f7ee4455222a7f8"
+        },
+        "provider": "codex",
+        "handoff": null,
+        "imported_artifacts": [],
+        "requested_model": "test-model",
+        "requested_effort": "low",
+        "effective_model": null,
+        "effective_effort": null,
+        "profile": "laomedo-122-docker-auth",
+        "image": "laomedo-codex-acp:0.159.2-2.1.1",
+        "image_id": "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa",
+        "execution_mode": "codex_acp",
+        "cli_version": "codex-cli 0.159.2",
+        "config_sha256": "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4",
+        "credential": null,
+        "thread_id": null,
+        "runner_instance_id": "instance-id",
+        "turns": [],
+        "answer": null,
+        "output_ref": null,
+        "raw_event_ref": "laomedo:run:55555555-5555-4555-8555-555555555555:events",
+        "client_request_id": "request-id",
+        "activity_initial_attempt_id": "55555555-5555-4555-8555-555555555555",
+        "output_requirements": null,
+        "requirements_revision": null,
+        "output_retries": 1,
+        "precheck": {
+          "installed": false,
+          "call_count": 0
+        },
+        "request_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "cancel_requested": false,
+        "cancel_confirmed": false
+      },
+      "expected": {
+        "answer": null,
+        "run_id": "55555555-5555-4555-8555-555555555555",
+        "request_id": "request-id",
+        "invocation_id": null,
+        "laomedo_run_id": null,
+        "trace_id": null,
+        "evidence_complete": "unknown",
+        "completion_basis": null,
+        "requirements_revision": null,
+        "precheck": {
+          "installed": false,
+          "call_count": 0
+        },
+        "provider": "codex",
+        "handoff": null,
+        "imported_artifacts": [],
+        "thread_id": null,
+        "status": "prepared",
+        "post_run_hash": null,
+        "model": "test-model",
+        "effort": "low",
+        "skill_revision": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+        "skill_use_evidence": "offered",
+        "skills": [
+          {
+            "skill_id": "sample",
+            "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+            "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+            "file_hashes": {
+              "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+            },
+            "delivery_mode": "project_discovery",
+            "use_evidence": "offered"
+          }
+        ],
+        "artifact_ref": null,
+        "trace_ref": "laomedo:run:55555555-5555-4555-8555-555555555555:events",
+        "error_category": null,
+        "attempt_finished": false,
+        "snapshot_ready": false,
+        "cancel_requested": false,
+        "usage": "unknown"
+      }
+    },
+    {
+      "input": {
+        "run_id": "run",
+        "provider": null,
+        "precheck": {
+          "installed": "true",
+          "call_count": true
+        },
+        "evidence_complete": 1,
+        "usage": [],
+        "skill": {
+          "revision_id": "revision",
+          "use_evidence": false
+        }
+      },
+      "expected": {
+        "answer": null,
+        "run_id": "run",
+        "request_id": null,
+        "invocation_id": null,
+        "laomedo_run_id": null,
+        "trace_id": null,
+        "evidence_complete": "unknown",
+        "completion_basis": null,
+        "requirements_revision": null,
+        "precheck": {
+          "installed": "unknown",
+          "call_count": "unknown"
+        },
+        "provider": "codex",
+        "handoff": null,
+        "imported_artifacts": [],
+        "thread_id": null,
+        "status": null,
+        "post_run_hash": null,
+        "model": null,
+        "effort": null,
+        "skill_revision": "revision",
+        "skill_use_evidence": false,
+        "skills": [
+          {
+            "revision_id": "revision",
+            "use_evidence": false
+          }
+        ],
+        "artifact_ref": null,
+        "trace_ref": null,
+        "error_category": null,
+        "attempt_finished": false,
+        "snapshot_ready": false,
+        "cancel_requested": false,
+        "usage": "unknown"
+      }
+    },
+    {
+      "input": {
+        "run_id": "run",
+        "precheck": {
+          "installed": true,
+          "call_count": 2
+        },
+        "usage": {
+          "tokens": 3
+        },
+        "evidence_complete": false
+      },
+      "expected": {
+        "answer": null,
+        "run_id": "run",
+        "request_id": null,
+        "invocation_id": null,
+        "laomedo_run_id": null,
+        "trace_id": null,
+        "evidence_complete": false,
+        "completion_basis": null,
+        "requirements_revision": null,
+        "precheck": {
+          "installed": true,
+          "call_count": 2
+        },
+        "provider": "codex",
+        "handoff": null,
+        "imported_artifacts": [],
+        "thread_id": null,
+        "status": null,
+        "post_run_hash": null,
+        "model": null,
+        "effort": null,
+        "skill_revision": null,
+        "skill_use_evidence": "unknown",
+        "skills": [],
+        "artifact_ref": null,
+        "trace_ref": null,
+        "error_category": null,
+        "attempt_finished": false,
+        "snapshot_ready": false,
+        "cancel_requested": false,
+        "usage": {
+          "tokens": 3
+        }
+      }
+    }
+  ],
+  "join": {
+    "input": {
+      "client_request_id": "request",
+      "runner_request_hash": "hash",
+      "runner_run_id": "native-run",
+      "run_id": "graph-run",
+      "trace_id": "trace",
+      "invocation_id": "invocation",
+      "runner_provider": null,
+      "runner_raw_event_ref": "event-ref",
+      "status": "running",
+      "native_status": "cancelled",
+      "cancel_confirmed": false,
+      "native_record": {
+        "schema_version": 1,
+        "run_id": "55555555-5555-4555-8555-555555555555",
+        "status": "prepared",
+        "error_category": null,
+        "source_hash": "sha256:d548c45ae2553787ba3a75e1451206761d44fc7af6a705408d739ea7c20f62af",
+        "workspace_mode": "files",
+        "git_baseline": null,
+        "post_run_hash_scope": "all_files",
+        "effective_hash": "sha256:d09d8416d40576105589b631736ed0da6522984fe63e49f387375f6310d44b27",
+        "post_run_hash": null,
+        "input_hash": "sha256:43a3b9eb0abb6ad8403e3e6825775cf70aca1349ce5c2e367efc91f5ba942c77",
+        "skill": {
+          "skill_id": "sample",
+          "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+          "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+          "file_hashes": {
+            "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+          },
+          "delivery_mode": "project_discovery",
+          "use_evidence": "offered"
+        },
+        "skills": [
+          {
+            "skill_id": "sample",
+            "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+            "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+            "file_hashes": {
+              "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+            },
+            "delivery_mode": "project_discovery",
+            "use_evidence": "offered"
+          }
+        ],
+        "skill_git_exclusion": {
+          "enabled": true,
+          "rules": [
+            "/.agents/skills/sample/"
+          ],
+          "exclude_sha256": "efcb77f624d0a81e8008c201af4ec683768e4bc32ddf97b39f7ee4455222a7f8"
+        },
+        "provider": "codex",
+        "handoff": null,
+        "imported_artifacts": [],
+        "requested_model": "test-model",
+        "requested_effort": "low",
+        "effective_model": null,
+        "effective_effort": null,
+        "profile": "laomedo-122-docker-auth",
+        "image": "laomedo-codex-acp:0.159.2-2.1.1",
+        "image_id": "sha256:d3f53de292540a8e412aa34a43a975b467df2d21aa6bba290cee11956edc03aa",
+        "execution_mode": "codex_acp",
+        "cli_version": "codex-cli 0.159.2",
+        "config_sha256": "a14cd7e8abb4216b16d29e55809c2c3c9a9c33cc0196fd459fc033aaaa1ea4c4",
+        "credential": null,
+        "thread_id": null,
+        "runner_instance_id": "instance-id",
+        "turns": [],
+        "answer": null,
+        "output_ref": null,
+        "raw_event_ref": "laomedo:run:55555555-5555-4555-8555-555555555555:events",
+        "client_request_id": "request-id",
+        "activity_initial_attempt_id": "55555555-5555-4555-8555-555555555555",
+        "output_requirements": null,
+        "requirements_revision": null,
+        "output_retries": 1,
+        "precheck": {
+          "installed": false,
+          "call_count": 0
+        },
+        "request_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "cancel_requested": false,
+        "cancel_confirmed": false
+      }
+    },
+    "expected": {
+      "client_request_id": "request",
+      "request_hash": "hash",
+      "run_id": "native-run",
+      "laomedo_run_id": "graph-run",
+      "trace_id": "trace",
+      "invocation_id": "invocation",
+      "provider": "codex",
+      "raw_event_ref": "event-ref",
+      "status": "incomplete",
+      "native_status": "cancelled",
+      "cancel_requested": false,
+      "cancel_confirmed": false,
+      "executing_graph_verified": false,
+      "answer": null,
+      "activity_initial_attempt_id": "55555555-5555-4555-8555-555555555555",
+      "activity_attempt_id": null,
+      "attempt_finished": false,
+      "snapshot_ready": false,
+      "thread_id": null,
+      "post_run_hash": null,
+      "requested_model": "test-model",
+      "requested_effort": "low",
+      "skill": {
+        "skill_id": "sample",
+        "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+        "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+        "file_hashes": {
+          "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+        },
+        "delivery_mode": "project_discovery",
+        "use_evidence": "offered"
+      },
+      "skills": [
+        {
+          "skill_id": "sample",
+          "revision_id": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+          "tree_hash": "sha256:b071fbc908d6e636df6dfa2bc71353271640d3e9c76d27ac0579fbf062256baf",
+          "file_hashes": {
+            "SKILL.md": "sha256:eeee95528b95a72da2675f4dfd071b880694adf8c99444cd8a878a8b7573d389"
+          },
+          "delivery_mode": "project_discovery",
+          "use_evidence": "offered"
+        }
+      ],
+      "output_ref": null,
+      "handoff": null,
+      "imported_artifacts": [],
+      "usage": null,
+      "error_category": null
+    }
+  }
+}

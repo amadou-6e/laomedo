@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from uuid import uuid4
 from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.agents.orchestration.models import AgentHandoff, HandoffPrior, HandoffSkillReference, HandoffSource, HandoffTarget
+from laomedo.agents.artifacts.models import ArtifactReference
 import re
 
 
@@ -76,25 +77,23 @@ def envelope(
             (s.get("skill_id"), s.get("revision_id")) for s in prior_skills
         ] != [(s["skill_id"], s["revision_id"]) for s in clean_skills]:
             raise HandoffError("resume_skill_binding_mismatch")
-    return {
-        "schema_version": 1,
-        "execution_id": execution_id or str(uuid4()),
-        "step": step,
-        "source": (
+    return AgentHandoff(
+        execution_id=execution_id or str(uuid4()),
+        step=step,
+        source=(
             None
             if source is None
-            else {"provider": source.get("provider"), "run_id": source.get("run_id")}
+            else HandoffSource(provider=source.get("provider"), run_id=source.get("run_id"))
         ),
-        "target": deepcopy(target),
-        "task": task,
-        "skill_refs": clean_skills,
-        "workspace_policy": "resume_bound" if operation == "resume" else "independent",
-        "operation": operation,
-        "artifacts": selected,
-        "prior": (
+        target=HandoffTarget(**target), task=task,
+        skill_refs=[HandoffSkillReference(**skill) for skill in clean_skills],
+        workspace_policy="resume_bound" if operation == "resume" else "independent",
+        operation=operation,
+        artifacts=[ArtifactReference(**artifact) for artifact in selected],
+        prior=(
             None
             if operation == "fresh"
-            else {
+            else HandoffPrior(**{
                 k: source[k]
                 for k in (
                     "provider",
@@ -104,6 +103,6 @@ def envelope(
                     "model",
                     "effort",
                 )
-            }
+            })
         ),
-    }
+    ).to_payload()

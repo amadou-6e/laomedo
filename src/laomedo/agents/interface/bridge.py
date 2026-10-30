@@ -1,6 +1,7 @@
 """Local-only synchronous runner adapter; timeout outcomes are uncertain."""
 
 from pathlib import Path
+from laomedo.agents.interface.models import AgentDispatchResult
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import Request
@@ -230,18 +231,7 @@ class HttpAgentBridge:
                 if raw.get("status") in {"prepared", "running"}:
                     time.sleep(min(0.05, max(0, deadline - time.monotonic())))
         # Deliberately omit profile, auth, host paths and raw transcript contents.
-        return {
-            "provider": provider,
-            "run_id": raw["run_id"],
-            "thread_id": raw.get("thread_id"),
-            "status": raw.get("status"),
-            "answer": raw.get("answer"),
-            "post_run_hash": raw.get("post_run_hash"),
-            "model": raw.get("requested_model"),
-            "effort": raw.get("requested_effort"),
-            "skills": raw.get("skills"),
-            "error_category": raw.get("error_category"),
-        }
+        return AgentDispatchResult.from_result(raw, provider=provider).to_payload()
 
     def status(self, provider, run_id):
         """Read one exact native run without returning its task or transcript."""

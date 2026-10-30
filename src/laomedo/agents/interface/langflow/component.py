@@ -1,5 +1,6 @@
 """Provider-neutral graph lifecycle, request identity and runner HTTP boundary."""
 
+from laomedo.agents.interface.models import AgentRunReference, AgentSubmission
 import asyncio
 import hashlib
 import json
@@ -808,37 +809,8 @@ class AgentComponent(Component):
         return self._run_reference(result)
 
     def _run_reference(self, result):
-        skill = result.get("skill") or {}
-        skills = result.get("skills") or ([skill] if skill else [])
-        return {"answer": result.get("answer"), "run_id": result["run_id"],
-            "request_id": result.get("client_request_id"),
-            "invocation_id": result.get("invocation_id"),
-            "laomedo_run_id": result.get("laomedo_run_id"),
-            "trace_id": result.get("trace_id"),
-            "evidence_complete": (result.get("evidence_complete") if
-                                  type(result.get("evidence_complete")) is bool else "unknown"),
-            "completion_basis": result.get("completion_basis"),
-            "requirements_revision": result.get("requirements_revision"),
-            "precheck": {key: (result.get("precheck", {}).get(key) if
-                         isinstance(result.get("precheck"), dict) and
-                         (type(result["precheck"].get(key)) is bool if key != "call_count"
-                          else type(result["precheck"].get(key)) is int and
-                          result["precheck"][key] >= 0) else "unknown")
-                         for key in ("installed", "call_count")},
-            "provider": result.get("provider") or self.provider_id,
-            "handoff": result.get("handoff"), "imported_artifacts": result.get("imported_artifacts", []),
-            "thread_id": result.get("thread_id"), "status": result.get("status"),
-            "post_run_hash": result.get("post_run_hash"),
-            "model": result.get("requested_model"), "effort": result.get("requested_effort"),
-            "skill_revision": skill.get("revision_id"),
-            "skill_use_evidence": skill.get("use_evidence", "unknown"),
-            "skills": skills,
-            "artifact_ref": result.get("output_ref"), "trace_ref": result.get("raw_event_ref"),
-            "error_category": result.get("error_category"),
-            "attempt_finished": result.get("attempt_finished", False),
-            "snapshot_ready": result.get("snapshot_ready", False),
-            "cancel_requested": result.get("cancel_requested", False),
-            "usage": result.get("usage") if isinstance(result.get("usage"), dict) else "unknown"}
+        """Project retained runner evidence through the canonical graph contract."""
+        return AgentRunReference.from_runner_status(result, provider=self.provider_id).to_payload()
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
@@ -932,16 +904,13 @@ class AgentComponent(Component):
         # Even an explicit claim of success cannot promote an incomplete executor.
         if outcome == "success" and reference.get("status") != "completed":
             outcome = "unknown"
-        value = {"schema_version": "laomedo.agent-submission.v1",
-                 "submission": submission, "answer": answer,
-                 "requirements_revision": reference.get("requirements_revision"),
-                 "precheck": reference.get("precheck", {"installed": "unknown",
-                                                       "call_count": "unknown"}),
-                 "task_outcome": outcome,
-                 "executor_status": reference.get("status") or "unknown",
-                 "evidence_complete": reference.get("evidence_complete", "unknown"),
-                 "run_reference": reference,
-                 "error_category": reference.get("error_category")}
+        value = AgentSubmission(
+            submission=submission, answer=answer, requirements_revision=reference.get("requirements_revision"),
+            precheck=reference.get("precheck", {"installed": "unknown", "call_count": "unknown"}),
+            task_outcome=outcome, executor_status=reference.get("status") or "unknown",
+            evidence_complete=reference.get("evidence_complete", "unknown"), run_reference=reference,
+            error_category=reference.get("error_category"),
+        ).to_payload()
         from copy import deepcopy
         self._contract_submission = deepcopy(value)
         self.status = "Laomedo outcome: " + value["executor_status"]
