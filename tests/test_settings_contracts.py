@@ -170,7 +170,6 @@ class SettingsContractTests(unittest.TestCase):
             "host/runner/utils.py": "os.environ.items()",
             "git/command.py": "os.environ.items()",
             "agents/agents/claude/auth/utils.py": "os.environ if environment is None",
-            "skills/sources/service.py": "os.environ.items()",
             "host/publication/cli.py": "key in os.environ",
             "github/interface/issues/cli.py": "os.environ.get(args.github_token_env)",
             "github/interface/pull_requests/cli.py": "os.environ.get(args.github_token_env)",
@@ -178,6 +177,11 @@ class SettingsContractTests(unittest.TestCase):
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
+        # D2 moves the source envelope to GitCommandRunner. Its actual allowlist
+        # and argv are covered by SourceBoundaryTests; no source helper owns a
+        # second ambient environment reader.
+        for path in (SOURCE / "skills/sources").glob("*.py"):
+            self.assertNotIn("os.environ", path.read_text(encoding="utf-8"), str(path))
         claude = (SOURCE / "agents/agents/claude/container.py").read_text(
             encoding="utf-8"
         )
@@ -225,6 +229,16 @@ class ErrorContractTests(unittest.TestCase):
                     if cls.__name__ == "PushOutcomeUnknown":
                         error = cls("timeout", None)
                         code = "push_outcome_unknown"
+                    elif cls.__name__ in {
+                        "GitCommandLimitExceeded",
+                        "GitCommandCleanupError",
+                    }:
+                        error = cls()
+                        code = {
+                            "GitCommandLimitExceeded": "git_command_limit_exceeded",
+                            "GitCommandCleanupError": "git_command_cleanup_unverified",
+                        }[cls.__name__]
+                        self.assertFalse(error.cleanup_verified)
                     else:
                         code = "existing_category"
                         error = cls(code)
