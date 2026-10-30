@@ -36,3 +36,12 @@ write one protected, inheritable current-user ACE, then verifies it independentl
 It never takes ownership or repairs an existing leaf's ACL. pywin32 is already
 Docker's Windows transport dependency and is declared directly in the runner
 extra; no handwritten ctypes ABI or localized ACL parser is retained.
+
+If restricting or verifying a newly created leaf fails, that leaf remains and
+later calls only verify it. This module never repairs an existing directory's
+permissions automatically. Before removing an empty failed leaf, establish that
+no copy is active and that it contains no pending receipt or other state.
+
+Windows admission requires the owner to be the current user's SID. Elevated
+sessions that create group-owned directories have not been validated and can
+fail closed; the filesystem evidence covers the regular local user only.
