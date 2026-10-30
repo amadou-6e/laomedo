@@ -470,14 +470,14 @@
     "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
   },
   "lease_service_unavailable": {
-    "title": "The runner runtime is unavailable",
-    "description": "The runtime or its supervision service could not complete the requested execution.",
-    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+    "title": "Local supervision could not be confirmed",
+    "description": "The runner could not establish the required local supervision for this operation. The specific cause is not confirmed.",
+    "recovery": "Check the local runner diagnostics. If an earlier run exists, check its Status before starting new work."
   },
   "lease_service_lost": {
-    "title": "The runner runtime is unavailable",
-    "description": "The runtime or its supervision service could not complete the requested execution.",
-    "recovery": "Ask the operator to inspect runtime and supervision health. Check whether an existing run remains active before starting new work."
+    "title": "Local supervision was lost",
+    "description": "The runner lost confirmation from its local supervision service. This does not establish whether existing work has stopped.",
+    "recovery": "Keep the run reference and error details. Check Status and the local runner diagnostics before starting new work."
   },
   "unsupported_codex_cli_version": {
     "title": "The runtime does not match its approved configuration",
@@ -1295,9 +1295,9 @@
     "recovery": "Ask the operator to complete or refresh sign-in in the dedicated OpenCode runner profile, then refresh Provider/Model in the node. Never paste credentials into the graph. Check existing runs before another request."
   },
   "opencode_container_cleanup_unverified": {
-    "title": "OpenCode controller cleanup is unconfirmed",
-    "description": "The runner could not confirm that its owned controller was fully removed.",
-    "recovery": "Check the existing run with Status on its original runner. Ask the operator to reconcile any active controller before starting another request; do not assume the remote work has stopped."
+    "title": "OpenCode cleanup is unconfirmed",
+    "description": "The runner could not confirm cleanup of every container and receipt owned by this operation.",
+    "recovery": "Keep the error details and confirm local cleanup in the runner diagnostics before starting new work. If a run reference exists, use Status to check it first."
   },
   "opencode_controller_not_ready": {
     "title": "The OpenCode controller did not become ready",
@@ -1305,9 +1305,9 @@
     "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
   },
   "opencode_controller_startup_failed": {
-    "title": "The OpenCode controller stopped during startup",
-    "description": "The dedicated controller exited before its API was ready.",
-    "recovery": "Ask the operator to inspect the local runner configuration and service log. Do not change credentials or runtime identifiers in the graph, or start another request until any existing execution is accounted for."
+    "title": "OpenCode startup could not be confirmed",
+    "description": "The local runner could not complete OpenCode startup or model discovery. This error does not establish why startup failed.",
+    "recovery": "Keep the error details and check the local runner diagnostics before starting new work. If a run reference exists, use Status to check it first."
   },
   "opencode_credential_binding_key_invalid": {
     "title": "The runner cannot verify its sign-in binding",

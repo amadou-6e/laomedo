@@ -42,7 +42,7 @@ that object internally; its `runtime_identity` property calls `to_payload()` onl
 for the existing provider fingerprint boundary. Profile identity read from legacy
 JSON retains its admitted shape. The fingerprint is metadata, never a login token.
 
-## Exact resource closure (implementation target)
+## Exact resource closure
 
 The backend and broker register exact allocated receipt paths before dispatch.
 `close()` stops admission, closes the controller, drains the broker, reconciles

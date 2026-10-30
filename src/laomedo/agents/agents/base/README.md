@@ -44,7 +44,7 @@ existing mutable dictionary lifecycle. The new model is a writer, not a strict
 reader for later provider-specific extensions. It performs no filesystem or model
 effects. Native/raw records are not silently coerced into a closed new schema.
 
-## Private failure observations (implementation target)
+## Private failure observations
 
 `models.py` also owns private values, not only public bindings. `FailureObservation`
 contains allowlisted stage/code/SDK metadata; `AttemptFailureRecord` groups the

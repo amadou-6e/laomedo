@@ -1,6 +1,8 @@
 """Internal controls for safe failure facts, not live runner acceptance."""
 
+import ast
 import json
+from importlib.util import find_spec
 from pathlib import Path
 import tempfile
 import threading
@@ -8,7 +10,9 @@ import unittest
 from unittest.mock import Mock, patch
 
 from pydantic import ValidationError
-from py_docker.errors import CleanupUnconfirmedError, DockerOperationError
+
+if find_spec("py_docker"):
+    from py_docker.errors import CleanupUnconfirmedError, DockerOperationError
 
 from laomedo.agents.agents.base.models import AttemptFailureRecord, FailureObservation
 from laomedo.agents.agents.base.utils import failure_observation, write_attempt_failure
@@ -34,6 +38,7 @@ class UnsafeFailure:
 class RuntimeFailureObservationTests(unittest.TestCase):
     """Exercise redaction and compatibility without creating Docker clients."""
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional runner SDK")
     def test_sdk_primary_is_preserved_without_receipt_or_message(self):
         error = CleanupUnconfirmedError(
             "confirm owned container cleanup",
@@ -46,6 +51,7 @@ class RuntimeFailureObservationTests(unittest.TestCase):
         self.assertNotIn("receipt", value.model_dump())
         self.assertEqual(failure_observation(UnsafeFailure()).code, None)
 
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional runner SDK")
     def test_syntax_valid_unknown_operation_is_omitted(self):
         value = failure_observation(DockerOperationError("secret_token_123"))
         self.assertIsNone(value.operation)
@@ -76,14 +82,22 @@ class RuntimeFailureObservationTests(unittest.TestCase):
         self.assertEqual(value.final_category, "container_termination_unverified")
 
     def test_fixed_path_codes_are_not_dropped(self):
-        for code in (
-            "opencode_transport_cleanup_failed",
-            "executor_termination_unverified",
-            "workspace_copy_mismatch",
-            "outstanding_command_completion_unknown",
-        ):
+        owners = {
+            "opencode_transport_cleanup_failed": "agents/agents/opencode/agent.py",
+            "executor_termination_unverified": "agents/agents/codex/split/executor.py",
+            "workspace_copy_mismatch": "agents/workspaces/utils.py",
+            "outstanding_command_completion_unknown": "agents/agents/codex/agent.py",
+        }
+        for code, owner in owners.items():
             with self.subTest(code=code):
                 self.assertEqual(failure_observation(code=code).code, code)
+                source = Path(__file__).resolve().parents[1] / "src/laomedo" / owner
+                values = {
+                    node.value
+                    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8")))
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                }
+                self.assertIn(code, values)
         self.assertIsNone(failure_observation(code="codex_arbitrary_native_error").code)
 
     def test_private_writer_failure_cannot_raise(self):
@@ -160,6 +174,59 @@ class LeaseLossObservationTests(unittest.TestCase):
             ).age_seconds,
             4.0,
         )
+
+    def test_each_existing_health_predicate_retains_only_its_first_reason(self):
+        cases = [
+            (None, 100.0, {"instance": "instance"}, "wall_heartbeat_unavailable", None),
+            (
+                100.0,
+                None,
+                {"instance": "instance"},
+                "monotonic_heartbeat_unavailable",
+                None,
+            ),
+            (
+                100.0,
+                102.0,
+                {"instance": "instance"},
+                "monotonic_heartbeat_future",
+                -2.0,
+            ),
+            (100.0, 96.0, {"instance": "instance"}, "monotonic_heartbeat_stale", 4.0),
+            (96.0, 100.0, {"instance": "instance"}, "wall_heartbeat_stale", 4.0),
+            (100.0, 100.0, None, "service_record_unavailable", None),
+            (100.0, 100.0, {"instance": "other"}, "service_instance_changed", None),
+        ]
+        for wall, monotonic, record, reason, age in cases:
+            with (
+                self.subTest(reason=reason),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                client = self.make_client(directory)
+                cancelled = threading.Event()
+                with (
+                    patch(
+                        "laomedo.host.leases.client._leases_utils._read_float",
+                        side_effect=[wall, monotonic],
+                    ),
+                    patch(
+                        "laomedo.host.leases.client._leases_utils._read_json",
+                        return_value=record,
+                    ),
+                    patch(
+                        "laomedo.host.leases.client.time.monotonic", return_value=100.0
+                    ),
+                    patch("laomedo.host.leases.client.time.time", return_value=100.0),
+                ):
+                    client._check_service(cancelled)
+                self.assertTrue(client.lost.is_set())
+                self.assertTrue(cancelled.is_set())
+                self.assertEqual(client.loss.reason, reason)
+                self.assertEqual(client.loss.age_seconds, age)
+                self.assertEqual(
+                    json.loads((Path(directory) / "loss.json").read_text()),
+                    client.loss.to_record(),
+                )
 
     def test_finish_keeps_verified_result_before_loss_rejection(self):
         with tempfile.TemporaryDirectory() as directory:

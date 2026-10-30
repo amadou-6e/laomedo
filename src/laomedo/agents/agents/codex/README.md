@@ -28,12 +28,13 @@ Successful execution, capture completeness and cleanup confirmation remain
 separate facts. Existing stable error codes and persisted records do not change
 with the Python object name.
 
-## Failure finalization (implementation target)
+## Failure finalization
 
 Every noncompleted attempt, including early cancellation returns, retains a
-private `AttemptFailureRecord` after ordinary run/attempt writes. Its first code
-is `lease_service_lost` whenever supervision loss is set, never an inferred user
-cancel. The first `LeaseLossObservation` (or unavailable reason) remains in the
+private `AttemptFailureRecord` after ordinary run/attempt writes. A terminal
+cancellation with supervision loss is attributed to `lease_service_lost` when no
+earlier failure was observed. Later supervision loss never replaces an earlier
+SDK or execution failure. The first `LeaseLossObservation` (or unavailable reason) remains in the
 exact private lease directory, correlated through existing ownership; no public
 payload extension is introduced. Unknown dynamic codes are deliberately omitted.
 

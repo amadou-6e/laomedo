@@ -46,6 +46,54 @@ def producer_path(filename):
 
 
 class NodeErrorCatalogueTests(unittest.TestCase):
+    def test_affected_runtime_failures_have_neutral_recovery_and_producer_coverage(
+        self,
+    ):
+        catalogue = json.loads(
+            (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        affected = {
+            "opencode_controller_startup_failed",
+            "opencode_container_cleanup_unverified",
+            "lease_service_unavailable",
+            "lease_service_lost",
+        }
+        paths = [
+            ROOT / "src/laomedo/agents/agents/opencode/boundary.py",
+            ROOT / "src/laomedo/agents/agents/codex/agent.py",
+        ]
+        produced = set()
+        for path in paths:
+            produced.update(
+                node.args[0].value
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "RunnerError"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            )
+        self.assertFalse(affected - produced)
+        for code in affected:
+            with self.subTest(code=code):
+                entry = catalogue[code]
+                self.assertEqual(set(entry), {"title", "description", "recovery"})
+                self.assertTrue(
+                    all(type(text) is str and text.strip() for text in entry.values())
+                )
+                text = " ".join(entry.values())
+                self.assertNotRegex(
+                    text.lower(),
+                    r"\boperator\b|api was ready|controller exited|stopped during startup",
+                )
+                self.assertIn("Status", entry["recovery"])
+                self.assertNotRegex(
+                    text.lower(), r"\bretry\b|\brestart\b|\breinstall\b|\blog ?in\b"
+                )
+
     def test_join_body_refusal_is_descriptive_and_preserves_earlier_run_uncertainty(
         self,
     ):

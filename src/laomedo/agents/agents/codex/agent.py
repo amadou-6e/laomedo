@@ -32,6 +32,7 @@ from uuid import uuid4
 import hashlib
 import asyncio
 import logging
+import sys
 import json
 from laomedo.agents.interface.output.utils import evaluate
 from laomedo.agents.errors import RunnerError
@@ -39,11 +40,15 @@ from laomedo.agents.agents.codex.controller.service import CodexController
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.base.utils import failure_observation, write_attempt_failure
+from laomedo.agents.agents.base.models import AttemptFailureRecord
+from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.host.credentials.siwc.utils import _outside_git
 from laomedo.host.leases.client import LeaseClient
 from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.models import LeaseCleanupObservation
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.skills.workspace.utils import verify
@@ -635,6 +640,7 @@ class CodexAgent(BaseAgent):
         launch_attempted = False
         activity_start = None
         activity_attempt = None
+        primary_failure = cleanup_failure = None
         try:
             run_dir = self._run_dir(run_id)
             with self.control_lock:
@@ -1061,6 +1067,9 @@ class CodexAgent(BaseAgent):
             if lease is not None and lease.lost.is_set():
                 raise RunnerError("lease_service_lost")
         except Exception as exc:
+            primary_failure = primary_failure or failure_observation(
+                exc, stage="execution"
+            )
             if record is None:
                 raise
             if record["status"] not in {"interrupted", "cancelled"}:
@@ -1075,6 +1084,19 @@ class CodexAgent(BaseAgent):
                         str(exc) if isinstance(exc, RunnerError) else type(exc).__name__
                     )
         finally:
+            if (
+                record is not None
+                and record.get("status") != "completed"
+                and primary_failure is None
+            ):
+                primary_failure = failure_observation(
+                    stage="terminal",
+                    code=(
+                        "lease_service_lost"
+                        if lease is not None and lease.lost.is_set()
+                        else record.get("error_category")
+                    ),
+                )
             close_error = False
             try:
                 if server is not None:
@@ -1096,6 +1118,10 @@ class CodexAgent(BaseAgent):
                     if record is not None and record.get("status") == "cancelled":
                         record["cancel_confirmed"] = True
             except Exception as close_failure:
+                cleanup_failure = cleanup_failure or failure_observation(
+                    close_failure, stage="cleanup"
+                )
+                primary_failure = primary_failure or cleanup_failure
                 close_error = True
                 if record is not None:
                     record.update(
@@ -1122,6 +1148,15 @@ class CodexAgent(BaseAgent):
                         record["output_ref"] = f"laomedo:run:{run_id}:workspace"
                         record["snapshot_ready"] = True
                     except Exception as snapshot_failure:
+                        primary_failure = primary_failure or failure_observation(
+                            snapshot_failure,
+                            stage="snapshot",
+                            code=(
+                                None
+                                if isinstance(snapshot_failure, RunnerError)
+                                else "workspace_copy_mismatch"
+                            ),
+                        )
                         record.update(
                             status="failed",
                             answer=None,
@@ -1148,7 +1183,15 @@ class CodexAgent(BaseAgent):
                         if lease is not None:
                             try:
                                 lease.finish()
-                            except Exception:
+                            except Exception as finish_failure:
+                                cleanup_failure = (
+                                    cleanup_failure
+                                    or failure_observation(
+                                        finish_failure,
+                                        stage="lease_finish",
+                                        code="lease_service_unverified",
+                                    )
+                                )
                                 verified, detail = False, "lease_service_unverified"
                         record["container_ownership"]["cleanup_verified"] = verified
                         record["container_ownership"]["cleanup_detail"] = detail
@@ -1199,7 +1242,15 @@ class CodexAgent(BaseAgent):
                             if not retained:
                                 try:
                                     lease.finish()
-                                except Exception:
+                                except Exception as finish_failure:
+                                    cleanup_failure = (
+                                        cleanup_failure
+                                        or failure_observation(
+                                            finish_failure,
+                                            stage="lease_finish",
+                                            code="lease_service_unverified",
+                                        )
+                                    )
                                     verified = False
                                     detail = "lease_service_unverified"
                         record["container_ownership"]["cleanup_verified"] = verified
@@ -1245,7 +1296,52 @@ class CodexAgent(BaseAgent):
                                 except OSError:
                                     pass  # An observation failure cannot change execution success.
                             _json(run_dir / "record.json", record)
-                        self.cancel_flags.pop(run_id, None)
                 finally:
-                    self.lock.release()
+                    try:
+                        if (
+                            record is not None
+                            and activity_attempt is not None
+                            and record.get("status") != "completed"
+                        ):
+                            primary_failure = primary_failure or failure_observation(
+                                sys.exc_info()[1],
+                                stage="terminal",
+                                code=(
+                                    "lease_service_lost"
+                                    if lease is not None and lease.lost.is_set()
+                                    else record.get("error_category")
+                                ),
+                            )
+                            source = verified_cleanup = None
+                            result = getattr(lease, "result", None)
+                            if type(result) is dict:
+                                observed = LeaseCleanupObservation.from_result(
+                                    result.get("cleanup_verified"), result.get("state")
+                                )
+                                source, verified_cleanup = (
+                                    "lease_result",
+                                    observed.verified,
+                                )
+                            if primary_failure is not None:
+                                write_attempt_failure(
+                                    run_dir,
+                                    activity_attempt["id"],
+                                    AttemptFailureRecord(
+                                        primary=primary_failure,
+                                        cleanup=cleanup_failure,
+                                        final_category=(
+                                            record.get("error_category")
+                                            if record.get("error_category")
+                                            in RUNNER_FAILURE_CODES
+                                            else None
+                                        ),
+                                        cleanup_source=source,
+                                        cleanup_verified=verified_cleanup,
+                                    ),
+                                )
+                    except Exception:
+                        pass  # Diagnostics cannot replace finalization or lock release.
+                    finally:
+                        self.cancel_flags.pop(run_id, None)
+                        self.lock.release()
         return record

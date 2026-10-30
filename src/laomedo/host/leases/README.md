@@ -16,7 +16,7 @@ verdict and diagnostic together. Invalid verdicts or non-JSON diagnostics are
 recorded as the existing `cleanup_error` with cleanup unverified, so a malformed
 callback cannot lose the result journal or imply successful cleanup.
 
-## First loss and I/O diagnostics (implementation target)
+## First loss and I/O diagnostics
 
 `LeaseLossObservation` owns a validated reason and optional age. Existing health
 comparisons and 5s/3s/TTL constants remain unchanged. The client sets lost/cancel
