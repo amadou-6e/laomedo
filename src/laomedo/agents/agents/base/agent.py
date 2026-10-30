@@ -16,7 +16,9 @@ from laomedo.agents.artifacts.utils import relative_path
 from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
-from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.agents.base.models import RuntimeBinding, PreparedRunRecord, PreparedWorkspaceState, AgentSkillBinding, SkillGitExclusion, AgentGitHubScope
+from laomedo.agents.artifacts.models import ArtifactReference
+from laomedo.agents.orchestration.models import HandoffProvenance
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.workspaces.utils import _copy_tree
 from laomedo.agents.agents.base.utils import _git_tree
@@ -431,51 +433,20 @@ class BaseAgent(ABC):
                 workspace, exclude_root_git=self.git_workspace
             )
             (run_dir / "raw-events.jsonl").touch()
-            record = {
-                "schema_version": 1,
-                "run_id": run_id,
-                "status": "prepared",
-                "error_category": None,
-                "source_hash": source_hash,
-                "workspace_mode": "git" if self.git_workspace else "files",
-                "git_baseline": baseline,
-                "post_run_hash_scope": (
-                    "working_files_only" if self.git_workspace else "all_files"
-                ),
-                "effective_hash": effective_hash,
-                "post_run_hash": None,
-                "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
-                "skill": skills[0] if len(skills) == 1 else None,
-                "skills": skills,
-                "skill_git_exclusion": git_exclusion,
-                "provider": binding.provider,
-                "handoff": handoff,
-                "imported_artifacts": artifacts,
-                "requested_model": model,
-                "requested_effort": effort,
-                "effective_model": None,
-                "effective_effort": None,
-                **binding.record_fields(),
-                "thread_id": None,
-                "runner_instance_id": self.instance_id,
-                "turns": [],
-                "answer": None,
-                "output_ref": None,
-                "raw_event_ref": f"laomedo:run:{run_id}:events",
-                "client_request_id": client_request_id,
-                "activity_initial_attempt_id": str(uuid4()),
-                "output_requirements": output_requirements,
-                "requirements_revision": (output_requirements or {}).get(
-                    "requirements_revision"
-                ),
-                "output_retries": output_retries,
-                "precheck": {"installed": False, "call_count": 0},
-                "request_hash": request_hash,
-                "cancel_requested": False,
-                "cancel_confirmed": False,
-            }
-            if github_scope is not None:
-                record["github_scope"] = github_scope
+            prepared_record = PreparedRunRecord.for_preparation(
+                task=task, run_id=run_id,
+                workspace=PreparedWorkspaceState(source_hash=source_hash, effective_hash=effective_hash,
+                                                 git=self.git_workspace, baseline=baseline),
+                runtime=binding, skills=[AgentSkillBinding(**skill) for skill in skills],
+                skill_git_exclusion=SkillGitExclusion(**git_exclusion),
+                handoff=HandoffProvenance(**handoff) if handoff is not None else None,
+                imported_artifacts=[ArtifactReference(**artifact) for artifact in artifacts],
+                requested_model=model, requested_effort=effort, runner_instance_id=self.instance_id,
+                client_request_id=client_request_id, activity_initial_attempt_id=str(uuid4()),
+                output_requirements=output_requirements, output_retries=output_retries, request_hash=request_hash,
+                github_scope=AgentGitHubScope(**github_scope) if github_scope is not None else None,
+            )
+            record = prepared_record.to_record()
             _json(run_dir / "record.json", record)
         except Exception:
             try:

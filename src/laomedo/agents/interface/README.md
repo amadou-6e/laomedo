@@ -31,3 +31,21 @@ remain `runner_*` where already established; Python renaming is not schema migra
 Host HTTP server composition lives in `host/runner/http`, outside these contracts.
 Explicit trusted host startup registers providers. Graph input cannot select
 Python imports, executable commands or credential locations.
+# Structured output contracts
+
+`RunnerStatusRecord` and `AgentRunReference` in the leaf `models.py` are distinct
+wire contracts. The former projects a join snapshot using `from_snapshot()`;
+the latter uses `from_runner_status()` for graph output. Their `to_payload()`
+methods preserve the existing field names, nulls, unknown values and defaults.
+`PrecheckEvidence` alone owns boolean/non-negative-count evidence normalization.
+`AgentSubmission` groups final routed graph output after the component's existing
+error-code and task-outcome checks. `AgentDispatchResult` is the bridge's smaller
+safe allowlist, separate from both status and graph-reference records.
+
+These models import only standard-library and Pydantic dependencies, preserving
+their discoverability and avoiding service import cycles. Closed internal records
+use concrete types; unversioned observational fields that the old presenter
+passed through retain `JsonValue`. This preserves malformed/unknown historical
+evidence rather than manufacturing a successful value or raising a new strict
+validation error while inspecting a run. No task, credential or raw transcript
+field is added to any public projection.

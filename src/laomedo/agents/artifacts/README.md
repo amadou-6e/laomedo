@@ -11,3 +11,10 @@ ownership, paths and size before copying. Read the actual utility signatures rat
 than treating these vocabulary terms as new implemented methods. Errors remain
 `ArtifactError` with unchanged codes and boundary behavior. Retaining files is not
 proof that the originating run or a remote publication completed.
+# Selected file values
+
+`ArtifactReference` in `models.py` groups the six already admitted manifest
+fields. Typed preparation and handoff values retain those objects until the
+existing JSON boundary. Selection, protected-path checks, byte verification and
+filesystem effects remain in the owning artifact functions; a model is not an
+authorization grant. Dynamic path-to-hash inventories remain keyed maps.

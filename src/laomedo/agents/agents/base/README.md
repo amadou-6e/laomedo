@@ -30,3 +30,16 @@ file records and schemas remain unchanged during relocation.
 Failures use the single [RunnerError](../../errors.py) hierarchy and stable codes.
 Uncertain remote execution must not become an automatic retry. The existing
 `_turn_available` hook imposes no production verification quota.
+# Structured preparation records
+
+`PreparedRunRecord` in `models.py` constructs the initial durable run value.
+`PreparedWorkspaceState` groups source/effective hashes, baseline and workspace
+mode. `RuntimeBinding` remains the canonical provider binding; `AgentSkillBinding`
+groups installed skill identity and byte evidence. `for_preparation()` derives
+initial state after existing admission; `to_record()` preserves the legacy flat
+JSON record, including explicit nulls and an omitted absent `github_scope`.
+
+Provider execution, cancellation, recovery and historical readers still own the
+existing mutable dictionary lifecycle. The new model is a writer, not a strict
+reader for later provider-specific extensions. It performs no filesystem or model
+effects. Native/raw records are not silently coerced into a closed new schema.
