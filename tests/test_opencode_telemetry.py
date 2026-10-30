@@ -12,7 +12,6 @@ from laomedo.agents.activity.runner.feed import receipt
 from laomedo.agents.agents.opencode.activity.telemetry import export_attempt
 from laomedo.agents.activity.runner.feed import read_feed
 
-
 try:
     import opentelemetry.sdk.trace
     import opentelemetry.exporter.otlp.proto.http.trace_exporter

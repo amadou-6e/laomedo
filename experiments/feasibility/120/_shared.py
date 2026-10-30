@@ -21,7 +21,6 @@ import subprocess
 import threading
 import time
 
-
 DEFAULT_TIMEOUT = 20.0
 
 
@@ -104,20 +103,26 @@ def model_efforts(listing: dict) -> dict:
     for entry in listing.get("result", {}).get("data", []):
         model = entry.get("id") or entry.get("model")
         if model:
-            result[model] = [level.get("reasoningEffort")
-                             if isinstance(level, dict) else level
-                             for level in entry.get("supportedReasoningEfforts", [])]
+            result[model] = [
+                level.get("reasoningEffort") if isinstance(level, dict) else level
+                for level in entry.get("supportedReasoningEfforts", [])
+            ]
     return result
 
 
-def select_supported_pair(listing: dict, effort: str = "low",
-                          preferred_model: str = None) -> tuple:
+def select_supported_pair(
+    listing: dict, effort: str = "low", preferred_model: str = None
+) -> tuple:
     """Select an advertised pair, preferring an explicit low-cost test model."""
     entries = listing.get("result", {}).get("data", [])
     capabilities = model_efforts(listing)
-    ordered = sorted(entries, key=lambda entry: (
-        (entry.get("id") or entry.get("model")) != preferred_model,
-        not entry.get("isDefault", False)))
+    ordered = sorted(
+        entries,
+        key=lambda entry: (
+            (entry.get("id") or entry.get("model")) != preferred_model,
+            not entry.get("isDefault", False),
+        ),
+    )
     for entry in ordered:
         model = entry.get("id") or entry.get("model")
         if validate_pair(capabilities, model, effort)["accepted"]:
@@ -139,9 +144,15 @@ def read_turn_context(codex_home: Path, thread_path: str, turn_id: str) -> dict:
             except json.JSONDecodeError:
                 continue
             payload = record.get("payload", {})
-            if record.get("type") == "turn_context" and payload.get("turn_id") == turn_id:
-                return {"status": "observed", "model": payload.get("model"),
-                        "effort": payload.get("effort")}
+            if (
+                record.get("type") == "turn_context"
+                and payload.get("turn_id") == turn_id
+            ):
+                return {
+                    "status": "observed",
+                    "model": payload.get("model"),
+                    "effort": payload.get("effort"),
+                }
     return {"status": "turn_context_unavailable"}
 
 
@@ -151,8 +162,9 @@ def _private_workspace_paths(state: Path, project: Path, snapshot: Path) -> None
         resolved = path.resolve()
         if resolved == root or not resolved.is_relative_to(root) or path.is_symlink():
             raise ValueError("workspace path escapes private state")
-    if (snapshot.resolve().is_relative_to(project.resolve())
-            or project.resolve().is_relative_to(snapshot.resolve())):
+    if snapshot.resolve().is_relative_to(
+        project.resolve()
+    ) or project.resolve().is_relative_to(snapshot.resolve()):
         raise ValueError("project and snapshot cannot contain each other")
 
 
@@ -170,8 +182,9 @@ def snapshot_workspace(state: Path, project: Path, snapshot: Path) -> str:
     return fingerprint(snapshot)
 
 
-def restore_workspace_snapshot(state: Path, project: Path, snapshot: Path,
-                               expected_hash: str) -> str:
+def restore_workspace_snapshot(
+    state: Path, project: Path, snapshot: Path, expected_hash: str
+) -> str:
     """Fail before changing the project if the post-run snapshot is missing."""
     _private_workspace_paths(state, project, snapshot)
     if not snapshot.is_dir():
@@ -207,8 +220,9 @@ def reserve_model_turn(state: Path, max_turns: int = 3) -> int:
             raise ValueError("model turn cap reached")
         next_count = count + 1
         temporary = state / "turn-budget.pending"
-        temporary.write_text(json.dumps({"attempted_turns": next_count}) + "\n",
-                             encoding="utf-8")
+        temporary.write_text(
+            json.dumps({"attempted_turns": next_count}) + "\n", encoding="utf-8"
+        )
         os.replace(temporary, ledger)
         return next_count
     finally:
@@ -242,7 +256,9 @@ def inside_git_tree(path: Path) -> bool:
     return False
 
 
-def construct_env(private_home: Path, codex_home: Path, state: Path, codex_parent: Path):
+def construct_env(
+    private_home: Path, codex_home: Path, state: Path, codex_parent: Path
+):
     system_root = os.environ.get("SystemRoot", r"C:\Windows")
     system_drive = ntpath.splitdrive(system_root)[0]
     if not system_drive:
@@ -251,7 +267,7 @@ def construct_env(private_home: Path, codex_home: Path, state: Path, codex_paren
         "HOME": str(private_home),
         "USERPROFILE": str(private_home),
         "HOMEDRIVE": private_home.drive,
-        "HOMEPATH": str(private_home)[len(private_home.drive):],
+        "HOMEPATH": str(private_home)[len(private_home.drive) :],
         "CODEX_HOME": str(codex_home),
         "APPDATA": str(state / "appdata"),
         "LOCALAPPDATA": str(state / "localappdata"),
@@ -260,7 +276,9 @@ def construct_env(private_home: Path, codex_home: Path, state: Path, codex_paren
         "SystemRoot": system_root,
         "SystemDrive": system_drive,
         "WINDIR": system_root,
-        "PATH": os.pathsep.join([str(codex_parent), str(Path(system_root) / "System32")]),
+        "PATH": os.pathsep.join(
+            [str(codex_parent), str(Path(system_root) / "System32")]
+        ),
     }
 
 
@@ -268,8 +286,13 @@ def login_status(codex: Path, cwd: Path, env: dict) -> dict:
     """Report the auth mode without printing credential material."""
     try:
         result = subprocess.run(
-            [str(codex), "login", "status"], cwd=cwd, env=env,
-            capture_output=True, text=True, timeout=20, encoding="utf-8",
+            [str(codex), "login", "status"],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            encoding="utf-8",
             errors="replace",
         )
     except (OSError, subprocess.SubprocessError) as exc:
@@ -294,11 +317,17 @@ def resettable_dir(root: Path) -> tuple:
     return resolved, leftovers
 
 
-def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
-                    state: Path, credential_mode: str = "chatgpt_handoff",
-                    credential_ref: str = None,
-                    api_host: str = None,
-                    api_port: int = 443) -> dict:
+def credential_gate(
+    codex: Path,
+    cwd: Path,
+    env: dict,
+    codex_home: Path,
+    state: Path,
+    credential_mode: str = "chatgpt_handoff",
+    credential_ref: str = None,
+    api_host: str = None,
+    api_port: int = 443,
+) -> dict:
     """Decide whether a model call is permitted.
 
     ChatGPT mode requires an explicitly provisioned private auth file. The
@@ -342,7 +371,9 @@ def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
     verdict["credential_mode"] = credential_mode
     verdict["credential_provenance"] = "explicitly_provisioned_not_verified"
     if api_host is None:
-        api_host = "chatgpt.com" if credential_mode == "chatgpt_handoff" else "api.openai.com"
+        api_host = (
+            "chatgpt.com" if credential_mode == "chatgpt_handoff" else "api.openai.com"
+        )
     host = verdict["api_host"] = api_host
     port = verdict["api_port"] = api_port
     if not tcp_reachable(host, port):
@@ -354,6 +385,7 @@ def credential_gate(codex: Path, cwd: Path, env: dict, codex_home: Path,
 
 def tcp_reachable(host: str, port: int, timeout: float = 3.0) -> bool:
     import socket
+
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
@@ -364,8 +396,13 @@ def tcp_reachable(host: str, port: int, timeout: float = 3.0) -> bool:
 def codex_version(codex: Path, env: dict) -> str:
     try:
         result = subprocess.run(
-            [str(codex), "--version"], env=env, capture_output=True, text=True,
-            timeout=20, encoding="utf-8", errors="replace",
+            [str(codex), "--version"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            encoding="utf-8",
+            errors="replace",
         )
         return (result.stdout + result.stderr).strip()
     except (OSError, subprocess.SubprocessError) as exc:
@@ -380,8 +417,7 @@ class AppServer:
     server-initiated requests (method and id).
     """
 
-    def __init__(self, codex: Path, cwd: Path, env: dict, state: Path,
-                 startup_args=()):
+    def __init__(self, codex: Path, cwd: Path, env: dict, state: Path, startup_args=()):
         self.state = state
         log_id = str(time.time_ns())
         self.error_log_path = state / f"app-server-{log_id}.stderr.log"
@@ -389,16 +425,22 @@ class AppServer:
         self.error_log = self.error_log_path.open("w", encoding="utf-8")
         self.event_log = self.event_log_path.open("w", encoding="utf-8")
         self.process = subprocess.Popen(
-            [str(codex), *startup_args, "app-server", "--stdio"], cwd=cwd, env=env,
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.error_log,
-            text=True, encoding="utf-8",
+            [str(codex), *startup_args, "app-server", "--stdio"],
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=self.error_log,
+            text=True,
+            encoding="utf-8",
         )
         self.messages: queue.Queue = queue.Queue()
         self.events = []
         self.invalid_lines = 0
         self._id = 1000
-        self.reader = threading.Thread(target=self._reader,
-                                       args=(self.process.stdout,), daemon=True)
+        self.reader = threading.Thread(
+            target=self._reader, args=(self.process.stdout,), daemon=True
+        )
         self.reader.start()
 
     def _reader(self, stream):
@@ -464,18 +506,27 @@ class AppServer:
         self.error_log.close()
         text = self.error_log_path.read_text(encoding="utf-8", errors="replace").lower()
         return {
-            "authentication": any(x in text for x in ("auth", "unauthorized", "token expired")),
-            "network": any(x in text for x in ("connection", "network", "dns", "timeout")),
+            "authentication": any(
+                x in text for x in ("auth", "unauthorized", "token expired")
+            ),
+            "network": any(
+                x in text for x in ("connection", "network", "dns", "timeout")
+            ),
             "sandbox": "sandbox" in text,
             "nonempty": bool(text.strip()),
         }
 
     def initialize(self) -> tuple:
-        response = self.send("initialize", {
-            "clientInfo": {"name": "laomedo_feasibility_120",
-                           "title": "Laomedo Feasibility Probe 120",
-                           "version": "0.1.0"},
-        })
+        response = self.send(
+            "initialize",
+            {
+                "clientInfo": {
+                    "name": "laomedo_feasibility_120",
+                    "title": "Laomedo Feasibility Probe 120",
+                    "version": "0.1.0",
+                },
+            },
+        )
         ok = "result" in response
         info = response.get("result", {}) if ok else response.get("error", {})
         if ok:

@@ -92,17 +92,13 @@ class OpenCodeAgent(BaseAgent):
             from py_docker import Client
             from py_docker.errors import DockerOperationError
         except ImportError:
-            raise RunnerError(
-                "opencode_container_cleanup_unverified"
-            ) from None
+            raise RunnerError("opencode_container_cleanup_unverified") from None
         try:
             with Client() as docker:
                 for receipt in pending:
                     docker.sessions.recover(receipt)
         except DockerOperationError:
-            raise RunnerError(
-                "opencode_container_cleanup_unverified"
-            ) from None
+            raise RunnerError("opencode_container_cleanup_unverified") from None
 
     def model_catalog(self):
         """Discover connected native models without creating a session or turn."""
@@ -155,9 +151,7 @@ class OpenCodeAgent(BaseAgent):
         if self.transport_factory is None:
             raise RunnerError("opencode_isolated_transport_required")
         if request.get("output_requirements") is not None:
-            raise RunnerError(
-                "opencode_output_requirements_not_supported"
-            )
+            raise RunnerError("opencode_output_requirements_not_supported")
         self._recover_containers()
         return super()._prepare(request, **kwargs)
 
@@ -228,10 +222,7 @@ class OpenCodeAgent(BaseAgent):
                     or self.store.revision(name, digest)["tree_hash"] != digest
                 ):
                     raise RunnerError("pinned_skill_record_invalid")
-                if (
-                    tree_hash(inventory(root / name))
-                    != digest
-                ):
+                if tree_hash(inventory(root / name)) != digest:
                     raise RunnerError("pinned_skill_workspace_changed")
         except (OSError, SkillStoreError) as exc:
             raise RunnerError("pinned_skill_workspace_changed") from exc
@@ -291,9 +282,7 @@ class OpenCodeAgent(BaseAgent):
             # A model refresh is not an agent run. Wait for its bounded cleanup
             # instead of rejecting Run while metadata owns the profile lock.
             if not self._opencode_catalog_lock.acquire(timeout=30):
-                raise RunnerError(
-                    "opencode_model_discovery_in_progress"
-                )
+                raise RunnerError("opencode_model_discovery_in_progress")
             self._opencode_catalog_lock.release()
             if not self.lock.acquire(blocking=False):
                 raise RunnerError("runner_busy")
@@ -325,9 +314,7 @@ class OpenCodeAgent(BaseAgent):
                     raise RunnerError("activity_attempt_already_exists")
                 attempt = {
                     "id": attempt_id,
-                    "native_start": line_count(
-                        root / "activity-events.jsonl"
-                    ),
+                    "native_start": line_count(root / "activity-events.jsonl"),
                     "otel_start": line_count(root / "otel-events.jsonl"),
                     "native_end": None,
                     "otel_end": None,
@@ -382,6 +369,7 @@ class OpenCodeAgent(BaseAgent):
                 raise RunnerError("opencode_cancelled_before_dispatch")
             reader = backend.history_reader()
             from laomedo.agents.agents.opencode.history.errors import HistoryError
+
             if resume and reader is not None:
                 try:
                     baseline = reader.read(record["thread_id"])
@@ -463,9 +451,7 @@ class OpenCodeAgent(BaseAgent):
                     None
                     if flag is not None and flag.is_set()
                     else (
-                        str(exc)
-                        if isinstance(exc, RunnerError)
-                        else type(exc).__name__
+                        str(exc) if isinstance(exc, RunnerError) else type(exc).__name__
                     )
                 ),
             )
@@ -475,9 +461,7 @@ class OpenCodeAgent(BaseAgent):
                     backend.close()
                     if metadata_cleanup_unverified:
                         backend.termination_verified = False
-                        raise RunnerError(
-                            "opencode_container_cleanup_unverified"
-                        )
+                        raise RunnerError("opencode_container_cleanup_unverified")
                 if (
                     reader is not None
                     and capture is not None
@@ -544,19 +528,22 @@ class OpenCodeAgent(BaseAgent):
                         )
                         record["evidence_complete"] = "partial"
                 if record is not None and record.get("status") == "completed":
-                    record.update(post_run_hash=self._freeze_workspace(root, record), snapshot_ready=True,
-                        output_ref=f"laomedo:run:{run_id}:workspace")
+                    record.update(
+                        post_run_hash=self._freeze_workspace(root, record),
+                        snapshot_ready=True,
+                        output_ref=f"laomedo:run:{run_id}:workspace",
+                    )
                 if record is not None and attempt is not None:
                     try:
-                        from laomedo.agents.agents.opencode.activity.telemetry import export_attempt
+                        from laomedo.agents.agents.opencode.activity.telemetry import (
+                            export_attempt,
+                        )
 
-                        attempt["telemetry_complete"] = (
-                            export_attempt(
-                                root,
-                                attempt["native_start"],
-                                record["thread_id"],
-                                record["requested_model"],
-                            )
+                        attempt["telemetry_complete"] = export_attempt(
+                            root,
+                            attempt["native_start"],
+                            record["thread_id"],
+                            record["requested_model"],
                         )
                     except Exception:
                         attempt["telemetry_complete"] = False
@@ -582,9 +569,11 @@ class OpenCodeAgent(BaseAgent):
                     )
                     record.update(
                         status="failed",
-                        error_category=str(error)
-                        if isinstance(error, RunnerError)
-                        else "opencode_transport_cleanup_failed",
+                        error_category=(
+                            str(error)
+                            if isinstance(error, RunnerError)
+                            else "opencode_transport_cleanup_failed"
+                        ),
                         controller_cleanup="confirmed" if verified else "unverified",
                         cancel_confirmed=False,
                     )
@@ -603,12 +592,8 @@ class OpenCodeAgent(BaseAgent):
                                     output_ref=None,
                                 )
                             attempt.update(
-                                native_end=line_count(
-                                    root / "activity-events.jsonl"
-                                ),
-                                otel_end=line_count(
-                                    root / "otel-events.jsonl"
-                                ),
+                                native_end=line_count(root / "activity-events.jsonl"),
+                                otel_end=line_count(root / "otel-events.jsonl"),
                                 status=record["status"],
                                 ended_at=now(),
                             )

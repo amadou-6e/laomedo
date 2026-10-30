@@ -1,4 +1,5 @@
 """Provider-neutral durable Agent lifecycle and workspace orchestration."""
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -16,7 +17,14 @@ from laomedo.agents.artifacts.utils import relative_path
 from laomedo.agents.artifacts.utils import selections
 from laomedo.agents.interface.output.utils import verify_requirements
 from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
-from laomedo.agents.agents.base.models import RuntimeBinding, PreparedRunRecord, PreparedWorkspaceState, AgentSkillBinding, SkillGitExclusion, AgentGitHubScope
+from laomedo.agents.agents.base.models import (
+    RuntimeBinding,
+    PreparedRunRecord,
+    PreparedWorkspaceState,
+    AgentSkillBinding,
+    SkillGitExclusion,
+    AgentGitHubScope,
+)
 from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.orchestration.models import HandoffProvenance
 from laomedo.agents.errors import RunnerError
@@ -40,13 +48,23 @@ from laomedo.skills.workspace.utils import install
 from laomedo.skills.workspace.utils import remove_owned_tree
 from laomedo.skills.workspace.utils import verify
 
+
 class BaseAgent(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
 
-    def __init__(self, state: Path, skill_store: Path, source_workspace: Path, *,
-                 lease_service: Path | None = None, github_authority=None,
-                 mediator_state: Path | None = None, git_workspace: bool = False,
-                 publication_controller=None, artifact_sources=None):
+    def __init__(
+        self,
+        state: Path,
+        skill_store: Path,
+        source_workspace: Path,
+        *,
+        lease_service: Path | None = None,
+        github_authority=None,
+        mediator_state: Path | None = None,
+        git_workspace: bool = False,
+        publication_controller=None,
+        artifact_sources=None,
+    ):
         self.state = _private(state)
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
@@ -79,14 +97,10 @@ class BaseAgent(ABC):
         for provider, source_state in (artifact_sources or {}).items():
             if provider not in SUPPORTED_PROVIDERS:
                 raise RunnerError("invalid_artifact_provider")
-            self.artifact_sources[provider] = _private(
-                Path(source_state)
-            )
+            self.artifact_sources[provider] = _private(Path(source_state))
         self.publication_controller = publication_controller
         self.github_authority = github_authority
-        self.mediator_state = (
-            _private(mediator_state) if mediator_state else None
-        )
+        self.mediator_state = _private(mediator_state) if mediator_state else None
         for record_path in (self.state / "runs").glob("*/record.json"):
             record = _read(record_path)
             if record.get("status") in {"prepared", "running"}:
@@ -152,7 +166,6 @@ class BaseAgent(ABC):
     def _run_dir(self, run_id: str) -> Path:
         return self.state / "runs" / _id(run_id)
 
-
     def _reserve_turn(self) -> int:
         # Diagnostic sequence only; neither corrupt accounting nor a write failure
         # may become an authorization gate. Historical turn-ledger.json is untouched.
@@ -180,14 +193,11 @@ class BaseAgent(ABC):
             pass
         return count + 1
 
-
     def _turn_available(self) -> None:
         """Extension point for isolated experiment harnesses; no production quota."""
 
-
     def status(self, run_id: str) -> dict:
         return _read(self._run_dir(run_id) / "record.json")
-
 
     def lookup_request(self, request_id: str) -> dict:
         """Find one durable async run without starting or changing it."""
@@ -218,7 +228,6 @@ class BaseAgent(ABC):
                 )
             }
 
-
     def cancel(self, run_id: str) -> dict:
         if self.publication_controller is not None:
             self.publication_controller.cancel(run_id)
@@ -243,7 +252,6 @@ class BaseAgent(ABC):
                 return record
             return record
 
-
     def publish(self, run_id: str) -> dict:
         if self.publication_controller is None:
             raise RunnerError("publication_controller_unconfigured")
@@ -256,7 +264,6 @@ class BaseAgent(ABC):
             "run_id": run_id,
             "publication_handoff": result,
         }
-
 
     def _materialize(self, workspace: Path, ref: dict) -> dict:
         if not isinstance(ref, dict) or not all(
@@ -279,17 +286,12 @@ class BaseAgent(ABC):
             destination = target / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(item["content"])
-        if (
-            tree_hash(inventory(target))
-            != ref["tree_hash"]
-        ):
+        if tree_hash(inventory(target)) != ref["tree_hash"]:
             raise RunnerError("materialized_skill_mismatch")
         try:
             skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
         except (OSError, UnicodeError):
-            raise RunnerError(
-                "skill_frontmatter_name_required"
-            ) from None
+            raise RunnerError("skill_frontmatter_name_required") from None
         if not skill_text.startswith("---\n") or "\n---\n" not in skill_text[4:]:
             raise RunnerError("skill_frontmatter_name_required")
         frontmatter = skill_text[4:].split("\n---\n", 1)[0]
@@ -309,7 +311,6 @@ class BaseAgent(ABC):
             "use_evidence": "offered",
         }
 
-
     def _prepare(
         self, request: dict, *, client_request_id=None, request_hash=None
     ) -> dict:
@@ -323,9 +324,7 @@ class BaseAgent(ABC):
             raise RunnerError("model_and_effort_required")
         output_requirements = request.get("output_requirements")
         if output_requirements is not None:
-            output_requirements = verify_requirements(
-                output_requirements
-            )
+            output_requirements = verify_requirements(output_requirements)
         output_retries = request.get("output_retries", 1)
         if type(output_retries) is not int or not 0 <= output_retries <= 8:
             raise RunnerError("invalid_output_retry_count")
@@ -385,8 +384,9 @@ class BaseAgent(ABC):
             except MediationError as error:
                 raise RunnerError(error.code) from None
             try:
-                prepared = AgentWorkspace(WorkspacePaths(source=source, directory=workspace)).prepare(
-                    canonical, git=self.git_workspace)
+                prepared = AgentWorkspace(
+                    WorkspacePaths(source=source, directory=workspace)
+                ).prepare(canonical, git=self.git_workspace)
             except GitWorkspaceError as error:
                 raise RunnerError(str(error)) from error
             baseline, source_hash = prepared.baseline, prepared.source_hash
@@ -404,9 +404,7 @@ class BaseAgent(ABC):
                 # remote and leaves the already-present rule unchanged.
                 from laomedo.host.mediation.agent_cli import configure_remote
 
-                configure_remote(
-                    workspace, github_scope["repository"]
-                )
+                configure_remote(workspace, github_scope["repository"])
             skills = [self._materialize(workspace, ref) for ref in refs]
             if not skills:
                 try:
@@ -414,9 +412,7 @@ class BaseAgent(ABC):
                         parents=True, exist_ok=True
                     )
                 except OSError:
-                    raise RunnerError(
-                        "unsafe_materialized_skill_path"
-                    ) from None
+                    raise RunnerError("unsafe_materialized_skill_path") from None
             git_exclusion = install(workspace, skills)
             if not skills:
                 try:
@@ -429,22 +425,37 @@ class BaseAgent(ABC):
                 self._artifact_source,
                 _hash_tree,
             )
-            effective_hash = _hash_tree(
-                workspace, exclude_root_git=self.git_workspace
-            )
+            effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)
             (run_dir / "raw-events.jsonl").touch()
             prepared_record = PreparedRunRecord.for_preparation(
-                task=task, run_id=run_id,
-                workspace=PreparedWorkspaceState(source_hash=source_hash, effective_hash=effective_hash,
-                                                 git=self.git_workspace, baseline=baseline),
-                runtime=binding, skills=[AgentSkillBinding(**skill) for skill in skills],
+                task=task,
+                run_id=run_id,
+                workspace=PreparedWorkspaceState(
+                    source_hash=source_hash,
+                    effective_hash=effective_hash,
+                    git=self.git_workspace,
+                    baseline=baseline,
+                ),
+                runtime=binding,
+                skills=[AgentSkillBinding(**skill) for skill in skills],
                 skill_git_exclusion=SkillGitExclusion(**git_exclusion),
                 handoff=HandoffProvenance(**handoff) if handoff is not None else None,
-                imported_artifacts=[ArtifactReference(**artifact) for artifact in artifacts],
-                requested_model=model, requested_effort=effort, runner_instance_id=self.instance_id,
-                client_request_id=client_request_id, activity_initial_attempt_id=str(uuid4()),
-                output_requirements=output_requirements, output_retries=output_retries, request_hash=request_hash,
-                github_scope=AgentGitHubScope(**github_scope) if github_scope is not None else None,
+                imported_artifacts=[
+                    ArtifactReference(**artifact) for artifact in artifacts
+                ],
+                requested_model=model,
+                requested_effort=effort,
+                runner_instance_id=self.instance_id,
+                client_request_id=client_request_id,
+                activity_initial_attempt_id=str(uuid4()),
+                output_requirements=output_requirements,
+                output_retries=output_retries,
+                request_hash=request_hash,
+                github_scope=(
+                    AgentGitHubScope(**github_scope)
+                    if github_scope is not None
+                    else None
+                ),
             )
             record = prepared_record.to_record()
             _json(run_dir / "record.json", record)
@@ -452,12 +463,9 @@ class BaseAgent(ABC):
             try:
                 remove_owned_tree(run_dir, self.state)
             except OSError:
-                raise RunnerError(
-                    "run_preparation_cleanup_unverified"
-                ) from None
+                raise RunnerError("run_preparation_cleanup_unverified") from None
             raise
         return record
-
 
     def start(self, request: dict) -> dict:
         record = self._prepare(request)
@@ -465,12 +473,9 @@ class BaseAgent(ABC):
             self._mirror_host_login()
         except RunnerError as exc:
             record.update(status="failed", error_category=str(exc))
-            _json(
-                self._run_dir(record["run_id"]) / "record.json", record
-            )
+            _json(self._run_dir(record["run_id"]) / "record.json", record)
             raise
         return self._execute(record["run_id"], request["task"], resume=False)
-
 
     def start_async(self, request: dict, *, response_gate=None) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
@@ -511,7 +516,6 @@ class BaseAgent(ABC):
             worker.start()
             return record
 
-
     def _async_worker(self, run_id, task, gate):
         gate.wait()
         try:
@@ -523,7 +527,6 @@ class BaseAgent(ABC):
                 if record["status"] == "prepared":
                     record.update(status="failed", error_category=str(exc))
                     _json(self._run_dir(run_id) / "record.json", record)
-
 
     def _artifact_source(self, provider, run_id):
         if provider == self.provider:
@@ -539,24 +542,21 @@ class BaseAgent(ABC):
             raise ArtifactError("artifact_snapshot_mismatch")
         return run / "post-run", record
 
-
     def select_artifacts(self, run_id, paths):
         if not isinstance(paths, list) or len(paths) > 32:
             raise ArtifactError("invalid_artifact_selection")
         record = self.status(run_id)
         snapshot = self._run_dir(run_id) / "post-run"
-        if record.get("status") != "completed" or _hash_tree(
-            snapshot
-        ) != record.get("post_run_hash"):
+        if record.get("status") != "completed" or _hash_tree(snapshot) != record.get(
+            "post_run_hash"
+        ):
             raise ArtifactError("artifact_snapshot_mismatch")
         result = []
         for path in paths:
             path = relative_path(path)
             source = snapshot / path
             if not source.is_file() or source.stat().st_size > 1024 * 1024:
-                raise ArtifactError(
-                    "artifact_file_missing_or_too_large"
-                )
+                raise ArtifactError("artifact_file_missing_or_too_large")
             result.append(
                 {
                     "provider": self.provider,
@@ -569,11 +569,8 @@ class BaseAgent(ABC):
                 }
             )
         if _hash_tree(snapshot) != record["post_run_hash"]:
-            raise ArtifactError(
-                "artifact_source_changed_during_selection"
-            )
+            raise ArtifactError("artifact_source_changed_during_selection")
         return selections(result)
-
 
     def _handoff(self, value):
         if value is None:
@@ -603,7 +600,6 @@ class BaseAgent(ABC):
             _id(origin["run_id"])
         return json.loads(json.dumps(value))
 
-
     def _freeze_workspace(self, root: Path, record: dict) -> str:
         """Freeze stable files after the caller confirms descendant cleanup.
 
@@ -613,7 +609,8 @@ class BaseAgent(ABC):
         """
         try:
             verify(
-                root / "workspace", record["skills"],
+                root / "workspace",
+                record["skills"],
                 record.get("skill_git_exclusion", {"enabled": False}),
             )
         except ValueError as error:
@@ -622,7 +619,9 @@ class BaseAgent(ABC):
             self._verify_protected_mounts(root, record)
             pending = root / ("post-run-pending-" + uuid4().hex)
             digest = _copy_tree(
-                root / "workspace", pending, exclude_root_git=self.git_workspace,
+                root / "workspace",
+                pending,
+                exclude_root_git=self.git_workspace,
             )
             previous = root / "post-run"
             if previous.exists():

@@ -24,11 +24,14 @@ class OpenCodeConfig(BaseModel):
         description="Native tool and skill permissions admitted for this controller."
     )
     broker_port: int = Field(
-        ge=1, le=65535,
+        ge=1,
+        le=65535,
         description="Bound host broker TCP port reachable by this isolated controller.",
     )
     broker_token: SecretStr = Field(
-        min_length=1, repr=False, exclude=True,
+        min_length=1,
+        repr=False,
+        exclude=True,
         description="Run-scoped broker capability, excluded from normal representations.",
     )
 
@@ -49,7 +52,8 @@ class OpenCodeConfig(BaseModel):
                     "type": "remote",
                     "url": f"http://{BROKER_HOST}:{self.broker_port}/mcp",
                     "headers": {
-                        "Authorization": "Bearer " + self.broker_token.get_secret_value()
+                        "Authorization": "Bearer "
+                        + self.broker_token.get_secret_value()
                     },
                     "oauth": False,
                 }

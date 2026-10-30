@@ -40,9 +40,7 @@ class GitHubGitTransport:
         runner: GitCommandRunner | None = None,
         require_verified_stage: bool = False,
     ):
-        if not isinstance(repository, str) or not _REPOSITORY.fullmatch(
-            repository
-        ):
+        if not isinstance(repository, str) or not _REPOSITORY.fullmatch(repository):
             raise ValueError("repository_invalid")
         if not isinstance(baseline, str) or not _SHA.fullmatch(baseline):
             raise ValueError("baseline_invalid")
@@ -60,13 +58,17 @@ class GitHubGitTransport:
 
     def _repository(self, directory: Path) -> GitRepository:
         """Bind generic mechanics; connection and publication policy stay here."""
-        return GitRepository(directory, context=GitExecutionContext(), runner=self.runner)
-
+        return GitRepository(
+            directory, context=GitExecutionContext(), runner=self.runner
+        )
 
     def _valid_commit(self, commit: str) -> bool:
         """Admit a commit identifier only when its local object is a commit."""
-        return (isinstance(commit, str) and bool(_SHA.fullmatch(commit))
-                and self._repository(self.checkout).object_type(commit) == b"commit")
+        return (
+            isinstance(commit, str)
+            and bool(_SHA.fullmatch(commit))
+            and self._repository(self.checkout).object_type(commit) == b"commit"
+        )
 
     def _plain_object_source(self) -> bool:
         """Refuse Git metadata that redirects staging outside the checkout.
@@ -106,7 +108,9 @@ class GitHubGitTransport:
             return False
         repository = self._repository(bare)
         try:
-            return repository.init_bare() and repository.fetch(str(self.checkout), commit)
+            return repository.init_bare() and repository.fetch(
+                str(self.checkout), commit
+            )
         except subprocess.TimeoutExpired:
             # No provider credential exists yet; fail closed before a push.
             return False
@@ -115,8 +119,9 @@ class GitHubGitTransport:
         """Apply workflow policy to the exact object store that would be pushed."""
         repository = self._repository(bare)
         try:
-            if (repository.object_type(commit) != b"commit"
-                    or not repository.is_ancestor(self.baseline, commit)):
+            if repository.object_type(
+                commit
+            ) != b"commit" or not repository.is_ancestor(self.baseline, commit):
                 return None
             paths = repository.changed_paths(self.baseline, commit)
         except subprocess.TimeoutExpired:
@@ -213,33 +218,29 @@ class GitHubGitTransport:
                 # repository that the push below sends. Never fetch checkout
                 # objects after a verified snapshot has been supplied.
                 from laomedo.host.publication.verified.utils import stage_verified_git
-                from laomedo.host.publication.verified.errors import VerifiedGitStageError
+                from laomedo.host.publication.verified.errors import (
+                    VerifiedGitStageError,
+                )
 
                 try:
                     staged = stack.enter_context(
                         stage_verified_git(verified_stage, runner=self.runner)
                     )
                     if staged.classify_workflow_change() is not False:
-                        raise KnownRejected(
-                            "workflow_approval_required"
-                        )
+                        raise KnownRejected("workflow_approval_required")
                 except VerifiedGitStageError as error:
-                    raise KnownRejected(
-                        "push_stage_invalid"
-                    ) from error
+                    raise KnownRejected("push_stage_invalid") from error
                 bare = staged.bare
             try:
-                branch_valid = (
-                    self._repository(bare).check_ref_format(ref)
-                )
+                branch_valid = self._repository(bare).check_ref_format(ref)
             except subprocess.TimeoutExpired:
                 branch_valid = False
             if not branch_valid:
                 raise KnownRejected("push_branch_invalid")
             if expected_remote_commit is not None:
                 try:
-                    fast_forward = (
-                        self._repository(bare).is_ancestor(expected_remote_commit, commit)
+                    fast_forward = self._repository(bare).is_ancestor(
+                        expected_remote_commit, commit
                     )
                 except subprocess.TimeoutExpired:
                     fast_forward = False
@@ -248,9 +249,7 @@ class GitHubGitTransport:
             try:
                 token = self.token_supplier(connection_id, connection_generation)
             except (KeyError, TypeError, ValueError):
-                raise KnownRejected(
-                    "provider_credential_unavailable"
-                ) from None
+                raise KnownRejected("provider_credential_unavailable") from None
             if (
                 not isinstance(token, str)
                 or not token
@@ -261,13 +260,25 @@ class GitHubGitTransport:
             credential = GitCredential(token=SecretStr(token))
             try:
                 pushed = self._repository(bare).run(
-                    ["push", "--porcelain",
-                     "--force-with-lease=" + ref + ":" + (expected_remote_commit or ""),
-                     remote, commit + ":" + ref], credential=credential)
+                    [
+                        "push",
+                        "--porcelain",
+                        "--force-with-lease="
+                        + ref
+                        + ":"
+                        + (expected_remote_commit or ""),
+                        remote,
+                        commit + ":" + ref,
+                    ],
+                    credential=credential,
+                )
             except subprocess.TimeoutExpired as error:
                 # The remote may have accepted the push before Git was killed.
-                category = ("timeout" if getattr(error, "cleanup_verified", None) is True
-                            else "timeout_cleanup_unverified")
+                category = (
+                    "timeout"
+                    if getattr(error, "cleanup_verified", None) is True
+                    else "timeout_cleanup_unverified"
+                )
                 raise PushOutcomeUnknown(category, None) from None
         if pushed.returncode != 0:
             # A lost response can follow a successful remote write.
@@ -321,9 +332,7 @@ class GitHubGitTransport:
         try:
             token = self.token_supplier(connection_id, generation)
         except (KeyError, TypeError, ValueError):
-            raise KnownRejected(
-                "provider_credential_unavailable"
-            ) from None
+            raise KnownRejected("provider_credential_unavailable") from None
         if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
             raise KnownRejected("provider_credential_unavailable")
         credential = GitCredential(token=SecretStr(token))
@@ -337,21 +346,29 @@ class GitHubGitTransport:
                 if not repository.check_ref_format(ref):
                     raise KnownRejected("fetch_ref_invalid")
             if action == "list":
-                listed = repository.run(["ls-remote", "--heads", remote, *sorted(refs)],
-                                        credential=credential)
+                listed = repository.run(
+                    ["ls-remote", "--heads", remote, *sorted(refs)],
+                    credential=credential,
+                )
                 if listed.returncode or len(listed.stdout) > 1024:
                     raise KnownRejected("fetch_listing_failed")
                 result, seen = [], set()
                 for line in listed.stdout.decode("ascii").splitlines():
                     commit, ref = line.split("\t")
-                    if (not re.fullmatch(r"[0-9a-f]{40}", commit)
-                            or ref not in refs or ref in seen):
+                    if (
+                        not re.fullmatch(r"[0-9a-f]{40}", commit)
+                        or ref not in refs
+                        or ref in seen
+                    ):
                         raise KnownRejected("fetch_listing_invalid")
                     seen.add(ref)
                     result.append({"ref": ref, "commit": commit})
                 return {"refs": result}
-            if not repository.fetch(remote, payload["ref"] + ":refs/heads/laomedo-read",
-                                    credential=credential):
+            if not repository.fetch(
+                remote,
+                payload["ref"] + ":refs/heads/laomedo-read",
+                credential=credential,
+            ):
                 raise KnownRejected("fetch_acquisition_failed")
             actual = repository.resolve("refs/heads/laomedo-read^{commit}")
             if actual != payload["commit"].encode("ascii"):
@@ -359,12 +376,17 @@ class GitHubGitTransport:
             if not repository.fsck():
                 raise KnownRejected("fetch_objects_invalid")
             bundle = bare / "read.bundle"
-            if repository.run(["bundle", "create", str(bundle), "refs/heads/laomedo-read"]).returncode:
+            if repository.run(
+                ["bundle", "create", str(bundle), "refs/heads/laomedo-read"]
+            ).returncode:
                 raise KnownRejected("fetch_bundle_failed")
             if bundle.stat().st_size > 262144:
                 raise KnownRejected("fetch_bundle_too_large")
-            return {"ref": payload["ref"], "commit": payload["commit"],
-                    "bundle": base64.b64encode(bundle.read_bytes()).decode("ascii")}
+            return {
+                "ref": payload["ref"],
+                "commit": payload["commit"],
+                "bundle": base64.b64encode(bundle.read_bytes()).decode("ascii"),
+            }
 
 
 class GitHubMediatedTransport:

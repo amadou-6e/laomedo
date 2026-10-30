@@ -15,8 +15,12 @@ def last_usage(summary: dict) -> dict:
 
 
 def main() -> None:
-    state = (Path(os.environ["LOCALAPPDATA"]) / "Laomedo" /
-             "feasibility-120" / "issue-122-docker").resolve(strict=True)
+    state = (
+        Path(os.environ["LOCALAPPDATA"])
+        / "Laomedo"
+        / "feasibility-120"
+        / "issue-122-docker"
+    ).resolve(strict=True)
     runs = list((state / "runs").glob("*/summary-146.json"))
     if len(runs) != 1:
         raise ValueError("expected_one_146_agent_run")
@@ -25,8 +29,9 @@ def main() -> None:
     candidate = read(root / "candidate-summary.json")
     resume = read(root / "resume-summary-146.json")
     docker_ledger = read(state / "turn-budget.json")["attempted_turns"]
-    original_ledger = read(state.parent / "issue-122" /
-                           "turn-budget-122.json")["attempted_turns"]
+    original_ledger = read(state.parent / "issue-122" / "turn-budget-122.json")[
+        "attempted_turns"
+    ]
     report = {
         "issue": 146,
         "credential_mode": "isolated_chatgpt_handoff_in_private_docker_volume",
@@ -68,8 +73,9 @@ def main() -> None:
             "restored_draft_hash": resume["restored_draft_hash"],
             "source_candidate_hash": resume["source_candidate_hash"],
             "read_command_observed": resume["read_command_observed"],
-            "post_run_line_observed_in_tool_result":
-                resume["post_run_line_observed_in_tool_result"],
+            "post_run_line_observed_in_tool_result": resume[
+                "post_run_line_observed_in_tool_result"
+            ],
             "draft_content_unchanged": resume["draft_content_unchanged"],
             "canonical_unchanged": resume["canonical_unchanged"],
             "store_unchanged": resume["store_unchanged"],
@@ -78,11 +84,18 @@ def main() -> None:
     }
     output = Path(__file__).resolve().parent / "model-observations.json"
     output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"written": output.name,
-                      "docker_route_attempts": docker_ledger,
-                      "agent_origin_denial_observed":
-                          report["agent_edit_and_denial"]["agent_origin_denial_observed"],
-                      "resume_same_thread": report["resume"]["same_native_thread"]}))
+    print(
+        json.dumps(
+            {
+                "written": output.name,
+                "docker_route_attempts": docker_ledger,
+                "agent_origin_denial_observed": report["agent_edit_and_denial"][
+                    "agent_origin_denial_observed"
+                ],
+                "resume_same_thread": report["resume"]["same_native_thread"],
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

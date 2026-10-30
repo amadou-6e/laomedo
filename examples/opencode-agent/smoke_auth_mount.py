@@ -13,11 +13,16 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from laomedo.agents.agents.opencode.boundary import IsolatedOpenCode
 from laomedo.agents.agents.base.utils import _json
-from acceptance import IMAGE; from acceptance import IMAGE_ID
+from acceptance import IMAGE
+from acceptance import IMAGE_ID
 
 
 def main():
-    root = Path(os.environ["LOCALAPPDATA"]) / "Laomedo" / ("opencode-auth-mount-" + uuid4().hex)
+    root = (
+        Path(os.environ["LOCALAPPDATA"])
+        / "Laomedo"
+        / ("opencode-auth-mount-" + uuid4().hex)
+    )
     root.mkdir(parents=True)
     profile, evidence = root / "profile", root / "evidence"
     profile.mkdir()
@@ -32,12 +37,19 @@ def main():
     (skill / "SKILL.md").write_text("# Canary skill\n")
     key = "CANARY-" + secrets.token_hex(24)
     _json(profile / "auth.json", {"opencode-go": {"type": "api", "key": key}})
-    _json(profile / "auth-validity.json", {"credential_mode": "provider_key",
-         "expires_at_ms": None, "credential_sha256": hashlib.sha256(key.encode()).hexdigest()})
+    _json(
+        profile / "auth-validity.json",
+        {
+            "credential_mode": "provider_key",
+            "expires_at_ms": None,
+            "credential_sha256": hashlib.sha256(key.encode()).hexdigest(),
+        },
+    )
     backend = None
     try:
-        backend = IsolatedOpenCode(workspace, evidence, profile=profile,
-                                   image=IMAGE, image_id=IMAGE_ID)
+        backend = IsolatedOpenCode(
+            workspace, evidence, profile=profile, image=IMAGE, image_id=IMAGE_ID
+        )
         health = backend.call("GET", "/global/health")
         if not health.get("healthy"):
             raise RuntimeError("canary_controller_unhealthy")
@@ -48,9 +60,12 @@ def main():
         if backend is not None:
             backend.close()
     placeholder = profile / "sessions/auth.json"
-    result = {"controller_healthy": True, "session_auth_placeholder_empty":
-              not placeholder.exists() or placeholder.stat().st_size == 0,
-              "model_turns_submitted": 0}
+    result = {
+        "controller_healthy": True,
+        "session_auth_placeholder_empty": not placeholder.exists()
+        or placeholder.stat().st_size == 0,
+        "model_turns_submitted": 0,
+    }
     _json(root / "summary.json", result)
     print(json.dumps(result))
 

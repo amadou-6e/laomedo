@@ -11,7 +11,6 @@ import argparse
 import json
 from pathlib import Path
 
-
 ALLOWED = {"at_wall", "at_monotonic", "repository", "operation", "branch", "commit"}
 EXPECTED = ["git_push", "api_rest_read", "api_rest_read", "api_rest_read"]
 
@@ -27,10 +26,16 @@ def main() -> None:
     data = source.read_bytes()
     lines = data.decode("utf-8").splitlines()
     records = [json.loads(line) for line in lines]
-    if (len(records) != 4 or [item.get("operation") for item in records] != EXPECTED or
-            any(not isinstance(item, dict) or not set(item) <= ALLOWED or
-                item.get("repository") != "ga84jog/laomedo-exp104-disposable-20261007"
-                for item in records)):
+    if (
+        len(records) != 4
+        or [item.get("operation") for item in records] != EXPECTED
+        or any(
+            not isinstance(item, dict)
+            or not set(item) <= ALLOWED
+            or item.get("repository") != "ga84jog/laomedo-exp104-disposable-20261007"
+            for item in records
+        )
+    ):
         raise RuntimeError("provider_journal_shape_invalid")
     with target.open("xb") as output:
         output.write(data)

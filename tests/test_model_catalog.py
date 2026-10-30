@@ -1,21 +1,48 @@
 """Internal protocol tests, not live Codex acceptance."""
+
 import asyncio
 import unittest
 from unittest.mock import Mock, AsyncMock
-from laomedo.agents.agents.codex.controller.service import CodexController; from laomedo.agents.errors import RunnerError; from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+from laomedo.agents.agents.codex.controller.service import CodexController
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from concurrent.futures import ThreadPoolExecutor
+
 
 class CatalogTests(unittest.TestCase):
     def test_pagination_and_dynamic_efforts(self):
         server = Mock(extension=AsyncMock())
         server.extension.side_effect = [
-            {"data": [{"id": "one", "supportedReasoningEfforts": [{"reasoningEffort": "novel"}]}], "nextCursor": "page2"},
-            {"data": [{"id": "two", "supportedReasoningEfforts": ["different"]}]}]
-        self.assertEqual(asyncio.run(CodexController.models(server)), [{"id": "one", "efforts": ["novel"]}, {"id": "two", "efforts": ["different"]}])
-        self.assertEqual(server.extension.call_args.args, ("laomedo/codexModels", {"cursor": "page2"}))
-        self.assertTrue(all(call.args[0] == "laomedo/codexModels" for call in server.extension.call_args_list))
+            {
+                "data": [
+                    {
+                        "id": "one",
+                        "supportedReasoningEfforts": [{"reasoningEffort": "novel"}],
+                    }
+                ],
+                "nextCursor": "page2",
+            },
+            {"data": [{"id": "two", "supportedReasoningEfforts": ["different"]}]},
+        ]
+        self.assertEqual(
+            asyncio.run(CodexController.models(server)),
+            [
+                {"id": "one", "efforts": ["novel"]},
+                {"id": "two", "efforts": ["different"]},
+            ],
+        )
+        self.assertEqual(
+            server.extension.call_args.args,
+            ("laomedo/codexModels", {"cursor": "page2"}),
+        )
+        self.assertTrue(
+            all(
+                call.args[0] == "laomedo/codexModels"
+                for call in server.extension.call_args_list
+            )
+        )
 
     def test_repeated_cursor_fails(self):
         server = Mock(extension=AsyncMock())
@@ -32,7 +59,9 @@ class CatalogTests(unittest.TestCase):
 
     def test_unique_endless_cursors_are_bounded(self):
         server = Mock(extension=AsyncMock())
-        server.extension.side_effect = [{"data": [], "nextCursor": str(i)} for i in range(50)]
+        server.extension.side_effect = [
+            {"data": [], "nextCursor": str(i)} for i in range(50)
+        ]
         with self.assertRaisesRegex(RunnerError, "model_list_page_limit"):
             asyncio.run(CodexController.models(server))
 
@@ -42,7 +71,13 @@ class CatalogTests(unittest.TestCase):
             runner.state = Path(directory)
             runner.auth = None
             runner.split_executor = False
-            server = Mock(initialize=AsyncMock(), models=AsyncMock(return_value=[{"id": "runtime", "efforts": ["new-effort"]}]), close=AsyncMock())
+            server = Mock(
+                initialize=AsyncMock(),
+                models=AsyncMock(
+                    return_value=[{"id": "runtime", "efforts": ["new-effort"]}]
+                ),
+                close=AsyncMock(),
+            )
             runner._open_server = Mock(return_value=server)
             with ThreadPoolExecutor(max_workers=4) as pool:
                 results = list(pool.map(lambda _: runner.model_catalog(), range(4)))

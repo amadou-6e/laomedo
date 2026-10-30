@@ -2,14 +2,15 @@
 
 import os
 import time
-from urllib import error; from urllib import request
-
+from urllib import error
+from urllib import request
 
 TOKEN = os.environ["CANARY_GRANT"]
 URL = "http://canary:8099/write"
 while True:
-    req = request.Request(URL, data=b"synthetic", method="POST",
-                          headers={"X-Test-Grant": TOKEN})
+    req = request.Request(
+        URL, data=b"synthetic", method="POST", headers={"X-Test-Grant": TOKEN}
+    )
     try:
         request.urlopen(req, timeout=2).close()
     except (error.URLError, TimeoutError, OSError):

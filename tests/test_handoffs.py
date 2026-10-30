@@ -1,6 +1,7 @@
 import unittest
-from laomedo.agents.orchestration.controller import AgentHandoffController; from laomedo.agents.orchestration.errors import HandoffError; from laomedo.agents.orchestration.utils import envelope
-
+from laomedo.agents.orchestration.controller import AgentHandoffController
+from laomedo.agents.orchestration.errors import HandoffError
+from laomedo.agents.orchestration.utils import envelope
 
 TARGET = {"provider": "codex", "agent": "writer"}
 SKILLS = [{"skill_id": "fixture", "revision_id": "sha256:" + "a" * 64}]
@@ -17,8 +18,12 @@ class Adapter:
         answer = next(self.answers)
         if isinstance(answer, Exception):
             raise answer
-        return {"provider": "codex", "run_id": str(len(self.calls)),
-                "status": "failed" if answer is None else "completed", "answer": answer}
+        return {
+            "provider": "codex",
+            "run_id": str(len(self.calls)),
+            "status": "failed" if answer is None else "completed",
+            "answer": answer,
+        }
 
     def cancel(self, execution_id):
         self.cancellations.append(execution_id)
@@ -27,13 +32,22 @@ class Adapter:
 class HandoffTests(unittest.TestCase):
     def controller(self, answers, **kwargs):
         adapter = Adapter(answers)
-        return AgentHandoffController(adapter, max_iterations=kwargs.pop("max_iterations", 5),
-                                 turn_budget=kwargs.pop("turn_budget", 5),
-                                 timeout_seconds=10, **kwargs)
+        return AgentHandoffController(
+            adapter,
+            max_iterations=kwargs.pop("max_iterations", 5),
+            turn_budget=kwargs.pop("turn_budget", 5),
+            timeout_seconds=10,
+            **kwargs,
+        )
 
     def run_chain(self, controller, **kwargs):
-        return controller.run([TARGET, TARGET], "start", SKILLS,
-                              success=lambda r: r["answer"] == "done", **kwargs)
+        return controller.run(
+            [TARGET, TARGET],
+            "start",
+            SKILLS,
+            success=lambda r: r["answer"] == "done",
+            **kwargs,
+        )
 
     def test_chain_receives_answer_once_with_no_thread_or_credentials(self):
         c = self.controller(["selected", "end"])
@@ -52,10 +66,16 @@ class HandoffTests(unittest.TestCase):
         self.assertEqual(len(c.adapter.calls), 1)
 
     def test_success(self):
-        self.assertEqual(self.run_chain(self.controller(["done"]), loop=True)["stop_reason"], "success")
+        self.assertEqual(
+            self.run_chain(self.controller(["done"]), loop=True)["stop_reason"],
+            "success",
+        )
 
     def test_iteration_and_turn_caps_independently(self):
-        for field, reason in [("max_iterations", "iteration_limit"), ("turn_budget", "turn_budget")]:
+        for field, reason in [
+            ("max_iterations", "iteration_limit"),
+            ("turn_budget", "turn_budget"),
+        ]:
             c = self.controller(["one", "two"], **{field: 1})
             self.assertEqual(self.run_chain(c, loop=True)["stop_reason"], reason)
             self.assertEqual(c.submitted, 1)
@@ -87,18 +107,34 @@ class HandoffTests(unittest.TestCase):
     def test_definite_rejection_does_not_consume_turn_budget(self):
         class Rejected(Adapter):
             def dispatch(self, item, **kwargs):
-                return {"provider": "codex", "status": "rejected",
-                        "error_category": "invalid_skill"}
-        c = AgentHandoffController(Rejected([]), max_iterations=2, turn_budget=1,
-                              timeout_seconds=10)
+                return {
+                    "provider": "codex",
+                    "status": "rejected",
+                    "error_category": "invalid_skill",
+                }
+
+        c = AgentHandoffController(
+            Rejected([]), max_iterations=2, turn_budget=1, timeout_seconds=10
+        )
         result = self.run_chain(c)
         self.assertEqual(result["stop_reason"], "dispatch_rejected")
         self.assertEqual(result["submitted_turns"], 0)
 
     def test_foreign_resume_and_artifacts_fail_closed(self):
-        origin = {"provider": "codex", "run_id": "a", "status": "completed", "auth": "secret"}
+        origin = {
+            "provider": "codex",
+            "run_id": "a",
+            "status": "completed",
+            "auth": "secret",
+        }
         with self.assertRaisesRegex(HandoffError, "foreign"):
-            envelope(origin, {"provider": "opencode"}, "task", skills=SKILLS, operation="resume")
+            envelope(
+                origin,
+                {"provider": "opencode"},
+                "task",
+                skills=SKILLS,
+                operation="resume",
+            )
         with self.assertRaises(ValueError):
             envelope(origin, TARGET, "task", skills=SKILLS, artifacts=["auth.json"])
         result = envelope(origin, TARGET, "task", skills=SKILLS)
@@ -106,9 +142,15 @@ class HandoffTests(unittest.TestCase):
 
     def test_durable_completion_and_uncertain_reservation_survive_restart(self):
         import tempfile
+
         with tempfile.TemporaryDirectory() as root:
-            c = AgentHandoffController(Adapter([TimeoutError()]), max_iterations=2,
-                                  turn_budget=2, timeout_seconds=10, state_dir=root)
+            c = AgentHandoffController(
+                Adapter([TimeoutError()]),
+                max_iterations=2,
+                turn_budget=2,
+                timeout_seconds=10,
+                state_dir=root,
+            )
             result = self.run_chain(c)
             stored = AgentHandoffController.inspect(root, c.execution_id)
             self.assertEqual(stored["submitted_turns"], 1)
@@ -118,6 +160,7 @@ class HandoffTests(unittest.TestCase):
     def test_early_ack_is_durable_while_dispatch_still_waits(self):
         import tempfile
         import threading
+
         class Waiting(Adapter):
             def __init__(self):
                 super().__init__([])
@@ -128,16 +171,28 @@ class HandoffTests(unittest.TestCase):
                 kwargs["on_ack"]({"run_id": "early-id", "status": "running"})
                 self.acknowledged.set()
                 self.release.wait(3)
-                return {"provider": "codex", "run_id": "early-id",
-                        "status": "cancelled", "answer": None}
+                return {
+                    "provider": "codex",
+                    "run_id": "early-id",
+                    "status": "cancelled",
+                    "answer": None,
+                }
 
         with tempfile.TemporaryDirectory() as root:
             adapter = Waiting()
-            controller = AgentHandoffController(adapter, max_iterations=1, turn_budget=1,
-                                           timeout_seconds=10, state_dir=root)
+            controller = AgentHandoffController(
+                adapter,
+                max_iterations=1,
+                turn_budget=1,
+                timeout_seconds=10,
+                state_dir=root,
+            )
             result = {}
-            worker = threading.Thread(target=lambda: result.update(
-                controller.run([TARGET], "task", SKILLS, success=lambda _: False)))
+            worker = threading.Thread(
+                target=lambda: result.update(
+                    controller.run([TARGET], "task", SKILLS, success=lambda _: False)
+                )
+            )
             worker.start()
             try:
                 self.assertTrue(adapter.acknowledged.wait(2))

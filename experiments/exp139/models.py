@@ -63,9 +63,11 @@ class MailboxLaunch(GitMetadataLaunch):
         client = Path(__file__).with_name("mailbox_client.mjs")
         relay = client.with_name("mailbox_relay.mjs")
         mounts = [
-            mount.model_copy(update={"source": str(client)})
-            if mount.target == "/run/laomedo/mediate.mjs"
-            else mount
+            (
+                mount.model_copy(update={"source": str(client)})
+                if mount.target == "/run/laomedo/mediate.mjs"
+                else mount
+            )
             for mount in spec.mounts
         ]
         mounts.append(

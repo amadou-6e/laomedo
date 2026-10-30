@@ -10,7 +10,9 @@ import tempfile
 import unittest
 
 
-@unittest.skipUnless(find_spec("black"), "Install the development extra for formatter checks")
+@unittest.skipUnless(
+    find_spec("black"), "Install the development extra for formatter checks"
+)
 class FormattingPolicyTests(unittest.TestCase):
     """Exercise Black's actual file discovery and failure status."""
 
@@ -25,7 +27,9 @@ class FormattingPolicyTests(unittest.TestCase):
             self.assertEqual(check.returncode, 1, check.stderr)
             formatted = self._black(name)
             self.assertEqual(formatted.returncode, 0, formatted.stderr)
-            self.assertEqual(source.read_text(encoding="utf-8"), 'value = {"answer": 42}\n')
+            self.assertEqual(
+                source.read_text(encoding="utf-8"), 'value = {"answer": 42}\n'
+            )
             self.assertEqual(self._black("--check", name).returncode, 0)
 
     def test_explicit_sealed_file_is_not_reformatted(self):
@@ -49,14 +53,16 @@ class FormattingPolicyTests(unittest.TestCase):
 
     def test_sealed_source_bytes_keep_their_recorded_hashes(self):
         records = json.loads(
-            self.root.joinpath("tools", "formatting", "historical-sources.json").read_text(
-                encoding="utf-8"
-            )
+            self.root.joinpath(
+                "tools", "formatting", "historical-sources.json"
+            ).read_text(encoding="utf-8")
         )
         for record in records:
             with self.subTest(path=record["path"]):
                 source = self.root.joinpath(record["path"])
-                self.assertEqual(sha256(source.read_bytes()).hexdigest(), record["sha256"])
+                self.assertEqual(
+                    sha256(source.read_bytes()).hexdigest(), record["sha256"]
+                )
                 for evidence in record["evidence"]:
                     self.assertIn(
                         record["sha256"],

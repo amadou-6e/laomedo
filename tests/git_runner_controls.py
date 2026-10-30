@@ -1,4 +1,5 @@
 """Internal recording seam; never use this interceptor as integration evidence."""
+
 import subprocess
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.settings import MEDIATED_TOKEN_ENV
@@ -13,8 +14,13 @@ class CallbackGitRunner(GitCommandRunner):
     def _execute(self, command, home):
         environment = self.environment(command, home)
         try:
-            return self.callback(self._arguments(command, home), capture_output=True,
-                                 check=False, timeout=command.context.timeout, env=environment)
+            return self.callback(
+                self._arguments(command, home),
+                capture_output=True,
+                check=False,
+                timeout=command.context.timeout,
+                env=environment,
+            )
         finally:
             environment.pop(MEDIATED_TOKEN_ENV, None)
 
@@ -27,4 +33,8 @@ class InspectingGitRunner(GitCommandRunner):
 
     def run(self, command):
         override = self.callback(command)
-        return override if isinstance(override, subprocess.CompletedProcess) else super().run(command)
+        return (
+            override
+            if isinstance(override, subprocess.CompletedProcess)
+            else super().run(command)
+        )

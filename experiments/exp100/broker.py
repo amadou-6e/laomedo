@@ -7,17 +7,26 @@ import os
 import sqlite3
 import subprocess
 from contextlib import closing
-from http.server import BaseHTTPRequestHandler; from http.server import HTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import HTTPServer
 from pathlib import Path
 
-
 MUTATIONS = {"git_push", "pr_create", "issue_create", "api_post", "graphql_mutation"}
-SUPPORTED = MUTATIONS | {"git_fetch", "pr_list", "issue_list", "actions_read", "api_get", "graphql_read"}
+SUPPORTED = MUTATIONS | {
+    "git_fetch",
+    "pr_list",
+    "issue_list",
+    "actions_read",
+    "api_get",
+    "graphql_read",
+}
 
 
 def canonical_hash(request):
     body = {key: request.get(key) for key in ("repo", "operation", "payload")}
-    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -55,7 +64,9 @@ class Handler(BaseHTTPRequestHandler):
             return 403, {"error": "unsupported_operation"}
         with closing(sqlite3.connect(self.server.db_path)) as db, db:
             db.row_factory = sqlite3.Row
-            grant = db.execute("SELECT * FROM grants WHERE id=?", (request["grant"],)).fetchone()
+            grant = db.execute(
+                "SELECT * FROM grants WHERE id=?", (request["grant"],)
+            ).fetchone()
             if grant is None or grant["revoked"] or grant["expires_at"] <= time.time():
                 return 403, {"error": "grant_unavailable"}
             if request["repo"] != grant["repo"]:
@@ -70,16 +81,24 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(effect_id, str) or not effect_id:
                     return 400, {"error": "effect_id_required"}
                 digest = canonical_hash(request)
-                previous = db.execute("SELECT hash,state,result FROM effects WHERE grant_id=? AND id=?",
-                                      (grant["id"], effect_id)).fetchone()
+                previous = db.execute(
+                    "SELECT hash,state,result FROM effects WHERE grant_id=? AND id=?",
+                    (grant["id"], effect_id),
+                ).fetchone()
                 if previous:
                     if previous["hash"] != digest:
                         return 409, {"error": "effect_conflict"}
                     if previous["state"] == "unknown":
                         return 202, {"state": "unknown", "resent": False}
-                    return 200, {"state": "confirmed", "resent": False, "result": json.loads(previous["result"])}
-                db.execute("INSERT INTO effects VALUES (?,?,?,?,NULL)",
-                           (grant["id"], effect_id, digest, "unknown"))
+                    return 200, {
+                        "state": "confirmed",
+                        "resent": False,
+                        "result": json.loads(previous["result"]),
+                    }
+                db.execute(
+                    "INSERT INTO effects VALUES (?,?,?,?,NULL)",
+                    (grant["id"], effect_id, digest, "unknown"),
+                )
                 db.commit()  # intent is durable before sending the mutation
             result = self.perform(db, grant, operation, payload)
             if operation in MUTATIONS:
@@ -87,29 +106,49 @@ class Handler(BaseHTTPRequestHandler):
                     # Synthetic upstream accepted the effect; local outcome remains unknown.
                     db.commit()
                     return 202, {"state": "unknown", "resent": False}
-                db.execute("UPDATE effects SET state='confirmed',result=? WHERE grant_id=? AND id=?",
-                           (json.dumps(result), grant["id"], effect_id))
+                db.execute(
+                    "UPDATE effects SET state='confirmed',result=? WHERE grant_id=? AND id=?",
+                    (json.dumps(result), grant["id"], effect_id),
+                )
                 db.commit()
             return 200, {"state": "confirmed", "result": result}
 
     def perform(self, db, grant, operation, payload):
         if operation in {"git_push", "git_fetch"}:
             # Fixed workspace/remote from the grant, never a client-provided command.
-            cmd = ["git", "-C", grant["workspace"], "push" if operation == "git_push" else "fetch", "origin"]
+            cmd = [
+                "git",
+                "-C",
+                grant["workspace"],
+                "push" if operation == "git_push" else "fetch",
+                "origin",
+            ]
             if operation == "git_push":
                 cmd.append("HEAD:refs/heads/probe")
-            completed = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
+            completed = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=15, check=False
+            )
             if completed.returncode:
                 raise ValueError(f"git_operation_failed:{completed.returncode}")
             return {"exit_code": completed.returncode, "operation": operation}
         if operation in MUTATIONS:
             marker = payload.get("marker")
-            db.execute("INSERT INTO upstream_effects(operation,marker) VALUES (?,?)", (operation, marker))
+            db.execute(
+                "INSERT INTO upstream_effects(operation,marker) VALUES (?,?)",
+                (operation, marker),
+            )
             return {"operation": operation, "marker": marker, "created": True}
         if operation in {"pr_list", "issue_list"}:
             create_op = "pr_create" if operation == "pr_list" else "issue_create"
-            return {"items": [dict(row) for row in db.execute(
-                "SELECT marker FROM upstream_effects WHERE operation=?", (create_op,))]}
+            return {
+                "items": [
+                    dict(row)
+                    for row in db.execute(
+                        "SELECT marker FROM upstream_effects WHERE operation=?",
+                        (create_op,),
+                    )
+                ]
+            }
         return {"operation": operation, "items": [], "status": 200}
 
 

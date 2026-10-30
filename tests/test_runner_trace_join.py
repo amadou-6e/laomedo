@@ -6,7 +6,8 @@ from tempfile import TemporaryDirectory
 import unittest
 from uuid import uuid4
 
-from laomedo.work_graph.runs.errors import LaunchError; from laomedo.work_graph.runs.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 
 class RunnerTraceJoinTests(unittest.TestCase):
@@ -18,17 +19,24 @@ class RunnerTraceJoinTests(unittest.TestCase):
 
     def reserve(self):
         run = self.store.reserve(
-            graph={"nodes": [{"id": "agent"}]}, component_code={"agent": "code"},
-            resolved_config={"model": "synthetic"}, trigger={"type": "direct"})
+            graph={"nodes": [{"id": "agent"}]},
+            component_code={"agent": "code"},
+            resolved_config={"model": "synthetic"},
+            trigger={"type": "direct"},
+        )
         invocation = self.store.reserve_invocation(run["run_id"], "agent")
         return run["run_id"], invocation
 
     def bind(self, run, invocation, runner_run=None):
         runner_run = runner_run or str(uuid4())
         return self.store.bind_runner_ack(
-            run, invocation, request_id=invocation, provider="codex",
+            run,
+            invocation,
+            request_id=invocation,
+            provider="codex",
             runner_run_id=runner_run,
-            raw_event_ref=f"laomedo:run:{runner_run}:events")
+            raw_event_ref=f"laomedo:run:{runner_run}:events",
+        )
 
     def test_exact_replay_conflict_and_cross_invocation(self):
         run, invocation = self.reserve()
@@ -44,41 +52,69 @@ class RunnerTraceJoinTests(unittest.TestCase):
         self.store.begin_invocation(other, other_invocation)
         with self.assertRaisesRegex(LaunchError, "runner_binding_conflict"):
             self.bind(other, other_invocation, native)
-        self.assertEqual(sum(row["kind"] == "runner_acknowledged" for row in
-                             self.store.trace_snapshot(run)["receipts"]), 1)
+        self.assertEqual(
+            sum(
+                row["kind"] == "runner_acknowledged"
+                for row in self.store.trace_snapshot(run)["receipts"]
+            ),
+            1,
+        )
 
     def test_malformed_identity_and_wrong_trace_rejected(self):
         run, invocation = self.reserve()
         self.store.begin_invocation(run, invocation)
         native = str(uuid4())
         for request, reference, error in (
-            (str(uuid4()), f"laomedo:run:{native}:events", "runner_request_id_mismatch"),
+            (
+                str(uuid4()),
+                f"laomedo:run:{native}:events",
+                "runner_request_id_mismatch",
+            ),
             (invocation, "file:///private/events", "invalid_runner_reference"),
             (invocation, f"laomedo:run:{uuid4()}:events", "invalid_runner_reference"),
         ):
             with self.assertRaisesRegex(LaunchError, error):
-                self.store.bind_runner_ack(run, invocation, request_id=request,
-                                           provider="codex", runner_run_id=native,
-                                           raw_event_ref=reference)
+                self.store.bind_runner_ack(
+                    run,
+                    invocation,
+                    request_id=request,
+                    provider="codex",
+                    runner_run_id=native,
+                    raw_event_ref=reference,
+                )
         other, _ = self.reserve()
         with self.assertRaisesRegex(LaunchError, "runner_ack_without_dispatch"):
-            self.store.bind_runner_ack(other, invocation, request_id=invocation,
-                                       provider="codex", runner_run_id=native,
-                                       raw_event_ref=f"laomedo:run:{native}:events")
+            self.store.bind_runner_ack(
+                other,
+                invocation,
+                request_id=invocation,
+                provider="codex",
+                runner_run_id=native,
+                raw_event_ref=f"laomedo:run:{native}:events",
+            )
 
     def test_late_ack_after_timeout_and_reopen_without_replay(self):
         run, invocation = self.reserve()
         self.store.begin_invocation(run, invocation)
-        self.store.record_timeout(run, invocation, http_status=408,
-                                  detail={"code": "EXECUTION_TIMEOUT"})
+        self.store.record_timeout(
+            run, invocation, http_status=408, detail={"code": "EXECUTION_TIMEOUT"}
+        )
         native = str(uuid4())
         self.bind(run, invocation, native)
         self.store.record_runner_observation(
-            run, invocation, provider="codex", runner_run_id=native,
-            kind="runner_cancel", payload={"cancel_requested": True,
-                                            "cancel_confirmed": False})
-        self.store.record_effect(run, invocation, source="synthetic-runner",
-                                 source_ref=f"laomedo:run:{native}:events#effect")
+            run,
+            invocation,
+            provider="codex",
+            runner_run_id=native,
+            kind="runner_cancel",
+            payload={"cancel_requested": True, "cancel_confirmed": False},
+        )
+        self.store.record_effect(
+            run,
+            invocation,
+            source="synthetic-runner",
+            source_ref=f"laomedo:run:{native}:events#effect",
+        )
         reopened = WorkflowRunStore(self.path)
         self.assertEqual(reopened.sweep_crashed(), [])
         trace = reopened.trace_snapshot(run)
@@ -86,9 +122,10 @@ class RunnerTraceJoinTests(unittest.TestCase):
         self.assertEqual(trace["run_status"], "timed_out")
         self.assertEqual(trace["invocation"]["runner_run_id"], native)
         self.assertEqual(trace["invocation"]["evidence_state"], "partial")
-        self.assertEqual([r["kind"] for r in trace["receipts"]][-3:],
-                         ["runner_acknowledged", "runner_cancel",
-                          "external_effect_observed"])
+        self.assertEqual(
+            [r["kind"] for r in trace["receipts"]][-3:],
+            ["runner_acknowledged", "runner_cancel", "external_effect_observed"],
+        )
         with self.assertRaisesRegex(LaunchError, "dispatch_not_reserved"):
             reopened.begin_invocation(run, invocation)
 
@@ -98,9 +135,13 @@ class RunnerTraceJoinTests(unittest.TestCase):
         self.store.record_runner_wait_uncertain(run, invocation)
         trace = WorkflowRunStore(self.path).trace_snapshot(run)
         self.assertEqual(trace["run_status"], "incomplete")
-        self.assertEqual(self.store.get(run)["terminal_reason"], "runner_result_pending")
+        self.assertEqual(
+            self.store.get(run)["terminal_reason"], "runner_result_pending"
+        )
         self.assertEqual(trace["invocation"]["error_class"], "timeout")
-        self.assertTrue(trace["receipts"][-1]["payload"]["native_execution_may_continue"])
+        self.assertTrue(
+            trace["receipts"][-1]["payload"]["native_execution_may_continue"]
+        )
         self.assertEqual(trace["dispatch_attempts"], 1)
         self.assertEqual(WorkflowRunStore(self.path).sweep_crashed(), [])
 
@@ -117,15 +158,18 @@ class RunnerTraceJoinTests(unittest.TestCase):
         run, invocation = self.reserve()
         self.store.freeze_runner_request(run, invocation, "sha256:" + "a" * 64)
         self.store.begin_invocation(run, invocation)
-        self.store.record_runner_failure(run, invocation,
-                                         category="runner_request_conflict")
+        self.store.record_runner_failure(
+            run, invocation, category="runner_request_conflict"
+        )
         trace = WorkflowRunStore(self.path).trace_snapshot(run)
         self.assertEqual(trace["run_status"], "incomplete")
-        self.assertEqual(self.store.get(run)["terminal_reason"],
-                         "runner_request_conflict")
+        self.assertEqual(
+            self.store.get(run)["terminal_reason"], "runner_request_conflict"
+        )
         self.assertIsNone(trace["invocation"]["runner_run_id"])
-        self.assertEqual(trace["receipts"][-1]["payload"]["category"],
-                         "runner_request_conflict")
+        self.assertEqual(
+            trace["receipts"][-1]["payload"]["category"], "runner_request_conflict"
+        )
 
     def test_post_ack_failure_appends_without_erasing_binding(self):
         run, invocation = self.reserve()
@@ -133,8 +177,9 @@ class RunnerTraceJoinTests(unittest.TestCase):
         self.store.begin_invocation(run, invocation)
         native = str(uuid4())
         self.bind(run, invocation, native)
-        self.store.record_runner_failure(run, invocation,
-                                         category="runner_transport_error")
+        self.store.record_runner_failure(
+            run, invocation, category="runner_transport_error"
+        )
         trace = WorkflowRunStore(self.path).trace_snapshot(run)
         self.assertEqual(trace["run_status"], "incomplete")
         self.assertEqual(trace["invocation"]["runner_run_id"], native)

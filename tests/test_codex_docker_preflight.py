@@ -89,10 +89,12 @@ assert 'docker' not in sys.modules
         source = textwrap.dedent(inspect.getsource(CodexAgent._check_container))
         codes = set()
         for node in ast.walk(ast.parse(source)):
-            if (
-                isinstance(node, ast.Call)
-                and ((isinstance(node.func, ast.Name) and node.func.id == "RunnerError")
-                     or (isinstance(node.func, ast.Attribute) and node.func.attr == "RunnerError"))
+            if isinstance(node, ast.Call) and (
+                (isinstance(node.func, ast.Name) and node.func.id == "RunnerError")
+                or (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "RunnerError"
+                )
             ):
                 self.assertIsInstance(node.args[0], ast.Constant)
                 codes.add(node.args[0].value)
@@ -127,7 +129,9 @@ class PreflightControls(unittest.TestCase):
         self.preflight.state = Path(self.temp.name)
         self.preflight.image = "local-image"
         self.preflight.image_id = self.expected
-        self.receipt_path = self.preflight.state.joinpath(settings.PREFLIGHT_RECEIPT_FILENAME)
+        self.receipt_path = self.preflight.state.joinpath(
+            settings.PREFLIGHT_RECEIPT_FILENAME
+        )
         self.client = MagicMock()
         self.client.__enter__.return_value = self.client
         self.client.jobs.run.return_value = CommandResult(
@@ -159,7 +163,10 @@ class PreflightControls(unittest.TestCase):
         from py_docker.errors import OwnershipConflictError
 
         self.client.images.resolve.side_effect = OwnershipConflictError("safe phase")
-        with patch("py_docker.Client", return_value=self.client), self.assertRaisesRegex(RunnerError, "^docker_image_digest_changed$"):
+        with (
+            patch("py_docker.Client", return_value=self.client),
+            self.assertRaisesRegex(RunnerError, "^docker_image_digest_changed$"),
+        ):
             self.preflight._check_container()
         self.client.jobs.run.assert_not_called()
 
@@ -176,8 +183,11 @@ class PreflightControls(unittest.TestCase):
                 self.client.jobs.run.return_value = CommandResult(
                     exit_code=status, stdout=output, stderr=b"private ignored output"
                 )
-                with patch("py_docker.Client", return_value=self.client), self.assertRaisesRegex(
-                    RunnerError, "^unsupported_codex_cli_version$"
+                with (
+                    patch("py_docker.Client", return_value=self.client),
+                    self.assertRaisesRegex(
+                        RunnerError, "^unsupported_codex_cli_version$"
+                    ),
                 ):
                     self.preflight._check_container()
 
@@ -242,9 +252,7 @@ class PreflightControls(unittest.TestCase):
             patch("py_docker.Client", return_value=self.client) as factory,
         ):
             selected = self.preflight._check_container()
-        self.assertEqual(
-            selected["DOCKER_HOST"], self.client.connection.endpoint
-        )
+        self.assertEqual(selected["DOCKER_HOST"], self.client.connection.endpoint)
         self.assertNotIn("DOCKER_CONTEXT", selected)
         self.assertIsNone(factory.call_args.kwargs["settings"].endpoint)
         self.client.jobs.recover.assert_called_once_with(self.receipt_path)

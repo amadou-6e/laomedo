@@ -266,15 +266,44 @@ class AcpOrderingTests(unittest.IsolatedAsyncioTestCase):
                 request = json.loads(payload)
                 method = request["method"]
                 if method == "initialize":
-                    result = {"protocolVersion": 1, "agentCapabilities": {"loadSession": True}}
+                    result = {
+                        "protocolVersion": 1,
+                        "agentCapabilities": {"loadSession": True},
+                    }
                 elif method == "session/new":
                     result = {"sessionId": "native-session"}
                 elif method == "session/prompt":
-                    self.messages.put(SimpleNamespace(channel="stdout", data=json.dumps({"method": "_laomedo/codexEvent", "params": {"method": "turn/completed", "params": {"threadId": "native-session", "turn": {"id": "actual-native-turn", "status": "completed"}}}}).encode()))
+                    self.messages.put(
+                        SimpleNamespace(
+                            channel="stdout",
+                            data=json.dumps(
+                                {
+                                    "method": "_laomedo/codexEvent",
+                                    "params": {
+                                        "method": "turn/completed",
+                                        "params": {
+                                            "threadId": "native-session",
+                                            "turn": {
+                                                "id": "actual-native-turn",
+                                                "status": "completed",
+                                            },
+                                        },
+                                    },
+                                }
+                            ).encode(),
+                        )
+                    )
                     result = {"stopReason": "end_turn"}
                 else:
                     raise AssertionError(method)
-                self.messages.put(SimpleNamespace(channel="stdout", data=json.dumps({"id": request["id"], "result": result}).encode()))
+                self.messages.put(
+                    SimpleNamespace(
+                        channel="stdout",
+                        data=json.dumps(
+                            {"id": request["id"], "result": result}
+                        ).encode(),
+                    )
+                )
 
             def read_line(self):
                 return self.messages.get(timeout=5)
@@ -283,7 +312,9 @@ class AcpOrderingTests(unittest.IsolatedAsyncioTestCase):
                 self.messages.put(None)
 
         observed = []
-        client = AcpSession(Wire(), on_extension=lambda method, params: observed.append(params))
+        client = AcpSession(
+            Wire(), on_extension=lambda method, params: observed.append(params)
+        )
         try:
             await client.initialize()
             await client.open()

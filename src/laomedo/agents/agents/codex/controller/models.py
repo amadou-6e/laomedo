@@ -175,17 +175,13 @@ class CodexLaunch(BaseModel):
                     ),
                     Mount(
                         type="bind",
-                        source=str(
-                            MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs")
-                        ),
+                        source=str(MEDIATION_CLIENT.with_name("agent_gh_adapter.mjs")),
                         target="/run/laomedo/gh.mjs",
                         read_only=True,
                     ),
                     Mount(
                         type="bind",
-                        source=str(
-                            MEDIATION_CLIENT.with_name("agent_git_remote.mjs")
-                        ),
+                        source=str(MEDIATION_CLIENT.with_name("agent_git_remote.mjs")),
                         target="/run/laomedo/git-remote.mjs",
                         read_only=True,
                     ),

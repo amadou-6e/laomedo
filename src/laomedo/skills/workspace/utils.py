@@ -23,9 +23,7 @@ def _exclude(workspace: Path):
     if not git.exists():
         return None
     if not git.is_dir() or _is_link(git):
-        raise WorkspaceSkillError(
-            "external_git_directory_unsupported"
-        )
+        raise WorkspaceSkillError("external_git_directory_unsupported")
     # Inspect entry metadata only, not Git object contents.
     for parent, dirs, names in os.walk(git, followlinks=False):
         for name in dirs + names:
@@ -35,33 +33,48 @@ def _exclude(workspace: Path):
                 or not (item.is_dir() or item.is_file())
                 or (item.is_file() and item.stat().st_nlink > 1)
             ):
-                raise WorkspaceSkillError(
-                    "unsafe_git_metadata"
-                )
+                raise WorkspaceSkillError("unsafe_git_metadata")
     return git / "info" / "exclude"
 
 
 def initialize(workspace: Path) -> None:
     """Create an independent baseline, never import host Git metadata or hooks."""
     if (workspace / ".git").exists():
-        raise WorkspaceSkillError(
-            "workspace_git_metadata_conflict"
-        )
+        raise WorkspaceSkillError("workspace_git_metadata_conflict")
     runner = GitCommandRunner()
-    with runner.isolated_home(GitEnvironmentProfile.WORKSPACE, prefix="laomedo-baseline-home-") as home:
-        repository = GitRepository(workspace, runner=runner, context=GitExecutionContext(
-            profile=GitEnvironmentProfile.WORKSPACE, home=home,
-            extra_env={"GIT_AUTHOR_DATE": "2000-01-01T00:00:00+0000",
-                       "GIT_COMMITTER_DATE": "2000-01-01T00:00:00+0000"}))
-        configuration = (("core.autocrlf", "false"), ("core.hooksPath", str(home)),
-                         ("commit.gpgsign", "false"), ("user.name", "Laomedo Workspace"),
-                         ("user.email", "workspace@example.invalid"))
-        for arguments in (["init", "--template="], ["add", "--force", "--all", "."],
-                          ["commit", "--allow-empty", "-m", "Pinned source baseline"]):
+    with runner.isolated_home(
+        GitEnvironmentProfile.WORKSPACE, prefix="laomedo-baseline-home-"
+    ) as home:
+        repository = GitRepository(
+            workspace,
+            runner=runner,
+            context=GitExecutionContext(
+                profile=GitEnvironmentProfile.WORKSPACE,
+                home=home,
+                extra_env={
+                    "GIT_AUTHOR_DATE": "2000-01-01T00:00:00+0000",
+                    "GIT_COMMITTER_DATE": "2000-01-01T00:00:00+0000",
+                },
+            ),
+        )
+        configuration = (
+            ("core.autocrlf", "false"),
+            ("core.hooksPath", str(home)),
+            ("commit.gpgsign", "false"),
+            ("user.name", "Laomedo Workspace"),
+            ("user.email", "workspace@example.invalid"),
+        )
+        for arguments in (
+            ["init", "--template="],
+            ["add", "--force", "--all", "."],
+            ["commit", "--allow-empty", "-m", "Pinned source baseline"],
+        ):
             try:
                 result = repository.run(arguments, configuration=configuration)
             except (OSError, GitCommandTimeout):
-                raise WorkspaceSkillError("workspace_git_initialization_failed") from None
+                raise WorkspaceSkillError(
+                    "workspace_git_initialization_failed"
+                ) from None
             if result.returncode:
                 raise WorkspaceSkillError("workspace_git_initialization_failed")
         # Git marks newly created loose objects read-only on Windows. These are
@@ -78,9 +91,7 @@ def remove_owned_tree(path: Path, state: Path) -> None:
         or not root.is_relative_to(state.resolve())
         or _is_link(path)
     ):
-        raise WorkspaceSkillError(
-            "cleanup_path_outside_run_state"
-        )
+        raise WorkspaceSkillError("cleanup_path_outside_run_state")
 
     def readonly_retry(operation, item, error):
         target = Path(item)
@@ -119,29 +130,19 @@ def install(workspace: Path, skills: list[dict]) -> dict:
 def verify(workspace: Path, skills: list[dict], exclusion: dict) -> None:
     for parent in (workspace / ".agents", workspace / ".agents" / "skills"):
         if _is_link(parent) or not parent.is_dir():
-            raise WorkspaceSkillError(
-                "unsafe_materialized_skill_path"
-            )
+            raise WorkspaceSkillError("unsafe_materialized_skill_path")
     if {entry.name for entry in (workspace / ".agents" / "skills").iterdir()} != {
         skill["skill_id"] for skill in skills
     }:
-        raise WorkspaceSkillError(
-            "unexpected_materialized_skill"
-        )
+        raise WorkspaceSkillError("unexpected_materialized_skill")
     for skill in skills:
         if not NAME.fullmatch(skill["skill_id"]):
             raise WorkspaceSkillError("invalid_skill_id")
         if (
-            tree_hash(
-                inventory(
-                    workspace / ".agents" / "skills" / skill["skill_id"]
-                )
-            )
+            tree_hash(inventory(workspace / ".agents" / "skills" / skill["skill_id"]))
             != skill["tree_hash"]
         ):
-            raise WorkspaceSkillError(
-                "materialized_skill_mismatch"
-            )
+            raise WorkspaceSkillError("materialized_skill_mismatch")
     exclude = _exclude(workspace)
     if exclusion.get("enabled"):
         if (
@@ -150,10 +151,6 @@ def verify(workspace: Path, skills: list[dict], exclusion: dict) -> None:
             or hashlib.sha256(exclude.read_bytes()).hexdigest()
             != exclusion["exclude_sha256"]
         ):
-            raise WorkspaceSkillError(
-                "skill_git_exclusion_changed"
-            )
+            raise WorkspaceSkillError("skill_git_exclusion_changed")
     elif exclude is not None:
-        raise WorkspaceSkillError(
-            "skill_git_exclusion_changed"
-        )
+        raise WorkspaceSkillError("skill_git_exclusion_changed")

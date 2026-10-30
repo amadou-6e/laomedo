@@ -61,9 +61,7 @@ def mirror_login(
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except (OSError, subprocess.SubprocessError):
-            raise LocalClaudeLoginError(
-                "claude_local_login_copy_failed"
-            ) from None
+            raise LocalClaudeLoginError("claude_local_login_copy_failed") from None
         if result.returncode:
             raise LocalClaudeLoginError("claude_local_login_copy_failed")
         return result.stdout
@@ -88,9 +86,7 @@ def mirror_login(
         if (volume.get("Labels") or {}).get("laomedo.provider") != "claude":
             raise ValueError()
     except (ValueError, KeyError, IndexError, TypeError):
-        raise LocalClaudeLoginError(
-            "claude_local_login_copy_failed"
-        ) from None
+        raise LocalClaudeLoginError("claude_local_login_copy_failed") from None
     try:
         value = json.loads(
             (source or Path.home() / ".claude/.credentials.json").read_text(
@@ -108,9 +104,7 @@ def mirror_login(
         ):
             raise ValueError()
     except (OSError, ValueError, TypeError, KeyError):
-        raise LocalClaudeLoginError(
-            "claude_host_login_unavailable"
-        ) from None
+        raise LocalClaudeLoginError("claude_host_login_unavailable") from None
     if expires <= (time.time() + minimum_validity_seconds + 30) * 1000:
         raise LocalClaudeLoginError("claude_host_login_expired")
     # Never duplicate the rotating refresh credential or host profile/session data.

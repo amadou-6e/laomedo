@@ -1,4 +1,5 @@
 """Unexecuted live-controller preflight controls; no HTTP request or process."""
+
 from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,13 +18,17 @@ class HistoricalProbeRefusalTests(unittest.TestCase):
         for module in (probe, native_managed_worker, probe_active_delivery):
             with self.subTest(module=module.__name__):
                 self.assertIs(module._base_git_environment, refuse_private_git_api)
-                with self.assertRaisesRegex(RuntimeError, 'private Git process helpers were removed'):
+                with self.assertRaisesRegex(
+                    RuntimeError, "private Git process helpers were removed"
+                ):
                     module._base_git_environment()
 
     def test_historical_git_entrypoint_refuses_before_starting_a_process(self):
-        with patch.object(probe.subprocess, 'run') as process:
-            with self.assertRaisesRegex(RuntimeError, 'private Git process helpers were removed'):
-                probe.git('status')
+        with patch.object(probe.subprocess, "run") as process:
+            with self.assertRaisesRegex(
+                RuntimeError, "private Git process helpers were removed"
+            ):
+                probe.git("status")
             process.assert_not_called()
 
 
@@ -31,16 +36,19 @@ class NativeManagedProbeTests(unittest.TestCase):
     def setUp(self):
         # Historical live entrypoints remain refused. Explicitly bind only this
         # credential-free control's environment to the reviewed public API.
-        home = tempfile.TemporaryDirectory(prefix='managed-probe-control-home-')
+        home = tempfile.TemporaryDirectory(prefix="managed-probe-control-home-")
         self.addCleanup(home.cleanup)
         environment = GitCommandRunner().environment(
-            GitCommand(arguments=[], context=GitExecutionContext()), Path(home.name))
-        binding = patch.object(probe, '_base_git_environment', return_value=environment)
+            GitCommand(arguments=[], context=GitExecutionContext()), Path(home.name)
+        )
+        binding = patch.object(probe, "_base_git_environment", return_value=environment)
         binding.start()
         self.addCleanup(binding.stop)
 
     def test_owned_local_clone_origin_is_replaced_but_other_origin_refused(self):
-        with tempfile.TemporaryDirectory(prefix="laomedo-managed-clone-test-") as directory:
+        with tempfile.TemporaryDirectory(
+            prefix="laomedo-managed-clone-test-"
+        ) as directory:
             root = Path(directory)
             trusted = root / "trusted source"
             workspace = root / "workspace"
@@ -48,33 +56,72 @@ class NativeManagedProbeTests(unittest.TestCase):
             probe.git("init", "--quiet", trusted)
             probe.git("clone", "--quiet", "--no-local", trusted, workspace)
             probe.configure_owned_clone(workspace, trusted)
-            self.assertEqual(probe.git("remote", "get-url", "origin", cwd=workspace),
-                             "laomedo::" + probe.REPOSITORY)
+            self.assertEqual(
+                probe.git("remote", "get-url", "origin", cwd=workspace),
+                "laomedo::" + probe.REPOSITORY,
+            )
             probe.git("clone", "--quiet", "--no-local", trusted, other)
-            probe.git("remote", "set-url", "origin", "https://example.invalid/unowned", cwd=other)
+            probe.git(
+                "remote",
+                "set-url",
+                "origin",
+                "https://example.invalid/unowned",
+                cwd=other,
+            )
             with self.assertRaisesRegex(ValueError, "owned_clone_origin_changed"):
                 probe.configure_owned_clone(other, trusted)
-            self.assertEqual(probe.git("remote", "get-url", "origin", cwd=other),
-                             "https://example.invalid/unowned")
+            self.assertEqual(
+                probe.git("remote", "get-url", "origin", cwd=other),
+                "https://example.invalid/unowned",
+            )
 
     def test_exec_trusts_only_fixture_mount_including_helper_children(self):
-        with tempfile.TemporaryDirectory(prefix="laomedo-managed-command-test-") as directory:
+        with tempfile.TemporaryDirectory(
+            prefix="laomedo-managed-command-test-"
+        ) as directory:
             root = Path(directory)
             (root / "deadline").write_text("100")
             (root / "a-ready.json").write_text(json.dumps({"container_id": "owned-id"}))
             selected = probe.identities("a")
-            for arguments in (["git", "fetch", "origin"], ["git", "push", "origin", "HEAD"],
-                              ["gh", "pr", "view", "1"]):
-                with self.subTest(arguments=arguments), \
-                        patch.object(probe.time, "monotonic", return_value=1), \
-                        patch.object(probe, "inspect_exact", return_value=("owned", "owned-id")), \
-                        patch.object(probe.subprocess, "run",
-                                     return_value=SimpleNamespace(returncode=0, stdout=b"ok", stderr=b"")) as run:
-                    self.assertEqual(probe.agent_command(root, "a", arguments, "token", "capability"), "ok")
-                    self.assertEqual(run.call_args.args[0], [
-                        "docker", "exec", "-i", "--workdir=/draft",
-                        "--env=GIT_CONFIG_COUNT=1", "--env=GIT_CONFIG_KEY_0=safe.directory",
-                        "--env=GIT_CONFIG_VALUE_0=/draft", selected["name"], *arguments])
+            for arguments in (
+                ["git", "fetch", "origin"],
+                ["git", "push", "origin", "HEAD"],
+                ["gh", "pr", "view", "1"],
+            ):
+                with (
+                    self.subTest(arguments=arguments),
+                    patch.object(probe.time, "monotonic", return_value=1),
+                    patch.object(
+                        probe, "inspect_exact", return_value=("owned", "owned-id")
+                    ),
+                    patch.object(
+                        probe.subprocess,
+                        "run",
+                        return_value=SimpleNamespace(
+                            returncode=0, stdout=b"ok", stderr=b""
+                        ),
+                    ) as run,
+                ):
+                    self.assertEqual(
+                        probe.agent_command(
+                            root, "a", arguments, "token", "capability"
+                        ),
+                        "ok",
+                    )
+                    self.assertEqual(
+                        run.call_args.args[0],
+                        [
+                            "docker",
+                            "exec",
+                            "-i",
+                            "--workdir=/draft",
+                            "--env=GIT_CONFIG_COUNT=1",
+                            "--env=GIT_CONFIG_KEY_0=safe.directory",
+                            "--env=GIT_CONFIG_VALUE_0=/draft",
+                            selected["name"],
+                            *arguments,
+                        ],
+                    )
 
     def test_changed_target_stops_before_branch_reads(self):
         with patch.object(probe, "api", side_effect=[{"id": 999}, {}, {}]) as api:
@@ -82,11 +129,21 @@ class NativeManagedProbeTests(unittest.TestCase):
                 probe.preflight("synthetic-secret")
             assert api.call_count == 3
 
-
     def test_existing_fresh_branch_is_refused_without_write(self):
-        with patch.object(probe, "api", side_effect=[
-                {"id": 1408647759, "default_branch": "main", "permissions": {"push": True}},
-                {"object": {"sha": probe.BASELINE}}, {"login": "ga84jog"}, {}]) as api:
+        with patch.object(
+            probe,
+            "api",
+            side_effect=[
+                {
+                    "id": 1408647759,
+                    "default_branch": "main",
+                    "permissions": {"push": True},
+                },
+                {"object": {"sha": probe.BASELINE}},
+                {"login": "ga84jog"},
+                {},
+            ],
+        ) as api:
             with self.assertRaisesRegex(ValueError, "preflight_branch_exists"):
                 probe.preflight("synthetic-secret")
             assert api.call_count == 4

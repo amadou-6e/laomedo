@@ -65,16 +65,12 @@ def selections(items):
         except (ValueError, TypeError, AttributeError):
             raise ArtifactError("invalid_artifact_run") from None
         for field in ("snapshot_hash", "content_hash"):
-            if not isinstance(
-                item[field], str
-            ) or not HASH.fullmatch(item[field]):
+            if not isinstance(item[field], str) or not HASH.fullmatch(item[field]):
                 raise ArtifactError("invalid_artifact_hash")
         relative_path(item["path"])
         destination = relative_path(item["destination"])
         if not destination.startswith("handoff/"):
-            raise ArtifactError(
-                "artifact_destination_must_be_handoff"
-            )
+            raise ArtifactError("artifact_destination_must_be_handoff")
         folded = destination.casefold()
         if folded in destinations or any(
             folded.startswith(d + "/") or d.startswith(folded + "/")
@@ -123,7 +119,5 @@ def import_selected(items, workspace, resolve, hash_tree):
         target.write_bytes(data)
     for snapshot, expected in roots.items():
         if hash_tree(snapshot) != expected:
-            raise ArtifactError(
-                "artifact_source_changed_during_import"
-            )
+            raise ArtifactError("artifact_source_changed_during_import")
     return selected

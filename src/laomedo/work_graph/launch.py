@@ -19,13 +19,9 @@ def _item(graph, key):
     return next((item for item in graph.items if item.key == key), None)
 
 
-def relevant_content_digest(
-    graph: GraphSnapshot, work_key: str
-) -> str:
+def relevant_content_digest(graph: GraphSnapshot, work_key: str) -> str:
     """Hash selected work and its transitive prerequisites, excluding fetch time."""
-    if not isinstance(graph, GraphSnapshot) or not isinstance(
-        work_key, str
-    ):
+    if not isinstance(graph, GraphSnapshot) or not isinstance(work_key, str):
         raise LaunchError("invalid_work_graph")
     items = {item.key: item for item in graph.items}
     edges = {}
@@ -159,9 +155,7 @@ def launch_work_stage(
     now=None,
 ):
     """Refresh source at launch, then require a host-provided grant authority."""
-    if not isinstance(frozen, GraphSnapshot) or not callable(
-        source_fetch
-    ):
+    if not isinstance(frozen, GraphSnapshot) or not callable(source_fetch):
         raise LaunchError("source_refresh_required")
     current = source_fetch(frozen.repository)
     binding = preflight(frozen, current, work_key, choice=choice, override=override)
@@ -267,9 +261,7 @@ def launch_github_saved_flow_stage(
     """Build one saved-flow revision and pass it through the Work Graph gate."""
     from laomedo.integrations.langflow.stage_adapter import FrozenLangflowStage
 
-    stage = FrozenLangflowStage.from_saved_flow(
-        flow_id, fetch_export
-    )
+    stage = FrozenLangflowStage.from_saved_flow(flow_id, fetch_export)
     return launch_github_work_stage(
         frozen=frozen,
         work_key=work_key,

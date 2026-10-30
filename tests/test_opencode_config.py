@@ -32,7 +32,8 @@ class OpenCodeConfigTests(unittest.TestCase):
         capability = "internal-invalid-configuration-capability"
         with self.assertRaises(ValidationError) as failure:
             OpenCodeConfig(
-                permissions={"*": "unsupported"}, broker_port=0,
+                permissions={"*": "unsupported"},
+                broker_port=0,
                 broker_token=capability,
             )
         self.assertNotIn(capability, str(failure.exception))

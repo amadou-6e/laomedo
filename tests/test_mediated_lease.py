@@ -8,10 +8,14 @@ import tempfile
 import threading
 import time
 import unittest
-from urllib import error; from urllib import request
+from urllib import error
+from urllib import request
 
-from laomedo.host.mediation.errors import MediationError; from laomedo.host.mediation.store import MediationStore
-from laomedo.host.leases.settings import GRANT_TTL_SECONDS; from laomedo.host.leases.settings import LOSS_SECONDS; from laomedo.host.leases.service import LeaseService
+from laomedo.host.mediation.errors import MediationError
+from laomedo.host.mediation.store import MediationStore
+from laomedo.host.leases.settings import GRANT_TTL_SECONDS
+from laomedo.host.leases.settings import LOSS_SECONDS
+from laomedo.host.leases.service import LeaseService
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.host.mediation.service import MediationHTTPService
 
@@ -22,7 +26,7 @@ def _result(directory: Path) -> dict:
     while time.monotonic() < deadline:
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
-        time.sleep(.01)
+        time.sleep(0.01)
     raise AssertionError("lease result not written")
 
 
@@ -33,23 +37,31 @@ class MediatedLeaseTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.state = self.root / "service"
         self.generations = {}
-        self.repositories = {"connection-a": "example/disposable",
-                             "connection-b": "example/disposable"}
+        self.repositories = {
+            "connection-a": "example/disposable",
+            "connection-b": "example/disposable",
+        }
         self.store = MediationStore(
             self.root / "private" / "mediator.sqlite",
-            connection_is_current=lambda identity, generation, repository:
-                self.generations.get(identity) == generation and
-                self.repositories.get(identity) == repository)
+            connection_is_current=lambda identity, generation, repository: self.generations.get(
+                identity
+            )
+            == generation
+            and self.repositories.get(identity) == repository,
+        )
         self.authority = RunGrantAuthority(
             self.root / "private" / "authority.sqlite",
-            connection_authorizer=lambda identity, generation, repository, operator:
-                operator == "test-operator" and
-                self.generations.get(identity) == generation and
-                self.repositories.get(identity) == repository)
+            connection_authorizer=lambda identity, generation, repository, operator: operator
+            == "test-operator"
+            and self.generations.get(identity) == generation
+            and self.repositories.get(identity) == repository,
+        )
         self.cleanups = []
 
         def cleanup(identity):
-            self.cleanups.append((identity.name, identity.run_id, identity.token.get_secret_value()))
+            self.cleanups.append(
+                (identity.name, identity.run_id, identity.token.get_secret_value())
+            )
             return True, "removed_after_loss"
 
         self.cleanup = cleanup
@@ -60,33 +72,58 @@ class MediatedLeaseTests(unittest.TestCase):
             self.calls.append((repository, operation, payload))
             return {"ok": True}
 
-        self.service = LeaseService(self.state, mediator=self.store,
-                                    cleanup=cleanup, loss_seconds=.5,
-                                    mediation_authority=self.authorize)
+        self.service = LeaseService(
+            self.state,
+            mediator=self.store,
+            cleanup=cleanup,
+            loss_seconds=0.5,
+            mediation_authority=self.authorize,
+        )
         self.transport = transport
         self.addCleanup(self.service.server.server_close)
 
-    def register(self, run_id, lease_token, *, operations=None, target_prs=None,
-                 connection_id=None, connection_generation=None, authority=None,
-                 base_branch="main"):
+    def register(
+        self,
+        run_id,
+        lease_token,
+        *,
+        operations=None,
+        target_prs=None,
+        connection_id=None,
+        connection_generation=None,
+        authority=None,
+        base_branch="main",
+    ):
         approver = authority or self.authority
         reference = approver.approve(
-            invocation_id="invocation-" + run_id, repository="example/disposable",
+            invocation_id="invocation-" + run_id,
+            repository="example/disposable",
             branch="branch-" + run_id,
             operations=operations or {"git_push", "pr_create", "actions_read"},
-            target_prs=target_prs, reviewed_by="test-operator",
+            target_prs=target_prs,
+            reviewed_by="test-operator",
             connection_id=connection_id,
-            connection_generation=connection_generation, base_branch=base_branch)
+            connection_generation=connection_generation,
+            base_branch=base_branch,
+        )
         scope = approver.bind_run(reference, run_id)
         directory = self.state / "leases" / lease_token
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
         (directory / "heartbeat.monotonic").write_text(
-            repr(time.monotonic()), encoding="utf-8")
-        (directory / "lease.json").write_text(json.dumps({
-            "token": lease_token, "run_id": run_id, "name": "container-" + run_id,
-            "mediation": scope
-        }), encoding="utf-8")
+            repr(time.monotonic()), encoding="utf-8"
+        )
+        (directory / "lease.json").write_text(
+            json.dumps(
+                {
+                    "token": lease_token,
+                    "run_id": run_id,
+                    "name": "container-" + run_id,
+                    "mediation": scope,
+                }
+            ),
+            encoding="utf-8",
+        )
         self.service.tick()
         accepted = json.loads((directory / "accepted.json").read_text(encoding="utf-8"))
         secret = (directory / "grant.secret").read_text(encoding="utf-8")
@@ -94,27 +131,58 @@ class MediatedLeaseTests(unittest.TestCase):
 
     def test_configured_base_flows_from_approval_through_lease_to_mediator(self):
         self.generations["connection-a"] = 1
-        _, _, token = self.register("fetch", "fetch-lease", operations={"git_fetch"},
-            connection_id="connection-a", connection_generation=1, base_branch="develop")
+        _, _, token = self.register(
+            "fetch",
+            "fetch-lease",
+            operations={"git_fetch"},
+            connection_id="connection-a",
+            connection_generation=1,
+            base_branch="develop",
+        )
         calls = []
+
         def fetch(repository, operation, payload, **binding):
             calls.append(binding)
             return {"fixture": True}
-        result = self.store.invoke(token=token, repository="example/disposable", operation="git_fetch",
-            payload={"action": "fetch", "ref": "refs/heads/develop", "commit": "a" * 40},
-            effect_id=None, transport=fetch)
+
+        result = self.store.invoke(
+            token=token,
+            repository="example/disposable",
+            operation="git_fetch",
+            payload={
+                "action": "fetch",
+                "ref": "refs/heads/develop",
+                "commit": "a" * 40,
+            },
+            effect_id=None,
+            transport=fetch,
+        )
         self.assertEqual(result["state"], "confirmed")
         self.assertEqual(calls[0]["allowed_base_branch"], "develop")
         with self.assertRaisesRegex(MediationError, "fetch_target_denied"):
-            self.store.invoke(token=token, repository="example/disposable", operation="git_fetch",
-                payload={"action": "fetch", "ref": "refs/heads/main", "commit": "a" * 40},
-                effect_id=None, transport=fetch)
+            self.store.invoke(
+                token=token,
+                repository="example/disposable",
+                operation="git_fetch",
+                payload={
+                    "action": "fetch",
+                    "ref": "refs/heads/main",
+                    "commit": "a" * 40,
+                },
+                effect_id=None,
+                transport=fetch,
+            )
         self.assertEqual(len(calls), 1)
 
     def read(self, token):
         return self.store.invoke(
-            token=token, repository="example/disposable", operation="actions_read",
-            payload={}, effect_id=None, transport=lambda *args: self.calls.append(args) or {})
+            token=token,
+            repository="example/disposable",
+            operation="actions_read",
+            payload={},
+            effect_id=None,
+            transport=lambda *args: self.calls.append(args) or {},
+        )
 
     def test_exact_run_revoke_precedes_cleanup_and_other_run_survives(self):
         # This checks isolation, not detection latency. Keep healthy leases valid
@@ -140,10 +208,12 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(result["reason"], "heartbeat_lost")
         self.assertEqual(result["revoked_grants"], [accepted["grant_id"]])
         self.assertLessEqual(result["revoked_at"], result["cleanup_finished_at"])
-        self.assertLessEqual(result["detected_at_monotonic"],
-                             result["revoked_at_monotonic"])
-        self.assertLessEqual(result["revoked_at_monotonic"],
-                             result["cleanup_finished_at_monotonic"])
+        self.assertLessEqual(
+            result["detected_at_monotonic"], result["revoked_at_monotonic"]
+        )
+        self.assertLessEqual(
+            result["revoked_at_monotonic"], result["cleanup_finished_at_monotonic"]
+        )
         with self.assertRaisesRegex(MediationError, "grant_unavailable"):
             self.read(token_a)
         self.read(token_b)
@@ -151,28 +221,42 @@ class MediatedLeaseTests(unittest.TestCase):
 
     def test_trusted_handoff_lease_loss_revokes_before_cleanup_other_run_survives(self):
         from laomedo.agents.interface.output.utils import requirements
+
         first, accepted, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         handoff = self.store.begin_publication_handoff(
-            token=token_a, repository="example/disposable",
+            token=token_a,
+            repository="example/disposable",
             requirements=requirements({"schema_version": 1, "fields": []}),
-            deadline=time.time() + 30, deadline_monotonic=time.monotonic() + 30)
+            deadline=time.time() + 30,
+            deadline_monotonic=time.monotonic() + 30,
+        )
         self.assertEqual(handoff, accepted["grant_id"])
         # Host phase transition only, to isolate supervision from artifact
         # verification. No GitHub transport or Docker command is executed.
         with closing(self.store._connect()) as db, db:
-            db.execute("UPDATE publication_handoffs SET phase='validation_pending' WHERE grant_id=?", (handoff,))
+            db.execute(
+                "UPDATE publication_handoffs SET phase='validation_pending' WHERE grant_id=?",
+                (handoff,),
+            )
+
         def cleanup_after_denial(identity):
             with self.assertRaisesRegex(MediationError, "grant_unavailable"):
                 self.read(token_a)
             return self.cleanup(identity)
+
         self.service.cleanup = cleanup_after_denial
         (first / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         self.service.tick()
         result = _result(first)
         self.assertEqual(result["revoked_grants"], [handoff])
-        self.assertLessEqual(result["revoked_at_monotonic"], result["cleanup_finished_at_monotonic"])
-        self.assertLess(result["cleanup_finished_at_monotonic"] - result["detected_at_monotonic"], 60)
+        self.assertLessEqual(
+            result["revoked_at_monotonic"], result["cleanup_finished_at_monotonic"]
+        )
+        self.assertLess(
+            result["cleanup_finished_at_monotonic"] - result["detected_at_monotonic"],
+            60,
+        )
         self.read(token_b)
 
     def test_slow_cleanup_does_not_block_other_run_or_admission(self):
@@ -189,11 +273,14 @@ class MediatedLeaseTests(unittest.TestCase):
             return self.cleanup(identity)
 
         keep_alive = threading.Event()
+
         def heartbeat():
             from laomedo.host.leases.utils import _write_float
-            while not keep_alive.wait(.02):
+
+            while not keep_alive.wait(0.02):
                 _write_float(healthy / "heartbeat", time.time())
                 _write_float(healthy / "heartbeat.monotonic", time.monotonic())
+
         heartbeats = threading.Thread(target=heartbeat, daemon=True)
         heartbeats.start()
         self.service.cleanup = slow_cleanup
@@ -226,11 +313,11 @@ class MediatedLeaseTests(unittest.TestCase):
 
         def delayed_first(directory, now):
             if directory.name == "a-lease":
-                time.sleep(.6)
+                time.sleep(0.6)
             return original(directory, now)
 
         self.service._tick_lease = delayed_first
-        (second / "heartbeat").write_text(repr(time.time() - .1), encoding="utf-8")
+        (second / "heartbeat").write_text(repr(time.time() - 0.1), encoding="utf-8")
         self.service.tick()
         self.assertEqual(_result(second)["reason"], "heartbeat_lost")
         with self.assertRaisesRegex(MediationError, "grant_unavailable"):
@@ -239,27 +326,41 @@ class MediatedLeaseTests(unittest.TestCase):
     def test_trusted_approval_can_authorize_same_repository_read(self):
         with self.assertRaisesRegex(MediationError, "authorization_invalid"):
             self.authority.approve(
-                invocation_id="denied-default", repository="example/disposable",
-                branch="branch-read", operations={"api_rest_read"},
-                reviewed_by="test-operator")
+                invocation_id="denied-default",
+                repository="example/disposable",
+                branch="branch-read",
+                operations={"api_rest_read"},
+                reviewed_by="test-operator",
+            )
         diagnostic = RunGrantAuthority(
-            self.root / "private" / "authority.sqlite",
-            diagnostic_repository_read=True)
-        _, _, bearer = self.register("read", "lease-read", operations={"api_rest_read"},
-                                      authority=diagnostic)
+            self.root / "private" / "authority.sqlite", diagnostic_repository_read=True
+        )
+        _, _, bearer = self.register(
+            "read", "lease-read", operations={"api_rest_read"}, authority=diagnostic
+        )
         result = self.store.invoke(
-            token=bearer, repository="example/disposable", operation="api_rest_read",
-            payload={"method": "GET", "path": "/repos/example/disposable/branches/main"},
-            effect_id=None, transport=self.transport)
+            token=bearer,
+            repository="example/disposable",
+            operation="api_rest_read",
+            payload={
+                "method": "GET",
+                "path": "/repos/example/disposable/branches/main",
+            },
+            effect_id=None,
+            transport=self.transport,
+        )
         self.assertEqual(result["state"], "confirmed")
         self.assertEqual(len(self.calls), 1)
 
     def test_reopened_service_revokes_old_grant_and_never_reissues_it(self):
         directory, accepted, token = self.register("a", "lease-a")
         self.service.server.server_close()
-        restarted = LeaseService(self.state, mediator=MediationStore(self.store.path),
-                                 cleanup=self.cleanup,
-                                 mediation_authority=self.authorize)
+        restarted = LeaseService(
+            self.state,
+            mediator=MediationStore(self.store.path),
+            cleanup=self.cleanup,
+            mediation_authority=self.authorize,
+        )
         self.addCleanup(restarted.server.server_close)
         with self.assertRaisesRegex(MediationError, "grant_unavailable"):
             self.read(token)
@@ -268,21 +369,32 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(result["reason"], "service_restart")
         self.assertEqual(result["revoked_grants"], [accepted["grant_id"]])
         self.assertEqual(self.cleanups, [("container-a", "a", "lease-a")])
-        self.assertFalse(restarted.mediator.renew_lease(
-            run_id="a", lease_token="lease-a", lease_scope=str(self.state), ttl_seconds=60))
+        self.assertFalse(
+            restarted.mediator.renew_lease(
+                run_id="a",
+                lease_token="lease-a",
+                lease_scope=str(self.state),
+                ttl_seconds=60,
+            )
+        )
 
     def test_incomplete_mediation_request_never_acknowledges(self):
         directory = self.state / "leases" / "lease-a"
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
         (directory / "heartbeat.monotonic").write_text(
-            repr(time.monotonic()), encoding="utf-8")
-        (directory / "lease.json").write_text(json.dumps({
-            "token": "lease-a", "run_id": "a", "name": "container-a"}), encoding="utf-8")
+            repr(time.monotonic()), encoding="utf-8"
+        )
+        (directory / "lease.json").write_text(
+            json.dumps({"token": "lease-a", "run_id": "a", "name": "container-a"}),
+            encoding="utf-8",
+        )
         self.service.tick()
         result = _result(directory)
-        self.assertEqual((result["reason"], result["error_code"]),
-                         ("refused", "mediated_lease_request_invalid"))
+        self.assertEqual(
+            (result["reason"], result["error_code"]),
+            ("refused", "mediated_lease_request_invalid"),
+        )
         self.assertFalse((directory / "accepted.json").exists())
         self.assertFalse((directory / "grant.secret").exists())
 
@@ -292,67 +404,107 @@ class MediatedLeaseTests(unittest.TestCase):
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
         (directory / "heartbeat.monotonic").write_text(
-            repr(time.monotonic()), encoding="utf-8")
-        (directory / "lease.json").write_text(json.dumps({
-            "token": "lease-a", "run_id": "a", "name": "container-a",
-            "mediation": {"invocation_id": "invocation-a",
-                          "repository": "example/disposable", "branch": "branch-a"}
-        }), encoding="utf-8")
+            repr(time.monotonic()), encoding="utf-8"
+        )
+        (directory / "lease.json").write_text(
+            json.dumps(
+                {
+                    "token": "lease-a",
+                    "run_id": "a",
+                    "name": "container-a",
+                    "mediation": {
+                        "invocation_id": "invocation-a",
+                        "repository": "example/disposable",
+                        "branch": "branch-a",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
         self.service.tick()
         result = _result(directory)
-        self.assertEqual((result["reason"], result["error_code"]),
-                         ("refused", "mediated_lease_not_authorized"))
+        self.assertEqual(
+            (result["reason"], result["error_code"]),
+            ("refused", "mediated_lease_not_authorized"),
+        )
         self.assertFalse((directory / "accepted.json").exists())
 
     def test_bad_lease_does_not_starve_good_cleanup(self):
         bad = self.state / "leases" / "a-bad"
         bad.mkdir(parents=True)
-        (bad / "lease.json").write_text(json.dumps({
-            "token": "a-bad", "run_id": "bad", "name": "bad-container"}), encoding="utf-8")
+        (bad / "lease.json").write_text(
+            json.dumps({"token": "a-bad", "run_id": "bad", "name": "bad-container"}),
+            encoding="utf-8",
+        )
         good, _, token = self.register("good", "z-good")
         (good / "heartbeat").write_text(repr(time.time() - 10), encoding="utf-8")
         self.service.tick()
         self.assertEqual(_result(bad)["reason"], "refused")
-        self.assertEqual(_result(good)["reason"],
-                         "heartbeat_lost")
+        self.assertEqual(_result(good)["reason"], "heartbeat_lost")
         with self.assertRaisesRegex(MediationError, "grant_unavailable"):
             self.read(token)
 
     def test_authority_rejects_changed_scope_and_second_run_or_lease(self):
         ref = self.authority.approve(
-            invocation_id="invocation-a", repository="example/disposable",
-            branch="branch-a", operations={"actions_read"}, reviewed_by="operator")
+            invocation_id="invocation-a",
+            repository="example/disposable",
+            branch="branch-a",
+            operations={"actions_read"},
+            reviewed_by="operator",
+        )
         scope = self.authority.bind_run(ref, "a")
         with self.assertRaisesRegex(MediationError, "authorization_unavailable"):
             self.authority.bind_run(ref, "b")
-        self.assertIsNone(self.authority.authorize_lease(
-            {"run_id": "a", "token": "lease-a"},
-            {**scope, "repository": "other/repo"}))
-        self.assertEqual(self.authority.authorize_lease(
-            {"run_id": "a", "token": "lease-a"}, scope)["operations"], {"actions_read"})
-        self.assertIsNone(self.authority.authorize_lease(
-            {"run_id": "a", "token": "lease-b"}, scope))
+        self.assertIsNone(
+            self.authority.authorize_lease(
+                {"run_id": "a", "token": "lease-a"},
+                {**scope, "repository": "other/repo"},
+            )
+        )
+        self.assertEqual(
+            self.authority.authorize_lease({"run_id": "a", "token": "lease-a"}, scope)[
+                "operations"
+            ],
+            {"actions_read"},
+        )
+        self.assertIsNone(
+            self.authority.authorize_lease({"run_id": "a", "token": "lease-b"}, scope)
+        )
 
     def test_service_issues_only_trusted_pr_target(self):
-        _, accepted, token = self.register("a", "lease-a", operations={"pr_update"},
-                                           target_prs={7: "main"})
+        _, accepted, token = self.register(
+            "a", "lease-a", operations={"pr_update"}, target_prs={7: "main"}
+        )
         payload = {"number": 999, "head": "branch-a", "base": "main", "marker": "m"}
         with self.assertRaisesRegex(MediationError, "target_pr_denied"):
-            self.store.invoke(token=token, repository="example/disposable",
-                              operation="pr_update", payload=payload,
-                              effect_id="wrong-pr", transport=lambda *_: self.calls.append("bad"))
+            self.store.invoke(
+                token=token,
+                repository="example/disposable",
+                operation="pr_update",
+                payload=payload,
+                effect_id="wrong-pr",
+                transport=lambda *_: self.calls.append("bad"),
+            )
         self.assertEqual(self.calls, [])
         payload["number"] = 7
-        result = self.store.invoke(token=token, repository="example/disposable",
-                                   operation="pr_update", payload=payload,
-                                   effect_id="approved-pr", transport=lambda *_: {"ok": True})
+        result = self.store.invoke(
+            token=token,
+            repository="example/disposable",
+            operation="pr_update",
+            payload=payload,
+            effect_id="approved-pr",
+            transport=lambda *_: {"ok": True},
+        )
         self.assertEqual(result["state"], "confirmed")
         with closing(sqlite3.connect(self.store.path)) as db:
             record = db.execute(
                 "SELECT grant_id,invocation_id,approval_identity FROM effects "
-                "WHERE run_id=? AND effect_id=?", ("a", "approved-pr")).fetchone()
-        self.assertEqual(record, (accepted["grant_id"], "invocation-a",
-                                  "test-operator"))
+                "WHERE run_id=? AND effect_id=?",
+                ("a", "approved-pr"),
+            ).fetchone()
+        self.assertEqual(
+            record, (accepted["grant_id"], "invocation-a", "test-operator")
+        )
 
     def test_lease_service_failure_still_expires_at_use(self):
         _, _, token_a = self.register("a", "lease-a")
@@ -363,20 +515,32 @@ class MediatedLeaseTests(unittest.TestCase):
         expired_view = MediationStore(self.store.path, now=lambda: time.time() + 61)
         mediator = MediationHTTPService(expired_view, self.transport)
         import threading
+
         thread = threading.Thread(target=mediator.serve, daemon=True)
         thread.start()
         self.addCleanup(mediator.close)
-        with request.urlopen(f"http://127.0.0.1:{mediator.port}/v1/health",
-                             timeout=5) as response:
-            self.assertEqual(json.load(response),
-                             {"status": "ready", "instance": mediator.instance})
+        with request.urlopen(
+            f"http://127.0.0.1:{mediator.port}/v1/health", timeout=5
+        ) as response:
+            self.assertEqual(
+                json.load(response), {"status": "ready", "instance": mediator.instance}
+            )
         for token in (token_a, token_b):
             call = request.Request(
                 f"http://127.0.0.1:{mediator.port}/v1/mediate",
-                data=json.dumps({"repository": "example/disposable",
-                                 "operation": "actions_read", "payload": {}}).encode(),
-                method="POST", headers={"Authorization": "Bearer " + token,
-                                        "X-Laomedo-Mediator-Instance": mediator.instance})
+                data=json.dumps(
+                    {
+                        "repository": "example/disposable",
+                        "operation": "actions_read",
+                        "payload": {},
+                    }
+                ).encode(),
+                method="POST",
+                headers={
+                    "Authorization": "Bearer " + token,
+                    "X-Laomedo-Mediator-Instance": mediator.instance,
+                },
+            )
             with self.assertRaises(error.HTTPError) as denial:
                 request.urlopen(call, timeout=5)
             self.assertEqual(denial.exception.code, 403)
@@ -387,22 +551,40 @@ class MediatedLeaseTests(unittest.TestCase):
         directory.mkdir(parents=True)
         (directory / "heartbeat").write_text(repr(time.time()), encoding="utf-8")
         (directory / "heartbeat.monotonic").write_text(
-            repr(time.monotonic()), encoding="utf-8")
-        (directory / "lease.json").write_text(json.dumps({
-            "token": "lease-a", "run_id": "a", "name": "container-a",
-            "mediation": {"invocation_id": "invocation-a",
-                          "repository": "example/disposable", "branch": "branch-a"}
-        }), encoding="utf-8")
+            repr(time.monotonic()), encoding="utf-8"
+        )
+        (directory / "lease.json").write_text(
+            json.dumps(
+                {
+                    "token": "lease-a",
+                    "run_id": "a",
+                    "name": "container-a",
+                    "mediation": {
+                        "invocation_id": "invocation-a",
+                        "repository": "example/disposable",
+                        "branch": "branch-a",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
         # Make the acknowledgement path a directory. Grant issuance succeeds,
         # but no dispatch acknowledgement can be durably written.
         (directory / "accepted.json").mkdir()
         reference = self.authority.approve(
-            invocation_id="invocation-a", repository="example/disposable",
-            branch="branch-a", operations={"git_push"}, reviewed_by="test-operator")
+            invocation_id="invocation-a",
+            repository="example/disposable",
+            branch="branch-a",
+            operations={"git_push"},
+            reviewed_by="test-operator",
+        )
         self.authority.bind_run(reference, "a")
         with self.assertRaises(OSError):
-            self.service._accept(directory, json.loads(
-                (directory / "lease.json").read_text(encoding="utf-8")), time.time())
+            self.service._accept(
+                directory,
+                json.loads((directory / "lease.json").read_text(encoding="utf-8")),
+                time.time(),
+            )
         self.assertFalse((directory / "accepted.json").is_file())
         with closing(sqlite3.connect(self.store.path)) as db:
             grants = db.execute("SELECT revoked_at FROM grants").fetchall()
@@ -416,19 +598,30 @@ class MediatedLeaseTests(unittest.TestCase):
         first, _, token_a = self.register("a", "lease-a")
         _, _, token_b = self.register("b", "lease-b")
         import threading
+
         mediator = MediationHTTPService(self.store, self.transport)
         thread = threading.Thread(target=mediator.serve, daemon=True)
         thread.start()
         self.addCleanup(mediator.close)
 
         def mediate(token, *, instance=None):
-            body = json.dumps({"repository": "example/disposable",
-                               "operation": "actions_read", "payload": {}}).encode()
+            body = json.dumps(
+                {
+                    "repository": "example/disposable",
+                    "operation": "actions_read",
+                    "payload": {},
+                }
+            ).encode()
             call = request.Request(
                 f"http://127.0.0.1:{mediator.port}/v1/mediate",
-                data=body, method="POST", headers={
-                    "Authorization": "Bearer " + token, "Content-Type": "application/json",
-                    "X-Laomedo-Mediator-Instance": instance or mediator.instance})
+                data=body,
+                method="POST",
+                headers={
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json",
+                    "X-Laomedo-Mediator-Instance": instance or mediator.instance,
+                },
+            )
             try:
                 with request.urlopen(call, timeout=5) as response:
                     return response.status
@@ -447,21 +640,37 @@ class MediatedLeaseTests(unittest.TestCase):
 
     def test_connection_generation_blocks_old_active_run_without_harming_other(self):
         self.generations.update({"connection-a": 1, "connection-b": 1})
-        _, _, token_a = self.register("a", "lease-a", operations={"actions_read"},
-            connection_id="connection-a", connection_generation=1)
-        _, _, token_b = self.register("b", "lease-b", operations={"actions_read"},
-            connection_id="connection-b", connection_generation=1)
+        _, _, token_a = self.register(
+            "a",
+            "lease-a",
+            operations={"actions_read"},
+            connection_id="connection-a",
+            connection_generation=1,
+        )
+        _, _, token_b = self.register(
+            "b",
+            "lease-b",
+            operations={"actions_read"},
+            connection_id="connection-b",
+            connection_generation=1,
+        )
         routed = []
 
-        def selected_transport(repository, operation, payload, *, connection_id,
-                               connection_generation):
+        def selected_transport(
+            repository, operation, payload, *, connection_id, connection_generation
+        ):
             routed.append((connection_id, connection_generation))
             return {"ok": True}
 
         def use(token):
-            return self.store.invoke(token=token, repository="example/disposable",
-                operation="actions_read", payload={}, effect_id=None,
-                transport=selected_transport)
+            return self.store.invoke(
+                token=token,
+                repository="example/disposable",
+                operation="actions_read",
+                payload={},
+                effect_id=None,
+                transport=selected_transport,
+            )
 
         self.assertEqual(use(token_a)["state"], "confirmed")
         self.generations["connection-a"] = 2
@@ -470,32 +679,54 @@ class MediatedLeaseTests(unittest.TestCase):
         self.assertEqual(routed, [("connection-a", 1)])
         self.assertEqual(use(token_b)["state"], "confirmed")
         self.assertEqual(routed[-1], ("connection-b", 1))
-        _, _, token_new = self.register("c", "lease-c", operations={"actions_read"},
-            connection_id="connection-a", connection_generation=2)
+        _, _, token_new = self.register(
+            "c",
+            "lease-c",
+            operations={"actions_read"},
+            connection_id="connection-a",
+            connection_generation=2,
+        )
         self.assertEqual(use(token_new)["state"], "confirmed")
         self.assertEqual(routed[-1], ("connection-a", 2))
 
     def test_connection_bound_grant_fails_closed_without_resolver(self):
         independent = MediationStore(self.root / "private" / "no-resolver.sqlite")
         with self.assertRaisesRegex(MediationError, "connection_unavailable"):
-            independent.issue(run_id="a", invocation_id="invocation-a",
-                repository="example/disposable", operations={"actions_read"},
-                ttl_seconds=60, connection_id="connection-a",
-                connection_generation=1)
+            independent.issue(
+                run_id="a",
+                invocation_id="invocation-a",
+                repository="example/disposable",
+                operations={"actions_read"},
+                ttl_seconds=60,
+                connection_id="connection-a",
+                connection_generation=1,
+            )
 
-    def test_connection_approval_fails_closed_on_wrong_repository_or_missing_resolver(self):
+    def test_connection_approval_fails_closed_on_wrong_repository_or_missing_resolver(
+        self,
+    ):
         self.generations["connection-a"] = 1
         no_resolver = RunGrantAuthority(self.root / "private" / "no-connection.sqlite")
         with self.assertRaisesRegex(MediationError, "connection_unavailable"):
-            no_resolver.approve(invocation_id="invocation-a",
-                repository="example/disposable", branch="branch-a",
-                operations={"actions_read"}, reviewed_by="test-operator",
-                connection_id="connection-a", connection_generation=1)
+            no_resolver.approve(
+                invocation_id="invocation-a",
+                repository="example/disposable",
+                branch="branch-a",
+                operations={"actions_read"},
+                reviewed_by="test-operator",
+                connection_id="connection-a",
+                connection_generation=1,
+            )
         with self.assertRaisesRegex(MediationError, "connection_unavailable"):
-            self.authority.approve(invocation_id="invocation-a",
-                repository="other/repo", branch="branch-a",
-                operations={"actions_read"}, reviewed_by="test-operator",
-                connection_id="connection-a", connection_generation=1)
+            self.authority.approve(
+                invocation_id="invocation-a",
+                repository="other/repo",
+                branch="branch-a",
+                operations={"actions_read"},
+                reviewed_by="test-operator",
+                connection_id="connection-a",
+                connection_generation=1,
+            )
 
 
 if __name__ == "__main__":

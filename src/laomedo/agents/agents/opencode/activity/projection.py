@@ -170,9 +170,7 @@ def project(events, *, root_thread=None, model=None):
                         "cancelled"
                         if _object(info.get("error")).get("name")
                         == "MessageAbortedError"
-                        else "failed"
-                        if info.get("error")
-                        else "completed"
+                        else "failed" if info.get("error") else "completed"
                     ),
                 )
         parts = message.get("parts", [])

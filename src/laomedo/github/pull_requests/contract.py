@@ -42,17 +42,24 @@ def pr_value(raw, repository, number):
     if head_repository is not None and not isinstance(head_repository, str):
         raise ValueError("pr_response_invalid")
     try:
-        labels = labels_value(
-            [label["name"] for label in raw["labels"]]
-        )
+        labels = labels_value([label["name"] for label in raw["labels"]])
     except (KeyError, TypeError, ValueError):
         raise ValueError("pr_response_invalid") from None
     return GitHubPullRequest(
-        repository=repository, number=number, url=raw["html_url"],
-        node_id=raw["node_id"], title=raw["title"], body=raw.get("body") or "",
-        labels=labels, state=raw["state"], draft=raw["draft"],
-        merged=bool(raw.get("merged_at")), updated_at=raw["updated_at"],
-        head=PullRequestHead(repository=head_repository, branch=head["ref"], sha=head["sha"]),
+        repository=repository,
+        number=number,
+        url=raw["html_url"],
+        node_id=raw["node_id"],
+        title=raw["title"],
+        body=raw.get("body") or "",
+        labels=labels,
+        state=raw["state"],
+        draft=raw["draft"],
+        merged=bool(raw.get("merged_at")),
+        updated_at=raw["updated_at"],
+        head=PullRequestHead(
+            repository=head_repository, branch=head["ref"], sha=head["sha"]
+        ),
         base=base["ref"],
     ).to_payload()
 

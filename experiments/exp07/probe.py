@@ -8,8 +8,8 @@ import secrets
 import subprocess
 import sys
 import time
-from urllib import error; from urllib import request
-
+from urllib import error
+from urllib import request
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -24,8 +24,9 @@ URL = "http://127.0.0.1:17867"
 
 
 def docker(*args, check=True, timeout=50):
-    result = subprocess.run(["docker", *args], capture_output=True, text=True,
-                            timeout=timeout, check=False)
+    result = subprocess.run(
+        ["docker", *args], capture_output=True, text=True, timeout=timeout, check=False
+    )
     if check and result.returncode:
         raise RuntimeError(f"docker {args[0]} failed: {result.stderr[-400:]}")
     return result
@@ -55,23 +56,54 @@ def wait_for(predicate, seconds, label):
 
 
 def start_backend():
-    docker("run", "-d", "--name", BACKEND, "--network", NETWORK,
-           "-p", "127.0.0.1:17868:7860", "-e", "PYTHONPATH=/laomedo-src",
-           "-e", "LANGFLOW_AUTO_LOGIN=true",
-           "-e", "LANGFLOW_DO_NOT_TRACK=true",
-           "-e", "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
-           "-v", f"{STATE}:/state",
-           "-v", f"{ROOT / 'experiments'}:/experiments:ro",
-           "-v", f"{ROOT / 'laomedo'}:/laomedo-src/laomedo:ro",
-           "--entrypoint", "python", IMAGE, "/experiments/exp06/start.py")
+    docker(
+        "run",
+        "-d",
+        "--name",
+        BACKEND,
+        "--network",
+        NETWORK,
+        "-p",
+        "127.0.0.1:17868:7860",
+        "-e",
+        "PYTHONPATH=/laomedo-src",
+        "-e",
+        "LANGFLOW_AUTO_LOGIN=true",
+        "-e",
+        "LANGFLOW_DO_NOT_TRACK=true",
+        "-e",
+        "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
+        "-v",
+        f"{STATE}:/state",
+        "-v",
+        f"{ROOT / 'experiments'}:/experiments:ro",
+        "-v",
+        f"{ROOT / 'laomedo'}:/laomedo-src/laomedo:ro",
+        "--entrypoint",
+        "python",
+        IMAGE,
+        "/experiments/exp06/start.py",
+    )
     wait_for(health, 100, "backend health")
 
 
 def prepare_volume(name):
     docker("volume", "create", name)
-    docker("run", "--rm", "--user", "root", "--network", "none",
-           "-v", f"{name}:/state", "--entrypoint", "chown", IMAGE,
-           "1000:0", "/state")
+    docker(
+        "run",
+        "--rm",
+        "--user",
+        "root",
+        "--network",
+        "none",
+        "-v",
+        f"{name}:/state",
+        "--entrypoint",
+        "chown",
+        IMAGE,
+        "1000:0",
+        "/state",
+    )
 
 
 def cleanup():
@@ -103,34 +135,87 @@ def main(max_exposure_seconds):
         prepare_volume(STATE)
         prepare_volume(CANARY_STATE)
         start_backend()
-        docker("run", "-d", "--name", CANARY, "--network", NETWORK,
-               "--network-alias", "canary", "-p", "127.0.0.1:17867:8099",
-               "-e", "CANARY_GRANT=" + token,
-               "-e", "CANARY_LEASE_NS=" + str(max_exposure_seconds * 1_000_000_000),
-               "-v", f"{CANARY_STATE}:/canary-state",
-               "-v", f"{HERE}:/fixture:ro", "--entrypoint", "python",
-               IMAGE, "/fixture/canary.py")
+        docker(
+            "run",
+            "-d",
+            "--name",
+            CANARY,
+            "--network",
+            NETWORK,
+            "--network-alias",
+            "canary",
+            "-p",
+            "127.0.0.1:17867:8099",
+            "-e",
+            "CANARY_GRANT=" + token,
+            "-e",
+            "CANARY_LEASE_NS=" + str(max_exposure_seconds * 1_000_000_000),
+            "-v",
+            f"{CANARY_STATE}:/canary-state",
+            "-v",
+            f"{HERE}:/fixture:ro",
+            "--entrypoint",
+            "python",
+            IMAGE,
+            "/fixture/canary.py",
+        )
         wait_for(status, 20, "canary startup")
-        reservation = docker("run", "--rm", "--network", "none",
-                             "-e", "PYTHONPATH=/laomedo-src", "-v", f"{STATE}:/state",
-                             "-v", f"{HERE}:/fixture:ro",
-                             "-v", f"{ROOT / 'laomedo'}:/laomedo-src/laomedo:ro",
-                             "--entrypoint", "python", IMAGE, "/fixture/reserve.py")
+        reservation = docker(
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "-e",
+            "PYTHONPATH=/laomedo-src",
+            "-v",
+            f"{STATE}:/state",
+            "-v",
+            f"{HERE}:/fixture:ro",
+            "-v",
+            f"{ROOT / 'laomedo'}:/laomedo-src/laomedo:ro",
+            "--entrypoint",
+            "python",
+            IMAGE,
+            "/fixture/reserve.py",
+        )
         run_id = reservation.stdout.strip().splitlines()[-1]
         if len(run_id) != 36:
             raise RuntimeError("synthetic reservation ID missing")
-        docker("run", "-d", "--name", WORKER, "--network", NETWORK,
-               "-e", "CANARY_GRANT=" + token,
-               "-e", "NO_PROXY=canary",
-               "-v", f"{HERE}:/fixture:ro", "--entrypoint", "python",
-               IMAGE, "/fixture/worker.py")
-        wait_for(lambda: sum(e["accepted"] for e in status()["events"]
-                             if e["action"] == "write") >= 3, 20, "canary writes")
-        env = dict(os.environ, CANARY_GRANT=token,
-                   EXP07_SUPERVISOR_REPORT=str(report_path))
-        supervisor = subprocess.Popen([sys.executable, str(HERE / "supervisor.py")],
-                                      env=env, stdout=subprocess.DEVNULL,
-                                      stderr=subprocess.PIPE)
+        docker(
+            "run",
+            "-d",
+            "--name",
+            WORKER,
+            "--network",
+            NETWORK,
+            "-e",
+            "CANARY_GRANT=" + token,
+            "-e",
+            "NO_PROXY=canary",
+            "-v",
+            f"{HERE}:/fixture:ro",
+            "--entrypoint",
+            "python",
+            IMAGE,
+            "/fixture/worker.py",
+        )
+        wait_for(
+            lambda: sum(
+                e["accepted"] for e in status()["events"] if e["action"] == "write"
+            )
+            >= 3,
+            20,
+            "canary writes",
+        )
+        env = dict(
+            os.environ, CANARY_GRANT=token, EXP07_SUPERVISOR_REPORT=str(report_path)
+        )
+        supervisor = subprocess.Popen(
+            [sys.executable, str(HERE / "supervisor.py")],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
         time.sleep(0.6)
         kill_requested_ns = time.time_ns()
         docker("kill", BACKEND)
@@ -138,53 +223,91 @@ def main(max_exposure_seconds):
         if supervisor.returncode != 0 or not report_path.exists():
             raise RuntimeError("independent supervisor failed")
         supervisor_report = json.loads(report_path.read_text(encoding="utf-8"))
-        worker_state = docker("inspect", "--format", "{{.State.Status}}", WORKER).stdout.strip()
+        worker_state = docker(
+            "inspect", "--format", "{{.State.Status}}", WORKER
+        ).stdout.strip()
         worker_stop_observed_ns = time.time_ns()
-        req = request.Request(URL + "/write", data=b"post-death-test", method="POST",
-                              headers={"X-Test-Grant": token})
+        req = request.Request(
+            URL + "/write",
+            data=b"post-death-test",
+            method="POST",
+            headers={"X-Test-Grant": token},
+        )
         try:
             with request.urlopen(req, timeout=3) as response:
                 post_death_status = response.status
         except error.HTTPError as exc:
             post_death_status = exc.code
         canary = status()
-        accepted_after_kill = [event for event in canary["events"]
-                               if event["action"] == "write" and event["accepted"]
-                               and event["at_ns"] >= kill_requested_ns]
-        revoke_events = [event for event in canary["events"]
-                         if event["action"] == "revoke" and event["accepted"]]
+        accepted_after_kill = [
+            event
+            for event in canary["events"]
+            if event["action"] == "write"
+            and event["accepted"]
+            and event["at_ns"] >= kill_requested_ns
+        ]
+        revoke_events = [
+            event
+            for event in canary["events"]
+            if event["action"] == "revoke" and event["accepted"]
+        ]
         if not revoke_events:
             raise RuntimeError("grant revocation was not observed")
         grant_end_ns = min(canary["expiry_ns"], revoke_events[0]["at_ns"])
         docker("rm", BACKEND)
         start_backend()
-        after_restart = json.loads(docker("exec", BACKEND, "python",
-                                          "/experiments/exp06/inspect_store.py",
-                                          run_id).stdout)
+        after_restart = json.loads(
+            docker(
+                "exec", BACKEND, "python", "/experiments/exp06/inspect_store.py", run_id
+            ).stdout
+        )
         startup_sweep = "exp06_startup_swept=1" in docker("logs", BACKEND).stdout
-        report = {"image": IMAGE, "selected_policy": "independent_supervisor_plus_startup_sweep",
-                  "max_exposure_seconds": max_exposure_seconds,
-                  "run_id": run_id, "kill_requested_ns": kill_requested_ns,
-                  "supervisor": supervisor_report, "worker_state": worker_state,
-                  "worker_stop_observed_ns": worker_stop_observed_ns,
-                  "grant_expiry_ns": canary["expiry_ns"], "grant_end_ns": grant_end_ns,
-                  "grant_exposure_ms_upper": max(0, (grant_end_ns-kill_requested_ns)/1e6),
-                  "orphan_lifetime_ms_upper": max(0, (worker_stop_observed_ns-kill_requested_ns)/1e6),
-                  "accepted_writes_after_kill": accepted_after_kill,
-                  "post_death_grant_status": post_death_status,
-                  "canary_events": canary["events"],
-                  "startup_swept_one": startup_sweep,
-                  "run_after_restart": after_restart}
-        (HERE / "observation.json").write_text(json.dumps(report, indent=2) + "\n",
-                                                encoding="utf-8")
-        print(json.dumps({key: report[key] for key in (
-            "grant_exposure_ms_upper", "orphan_lifetime_ms_upper",
-            "post_death_grant_status", "startup_swept_one")}))
+        report = {
+            "image": IMAGE,
+            "selected_policy": "independent_supervisor_plus_startup_sweep",
+            "max_exposure_seconds": max_exposure_seconds,
+            "run_id": run_id,
+            "kill_requested_ns": kill_requested_ns,
+            "supervisor": supervisor_report,
+            "worker_state": worker_state,
+            "worker_stop_observed_ns": worker_stop_observed_ns,
+            "grant_expiry_ns": canary["expiry_ns"],
+            "grant_end_ns": grant_end_ns,
+            "grant_exposure_ms_upper": max(0, (grant_end_ns - kill_requested_ns) / 1e6),
+            "orphan_lifetime_ms_upper": max(
+                0, (worker_stop_observed_ns - kill_requested_ns) / 1e6
+            ),
+            "accepted_writes_after_kill": accepted_after_kill,
+            "post_death_grant_status": post_death_status,
+            "canary_events": canary["events"],
+            "startup_swept_one": startup_sweep,
+            "run_after_restart": after_restart,
+        }
+        (HERE / "observation.json").write_text(
+            json.dumps(report, indent=2) + "\n", encoding="utf-8"
+        )
+        print(
+            json.dumps(
+                {
+                    key: report[key]
+                    for key in (
+                        "grant_exposure_ms_upper",
+                        "orphan_lifetime_ms_upper",
+                        "post_death_grant_status",
+                        "startup_swept_one",
+                    )
+                }
+            )
+        )
         bound_ms = max_exposure_seconds * 1000
-        if (report["grant_exposure_ms_upper"] > bound_ms or
-                report["orphan_lifetime_ms_upper"] > bound_ms or
-                post_death_status != 403 or worker_state != "exited" or
-                not startup_sweep or after_restart["status"] != "crashed"):
+        if (
+            report["grant_exposure_ms_upper"] > bound_ms
+            or report["orphan_lifetime_ms_upper"] > bound_ms
+            or post_death_status != 403
+            or worker_state != "exited"
+            or not startup_sweep
+            or after_restart["status"] != "crashed"
+        ):
             raise AssertionError("EXP-07 orphan/grant bound failed")
     finally:
         if supervisor is not None and supervisor.poll() is None:

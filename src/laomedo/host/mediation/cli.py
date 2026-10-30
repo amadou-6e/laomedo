@@ -91,9 +91,7 @@ def main() -> None:
         connection.token,
         require_verified_stage=True,
     )
-    rest_transport = GitHubRestTransport(
-        args.repository, connection.token
-    )
+    rest_transport = GitHubRestTransport(args.repository, connection.token)
     store = MediationStore(
         state / "mediator.sqlite",
         verified_stage_resolver=resolver,

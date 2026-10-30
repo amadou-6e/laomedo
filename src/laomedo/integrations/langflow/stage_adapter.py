@@ -56,9 +56,7 @@ class FrozenLangflowStage:
             try:
                 code = node["data"]["node"]["template"]["code"]["value"]
             except (KeyError, TypeError):
-                raise LaunchError(
-                    "unresolved_component_identity"
-                ) from None
+                raise LaunchError("unresolved_component_identity") from None
             if (
                 not isinstance(code, str)
                 or not code.strip()
@@ -94,9 +92,7 @@ class FrozenLangflowStage:
             for node_id, code in self.component_code.items()
         }
 
-    def reserve(
-        self, store: WorkflowRunStore, *, resolved_config, trigger
-    ):
+    def reserve(self, store: WorkflowRunStore, *, resolved_config, trigger):
         if self._reserved:
             raise LaunchError("stage_already_reserved")
         self._reserved = True

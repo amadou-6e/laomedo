@@ -22,9 +22,7 @@ class LangflowJoinController:
     runner.
     """
 
-    def __init__(
-        self, store: WorkflowRunStore, runner, resolve_saved_flow
-    ):
+    def __init__(self, store: WorkflowRunStore, runner, resolve_saved_flow):
         if not callable(resolve_saved_flow):
             raise ValueError("flow_resolver_required")
         self.store = store
@@ -64,9 +62,7 @@ class LangflowJoinController:
                 node_id = node["id"]
                 code = node["data"]["node"]["template"]["code"]["value"]
             except (KeyError, TypeError):
-                raise LaunchError(
-                    "unresolved_component_identity"
-                ) from None
+                raise LaunchError("unresolved_component_identity") from None
             if (
                 not isinstance(node_id, str)
                 or not node_id
@@ -102,9 +98,7 @@ class LangflowJoinController:
 
     def status(self, client_request_id):
         """Read native status; a pending Stop may reconcile and cancel exactly once."""
-        client_request_id = _uuid(
-            client_request_id, "invalid_client_request_id"
-        )
+        client_request_id = _uuid(client_request_id, "invalid_client_request_id")
         snapshot = self._snapshot(client_request_id)
         if (
             snapshot is not None
@@ -145,9 +139,7 @@ class LangflowJoinController:
 
     def start(self, *, client_request_id, flow_id, graph_run_id, stage_id, runner_body):
         """Persist a unique reservation before one native async start request."""
-        client_request_id = _uuid(
-            client_request_id, "invalid_client_request_id"
-        )
+        client_request_id = _uuid(client_request_id, "invalid_client_request_id")
         if (
             not isinstance(flow_id, str)
             or not flow_id
@@ -251,9 +243,7 @@ class LangflowJoinController:
 
     def cancel(self, client_request_id):
         """Retain Stop before ack; reconcile only by read-only native lookup."""
-        client_request_id = _uuid(
-            client_request_id, "invalid_client_request_id"
-        )
+        client_request_id = _uuid(client_request_id, "invalid_client_request_id")
         row = self.store.request_langflow_cancel(client_request_id)
         if row is None:
             return {"client_request_id": client_request_id, "status": "pending_start"}

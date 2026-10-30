@@ -41,7 +41,9 @@ def inspect_exact(identity: _leases_models.ContainerIdentity) -> tuple[str, str 
     try:
         with identity.client() as client:
             observation = client.containers.watch(identity.reservation()).inspect()
-            return observation.state, observation.identity.id if observation.identity else None
+            return observation.state, (
+                observation.identity.id if observation.identity else None
+            )
     except (ImportError, OSError, ValueError, RuntimeError):
         return "unknown", None
 

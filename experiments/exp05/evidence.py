@@ -59,20 +59,28 @@ class EvidenceStore:
             db.close()
 
     def reserve(self, *, run_id, trace_id, stage_id, invocation_id):
-        if not all(isinstance(value, str) and value for value in
-                   (run_id, trace_id, stage_id, invocation_id)):
+        if not all(
+            isinstance(value, str) and value
+            for value in (run_id, trace_id, stage_id, invocation_id)
+        ):
             raise EvidenceError("invalid_invocation_identity")
         with self._database() as db:
             run = db.execute(
                 "SELECT trace_id, status FROM runs WHERE run_id=?", (run_id,)
             ).fetchone()
-            if run is None or run["trace_id"] != trace_id or run["status"] != "reserved":
+            if (
+                run is None
+                or run["trace_id"] != trace_id
+                or run["status"] != "reserved"
+            ):
                 raise EvidenceError("run_not_reserved")
             try:
-                db.execute("""INSERT INTO invocations
+                db.execute(
+                    """INSERT INTO invocations
                     (invocation_id,run_id,trace_id,stage_id,status,stream_state)
                     VALUES (?,?,?,?,?,?)""",
-                    (invocation_id, run_id, trace_id, stage_id, "reserved", "unknown"))
+                    (invocation_id, run_id, trace_id, stage_id, "reserved", "unknown"),
+                )
             except sqlite3.IntegrityError as exc:
                 raise EvidenceError("duplicate_invocation_identity") from exc
 
@@ -80,11 +88,13 @@ class EvidenceStore:
         if not isinstance(native_session_id, str) or not native_session_id:
             raise EvidenceError("invalid_native_session")
         with self._database() as db:
-            changed = db.execute("""UPDATE invocations
+            changed = db.execute(
+                """UPDATE invocations
                 SET native_session_id=?, status='active'
                 WHERE invocation_id=? AND status='reserved'
                 AND native_session_id IS NULL""",
-                (native_session_id, invocation_id)).rowcount
+                (native_session_id, invocation_id),
+            ).rowcount
             if changed != 1:
                 raise EvidenceError("native_session_not_reservable")
 
@@ -92,7 +102,8 @@ class EvidenceStore:
         if not isinstance(kind, str) or not kind or not isinstance(payload, dict):
             raise EvidenceError("invalid_event")
         if source_event_id is not None and (
-                not isinstance(source_event_id, str) or not source_event_id):
+            not isinstance(source_event_id, str) or not source_event_id
+        ):
             raise EvidenceError("invalid_source_event_id")
         with self._database() as db:
             row = db.execute(
@@ -100,36 +111,56 @@ class EvidenceStore:
             ).fetchone()
             if row is None or row["status"] != "active":
                 raise EvidenceError("invocation_not_active")
-            receipt = db.execute("""INSERT INTO raw_events
+            receipt = db.execute(
+                """INSERT INTO raw_events
                 (invocation_id,source_event_id,kind,payload_json)
                 VALUES (?,?,?,?)""",
-                (invocation_id, source_event_id, kind,
-                 json.dumps(payload, sort_keys=True, separators=(",", ":"))))
-            db.execute("""UPDATE invocations SET stream_state='partial'
-                WHERE invocation_id=?""", (invocation_id,))
+                (
+                    invocation_id,
+                    source_event_id,
+                    kind,
+                    json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                ),
+            )
+            db.execute(
+                """UPDATE invocations SET stream_state='partial'
+                WHERE invocation_id=?""",
+                (invocation_id,),
+            )
             return receipt.lastrowid
 
     def project_unprojected(self):
         """Project only committed raw receipts; never infer missing events."""
         with self._database() as db:
-            raw = db.execute("""SELECT r.receipt_sequence,r.invocation_id,r.kind,
+            raw = db.execute(
+                """SELECT r.receipt_sequence,r.invocation_id,r.kind,
                 r.payload_json FROM raw_events r
                 LEFT JOIN projections p ON p.receipt_sequence=r.receipt_sequence
-                WHERE p.receipt_sequence IS NULL ORDER BY r.receipt_sequence""").fetchall()
+                WHERE p.receipt_sequence IS NULL ORDER BY r.receipt_sequence"""
+            ).fetchall()
             for row in raw:
                 payload = json.loads(row["payload_json"])
-                db.execute("""INSERT INTO projections
+                db.execute(
+                    """INSERT INTO projections
                     (receipt_sequence,invocation_id,kind,summary)
                     VALUES (?,?,?,?)""",
-                    (row["receipt_sequence"], row["invocation_id"], row["kind"],
-                     str(payload.get("summary", ""))))
+                    (
+                        row["receipt_sequence"],
+                        row["invocation_id"],
+                        row["kind"],
+                        str(payload.get("summary", "")),
+                    ),
+                )
             return len(raw)
 
     def mark_complete(self, invocation_id):
         with self._database() as db:
-            changed = db.execute("""UPDATE invocations
+            changed = db.execute(
+                """UPDATE invocations
                 SET status='completed',stream_state='complete'
-                WHERE invocation_id=? AND status='active'""", (invocation_id,)).rowcount
+                WHERE invocation_id=? AND status='active'""",
+                (invocation_id,),
+            ).rowcount
             if changed != 1:
                 raise EvidenceError("invocation_not_active")
 
@@ -147,10 +178,22 @@ class EvidenceStore:
     def inspect(self):
         with self._database() as db:
             return {
-                "invocations": [dict(row) for row in db.execute(
-                    "SELECT * FROM invocations ORDER BY invocation_id")],
-                "raw_events": [dict(row) for row in db.execute(
-                    "SELECT * FROM raw_events ORDER BY receipt_sequence")],
-                "projections": [dict(row) for row in db.execute(
-                    "SELECT * FROM projections ORDER BY receipt_sequence")],
+                "invocations": [
+                    dict(row)
+                    for row in db.execute(
+                        "SELECT * FROM invocations ORDER BY invocation_id"
+                    )
+                ],
+                "raw_events": [
+                    dict(row)
+                    for row in db.execute(
+                        "SELECT * FROM raw_events ORDER BY receipt_sequence"
+                    )
+                ],
+                "projections": [
+                    dict(row)
+                    for row in db.execute(
+                        "SELECT * FROM projections ORDER BY receipt_sequence"
+                    )
+                ],
             }

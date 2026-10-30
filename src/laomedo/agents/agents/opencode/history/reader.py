@@ -76,9 +76,7 @@ class HistoryReader:
                         )
                     # Reserve bounded process termination and receipt cleanup
                     # time inside the whole-tree budget, not once per child.
-                    seconds = min(
-                        EXPORT_SECONDS, int(deadline - time.monotonic()) - 15
-                    )
+                    seconds = min(EXPORT_SECONDS, int(deadline - time.monotonic()) - 15)
                     if seconds < 1:
                         raise ValueError(
                             "Native history export batch exceeded its deadline"
@@ -163,7 +161,11 @@ class HistoryReader:
                     }
                 ]
             sensitive = table in required or any(
-                re.search(r"token|secret|password|credential|auth|(^|_)key($|_)|api.?key|bearer|cookie", name, re.I)
+                re.search(
+                    r"token|secret|password|credential|auth|(^|_)key($|_)|api.?key|bearer|cookie",
+                    name,
+                    re.I,
+                )
                 for name in (table, *columns)
             )
             if (

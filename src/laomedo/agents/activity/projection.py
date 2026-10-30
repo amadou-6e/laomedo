@@ -55,7 +55,9 @@ def project(events, *, root_thread=None, model=None):
         .startswith("opencode/")
         for receipt in events
     ):
-        from laomedo.agents.agents.opencode.activity.projection import project as opencode_activity_projection_project
+        from laomedo.agents.agents.opencode.activity.projection import (
+            project as opencode_activity_projection_project,
+        )
 
         return opencode_activity_projection_project(
             events, root_thread=root_thread, model=model
@@ -313,20 +315,15 @@ def project(events, *, root_thread=None, model=None):
                 "runtime-reported OTLP metadata; not independently attested"
             )
     for point in points:
-        point["cost"] = estimate(
-            models.get(point["thread"]), point["usage"]
-        )
+        point["cost"] = estimate(models.get(point["thread"]), point["usage"])
         point["turn_cost"] = estimate(
             models.get(point["thread"]), point.get("turn_usage")
         )
     # Child model and usage must be independently observed; do not price all
     # child activity at the parent's model or claim an inclusive known total.
-    cost = estimate(
-        models.get(root_thread), latest.get(root_thread)
-    )
+    cost = estimate(models.get(root_thread), latest.get(root_thread))
     per_thread = {
-        thread: estimate(models.get(thread), latest.get(thread))
-        for thread in related
+        thread: estimate(models.get(thread), latest.get(thread)) for thread in related
     }
     if len(related) > 1:
         if all(value["amount"] is not None for value in per_thread.values()):
@@ -352,9 +349,7 @@ def project(events, *, root_thread=None, model=None):
         {
             **lane,
             "usage": turn_usage_by_key.get(key),
-            "cost": estimate(
-                models.get(lane["thread"]), turn_usage_by_key.get(key)
-            ),
+            "cost": estimate(models.get(lane["thread"]), turn_usage_by_key.get(key)),
         }
         for key, lane in turns.items()
     ]

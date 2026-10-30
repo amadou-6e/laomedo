@@ -219,9 +219,7 @@ class HttpAgentBridge:
                         raw = json.load(response)
                 except TimeoutError as exc:
                     if time.monotonic() >= deadline:
-                        raise HandoffError(
-                            "runner_result_pending"
-                        ) from exc
+                        raise HandoffError("runner_result_pending") from exc
                     raise
                 if (
                     not isinstance(raw, dict)

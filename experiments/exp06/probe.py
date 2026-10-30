@@ -10,7 +10,6 @@ from threading import Thread
 import time
 from urllib import request
 
-
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAME = "laomedo-exp06-20261002"
@@ -21,8 +20,9 @@ TOKEN = None
 
 
 def docker(*args, check=True):
-    result = subprocess.run(["docker", *args], capture_output=True, text=True,
-                            timeout=35, check=False)
+    result = subprocess.run(
+        ["docker", *args], capture_output=True, text=True, timeout=35, check=False
+    )
     if check and result.returncode:
         raise RuntimeError(f"docker {args[0]} failed: {result.stderr[-400:]}")
     return result.stdout.strip()
@@ -41,11 +41,18 @@ def api(method, path, payload=None):
 
 def start_request(flow_id):
     conn = http.client.HTTPConnection("127.0.0.1", 17866, timeout=130)
-    payload = json.dumps({"input_value": "TASK", "input_type": "chat",
-                          "output_type": "chat"}).encode("utf-8")
-    conn.request("POST", "/api/v1/run/session/" + flow_id, body=payload,
-                 headers={"Content-Type": "application/json",
-                          "Authorization": "Bearer " + TOKEN})
+    payload = json.dumps(
+        {"input_value": "TASK", "input_type": "chat", "output_type": "chat"}
+    ).encode("utf-8")
+    conn.request(
+        "POST",
+        "/api/v1/run/session/" + flow_id,
+        body=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + TOKEN,
+        },
+    )
     outcome = {}
 
     def receive():
@@ -64,7 +71,10 @@ def start_request(flow_id):
 def wait_entered(mode):
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
-        if docker("exec", NAME, "test", "-f", "/state/entered-" + mode, check=False) == "":
+        if (
+            docker("exec", NAME, "test", "-f", "/state/entered-" + mode, check=False)
+            == ""
+        ):
             # test emits no output both for success and failure; read by cat instead.
             run_id = docker("exec", NAME, "cat", "/state/entered-" + mode, check=False)
             if len(run_id) == 36:
@@ -74,8 +84,9 @@ def wait_entered(mode):
 
 
 def inspect(run_id):
-    return json.loads(docker("exec", NAME, "python",
-                             "/experiments/exp06/inspect_store.py", run_id))
+    return json.loads(
+        docker("exec", NAME, "python", "/experiments/exp06/inspect_store.py", run_id)
+    )
 
 
 def wait_health():
@@ -92,14 +103,32 @@ def wait_health():
 
 
 def start_backend():
-    docker("run", "-d", "--name", NAME, "--network", "bridge", "-p",
-           "127.0.0.1:17866:7860", "-e", "PYTHONPATH=/laomedo-src",
-           "-e", "LANGFLOW_AUTO_LOGIN=true",
-           "-e", "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
-           "-v", f"{VOLUME}:/state",
-           "-v", f"{ROOT / 'experiments'}:/experiments:ro",
-           "-v", f"{ROOT / 'laomedo'}:/laomedo-src/laomedo:ro",
-           "--entrypoint", "python", IMAGE, "/experiments/exp06/start.py")
+    docker(
+        "run",
+        "-d",
+        "--name",
+        NAME,
+        "--network",
+        "bridge",
+        "-p",
+        "127.0.0.1:17866:7860",
+        "-e",
+        "PYTHONPATH=/laomedo-src",
+        "-e",
+        "LANGFLOW_AUTO_LOGIN=true",
+        "-e",
+        "LANGFLOW_DATABASE_URL=sqlite:////state/langflow.db",
+        "-v",
+        f"{VOLUME}:/state",
+        "-v",
+        f"{ROOT / 'experiments'}:/experiments:ro",
+        "-v",
+        f"{ROOT / 'laomedo'}:/laomedo-src/laomedo:ro",
+        "--entrypoint",
+        "python",
+        IMAGE,
+        "/experiments/exp06/start.py",
+    )
 
 
 def main():
@@ -110,7 +139,9 @@ def main():
     ui_flow = api("POST", "/api/v1/flows/", base_flow)
     crash_flow = deepcopy(base_flow)
     crash_flow["name"] = "EXP-06 synthetic backend death"
-    stage = next(n for n in crash_flow["data"]["nodes"] if n["id"] == "Exp06Stage-exp06")
+    stage = next(
+        n for n in crash_flow["data"]["nodes"] if n["id"] == "Exp06Stage-exp06"
+    )
     stage["data"]["node"]["template"]["mode"]["value"] = "crash"
     crash_flow = api("POST", "/api/v1/flows/", crash_flow)
 
@@ -143,24 +174,45 @@ def main():
     crash_after_restart = inspect(crash_run_id)
     ui_after_restart = inspect(ui_run_id)
     startup_log = docker("logs", NAME)
-    report = {"image": IMAGE, "ui": {"run_id": ui_run_id,
-              "at_client_close": ui_at_close, "reopened_flow_id": reopened_flow["id"],
-              "after_release": ui_after_release, "client": ui_response},
-              "backend_death": {"run_id": crash_run_id,
-              "before_kill": crash_before_kill, "container_before": before_kill_container,
-              "container_after": after_kill_container, "after_restart": crash_after_restart,
-              "ui_run_after_restart": ui_after_restart, "client": crash_response,
-              "startup_swept_one": "exp06_startup_swept=1" in startup_log}}
-    (HERE / "observation.json").write_text(json.dumps(report, indent=2) + "\n",
-                                            encoding="utf-8")
-    print(json.dumps({"ui_before": ui_at_close["status"],
-                      "ui_after": ui_after_release["status"],
-                      "backend_before": crash_before_kill["status"],
-                      "backend_after": crash_after_restart["status"],
-                      "startup_swept_one": report["backend_death"]["startup_swept_one"]}))
-    if (ui_after_release["status"] != "completed" or
-            crash_after_restart["status"] != "crashed" or
-            crash_after_restart["dispatch_attempts"] != 1):
+    report = {
+        "image": IMAGE,
+        "ui": {
+            "run_id": ui_run_id,
+            "at_client_close": ui_at_close,
+            "reopened_flow_id": reopened_flow["id"],
+            "after_release": ui_after_release,
+            "client": ui_response,
+        },
+        "backend_death": {
+            "run_id": crash_run_id,
+            "before_kill": crash_before_kill,
+            "container_before": before_kill_container,
+            "container_after": after_kill_container,
+            "after_restart": crash_after_restart,
+            "ui_run_after_restart": ui_after_restart,
+            "client": crash_response,
+            "startup_swept_one": "exp06_startup_swept=1" in startup_log,
+        },
+    }
+    (HERE / "observation.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps(
+            {
+                "ui_before": ui_at_close["status"],
+                "ui_after": ui_after_release["status"],
+                "backend_before": crash_before_kill["status"],
+                "backend_after": crash_after_restart["status"],
+                "startup_swept_one": report["backend_death"]["startup_swept_one"],
+            }
+        )
+    )
+    if (
+        ui_after_release["status"] != "completed"
+        or crash_after_restart["status"] != "crashed"
+        or crash_after_restart["dispatch_attempts"] != 1
+    ):
         raise AssertionError("EXP-06 lifecycle expectation failed")
 
 

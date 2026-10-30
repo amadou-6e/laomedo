@@ -73,9 +73,7 @@ class LocalGrantAuthority:
             raise LaunchError("grant_expired")
         grant_id = str(uuid4())
         operator_id = _host_principal()
-        content_digest = relevant_content_digest(
-            graph_snapshot, work_key
-        )
+        content_digest = relevant_content_digest(graph_snapshot, work_key)
         with closing(self._connect()) as db, db:
             db.execute(
                 """INSERT INTO grants

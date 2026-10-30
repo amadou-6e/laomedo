@@ -32,9 +32,7 @@ class AgentHandoffController:
         state_dir=None,
     ):
         if any(type(v) is not int or v <= 0 for v in (max_iterations, turn_budget)):
-            raise HandoffError(
-                "positive_iteration_and_turn_limits_required"
-            )
+            raise HandoffError("positive_iteration_and_turn_limits_required")
         if not 0 < timeout_seconds <= 86400:
             raise HandoffError("bounded_deadline_required")
         self.adapter, self.clock = adapter, clock
@@ -53,9 +51,7 @@ class AgentHandoffController:
         if state_dir is not None:
             root = Path(state_dir).resolve()
             if any((parent / ".git").exists() for parent in (root, *root.parents)):
-                raise HandoffError(
-                    "controller_state_must_be_outside_git"
-                )
+                raise HandoffError("controller_state_must_be_outside_git")
             root.mkdir(parents=True, exist_ok=True)
             self.state_dir = root
             self._persist("prepared")
@@ -78,9 +74,7 @@ class AgentHandoffController:
                 raise HandoffError("execution_already_started")
             self.started = True
             if not targets or not callable(success):
-                raise HandoffError(
-                    "targets_and_stop_predicate_required"
-                )
+                raise HandoffError("targets_and_stop_predicate_required")
             previous, seen = None, set()
             for step in range(self.max_iterations):
                 reason = (

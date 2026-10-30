@@ -26,13 +26,15 @@ class ClaudePolicy(BaseModel):
         options = {
             "model": self.model,
             "tools": ["Skill"] if self.skill_ids and not self.output_only else [],
-            "allowedTools": []
-            if self.output_only
-            else [
-                "mcp__laomedo__exec_command",
-                "mcp__laomedo__github_operation",
-                *["Skill(laomedo-pinned:" + item + ")" for item in self.skill_ids],
-            ],
+            "allowedTools": (
+                []
+                if self.output_only
+                else [
+                    "mcp__laomedo__exec_command",
+                    "mcp__laomedo__github_operation",
+                    *["Skill(laomedo-pinned:" + item + ")" for item in self.skill_ids],
+                ]
+            ),
             "disallowedTools": [
                 "Read",
                 "Glob",

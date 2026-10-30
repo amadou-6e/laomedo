@@ -10,8 +10,8 @@ import sys
 
 from laomedo.work_graph.github import import_pages
 from laomedo.work_graph.models import GraphSnapshot
-from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown; from laomedo.work_graph.runs.store import WorkflowRunStore
-
+from laomedo.work_graph.runs.errors import ExternalOutcomeUnknown
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 HERE = Path(__file__).resolve().parent
 REPOSITORY = "verify/exp16"
@@ -27,8 +27,9 @@ class Refusal(ValueError):
 
 
 def digest(value):
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"),
-                         ensure_ascii=False).encode("utf-8")
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
     return "sha256:" + sha256(encoded).hexdigest()
 
 
@@ -57,10 +58,14 @@ def item(graph):
 
 
 def mock_grant(graph, variant):
-    grant = {"grant_id": "exp16-synthetic-grant", "authorized": True,
-             "runner": "mock-runner", "work_key": SELECTED,
-             "graph_snapshot_id": graph.snapshot_id,
-             "expires_at": "2026-10-05T10:10:00+00:00"}
+    grant = {
+        "grant_id": "exp16-synthetic-grant",
+        "authorized": True,
+        "runner": "mock-runner",
+        "work_key": SELECTED,
+        "graph_snapshot_id": graph.snapshot_id,
+        "expires_at": "2026-10-05T10:10:00+00:00",
+    }
     if variant == "expired":
         grant["expires_at"] = "2026-10-05T09:59:00+00:00"
     elif variant == "wrong_work":
@@ -95,15 +100,22 @@ def preflight(frozen, current, case):
     if readiness == "blocked":
         if override is None:
             raise Refusal("open_prerequisite")
-        if (not isinstance(override.get("rationale"), str)
-                or not override["rationale"].strip()
-                or not override.get("prerequisite")
-                or override.get("dependent") != SELECTED):
+        if (
+            not isinstance(override.get("rationale"), str)
+            or not override["rationale"].strip()
+            or not override.get("prerequisite")
+            or override.get("dependent") != SELECTED
+        ):
             raise Refusal("override_incomplete")
-        open_edges = {(edge.prerequisite, edge.dependent)
-                      for edge in current.dependencies if edge.dependent == SELECTED
-                      and any(node.key == edge.prerequisite and node.state == "OPEN"
-                              for node in current.items)}
+        open_edges = {
+            (edge.prerequisite, edge.dependent)
+            for edge in current.dependencies
+            if edge.dependent == SELECTED
+            and any(
+                node.key == edge.prerequisite and node.state == "OPEN"
+                for node in current.items
+            )
+        }
         if open_edges != {(override["prerequisite"], override["dependent"])}:
             raise Refusal("override_wrong_edge")
     elif readiness != "ready" or override is not None:
@@ -135,57 +147,94 @@ def run_case(root, name, frozen, current, case):
         matches = {value["key"]: value["readiness"] for value in view["items"]}
         projection = {
             "projection_readiness": matches.get(SELECTED),
-            "context_edge": any(edge["dependent"] == SELECTED and
-                                edge["prerequisite"] == "github:C-10"
-                                for edge in view["context_dependencies"]),
+            "context_edge": any(
+                edge["dependent"] == SELECTED and edge["prerequisite"] == "github:C-10"
+                for edge in view["context_dependencies"]
+            ),
         }
     try:
         bound, grant, choice, override = preflight(frozen, current, case)
     except Refusal as error:
         counters = runs.counters()
-        actual = {"outcome": "refused", "calls": 0, "reason": str(error),
-                  **projection}
-        checks = {"zero_runs": counters["runs"] == 0,
-                  "zero_dispatch_attempts": counters["dispatch_attempts"] == 0,
-                  "zero_mock_calls": counters["synthetic_dispatches"] == 0}
+        actual = {"outcome": "refused", "calls": 0, "reason": str(error), **projection}
+        checks = {
+            "zero_runs": counters["runs"] == 0,
+            "zero_dispatch_attempts": counters["dispatch_attempts"] == 0,
+            "zero_mock_calls": counters["synthetic_dispatches"] == 0,
+        }
         return actual, checks
 
     selected = item(bound)
-    work_snapshot = {"key": selected.key, "repository": selected.repository,
-                     "number": selected.number, "url": selected.url,
-                     "updated_at": selected.updated_at,
-                     "body_digest": digest(selected.body)}
-    frozen_input = {"work": work_snapshot, "body": selected.body,
-                    "graph_snapshot_id": bound.snapshot_id}
-    trigger = {"work_snapshot": work_snapshot,
-               "work_snapshot_id": digest(work_snapshot),
-               "graph_snapshot_id": bound.snapshot_id,
-               "input_digest": digest(frozen_input), "source_choice": choice,
-               "override": override, "grant_id": grant["grant_id"]}
-    config = {"provider": "mock", "model": "none", "effort": "none",
-              "grant": grant, "turn_cap": 0}
+    work_snapshot = {
+        "key": selected.key,
+        "repository": selected.repository,
+        "number": selected.number,
+        "url": selected.url,
+        "updated_at": selected.updated_at,
+        "body_digest": digest(selected.body),
+    }
+    frozen_input = {
+        "work": work_snapshot,
+        "body": selected.body,
+        "graph_snapshot_id": bound.snapshot_id,
+    }
+    trigger = {
+        "work_snapshot": work_snapshot,
+        "work_snapshot_id": digest(work_snapshot),
+        "graph_snapshot_id": bound.snapshot_id,
+        "input_digest": digest(frozen_input),
+        "source_choice": choice,
+        "override": override,
+        "grant_id": grant["grant_id"],
+    }
+    config = {
+        "provider": "mock",
+        "model": "none",
+        "effort": "none",
+        "grant": grant,
+        "turn_cap": 0,
+    }
     artifact = bound.save(case_root / "snapshots")
-    run = runs.reserve(graph=FLOW, component_code=COMPONENT_CODE,
-                       resolved_config=config, trigger=trigger)
+    run = runs.reserve(
+        graph=FLOW,
+        component_code=COMPONENT_CODE,
+        resolved_config=config,
+        trigger=trigger,
+    )
     invocation = "exp16-" + run["run_id"]
-    evidence.reserve(run_id=run["run_id"], trace_id=run["trace_id"],
-                     stage_id="mock-stage", invocation_id=invocation)
-    binding = {**trigger, "run_id": run["run_id"], "trace_id": run["trace_id"],
-               "definition_revision": run["graph_revision"],
-               "component_revision": run["component_revisions"]["mock-stage"]}
+    evidence.reserve(
+        run_id=run["run_id"],
+        trace_id=run["trace_id"],
+        stage_id="mock-stage",
+        invocation_id=invocation,
+    )
+    binding = {
+        **trigger,
+        "run_id": run["run_id"],
+        "trace_id": run["trace_id"],
+        "definition_revision": run["graph_revision"],
+        "component_revision": run["component_revisions"]["mock-stage"],
+    }
 
     def mock_runner(run_id):
         runs.record_synthetic_dispatch(run_id)
         evidence.record_native_session(invocation, "mock-session-" + run_id)
-        evidence.append_raw_event(invocation, source_event_id="input", kind="input",
-                                  payload={"summary": "frozen input received",
-                                           "binding": binding})
+        evidence.append_raw_event(
+            invocation,
+            source_event_id="input",
+            kind="input",
+            payload={"summary": "frozen input received", "binding": binding},
+        )
         if case.get("mock") == "rejected":
             raise RuntimeError("mock_runner_rejected")
         if case.get("mock") == "unknown":
             raise ExternalOutcomeUnknown("mock_result_unknown")
-        evidence.append_raw_event(invocation, source_event_id="result", kind="result",
-                                  payload={"summary": "mock result", "run_id": run_id})
+        evidence.append_raw_event(
+            invocation,
+            source_event_id="result",
+            kind="result",
+            payload={"summary": "mock result", "run_id": run_id},
+        )
         evidence.project_unprojected()
         evidence.mark_complete(invocation)
         return {"mock_result": "completed"}
@@ -198,10 +247,16 @@ def run_case(root, name, frozen, current, case):
         evidence.sweep_crashed()
     stored = runs.get(run["run_id"])
     observed = evidence.inspect()
-    raw = [value for value in observed["raw_events"]
-           if value["invocation_id"] == invocation]
-    invocation_state = next(value for value in observed["invocations"]
-                            if value["invocation_id"] == invocation)
+    raw = [
+        value
+        for value in observed["raw_events"]
+        if value["invocation_id"] == invocation
+    ]
+    invocation_state = next(
+        value
+        for value in observed["invocations"]
+        if value["invocation_id"] == invocation
+    )
     raw_binding = json.loads(raw[0]["payload_json"])["binding"] if raw else None
     counters = runs.counters()
     checks = {
@@ -212,23 +267,35 @@ def run_case(root, name, frozen, current, case):
         "grant_and_config_retained": json.loads(stored["resolved_config"]) == config,
         "raw_binding_retained": raw_binding == binding,
         "definition_revision_retained": stored["graph_revision"] == digest(FLOW),
-        "component_revision_retained": binding["component_revision"] ==
-            "sha256:" + sha256(COMPONENT_CODE["mock-stage"].encode("utf-8")).hexdigest(),
+        "component_revision_retained": binding["component_revision"]
+        == "sha256:" + sha256(COMPONENT_CODE["mock-stage"].encode("utf-8")).hexdigest(),
         "snapshot_retained": GraphSnapshot.from_dict(
-            json.loads(artifact.read_text(encoding="utf-8"))).snapshot_id == bound.snapshot_id,
+            json.loads(artifact.read_text(encoding="utf-8"))
+        ).snapshot_id
+        == bound.snapshot_id,
         "trace_identity_retained": invocation_state["run_id"] == run["run_id"]
-            and invocation_state["trace_id"] == run["trace_id"],
-        "partial_not_fabricated": (stored["status"] == "completed"
-            or (invocation_state["stream_state"] == "partial"
-                and not bool(stored["evidence_complete"]))),
+        and invocation_state["trace_id"] == run["trace_id"],
+        "partial_not_fabricated": (
+            stored["status"] == "completed"
+            or (
+                invocation_state["stream_state"] == "partial"
+                and not bool(stored["evidence_complete"])
+            )
+        ),
     }
-    actual = {"outcome": stored["status"], "calls": counters["synthetic_dispatches"],
-              "selection": case["current"] if choice == "refreshed" else "base",
-              "choice": choice, "override": override is not None,
-              "trace": invocation_state["stream_state"],
-              "run_id": run["run_id"], "trace_id": run["trace_id"],
-              "graph_snapshot_id": bound.snapshot_id,
-              "input_digest": trigger["input_digest"], **projection}
+    actual = {
+        "outcome": stored["status"],
+        "calls": counters["synthetic_dispatches"],
+        "selection": case["current"] if choice == "refreshed" else "base",
+        "choice": choice,
+        "override": override is not None,
+        "trace": invocation_state["stream_state"],
+        "run_id": run["run_id"],
+        "trace_id": run["trace_id"],
+        "graph_snapshot_id": bound.snapshot_id,
+        "input_digest": trigger["input_digest"],
+        **projection,
+    }
     return actual, checks
 
 
@@ -249,32 +316,52 @@ def main():
     oracle = json.loads(oracle_path.read_text(encoding="utf-8"))
     if set(cases) != set(oracle):
         raise ValueError("Case list and oracle differ")
-    snapshots = {name: import_pages(REPOSITORY, pages, FETCHED_AT)
-                 for name, pages in corpus.items()}
+    snapshots = {
+        name: import_pages(REPOSITORY, pages, FETCHED_AT)
+        for name, pages in corpus.items()
+    }
     frozen = snapshots["base"]
     results = {}
     for name, case in cases.items():
-        actual, checks = run_case(output, name, frozen, snapshots[case["current"]], case)
+        actual, checks = run_case(
+            output, name, frozen, snapshots[case["current"]], case
+        )
         expected = oracle[name]
         compared = {key: actual.get(key) for key in expected}
-        results[name] = {"passed": compared == expected and all(checks.values()),
-                         "expected": expected, "observed": actual, "checks": checks,
-                         "source_snapshot_id": snapshots[case["current"]].snapshot_id}
+        results[name] = {
+            "passed": compared == expected and all(checks.values()),
+            "expected": expected,
+            "observed": actual,
+            "checks": checks,
+            "source_snapshot_id": snapshots[case["current"]].snapshot_id,
+        }
     import laomedo
-    report = {"corpus_sha256": file_hash(corpus_path),
-              "cases_sha256": file_hash(cases_path),
-              "oracle_sha256": file_hash(oracle_path),
-              "installed_package_path": str(Path(laomedo.__file__).resolve()),
-              "connector_version": frozen.connector_version,
-              "schema_version": frozen.schema_version,
-              "model_turns": 0, "github_writes": 0, "cases": results,
-              "passed": all(value["passed"] for value in results.values())}
+
+    report = {
+        "corpus_sha256": file_hash(corpus_path),
+        "cases_sha256": file_hash(cases_path),
+        "oracle_sha256": file_hash(oracle_path),
+        "installed_package_path": str(Path(laomedo.__file__).resolve()),
+        "connector_version": frozen.connector_version,
+        "schema_version": frozen.schema_version,
+        "model_turns": 0,
+        "github_writes": 0,
+        "cases": results,
+        "passed": all(value["passed"] for value in results.values()),
+    }
     result = output / "result.json"
-    result.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n",
-                      encoding="utf-8")
-    print(json.dumps({"passed": report["passed"],
-                      "cases": {name: value["passed"] for name, value in results.items()},
-                      "result": str(result)}))
+    result.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps(
+            {
+                "passed": report["passed"],
+                "cases": {name: value["passed"] for name, value in results.items()},
+                "result": str(result),
+            }
+        )
+    )
     return 0 if report["passed"] else 1
 
 

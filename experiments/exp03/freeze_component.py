@@ -4,15 +4,19 @@ import time
 from pathlib import Path
 
 from lfx.custom.custom_component.component import Component
-from lfx.io import MessageTextInput; from lfx.io import Output; from lfx.io import StrInput
+from lfx.io import MessageTextInput
+from lfx.io import Output
+from lfx.io import StrInput
 from lfx.schema.message import Message
 
 
 class PauseForEdit(Component):
     display_name = "EXP-03 pause"
     name = "Exp03Pause"
-    inputs = [MessageTextInput(name="task", display_name="Task", required=True),
-              StrInput(name="gate", display_name="Gate", required=True)]
+    inputs = [
+        MessageTextInput(name="task", display_name="Task", required=True),
+        StrInput(name="gate", display_name="Gate", required=True),
+    ]
     outputs = [Output(name="result", display_name="Result", method="invoke")]
 
     def invoke(self) -> Message:
@@ -29,8 +33,10 @@ class PauseForEdit(Component):
 class MarkerAfterPause(Component):
     display_name = "EXP-03 marker"
     name = "Exp03Marker"
-    inputs = [MessageTextInput(name="value", display_name="Value", required=True),
-              StrInput(name="marker", display_name="Marker", required=True)]
+    inputs = [
+        MessageTextInput(name="value", display_name="Value", required=True),
+        StrInput(name="marker", display_name="Marker", required=True),
+    ]
     outputs = [Output(name="result", display_name="Result", method="invoke")]
 
     def invoke(self) -> Message:

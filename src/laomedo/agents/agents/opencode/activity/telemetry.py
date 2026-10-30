@@ -21,9 +21,7 @@ def export_attempt(root, start, session, model):
     records = []
     cursor = start
     while True:
-        page = read_feed(
-            root / "activity-events.jsonl", after=cursor, limit=200
-        )
+        page = read_feed(root / "activity-events.jsonl", after=cursor, limit=200)
         records.extend(
             {"raw": item["event"], "received_at": item["received_at"]}
             for item in page["events"]
@@ -35,9 +33,7 @@ def export_attempt(root, start, session, model):
             break
     projection = project(records, root_thread=session, model=model)
     before = line_count(root / "otel-events.jsonl")
-    receiver = LaunchTelemetry(
-        root, provenance="adapter-observed OpenCode activity"
-    )
+    receiver = LaunchTelemetry(root, provenance="adapter-observed OpenCode activity")
     provider = TracerProvider()
     http = requests.Session()
     http.trust_env = False

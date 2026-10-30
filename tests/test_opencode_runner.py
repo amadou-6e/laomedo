@@ -581,7 +581,8 @@ class OpenCodeTests(unittest.TestCase):
             return True
 
         with patch(
-            "laomedo.agents.agents.opencode.activity.telemetry.export_attempt", side_effect=export
+            "laomedo.agents.agents.opencode.activity.telemetry.export_attempt",
+            side_effect=export,
         ):
             first = self.runner.start(self.payload)
             root = self.runner._run_dir(first["run_id"])

@@ -9,7 +9,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "122"))
 from probe_codex_edit import validate_draft
 from probe_draft_guards import policy_ref
 
-
 EMPTY_RUNTIME_DIRS = frozenset({".agents", ".codex", ".git"})
 
 
@@ -17,9 +16,14 @@ def materialize(raw: Path, candidate: Path, run_root: Path) -> list[str]:
     root = run_root.resolve(strict=True)
     source = raw.resolve(strict=True)
     target = candidate.resolve(strict=False)
-    if (source == root or not source.is_relative_to(root)
-            or target == root or not target.is_relative_to(root)
-            or candidate.exists() or raw.is_symlink()):
+    if (
+        source == root
+        or not source.is_relative_to(root)
+        or target == root
+        or not target.is_relative_to(root)
+        or candidate.exists()
+        or raw.is_symlink()
+    ):
         raise ValueError("candidate_paths_invalid")
     skipped = []
     allowed_file = None
@@ -70,13 +74,16 @@ def main() -> None:
         report["violations"] = validated["violations"]
         report["fixed_case_passed"] = validated["draft_evaluation"]["passed"]
         report["promotion_eligible"] = (
-            not validated["violations"] and bool(validated["patch"])
-            and validated["draft_evaluation"]["passed"])
+            not validated["violations"]
+            and bool(validated["patch"])
+            and validated["draft_evaluation"]["passed"]
+        )
     except ValueError as exc:
         report["promotion_eligible"] = False
         report["blocked"] = str(exc)
     (run_dir / "candidate-summary.json").write_text(
-        json.dumps(report, indent=2), encoding="utf-8")
+        json.dumps(report, indent=2), encoding="utf-8"
+    )
     print(json.dumps(report, indent=2))
     if not report["promotion_eligible"]:
         raise SystemExit(1)

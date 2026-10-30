@@ -9,8 +9,10 @@ import time
 import unittest
 from urllib.request import urlopen
 
-from laomedo.host.host_services import build_services; from laomedo.host.host_services import serve_services
-from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner; from laomedo.agents.errors import RunnerError
+from laomedo.host.host_services import build_services
+from laomedo.host.host_services import serve_services
+from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
+from laomedo.agents.errors import RunnerError
 
 
 class HostServicesTests(unittest.TestCase):
@@ -25,39 +27,59 @@ class HostServicesTests(unittest.TestCase):
             agent_mount.mkdir()
             state = root / "host-state"
             lease, mediator = build_services(
-                state=state, repository="example/disposable", checkout=checkout,
-                baseline="a" * 40, agent_mount=agent_mount,
-                connection_id="synthetic", connection_generation=1,
-                token_file=token_file)
-            thread = threading.Thread(target=serve_services, args=(lease, mediator, state),
-                                      kwargs={"repository": "example/disposable",
-                                              "connection_id": "synthetic",
-                                              "connection_generation": 1}, daemon=True)
+                state=state,
+                repository="example/disposable",
+                checkout=checkout,
+                baseline="a" * 40,
+                agent_mount=agent_mount,
+                connection_id="synthetic",
+                connection_generation=1,
+                token_file=token_file,
+            )
+            thread = threading.Thread(
+                target=serve_services,
+                args=(lease, mediator, state),
+                kwargs={
+                    "repository": "example/disposable",
+                    "connection_id": "synthetic",
+                    "connection_generation": 1,
+                },
+                daemon=True,
+            )
             thread.start()
             try:
                 deadline = time.monotonic() + 5
                 while not (state / "lease" / "service.alive").exists():
                     if time.monotonic() > deadline:
                         self.fail("lease service did not start")
-                    time.sleep(.01)
-                status = json.loads((state / "mediator" / "mediator.json").read_text(
-                    encoding="utf-8"))
-                with urlopen(f"http://127.0.0.1:{status['port']}/v1/health",
-                             timeout=2) as response:
-                    self.assertEqual(json.load(response),
-                                     {"status": "ready", "instance": status["instance"]})
+                    time.sleep(0.01)
+                status = json.loads(
+                    (state / "mediator" / "mediator.json").read_text(encoding="utf-8")
+                )
+                with urlopen(
+                    f"http://127.0.0.1:{status['port']}/v1/health", timeout=2
+                ) as response:
+                    self.assertEqual(
+                        json.load(response),
+                        {"status": "ready", "instance": status["instance"]},
+                    )
                 self.assertEqual(lease.server.server_address[0], "127.0.0.1")
                 self.assertNotIn("synthetic-provider-secret", json.dumps(status))
                 self.assertFalse((agent_mount / "private.env").exists())
                 if os.name == "nt":
                     runner = LocalRunner.__new__(LocalRunner)
                     runner.mediator_state = state / "mediator"
-                    self.assertEqual(runner._mediator_route(),
-                                     (f"http://host.docker.internal:{status['port']}/v1/mediate",
-                                      status["instance"]))
+                    self.assertEqual(
+                        runner._mediator_route(),
+                        (
+                            f"http://host.docker.internal:{status['port']}/v1/mediate",
+                            status["instance"],
+                        ),
+                    )
                     path = state / "mediator" / "mediator.json"
-                    path.write_text(json.dumps({**status, "instance": "0" * 32}),
-                                    encoding="utf-8")
+                    path.write_text(
+                        json.dumps({**status, "instance": "0" * 32}), encoding="utf-8"
+                    )
                     with self.assertRaisesRegex(RunnerError, "mediator_unavailable"):
                         runner._mediator_route()
             finally:

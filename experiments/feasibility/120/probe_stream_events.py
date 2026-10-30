@@ -17,7 +17,20 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _shared import AppServer; from _shared import RequestTimeout; from _shared import codex_version; from _shared import compare_personal_roots; from _shared import construct_env; from _shared import credential_gate; from _shared import fingerprint; from _shared import hash_personal_roots; from _shared import read_turn_context; from _shared import reserve_model_turn; from _shared import select_supported_pair; from _shared import summarize_methods; from _shared import validate_pair; from _shared import write_skill
+from _shared import AppServer
+from _shared import RequestTimeout
+from _shared import codex_version
+from _shared import compare_personal_roots
+from _shared import construct_env
+from _shared import credential_gate
+from _shared import fingerprint
+from _shared import hash_personal_roots
+from _shared import read_turn_context
+from _shared import reserve_model_turn
+from _shared import select_supported_pair
+from _shared import summarize_methods
+from _shared import validate_pair
+from _shared import write_skill
 
 MARKER = "LAOMEDO_120_STREAM"
 SKILL_NAME = "fixture-stream-120"
@@ -32,12 +45,18 @@ SKILL_CONTENT = (
 )
 
 CALL_ITEM_TYPES = {
-    "commandExecution": {"call": ("command",),
-                         "result": ("aggregatedOutput", "exitCode")},
-    "mcpToolCall": {"call": ("server", "tool", "arguments"),
-                    "result": ("result", "error")},
-    "dynamicToolCall": {"call": ("tool", "arguments"),
-                        "result": ("contentItems", "success")},
+    "commandExecution": {
+        "call": ("command",),
+        "result": ("aggregatedOutput", "exitCode"),
+    },
+    "mcpToolCall": {
+        "call": ("server", "tool", "arguments"),
+        "result": ("result", "error"),
+    },
+    "dynamicToolCall": {
+        "call": ("tool", "arguments"),
+        "result": ("contentItems", "success"),
+    },
 }
 
 
@@ -55,8 +74,11 @@ def redact_item(item):
         "has_call_field": has_call,
         "has_result_field": has_result,
         "exit_code": item.get("exitCode"),
-        "output_present": bool(item.get("aggregatedOutput") or item.get("result")
-                               or item.get("contentItems")),
+        "output_present": bool(
+            item.get("aggregatedOutput")
+            or item.get("result")
+            or item.get("contentItems")
+        ),
         "error_present": bool(item.get("error")),
     }
 
@@ -71,8 +93,12 @@ def stream_evidence(events):
             continue
         params = message.get("params", {})
         item = params.get("item", {})
-        key = (params.get("threadId"), params.get("turnId"),
-               item.get("type"), item.get("id"))
+        key = (
+            params.get("threadId"),
+            params.get("turnId"),
+            item.get("type"),
+            item.get("id"),
+        )
         if method == "item/started":
             started[key] = item
         else:
@@ -89,14 +115,19 @@ def stream_evidence(events):
             continue
         kind = final_item["type"]
         if kind == "commandExecution":
-            result_present = (isinstance(final_item.get("exitCode"), int)
-                              or isinstance(final_item.get("aggregatedOutput"), str))
+            result_present = isinstance(final_item.get("exitCode"), int) or isinstance(
+                final_item.get("aggregatedOutput"), str
+            )
         elif kind == "mcpToolCall":
-            result_present = (final_item.get("result") is not None
-                              or final_item.get("error") is not None)
+            result_present = (
+                final_item.get("result") is not None
+                or final_item.get("error") is not None
+            )
         else:
-            result_present = (isinstance(final_item.get("success"), bool)
-                              or final_item.get("contentItems") is not None)
+            result_present = (
+                isinstance(final_item.get("success"), bool)
+                or final_item.get("contentItems") is not None
+            )
         if not result_present:
             continue
         matched.append(redact_item(final_item))
@@ -113,11 +144,19 @@ def stream_evidence(events):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--codex", type=Path, required=True)
-    parser.add_argument("--state-dir", type=Path,
-                        help="provisioned private state dir with codex-home/auth.json")
-    parser.add_argument("--credential-mode", choices=("chatgpt_handoff", "api_key"),
-                        default="chatgpt_handoff")
-    parser.add_argument("--credential-ref", help="API-key secret-store reference, not a key")
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        help="provisioned private state dir with codex-home/auth.json",
+    )
+    parser.add_argument(
+        "--credential-mode",
+        choices=("chatgpt_handoff", "api_key"),
+        default="chatgpt_handoff",
+    )
+    parser.add_argument(
+        "--credential-ref", help="API-key secret-store reference, not a key"
+    )
     parser.add_argument("--run", action="store_true", help="submit the model turn")
     args = parser.parse_args()
     codex = args.codex.resolve(strict=True)
@@ -134,8 +173,15 @@ def main():
     env = construct_env(private_home, codex_home, state, codex.parent)
 
     summary = {"version": codex_version(codex, env), "model_calls": 0}
-    gate = credential_gate(codex, project, env, codex_home, state,
-                           args.credential_mode, args.credential_ref)
+    gate = credential_gate(
+        codex,
+        project,
+        env,
+        codex_home,
+        state,
+        args.credential_mode,
+        args.credential_ref,
+    )
     summary["credential_gate"] = gate
     if not gate.get("permitted"):
         print(json.dumps(summary, indent=2))
@@ -148,17 +194,25 @@ def main():
     try:
         ok, info = server.initialize()
         summary["initialized"] = ok
-        summary["server_platform"] = {k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")}
+        summary["server_platform"] = {
+            k: info.get(k) for k in ("userAgent", "platformFamily", "platformOs")
+        }
         if not ok:
             return
 
-        skills = server.send("skills/list", {"cwds": [str(project)], "forceReload": True})
-        names = {s.get("name") for s in skills.get("result", {}).get("data", [{}])[0].get("skills", [])}
+        skills = server.send(
+            "skills/list", {"cwds": [str(project)], "forceReload": True}
+        )
+        names = {
+            s.get("name")
+            for s in skills.get("result", {}).get("data", [{}])[0].get("skills", [])
+        }
         summary["fixture_discovered"] = SKILL_NAME in names
 
         models = server.send("model/list", {"limit": 100})
         model, effort, capabilities = select_supported_pair(
-            models, preferred_model="gpt-6-luna")
+            models, preferred_model="gpt-6-luna"
+        )
         summary["requested_settings"] = {"model": model, "effort": effort}
         summary["pair_validation"] = validate_pair(capabilities, model, effort)
 
@@ -169,10 +223,16 @@ def main():
             summary["blocked_before_turn"] = "fixture_not_discovered"
             return
 
-        started = server.send("thread/start", {
-            "model": model, "cwd": str(project), "approvalPolicy": "never",
-            "sandbox": "read-only",
-        }, timeout=30)
+        started = server.send(
+            "thread/start",
+            {
+                "model": model,
+                "cwd": str(project),
+                "approvalPolicy": "never",
+                "sandbox": "read-only",
+            },
+            timeout=30,
+        )
         if "error" in started:
             summary["thread_error"] = started["error"]
             return
@@ -188,15 +248,25 @@ def main():
         # billable model calls even if this request itself times out.
         summary["cumulative_attempted_turns"] = reserve_model_turn(state)
         summary["model_calls"] = summary.get("model_calls", 0) + 1
-        turn = server.send("turn/start", {
-            "threadId": thread_id,
-            "input": [
-                {"type": "text", "text": "Follow the skill."},
-                {"type": "skill", "name": SKILL_NAME,
-                 "path": str(project / ".agents" / "skills" / SKILL_NAME / "SKILL.md")},
-            ],
-            "model": model, "effort": effort,
-        }, timeout=30)
+        turn = server.send(
+            "turn/start",
+            {
+                "threadId": thread_id,
+                "input": [
+                    {"type": "text", "text": "Follow the skill."},
+                    {
+                        "type": "skill",
+                        "name": SKILL_NAME,
+                        "path": str(
+                            project / ".agents" / "skills" / SKILL_NAME / "SKILL.md"
+                        ),
+                    },
+                ],
+                "model": model,
+                "effort": effort,
+            },
+            timeout=30,
+        )
         if "error" in turn:
             summary["turn_start_error"] = turn["error"]
             return
@@ -217,8 +287,11 @@ def main():
         server.drain(1.0)
         summary["turn_status"] = status or "timeout"
         summary["effective_context"] = read_turn_context(
-            codex_home, thread_path, turn_id)
-        summary["turn_diff_seen"] = any(m.get("method") == "turn/diff/updated" for m in server.events)
+            codex_home, thread_path, turn_id
+        )
+        summary["turn_diff_seen"] = any(
+            m.get("method") == "turn/diff/updated" for m in server.events
+        )
     except RequestTimeout as exc:
         # A timeout after turn/start still leaves the events collected so far;
         # keep them and report the timeout rather than losing the paid turn.
@@ -229,17 +302,29 @@ def main():
         summary.update(stream_evidence(server.events))
         summary["event_methods"] = summarize_methods(server)
         summary["usage_event_count"] = summary["event_methods"].get(
-            "thread/tokenUsage/updated", 0)
+            "thread/tokenUsage/updated", 0
+        )
         summary["read_only_workspace_unchanged"] = (
-            fingerprint(project) == source_workspace_hash)
+            fingerprint(project) == source_workspace_hash
+        )
         stderr = server.close()
         summary["stderr_signals"] = stderr
-        summary["model_calls_note"] = ("upper bound on billable model calls: a "
-                                       "turn/start is counted when submitted, "
-                                       "before any response")
+        summary["model_calls_note"] = (
+            "upper bound on billable model calls: a "
+            "turn/start is counted when submitted, "
+            "before any response"
+        )
         print(json.dumps(summary, indent=2))
-        print(json.dumps({"personal_roots_unchanged":
-                          compare_personal_roots(before, hash_personal_roots())}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "personal_roots_unchanged": compare_personal_roots(
+                        before, hash_personal_roots()
+                    )
+                },
+                indent=2,
+            )
+        )
 
 
 if __name__ == "__main__":

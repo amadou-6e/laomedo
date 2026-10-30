@@ -13,7 +13,6 @@ class JoinServer(ThreadingHTTPServer):
         if host != "127.0.0.1":
             raise ValueError("join_server_must_bind_loopback")
 
-
         self.controller = controller
         self.token = token
         super().__init__((host, port), JoinRequestHandler)

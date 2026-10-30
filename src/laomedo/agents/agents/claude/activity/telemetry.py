@@ -45,9 +45,10 @@ class ClaudeTelemetry:
             "/v1/metrics": ExportMetricsServiceRequest,
         }
 
-
         try:
-            self.server = ClaudeTelemetryHttpServer(self, ("127.0.0.1", 0), request_types=types)
+            self.server = ClaudeTelemetryHttpServer(
+                self, ("127.0.0.1", 0), request_types=types
+            )
             self.server.daemon_threads = (
                 False  # server_close joins bounded upload handlers.
             )
@@ -211,10 +212,7 @@ class ClaudeTelemetry:
                             and record.body.WhichOneof("value") == "string_value"
                         ):
                             event = record.body.string_value
-                        if (
-                            event.removeprefix("claude_code.")
-                            not in EVENTS
-                        ):
+                        if event.removeprefix("claude_code.") not in EVENTS:
                             event = "claude_code.event"
                         append(
                             self.record(

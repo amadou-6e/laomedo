@@ -13,7 +13,9 @@ from laomedo.agents.agents.opencode.settings import CONTROLLER_LIFETIME_SECONDS
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE_ID
 from laomedo.agents.agents.opencode.utils import _credential_binding
-from laomedo.agents.agents.opencode.utils import check_auth_fresh as opencode_check_auth_fresh
+from laomedo.agents.agents.opencode.utils import (
+    check_auth_fresh as opencode_check_auth_fresh,
+)
 from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.utils import _json
@@ -51,7 +53,6 @@ class CommandBroker:
         self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.capacity = threading.BoundedSemaphore(1)
-
 
         # Docker bridge must reach this host listener. A random bearer capability
         # is mandatory, and only one run's immutable mounts are addressable.
@@ -170,9 +171,7 @@ class CommandBroker:
                 }
             except CleanupUnconfirmedError:
                 self.cleanup_failed = True
-                raise RunnerError(
-                    "opencode_container_cleanup_unverified"
-                ) from None
+                raise RunnerError("opencode_container_cleanup_unverified") from None
             except JobCancelledError:
                 value = {"exit_code": 130, "stdout": "", "stderr": "worker_cancelled"}
             except DeadlineError:
@@ -186,9 +185,7 @@ class CommandBroker:
                 }
             except DockerOperationError:
                 self.error_code = "opencode_workspace_command_failed"
-                raise RunnerError(
-                    "opencode_workspace_command_failed"
-                ) from None
+                raise RunnerError("opencode_workspace_command_failed") from None
             with self.evidence.joinpath("worker-events.jsonl").open(
                 "a", encoding="utf-8"
             ) as log:
@@ -260,16 +257,12 @@ class IsolatedOpenCode:
                 ImageResolutionError,
             )
         except ImportError:
-            raise RunnerError(
-                "opencode_controller_startup_failed"
-            ) from None
+            raise RunnerError("opencode_controller_startup_failed") from None
         try:
             with Client() as docker:
                 self.docker_endpoint = docker.connection.endpoint
                 docker.images.resolve(image, expected_id=image_id)
-                docker.images.resolve(
-                    WORKER_IMAGE, expected_id=selected_worker_id
-                )
+                docker.images.resolve(WORKER_IMAGE, expected_id=selected_worker_id)
                 receipts = (
                     Path(receipt_directory)
                     if receipt_directory is not None
@@ -281,21 +274,13 @@ class IsolatedOpenCode:
         except OwnershipConflictError:
             raise RunnerError("opencode_image_pin_mismatch") from None
         except ImageResolutionError:
-            raise RunnerError(
-                "opencode_controller_image_unavailable"
-            ) from None
+            raise RunnerError("opencode_controller_image_unavailable") from None
         except CleanupUnconfirmedError:
-            raise RunnerError(
-                "opencode_container_cleanup_unverified"
-            ) from None
+            raise RunnerError("opencode_container_cleanup_unverified") from None
         except ConnectionConfigurationError:
-            raise RunnerError(
-                "opencode_container_configuration_invalid"
-            ) from None
+            raise RunnerError("opencode_container_configuration_invalid") from None
         except DockerOperationError:
-            raise RunnerError(
-                "opencode_controller_startup_failed"
-            ) from None
+            raise RunnerError("opencode_controller_startup_failed") from None
         root = evidence / ("controller-" + uuid4().hex)
         root.mkdir()
         view = root / "view"
@@ -336,17 +321,13 @@ class IsolatedOpenCode:
                     .get("x-opencode-org-id")
                 )
                 if not isinstance(organization, str) or not organization:
-                    raise RunnerError(
-                        "opencode_organization_context_invalid"
-                    )
+                    raise RunnerError("opencode_organization_context_invalid")
                 routing = supplied["provider"]["opencode-go"]
                 if (
                     routing.get("api") != "https://opencode.ai/inference/go/openai/v1"
                     or routing.get("npm") != "@ai-sdk/openai-compatible"
                 ):
-                    raise RunnerError(
-                        "opencode_console_provider_routing_not_allowed"
-                    )
+                    raise RunnerError("opencode_console_provider_routing_not_allowed")
                 config["provider"] = {
                     "opencode-go": {
                         "api": routing["api"],
@@ -424,9 +405,7 @@ class IsolatedOpenCode:
             self.docker = Client(environment={"DOCKER_HOST": self.docker_endpoint})
         except Exception:
             self.close()
-            raise RunnerError(
-                "opencode_controller_startup_failed"
-            ) from None
+            raise RunnerError("opencode_controller_startup_failed") from None
 
     def models(self):
         """Read native CLI metadata without creating a session or model turn."""
@@ -462,9 +441,7 @@ class IsolatedOpenCode:
                 raise RunnerError("opencode_model_not_connected")
             return model_metadata(result.stdout.decode("utf-8"))
         except DockerOperationError:
-            raise RunnerError(
-                "opencode_controller_startup_failed"
-            ) from None
+            raise RunnerError("opencode_controller_startup_failed") from None
 
     def history_reader(self):
         """Bind an offline metadata reader without mounting credentials or live state."""
@@ -539,9 +516,7 @@ class IsolatedOpenCode:
             status = (
                 "cancelled"
                 if cancelled.is_set() or outcome.stop_reason == "cancelled"
-                else "completed"
-                if outcome.stop_reason == "end_turn"
-                else "failed"
+                else "completed" if outcome.stop_reason == "end_turn" else "failed"
             )
             capture.finish(client.session_id, status, outcome.usage)
             if status == "failed":
@@ -577,9 +552,7 @@ class IsolatedOpenCode:
             if self.docker is not None:
                 self.docker.close()
         if failed:
-            raise RunnerError(
-                "opencode_container_cleanup_unverified"
-            ) from None
+            raise RunnerError("opencode_container_cleanup_unverified") from None
         self.termination_verified = True
 
     def check_auth_fresh(self):

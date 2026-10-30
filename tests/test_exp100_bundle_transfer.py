@@ -5,16 +5,25 @@ import subprocess
 import sys
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class Exp100BundleCI(unittest.TestCase):
     def test_credential_free_bundle_cases(self):
         result = subprocess.run(
-            [sys.executable, "-m", "unittest",
-             "experiments.exp100.test_bundle_transfer", "-q"],
-            cwd=ROOT, capture_output=True, text=True, timeout=120, check=False)
+            [
+                sys.executable,
+                "-m",
+                "unittest",
+                "experiments.exp100.test_bundle_transfer",
+                "-q",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
 
 

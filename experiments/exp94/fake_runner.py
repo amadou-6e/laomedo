@@ -1,9 +1,11 @@
 """Authenticated, loopback-only fake runner for visible Stop integration tests."""
 
 import argparse
-from datetime import datetime; from datetime import timezone
+from datetime import datetime
+from datetime import timezone
 import hashlib
-from http.server import BaseHTTPRequestHandler; from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
 import secrets
@@ -32,8 +34,13 @@ def main():
     lock = threading.Lock()
 
     def record(kind, run_id=None, **extra):
-        entry = {"kind": kind, "run_id": run_id, "at_utc": utc(),
-                 "monotonic": time.monotonic(), **extra}
+        entry = {
+            "kind": kind,
+            "run_id": run_id,
+            "at_utc": utc(),
+            "monotonic": time.monotonic(),
+            **extra,
+        }
         with lock:
             with journal.open("a", encoding="utf-8", newline="\n") as stream:
                 stream.write(json.dumps(entry, sort_keys=True) + "\n")
@@ -60,8 +67,9 @@ def main():
             self.wfile.write(payload)
 
         def auth(self):
-            if not secrets.compare_digest(self.headers.get("Authorization", ""),
-                                          "Bearer " + token):
+            if not secrets.compare_digest(
+                self.headers.get("Authorization", ""), "Bearer " + token
+            ):
                 self.reply(401, {"status": "failed", "error_category": "unauthorized"})
                 return False
             return True
@@ -76,8 +84,18 @@ def main():
                     value = dict(runs[run]) if run else None
                 record("request_lookup", run, found=bool(value))
                 if value:
-                    self.reply(200, {key: value.get(key) for key in
-                        ("client_request_id", "request_hash", "run_id", "status")})
+                    self.reply(
+                        200,
+                        {
+                            key: value.get(key)
+                            for key in (
+                                "client_request_id",
+                                "request_hash",
+                                "run_id",
+                                "status",
+                            )
+                        },
+                    )
                 else:
                     self.reply(404, {"error_category": "request_not_found"})
                 return
@@ -117,12 +135,24 @@ def main():
                 return
             request_id = body.get("request_id")
             if not isinstance(request_id, str):
-                self.reply(400, {"status": "failed", "error_category": "request_id_required"})
+                self.reply(
+                    400, {"status": "failed", "error_category": "request_id_required"}
+                )
                 return
-            canonical = {key: value for key, value in body.items() if key != "request_id"}
-            request_hash = "sha256:" + hashlib.sha256(json.dumps(
-                canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-            ).encode("utf-8")).hexdigest()
+            canonical = {
+                key: value for key, value in body.items() if key != "request_id"
+            }
+            request_hash = (
+                "sha256:"
+                + hashlib.sha256(
+                    json.dumps(
+                        canonical,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    ).encode("utf-8")
+                ).hexdigest()
+            )
             task = str(body.get("task", ""))
             case = "A" if "CASE_A" in task else "B" if "CASE_B" in task else "CONTROL"
             with lock:
@@ -130,24 +160,34 @@ def main():
                 if existing:
                     run = runs[existing]
                     if run["request_hash"] != request_hash:
-                        self.reply(409, {"status": "failed", "error_category": "identity_conflict"})
+                        self.reply(
+                            409,
+                            {"status": "failed", "error_category": "identity_conflict"},
+                        )
                         return
                 else:
                     run_id = str(uuid4())
-                    run = {"run_id": run_id, "status": "running", "provider": "codex",
-                           "client_request_id": request_id, "request_hash": request_hash,
-                           "raw_event_ref": f"laomedo:run:{run_id}:events",
-                           "cancel_requested": False, "cancel_confirmed": False,
-                           "requested_model": body.get("model"),
-                           "requested_effort": body.get("effort"),
-                           "answer": "synthetic-complete"}
+                    run = {
+                        "run_id": run_id,
+                        "status": "running",
+                        "provider": "codex",
+                        "client_request_id": request_id,
+                        "request_hash": request_hash,
+                        "raw_event_ref": f"laomedo:run:{run_id}:events",
+                        "cancel_requested": False,
+                        "cancel_confirmed": False,
+                        "requested_model": body.get("model"),
+                        "requested_effort": body.get("effort"),
+                        "answer": "synthetic-complete",
+                    }
                     runs[run_id] = run
                     by_request[request_id] = run_id
             record("post_received", run["run_id"], case=case, duplicate=bool(existing))
             if not existing:
                 seconds = 8 if case == "A" else 6 if case == "B" else 1
-                threading.Thread(target=complete_later, args=(run["run_id"], seconds),
-                                 daemon=True).start()
+                threading.Thread(
+                    target=complete_later, args=(run["run_id"], seconds), daemon=True
+                ).start()
                 if case == "B":
                     record("synthetic_wait_started", run["run_id"])
             if case == "A":

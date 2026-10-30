@@ -10,12 +10,28 @@ from laomedo._paths import package_root
 class AcpBoundaryTests(unittest.TestCase):
     def test_codex_native_wire_and_parallel_turn_loops_are_retired(self):
         root = package_root()
-        for relative in ("agents/agents/codex/native/base.py", "agents/agents/codex/native/server.py", "agents/agents/codex/split/server.py"):
+        for relative in (
+            "agents/agents/codex/native/base.py",
+            "agents/agents/codex/native/server.py",
+            "agents/agents/codex/split/server.py",
+        ):
             self.assertFalse((root / relative).exists())
-        for relative in ("agents/agents/codex/agent.py", "agents/agents/codex/controller/service.py", "agents/agents/codex/split/executor.py"):
+        for relative in (
+            "agents/agents/codex/agent.py",
+            "agents/agents/codex/controller/service.py",
+            "agents/agents/codex/split/executor.py",
+        ):
             tree = ast.parse((root / relative).read_text(encoding="utf-8-sig"))
-            methods = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-            self.assertFalse(methods.intersection({"wait_turn", "interrupt", "_read_frames", "request", "notify"}))
+            methods = {
+                node.name
+                for node in ast.walk(tree)
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+            self.assertFalse(
+                methods.intersection(
+                    {"wait_turn", "interrupt", "_read_frames", "request", "notify"}
+                )
+            )
         self.assertFalse((root.parent.parent / "docker/codex-git/Dockerfile").exists())
 
     def test_retired_opencode_producers_and_http_client_are_removed(self):

@@ -200,9 +200,7 @@ class RunGrantAuthority:
                 allowed_operations is not None
                 and not set(json.loads(row["operations"])) <= allowed_operations
             ):
-                raise MediationError(
-                    "operation_unavailable_in_runner"
-                )
+                raise MediationError("operation_unavailable_in_runner")
             db.execute(
                 "UPDATE authorizations SET run_id=? WHERE ref_hash=?", (run_id, digest)
             )
