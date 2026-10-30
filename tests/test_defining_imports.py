@@ -13,6 +13,7 @@ class DefiningImportTests(unittest.TestCase):
             "host/credentials/siwc/cli.py",
             "host/credentials/siwc/utils.py",
             "host/leases/client.py",
+            "host/leases/models.py",
             "host/leases/process.py",
             "host/leases/process_cli.py",
             "host/leases/service_cli.py",
