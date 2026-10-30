@@ -125,7 +125,7 @@ class S11ProbeTests(unittest.TestCase):
                 [], 0, b" M experiments/exp104/s11_probe.py\n", b"")), \
              self.assertRaisesRegex(RuntimeError, "reviewed_source_not_clean"):
             probe._require_clean_source(Path("synthetic"))
-        with patch.object(probe.subprocess, "run", return_value=subprocess.CompletedProcess(
+        with patch.object(probe.GitRepository, "run", return_value=subprocess.CompletedProcess(
                 [], 0, b"", b"")):
             probe._require_clean_source(Path("synthetic"))
 
