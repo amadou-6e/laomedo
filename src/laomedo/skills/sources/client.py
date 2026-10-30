@@ -1,23 +1,19 @@
 from __future__ import annotations
+
+from laomedo.http.redirect import NoRedirect
+from laomedo.skills.sources.settings import Settings
 import urllib.request
 
 from pathlib import Path
 from pathlib import PurePosixPath
 from urllib.parse import urlsplit
 import json
-import laomedo.skills.inspection.settings as _inspection_settings
-import laomedo.skills.registry.settings as _registry_settings
-import laomedo.skills.registry.errors as _registry_errors
-import laomedo.skills.registry.utils as _registry_utils
-import laomedo.skills.sources.settings as _sources_settings
-import laomedo.skills.sources.errors as _sources_errors
 import re
 import urllib.error
 
 
 def source_request(action, **body):
-    settings = _sources_settings.Settings()
-    import laomedo.skills.sources.transport as _sources_transport
+    settings = Settings()
 
     url = settings.url
     parsed = urlsplit(url)
@@ -46,7 +42,7 @@ def source_request(action, **body):
                 "Authorization": "Bearer " + token,
             },
         )
-        with urllib.request.build_opener(_sources_transport.NoRedirect()).open(
+        with urllib.request.build_opener(NoRedirect()).open(
             request, timeout=65
         ) as response:
             data = response.read(1024 * 1024 + 1)

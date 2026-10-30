@@ -7,13 +7,20 @@ mediator capability. Unsupported operations fail explicitly.
 
 from __future__ import annotations
 
+from laomedo.http.redirect import NoRedirect
+from laomedo.github.issues.contract import issue_digest
+from laomedo.github.issues.contract import issue_value
+from laomedo.github.issues.contract import labels_value
+from laomedo.github.issues.contract import validate_patch
+from laomedo.github.pull_requests.contract import pr_digest
+from laomedo.github.pull_requests.contract import pr_value
+from laomedo.github.pull_requests.contract import validate_patch as pr_validate_patch
+from laomedo.host.mediation.errors import KnownRejected
+
 from urllib import error
 from urllib import parse
 from urllib import request
 import json
-import laomedo.github.issues.contract as _issues_contract
-import laomedo.github.pull_requests.contract as _pull_requests_contract
-import laomedo.host.mediation.errors as _mediation_errors
 import re
 import time
 
@@ -21,9 +28,6 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 ISSUE_GRAPHQL_QUERY = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}"
 
 
-class _NoRedirect(request.HTTPRedirectHandler):
-    def redirect_request(self, *_):
-        return None
 
 
 class GitHubRestTransport:
@@ -36,7 +40,7 @@ class GitHubRestTransport:
             raise ValueError("credential_supplier_required")
         self.repository = repository
         self.token_supplier = token_supplier
-        self.opener = opener or request.build_opener(_NoRedirect)
+        self.opener = opener or request.build_opener(NoRedirect)
 
     def __call__(
         self,
@@ -49,7 +53,7 @@ class GitHubRestTransport:
         before_write=None,
     ) -> dict:
         if repository != self.repository:
-            raise _mediation_errors.KnownRejected("repository_denied")
+            raise KnownRejected("repository_denied")
         prefix = f"/repos/{self.repository}"
         method, path, body = "GET", "", None
         if operation == "pr_node_query":
@@ -58,8 +62,8 @@ class GitHubRestTransport:
                 "closed",
                 "all",
             }:
-                raise _mediation_errors.KnownRejected("prs_request_invalid")
-            selected = set(_issues_contract.labels_value(payload["labels"]))
+                raise KnownRejected("prs_request_invalid")
+            selected = set(labels_value(payload["labels"]))
             raw = self._pages(
                 prefix + "/pulls",
                 connection_id,
@@ -67,7 +71,7 @@ class GitHubRestTransport:
                 query={"state": payload["state"]},
             )
             prs = [
-                _pull_requests_contract.pr_value(item, repository, item["number"])
+                pr_value(item, repository, item["number"])
                 for item in raw
             ]
             return {"items": [item for item in prs if selected <= set(item["labels"])]}
@@ -77,8 +81,8 @@ class GitHubRestTransport:
                 or type(payload["number"]) is not int
                 or payload["number"] < 1
             ):
-                raise _mediation_errors.KnownRejected("pr_read_target_invalid")
-            return _pull_requests_contract.pr_value(
+                raise KnownRejected("pr_read_target_invalid")
+            return pr_value(
                 self._call(
                     "GET",
                     prefix + f"/pulls/{payload['number']}",
@@ -93,9 +97,9 @@ class GitHubRestTransport:
             try:
                 if set(payload) != {"number", "changes", "expected", "head", "base"}:
                     raise ValueError()
-                changes = _pull_requests_contract.validate_patch(payload["changes"])
+                changes = pr_validate_patch(payload["changes"])
             except (ValueError, TypeError):
-                raise _mediation_errors.KnownRejected("pr_patch_invalid") from None
+                raise KnownRejected("pr_patch_invalid") from None
             current = self(
                 repository,
                 "pr_node_read",
@@ -109,11 +113,11 @@ class GitHubRestTransport:
                 or current["base"] != payload["base"]
                 or current["merged"]
             ):
-                raise _mediation_errors.KnownRejected("pr_target_denied")
-            if _pull_requests_contract.pr_digest(current) != payload["expected"]:
-                raise _mediation_errors.KnownRejected("pr_changed_since_read")
+                raise KnownRejected("pr_target_denied")
+            if pr_digest(current) != payload["expected"]:
+                raise KnownRejected("pr_changed_since_read")
             if before_write is None:
-                raise _mediation_errors.KnownRejected("pr_write_guard_required")
+                raise KnownRejected("pr_write_guard_required")
             if "labels" in changes:
                 available = {
                     x["name"]
@@ -125,14 +129,14 @@ class GitHubRestTransport:
                     )
                 }
                 if not set(changes["labels"]) <= available:
-                    raise _mediation_errors.KnownRejected("pr_labels_unknown")
+                    raise KnownRejected("pr_labels_unknown")
             metadata = {key: value for key, value in changes.items() if key != "labels"}
             wrote = False
             try:
                 acknowledged = current
                 if metadata:
                     before_write()
-                    acknowledged = _pull_requests_contract.pr_value(
+                    acknowledged = pr_value(
                         self._call(
                             "PATCH",
                             prefix + f"/pulls/{payload['number']}",
@@ -153,9 +157,9 @@ class GitHubRestTransport:
                         connection_id=connection_id,
                         connection_generation=connection_generation,
                     )
-                    if _pull_requests_contract.pr_digest(
+                    if pr_digest(
                         observed
-                    ) != _pull_requests_contract.pr_digest(acknowledged):
+                    ) != pr_digest(acknowledged):
                         raise ValueError("pr_update_readback_unknown")
                     before_write()
                     self._call(
@@ -186,13 +190,13 @@ class GitHubRestTransport:
                 ):
                     raise ValueError("pr_update_readback_unknown")
                 return confirmed
-            except _mediation_errors.KnownRejected:
+            except KnownRejected:
                 if wrote:
                     raise ValueError("pr_partial_update_unknown") from None
                 raise
         if operation == "label_list":
             if payload != {}:
-                raise _mediation_errors.KnownRejected("labels_request_invalid")
+                raise KnownRejected("labels_request_invalid")
             return {
                 "items": self._pages(
                     prefix + "/labels",
@@ -207,8 +211,8 @@ class GitHubRestTransport:
                 "closed",
                 "all",
             }:
-                raise _mediation_errors.KnownRejected("issues_request_invalid")
-            selected = set(_issues_contract.labels_value(payload["labels"]))
+                raise KnownRejected("issues_request_invalid")
+            selected = set(labels_value(payload["labels"]))
             raw = self._pages(
                 prefix + "/issues",
                 connection_id,
@@ -216,7 +220,7 @@ class GitHubRestTransport:
                 query={"state": payload["state"]},
             )
             issues = [
-                _issues_contract.issue_value(item, repository, item["number"])
+                issue_value(item, repository, item["number"])
                 for item in raw
                 if "pull_request" not in item
             ]
@@ -229,7 +233,7 @@ class GitHubRestTransport:
                 or type(payload["number"]) is not int
                 or payload["number"] < 1
             ):
-                raise _mediation_errors.KnownRejected("issue_read_target_invalid")
+                raise KnownRejected("issue_read_target_invalid")
             raw = self._call(
                 "GET",
                 prefix + f"/issues/{payload['number']}",
@@ -237,18 +241,18 @@ class GitHubRestTransport:
                 connection_id,
                 connection_generation,
             )
-            return _issues_contract.issue_value(raw, repository, payload["number"])
+            return issue_value(raw, repository, payload["number"])
         if operation == "issue_update":
             if (
                 set(payload) != {"number", "changes", "expected"}
                 or type(payload["number"]) is not int
                 or payload["number"] < 1
             ):
-                raise _mediation_errors.KnownRejected("issue_patch_invalid")
+                raise KnownRejected("issue_patch_invalid")
             try:
-                changes = _issues_contract.validate_patch(payload["changes"])
+                changes = validate_patch(payload["changes"])
             except ValueError:
-                raise _mediation_errors.KnownRejected("issue_patch_invalid") from None
+                raise KnownRejected("issue_patch_invalid") from None
             current = self(
                 repository,
                 "issue_read",
@@ -256,8 +260,8 @@ class GitHubRestTransport:
                 connection_id=connection_id,
                 connection_generation=connection_generation,
             )
-            if _issues_contract.issue_digest(current) != payload["expected"]:
-                raise _mediation_errors.KnownRejected("issue_changed_since_read")
+            if issue_digest(current) != payload["expected"]:
+                raise KnownRejected("issue_changed_since_read")
             if "labels" in changes:
                 available = {
                     x["name"]
@@ -269,12 +273,12 @@ class GitHubRestTransport:
                     )
                 }
                 if not set(changes["labels"]) <= available:
-                    raise _mediation_errors.KnownRejected("issue_labels_unknown")
+                    raise KnownRejected("issue_labels_unknown")
             path = prefix + f"/issues/{payload['number']}"
             if before_write is None:
-                raise _mediation_errors.KnownRejected("issue_write_guard_required")
+                raise KnownRejected("issue_write_guard_required")
             before_write()
-            acknowledged = _issues_contract.issue_value(
+            acknowledged = issue_value(
                 self._call(
                     "PATCH", path, changes, connection_id, connection_generation
                 ),
@@ -335,7 +339,7 @@ class GitHubRestTransport:
                     raise ValueError("graphql_response_invalid") from None
                 return {"items": nodes}
             if payload != {}:
-                raise _mediation_errors.KnownRejected("list_payload_invalid")
+                raise KnownRejected("list_payload_invalid")
             path = prefix + ("/pulls" if operation == "pr_list" else "/issues")
             result = self._call(
                 "GET", path, None, connection_id, connection_generation, allow_list=True
@@ -354,7 +358,7 @@ class GitHubRestTransport:
                 )
                 or payload["marker"] not in payload["body"]
             ):
-                raise _mediation_errors.KnownRejected("pr_payload_invalid")
+                raise KnownRejected("pr_payload_invalid")
             method, path = "POST", prefix + "/pulls"
             body = {k: payload[k] for k in ("title", "body", "head", "base")}
             body["draft"] = payload.get("draft", False) is True
@@ -364,7 +368,7 @@ class GitHubRestTransport:
                 or type(payload["number"]) is not int
                 or payload["number"] < 1
             ):
-                raise _mediation_errors.KnownRejected("pr_read_target_invalid")
+                raise KnownRejected("pr_read_target_invalid")
             existing = self._call(
                 "GET",
                 prefix + f"/pulls/{payload['number']}",
@@ -385,7 +389,7 @@ class GitHubRestTransport:
                 or not isinstance(existing.get("title"), str)
                 or not isinstance(existing.get("body"), str)
             ):
-                raise _mediation_errors.KnownRejected("pr_target_denied")
+                raise KnownRejected("pr_target_denied")
             return {
                 "number": existing.get("number"),
                 "title": existing.get("title"),
@@ -400,7 +404,7 @@ class GitHubRestTransport:
             }
         elif operation == "pr_update":
             if type(payload.get("number")) is not int or payload["number"] < 1:
-                raise _mediation_errors.KnownRejected("pr_payload_invalid")
+                raise KnownRejected("pr_payload_invalid")
             method, path = "PATCH", prefix + f"/pulls/{payload['number']}"
             body = {
                 k: payload[k]
@@ -410,7 +414,7 @@ class GitHubRestTransport:
             if not body or (
                 "body" in body and payload.get("marker") not in body["body"]
             ):
-                raise _mediation_errors.KnownRejected("pr_payload_invalid")
+                raise KnownRejected("pr_payload_invalid")
             expected = payload.get("expected")
             if (
                 not isinstance(expected, dict)
@@ -418,7 +422,7 @@ class GitHubRestTransport:
                 or not all(isinstance(expected[k], str) for k in expected)
                 or not re.fullmatch(r"[0-9a-f]{40}", expected["head_sha"])
             ):
-                raise _mediation_errors.KnownRejected("pr_expected_snapshot_required")
+                raise KnownRejected("pr_expected_snapshot_required")
             # The number alone is not authority: inspect the existing PR and
             # prove that its head is this run's approved branch in this repo.
             existing = self._call(
@@ -431,13 +435,13 @@ class GitHubRestTransport:
                 or head_repo.get("full_name") != repository
                 or (existing.get("base") or {}).get("ref") != payload.get("base")
             ):
-                raise _mediation_errors.KnownRejected("pr_target_denied")
+                raise KnownRejected("pr_target_denied")
             if (
                 existing.get("title") != expected["title"]
                 or existing.get("body") != expected["body"]
                 or head.get("sha") != expected["head_sha"]
             ):
-                raise _mediation_errors.KnownRejected("pr_snapshot_changed")
+                raise KnownRejected("pr_snapshot_changed")
             # GitHub offers no atomic compare-and-PATCH for this endpoint.
             # This catches preceding edits, not simultaneous ones. Verify by
             # a fresh read, never by trusting the PATCH response alone.
@@ -469,7 +473,7 @@ class GitHubRestTransport:
                 )
                 or payload["marker"] not in payload["body"]
             ):
-                raise _mediation_errors.KnownRejected("issue_payload_invalid")
+                raise KnownRejected("issue_payload_invalid")
             method, path = "POST", prefix + "/issues"
             body = {k: payload[k] for k in ("title", "body")}
         elif operation == "actions_read":
@@ -479,7 +483,7 @@ class GitHubRestTransport:
             elif type(job_id) is int and job_id > 0 and len(payload) == 1:
                 path = prefix + f"/actions/jobs/{job_id}"
             else:
-                raise _mediation_errors.KnownRejected("actions_target_invalid")
+                raise KnownRejected("actions_target_invalid")
         elif operation == "api_rest_read":
             suffix = payload.get("path")
             if (
@@ -487,10 +491,10 @@ class GitHubRestTransport:
                 or not suffix.startswith(prefix + "/")
                 or any(part in suffix for part in ("..", "//", "\\", "%", "?", "#"))
             ):
-                raise _mediation_errors.KnownRejected("api_path_denied")
+                raise KnownRejected("api_path_denied")
             path = suffix
         else:
-            raise _mediation_errors.KnownRejected("operation_not_implemented")
+            raise KnownRejected("operation_not_implemented")
 
         return self._call(method, path, body, connection_id, connection_generation)
 
@@ -533,7 +537,7 @@ class GitHubRestTransport:
         timeout: float = 15,
     ) -> dict:
         if (connection_id is None) != (connection_generation is None):
-            raise _mediation_errors.KnownRejected("connection_binding_invalid")
+            raise KnownRejected("connection_binding_invalid")
         # Bound grants require a resolver accepting their exact identity and
         # generation. A legacy zero-argument supplier cannot serve them.
         try:
@@ -543,11 +547,11 @@ class GitHubRestTransport:
                 else self.token_supplier(connection_id, connection_generation)
             )
         except (TypeError, KeyError, ValueError):
-            raise _mediation_errors.KnownRejected(
+            raise KnownRejected(
                 "provider_credential_unavailable"
             ) from None
         if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
-            raise _mediation_errors.KnownRejected("provider_credential_unavailable")
+            raise KnownRejected("provider_credential_unavailable")
         encoded = (
             json.dumps(body, separators=(",", ":")).encode("utf-8")
             if body is not None
@@ -594,7 +598,7 @@ class GitHubRestTransport:
             # A complete, explicitly non-creating response is distinct from
             # a lost response or server error. Do not expose provider bodies.
             if failure.code in {400, 401, 403, 404, 410, 422}:
-                raise _mediation_errors.KnownRejected(
+                raise KnownRejected(
                     f"github_http_{failure.code}"
                 ) from None
             raise
