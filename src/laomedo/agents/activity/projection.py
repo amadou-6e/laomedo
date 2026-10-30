@@ -1,5 +1,7 @@
 """Project native notifications without summing cumulative token snapshots."""
 
+from laomedo.agents.activity.models import ActivityProjection
+
 KEYS = (
     "inputTokens",
     "cachedInputTokens",
@@ -353,24 +355,24 @@ def project(events, *, root_thread=None, model=None):
         }
         for key, lane in turns.items()
     ]
-    return {
-        "turns": projected_turns,
-        "items": list(items.values()),
-        "threads": list(threads.values()),
-        "diagnostics": [
+    return ActivityProjection(
+        turns=projected_turns,
+        items=list(items.values()),
+        threads=list(threads.values()),
+        diagnostics=[
             value for value in diagnostics if value.get("threadId") in related
         ],
-        "telemetry": telemetry,
-        "telemetry_coverage": (
+        telemetry=telemetry,
+        telemetry_coverage=(
             "observed; exporter flush completeness unverified"
             if telemetry
             else "not observed"
         ),
-        "uncorrelated_thread_count": len(uncorrelated),
-        "usage": usage,
-        "usage_by_thread": latest,
-        "usage_points": points,
-        "clock": "runner receipt time",
-        "cost": cost,
-        "cost_reason": cost_reason,
-    }
+        uncorrelated_thread_count=len(uncorrelated),
+        usage=usage,
+        usage_by_thread=latest,
+        usage_points=points,
+        clock="runner receipt time",
+        cost=cost,
+        cost_reason=cost_reason,
+    ).to_payload()
