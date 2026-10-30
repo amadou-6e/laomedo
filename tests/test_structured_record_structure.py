@@ -31,6 +31,11 @@ class StructuredRecordStructureTests(unittest.TestCase):
         imports = [node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
         self.assertFalse(any(name.startswith("laomedo.") for name in imports))
 
+    def test_component_keeps_its_module_docstring(self):
+        from laomedo.agents.agents.base import agent
+        source = Path(agent.__file__).parents[2] / "interface/langflow/component.py"
+        self.assertIsNotNone(ast.get_docstring(ast.parse(source.read_text(encoding="utf-8"))))
+
     def test_join_handler_is_module_level_and_old_giant_constructors_stay_removed(self):
         from laomedo.integrations.langflow.join import server
         from laomedo.agents.agents.base import agent

@@ -136,4 +136,6 @@ class PreparedRunRecord(BaseModel):
         value["skill_git_exclusion"] = self.skill_git_exclusion.model_dump(exclude_unset=True)
         if self.github_scope is not None:
             value["github_scope"] = self.github_scope.model_dump(exclude_unset=True)
+        expected = set(self.RECORD_KEYS) - ({"github_scope"} if self.github_scope is None else set())
+        assert set(value) == expected, "Prepared record keys must explicitly match the persistence contract."
         return {key: value[key] for key in self.RECORD_KEYS if key in value}
