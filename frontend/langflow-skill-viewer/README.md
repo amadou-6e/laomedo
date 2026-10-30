@@ -107,6 +107,13 @@ Comparison read failures use the comparison-specific fallback, including when
 the response has no code or an unknown safe code. Its recovery refers to the
 existing Current source/history controls; Reload files repeats only that
 historical revision read. Copied explanations retain this comparison context.
+The decoder accepts only the declared public `response.data.code` and existing
+`response.data.detail.code` slots. Installed Langflow's 404 handler unwraps the
+detail object into the first shape; standalone FastAPI retains the second.
+The real `67177b1` missing-revision check exposed that the first shape previously
+lost its known refusal and offered a futile reload. Both shapes must preserve
+known refusal codes and the shared unknown-code/redaction policy without echoing
+response text or changing the HTTP payload. Fresh browser verification is pending.
 Node identifiers use the same credential-prefix exclusion as unknown codes,
 before they can appear in Technical details or copied explanations. This does
 not change the deliberate safe unknown-code policy described above.
