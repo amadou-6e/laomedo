@@ -64,3 +64,8 @@ set after broker drain. Neither asserts global cleanup. A true private cleanup
 fact does not override a public fail-closed run status. SDK metadata is captured
 only from exact trusted exception classes and fixed code/operation allowlists;
 messages, receipts, owner labels and credentials are excluded.
+
+SDK privacy literals follow the exact declared `py-docker` revision. Its
+`CreateNotSentDeadlineError` is a distinct trusted class with the existing
+`docker_deadline_exceeded` code; a generic deadline does not establish that no
+create was sent. Unknown subclasses and operation strings remain omitted.

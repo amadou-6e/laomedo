@@ -13,6 +13,16 @@ from pydantic import ValidationError
 
 if find_spec("py_docker"):
     from py_docker.errors import CleanupUnconfirmedError, DockerOperationError
+    from py_docker.errors import CreateNotSentDeadlineError, DeadlineError
+    from py_docker.errors import OwnershipConflictError
+
+    class UnknownCreateDeadline(CreateNotSentDeadlineError):
+        """Untrusted subclasses must not gain permission to expose properties."""
+
+        @property
+        def operation(self):
+            raise AssertionError("untrusted subclass property read")
+
 
 from laomedo.agents.agents.base.models import AttemptFailureRecord, FailureObservation
 from laomedo.agents.agents.base.agent import BaseAgent
@@ -57,6 +67,54 @@ class RuntimeFailureObservationTests(unittest.TestCase):
         value = failure_observation(DockerOperationError("secret_token_123"))
         self.assertIsNone(value.operation)
         self.assertNotIn("secret_token_123", value.model_dump_json())
+
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the pinned runner SDK")
+    def test_new_pinned_sdk_class_and_literal_operations_are_retained(self):
+        cases = {
+            "admit container create": CreateNotSentDeadlineError,
+            "admit Engine request": DeadlineError,
+            "nest same-client request deadline": DockerOperationError,
+            "validate scoped request timeout": DockerOperationError,
+            "bind or complete failed-session cleanup": CleanupUnconfirmedError,
+            "release failed-session receipt": CleanupUnconfirmedError,
+            "bind or complete session cleanup": CleanupUnconfirmedError,
+            "close session stream": DockerOperationError,
+            "release session receipt": DockerOperationError,
+            "verify requested container log driver": OwnershipConflictError,
+        }
+        for operation, kind in cases.items():
+            with self.subTest(operation=operation):
+                value = failure_observation(kind(operation))
+                self.assertEqual(value.sdk_class, kind.__name__)
+                self.assertEqual(value.sdk_code, kind.code)
+                self.assertEqual(value.operation, operation)
+        primary = CreateNotSentDeadlineError("admit container create")
+        value = failure_observation(
+            CleanupUnconfirmedError(
+                "bind or complete session cleanup",
+                receipt=UnsafeFailure(),
+                primary=primary,
+            )
+        )
+        self.assertEqual(value.primary_sdk_code, "docker_deadline_exceeded")
+        self.assertEqual(value.primary_operation, "admit container create")
+
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the pinned runner SDK")
+    def test_new_sdk_class_does_not_trust_subclasses_unknown_text_or_spoofed_code(self):
+        unknown = UnknownCreateDeadline.__new__(UnknownCreateDeadline)
+        self.assertIsNone(failure_observation(unknown).sdk_class)
+        value = failure_observation(
+            CreateNotSentDeadlineError("SECRET_UNKNOWN_OPERATION")
+        )
+        self.assertEqual(value.sdk_code, "docker_deadline_exceeded")
+        self.assertIsNone(value.operation)
+        self.assertNotIn("SECRET", value.model_dump_json())
+        with patch.object(CreateNotSentDeadlineError, "code", "SECRET_SPOOFED_CODE"):
+            value = failure_observation(
+                CreateNotSentDeadlineError("admit container create")
+            )
+        self.assertIsNone(value.sdk_class)
+        self.assertNotIn("SECRET", value.model_dump_json())
 
     def test_optional_exception_fact_preserves_public_args(self):
         value = FailureObservation.from_values(

@@ -8,6 +8,9 @@ import hashlib
 from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.interface.models import PrecheckEvidence
 from laomedo.agents.orchestration.models import HandoffProvenance
+from laomedo.agents.agents.base.settings import SDK_FAILURE_CODES
+from laomedo.agents.agents.base.settings import SDK_FAILURE_OPERATIONS
+from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 
 
 class CredentialBinding(BaseModel):
@@ -315,12 +318,6 @@ class FailureObservation(BaseModel):
     @model_validator(mode="after")
     def validate_safe_values(self):
         """Reject direct construction that bypasses the explicit safe projection."""
-        from .settings import (
-            SDK_FAILURE_CODES,
-            SDK_FAILURE_OPERATIONS,
-            RUNNER_FAILURE_CODES,
-        )
-
         if self.code is not None and self.code not in RUNNER_FAILURE_CODES:
             raise ValueError("unsafe_failure_code")
         if (
@@ -358,12 +355,6 @@ class FailureObservation(BaseModel):
         primary_operation=None,
     ):
         """Omit unknown candidates rather than sanitize arbitrary external text."""
-        from .settings import (
-            SDK_FAILURE_CODES,
-            SDK_FAILURE_OPERATIONS,
-            RUNNER_FAILURE_CODES,
-        )
-
         trusted = (
             type(sdk_class) is str and SDK_FAILURE_CODES.get(sdk_class) == sdk_code
         )
@@ -423,8 +414,6 @@ class AttemptFailureRecord(BaseModel):
     @model_validator(mode="after")
     def validate_cleanup_fact(self):
         """Keep unavailable observations distinct from a negative verdict."""
-        from .settings import RUNNER_FAILURE_CODES
-
         if (self.cleanup_source is None) != (self.cleanup_verified is None):
             raise ValueError("cleanup_source_required")
         if (
