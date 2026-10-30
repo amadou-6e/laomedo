@@ -215,11 +215,11 @@ class LeaseLossObservationTests(unittest.TestCase):
 
             with (
                 patch(
-                    "laomedo.host.leases.client._leases_utils._read_float",
+                    "laomedo.host.leases.client._read_float",
                     return_value=None,
                 ),
                 patch(
-                    "laomedo.host.leases.client._leases_utils._read_json",
+                    "laomedo.host.leases.client._read_json",
                     return_value=None,
                 ),
                 patch(
@@ -274,11 +274,11 @@ class LeaseLossObservationTests(unittest.TestCase):
                 cancelled = threading.Event()
                 with (
                     patch(
-                        "laomedo.host.leases.client._leases_utils._read_float",
+                        "laomedo.host.leases.client._read_float",
                         side_effect=[wall, monotonic],
                     ),
                     patch(
-                        "laomedo.host.leases.client._leases_utils._read_json",
+                        "laomedo.host.leases.client._read_json",
                         return_value=record,
                     ),
                     patch(
@@ -303,7 +303,7 @@ class LeaseLossObservationTests(unittest.TestCase):
             client.lost.set()
             result = {"reason": "done", "state": "absent", "cleanup_verified": True}
             with patch(
-                "laomedo.host.leases.client._leases_utils._read_json",
+                "laomedo.host.leases.client._read_json",
                 return_value=result,
             ):
                 with self.assertRaisesRegex(RuntimeError, "lease_service_unverified"):
