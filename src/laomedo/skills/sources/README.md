@@ -122,3 +122,21 @@ body, oversize response or read failure keeps the existing
 `source_discovery_failed` mapping. It always closes HTTPError responses. No remote
 message or payload is presented. This is the sole intentional client/error contract
 change in D2; successful source payloads remain unchanged.
+
+## Discovery failures at the node boundary
+
+`LaomedoSkill.update_build_config` owns discovery-dependent form selections;
+`source_request` remains the stateless application transport. A confirmed
+`repository_cleanup_unverified` category must leave the component as that exact
+safe code and reach the existing shared error catalogue. It must not become a
+successful configuration response with generic refresh advice. The existing
+catalogue explains that the user must not repeat discovery or remove retained
+clone staging while earlier Git processes may remain. There is no staging cleanup
+button. Other discovery failure behavior remains unchanged by this focused repair.
+
+The component's local clearing is not a returned frontend template after an HTTP
+failure. Do not claim that previous browser choices were replaced by that clearing.
+Component and config-to-alert regressions are supporting controls. The exact real
+cleanup-uncertainty discovery story remains unverified until safely observed;
+ordinary service outage or a synthetic cleanup code cannot establish its acceptance.
+This gap remains a merge/acceptance blocker under the workspace rules.

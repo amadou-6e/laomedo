@@ -7,7 +7,7 @@ Implemented stories use actual app screenshots; the deferred Git publishing stor
 uses an explicitly labelled mockup. Status distinguishes implementation from live
 acceptance. See [visual provenance](assets/README.md).
 
-## SK-01 — Select an exact skill revision
+## SK-01 â€” Select an exact skill revision
 
 As a workflow author, I want to select a Skill and revision from a source,
 so an Agent receives the intended instructions rather than an unspecified latest version.
@@ -19,6 +19,14 @@ Acceptance criteria:
 - Changing Source clears dependent selections and ignores stale discovery responses.
 - The Skill output carries the selected immutable identity.
 - Inspecting a selection does not execute the skill or the graph.
+- Unconfirmed repository cleanup reaches the shared descriptive error presenter
+  with `repository_cleanup_unverified` preserved. It does not advise refreshing
+  discovery or removing retained staging while earlier Git processes may remain.
+
+**Unverified failure path:** actual repository cleanup uncertainty has not been
+safely reproduced through the node's discovery controls. Component/alert tests and
+ordinary source-service outage are supporting or adjacent evidence; they do not
+close this acceptance gap. Do not merge this path as verified on that basis.
 
 ![Actual unconfigured Skill node with source, skill and revision controls](assets/skill-node.png)
 
@@ -27,7 +35,7 @@ or selected revision; the image illustrates the controls, not successful discove
 
 Guide: [source selection](../../../frontend/langflow-skill-viewer/README.md#linked-source-selector-157).
 
-## SK-02 — Read the selected skill's files
+## SK-02 â€” Read the selected skill's files
 
 As a workflow author, I want to browse the selected skill's files and preview its
 instructions, so I can understand what I am giving the Agent.
@@ -62,7 +70,7 @@ Record that verification separately from these acceptance criteria.
 `graph-activity-verification` skill. Its file loads; its history service is unavailable
 in this runtime, as shown. This is not a successful history demonstration.*
 
-## SK-03 — Propose a traceable multi-file edit
+## SK-03 â€” Propose a traceable multi-file edit
 
 As a skill author, I want one operation to change several files and retain its
 parent revision and provenance, so I can review the complete change together.
@@ -82,7 +90,7 @@ Historical evidence: [real multi-file Agent edit](../../../examples/skill-operat
 and [operation contract and limitations](../../../examples/skill-operations/README.md).
 Those records establish their named runs and revisions, not a fresh test of this checkout.
 
-## SK-04 — Compare a file across revisions
+## SK-04 â€” Compare a file across revisions
 
 As a skill author, I want to select a commit beneath the file tree and see the
 selected file's cumulative diff to the current pinned revision, so I can understand
@@ -104,7 +112,7 @@ Acceptance criteria:
 record in [Skill summary evidence](../../../examples/skill-summary/evidence.json).
 It is not a new capture or a current-runtime history acceptance result.*
 
-## SK-05 — Publish a reviewed registry revision to Git
+## SK-05 â€” Publish a reviewed registry revision to Git
 
 As a skill author, I want to publish a reviewed registry revision as a Git commit,
 so my source repository can retain the same reviewed file changes.
@@ -119,7 +127,7 @@ Proposed acceptance criteria for discussion:
 - Require explicit confirmation before publishing; reject a changed base instead of overwriting it.
 - Link a confirmed Git commit back to the registry revision; keep uncertain outcomes explicit.
 
-![MOCKUP — proposed review of a Skill revision before publishing a Git commit](assets/git-publishing-mock.png)
+![MOCKUP â€” proposed review of a Skill revision before publishing a Git commit](assets/git-publishing-mock.png)
 
 *Mockup with illustrative content. No publishing operation or Git integration was run.
 This exploration does not replace canonical UI design specifications.
