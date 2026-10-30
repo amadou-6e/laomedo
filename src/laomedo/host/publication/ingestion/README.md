@@ -30,3 +30,11 @@ graph node or browser endpoint: raw refusal codes are host publication boundary
 diagnostics, and callers preserve their current projections. The C2 error guard
 records each boundary explicitly rather than assuming every diagnostic is a
 node-visible error.
+
+Retained experiment callers are hash-pinned in
+`tools/migrations/retained-ingestion-callers.json`; current-file historical seal
+validity is not inferred. Direct execution of these old sources against the
+current package is unsupported until an explicitly selected copy is migrated.
+The existing internal S7 control applies the repository's published import-only
+migration in memory, verifies unchanged non-import AST and preserves source
+bytes. It remains a protocol fixture, not live integration acceptance.

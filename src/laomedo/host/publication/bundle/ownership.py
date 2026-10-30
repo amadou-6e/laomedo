@@ -3,7 +3,8 @@
 from contextlib import contextmanager
 from pathlib import Path
 import json
-import laomedo.skills.ingestion.utils as _ingestion_utils
+from laomedo.host.publication.ingestion.utils import write_durable_json
+from laomedo.host.publication.ingestion.utils import is_redirected_path
 import os
 import re
 import subprocess
@@ -13,7 +14,7 @@ import subprocess
 def stage_lock(attempt: Path):
     """OS lock proves a cooperating stage is alive; PID reuse is irrelevant."""
     path = attempt / "container.lock"
-    if path.exists() and _ingestion_utils._redirected(path):
+    if path.exists() and is_redirected_path(path):
         raise ValueError("stage_lock_redirected")
     with path.open("a+b") as lock:
         lock.seek(0, 2)
@@ -88,7 +89,7 @@ def reconcile_orphan(attempt: Path, *, docker):
     path = attempt / "container-owner.json"
     if not path.exists():
         return None
-    if _ingestion_utils._redirected(path) or path.stat().st_size > 16384:
+    if is_redirected_path(path) or path.stat().st_size > 16384:
         return {"cleanup_verified": False, "detail": "owner_invalid"}
     try:
         owner = json.loads(path.read_bytes())
@@ -116,16 +117,14 @@ def reconcile_orphan(attempt: Path, *, docker):
                     after, _ = _inspect(owner, docker)
                     if removed.returncode == 0 and after == "absent":
                         report = {"cleanup_verified": True, "detail": "removed"}
-                        _ingestion_utils._durable_json(
-                            attempt / "orphan-cleanup.json", report
-                        )
+                        write_durable_json(attempt / "orphan-cleanup.json", report)
                         return report
                     state = "remove_unknown"
             # Initial absence is not proof a previously dispatched Docker
             # create client cannot produce a late container. Future scans
             # keep looking; they never create/start anything.
             report = {"cleanup_verified": False, "detail": state}
-            _ingestion_utils._durable_json(attempt / "orphan-cleanup.json", report)
+            write_durable_json(attempt / "orphan-cleanup.json", report)
             return report
     except (
         OSError,

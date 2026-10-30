@@ -1,9 +1,14 @@
 """Local-only preflight for the frozen S7 Docker probe."""
 
-import importlib.util
+import ast
+import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
+import runpy
+import sys
+import types
 from unittest.mock import patch
 
 from laomedo.host.publication.bundle.errors import BundleStageError
@@ -14,9 +19,44 @@ from laomedo.host.publication.bundle.stage import verify_frozen_bundle
 PROBE_PATH = (
     Path(__file__).resolve().parents[1] / "experiments" / "exp100" / "probe_stage_s7.py"
 )
-SPEC = importlib.util.spec_from_file_location("exp100_stage_s7", PROBE_PATH)
-probe_stage_s7 = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(probe_stage_s7)
+ROOT = PROBE_PATH.parents[2]
+CONTRACT = json.loads(
+    (ROOT / "tools/migrations/retained-ingestion-callers.json").read_text()
+)
+EXPECTED = next(
+    item["sha256"]
+    for item in CONTRACT["files"]
+    if item["path"] == PROBE_PATH.relative_to(ROOT).as_posix()
+)
+assert hashlib.sha256(PROBE_PATH.read_bytes()).hexdigest() == EXPECTED
+sys.path.insert(0, str(ROOT / "tools/migrations"))
+MIGRATION = runpy.run_path(str(ROOT / "tools/migrations/migrate_module_paths.py"))
+SOURCE = PROBE_PATH.read_text(encoding="utf-8")
+MIGRATED = MIGRATION["migrate_source"](SOURCE)
+# A retained protocol fixture is adapted only in memory for internal controls.
+# Its source bytes remain historical evidence; no model or Docker run occurs.
+assert ast.dump(
+    ast.Module(
+        body=[
+            node
+            for node in ast.parse(SOURCE).body
+            if not isinstance(node, (ast.Import, ast.ImportFrom))
+        ],
+        type_ignores=[],
+    )
+) == ast.dump(
+    ast.Module(
+        body=[
+            node
+            for node in ast.parse(MIGRATED).body
+            if not isinstance(node, (ast.Import, ast.ImportFrom))
+        ],
+        type_ignores=[],
+    )
+)
+probe_stage_s7 = types.ModuleType("exp100_stage_s7")
+probe_stage_s7.__file__ = str(PROBE_PATH)
+exec(compile(MIGRATED, str(PROBE_PATH), "exec"), probe_stage_s7.__dict__)
 fixture = probe_stage_s7.fixture
 
 

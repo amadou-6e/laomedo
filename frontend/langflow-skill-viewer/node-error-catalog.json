@@ -2078,5 +2078,25 @@
     "title": "The skill source could not be read",
     "description": "The source service could not safely complete this request.",
     "recovery": "Check the selected source and local source service availability before refreshing read-only choices."
+  },
+  "bundle_not_regular": {
+    "title": "The handoff bundle is not a regular file",
+    "description": "The local publication stage refused the run's fixed handoff file because it is missing, redirected or not a regular file.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_size_or_type": {
+    "title": "The handoff bundle was refused",
+    "description": "The local publication stage refused the handoff file because its type, link count or size is outside the supported limits.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_changed_or_oversized": {
+    "title": "The handoff bundle changed while being read",
+    "description": "The local publication stage could not retain stable, bounded bytes from the handoff file. This capture was refused.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "bundle_unreadable": {
+    "title": "The handoff bundle could not be read",
+    "description": "The local publication stage encountered a filesystem error while reading the run's fixed handoff file. This capture was refused.",
+    "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
   }
 }
