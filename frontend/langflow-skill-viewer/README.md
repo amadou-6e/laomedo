@@ -48,6 +48,28 @@ source search, Markdown preview and binary metadata. The panel snapshots the
 selected ID/revision and clears old data while loading. Opening, browsing or closing never executes the graph or changes a
 skill revision. Other component nodes keep the existing Code action.
 
+## Skill source keyboard boundary
+
+The `Source` component owns keyboard isolation for its read-only Monaco host.
+Monaco must handle editing prevention, selection, navigation and Find first;
+non-Escape keydown and keyup events must then stop before canvas shortcuts.
+Escape keeps the existing Find-first, dialog-second dismissal behavior.
+This boundary also covers Monaco's native EditContext DIV, which is not an HTML
+form field and therefore bypasses the canvas hotkeys' form-tag exclusion.
+
+The actual Edge run of candidate `67177b1` exposed this failure: clicking inside
+the editor and typing printable text closed Skill files and opened Assistant.
+The editor and registry bytes remained unchanged, but keyboard isolation failed.
+This is a product failure, not a passing read-only demonstration. The targeted
+correction needs fresh frontend/browser evidence and focused review; the earlier
+`67177b1` assets do not contain it.
+
+Observable acceptance: printable keys remain in the open read-only viewer without
+opening Assistant or invoking graph actions; source and registry bytes do not
+change. Keyboard selection/navigation and Find still work. Escape closes Find
+before closing the viewer. Internal native-EditContext/event tests support this
+contract but do not replace the actual Edge recheck or owner validation.
+
 ## Skill inspection failures
 
 The existing file-view dialog renders failures as inline viewer content,

@@ -39,6 +39,15 @@ Acceptance criteria:
 - File navigation and Source/Preview refer to the selected revision.
 - Browsing and resizing the split pane do not edit or execute the skill.
 - Files and Commits can be navigated separately; unavailable history remains explicit.
+- Printable keys in the focused source editor do not activate canvas shortcuts,
+  close the viewer or open Assistant. Selection, navigation and Find retain native
+  editor handling; Escape closes Find before closing the viewer.
+
+**Current verification gap:** the actual Edge check at `67177b1` failed keyboard
+isolation with Monaco's native EditContext DIV: typing in the read-only editor
+closed the viewer and opened Assistant. Files and registry bytes were unchanged.
+A targeted editor-boundary correction, focused review and fresh real-browser
+recheck are pending; the existing screenshots do not establish that correction.
 
 ![Actual pinned skill opened read-only in the file viewer](assets/skill-files.png)
 
