@@ -54,7 +54,9 @@ class PRInspectionTests(unittest.TestCase):
             backend.assert_called_once_with("execute", **self.body, operation=None)
 
     def test_operation_and_invalid_identity_never_reach_gateway(self):
-        with patch("laomedo.github.interface.pull_requests.client.pr_request") as backend:
+        with patch(
+            "laomedo.github.interface.pull_requests.client.pr_request"
+        ) as backend:
             for body in (
                 {**self.body, "operation": {"action": "close"}},
                 {**self.body, "pr_number": True},

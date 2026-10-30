@@ -385,7 +385,9 @@ class LiveGitHubIssueTests(unittest.TestCase):
         )
         with (
             patch.dict("os.environ", env),
-            patch("laomedo.github.interface.issues.client.request.build_opener") as opener,
+            patch(
+                "laomedo.github.interface.issues.client.request.build_opener"
+            ) as opener,
         ):
             for failure in (
                 TimeoutError("dummy-secret"),
