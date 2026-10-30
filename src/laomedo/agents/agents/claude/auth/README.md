@@ -17,8 +17,11 @@ will consume py-docker's owned Session lifecycle instead of adding another Docke
 worker or transport. The SDK deadline contract remains request admission and
 socket inactivity control, not a hard wall-time guarantee.
 
-The design has received read-only Claude review; its R3 corrections and catalog
-proposal still require review. This README is a design checkpoint, not evidence
+The design has received read-only Claude review. The final repair preserves the
+existing Resume admission copy: removing it could consume a completed run's
+resumability before authentication succeeds. Catalog preparation is excluded
+from this increment; explicit Refresh continues to request fresh discovery.
+This README is a design checkpoint, not evidence
 of successful copying, authentication or graph execution.
 
 | Concern | Owner / name | Interface and effects |
@@ -38,9 +41,9 @@ integer versus float expiry, Unicode escaping and default JSON spacing. It never
 duplicates a rotating refresh credential. Host refresh ownership stays unchanged.
 Cleanup uncertainty takes precedence and retains the exact pending receipt.
 
-The proposed removal of the duplicate Resume admission copy changes error
-precedence and is under named review. Catalog preparation and cache freshness are
-also a separate named proposal; they are not implemented by this checkpoint.
+The duplicate Resume admission copy is deliberately retained. Catalog preparation
+and cache freshness remain separate work. Cold catalog discovery has no newly
+claimed 30-second completion guarantee.
 
 ### Payload model checkpoint
 
