@@ -12,6 +12,7 @@ remain separate gates.
 | --- | --- | --- |
 | Public discovery, cached choices and registry imports | `service.py` | `SkillSources`: `discover`, `revisions`, `resolve`; no native process launcher |
 | Git source cache and blob reads | `repository.py` | `GitSkillSource`: `repository`, `entries`, `read_blob`; compose the shared `GitCommandRunner` |
+| Uncertain clone staging lifetime | `staging.py` | `SkillSourceStagingDirectory`: `preserve`, `cleanup`; retain owned staging when process termination is unconfirmed |
 | Local-root admission and file reads | `local.py` | `LocalSkillSource`: `admit`, `discover`, `read`; no Git subprocess or registry writes |
 | Byte/path admission before import | `bundle.py` | `validate_bundle`, `validate_bundle_path`; function-only |
 | Source-specific naming/exclusions | `utils.py` | `skill_name`, `excluded_parts`; function-only |
@@ -43,6 +44,7 @@ plugin framework, duplicate registry model or public forwarding facade is needed
 | `LocalSkillSource` | `discover(root, deadline)` | Find bounded skill roots and display choices without reading/executing unrelated files |
 | `LocalSkillSource` | `read(folder, deadline)` | Return the existing verified byte inventory, or the existing missing-SKILL.md outcome |
 | `SkillSourceChoice` | `for_folder`, `for_registry`, `to_record` | Construct fresh choices and preserve existing wire keys/order |
+| `SkillSourceStagingDirectory` | `preserve`, `cleanup` | Preserve owned clone staging only on cleanup uncertainty; otherwise retain standard-library TemporaryDirectory cleanup behavior |
 | Other source models | Pydantic construction only | Carry admitted internal values; historical cached dictionaries retain their existing readers |
 
 Core source methods import defining symbols directly. The registry remains the
@@ -74,11 +76,16 @@ file/depth/count limits retain their existing values and boundary behavior.
 The old source Popen/taskkill/killpg launcher is removed in the same checkpoint.
 
 One explicit failure contract is strengthened: shared process-tree cleanup is
-bounded by the existing Git cleanup interval. If termination cannot be confirmed,
-return `repository_cleanup_unverified`; do not claim the process stopped or advise
+bounded by the existing five-second Git cleanup substeps (taskkill, pipe draining and final wait: at most three such waits, plus native kill/poll operations). If termination cannot be confirmed,
+retain the owned clone staging and return `repository_cleanup_unverified`; do not claim the process stopped or advise
 an immediate repeat. Confirmed cleanup preserves the prior categories. This new
 uncertainty path needs its own catalogue/producer guard and remains live-unverified
 unless safely observed; internal child-process controls are supporting evidence.
+
+Retaining an uncertain clone staging directory is explicit: it must not be removed
+while its process may still use it. The staging owner uses TemporaryDirectory
+cleanup for the ordinary path and detaches its finalizer only when preserving
+that directory. This is one feature-owned lifetime object, not another Git runner.
 
 Index/origin JSON shapes, replacement order, retained choices, labels, sort order,
 LF/CRLF byte identities and canonical latest behavior remain unchanged. Pydantic
