@@ -23,6 +23,9 @@ MODULE_PATHS = json.loads(Path(__file__).with_name("module-paths.json").read_tex
 SYMBOL_PATHS = json.loads(Path(__file__).with_name("symbol-paths.json").read_text())
 MANUAL_SYMBOLS = json.loads(Path(__file__).with_name("manual-symbols.json").read_text())
 CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
+# This module remains a valid domain owner after only its HTTP Settings moves.
+# Its constants must never be redirected to the interface's configuration class.
+SPLIT_MODULES = {"laomedo.skills.sources.settings"}
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
 SYMBOL_PATTERN = re.compile(
@@ -195,6 +198,12 @@ def migrate_source(source: str) -> str:
                 statements, changed = [], False
                 for item in node.names:
                     full = node.module + "." + item.name
+                    if full in SPLIT_MODULES:
+                        aliases[item.asname or item.name] = full
+                    if node.module in SPLIT_MODULES and item.name == "*":
+                        raise ManualMigrationRequired(
+                            "A star import from a split module requires manual migration to defining symbols"
+                        )
                     if full in MANUAL_SYMBOLS:
                         raise ManualMigrationRequired(
                             full + ": " + MANUAL_SYMBOLS[full]
@@ -350,6 +359,14 @@ def migrate_source(source: str) -> str:
             insertion = position(first.lineno, 0)
             replacements.append((insertion, insertion, block))
         for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and ast.unparse(node) in SYMBOL_PATHS
+                and ast.unparse(node).rsplit(".", 1)[0] in SPLIT_MODULES
+            ):
+                raise ManualMigrationRequired(
+                    "Fully qualified access to a relocated split-module member requires an explicit defining-symbol import"
+                )
             if isinstance(node, ast.Attribute) and _is_retired_dotted_reference(
                 ast.unparse(node)
             ):
@@ -369,6 +386,23 @@ def migrate_source(source: str) -> str:
                     "capture_for now returns ActivityInvocation; manual migration must use .store and .invocation_id"
                 )
             if isinstance(node, ast.Call):
+                if (
+                    isinstance(node.func, ast.Name)
+                    and node.func.id in {"getattr", "setattr", "hasattr"}
+                    and len(node.args) >= 2
+                ):
+                    original = imported_reference(node.args[0]) or ast.unparse(
+                        node.args[0]
+                    )
+                    member = node.args[1]
+                    if original in SPLIT_MODULES and (
+                        not isinstance(member, ast.Constant)
+                        or not isinstance(member.value, str)
+                        or original + "." + member.value in SYMBOL_PATHS
+                    ):
+                        raise ManualMigrationRequired(
+                            "Dynamic access to a relocated split-module member requires manual migration to its defining symbol"
+                        )
                 if changed_models and (
                     isinstance(node.func, ast.Name)
                     and node.func.id in {"asdict", "replace"}

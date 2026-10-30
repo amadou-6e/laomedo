@@ -28,7 +28,7 @@ class IssueInspectionTests(unittest.TestCase):
 
     def test_inspection_is_authenticated_read_only_and_uncached(self):
         with patch(
-            "laomedo.github.issues.client.issue_request",
+            "laomedo.github.interface.issues.client.issue_request",
             return_value={
                 "issue": {"number": 1},
                 "fetched_at": "now",
@@ -54,7 +54,7 @@ class IssueInspectionTests(unittest.TestCase):
             backend.assert_called_once_with("execute", **self.body, operation=None)
 
     def test_target_or_operation_override_is_refused_without_backend_call(self):
-        with patch("laomedo.github.issues.client.issue_request") as backend:
+        with patch("laomedo.github.interface.issues.client.issue_request") as backend:
             for payload in (
                 {**self.body, "operation": {"action": "close"}},
                 {**self.body, "issue_number": True},
@@ -72,7 +72,7 @@ class IssueInspectionTests(unittest.TestCase):
 
     def test_backend_failure_is_sanitized_and_never_becomes_content(self):
         with patch(
-            "laomedo.github.issues.client.issue_request",
+            "laomedo.github.interface.issues.client.issue_request",
             side_effect=RuntimeError("dummy-secret URL"),
         ):
             response = self.client.post(

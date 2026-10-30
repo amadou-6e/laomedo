@@ -28,7 +28,7 @@ automatically configures this connection. No token is pasted into a node.
 For **Issues**, use a dedicated terminal:
 
 ```powershell
-& $pythonExe -m laomedo.github.issues.cli `
+& $pythonExe -m laomedo.github.interface.issues.cli `
   --repository $githubRepository `
   --github-token-file $githubConnectionFile --github-token-key GH_LAOMEDO `
   --connection-id github-issue-local --connection-generation 1 `
@@ -39,7 +39,7 @@ For **Issues**, use a dedicated terminal:
 For **PRs**, use another terminal if you want both modules:
 
 ```powershell
-& $pythonExe -m laomedo.github.pull_requests.cli `
+& $pythonExe -m laomedo.github.interface.pull_requests.cli `
   --repository $githubRepository `
   --github-token-file $githubConnectionFile --github-token-key GH_LAOMEDO `
   --connection-id github-pr-local --connection-generation 1 `

@@ -12,7 +12,7 @@ from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.operations.service import SkillOperations
 from laomedo.skills.operations.utils import proposal
-from laomedo.skills.operations.server import SkillOperationServer as server
+from laomedo.skills.interface.operations.server import SkillOperationServer as server
 
 
 class SkillOperationTests(unittest.TestCase):

@@ -17,19 +17,28 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, build_opener
 
-from laomedo.github.issues.server import IssueServer
+from laomedo.github.interface.issues.server import IssueServer
 from laomedo.github.issues.contract import ERROR_CODES as ISSUE_CODES
-from laomedo.github.pull_requests.server import PullRequestServer
+from laomedo.github.interface.pull_requests.server import PullRequestServer
 from laomedo.github.pull_requests.contract import ERROR_CODES as PR_CODES
 from laomedo.http.redirect import NoRedirect
-from laomedo.skills.operations.server import SkillOperationServer
-from laomedo.skills.operations.client import skill_request
-from laomedo.skills.sources.server import SkillSourceServer
+from laomedo.skills.interface.operations.server import SkillOperationServer
+from laomedo.skills.interface.operations.client import skill_request
+from laomedo.skills.interface.sources.server import SkillSourceServer
 from laomedo.skills.sources.errors import SourceError
-from laomedo.skills.sources.client import source_request
+from laomedo.skills.interface.sources.client import source_request
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src/laomedo"
+HTTP_OWNERS = {
+    relative: relative.replace("/", "/interface/", 1)
+    for relative in (
+        "github/issues",
+        "github/pull_requests",
+        "skills/sources",
+        "skills/operations",
+    )
+}
 HANDLERS = {
     "github/issues": "IssueRequestHandler",
     "github/pull_requests": "PullRequestHandler",
@@ -133,7 +142,7 @@ class HandlerStructureTests(unittest.TestCase):
                 record,
                 relative,
             )
-            folder = SOURCE / relative
+            folder = SOURCE / HTTP_OWNERS[relative]
             tree = ast.parse((folder / "handler.py").read_text())
             handler = next(node for node in tree.body if isinstance(node, ast.ClassDef))
             handler.name = "Handler"
@@ -158,17 +167,17 @@ class HandlerStructureTests(unittest.TestCase):
 
     def test_reworked_modules_have_no_nested_classes_or_domain_module_aliases(self):
         paths = [
-            SOURCE / relative / name
+            SOURCE / HTTP_OWNERS[relative] / name
             for relative in HANDLERS
             for name in ("handler.py", "server.py")
         ]
         paths += [
             SOURCE / path
             for path in (
-                "github/issues/client.py",
-                "github/pull_requests/client.py",
-                "skills/sources/client.py",
-                "skills/operations/client.py",
+                "github/interface/issues/client.py",
+                "github/interface/pull_requests/client.py",
+                "skills/interface/sources/client.py",
+                "skills/interface/operations/client.py",
                 "github/transport/rest/transport.py",
                 "integrations/langflow/join/transport.py",
                 "http/redirect.py",
@@ -355,7 +364,7 @@ class HandlerStructureTests(unittest.TestCase):
 import importlib, pathlib, sys
 root = pathlib.Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(root / 'src'))
-for name in ('laomedo.skills.sources.client', 'laomedo.skills.operations.client', 'laomedo.http.redirect'):
+for name in ('laomedo.skills.interface.sources.client', 'laomedo.skills.interface.operations.client', 'laomedo.http.redirect'):
     module = importlib.import_module(name)
     assert pathlib.Path(module.__file__).resolve().is_relative_to(root), module.__file__
 for prefix in ('laomedo.host', 'laomedo.agents', 'laomedo.github', 'laomedo.work_graph', 'langflow', 'lfx'):
@@ -618,7 +627,10 @@ class HandlerCatalogueTests(unittest.TestCase):
             (ROOT / "tests/contracts/node-http-error-boundaries.json").read_text()
         )
         observed = {"unauthorized", "source_unavailable"}
-        for path in (SOURCE / "skills/sources").glob("*.py"):
+        for path in [
+            *(SOURCE / "skills/sources").glob("*.py"),
+            SOURCE / "skills/interface/sources/handler.py",
+        ]:
             for node in ast.walk(ast.parse(path.read_text())):
                 if not (
                     isinstance(node, ast.Raise)
@@ -660,7 +672,7 @@ class HandlerCatalogueTests(unittest.TestCase):
             )
         )
         for relative in HANDLERS:
-            path = SOURCE / relative / "handler.py"
+            path = SOURCE / HTTP_OWNERS[relative] / "handler.py"
             for node in ast.walk(ast.parse(path.read_text())):
                 if isinstance(node, ast.Dict):
                     for key, value in zip(node.keys, node.values):
@@ -670,7 +682,10 @@ class HandlerCatalogueTests(unittest.TestCase):
                             and isinstance(value, ast.Constant)
                         ):
                             self.assertIn(value.value, public, (relative, value.value))
-        for relative in ("skills/sources/client.py", "skills/operations/client.py"):
+        for relative in (
+            "skills/interface/sources/client.py",
+            "skills/interface/operations/client.py",
+        ):
             for node in ast.walk(ast.parse((SOURCE / relative).read_text())):
                 if (
                     isinstance(node, ast.Raise)
@@ -684,7 +699,7 @@ class HandlerCatalogueTests(unittest.TestCase):
                             manifest["node_client_codes"][
                                 (
                                     "source_client"
-                                    if relative.startswith("skills/sources")
+                                    if relative.startswith("skills/interface/sources")
                                     else "operation_client"
                                 )
                             ],

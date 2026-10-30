@@ -1,7 +1,7 @@
 """Loopback backend for live PR reads and existing scoped operation grants."""
 
 from http.server import ThreadingHTTPServer
-from laomedo.github.pull_requests.handler import PullRequestHandler
+from laomedo.github.interface.pull_requests.handler import PullRequestHandler
 
 
 class PullRequestServer(ThreadingHTTPServer):

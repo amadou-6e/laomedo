@@ -1,15 +1,15 @@
-"""Command-line entry point for laomedo.skills.operations.server."""
+"""Command-line entry point for laomedo.skills.interface.operations.server."""
 
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 import argparse
 import json
-import laomedo.skills.operations.service as _operations_service
-import laomedo.skills.registry.store as _registry_store
+from laomedo.skills.operations.service import SkillOperations
+from laomedo.skills.registry.store import SkillStore
 import secrets
 
-from laomedo.skills.operations.server import SkillOperationServer
+from laomedo.skills.interface.operations.server import SkillOperationServer
 
 
 def main():
@@ -18,8 +18,8 @@ def main():
         parser.add_argument("--" + field, type=Path, required=True)
     parser.add_argument("--port", type=int, default=8787)
     args = parser.parse_args()
-    operations = _operations_service.SkillOperations(
-        _registry_store.SkillStore(args.registry),
+    operations = SkillOperations(
+        SkillStore(args.registry),
         args.database,
         json.loads(args.policies.read_text(encoding="utf-8")),
     )

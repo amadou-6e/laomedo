@@ -1,23 +1,16 @@
-# Skill source interface
+# Skill source discovery
 
-`SkillSources` owns admitted source discovery, cached choices and immutable
-resolution: `discover(source)`, `revisions(source, choice)` and
+`SkillSources` in `service.py` owns admitted source discovery, cached choices and
+immutable resolution: `discover(source)`, `revisions(source, choice)` and
 `resolve(source, choice, revision)`. It imports exact content without advancing
-an existing canonical latest pointer. It never executes Skill code.
+an existing canonical latest pointer, and never executes Skill code.
 
-| Object/function | Defining file | Method vocabulary |
-| --- | --- | --- |
-| `SkillSources` | `service.py` | discover, revisions, resolve |
-| `SkillSourceServer` | `server.py` | constructor validates loopback/token and binds its source service; inherited HTTP lifetime methods |
-| `SkillSourceRequestHandler` | `handler.py` | do_POST authenticates/parses/routes, reply writes a bounded response, log_message suppresses private request logging |
-| `source_request` | `client.py` | existing local HTTP client and safe public fallback mapping |
+Fixed discovery exclusions and limits remain in this feature's `settings.py`.
+External service Settings, the stateless client, module-level handler, listener
+and trusted startup CLI live in `skills/interface/sources/`; its README defines
+the transport object/method vocabulary and error projection. This keeps endpoint
+configuration out of source policy without duplicating either owner.
 
-The server retains its source service and private bearer token on that instance;
-the module-level handler reads those bindings through `self.server`. No closure,
-mutable global, class factory, graph-selected service or credential input is used.
-Existing /v1/skill-sources routes, 16-KiB request cap, response encoding, status
-codes, SourceError pass-through and unknown-error redaction stay unchanged.
-Identical redirect refusal comes from `laomedo.http.redirect.NoRedirect`.
-
-This is C1 only. Interface relocation and bounded shared Git execution require
-their own README-first checkpoints, migration controls and real workflow checks.
+Source/Git collaborator extraction and bounded shared Git execution are later
+checkpoints; C3 does not claim to replace the existing launcher or establish real
+source/edit/history graph acceptance.

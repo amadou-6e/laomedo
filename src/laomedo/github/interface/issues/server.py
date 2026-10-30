@@ -1,7 +1,7 @@
 """Loopback backend for live issue reads and existing scoped operation grants."""
 
 from http.server import ThreadingHTTPServer
-from laomedo.github.issues.handler import IssueRequestHandler
+from laomedo.github.interface.issues.handler import IssueRequestHandler
 
 
 class IssueServer(ThreadingHTTPServer):

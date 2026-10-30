@@ -1,7 +1,7 @@
 """Authenticated loopback source resolver. No model or GitHub write endpoints."""
 
 from http.server import ThreadingHTTPServer
-from laomedo.skills.sources.handler import SkillSourceRequestHandler
+from laomedo.skills.interface.sources.handler import SkillSourceRequestHandler
 
 
 class SkillSourceServer(ThreadingHTTPServer):

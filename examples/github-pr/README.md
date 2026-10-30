@@ -80,7 +80,7 @@ a real model response without another model turn. Do not automatically retry.
 For a separately approved deployment, copy github_pr.py into the installed
 custom component category and apply/build the pinned frontend overlay. Set
 LAOMEDO_GITHUB_PR_URL and LAOMEDO_GITHUB_PR_TOKEN_FILE on the Langflow backend.
-Start the host with `python -m laomedo.github.pull_requests.cli --help`; its configuration
+Start the host with `python -m laomedo.github.interface.pull_requests.cli --help`; its configuration
 matches github_issue_server, with default port 8784. A transport token protects
 the backend connection; a provider token and scoped grant bindings stay on the
 host. Missing grants make writes unavailable. No ambient GitHub login is used.

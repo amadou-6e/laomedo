@@ -10,7 +10,7 @@ from lfx.io import Output
 from lfx.io import StrInput
 from lfx.schema import Data
 from lfx.schema import Message
-from laomedo.github.pull_requests.client import pr_request
+from laomedo.github.interface.pull_requests.client import pr_request
 from laomedo.github.issues.contract import repository_from_url
 from laomedo.github.pull_requests.contract import ERROR_CODES
 from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS

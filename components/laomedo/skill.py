@@ -11,8 +11,8 @@ from lfx.io import Output
 from lfx.io import StrInput
 from lfx.schema import Data
 from lfx.schema import Message
-from laomedo.skills.sources.client import source_request
-from laomedo.skills.operations.client import skill_request
+from laomedo.skills.interface.sources.client import source_request
+from laomedo.skills.interface.operations.client import skill_request
 from laomedo.skills.operations.utils import proposal
 from laomedo.integrations.langflow.feedback.pr import feedback_edge
 from laomedo.integrations.langflow.feedback.pr import bind_feedback_parameters

@@ -5,7 +5,7 @@ multi-file edits, commit-style history and read-only inspection. A byte revision
 is distinct from a commit identity. Editing does not promote canonical latest
 or publish Git commits. Existing Pydantic models remain the canonical records.
 
-## Current checkpoint
+## Earlier handler checkpoint
 
 C1 extracts module-level HTTP handlers for the existing source and operation
 servers and moves their identical redirect refusal to neutral
@@ -20,19 +20,30 @@ is relocated. Real source/edit/history graph acceptance remains a separate gate.
 | Atomic edits and journal queries | `operations/` | `SkillOperations`; prepare, apply, history, diff, compare |
 | Read-only byte verification | `inspection/` | `inspect_skill`; no mutable-store construction |
 | Description authoring contract | `authoring/` | has_description, summary_authoring; never execute skill content |
-| Current loopback HTTP boundary | `sources/`, `operations/` | `*Server` owns lifetime/state; module-level `*RequestHandler` owns protocol handling |
+| Public loopback HTTP boundary | `interface/sources/`, `interface/operations/` | `*Server` owns lifetime/state; module-level `*RequestHandler` owns protocol handling |
 
 Use responsibility nouns such as Store, Server and RequestHandler; reserve Base
 for a real abstract contract and Ledger for append-only facts. Independent
 functions stay function-only. Do not split SkillOperations' atomic transaction
 into an artificial second ledger merely to shorten a file.
 
-The later reviewed `interface/` target means actual public contracts and adapters
-used by the app, as in Agents. Adapter relocation is C3. The misplaced generic
-publication ingress, Agent-only workspace helpers and source Git launcher are
-recorded redesign work; C1 does not claim they are fixed.
+The `interface/` boundary contains the actual public adapters used by the app,
+as in Agents. Agent-only workspace helpers and the source Git launcher remain
+later redesign work; this adapter move does not claim they are fixed.
 
 C2 moves generic run-bound bundle ingress to `host/publication/ingestion/`.
 It does not inspect or modify skills and therefore has no compatibility owner
 under this package. Registry, source and operation behavior remain unchanged;
 Agent-only workspace helpers and source Git launcher changes are later work.
+
+
+## C3 public interface design
+
+The `interface/` boundary contains the existing HTTP adapters:
+clients, handlers, servers, feature-local Settings and trusted startup CLIs.
+Its README and per-feature READMEs define the object/method vocabulary before
+implementation. Domain models, gateways/services and immutable persistence remain
+under their existing owners; no common handler base or forwarding layer is added.
+Application callers use defining modules in interface; only explicit CLI startup
+loads host/native composition. Source-domain fixed policy remains source-owned.
+Current checkpoint status and migration constraints are in `interface/README.md`.

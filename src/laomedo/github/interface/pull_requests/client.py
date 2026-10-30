@@ -1,18 +1,19 @@
-"""Backend-only issue client, with no graph credential inputs."""
+"""Backend-only pr client, with no graph credential inputs."""
 
 from laomedo.http.redirect import NoRedirect
-from laomedo.github.issues.contract import ERROR_CODES
-from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
-from laomedo.github.issues.settings import Settings
+from laomedo.github.pull_requests.contract import ERROR_CODES
+from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
+from laomedo.github.interface.pull_requests.settings import Settings
 
 from pathlib import Path
 from urllib import error
 from urllib import request
 from urllib.parse import urlsplit
 import json
+import re
 
 
-def issue_request(action, **payload):
+def pr_request(action, **payload):
     settings = Settings()
     base = settings.url
     url = urlsplit(base)
@@ -24,15 +25,15 @@ def issue_request(action, **payload):
         or url.query
         or url.fragment
         or url.path not in {"", "/"}
-        or action not in {"discover", "execute"}
+        or action not in {"discover", "execute", "prepare-feedback", "apply-feedback"}
     ):
-        raise ValueError("issue_service_not_configured")
+        raise ValueError("pr_service_not_configured")
     try:
         token = Path(settings.token_file).read_text(encoding="utf-8").strip()
         if not 32 <= len(token) <= 512:
             raise ValueError()
         call = request.Request(
-            base.rstrip("/") + "/v1/github-issues/" + action,
+            base.rstrip("/") + "/v1/github-prs/" + action,
             data=json.dumps(payload, ensure_ascii=False).encode(),
             headers={
                 "Content-Type": "application/json",
@@ -46,19 +47,25 @@ def issue_request(action, **payload):
         result = json.loads(data)
         if not isinstance(result, dict):
             raise ValueError()
-        if action == "execute" and (
-            result.get("schema_version") != "laomedo.github-issue.v1"
+        if action == "prepare-feedback" and (
+            result.get("schema_version") != "laomedo.pr-feedback-ticket.v1"
+            or not isinstance(result.get("ticket"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", result["ticket"])
+        ):
+            raise ValueError()
+        if action in {"execute", "apply-feedback"} and (
+            result.get("schema_version") != "laomedo.github-pr.v1"
             or not isinstance(result.get("operation"), dict)
             or result["operation"].get("status")
             not in {"not_requested", "succeeded", "failed", "unknown"}
-            or "issue" not in result
-            or result["issue"] is not None
-            and not isinstance(result["issue"], dict)
+            or "pr" not in result
+            or result["pr"] is not None
+            and not isinstance(result["pr"], dict)
         ):
             raise ValueError()
         return result
     except error.HTTPError as exc:
-        category = "github_issue_unavailable"
+        category = "github_pr_unavailable"
         try:
             parsed = json.loads(exc.read(1024))
             if parsed.get("error_category") in ERROR_CODES:
@@ -66,15 +73,15 @@ def issue_request(action, **payload):
         except Exception:
             pass
         if (
-            action == "execute"
+            action in {"execute", "apply-feedback"}
             and payload.get("operation")
             and (exc.code not in {400, 401} or category not in PRE_DISPATCH_ERRORS)
         ):
-            category = "issue_write_unknown"
+            category = "pr_write_unknown"
         raise ValueError(category) from None
     except Exception:
         raise ValueError(
-            "issue_write_unknown"
-            if action == "execute" and payload.get("operation")
-            else "github_issue_unavailable"
+            "pr_write_unknown"
+            if action in {"execute", "apply-feedback"} and payload.get("operation")
+            else "github_pr_unavailable"
         ) from None

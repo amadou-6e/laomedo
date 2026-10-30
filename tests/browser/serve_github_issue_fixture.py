@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 from test_live_github_issue import FakeGitHub
 from laomedo.github.issues.gateway import GitHubIssueGateway
-from laomedo.github.issues.server import IssueServer as server
+from laomedo.github.interface.issues.server import IssueServer as server
 from laomedo.host.mediation.store import MediationStore
 from laomedo.github.transport.rest.transport import GitHubRestTransport
 
