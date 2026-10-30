@@ -3,8 +3,9 @@
 `GitHubGitTransport` binds repository, connection generation, branch/ref rules,
 verified objects and uncertain remote outcomes to GitHub operations. Generic
 execution, environment isolation and shared Git verbs belong to `laomedo/git`.
-`GitHubMediatedTransport` composes this transport with the selected REST transport;
-it does not create a second execution or credential path.
+`GitHubMediatedTransport` lives in `github/transport/mediated.py`, beside the Git
+and REST owners it composes. That dispatcher does not create another execution or credential
+path; `GitHubGitTransport` keeps its current callable/method contracts here.
 
 `classify_workflow_diff` inspects admitted outgoing objects before a push;
 `__call__` implements the existing operation boundary; `_fetch` acquires only

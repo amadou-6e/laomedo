@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 import unittest
 from pydantic import ValidationError
-from laomedo.github.issues.contract import issue_value, issue_digest
+from laomedo.github.issues.contract import issue_value
+from laomedo.github.contract import issue_digest
 from laomedo.github.issues.models import GitHubIssue
 from laomedo.github.pull_requests.contract import pr_value
 

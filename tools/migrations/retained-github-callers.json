@@ -1,0 +1,36 @@
+{
+  "baseline": "6656c1c0e13cb62b6c56443a6be7171b3c19d68d",
+  "policy": "Preserve original provenance-sensitive probe bytes. Only explicitly selected internal controls adapt imports in memory via the published transform, verifying hashes and non-import AST identity. Direct live execution requires an explicitly migrated copy; no runtime facade or historical seal-validity claim.",
+  "files": [
+    {
+      "path": "experiments/exp19/live_e2e.py",
+      "sha256": "e4ddd5348288b703f11d565efe829b2112a14c1f8102d5a895c97cbc1b2a97bb",
+      "classification": "retained legacy probe snapshot; current historical seal validity not asserted"
+    },
+    {
+      "path": "experiments/exp139/prepare.py",
+      "sha256": "3b3998951fd2544676386cccc8af0da44768c6adcd8c4ecae36750e2ab39bc2c",
+      "classification": "retained legacy probe snapshot; current historical seal validity not asserted"
+    },
+    {
+      "path": "experiments/exp139/runtime.py",
+      "sha256": "9515773e4f27c0ec2fca3cbbd72cc9c76efd7efef443a7d67e6c981855a7c9b6",
+      "classification": "retained legacy probe snapshot; current historical seal validity not asserted"
+    },
+    {
+      "path": "experiments/exp100/probe_native_capture.py",
+      "sha256": "cf81bb689a314eeff1632729f330a8c4488d6e5846f924719f06b23f2e997eb6",
+      "classification": "retained legacy probe snapshot; current historical seal validity not asserted"
+    },
+    {
+      "path": "experiments/exp100/probe_paired.py",
+      "sha256": "5ba9fd5d10bce3565046e61b10207fbb70021adb10d1fc54ba44b544e49b731e",
+      "classification": "retained legacy probe snapshot; current historical seal validity not asserted"
+    },
+    {
+      "path": "experiments/exp104/probe_active_delivery.py",
+      "sha256": "a045a8ce21b34b4112783992157eefe18aaf2f9a1b72c83ec32521fa01f94da0",
+      "classification": "retained legacy probe snapshot; current historical seal validity not asserted"
+    }
+  ]
+}
