@@ -6,8 +6,10 @@ const refusals = new Set(["invalid_skill_id", "immutable_skill_revision_required
 const readFailures = new Set(["skill_inspection_unavailable", "skill_history_unavailable", "skill_comparison_unavailable"]);
 
 export function describeInspectionFailure(raw: unknown, fallback = "skill_inspection_unavailable"): NodeFailure {
-  // Read only the public machine-code slot, never stringify response bodies/traces.
-  const code = (raw as { response?: { data?: { detail?: { code?: unknown } } } })?.response?.data?.detail?.code;
+  // Langflow's 404 handler unwraps detail; standalone FastAPI retains it. Read
+  // only those declared code slots, never stringify response bodies or traces.
+  const data = (raw as { response?: { data?: { code?: unknown; detail?: { code?: unknown } } } })?.response?.data;
+  const code = data?.code ?? data?.detail?.code;
   const failure = describeNodeFailure(code ?? fallback, undefined);
   return refusals.has(failure.diagnostics.code) || readFailures.has(failure.diagnostics.code)
     ? failure : { ...describeNodeFailure(fallback, undefined), diagnostics: failure.diagnostics };

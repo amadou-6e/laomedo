@@ -1,6 +1,6 @@
 import { dismissSkillActions } from "./SkillActions";
 import SkillNavigation from "./SkillNavigation";
-import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from "react";
 import * as monaco from "monaco-editor/editor";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 import "monaco-editor/languages/definitions/markdown/register";
@@ -61,6 +61,12 @@ function Folder({ item, select, active }: { item: Branch; select: (path: string)
   </li>;
 }
 
+function isolateSourceKeyboard(event: KeyboardEvent<HTMLDivElement>) {
+  // Native EditContext focuses a DIV, so canvas hotkeys' form-tag filter does
+  // not protect it. Keep Monaco's target/default handling and Escape intact.
+  if (event.key !== "Escape") event.stopPropagation();
+}
+
 function Source({ file, closeFind }: { file: SkillFile; closeFind: MutableRefObject<(() => boolean) | null> }) {
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -80,7 +86,7 @@ function Source({ file, closeFind }: { file: SkillFile; closeFind: MutableRefObj
     };
     return () => { closeFind.current = null; editor.current = null; instance.dispose(); model.dispose(); };
   }, [file, dark]);
-  return <div className="flex min-h-0 flex-1 flex-col">
+  return <div className="flex min-h-0 flex-1 flex-col" onKeyDown={isolateSourceKeyboard} onKeyUp={isolateSourceKeyboard}>
     <button type="button" className="self-end rounded px-3 py-1 text-sm hover:bg-muted"
       onClick={() => { editor.current?.focus(); void editor.current?.getAction("actions.find")?.run(); }}>Find in file</button>
     <div ref={container} className="min-h-0 flex-1" data-testid="skill-file-source" aria-label={`Read-only source: ${file.path}`} />
