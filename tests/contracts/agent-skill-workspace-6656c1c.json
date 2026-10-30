@@ -21,5 +21,7 @@
       "sha256": "bea3df34913757f5120ec985afee254d4fce586edea463ae764530539c76774b",
       "reason": "Preserved historical native local-runner probe/control; internal import-only migration, not direct legacy execution or live acceptance."
     }
-  ]
+  ],
+  "baseline_git_blob": "9f5d525cac2fae9f997649b49c07adb819f904a6",
+  "provenance": "Captured source and Git blob verified against the actual named baseline during D3 authoring; tests use frozen source/hash/blob without requiring CI history. Reproduce with git show REV:PATH and git rev-parse REV:PATH from a full-history checkout."
 }
