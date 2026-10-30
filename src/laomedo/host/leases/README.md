@@ -16,7 +16,7 @@ verdict and diagnostic together. Invalid verdicts or non-JSON diagnostics are
 recorded as the existing `cleanup_error` with cleanup unverified, so a malformed
 callback cannot lose the result journal or imply successful cleanup.
 
-## HTTP server and request handler (proposed narrow extraction)
+## HTTP server and request handler
 
 `server.py` owns `LeaseHTTPServer`, the concrete loopback HTTP listener. Its
 constructor retains the supplied `book`, `mediator`, `transport` and `instance`
@@ -38,6 +38,11 @@ Dependency direction is server to handler, with type-only references in the
 reverse direction. The handler calls the existing grant/mediation services and
 uses their existing public error category. Tiny exact wire replies remain at
 the HTTP boundary; this refactor does not create duplicate domain models.
+
+The structural regression check covers maintained production Python under
+`src/`, `components/` and `tools/`, including this handler. Historical experiments,
+retained probes and inherited test/example doubles are excluded from that guard;
+their unchanged nested declarations are not claimed to comply with this policy.
 
 ## First loss and I/O diagnostics
 
