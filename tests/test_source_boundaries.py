@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import os
+import pickle
 from pathlib import Path
 import runpy
 import subprocess
@@ -163,6 +164,11 @@ class SourceBoundaryTests(unittest.TestCase):
                 self.assertRaisesRegex(SourceError, expected),
             ):
                 GitSkillSource(self.root, runner=runner)._run(self.root, ["--version"])
+        observed = GitCommandLimitExceeded()
+        observed.cleanup_verified = True
+        restored = pickle.loads(pickle.dumps(observed))
+        self.assertEqual(restored.__dict__, observed.__dict__)
+        self.assertEqual(restored.args, observed.args)
 
     def test_each_repository_command_retains_its_existing_cap_and_operation_deadline(
         self,

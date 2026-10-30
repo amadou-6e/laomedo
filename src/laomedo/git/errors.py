@@ -50,6 +50,10 @@ class GitCommandLimitExceeded(GitOperationError):
         super().__init__("git_command_limit_exceeded")
         self.cleanup_verified = False
 
+    def __reduce__(self):
+        """Restore the fixed category and retain the observed cleanup state."""
+        return type(self), (), self.__dict__
+
 
 class GitCommandCleanupError(GitOperationError):
     """Owned process-tree termination could not be confirmed; never authorize a retry."""
@@ -57,3 +61,7 @@ class GitCommandCleanupError(GitOperationError):
     def __init__(self):
         super().__init__("git_command_cleanup_unverified")
         self.cleanup_verified = False
+
+    def __reduce__(self):
+        """Preserve fixed constructor arguments and explicit cleanup uncertainty."""
+        return type(self), (), self.__dict__
