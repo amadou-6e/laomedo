@@ -1,0 +1,36 @@
+{
+  "baseline": "e32c168621739114e19c1f4b060042a06a271c0d",
+  "scope": "Only five exact canonical Skill source/hash tokens change; parent source-move manifests and all other historical/unknown variants stay untouched. This intentional behavior fix supersedes the listed canonical bodies only.",
+  "component": "components/laomedo/skill.py",
+  "parent_records_value_sha256": "424d7e4207d2398670c95942abce7fcb6a67b24f1b9a34d7ae36a8d50fcbfe1d",
+  "source_before_sha256": "bdef007d4b034a2f45e5df678f4b086039ebf4e71ee039be4fa330fcf760e7d2",
+  "source_after_sha256": "26a237431e581f733b56b3bd3bff847b7084986570cedc22a35debb82cc0dd2e",
+  "body_sha256": "6f259d20e7ae14293c7a1b305d89d84dddee45a7bdfc8f856f794fafc6d800ca",
+  "files": [
+    {
+      "path": "examples/claude-agent/flow.json",
+      "index": 0,
+      "node_id": "skill"
+    },
+    {
+      "path": "examples/langflow-contract-routing/flow.json",
+      "index": 1,
+      "node_id": "skill"
+    },
+    {
+      "path": "examples/langflow-workgraph-demo/flow.json",
+      "index": 1,
+      "node_id": "skill"
+    },
+    {
+      "path": "examples/native-codex-node/flow.json",
+      "index": 1,
+      "node_id": "LaomedoSkill-native"
+    },
+    {
+      "path": "examples/opencode-node/flow.json",
+      "index": 0,
+      "node_id": "OpenCode-pinned-skill"
+    }
+  ]
+}

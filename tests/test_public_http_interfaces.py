@@ -271,6 +271,46 @@ for prefix in ('laomedo.host', 'laomedo.agents', 'langflow', 'lfx'):
                 )
                 record.update(latest)
         self.assertEqual(sum(len(item["nodes"]) for item in manifest["files"]), 16)
+        cleanup = json.loads(
+            (
+                ROOT / "tests/contracts/skill-discovery-cleanup-revisions-e32c168.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            hashlib.sha256(
+                json.dumps(
+                    manifest["files"],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode()
+            ).hexdigest(),
+            cleanup["parent_records_value_sha256"],
+        )
+        current_skill = (ROOT / cleanup["component"]).read_text(encoding="utf-8")
+        self.assertEqual(
+            hashlib.sha256(current_skill.encode()).hexdigest(),
+            cleanup["source_after_sha256"],
+        )
+        self.assertEqual(
+            CONTRACTS["source_digest"](current_skill), cleanup["body_sha256"]
+        )
+        self.assertEqual(len(cleanup["files"]), 5)
+        for updated in cleanup["files"]:
+            record = next(
+                item for item in manifest["files"] if item["path"] == updated["path"]
+            )
+            revision = next(
+                item for item in record["nodes"] if item["index"] == updated["index"]
+            )
+            self.assertEqual(revision["node_id"], updated["node_id"])
+            self.assertEqual(
+                revision["source_after_sha256"], cleanup["source_before_sha256"]
+            )
+            revision.update(
+                source_after_sha256=cleanup["source_after_sha256"],
+                body_sha256=cleanup["body_sha256"],
+            )
         for record in manifest["files"]:
             graph = json.loads((ROOT / record["path"]).read_text())
             nodes = graph.get("nodes", graph.get("data", {}).get("nodes", []))
