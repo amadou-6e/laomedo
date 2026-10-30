@@ -60,9 +60,9 @@ form field and therefore bypasses the canvas hotkeys' form-tag exclusion.
 The actual Edge run of candidate `67177b1` exposed this failure: clicking inside
 the editor and typing printable text closed Skill files and opened Assistant.
 The editor and registry bytes remained unchanged, but keyboard isolation failed.
-This is a product failure, not a passing read-only demonstration. The targeted
-correction needs fresh frontend/browser evidence and focused review; the earlier
-`67177b1` assets do not contain it.
+This is a product failure, not a passing read-only demonstration. A source correction alone does not establish verification. Record the exact
+revision, frontend/browser evidence and focused review separately; the earlier
+`67177b1` assets do not contain the correction.
 
 Observable acceptance: printable keys remain in the open read-only viewer without
 opening Assistant or invoking graph actions; source and registry bytes do not
@@ -113,7 +113,8 @@ detail object into the first shape; standalone FastAPI retains the second.
 The real `67177b1` missing-revision check exposed that the first shape previously
 lost its known refusal and offered a futile reload. Both shapes must preserve
 known refusal codes and the shared unknown-code/redaction policy without echoing
-response text or changing the HTTP payload. Fresh browser verification is pending.
+response text or changing the HTTP payload. Record browser verification against
+the exact installed revision and frontend assets separately from this contract.
 Node identifiers use the same credential-prefix exclusion as unknown codes,
 before they can appear in Technical details or copied explanations. This does
 not change the deliberate safe unknown-code policy described above.
@@ -124,8 +125,8 @@ does not claim that those wrappers expose the original inner code.
 
 Frontend/catalogue tests are internal controls only. Full real-browser normal,
 failure, stale-selection, copy, focus and read-only paths on the final installed
-app remain pending parent-run browser verification and user validation; no
-fixture-based acceptance is claimed by this change.
+app require revision-bound browser evidence and user validation recorded
+separately; internal fixtures do not establish acceptance.
 
 The optional `laomedo.integrations.langflow.viewer:create_app` backend factory registers
 GET `/api/v1/laomedo/skills/{id}/{sha256-revision}` before the SPA catch-all,

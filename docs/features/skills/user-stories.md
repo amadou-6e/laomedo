@@ -43,11 +43,12 @@ Acceptance criteria:
   close the viewer or open Assistant. Selection, navigation and Find retain native
   editor handling; Escape closes Find before closing the viewer.
 
-**Current verification gap:** the actual Edge check at `67177b1` failed keyboard
+**Recorded failure:** the actual Edge check at `67177b1` failed keyboard
 isolation with Monaco's native EditContext DIV: typing in the read-only editor
 closed the viewer and opened Assistant. Files and registry bytes were unchanged.
-A targeted editor-boundary correction, focused review and fresh real-browser
-recheck are pending; the existing screenshots do not establish that correction.
+An editor-boundary correction requires focused review and fresh real-browser
+evidence tied to its exact revision; the existing screenshots do not establish it.
+Record that verification separately from these acceptance criteria.
 
 ![Actual pinned skill opened read-only in the file viewer](assets/skill-files.png)
 
