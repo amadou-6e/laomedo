@@ -11,6 +11,36 @@ SOURCE = ROOT / "src" / "laomedo"
 
 
 class ModuleCohesionTests(unittest.TestCase):
+    def test_production_classes_are_not_declared_inside_functions(self):
+        """Guard maintained implementation directories, not historical probes.
+
+        Experiments, retained probes and inherited test/example doubles are
+        deliberately outside this production guard; no historical-clean claim.
+        """
+        nested = []
+        for directory in (ROOT / "src", ROOT / "components", ROOT / "tools"):
+            for path in directory.rglob("*.py"):
+                tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+                parents = {
+                    child: node
+                    for node in ast.walk(tree)
+                    for child in ast.iter_child_nodes(node)
+                }
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.ClassDef):
+                        continue
+                    ancestor = parents.get(node)
+                    while ancestor is not None:
+                        if isinstance(
+                            ancestor, (ast.FunctionDef, ast.AsyncFunctionDef)
+                        ):
+                            nested.append(
+                                f"{path.relative_to(ROOT).as_posix()}:{node.lineno}:{node.name}"
+                            )
+                            break
+                        ancestor = parents.get(ancestor)
+        self.assertEqual(nested, [], "Move implementation classes to module scope")
+
     def test_historical_execution_graph_blobs_are_preserved_beside_templates(self):
         manifest = json.loads(
             (ROOT / "examples/agent-module-history.json").read_text(encoding="utf-8")
