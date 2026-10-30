@@ -97,7 +97,7 @@ class SkillsDirectImportTests(unittest.TestCase):
                     )
 
     def test_affected_error_producers_have_explicit_surface_and_gap_inventory(self):
-        """Guard new gaps without presenting pre-existing raw-code UI as repaired."""
+        """Require current coverage and preserve the original, unresolved D3 record."""
         catalogue = json.loads(
             (ROOT / "frontend/langflow-skill-viewer/node-error-catalog.json").read_text(
                 encoding="utf-8"
@@ -153,9 +153,16 @@ class SkillsDirectImportTests(unittest.TestCase):
             | set(inventory["operation_http_collapsed_codes"])
         )
         self.assertEqual(codes, classified)
-        self.assertFalse(
-            codes - catalogue.keys() - set(inventory["known_missing_entries"])
+        self.assertFalse(codes - catalogue.keys())
+        self.assertEqual(inventory["known_missing_entries"], [])
+        self.assertEqual(inventory["existing_viewer_catalogue_gaps"], [])
+        historical = inventory["historical_inventory"]
+        self.assertEqual(
+            historical["revision"], "a55279d1d51b05a5df6faedab861b68766844de0"
         )
+        original = (ROOT / "tests/contracts" / historical["path"]).read_bytes()
+        self.assertEqual(hashlib.sha256(original).hexdigest(), historical["sha256"])
+        self.assertTrue(json.loads(original)["known_missing_entries"])
         for code in inventory["catalogued_codes"]:
             for field in ("title", "description", "recovery"):
                 self.assertTrue(catalogue[code][field].strip(), (code, field))

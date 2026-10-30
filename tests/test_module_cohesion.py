@@ -11,6 +11,38 @@ SOURCE = ROOT / "src" / "laomedo"
 
 
 class ModuleCohesionTests(unittest.TestCase):
+    def test_production_imports_use_defining_symbols_instead_of_modules(self):
+        """Resolve from-imports too, so package imports cannot hide module aliases."""
+        violations = []
+        for path in SOURCE.rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
+                modules = []
+                if isinstance(node, ast.Import):
+                    modules = [
+                        item.name
+                        for item in node.names
+                        if item.name.startswith("laomedo.")
+                    ]
+                elif (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module
+                    and node.module.startswith("laomedo.")
+                ):
+                    for item in node.names:
+                        member = ROOT.joinpath(
+                            "src", *node.module.split("."), item.name
+                        )
+                        if (
+                            member.with_suffix(".py").is_file()
+                            or (member / "__init__.py").is_file()
+                        ):
+                            modules.append(node.module + "." + item.name)
+                violations.extend(
+                    f"{path.relative_to(SOURCE).as_posix()}:{node.lineno}:{module}"
+                    for module in modules
+                )
+        self.assertEqual(violations, [], "Import each symbol from its defining module")
+
     def test_production_classes_are_not_declared_inside_functions(self):
         """Guard maintained implementation directories, not historical probes.
 

@@ -1,31 +1,30 @@
 {
-  "scope": "Unchanged producers touched only to replace seven module aliases with defining imports. D3 changes no failure/presentation/recovery behavior. This inventory records existing gaps; it does not accept them or claim full catalogue/UI coverage.",
+  "scope": "Current producer coverage after the separate Skills error presentation follow-up; the original D3 gap inventory is retained verbatim as historical evidence.",
   "catalogued_codes": [
-    "invalid_skill_id"
-  ],
-  "existing_viewer_catalogue_gaps": [
     "immutable_skill_revision_required",
-    "skill_revision_too_large",
-    "skill_revision_unavailable",
-    "skill_revision_unsafe"
-  ],
-  "operation_http_collapsed_codes": [
-    "skill_operation_invalid",
-    "skill_summary_source_unavailable"
-  ],
-  "known_missing_entries": [
-    "immutable_skill_revision_required",
+    "invalid_skill_id",
     "skill_operation_invalid",
     "skill_revision_too_large",
     "skill_revision_unavailable",
     "skill_revision_unsafe",
     "skill_summary_source_unavailable"
   ],
+  "existing_viewer_catalogue_gaps": [],
+  "operation_http_collapsed_codes": [
+    "skill_operation_invalid",
+    "skill_summary_source_unavailable"
+  ],
+  "known_missing_entries": [],
   "surfaces": {
     "skills/inspection/utils.py": "InspectionError's code reaches integrations/langflow/viewer.py read_skill detail.code unchanged (400 invalid identity, otherwise404). History/comparison routes collapse inspection exceptions to their own existing categories.",
-    "frontend/langflow-skill-viewer/SkillFilesModal.tsx": "The five-code ERROR_CODES allowlist includes invalid_skill_id and the four inspection gaps. The current read-only viewer renders Skill files unavailable plus the raw code and a generic Retry control; it bypasses the shared error presenter. Parent owns a separate presentation/catalogue follow-up and real-browser validation.",
+    "frontend/langflow-skill-viewer/SkillFilesModal.tsx": "Current, historical and comparison reads use the shared error catalogue and inline presenter. Known immutable, unsafe and oversized refusals offer no Reload; unknown read failures offer a read-only Reload. Safe details use the shared copy icon. Real browser validation remains pending.",
     "skills/authoring/summary.py": "The service prepare path can raise skill_summary_source_unavailable. Operations HTTP catches it and returns skill_operation_refused; source paths/snapshot bytes are not exposed.",
-    "skills/operations/utils.py": "proposal delegates to canonical SkillProposal/FileEdit admission. Operation HTTP collapses model failures to skill_operation_refused, but components/laomedo/skill.py calls proposal before HTTP apply, so skill_operation_invalid can reach the graph's unknown-code fallback. D3 does not change that behavior."
+    "skills/operations/utils.py": "Proposal delegates to canonical SkillProposal/FileEdit admission. Operations HTTP still collapses model failures to skill_operation_refused. The graph's direct proposal admission can expose skill_operation_invalid, now covered by the shared catalogue."
   },
-  "acceptance": "Existing gaps are unresolved, no real error/recovery graph or browser acceptance performed. Internal producer controls do not establish live presentation."
+  "acceptance": "Catalogue and producer controls are internal regression evidence. Real browser error, recovery and copy behavior and owner acceptance remain pending.",
+  "historical_inventory": {
+    "revision": "a55279d1d51b05a5df6faedab861b68766844de0",
+    "path": "skills-direct-import-errors-a55279d.json",
+    "sha256": "559021c6dfcd5a932d89ec182fb72c66d31dbf041790551bc67d151e8953b2d2"
+  }
 }
