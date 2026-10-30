@@ -82,6 +82,17 @@ pre-admission copy and explicit catalog Refresh semantics are unchanged. The
 earlier failed graph remains historical failure evidence until a new real run
 validates this exact source revision.
 
+Resume's admission copy can occupy the HTTP request through the normal
+90-second copy policy and separate 20-second cleanup reserve. This is longer
+than the former individual 20-second CLI call limits and is not a hard wall-time
+guarantee. No automatic retry is added.
+
+Local endpoint admission deliberately requires the canonical lowercase
+`npipe:////./pipe/<name>` spelling (or an absolute Unix socket). Alternate pipe
+spellings accepted by some Docker CLI versions are refused before reading the
+credential. Windows directory admission and its unverified elevated-session
+constraint are documented in `host/private_state/README.md`.
+
 ## Current object interface inventory
 
 This inventory names existing methods; the vocabulary above explains their
