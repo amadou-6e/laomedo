@@ -23,6 +23,7 @@ from laomedo.agents.agents.opencode.utils import model_metadata
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
+from laomedo.agents.agents.base.utils import failure_observation
 import secrets
 import shutil
 import threading
@@ -56,6 +57,8 @@ class CommandBroker:
         )
         self.receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.lock = threading.Lock()
+        self.allocated_receipts = set()
+        self.drained = False
         self.capacity = threading.BoundedSemaphore(1)
 
         # Docker bridge must reach this host listener. A random bearer capability
@@ -127,6 +130,9 @@ class CommandBroker:
             )
 
             name = "laomedo-oc-worker-" + uuid4().hex
+            receipt_path = self.receipts.joinpath(name + ".json")
+            with self.lock:
+                self.allocated_receipts.add(receipt_path)
             try:
                 with Client(
                     environment={"DOCKER_HOST": self.docker_endpoint}
@@ -164,7 +170,7 @@ class CommandBroker:
                             ),
                             limits=StreamLimits(seconds=70, max_bytes=1024 * 1024),
                             wait_timeout_seconds=10.0,
-                            receipt_path=self.receipts.joinpath(name + ".json"),
+                            receipt_path=receipt_path,
                         ),
                         cancelled=self.stopping,
                     )
@@ -173,9 +179,16 @@ class CommandBroker:
                     "stdout": result.stdout.decode("utf-8", errors="replace")[:32768],
                     "stderr": result.stderr.decode("utf-8", errors="replace")[:32768],
                 }
-            except CleanupUnconfirmedError:
+            except CleanupUnconfirmedError as error:
                 self.cleanup_failed = True
-                raise RunnerError("opencode_container_cleanup_unverified") from None
+                raise RunnerError(
+                    "opencode_container_cleanup_unverified",
+                    observation=failure_observation(
+                        error,
+                        stage="cleanup",
+                        code="opencode_container_cleanup_unverified",
+                    ),
+                ) from None
             except JobCancelledError:
                 value = {"exit_code": 130, "stdout": "", "stderr": "worker_cancelled"}
             except DeadlineError:
@@ -213,6 +226,7 @@ class CommandBroker:
         acquired = self.capacity.acquire(timeout=180)
         if acquired:
             self.capacity.release()
+        self.drained = acquired and not self.thread.is_alive()
         if not acquired or self.cleanup_failed or self.thread.is_alive():
             raise RunnerError("opencode_container_cleanup_unverified")
 
@@ -239,6 +253,11 @@ class IsolatedOpenCode:
         receipt_directory=None,
     ):
         self.termination_verified = False
+        self.cleanup_observed = None
+        self.broker = self.session = self.docker = None
+        self.receipts = None
+        self.allocated_receipts = set()
+        self.closing = False
         selected_worker_id = worker_image_id or WORKER_IMAGE_ID
         self.profile = _private(Path(profile))
         if not (self.profile / "auth.json").is_file():
@@ -278,6 +297,7 @@ class IsolatedOpenCode:
                     else evidence.joinpath("docker-receipts")
                 )
                 receipts.mkdir(mode=0o700, parents=True, exist_ok=True)
+                self.receipts = receipts
                 for receipt in receipts.glob("*.json"):
                     docker.sessions.recover(receipt)
         except OwnershipConflictError:
@@ -412,18 +432,30 @@ class IsolatedOpenCode:
         )
         try:
             self.docker = Client(environment={"DOCKER_HOST": self.docker_endpoint})
-        except Exception:
-            self.close()
-            raise RunnerError("opencode_controller_startup_failed") from None
+        except Exception as error:
+            observation = failure_observation(
+                error, stage="startup", code="opencode_controller_startup_failed"
+            )
+            try:
+                self.close()
+            except RunnerError as cleanup:
+                raise RunnerError(
+                    cleanup.code, observation=observation or cleanup.observation
+                ) from None
+            raise RunnerError(
+                "opencode_controller_startup_failed", observation=observation
+            ) from None
 
     def models(self):
         """Read native CLI metadata without creating a session or model turn."""
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
-        from py_docker.errors import DockerOperationError
+        from py_docker.errors import DockerOperationError, CleanupUnconfirmedError
 
         name = "laomedo-oc-catalog-" + uuid4().hex
         self.check_auth_fresh()
+        receipt_path = self.receipts.joinpath(name + ".json")
+        self.allocated_receipts.add(receipt_path)
         try:
             result = self.docker.jobs.run(
                 ContainerJob(
@@ -443,14 +475,26 @@ class IsolatedOpenCode:
                     ),
                     limits=StreamLimits(seconds=70, max_bytes=8 * 1024 * 1024),
                     wait_timeout_seconds=10.0,
-                    receipt_path=self.receipts.joinpath(name + ".json"),
+                    receipt_path=receipt_path,
                 )
             )
             if result.exit_code:
                 raise RunnerError("opencode_model_not_connected")
             return model_metadata(result.stdout.decode("utf-8"))
-        except DockerOperationError:
-            raise RunnerError("opencode_controller_startup_failed") from None
+        except CleanupUnconfirmedError as error:
+            raise RunnerError(
+                "opencode_container_cleanup_unverified",
+                observation=failure_observation(
+                    error, stage="cleanup", code="opencode_container_cleanup_unverified"
+                ),
+            ) from None
+        except DockerOperationError as error:
+            raise RunnerError(
+                "opencode_controller_startup_failed",
+                observation=failure_observation(
+                    error, stage="startup", code="opencode_controller_startup_failed"
+                ),
+            ) from None
 
     def history_reader(self):
         """Bind an offline metadata reader without mounting credentials or live state."""
@@ -473,6 +517,8 @@ class IsolatedOpenCode:
         from py_docker.streams.models import StreamLimits
 
         self.check_auth_fresh()
+        receipt_path = self.receipts.joinpath(self.name + ".json")
+        self.allocated_receipts.add(receipt_path)
         self.session = self.docker.sessions.open(
             ContainerSession(
                 spec=self.spec,
@@ -480,7 +526,7 @@ class IsolatedOpenCode:
                     seconds=CONTROLLER_LIFETIME_SECONDS + 10,
                     max_bytes=36 * 1024 * 1024,
                 ),
-                receipt_path=self.receipts.joinpath(self.name + ".json"),
+                receipt_path=receipt_path,
             )
         )
         return asyncio.run(
@@ -546,22 +592,74 @@ class IsolatedOpenCode:
 
     def close(self):
         """Confirm exact controller and worker cleanup on the lifecycle creator."""
+        if self.closing:
+            if not self.termination_verified:
+                raise RunnerError("opencode_container_cleanup_unverified")
+            return
+        self.closing = True
         failed = False
+        observation = None
+        drained = self.broker is None
+        recovered = True
+        try:
+            if self.broker is not None:
+                self.broker.stop()
+        except Exception as error:
+            failed = True
+            observation = failure_observation(
+                error, stage="cleanup", code="opencode_container_cleanup_unverified"
+            )
         try:
             if self.session is not None:
                 self.session.close()
-        except Exception:
+        except Exception as error:
             failed = True
+            observation = observation or failure_observation(
+                error, stage="cleanup", code="opencode_container_cleanup_unverified"
+            )
         try:
             if self.broker is not None:
                 self.broker.close()
-        except Exception:
+            drained = True
+        except Exception as error:
             failed = True
+            drained = self.broker is not None and self.broker.drained is True
+            observation = observation or failure_observation(
+                error, stage="cleanup", code="opencode_container_cleanup_unverified"
+            )
         finally:
+            paths = set(self.allocated_receipts)
+            if self.broker is not None:
+                with self.broker.lock:
+                    paths.update(self.broker.allocated_receipts)
+            if paths and (not drained or self.docker is None):
+                failed, recovered = True, False
+            elif paths:
+                for receipt in paths:
+                    try:
+                        self.docker.sessions.recover(receipt)
+                    except Exception as error:
+                        failed, recovered = True, False
+                        observation = observation or failure_observation(
+                            error,
+                            stage="cleanup",
+                            code="opencode_container_cleanup_unverified",
+                        )
+            self.cleanup_observed = drained and recovered
             if self.docker is not None:
-                self.docker.close()
+                try:
+                    self.docker.close()
+                except Exception as error:
+                    failed = True
+                    observation = observation or failure_observation(
+                        error,
+                        stage="cleanup",
+                        code="opencode_container_cleanup_unverified",
+                    )
         if failed:
-            raise RunnerError("opencode_container_cleanup_unverified") from None
+            raise RunnerError(
+                "opencode_container_cleanup_unverified", observation=observation
+            ) from None
         self.termination_verified = True
 
     def check_auth_fresh(self):

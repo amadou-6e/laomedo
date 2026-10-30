@@ -6,7 +6,51 @@ from pydantic import Field
 from pydantic import SecretStr
 from pydantic import JsonValue
 from pydantic import ValidationError
+from pydantic import model_validator
 from laomedo.host.leases.settings import GRANT_TTL_SECONDS
+from laomedo.host.leases.settings import SERVICE_STALE_SECONDS
+from typing import Literal
+
+
+class LeaseLossObservation(BaseModel):
+    """First supervision loss decision, constructed only after cancellation."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    reason: Literal[
+        "wall_heartbeat_unavailable",
+        "monotonic_heartbeat_unavailable",
+        "monotonic_heartbeat_future",
+        "monotonic_heartbeat_stale",
+        "wall_heartbeat_stale",
+        "service_record_unavailable",
+        "service_instance_changed",
+    ] = Field(description="Actual existing health predicate that first triggered loss.")
+    age_seconds: float | None = Field(
+        default=None,
+        description="Sampled age for clock predicates only; unavailable data has no age.",
+    )
+
+    @model_validator(mode="after")
+    def validate_age(self):
+        """Keep unavailable data distinct from actual stale/future clock evidence."""
+        if self.reason == "monotonic_heartbeat_future":
+            valid = self.age_seconds is not None and self.age_seconds < -1
+        elif self.reason in {"monotonic_heartbeat_stale", "wall_heartbeat_stale"}:
+            valid = (
+                self.age_seconds is not None
+                and self.age_seconds > SERVICE_STALE_SECONDS
+            )
+        else:
+            valid = self.age_seconds is None
+        if not valid:
+            raise ValueError("lease_loss_age_invalid")
+        return self
+
+    def to_record(self):
+        """Project no token, instance, path or original heartbeat payload."""
+        return self.model_dump()
 
 
 class ContainerIdentity(BaseModel):

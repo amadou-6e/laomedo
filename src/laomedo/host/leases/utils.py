@@ -16,6 +16,52 @@ import subprocess
 import sys
 import threading
 import time
+import logging
+
+
+def log_heartbeat_failure(stage, error):
+    """Log only a fixed stage, exact OS class and numeric error codes.
+
+    Unknown subclasses are not inspected. Logging failures never replace the
+    underlying publication/read error or suppress security events.
+    """
+    try:
+        stages = {
+            "service_wall",
+            "service_monotonic",
+            "client_wall",
+            "client_monotonic",
+        }
+        trusted = (
+            OSError,
+            PermissionError,
+            FileNotFoundError,
+            FileExistsError,
+            BlockingIOError,
+            InterruptedError,
+            TimeoutError,
+            IsADirectoryError,
+            NotADirectoryError,
+        )
+        kind = next((kind for kind in trusted if type(error) is kind), None)
+        errno = error.errno if kind is not None else None
+        winerror = getattr(error, "winerror", None) if kind is not None else None
+        label = stage if stage in stages else "unknown"
+        code = (
+            "lease_service_heartbeat_write_failed"
+            if label.startswith("service_")
+            else "lease_client_heartbeat_write_failed"
+        )
+        logging.warning(
+            "%s stage=%s class=%s errno=%s winerror=%s",
+            code,
+            label,
+            kind.__name__ if kind else "OSError",
+            errno if type(errno) is int else None,
+            winerror if type(winerror) is int else None,
+        )
+    except Exception:
+        pass
 
 
 def _detached_process_options() -> dict:

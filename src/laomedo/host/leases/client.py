@@ -11,6 +11,8 @@ import os
 import secrets
 import threading
 import time
+from laomedo.host.leases.models import LeaseLossObservation
+from laomedo.host.leases.utils import log_heartbeat_failure
 
 
 class LeaseClient:
@@ -95,37 +97,62 @@ class LeaseClient:
         ):
             raise RuntimeError("lease_service_did_not_accept")
         self.grant_id = accepted["grant_id"]
+        self.loss = None
+        self.result = None
 
         def heartbeat() -> None:
             while not self.stop_event.wait(1):
+                stage = "client_wall"
                 try:
                     _leases_utils._write_float(self.dir / "heartbeat", time.time())
+                    stage = "client_monotonic"
                     _leases_utils._write_float(
                         self.dir / "heartbeat.monotonic", time.monotonic()
                     )
-                except OSError:
-                    logging.warning("lease_client_heartbeat_write_failed")
-                alive_at = _leases_utils._read_float(self.state / "service.alive")
-                alive_monotonic = _leases_utils._read_float(
-                    self.state / "service.alive.monotonic"
-                )
-                current = _leases_utils._read_json(self.state / "service.json")
-                now_monotonic = time.monotonic()
-                if (
-                    alive_at is None
-                    or alive_monotonic is None
-                    or alive_monotonic > now_monotonic + 1
-                    or now_monotonic - alive_monotonic
-                    > _leases_settings.SERVICE_STALE_SECONDS
-                    or time.time() - alive_at > _leases_settings.SERVICE_STALE_SECONDS
-                    or current is None
-                    or current.get("instance") != self.instance
-                ):
-                    self.lost.set()
-                    cancelled.set()
+                except OSError as error:
+                    log_heartbeat_failure(stage, error)
+                self._check_service(cancelled)
 
         self.thread = threading.Thread(target=heartbeat, daemon=True)
         self.thread.start()
+
+    def _check_service(self, cancelled):
+        """Apply existing health comparisons; signal security before diagnostics."""
+        alive_at = _leases_utils._read_float(self.state / "service.alive")
+        alive_monotonic = _leases_utils._read_float(
+            self.state / "service.alive.monotonic"
+        )
+        current = _leases_utils._read_json(self.state / "service.json")
+        now_monotonic = time.monotonic()
+        reason, age = None, None
+        if alive_at is None:
+            reason = "wall_heartbeat_unavailable"
+        elif alive_monotonic is None:
+            reason = "monotonic_heartbeat_unavailable"
+        elif alive_monotonic > now_monotonic + 1:
+            reason, age = "monotonic_heartbeat_future", now_monotonic - alive_monotonic
+        elif now_monotonic - alive_monotonic > _leases_settings.SERVICE_STALE_SECONDS:
+            reason, age = "monotonic_heartbeat_stale", now_monotonic - alive_monotonic
+        elif (
+            wall_age := time.time() - alive_at
+        ) > _leases_settings.SERVICE_STALE_SECONDS:
+            reason, age = "wall_heartbeat_stale", wall_age
+        elif current is None:
+            reason = "service_record_unavailable"
+        elif current.get("instance") != self.instance:
+            reason = "service_instance_changed"
+        if reason is not None:
+            first_loss = not self.lost.is_set()
+            self.lost.set()
+            cancelled.set()
+            if first_loss:
+                try:
+                    self.loss = LeaseLossObservation(reason=reason, age_seconds=age)
+                    _leases_utils._write_json(
+                        self.dir / "loss.json", self.loss.to_record()
+                    )
+                except Exception:
+                    pass
 
     def grant_secret(self) -> str:
         return (self.dir / "grant.secret").read_text(encoding="utf-8")
@@ -143,6 +170,7 @@ class LeaseClient:
         while time.monotonic() < deadline:
             result = _leases_utils._read_json(self.dir / "result.json")
             if result is not None:
+                self.result = result
                 if (
                     self.lost.is_set()
                     or result.get("reason") != "done"

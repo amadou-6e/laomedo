@@ -139,3 +139,14 @@ The original Codex agent node offers Activity in place of Code. It opens the gra
 The overlay applicator installs AgentActivityNavigation.ts at src/frontend/src/stores/agentActivityStore.ts. The node entry point uses an explicit transient target scoped to the graph, clears it when leaving Activity, and does not change canvas selection or save graph data. Opening Agents directly from the sidebar does not infer a target from selected canvas nodes.
 
 OpenCode agent nodes use the same Activity entry point. Provider-qualified message snapshots, capture limits and usage semantics are documented in [the OpenCode node guide](../../examples/opencode-node/README.md).
+
+The runtime diagnostic change updates four existing error entries only:
+`opencode_controller_startup_failed`, `opencode_container_cleanup_unverified`,
+`lease_service_unavailable`, and `lease_service_lost`. They describe observed
+startup, owned-resource cleanup and supervision uncertainty without assuming a
+controller API exited, inventing a separate operator, or offering a blind retry.
+The original cause of the observed startup failures remains unknown. Private
+attempt diagnostics do not add public response fields or a new viewing control.
+The remaining 99 baseline entries mentioning an operator are a follow-up wording
+and coverage gap; the targeted regression guard does not certify the catalogue
+as a whole. Browser presentation and real recovery require separate validation.

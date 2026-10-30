@@ -29,7 +29,9 @@ from laomedo.agents.agents.base.models import (
     AgentSkillBinding,
     SkillGitExclusion,
     AgentGitHubScope,
+    AttemptFailureRecord,
 )
+from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
 from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.orchestration.models import HandoffProvenance
 from laomedo.agents.errors import RunnerError
@@ -40,6 +42,7 @@ from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import _read
+from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.workspaces.errors import GitWorkspaceError
 from laomedo.agents.workspaces.workspace import AgentWorkspace
 from laomedo.agents.workspaces.models import WorkspacePaths
@@ -168,6 +171,47 @@ class BaseAgent(ABC):
 
     def _run_dir(self, run_id: str) -> Path:
         return self.state / "runs" / _id(run_id)
+
+    def _retain_attempt_failure(
+        self,
+        root,
+        record,
+        attempt,
+        primary,
+        cleanup,
+        *,
+        cleanup_source=None,
+        cleanup_verified=None,
+    ):
+        """Best-effort private final snapshot; never change the public outcome.
+
+        Providers retain cleanup ownership and unconditional lock release. This
+        common writer accepts only their observed facts, never SDK/lease objects.
+        """
+        try:
+            if record is None or attempt is None or record.get("status") == "completed":
+                return
+            primary = primary or failure_observation(
+                stage="terminal", code=record.get("error_category")
+            )
+            if primary is None:
+                return
+            value = AttemptFailureRecord(
+                primary=primary,
+                cleanup=cleanup,
+                final_category=(
+                    record.get("error_category")
+                    if record.get("error_category") in RUNNER_FAILURE_CODES
+                    else None
+                ),
+                cleanup_source=cleanup_source,
+                cleanup_verified=cleanup_verified,
+            )
+            directory = root / "diagnostics"
+            directory.mkdir(mode=0o700, exist_ok=True)
+            _json(directory / (attempt["id"] + ".json"), value.to_record())
+        except Exception:
+            pass  # Diagnostics cannot replace execution or finalization errors.
 
     def _reserve_turn(self) -> int:
         # Diagnostic sequence only; neither corrupt accounting nor a write failure

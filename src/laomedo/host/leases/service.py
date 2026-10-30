@@ -68,12 +68,21 @@ class LeaseService:
             try:
                 self._publish_heartbeat()
             except OSError:
-                logging.warning("lease_service_heartbeat_write_failed")
+                pass  # The publication boundary already emitted safe metadata.
             self.stopping.wait(1)
 
     def _publish_heartbeat(self) -> None:
-        _write_float(self.state / "service.alive", time.time())
-        _write_float(self.state / "service.alive.monotonic", time.monotonic())
+        """Publish existing heartbeats and identify only the observed OS stage."""
+        from laomedo.host.leases.utils import log_heartbeat_failure
+
+        stage = "service_wall"
+        try:
+            _write_float(self.state / "service.alive", time.time())
+            stage = "service_monotonic"
+            _write_float(self.state / "service.alive.monotonic", time.monotonic())
+        except OSError as error:
+            log_heartbeat_failure(stage, error)
+            raise
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
         beat = _read_float(lease_dir / "heartbeat")
