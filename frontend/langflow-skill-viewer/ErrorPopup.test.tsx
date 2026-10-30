@@ -61,3 +61,20 @@ test("a native flow error preserves its message without an Agent cause",()=>{
  expect(screen.getByText("The expression cannot divide by zero.")).toBeVisible();
  expect(document.body.textContent).not.toMatch(/runner|existing run|unrecognized_error/);
 });
+
+
+test.each(["raw", "structured", "node"].flatMap(kind => [
+ "foo_ghp_"+"a".repeat(36), "fooghp_"+"a".repeat(36), "nodesk-"+"a".repeat(36),
+ "nodesk-proj-"+"a".repeat(36), "nodeGITHUB_PAT_"+"A".repeat(36),
+].map(value => [kind,value])))("embedded credential marker never reaches popup DOM or copy (%s, %s)", async (kind,synthetic) => {
+ const writeText=jest.fn().mockResolvedValue(undefined);
+ Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText}});
+ const status=kind==="structured"?{data:{outputs:{run:{message:{status:"failed",error_category:synthetic}}}}}:undefined;
+ const {container}=render(<ErrorPopup message={kind==="raw"?synthetic:kind==="node"?"skill_operation_invalid":undefined} status={status}
+  context={kind==="node"?{nodeId:synthetic}:{}} onDismiss={()=>{}}/>);
+ const html=container.innerHTML, text=document.body.textContent;
+ fireEvent.click(screen.getByRole("button",{name:"Copy error"}));await screen.findByRole("button",{name:"Copied"});
+ expect(writeText).toHaveBeenCalledTimes(1);expect(writeText.mock.calls[0][0]).not.toContain(synthetic);
+ expect(html).not.toContain(synthetic);expect(text).not.toContain(synthetic);
+ expect(writeText.mock.calls[0][0]).toContain(kind==="node"?'"code": "skill_operation_invalid"':'"code": "unrecognized_error"');
+});

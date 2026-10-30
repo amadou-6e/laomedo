@@ -126,10 +126,16 @@ introduced. Summary-source and invalid-operation codes have catalogue
 entries based on their actual pre-publication/proposal effects. `describeInspectionFailure`
 reads only the public response code and delegates to the shared presenter. Unknown
 codes retain safe diagnostics but use the neutral read-only viewer explanation.
-The shared code filter rejects unknown credential-prefixed values (`sk_`,
-`gh[pousr]_`, `github_pat_`, case-insensitively) before rendering or copying them.
+The shared code filter rejects unknown credential markers (`sk_`, `sk-`,
+`gh[pousr]_`, `github_pat_`, case-insensitively) at the start of a value or after
+an underscore or hyphen. It also rejects those known markers anywhere when followed
+by at least 20 token characters (letters, digits, underscores or hyphens), including
+concatenated `sk-proj-` forms in node IDs. This is a conservative privacy heuristic,
+not vendor-token validation: long ambiguous unknown labels may be redacted. Short
+ordinary words such as `task_failed` and `mask_unavailable` remain inspectable.
+It is not a general detector for encoded secrets or unknown credential prefixes.
 Exact catalogue codes and admitted native timeout codes retain priority; ordinary
-safe unknown machine codes remain inspectable. Internal prefix-only sentinels
+safe unknown machine codes remain inspectable. Internal synthetic marker sentinels
 exercise shared text/structured errors and the viewer's DOM/copy boundary.
 Comparison read failures use the comparison-specific fallback, including when
 the response has no code or an unknown safe code. Its recovery refers to the
@@ -143,7 +149,7 @@ lost its known refusal and offered a futile reload. Both shapes must preserve
 known refusal codes and the shared unknown-code/redaction policy without echoing
 response text or changing the HTTP payload. Record browser verification against
 the exact installed revision and frontend assets separately from this contract.
-Node identifiers use the same credential-prefix exclusion as unknown codes,
+Node identifiers use the same credential-marker exclusion as unknown codes,
 before they can appear in Technical details or copied explanations. This does
 not change the deliberate safe unknown-code policy described above.
 Edit-attribution and missing-agent-provenance codes also have descriptive entries;

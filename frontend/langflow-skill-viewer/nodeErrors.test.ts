@@ -50,7 +50,7 @@ test("Claude model failures retain their code and redact native payload details"
 test("a model-refresh alert attaches actionable recovery for its real error-details control",()=>{
  const value=describeLaomedoAlert({title:'Refresh failed',list:['runner_model_catalog_unavailable_check_runner_connection']},true);
  expect(value.title).toBe('The model list could not be loaded');
- expect(value.failure?.recovery).toContain('Refresh control');
+ expect(value.failure?.recovery).toContain('open Model and use Refresh');
  expect(value.list?.join(' ')).toContain('Open Error details');
  expect(value.list?.join(' ')).not.toContain(value.failure?.recovery);
  expect(value.diagnosticCode).toBe('runner_model_catalog_unavailable_check_runner_connection');
@@ -217,3 +217,24 @@ test.each(["sk_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
   expect(failure.diagnostics.node_id).toBeUndefined();
   expect(JSON.stringify(failure)).not.toContain(nodeId);
  });
+
+
+test.each(["sk_", "sk-", "sk-proj-", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
+ .flatMap(prefix => ["wrapped_" + prefix + "a".repeat(36), "node-" + prefix.toUpperCase() + "A".repeat(36), "foo" + prefix + "a".repeat(36)]))(
+ "embedded credential markers are absent from raw/structured/node diagnostics: %s", value => {
+  const raw=describeNodeFailure(value,undefined);
+  const structured=describeNodeFailure(undefined,{data:{outputs:{run:{message:{status:"failed",error_category:value}}}}});
+  const node=describeNodeFailure("skill_operation_invalid",undefined,{nodeId:value});
+  expect(raw.diagnostics.code).toBe("unrecognized_error");expect(structured.diagnostics.code).toBe("unrecognized_error");
+  expect(node.diagnostics.code).toBe("skill_operation_invalid");expect(node.diagnostics.node_id).toBeUndefined();
+  for(const failure of [raw,structured,node])expect(JSON.stringify(failure)).not.toContain(value);
+ });
+
+test.each(["task_failed", "mask_unavailable", "future_error_240", "agent_task_1"])("ordinary word endings remain safe unknown codes: %s", code=>{
+ expect(describeNodeFailure(code,undefined).diagnostics.code).toBe(code);
+});
+
+test.each(["ghp_", "SK-", "github_pat_"])("short embedded markers at segment boundaries are excluded without a payload-length guess: %s", marker=>{
+ expect(describeNodeFailure("wrapped_"+marker+"x",undefined).diagnostics.code).toBe("unrecognized_error");
+ expect(describeNodeFailure("skill_operation_invalid",undefined,{nodeId:"node-"+marker+"x"}).diagnostics.node_id).toBeUndefined();
+});
