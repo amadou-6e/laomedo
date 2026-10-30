@@ -88,11 +88,11 @@ class ContainerIdentity(BaseModel):
     def reservation(self):
         """Project application ownership into the canonical runtime reservation."""
         from py_docker.containers.models import ContainerReservation
-        from laomedo.host.leases import settings
+        from laomedo.host.leases.settings import LABEL_RUN, LABEL_TOKEN
 
         return ContainerReservation(
             name=self.name,
-            labels={settings.LABEL_RUN: self.run_id, settings.LABEL_TOKEN: self.token},
+            labels={LABEL_RUN: self.run_id, LABEL_TOKEN: self.token},
         )
 
     def registration(self, *, runner_pid, created_at, mediation):
