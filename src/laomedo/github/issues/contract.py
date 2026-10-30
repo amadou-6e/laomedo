@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 import hashlib
 import json
 import re
+from laomedo.github.issues.models import GitHubIssue
 
 
 def repository_from_url(value):
@@ -61,17 +62,11 @@ def issue_value(raw, repository, number):
         if not isinstance(label, dict) or not isinstance(label.get("name"), str):
             raise ValueError("issue_response_invalid")
         names.append(label["name"])
-    return {
-        "repository": repository,
-        "number": number,
-        "url": raw["html_url"],
-        "node_id": raw["node_id"],
-        "title": raw["title"],
-        "body": raw.get("body") or "",
-        "labels": labels_value(names),
-        "state": raw["state"],
-        "updated_at": raw["updated_at"],
-    }
+    return GitHubIssue(
+        repository=repository, number=number, url=raw["html_url"],
+        node_id=raw["node_id"], title=raw["title"], body=raw.get("body") or "",
+        labels=labels_value(names), state=raw["state"], updated_at=raw["updated_at"],
+    ).to_payload()
 
 
 def issue_digest(value):
