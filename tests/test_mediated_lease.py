@@ -18,16 +18,8 @@ from laomedo.host.leases.settings import LOSS_SECONDS
 from laomedo.host.leases.service import LeaseService
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.host.mediation.service import MediationHTTPService
-
-
-def _result(directory: Path) -> dict:
-    path = directory / "result.json"
-    deadline = time.monotonic() + 3
-    while time.monotonic() < deadline:
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-        time.sleep(0.01)
-    raise AssertionError("lease result not written")
+from lease_controls import result as _result
+from lease_controls import wait_for_cleanup
 
 
 class MediatedLeaseTests(unittest.TestCase):
@@ -76,11 +68,12 @@ class MediatedLeaseTests(unittest.TestCase):
             self.state,
             mediator=self.store,
             cleanup=cleanup,
-            loss_seconds=0.5,
+            loss_seconds=LOSS_SECONDS,
             mediation_authority=self.authorize,
         )
         self.transport = transport
         self.addCleanup(self.service.server.server_close)
+        self.addCleanup(wait_for_cleanup, self.service)
 
     def register(
         self,
@@ -309,6 +302,9 @@ class MediatedLeaseTests(unittest.TestCase):
     def test_scan_rechecks_time_after_an_earlier_lease_stalls(self):
         self.register("a", "a-lease")
         second, _, token_b = self.register("b", "b-lease")
+        # Admission uses the normal loss window. This negative case then
+        # deliberately makes the later scan exceed its own shorter deadline.
+        self.service.loss_seconds = 0.5
         original = self.service._tick_lease
 
         def delayed_first(directory, now):
