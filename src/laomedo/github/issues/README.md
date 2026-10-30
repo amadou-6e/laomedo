@@ -11,3 +11,8 @@ unchanged canonical JSON payload.
 The gateway owns filtering, authorization and effect reconciliation. A model
 does not make HTTP calls, validate grants or retry unknown writes. Historical
 journal readers are unchanged; these strict models describe new normalized values.
+
+`GitHubOperationIntent` and `GitHubGrantBinding` in `github/models.py` own the
+shared issue/PR idempotency preimage. Construct them only after the gateway's
+existing admission and grant authentication; `to_payload()` preserves the old
+hash inputs and does not validate or authorize a grant.

@@ -1,13 +1,19 @@
 """Live PR discovery and graph operations through existing mediation grants."""
 
+from laomedo.github.models import GitHubOperationIntent, GitHubGrantBinding
+from laomedo.github.pull_requests.models import PullRequestFeedbackContext
+
 from contextlib import closing
 from datetime import datetime
 from datetime import timezone
 from hashlib import sha256
 import json
-import laomedo.github.issues.contract as _issues_contract
-import laomedo.github.pull_requests.contract as _pull_requests_contract
-import laomedo.host.mediation.errors as _mediation_errors
+from laomedo.github.issues.contract import labels_value
+from laomedo.github.issues.contract import repository_from_url
+from laomedo.github.pull_requests.contract import pr_digest
+from laomedo.github.pull_requests.contract import validate_patch
+from laomedo.host.mediation.errors import KnownRejected
+from laomedo.host.mediation.errors import MediationError
 import re
 import secrets
 
@@ -56,7 +62,7 @@ class GitHubPRGateway:
                 or pr["head"]["repository"] != pr["repository"]
             ):
                 raise ValueError()
-            return _pull_requests_contract.pr_digest(
+            return pr_digest(
                 {
                     "grant_id": grant["grant_id"],
                     "run_id": grant["run_id"],
@@ -80,16 +86,16 @@ class GitHubPRGateway:
             24
         )
         issued_monotonic = self.mediation.monotonic()
-        context = {
-            "repository_url": repository_url,
-            "labels": labels,
-            "state": state,
-            "pr_number": pr_number,
-            "expected": expected,
-            "pr": pr,
-            "issued_monotonic": issued_monotonic,
-            "expires_monotonic": issued_monotonic + 300,
-        }
+        context = PullRequestFeedbackContext(
+            repository_url=repository_url,
+            labels=labels,
+            state=state,
+            pr_number=pr_number,
+            expected=expected,
+            pr=pr,
+            issued_monotonic=issued_monotonic,
+            expires_monotonic=issued_monotonic + 300,
+        ).to_payload()
         with closing(self.mediation._connect()) as db, db:
             db.execute(
                 "INSERT INTO pr_feedback_tickets VALUES (?,?,?,?,?,?)",
@@ -119,7 +125,7 @@ class GitHubPRGateway:
         ):
             raise ValueError("pr_operation_invalid")
         if operation["action"] == "modify":
-            patch = _pull_requests_contract.validate_patch(operation["changes"])
+            patch = validate_patch(operation["changes"])
             if "state" in patch:
                 raise ValueError("pr_patch_invalid")
         with closing(self.mediation._connect()) as db:
@@ -155,17 +161,17 @@ class GitHubPRGateway:
         return self.execute(**context, operation=stamped)
 
     def _transport(self, repository_url):
-        repository = _issues_contract.repository_from_url(repository_url)
+        repository = repository_from_url(repository_url)
         if repository not in self.transports:
             raise ValueError("repository_connection_unavailable")
         return repository, self.transports[repository]
 
     def discover(self, repository_url, labels, state="open"):
         repository, transport = self._transport(repository_url)
-        labels = _issues_contract.labels_value(labels)
+        labels = labels_value(labels)
         if state not in {"open", "closed", "all"}:
             raise ValueError("pr_state_invalid")
-        available = _issues_contract.labels_value(
+        available = labels_value(
             [item["name"] for item in transport(repository, "label_list", {})["items"]]
         )
         if not set(labels) <= set(available):
@@ -209,7 +215,7 @@ class GitHubPRGateway:
         self, repository_url, labels, state, pr_number, operation=None, expected=None
     ):
         repository, transport = self._transport(repository_url)
-        labels = _issues_contract.labels_value(labels)
+        labels = labels_value(labels)
         if expected is not None and (
             not isinstance(expected, str)
             or not re.fullmatch(r"sha256:[0-9a-f]{64}", expected)
@@ -251,9 +257,7 @@ class GitHubPRGateway:
                     raise ValueError("pr_operation_invalid")
                 changes = {"state": "closed"}
             else:
-                changes = _pull_requests_contract.validate_patch(
-                    operation.get("changes")
-                )
+                changes = validate_patch(operation.get("changes"))
                 if "state" in changes:
                     raise ValueError("pr_operation_invalid")
             key = (operation["grant_ref"], operation["request_id"])
@@ -279,18 +283,20 @@ class GitHubPRGateway:
                     raise ValueError()
             except Exception:
                 raise ValueError("pr_grant_unavailable") from None
-            input_hash = _pull_requests_contract.pr_digest(
-                {
-                    "repository": repository,
-                    "number": pr_number,
-                    "labels": labels,
-                    "state": state,
-                    "operation": operation,
-                    "binding": {
-                        "grant_id": authenticated["grant_id"],
-                        "run_id": authenticated["run_id"],
-                    },
-                }
+            input_hash = pr_digest(
+                GitHubOperationIntent(
+                    repository=repository,
+                    number=pr_number,
+                    labels=labels,
+                    state=state,
+                    operation=operation,
+                    binding=GitHubGrantBinding(
+                        **{
+                            "grant_id": authenticated["grant_id"],
+                            "run_id": authenticated["run_id"],
+                        }
+                    ),
+                ).to_payload()
             )
             with closing(self.mediation._connect()) as db, db:
                 prior = db.execute(
@@ -326,7 +332,7 @@ class GitHubPRGateway:
             raise ValueError("selected_pr_no_longer_matches")
         if operation is None:
             return self._result(pr, "not_requested")
-        if expected is not None and _pull_requests_contract.pr_digest(pr) != expected:
+        if expected is not None and pr_digest(pr) != expected:
             raise ValueError("pr_changed_since_agent_read")
         payload = (
             json.loads(prior[1])
@@ -334,7 +340,7 @@ class GitHubPRGateway:
             else {
                 "number": pr_number,
                 "changes": changes,
-                "expected": _pull_requests_contract.pr_digest(pr),
+                "expected": pr_digest(pr),
                 "head": pr["head"]["branch"],
                 "base": pr["base"],
             }
@@ -364,8 +370,8 @@ class GitHubPRGateway:
                     self.mediation._grant(
                         db, grant["token"], repository, "pr_node_update"
                     )
-            except _mediation_errors.MediationError as error:
-                raise _mediation_errors.KnownRejected(error.code) from None
+            except MediationError as error:
+                raise KnownRejected(error.code) from None
 
         def scoped_transport(repo, action, body, **binding):
             return transport(repo, action, body, before_write=before_write, **binding)
@@ -389,7 +395,7 @@ class GitHubPRGateway:
                 else "pr_write_unknown" if status == "unknown" else None
             )
             response = self._result(updated, status, category)
-        except _mediation_errors.MediationError as error:
+        except MediationError as error:
             response = self._result(pr, "failed", error.code)
         return self._finish(key, response)
 
@@ -399,6 +405,6 @@ class GitHubPRGateway:
             "schema_version": "laomedo.github-pr.v1",
             "pr": pr,
             "fetched_at": datetime.now(timezone.utc).isoformat(),
-            "content_digest": _pull_requests_contract.pr_digest(pr) if pr else None,
+            "content_digest": pr_digest(pr) if pr else None,
             "operation": {"status": status, "error_category": category},
         }

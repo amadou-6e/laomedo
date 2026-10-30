@@ -1,6 +1,7 @@
 """Resolve and freeze immutable verified Git stages."""
 
 from __future__ import annotations
+from laomedo.host.publication.verified.models import VerifiedStageIdentity
 
 from contextlib import contextmanager
 from pathlib import Path
@@ -33,9 +34,7 @@ def make_grant_stage_resolver(
     runner_state: Path, private_root: Path, agent_mount: Path
 ):
     """Create a host-only resolver; the request never selects filesystem roots."""
-    runner_state, private_root = _bound_roots(
-        Path(runner_state), Path(private_root)
-    )
+    runner_state, private_root = _bound_roots(Path(runner_state), Path(private_root))
     mounted = Path(agent_mount).resolve()
     if (
         private_root == mounted
@@ -44,9 +43,7 @@ def make_grant_stage_resolver(
     ):
         raise ValueError("stage_root_overlaps_agent_mount")
 
-    def resolve(
-        grant, repository: str, payload: dict
-    ) -> VerifiedStage:
+    def resolve(grant, repository: str, payload: dict) -> VerifiedStage:
         return resolve_verified_stage(
             runner_state,
             private_root,
@@ -73,9 +70,7 @@ def make_grant_bundle_freezer(
     This copies bytes only; Docker verification and provider effects remain
     separate. No request field selects a host path or a run identity.
     """
-    runner_state, private_root = _bound_roots(
-        Path(runner_state), Path(private_root)
-    )
+    runner_state, private_root = _bound_roots(Path(runner_state), Path(private_root))
     mounted = Path(agent_mount).resolve()
     if (
         private_root == mounted
@@ -158,9 +153,7 @@ def stage_verified_git(
     ):
         raise VerifiedGitStageError("stage_snapshot_invalid")
     try:
-        advertised = _single_bundle_commit(
-            snapshot.bundle, "refs/heads/validated"
-        )
+        advertised = _single_bundle_commit(snapshot.bundle, "refs/heads/validated")
     except BundleStageError as error:
         raise VerifiedGitStageError("stage_bundle_invalid") from error
     if advertised != snapshot.commit:
@@ -173,15 +166,18 @@ def stage_verified_git(
         bundle.write_bytes(snapshot.bundle)
         stage = VerifiedGitStage(bare, snapshot, runner=runner)
         try:
-            if (not stage.repository.init_bare()
-                    or not stage.repository.fetch(str(bundle), "refs/heads/validated:refs/stage/validated")
-                    or stage.repository.resolve("refs/stage/validated") != snapshot.commit.encode("ascii")
-                    or not stage.repository.fsck(no_reflogs=True)):
+            if (
+                not stage.repository.init_bare()
+                or not stage.repository.fetch(
+                    str(bundle), "refs/heads/validated:refs/stage/validated"
+                )
+                or stage.repository.resolve("refs/stage/validated")
+                != snapshot.commit.encode("ascii")
+                or not stage.repository.fsck(no_reflogs=True)
+            ):
                 raise VerifiedGitStageError("stage_import_invalid")
         except (OSError, subprocess.TimeoutExpired) as error:
-            raise VerifiedGitStageError(
-                "stage_git_unavailable"
-            ) from error
+            raise VerifiedGitStageError("stage_git_unavailable") from error
         yield stage
 
 
@@ -237,9 +233,9 @@ def resolve_verified_stage(
     This is a credential-free local read. The caller must take ``run_id``,
     ``repository`` and ``branch`` from the validated grant, not from a request.
     """
-    if not isinstance(
-        stage_attempt_id, str
-    ) or not _IDENTITY.fullmatch(stage_attempt_id):
+    if not isinstance(stage_attempt_id, str) or not _IDENTITY.fullmatch(
+        stage_attempt_id
+    ):
         raise VerifiedStageError("stage_identity_invalid")
     try:
         runner_state, private_root = _bound_roots(
@@ -269,15 +265,11 @@ def resolve_verified_stage(
         or frozen["baseline"] != binding["baseline"]
     ):
         raise VerifiedStageError("stage_scope_mismatch")
-    raw = _read_regular(
-        attempt / "verification.json", MAX_RECORD_BYTES
-    )
+    raw = _read_regular(attempt / "verification.json", MAX_RECORD_BYTES)
     try:
         verification = json.loads(raw)
     except (ValueError, UnicodeError) as error:
-        raise VerifiedStageError(
-            "stage_verification_invalid"
-        ) from error
+        raise VerifiedStageError("stage_verification_invalid") from error
     container = (
         verification.get("container") if isinstance(verification, dict) else None
     )
@@ -304,9 +296,7 @@ def resolve_verified_stage(
         or container.get("export_class") != "ok"
     ):
         raise VerifiedStageError("stage_verification_invalid")
-    bundle = _read_regular(
-        attempt / "verified.bundle", MAX_OUTPUT_BYTES
-    )
+    bundle = _read_regular(attempt / "verified.bundle", MAX_OUTPUT_BYTES)
     digest = hashlib.sha256(bundle).hexdigest()
     if (
         container.get("output_sha256") != digest
@@ -325,28 +315,15 @@ def resolve_verified_stage(
         if binding.get("binding_mode") == "active"
         else {"run_record_sha256": binding["run_record_sha256"]}
     )
-    identity = {
-        "run_id": run_id,
-        "attempt_id": stage_attempt_id,
-        **binding_identity,
-        "repository": repository,
-        "branch": branch,
-        "baseline": binding["baseline"],
-        "commit": commit,
-        "source_bundle_sha256": frozen["bundle_sha256"],
-        "verified_bundle_sha256": digest,
-    }
-    stage_digest = hashlib.sha256(
-        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    return VerifiedStage(
+    identity = VerifiedStageIdentity(
         run_id=run_id,
         attempt_id=stage_attempt_id,
+        **binding_identity,
         repository=repository,
         branch=branch,
         baseline=binding["baseline"],
         commit=commit,
-        bundle_sha256=digest,
-        stage_digest=stage_digest,
-        bundle=bundle,
+        source_bundle_sha256=frozen["bundle_sha256"],
+        verified_bundle_sha256=digest,
     )
+    return VerifiedStage.from_identity(identity, bundle)

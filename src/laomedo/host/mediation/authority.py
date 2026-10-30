@@ -8,6 +8,7 @@ multi-user or production use.
 """
 
 from __future__ import annotations
+from laomedo.host.mediation.models import AuthorizedLeaseScope
 
 from contextlib import closing
 from hashlib import sha256
@@ -200,9 +201,7 @@ class RunGrantAuthority:
                 allowed_operations is not None
                 and not set(json.loads(row["operations"])) <= allowed_operations
             ):
-                raise MediationError(
-                    "operation_unavailable_in_runner"
-                )
+                raise MediationError("operation_unavailable_in_runner")
             db.execute(
                 "UPDATE authorizations SET run_id=? WHERE ref_hash=?", (run_id, digest)
             )
@@ -247,14 +246,14 @@ class RunGrantAuthority:
                 "UPDATE authorizations SET lease_token=? WHERE run_id=?",
                 (token, run_id),
             )
-            return {
+            return AuthorizedLeaseScope(
                 **expected,
-                "operations": set(json.loads(row["operations"])),
-                "approval_identity": row["reviewed_by"],
-                "connection_id": row["connection_id"],
-                "connection_generation": row["connection_generation"],
-                "target_prs": {
+                operations=set(json.loads(row["operations"])),
+                approval_identity=row["reviewed_by"],
+                connection_id=row["connection_id"],
+                connection_generation=row["connection_generation"],
+                target_prs={
                     int(number): base
                     for number, base in json.loads(row["target_prs"]).items()
                 },
-            }
+            ).to_record()

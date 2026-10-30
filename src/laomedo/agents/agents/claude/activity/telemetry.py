@@ -1,6 +1,7 @@
 """Authenticated, turn-scoped Claude Code OTLP capture (content is not retained)."""
 
 from __future__ import annotations
+from laomedo.agents.agents.claude.activity.models import ClaudeTelemetryEnvironment
 
 from .http.server import ClaudeTelemetryHttpServer
 import json
@@ -45,31 +46,17 @@ class ClaudeTelemetry:
             "/v1/metrics": ExportMetricsServiceRequest,
         }
 
-
         try:
-            self.server = ClaudeTelemetryHttpServer(self, ("127.0.0.1", 0), request_types=types)
+            self.server = ClaudeTelemetryHttpServer(
+                self, ("127.0.0.1", 0), request_types=types
+            )
             self.server.daemon_threads = (
                 False  # server_close joins bounded upload handlers.
             )
             endpoint = "http://host.docker.internal:" + str(self.server.server_port)
-            settings = {
-                "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-                "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
-                "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-                "OTEL_EXPORTER_OTLP_ENDPOINT": endpoint,
-                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer " + self.token,
-                "OTEL_METRICS_EXPORTER": "otlp",
-                "OTEL_LOGS_EXPORTER": "otlp",
-                "OTEL_TRACES_EXPORTER": "otlp",
-                "OTEL_METRIC_EXPORT_INTERVAL": "1000",
-                "OTEL_LOGS_EXPORT_INTERVAL": "1000",
-                "OTEL_TRACES_EXPORT_INTERVAL": "1000",
-                "OTEL_LOG_USER_PROMPTS": "0",
-                "OTEL_LOG_ASSISTANT_RESPONSES": "0",
-                "OTEL_LOG_TOOL_DETAILS": "0",
-                "OTEL_LOG_TOOL_CONTENT": "0",
-                "OTEL_METRICS_INCLUDE_ACCOUNT_UUID": "false",
-            }
+            settings = ClaudeTelemetryEnvironment(
+                endpoint=endpoint, token=self.token
+            ).to_environment()
             self.environment = settings
             self.thread = threading.Thread(
                 target=self.server.serve_forever, daemon=True
@@ -211,10 +198,7 @@ class ClaudeTelemetry:
                             and record.body.WhichOneof("value") == "string_value"
                         ):
                             event = record.body.string_value
-                        if (
-                            event.removeprefix("claude_code.")
-                            not in EVENTS
-                        ):
+                        if event.removeprefix("claude_code.") not in EVENTS:
                             event = "claude_code.event"
                         append(
                             self.record(

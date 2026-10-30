@@ -1,6 +1,7 @@
 """Codex adapter for the provider-neutral Agent lifecycle."""
 
 from __future__ import annotations
+from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.agents.codex.settings import CLI_VERSION
 from laomedo.agents.agents.codex.settings import CONFIG
 from laomedo.agents.agents.codex.settings import CONFIG_LF_SHA256
@@ -81,14 +82,8 @@ class CodexAgent(BaseAgent):
         image_id: str | None = None,
         artifact_sources=None,
     ):
-        self.image = (
-            GIT_IMAGE if git_workspace else IMAGE
-        )
-        self.image_id = (
-            GIT_IMAGE_ID
-            if git_workspace
-            else IMAGE_ID
-        )
+        self.image = GIT_IMAGE if git_workspace else IMAGE
+        self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
         if image_id is not None:
             if (
                 git_workspace
@@ -108,10 +103,17 @@ class CodexAgent(BaseAgent):
             raise RunnerError("split_executor_lease_unavailable")
         if git_workspace and split_executor:
             raise RunnerError("git_workspace_split_unsupported")
-        super().__init__(state, skill_store, source_workspace,
-                         lease_service=lease_service, github_authority=github_authority,
-                         mediator_state=mediator_state, git_workspace=git_workspace,
-                         publication_controller=publication_controller, artifact_sources=artifact_sources)
+        super().__init__(
+            state,
+            skill_store,
+            source_workspace,
+            lease_service=lease_service,
+            github_authority=github_authority,
+            mediator_state=mediator_state,
+            git_workspace=git_workspace,
+            publication_controller=publication_controller,
+            artifact_sources=artifact_sources,
+        )
         self.transport = transport
         self.split_executor = split_executor
         self.split_provider_config = tuple(split_provider_config)
@@ -144,15 +146,9 @@ class CodexAgent(BaseAgent):
                 "model_providers.openai_chatgpt_plan.requires_openai_auth=false",
                 "model_providers.openai_chatgpt_plan.supports_websockets=false",
             )
-        self.profile = (
-            _split_profile(self.state)
-            if split_executor
-            else VOLUME
-        )
+        self.profile = _split_profile(self.state) if split_executor else VOLUME
         if split_executor and transport is not CodexController:
-            raise RunnerError(
-                "split_executor_requires_native_transport"
-            )
+            raise RunnerError("split_executor_requires_native_transport")
         if (
             self.split_provider_config or split_access_token is not None
         ) and not split_executor:
@@ -168,9 +164,12 @@ class CodexAgent(BaseAgent):
         if check_docker:
             self.docker_environment = self._check_container()
             if split_executor:
-                _ensure_split_profile(self.profile, state=self.state, env=self.docker_environment)
+                _ensure_split_profile(
+                    self.profile, state=self.state, env=self.docker_environment
+                )
             else:
                 from py_docker import Client
+
                 with Client(environment=self.docker_environment) as docker:
                     if not docker.volumes.exists(VOLUME):
                         raise RunnerError("docker_control_failed")
@@ -209,9 +208,7 @@ class CodexAgent(BaseAgent):
                 "runner extra in the Python environment used to start this runner "
                 "(python -m pip install -e '.[runner]')."
             )
-            raise RunnerError(
-                "runner_docker_check_unconfirmed"
-            ) from None
+            raise RunnerError("runner_docker_check_unconfirmed") from None
         snapshot = ConnectionSettings.environment_snapshot(None)
         try:
             with Client(
@@ -220,17 +217,13 @@ class CodexAgent(BaseAgent):
                 ),
                 environment=snapshot,
             ) as client:
-                receipt = self.state.joinpath(
-                    PREFLIGHT_RECEIPT_FILENAME
-                )
+                receipt = self.state.joinpath(PREFLIGHT_RECEIPT_FILENAME)
                 client.jobs.recover(receipt)
                 self._recover_containers(client)
                 try:
                     client.images.resolve(self.image, expected_id=self.image_id)
                 except OwnershipConflictError:
-                    raise RunnerError(
-                        "docker_image_digest_changed"
-                    ) from None
+                    raise RunnerError("docker_image_digest_changed") from None
                 result = client.jobs.run(
                     ContainerJob(
                         spec=ContainerSpec(
@@ -250,9 +243,7 @@ class CodexAgent(BaseAgent):
                 try:
                     version = result.stdout.decode("utf-8").strip()
                 except UnicodeDecodeError:
-                    raise RunnerError(
-                        "unsupported_codex_cli_version"
-                    ) from None
+                    raise RunnerError("unsupported_codex_cli_version") from None
                 if result.exit_code != 0 or version != CLI_VERSION:
                     raise RunnerError("unsupported_codex_cli_version")
                 pinned = {
@@ -265,18 +256,14 @@ class CodexAgent(BaseAgent):
         except RunnerError:
             raise
         except CleanupUnconfirmedError:
-            raise RunnerError(
-                "container_termination_unverified"
-            ) from None
+            raise RunnerError("container_termination_unverified") from None
         except ConnectionConfigurationError:
             logging.getLogger(__name__).warning(
                 "Docker endpoint selection was rejected: use one unambiguous local "
                 "DOCKER_HOST or DOCKER_CONTEXT; TLS and remote endpoints are unsupported "
                 "by this local trial. No configuration values are logged."
             )
-            raise RunnerError(
-                "runner_docker_check_unconfirmed"
-            ) from None
+            raise RunnerError("runner_docker_check_unconfirmed") from None
         except (
             DockerOperationError,
             DockerException,
@@ -287,9 +274,7 @@ class CodexAgent(BaseAgent):
             KeyError,
             AttributeError,
         ):
-            raise RunnerError(
-                "runner_docker_check_unconfirmed"
-            ) from None
+            raise RunnerError("runner_docker_check_unconfirmed") from None
 
     def _recover_containers(self, client) -> None:
         """Recover central and legacy receipts on the selected client.
@@ -333,22 +318,28 @@ class CodexAgent(BaseAgent):
         owner = record.get("container_ownership") or {}
         if owner.get("supervised"):
             verified, detail = cleanup_exact(
-                ContainerIdentity(name=owner["name"], run_id=record["run_id"],
-                                                token=owner["launch_token"], docker_endpoint=owner.get("docker_endpoint")))
+                ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
+            )
             owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
             if not verified:
                 record["error_category"] = "container_cleanup_unverified"
 
     def _receipt_path(self, root: Path) -> Path:
         """Keep lifecycle intent outside disposable metadata and evidence folders."""
-        directory=self.state.joinpath("receipts")
-        directory.mkdir(mode=0o700,exist_ok=True)
-        return directory.joinpath(root.name+"-controller.json")
+        directory = self.state.joinpath("receipts")
+        directory.mkdir(mode=0o700, exist_ok=True)
+        return directory.joinpath(root.name + "-controller.json")
 
     def _pending_receipts(self, root: Path) -> bool:
         """Retain evidence for either unresolved controller or executor cleanup."""
-        return (any(self.state.joinpath("receipts").glob(root.name+"-*.json"))
-                or any(root.glob("*receipt*.json")))
+        return any(self.state.joinpath("receipts").glob(root.name + "-*.json")) or any(
+            root.glob("*receipt*.json")
+        )
 
     def _open_server(
         self,
@@ -376,22 +367,29 @@ class CodexAgent(BaseAgent):
 
             if repository is None or branch is None:
                 raise RunnerError("mediated_command_scope_missing")
-            command_directory = prepare_commands(
-                root, repository, branch
-            )
+            command_directory = prepare_commands(root, repository, branch)
             # The checkout was prepared without a provider remote. This is a
             # credential-free helper URL, not an HTTPS fallback.
             configure_remote(workspace, repository)
         from laomedo.agents.agents.codex.controller.models import CodexLaunch
 
-        values = dict(workspace=workspace, canonical=canonical, store_mount=store_mount,
-                      image=self.image_id, profile=self.profile, run_id=run_id, launch_token=launch_token,
-                      capability=capability, mediator_url=mediator_url,
-                      mediator_instance=mediator_instance, command_directory=command_directory,
-                      repository=repository, branch=branch, base_branch=base_branch)
-        if name is not None:
-            values["name"] = name
-        launch = CodexLaunch(**values)
+        launch = CodexLaunch(
+            workspace=workspace,
+            canonical=canonical,
+            store_mount=store_mount,
+            image=self.image_id,
+            profile=self.profile,
+            run_id=run_id,
+            launch_token=launch_token,
+            capability=capability,
+            mediator_url=mediator_url,
+            mediator_instance=mediator_instance,
+            command_directory=command_directory,
+            repository=repository,
+            branch=branch,
+            base_branch=base_branch,
+            **({"name": name} if name is not None else {}),
+        )
         from laomedo.agents.agents.codex.controller.models import SplitPolicy
 
         if isinstance(self.transport, type) and issubclass(
@@ -400,9 +398,11 @@ class CodexAgent(BaseAgent):
             split = (
                 SplitPolicy(
                     provider_config=self.split_provider_config,
-                    access_token=access_token
-                    if access_token is not None
-                    else self.split_access_token,
+                    access_token=(
+                        access_token
+                        if access_token is not None
+                        else self.split_access_token
+                    ),
                 )
                 if self.split_executor
                 else None
@@ -481,8 +481,11 @@ class CodexAgent(BaseAgent):
         server = None
         try:
             token = self.auth.access_token()[0] if self.auth else None
-            server = self._open_server(root, access_token=token,
-                lifetime_seconds=160 + Settings.load().startup_margin)
+            server = self._open_server(
+                root,
+                access_token=token,
+                lifetime_seconds=160 + Settings.load().startup_margin,
+            )
             await server.initialize()
             models = await server.models()
             checks = {}
@@ -572,10 +575,7 @@ class CodexAgent(BaseAgent):
                 raise RunnerError("activity_attempt_already_exists")
         snapshot = run_dir / "post-run"
         workspace = run_dir / "workspace"
-        if (
-            not snapshot.exists()
-            or _hash_tree(snapshot) != expected_post_run_hash
-        ):
+        if not snapshot.exists() or _hash_tree(snapshot) != expected_post_run_hash:
             raise RunnerError("post_run_snapshot_mismatch")
         if (
             _hash_tree(workspace, exclude_root_git=self.git_workspace)
@@ -590,9 +590,7 @@ class CodexAgent(BaseAgent):
             raise RunnerError("protected_mount_changed")
         if self.auth:
             if record.get("runner_instance_id") != self.instance_id:
-                raise RunnerError(
-                    "resume_after_runner_restart_forbidden"
-                )
+                raise RunnerError("resume_after_runner_restart_forbidden")
             _token, current = self.auth.access_token()
             prior = record.get("credential") or {}
             if any(
@@ -667,22 +665,20 @@ class CodexAgent(BaseAgent):
                 attempts.mkdir(exist_ok=True)
                 if (attempts / (attempt_id + ".json")).exists():
                     raise RunnerError("activity_attempt_already_exists")
-                activity_attempt = {
-                    "id": attempt_id,
-                    "native_start": activity_start[0],
-                    "otel_start": activity_start[1],
-                    "native_end": None,
-                    "otel_end": None,
-                    "fresh_thread": not resume,
-                    "usage_baseline": read_feed(
+                activity_attempt = ActivityAttemptRecord(
+                    id=attempt_id,
+                    native_start=activity_start[0],
+                    otel_start=activity_start[1],
+                    native_end=None,
+                    otel_end=None,
+                    fresh_thread=not resume,
+                    usage_baseline=read_feed(
                         run_dir / "activity-events.jsonl", tail=True
                     )["usage_baseline"],
-                    "status": "running",
-                    "ended_at": None,
-                }
-                _json(
-                    attempts / (attempt_id + ".json"), activity_attempt
-                )
+                    status="running",
+                    ended_at=None,
+                ).to_record()
+                _json(attempts / (attempt_id + ".json"), activity_attempt)
                 record["activity_attempt_id"] = attempt_id
                 record.update(evidence_complete="unknown", completion_basis=None)
                 self.cancel_flags[run_id] = cancelled
@@ -696,7 +692,9 @@ class CodexAgent(BaseAgent):
                 launch_token = uuid4().hex
                 record["container_ownership"] = {
                     "name": name,
-                    "docker_endpoint": (self.docker_environment or {}).get("DOCKER_HOST"),
+                    "docker_endpoint": (self.docker_environment or {}).get(
+                        "DOCKER_HOST"
+                    ),
                     "launch_token": launch_token,
                     "supervised": self.supervise_containers,
                     "cleanup_verified": False,
@@ -718,15 +716,15 @@ class CodexAgent(BaseAgent):
                         self.lease_service,
                         run_id=run_id,
                         name=name,
-                        docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"),
+                        docker_endpoint=(self.docker_environment or {}).get(
+                            "DOCKER_HOST"
+                        ),
                         token=launch_token,
                         cancelled=cancelled,
                         mediation_request=record.get("github_scope"),
                     )
                 except (OSError, RuntimeError):
-                    raise RunnerError(
-                        "lease_service_unavailable"
-                    ) from None
+                    raise RunnerError("lease_service_unavailable") from None
                 record["container_ownership"]["lease_instance"] = lease.instance
                 record["container_ownership"]["grant_id"] = lease.grant_id
                 if self.publication_controller is not None and record.get(
@@ -761,8 +759,10 @@ class CodexAgent(BaseAgent):
             launch_attempted = True
             server = self._open_server(
                 run_dir,
-                lifetime_seconds=(NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
-                                  + transport_settings.startup_margin),
+                lifetime_seconds=(
+                    NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
+                    + transport_settings.startup_margin
+                ),
                 access_token=access_token,
                 name=name,
                 run_id=run_id,
@@ -935,14 +935,11 @@ class CodexAgent(BaseAgent):
             while record.get("output_requirements") and status == "completed":
                 try:
                     submission = json.loads(
-                        _answer(server.events[turn_event_offset:])
-                        or "null"
+                        _answer(server.events[turn_event_offset:]) or "null"
                     )
                 except (ValueError, TypeError):
                     submission = None
-                validation = evaluate(
-                    record["output_requirements"], submission
-                )
+                validation = evaluate(record["output_requirements"], submission)
                 record["output_validation"] = validation
                 if (
                     validation["contract_status"] == "accepted"
@@ -951,9 +948,7 @@ class CodexAgent(BaseAgent):
                     or correction_count >= record["output_retries"]
                 ):
                     break
-                commands_before = _command_summary(
-                    server.events, turn_id
-                )
+                commands_before = _command_summary(server.events, turn_id)
 
                 def effect_event(event):
                     if event.get("method") not in {"item/started", "item/completed"}:
@@ -1077,9 +1072,7 @@ class CodexAgent(BaseAgent):
                         record["credential"]["auth_outcome"] = outcome
                 else:
                     record["error_category"] = (
-                        str(exc)
-                        if isinstance(exc, RunnerError)
-                        else type(exc).__name__
+                        str(exc) if isinstance(exc, RunnerError) else type(exc).__name__
                     )
         finally:
             close_error = False
@@ -1094,7 +1087,9 @@ class CodexAgent(BaseAgent):
                     await server.close()
                     if record is not None:
                         record["controller_cleanup"] = "confirmed"
-                        if not self.supervise_containers and getattr(server, "cleanup_confirmed", False):
+                        if not self.supervise_containers and getattr(
+                            server, "cleanup_confirmed", False
+                        ):
                             record["container_ownership"].update(
                                 cleanup_verified=True, cleanup_detail="removed"
                             )
@@ -1105,20 +1100,37 @@ class CodexAgent(BaseAgent):
                 if record is not None:
                     record.update(
                         status="failed",
-                        error_category=(close_failure.code if isinstance(close_failure,RunnerError)
-                                        and close_failure.code in {"executor_termination_unverified","container_termination_unverified","runner_transport_failed"}
-                                        else "container_termination_unverified"),
+                        error_category=(
+                            close_failure.code
+                            if isinstance(close_failure, RunnerError)
+                            and close_failure.code
+                            in {
+                                "executor_termination_unverified",
+                                "container_termination_unverified",
+                                "runner_transport_failed",
+                            }
+                            else "container_termination_unverified"
+                        ),
                     )
                     record["controller_cleanup"] = "unverified"
             else:
                 if record is not None and record.get("status") == "completed":
                     try:
-                        record["post_run_hash"] = self._freeze_workspace(run_dir, record)
+                        record["post_run_hash"] = self._freeze_workspace(
+                            run_dir, record
+                        )
                         record["output_ref"] = f"laomedo:run:{run_id}:workspace"
                         record["snapshot_ready"] = True
                     except Exception as snapshot_failure:
-                        record.update(status="failed", answer=None,
-                            error_category=snapshot_failure.code if isinstance(snapshot_failure, RunnerError) else "workspace_copy_mismatch")
+                        record.update(
+                            status="failed",
+                            answer=None,
+                            error_category=(
+                                snapshot_failure.code
+                                if isinstance(snapshot_failure, RunnerError)
+                                else "workspace_copy_mismatch"
+                            ),
+                        )
             finally:
                 try:
                     if (
@@ -1146,10 +1158,20 @@ class CodexAgent(BaseAgent):
                                 error_category="container_termination_unverified",
                             )
                     elif record is not None and self.supervise_containers:
-                        verified, detail = ((True, "removed") if getattr(server,"cleanup_confirmed",False) else
-                            cleanup_exact(ContainerIdentity(
-                                name=name,run_id=run_id,token=launch_token,
-                                docker_endpoint=(self.docker_environment or {}).get("DOCKER_HOST"))))
+                        verified, detail = (
+                            (True, "removed")
+                            if getattr(server, "cleanup_confirmed", False)
+                            else cleanup_exact(
+                                ContainerIdentity(
+                                    name=name,
+                                    run_id=run_id,
+                                    token=launch_token,
+                                    docker_endpoint=(self.docker_environment or {}).get(
+                                        "DOCKER_HOST"
+                                    ),
+                                )
+                            )
+                        )
                         if lease is not None:
                             # The executor is already removed. Only a trusted
                             # controller can keep its SAME lease through output
@@ -1164,9 +1186,7 @@ class CodexAgent(BaseAgent):
                                     record["turns"][attempt_turn_offset:],
                                     resumed=resume,
                                     streams_closed=(
-                                        server is not None and (
-                                            server.streams_closed
-                                        )
+                                        server is not None and (server.streams_closed)
                                     ),
                                 )
                             )

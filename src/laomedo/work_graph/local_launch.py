@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from laomedo.work_graph.models import WorkLaunchResult
+
 from pathlib import Path
 import json
 from laomedo.work_graph.runs.errors import LaunchError
@@ -51,13 +53,13 @@ def launch_local_saved_flow(
         outputs=None,
         source_root=source_root,
     )
-    return {
-        "run_id": record["run_id"],
-        "trace_id": record["trace_id"],
-        "status": record["status"],
-        "completion_basis": record["completion_basis"],
-        "evidence_complete": bool(record["evidence_complete"]),
-        "dispatch_attempts": record["dispatch_attempts"],
-        "output_present": bool(output),
-        "graph_revision": record["graph_revision"],
-    }
+    return WorkLaunchResult(
+        run_id=record["run_id"],
+        trace_id=record["trace_id"],
+        status=record["status"],
+        completion_basis=record["completion_basis"],
+        evidence_complete=bool(record["evidence_complete"]),
+        dispatch_attempts=record["dispatch_attempts"],
+        output_present=bool(output),
+        graph_revision=record["graph_revision"],
+    ).to_payload()

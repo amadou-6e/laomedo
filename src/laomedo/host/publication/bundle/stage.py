@@ -6,16 +6,34 @@ and a trusted host-supplied baseline bundle. A failed or uncertain stage is
 one-shot and cannot be retried under the same attempt identity."""
 
 from __future__ import annotations
+from laomedo.host.publication.bundle.models import (
+    BundleVerificationRecord,
+    ContainerStageRecord,
+)
 
 from pathlib import Path
 import hashlib
 import json
-import laomedo.host.publication.bundle.settings as _bundle_settings
-import laomedo.host.publication.bundle.errors as _bundle_errors
-import laomedo.host.publication.bundle.ownership as _bundle_ownership
-import laomedo.skills.ingestion.settings as _ingestion_settings
-import laomedo.skills.ingestion.errors as _ingestion_errors
-import laomedo.skills.ingestion.utils as _ingestion_utils
+from laomedo.host.publication.bundle.settings import MAX_OUTPUT_BYTES
+from laomedo.host.publication.bundle.settings import MEMORY_BYTES
+from laomedo.host.publication.bundle.settings import PINNED_IMAGE_ID
+from laomedo.host.publication.bundle.settings import SCRIPT
+from laomedo.host.publication.bundle.settings import SCRIPT_LF_SHA256
+from laomedo.host.publication.bundle.settings import _COMMIT
+from laomedo.host.publication.bundle.settings import _IMAGE
+from laomedo.host.publication.bundle.settings import _OBJECT_ID
+from laomedo.host.publication.bundle.settings import _SHA
+from laomedo.host.publication.bundle.errors import BundleStageError
+from laomedo.host.publication.bundle.ownership import _inspect
+from laomedo.host.publication.bundle.ownership import reserve_container
+from laomedo.host.publication.bundle.ownership import stage_lock
+from laomedo.skills.ingestion.settings import _IDENTITY
+from laomedo.skills.ingestion.errors import BundleIngestError
+from laomedo.skills.ingestion.utils import _bound_roots
+from laomedo.skills.ingestion.utils import _bundle_bytes
+from laomedo.skills.ingestion.utils import _durable_json
+from laomedo.skills.ingestion.utils import _record
+from laomedo.skills.ingestion.utils import _redirected
 import os
 import secrets
 import stat
@@ -28,10 +46,10 @@ def _single_bundle_commit(data: bytes, expected_ref: str) -> str:
     """Accept one SHA-1 ref; Git verifies prerequisite/pack integrity later."""
     end = data.find(b"\n\n")
     if end < 0 or end > 4096 or not data.startswith(b"# v"):
-        raise _bundle_errors.BundleStageError("bundle_header_invalid")
+        raise BundleStageError("bundle_header_invalid")
     lines = data[:end].split(b"\n")
     if lines[0] not in (b"# v2 git bundle", b"# v3 git bundle"):
-        raise _bundle_errors.BundleStageError("bundle_version_unsupported")
+        raise BundleStageError("bundle_version_unsupported")
     v2 = lines[0] == b"# v2 git bundle"
     formats = [line for line in lines[1:] if line.startswith(b"@object-format=")]
     if (
@@ -42,12 +60,12 @@ def _single_bundle_commit(data: bytes, expected_ref: str) -> str:
             for line in lines[1:]
         )
     ):
-        raise _bundle_errors.BundleStageError("bundle_version_unsupported")
+        raise BundleStageError("bundle_version_unsupported")
     for line in lines[1:]:
-        if line.startswith(b"-") and not _bundle_settings._OBJECT_ID.fullmatch(
+        if line.startswith(b"-") and not _OBJECT_ID.fullmatch(
             line[1:].split(b" ", 1)[0]
         ):
-            raise _bundle_errors.BundleStageError("bundle_header_invalid")
+            raise BundleStageError("bundle_header_invalid")
     refs = [
         line.split(b" ", 1)
         for line in lines[1:]
@@ -56,10 +74,10 @@ def _single_bundle_commit(data: bytes, expected_ref: str) -> str:
     if (
         len(refs) != 1
         or len(refs[0]) != 2
-        or not _bundle_settings._OBJECT_ID.fullmatch(refs[0][0])
+        or not _OBJECT_ID.fullmatch(refs[0][0])
         or refs[0][1] != expected_ref.encode("ascii")
     ):
-        raise _bundle_errors.BundleStageError("bundle_ref_invalid")
+        raise BundleStageError("bundle_ref_invalid")
     return refs[0][0].decode("ascii")
 
 
@@ -94,8 +112,8 @@ def _export_binary(args: list[str], destination: Path, timeout: float = 30) -> d
     watchdog.start()
     try:
         assert process.stdout is not None
-        payload = process.stdout.read(_bundle_settings.MAX_OUTPUT_BYTES + 1)
-        if len(payload) > _bundle_settings.MAX_OUTPUT_BYTES:
+        payload = process.stdout.read(MAX_OUTPUT_BYTES + 1)
+        if len(payload) > MAX_OUTPUT_BYTES:
             if process.poll() is None:
                 process.kill()
             process.wait(timeout=5)
@@ -124,55 +142,53 @@ def _export_binary(args: list[str], destination: Path, timeout: float = 30) -> d
 def _read_frozen(
     runner_state: Path, private_root: Path, run_id: str, attempt_id: str
 ) -> tuple[Path, dict]:
-    runner_state, private_root = _ingestion_utils._bound_roots(
-        runner_state, private_root
-    )
+    runner_state, private_root = _bound_roots(runner_state, private_root)
     if (
         not isinstance(run_id, str)
-        or not _ingestion_settings._IDENTITY.fullmatch(run_id)
+        or not _IDENTITY.fullmatch(run_id)
         or not isinstance(attempt_id, str)
-        or not _ingestion_settings._IDENTITY.fullmatch(attempt_id)
+        or not _IDENTITY.fullmatch(attempt_id)
     ):
-        raise _bundle_errors.BundleStageError("identity_invalid")
-    _, binding = _ingestion_utils._record(runner_state, run_id)
+        raise BundleStageError("identity_invalid")
+    _, binding = _record(runner_state, run_id)
     run_home = private_root / run_id
     attempt = run_home / attempt_id
     if (
-        _ingestion_utils._redirected(run_home)
+        _redirected(run_home)
         or not run_home.is_dir()
         or run_home.resolve(strict=True).parent != private_root
-        or _ingestion_utils._redirected(attempt)
+        or _redirected(attempt)
         or not attempt.is_dir()
         or attempt.resolve(strict=True).parent != run_home
     ):
-        raise _bundle_errors.BundleStageError("frozen_attempt_unavailable")
+        raise BundleStageError("frozen_attempt_unavailable")
     manifest = attempt / "result.json"
-    if _ingestion_utils._redirected(manifest) or not manifest.is_file():
-        raise _bundle_errors.BundleStageError("frozen_attempt_unavailable")
+    if _redirected(manifest) or not manifest.is_file():
+        raise BundleStageError("frozen_attempt_unavailable")
     try:
         with manifest.open("rb") as stream:
             raw = stream.read(256 * 1024 + 1)
         if len(raw) > 256 * 1024:
-            raise _bundle_errors.BundleStageError("frozen_attempt_invalid")
+            raise BundleStageError("frozen_attempt_invalid")
         frozen = json.loads(raw)
     except (OSError, ValueError) as error:
-        raise _bundle_errors.BundleStageError("frozen_attempt_invalid") from error
+        raise BundleStageError("frozen_attempt_invalid") from error
     if (
         not isinstance(frozen, dict)
         or frozen.get("status") != "frozen"
         or any(frozen.get(key) != value for key, value in binding.items())
         or frozen.get("attempt_id") != attempt_id
         or not isinstance(frozen.get("bundle_sha256"), str)
-        or not _bundle_settings._SHA.fullmatch(frozen["bundle_sha256"])
+        or not _SHA.fullmatch(frozen["bundle_sha256"])
     ):
-        raise _bundle_errors.BundleStageError("frozen_attempt_invalid")
+        raise BundleStageError("frozen_attempt_invalid")
     source = attempt / "input.bundle"
     try:
-        payload = _ingestion_utils._bundle_bytes(source)
-    except _ingestion_errors.BundleIngestError as error:
-        raise _bundle_errors.BundleStageError("frozen_bundle_invalid") from error
+        payload = _bundle_bytes(source)
+    except BundleIngestError as error:
+        raise BundleStageError("frozen_bundle_invalid") from error
     if hashlib.sha256(payload).hexdigest() != frozen["bundle_sha256"]:
-        raise _bundle_errors.BundleStageError("frozen_bundle_changed")
+        raise BundleStageError("frozen_bundle_changed")
     frozen["advertised_commit"] = _single_bundle_commit(
         payload, "refs/heads/" + frozen["branch"]
     )
@@ -188,7 +204,7 @@ def _inspect_limits(config: dict, image_id: str) -> bool:
             config["Image"] == image_id
             and host["NetworkMode"] == "none"
             and host["ReadonlyRootfs"] is True
-            and host["Memory"] == _bundle_settings.MEMORY_BYTES
+            and host["Memory"] == MEMORY_BYTES
             and host["PidsLimit"] == 32
             and all(
                 flag in host["Tmpfs"]["/stage"]
@@ -214,7 +230,7 @@ def _inspect_limits(config: dict, image_id: str) -> bool:
 def _container_stage(
     attempt: Path, frozen: dict, image_id: str, *, docker=_run, export=_export_binary
 ) -> dict:
-    with _bundle_ownership.stage_lock(attempt) as acquired:
+    with stage_lock(attempt) as acquired:
         if not acquired:
             return {
                 "status": "unknown",
@@ -232,9 +248,9 @@ def _locked_container_stage(
     # Git's clean checkout status does not attest effective line endings.
     # Normalize only the trusted resource, hash-check it, and mount a private
     # LF copy rather than a mutable checkout path or an agent-selected script.
-    script = _bundle_settings.SCRIPT.read_bytes().replace(b"\r\n", b"\n")
-    if hashlib.sha256(script).hexdigest() != _bundle_settings.SCRIPT_LF_SHA256:
-        raise _bundle_errors.BundleStageError("stage_script_changed")
+    script = SCRIPT.read_bytes().replace(b"\r\n", b"\n")
+    if hashlib.sha256(script).hexdigest() != SCRIPT_LF_SHA256:
+        raise BundleStageError("stage_script_changed")
     staged_script = attempt / "verify.sh"
     with staged_script.open("xb") as file:
         file.write(script)
@@ -243,17 +259,17 @@ def _locked_container_stage(
     name = "laomedo-bundle-stage-" + secrets.token_hex(8)
     launch_token = secrets.token_hex(32)
     owner = {"name": name, "token": launch_token, "image_id": image_id}
-    _bundle_ownership.reserve_container(attempt, owner)
-    result = {
-        "status": "unknown",
-        "exit_code": None,
-        "cleanup_verified": False,
-        "output_sha256": None,
-        "output_bytes": None,
-        "stage_markers": [],
-        "success_marker_seen": False,
-        "export_class": None,
-    }
+    reserve_container(attempt, owner)
+    result = ContainerStageRecord(
+        status="unknown",
+        exit_code=None,
+        cleanup_verified=False,
+        output_sha256=None,
+        output_bytes=None,
+        stage_markers=[],
+        success_marker_seen=False,
+        export_class=None,
+    ).to_record()
     started = time.monotonic()
     created = False
     try:
@@ -363,24 +379,21 @@ def _locked_container_stage(
             return result
         metadata = pending.lstat()
         if (
-            _ingestion_utils._redirected(pending)
+            _redirected(pending)
             or not stat.S_ISREG(metadata.st_mode)
             or metadata.st_nlink != 1
-            or metadata.st_size > _bundle_settings.MAX_OUTPUT_BYTES
+            or metadata.st_size > MAX_OUTPUT_BYTES
         ):
             result["status"] = "output_invalid"
             return result
         with pending.open("rb") as source:
-            payload = source.read(_bundle_settings.MAX_OUTPUT_BYTES + 1)
-        if (
-            len(payload) != metadata.st_size
-            or len(payload) > _bundle_settings.MAX_OUTPUT_BYTES
-        ):
+            payload = source.read(MAX_OUTPUT_BYTES + 1)
+        if len(payload) != metadata.st_size or len(payload) > MAX_OUTPUT_BYTES:
             result["status"] = "output_invalid"
             return result
         try:
             exported_commit = _single_bundle_commit(payload, "refs/heads/validated")
-        except _bundle_errors.BundleStageError:
+        except BundleStageError:
             result["status"] = "output_invalid"
             return result
         if exported_commit != frozen["commit"]:
@@ -401,13 +414,13 @@ def _locked_container_stage(
         result["elapsed_seconds"] = round(time.monotonic() - started, 3)
         if created:
             try:
-                state, container_id = _bundle_ownership._inspect(owner, docker)
-                again, current_id = _bundle_ownership._inspect(owner, docker)
+                state, container_id = _inspect(owner, docker)
+                again, current_id = _inspect(owner, docker)
                 if state == again == "owned" and container_id == current_id:
                     removed = docker(["docker", "rm", "--force", container_id], 30)
                     result["cleanup_verified"] = (
                         removed.returncode == 0
-                        and _bundle_ownership._inspect(owner, docker)[0] == "absent"
+                        and _inspect(owner, docker)[0] == "absent"
                     )
             except (
                 OSError,
@@ -437,44 +450,44 @@ def verify_frozen_bundle(
     """One-shot verify/export from already frozen bytes; no provider write."""
     if (
         not isinstance(image_id, str)
-        or not _bundle_settings._IMAGE.fullmatch(image_id)
-        or image_id != _bundle_settings.PINNED_IMAGE_ID
+        or not _IMAGE.fullmatch(image_id)
+        or image_id != PINNED_IMAGE_ID
         or not isinstance(commit, str)
-        or not _bundle_settings._COMMIT.fullmatch(commit)
+        or not _COMMIT.fullmatch(commit)
         or not isinstance(expected_baseline_sha256, str)
-        or not _bundle_settings._SHA.fullmatch(expected_baseline_sha256)
+        or not _SHA.fullmatch(expected_baseline_sha256)
     ):
-        raise _bundle_errors.BundleStageError("stage_identity_invalid")
+        raise BundleStageError("stage_identity_invalid")
     attempt, frozen = _read_frozen(
         Path(runner_state), Path(private_root), run_id, attempt_id
     )
     if commit != frozen["advertised_commit"]:
-        raise _bundle_errors.BundleStageError("candidate_commit_mismatch")
+        raise BundleStageError("candidate_commit_mismatch")
     if (attempt / "verification.json").exists() or (
         attempt / "verification.json.pending"
     ).exists():
-        raise _bundle_errors.BundleStageError("verification_identity_consumed")
+        raise BundleStageError("verification_identity_consumed")
     baseline_bundle = Path(baseline_bundle)
     try:
-        baseline_bytes = _ingestion_utils._bundle_bytes(baseline_bundle)
-    except _ingestion_errors.BundleIngestError as error:
-        raise _bundle_errors.BundleStageError("baseline_bundle_invalid") from error
+        baseline_bytes = _bundle_bytes(baseline_bundle)
+    except BundleIngestError as error:
+        raise BundleStageError("baseline_bundle_invalid") from error
     if hashlib.sha256(baseline_bytes).hexdigest() != expected_baseline_sha256:
-        raise _bundle_errors.BundleStageError("baseline_bundle_changed")
+        raise BundleStageError("baseline_bundle_changed")
     frozen["commit"] = commit
-    result = {
-        "run_id": run_id,
-        "attempt_id": attempt_id,
-        "status": "unknown",
-        "source_bundle_sha256": frozen["bundle_sha256"],
-        "baseline_bundle_sha256": expected_baseline_sha256,
-        "baseline": frozen["baseline"],
-        "commit": commit,
-        "image_id": image_id,
-        "policy_approved": False,
-    }
+    result = BundleVerificationRecord(
+        run_id=run_id,
+        attempt_id=attempt_id,
+        status="unknown",
+        source_bundle_sha256=frozen["bundle_sha256"],
+        baseline_bundle_sha256=expected_baseline_sha256,
+        baseline=frozen["baseline"],
+        commit=commit,
+        image_id=image_id,
+        policy_approved=False,
+    ).to_record()
     journal = attempt / "verification.json"
-    _ingestion_utils._durable_json(journal, result)
+    _durable_json(journal, result)
     try:
         destination = attempt / "baseline.bundle"
         with destination.open("xb") as output:
@@ -499,5 +512,5 @@ def verify_frozen_bundle(
     except Exception as error:
         result["status"] = "unknown"
         result["error_class"] = type(error).__name__
-    _ingestion_utils._durable_json(journal, result)
+    _durable_json(journal, result)
     return result

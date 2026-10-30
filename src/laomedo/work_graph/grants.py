@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from laomedo.work_graph.models import WorkLaunchGrant, WorkGrantLimits
+
 from contextlib import closing
 from datetime import datetime
 from datetime import timezone
@@ -73,9 +75,7 @@ class LocalGrantAuthority:
             raise LaunchError("grant_expired")
         grant_id = str(uuid4())
         operator_id = _host_principal()
-        content_digest = relevant_content_digest(
-            graph_snapshot, work_key
-        )
+        content_digest = relevant_content_digest(graph_snapshot, work_key)
         with closing(self._connect()) as db, db:
             db.execute(
                 """INSERT INTO grants
@@ -123,17 +123,19 @@ class LocalGrantAuthority:
                 "UPDATE grants SET redeemed_at=? WHERE grant_id=? AND redeemed_at IS NULL",
                 (datetime.now(timezone.utc).isoformat(), grant_id),
             )
-        return {
-            "grant_id": grant_id,
-            "operator_authorized": True,
-            "work_key": row["work_key"],
-            "graph_snapshot_id": row["graph_snapshot_id"],
-            "content_digest": row["content_digest"],
-            "runner": row["runner"],
-            "scope": row["scope"],
-            "expires_at": row["expires_at"],
-            "limits": {
-                "timeout_seconds": row["timeout_seconds"],
-                "max_turns": row["max_turns"],
-            },
-        }
+        return WorkLaunchGrant(
+            grant_id=grant_id,
+            operator_authorized=True,
+            work_key=row["work_key"],
+            graph_snapshot_id=row["graph_snapshot_id"],
+            content_digest=row["content_digest"],
+            runner=row["runner"],
+            scope=row["scope"],
+            expires_at=row["expires_at"],
+            limits=WorkGrantLimits(
+                **{
+                    "timeout_seconds": row["timeout_seconds"],
+                    "max_turns": row["max_turns"],
+                }
+            ),
+        ).to_payload()
