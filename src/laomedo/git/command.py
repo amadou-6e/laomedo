@@ -179,7 +179,9 @@ class GitCommandRunner:
         finally:
             environment.pop(MEDIATED_TOKEN_ENV, None)
 
-    def _start_process(self, command, arguments, environment, stdout, stderr):
+    def _start_process(
+        self, command, arguments, environment, stdout, stderr, *, tree=None
+    ):
         """One native launch owner; retain each profile's existing cwd/stdin behavior."""
         options = {"stdout": stdout, "stderr": stderr, "env": environment}
         if (
@@ -198,18 +200,61 @@ class GitCommandRunner:
             options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         else:
             options["start_new_session"] = True
-        return subprocess.Popen(arguments, **options)
+        if tree is not None:
+            from .windows.settings import CREATE_SUSPENDED
+
+            options["creationflags"] |= CREATE_SUSPENDED
+        process = subprocess.Popen(arguments, **options)
+        if tree is not None:
+            try:
+                tree.attach(process)
+                tree.resume(process.pid)
+            except BaseException as error:
+                try:
+                    cleanup = self._stop_tree(
+                        process,
+                        deadline=time.monotonic() + GIT_TREE_CLEANUP_SECONDS,
+                        tree=tree,
+                    )
+                except (OSError, subprocess.TimeoutExpired):
+                    cleanup = False
+                if not isinstance(error, Exception):
+                    error.cleanup_verified = cleanup
+                    raise
+                if not cleanup:
+                    raise GitCommandCleanupError() from None
+                raise
+        return process
+
+    @contextmanager
+    def _read_process_tree(self):
+        """Own a Windows read job only; POSIX and legacy profiles stay unchanged."""
+        tree = None
+        if os.name == "nt":
+            from .windows.tree import WindowsProcessTree
+
+            tree = WindowsProcessTree()
+        try:
+            yield tree
+        finally:
+            if tree is not None and not tree.close():
+                error = sys.exc_info()[1]
+                if error is not None and not isinstance(error, Exception):
+                    error.cleanup_verified = False
+                else:
+                    raise GitCommandCleanupError() from None
 
     def _execute_budgeted(self, command, arguments, environment):
         """Spool and actively observe a read budget without buffering child output."""
         budget = command.budget
-        with TemporaryFile() as output:
+        with TemporaryFile() as output, self._read_process_tree() as tree:
             process = self._start_process(
-                command, arguments, environment, output, subprocess.DEVNULL
+                command, arguments, environment, output, subprocess.DEVNULL, tree=tree
             )
             deadline = min(
                 time.monotonic() + command.context.timeout, budget.operation_deadline
             )
+            cleanup_verified = None
             try:
                 while process.poll() is None:
                     if (
@@ -220,28 +265,44 @@ class GitCommandRunner:
                     if budget.check_budget is not None:
                         budget.check_budget()
                     time.sleep(budget.poll_seconds)
+                if tree is not None:
+                    cleanup_verified = self._stop_tree(
+                        process,
+                        deadline=time.monotonic() + GIT_TREE_CLEANUP_SECONDS,
+                        tree=tree,
+                    )
+                    if not cleanup_verified:
+                        raise GitCommandCleanupError()
                 output.seek(0)
                 data = output.read(budget.stdout_limit + 1)
                 return subprocess.CompletedProcess(
                     arguments, process.returncode, data, b""
                 )
             except BaseException as error:
-                try:
-                    cleanup_verified = self._stop_tree(
-                        process, deadline=time.monotonic() + GIT_TREE_CLEANUP_SECONDS
-                    )
-                except (OSError, subprocess.TimeoutExpired):
-                    cleanup_verified = False
+                if cleanup_verified is None:
+                    try:
+                        cleanup_verified = self._stop_tree(
+                            process,
+                            deadline=time.monotonic() + GIT_TREE_CLEANUP_SECONDS,
+                            tree=tree,
+                        )
+                    except (OSError, subprocess.TimeoutExpired):
+                        cleanup_verified = False
+                if not isinstance(error, Exception):
+                    error.cleanup_verified = cleanup_verified
+                    raise
                 if not cleanup_verified:
                     raise GitCommandCleanupError() from None
                 if isinstance(error, GitCommandLimitExceeded):
                     error.cleanup_verified = True
                 raise
 
-    def _stop_tree(self, process, *, deadline=None) -> bool:
+    def _stop_tree(self, process, *, deadline=None, tree=None) -> bool:
         """Keep legacy substep bounds; budgeted reads share one cleanup deadline."""
         cleanup_verified = False
-        if os.name == "nt":
+        if tree is not None:
+            cleanup_verified = tree.terminate(deadline)
+        elif os.name == "nt":
             try:
                 killed = subprocess.run(
                     ["taskkill", "/PID", str(process.pid), "/T", "/F"],

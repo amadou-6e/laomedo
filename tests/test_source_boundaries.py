@@ -241,25 +241,30 @@ class SourceBoundaryTests(unittest.TestCase):
                     **options,
                 )
                 processes.append(process)
+                return process
+
+            source = GitSkillSource(self.root)
+            start = source.runner._start_process
+
+            def started(*args, **kwargs):
+                process = start(*args, **kwargs)
                 if mode[0] == "emit" and mode[-1] == "0":
                     process.wait(timeout=20)
                 return process
 
-            with self.subTest(mode=mode), patch("subprocess.Popen", new=launch):
+            with (
+                self.subTest(mode=mode),
+                patch("subprocess.Popen", new=launch),
+                patch.object(source.runner, "_start_process", side_effect=started),
+            ):
                 try:
                     deadline = time.monotonic() + (0.8 if mode[0] == "wait" else 30)
-                    source = GitSkillSource(self.root)
                     if expected:
                         with self.assertRaises(SourceError) as raised:
                             source._run(
                                 self.root, ["--version"], limit, deadline=deadline
                             )
-                        # Native cleanup may exhaust its deadline under load. That
-                        # is an explicit uncertainty outcome, never confirmed cleanup.
-                        self.assertIn(
-                            raised.exception.code,
-                            {expected, "repository_cleanup_unverified"},
-                        )
+                        self.assertEqual(raised.exception.code, expected)
                     else:
                         self.assertEqual(
                             len(
@@ -340,6 +345,39 @@ class SourceBoundaryTests(unittest.TestCase):
         ):
             runner.run(command)
 
+    def test_interrupt_identity_and_arguments_survive_uncertain_cleanup(self):
+        runner = GitCommandRunner()
+        process = MagicMock()
+        process.poll.return_value = None
+        for interrupt in (KeyboardInterrupt("stop"), SystemExit(7)):
+            for cleanup in (False, True):
+
+                def interrupted():
+                    raise interrupt
+
+                command = self.command(
+                    budget=GitExecutionBudget(
+                        stdout_limit=128, check_budget=interrupted
+                    )
+                )
+                with (
+                    self.subTest(interrupt=type(interrupt).__name__, cleanup=cleanup),
+                    patch.object(runner, "_start_process", return_value=process),
+                    patch.object(runner, "_stop_tree", return_value=cleanup),
+                    self.assertRaises(type(interrupt)) as raised,
+                ):
+                    runner.run(command)
+                self.assertIs(raised.exception, interrupt)
+                self.assertEqual(raised.exception.cleanup_verified, cleanup)
+
+    def test_retained_partial_clones_count_toward_cache_budget(self):
+        retained = self.root / "clone-retained-internal-control"
+        retained.mkdir()
+        with (retained / "partial-pack").open("wb") as stream:
+            stream.truncate(128 * 1024 * 1024 + 1)
+        with self.assertRaisesRegex(SourceError, "^repository_limit_exceeded$"):
+            GitSkillSource(self.root)._check_cache_budget()
+
     def test_uncertain_clone_staging_is_retained_but_ordinary_failure_is_removed(self):
         for code in ("repository_cleanup_unverified", "repository_limit_exceeded"):
             source = GitSkillSource(self.root)
@@ -366,6 +404,25 @@ class SourceBoundaryTests(unittest.TestCase):
         retained.cleanup()
         self.assertTrue(Path(directory).exists())
         Path(directory).rmdir()
+
+    def test_interrupted_clone_keeps_uncertain_staging_without_changing_interrupt(self):
+        for cleanup in (False, True):
+            source = GitSkillSource(self.root)
+            interrupt = KeyboardInterrupt("stop")
+            interrupt.cleanup_verified = cleanup
+            with (
+                patch.object(source, "_run", side_effect=interrupt),
+                self.assertRaises(KeyboardInterrupt) as raised,
+            ):
+                source.repository(
+                    "https://github.com/example/skills.git",
+                    deadline=time.monotonic() + 1,
+                )
+            self.assertIs(raised.exception, interrupt)
+            directories = list(self.root.glob("clone-*"))
+            self.assertEqual(bool(directories), not cleanup)
+            for directory in directories:
+                directory.rmdir()  # No process was launched by this internal control.
 
     def test_client_only_forwards_bounded_exact_cleanup_category_and_closes_errors(
         self,

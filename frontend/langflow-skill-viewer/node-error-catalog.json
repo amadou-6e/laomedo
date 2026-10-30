@@ -2212,6 +2212,6 @@
   "repository_cleanup_unverified": {
     "title": "Repository cleanup could not be confirmed",
     "description": "Repository reading was interrupted, but the application could not confirm that its Git processes ended.",
-    "recovery": "Check the local Git processes before trying this source again. Do not repeat the operation while its earlier processes may still be running."
+    "recovery": "Check the local Git processes before trying this source again. Do not repeat the operation or remove retained clone staging while its earlier processes may still be running. Retained staging counts toward the source cache limit and can block later reads; the current UI has no staging cleanup control."
   }
 }

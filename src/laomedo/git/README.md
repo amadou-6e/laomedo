@@ -99,7 +99,11 @@ confirmed-cleanup categories and introduces the explicit
 `repository_cleanup_unverified` category only for that uncertainty case.
 
 Budgeted source reads share one five-second cleanup deadline across native tree
-termination, pipe draining and final wait. Legacy profiles keep their existing
+termination, pipe draining and final wait. On Windows they use a
+[suspended, job-contained root](windows/README.md), with no breakaway or taskkill
+fallback. Zero active processes in that job is required even after a normal root
+exit; root exit or a taskkill return code alone never proves descendant cleanup.
+POSIX retains its existing process-group path. Legacy profiles keep their existing
 five-second bound per cleanup substep. Process creation, polling and native kill
 calls add operating-system overhead; neither rule is a hard real-time guarantee.
 The source operation retains its 60-second deadline and existing 65-second HTTP
@@ -112,6 +116,7 @@ transport fallback rather than deliver a cleanup category.
 | `GitCommand.validate_execution_profile` | Validate trusted read-profile construction and recheck mutable argument/configuration containers at execution; never grant caller authorization. |
 | `GitCommandRunner._execute_budgeted` | Reuse the single native launcher, spool stdout and inspect active output, operation time and caller budgets. |
 | `GitCommandRunner._stop_tree`, `_cleanup_timeout` | Apply the selected cleanup budget and retain uncertainty on native failure; no success inferred from an exited root alone. |
+| `GitCommandRunner._read_process_tree` | Own a Windows job only for budgeted reads; close only its own handle, with no process-name or PID-tree search. |
 | `GitTreeEntry` | Carry native mode, object kind and object identity; path/blob admission belongs to the source consumer. |
 
 Legacy WORKSPACE/HOST_TRANSPORT environment, argv, stdin, credential helper and
@@ -119,3 +124,8 @@ completed-result behavior remain unchanged. Their existing timeout categories
 and cleanup fields are preserved. The new bounded-source controls compare against
 an independent old-launcher capture and exercise real controlled processes,
 including descendants; they do not establish live HTTPS or provider acceptance.
+
+On an interrupt, the runner still attempts cleanup but preserves the original
+`KeyboardInterrupt`/`SystemExit` object and arguments, with `cleanup_verified`
+recording the observation. An uncertain interrupted clone keeps its staging;
+it is not converted into an ordinary source error or deleted before cleanup.
