@@ -34,5 +34,37 @@
     "skill_not_utf8",
     "too_many_files"
   ],
-  "notes": "Registry materialization uses paths/files from BaseAgent; runner POST preserves SkillStoreError as error_category. Skill operations HTTP collapses policy refusal exceptions to skill_operation_refused; draft validation codes are review-record data, not direct node failure categories. Existing store-only/other producers are outside this moved-helper inventory. No source payload, traceback or credential is added to errors."
+  "notes": "Registry materialization uses paths/files from BaseAgent; runner POST preserves SkillStoreError as error_category. Skill operations HTTP collapses policy refusal exceptions to skill_operation_refused; draft validation codes are review-record data, not direct node failure categories. Existing store-only/other producers are outside this moved-helper inventory. No source payload, traceback or credential is added to errors. Four existing store reader categories are included because the same materialization path preserves them. Other untouched store startup/draft/promotion codes are enumerated for a separate surface analysis, without claiming catalogue or node visibility coverage.",
+  "unchanged_store_runner_error_categories": [
+    "invalid_revision_id",
+    "latest_pointer_integrity_failure",
+    "revision_integrity_failure",
+    "file_not_in_revision"
+  ],
+  "other_store_codes_requiring_separate_surface_analysis": [
+    "base_integrity_failure",
+    "base_revision_changed",
+    "draft_copy_mismatch",
+    "draft_not_eligible",
+    "draft_not_open",
+    "draft_root_overlaps_store",
+    "frozen_draft_integrity_failure",
+    "frozen_draft_validation_failure",
+    "import_busy",
+    "interrupted_freeze_conflict",
+    "invalid_draft_id",
+    "invalid_editor_provenance",
+    "linked_draft_root",
+    "linked_store_root",
+    "policy_integrity_failure",
+    "promoted_hash_mismatch",
+    "promotion_busy",
+    "promotion_log_conflict",
+    "reviewed_ref_mismatch",
+    "revision_hash_mismatch",
+    "skill_already_exists",
+    "source_changed_while_copying",
+    "source_overlaps_store",
+    "store_inside_git_tree"
+  ]
 }

@@ -2133,5 +2133,25 @@
     "title": "The skill contains an empty folder",
     "description": "The registry found an empty folder that cannot be represented by the skill file inventory. It refused the tree.",
     "recovery": "Remove empty folders from the source or add their intended files, then import a verified skill revision."
+  },
+  "invalid_revision_id": {
+    "title": "The skill revision reference is invalid",
+    "description": "The selected skill revision does not have the immutable hash format required by the registry. The runner refused to read that revision.",
+    "recovery": "Select an existing immutable revision on the Skill node before starting new work."
+  },
+  "latest_pointer_integrity_failure": {
+    "title": "The latest skill reference is inconsistent",
+    "description": "The registry latest pointer does not match its recorded tree identity. The runner refused to use that reference.",
+    "recovery": "Select a known immutable revision, or restore the registry from a trusted copy before starting new work."
+  },
+  "revision_integrity_failure": {
+    "title": "The skill revision failed its integrity check",
+    "description": "The selected revision metadata or file bytes no longer match its immutable identity. The runner refused to use those contents.",
+    "recovery": "Use a verified immutable revision or restore the registry from a trusted copy before starting new work."
+  },
+  "file_not_in_revision": {
+    "title": "The file is not part of the skill revision",
+    "description": "The requested file is not listed in the selected immutable skill revision. The registry refused the read.",
+    "recovery": "Check the selected skill revision and use its recorded files. Restore inconsistent registry metadata from a trusted copy before starting new work."
   }
 }

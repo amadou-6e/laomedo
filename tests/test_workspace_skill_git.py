@@ -194,7 +194,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         record = runner._prepare(self.request())
         with (
             patch(
-                "laomedo.skills.workspace.utils._is_link",
+                "laomedo.skills.workspace.utils.is_link",
                 side_effect=lambda path: path.name == ".agents",
             ),
             patch("laomedo.skills.workspace.utils.inventory") as read,
@@ -241,7 +241,7 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         record = runner._prepare(self.request())
         with (
             patch(
-                "laomedo.skills.workspace.utils._is_link",
+                "laomedo.skills.workspace.utils.is_link",
                 side_effect=lambda path: path.name == ".git",
             ),
             patch.object(runner, "_open_server") as server,

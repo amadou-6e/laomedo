@@ -1,4 +1,4 @@
-﻿"""Registry split, exact byte semantics and retained internal-control contracts."""
+"""Registry split, exact byte semantics and retained internal-control contracts."""
 
 import ast
 import hashlib
@@ -151,6 +151,10 @@ class RegistryModuleTests(unittest.TestCase):
                         self.assertNotIn(
                             "utils", {item.name for item in node.names}, relative
                         )
+                    if node.module == "laomedo.skills.workspace.utils":
+                        self.assertNotIn(
+                            "_is_link", {item.name for item in node.names}, relative
+                        )
                 elif isinstance(node, ast.Import):
                     self.assertNotIn(
                         RETIRED, {item.name for item in node.names}, relative
@@ -171,6 +175,11 @@ class RegistryModuleTests(unittest.TestCase):
                         )
                     )
                     if name in {"import_module", "__import__", "patch"}:
+                        self.assertNotEqual(
+                            node.args[0].value,
+                            "laomedo.skills.workspace.utils._is_link",
+                            (relative, node.lineno),
+                        )
                         self.assertFalse(
                             node.args[0].value == RETIRED
                             or node.args[0].value.startswith(RETIRED + "."),
@@ -273,6 +282,27 @@ class RegistryModuleTests(unittest.TestCase):
             raised, public | set(manifest["policy_refusals_collapsed_by_skill_http"])
         )
         self.assertEqual(listed, set(manifest["draft_validation_record_codes"]))
+        store = ast.parse(
+            Path(ROOT, "src/laomedo/skills/registry/store.py").read_text(
+                encoding="utf-8"
+            )
+        )
+        store_codes = {
+            node.args[0].value
+            for node in ast.walk(store)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"SkillStoreError", "ConflictError"}
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        }
+        reader_codes = set(manifest["unchanged_store_runner_error_categories"])
+        self.assertEqual(
+            store_codes,
+            reader_codes
+            | set(manifest["other_store_codes_requiring_separate_surface_analysis"]),
+        )
+        public |= reader_codes
         catalogue = json.loads(
             Path(
                 ROOT, "frontend/langflow-skill-viewer/node-error-catalog.json"

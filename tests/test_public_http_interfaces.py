@@ -115,10 +115,14 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             f"from {old} import Settings\nvalue = Settings()\n",
             f"import {old} as settings\nvalue = settings.Settings()\n",
             "from laomedo.skills.sources import settings\nvalue = settings.Settings()\n",
+            f"from {old} import Settings, SKIP\nvalue = (Settings(), SKIP)\n",
         ):
             migrated = MIGRATION["migrate_source"](source)
             self.assertIn(new, migrated)
             self.assertEqual(MIGRATION["migrate_source"](migrated), migrated)
+            if "Settings, SKIP" in source:
+                self.assertIn(f"from {old} import SKIP", migrated)
+                self.assertIn(f"from {new} import Settings", migrated)
         for source in (
             f"from {old} import *\n",
             f"import {old} as settings\nvalue = getattr(settings, 'Settings')\n",
