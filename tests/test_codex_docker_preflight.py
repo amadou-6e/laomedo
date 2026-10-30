@@ -91,8 +91,8 @@ assert 'docker' not in sys.modules
         for node in ast.walk(ast.parse(source)):
             if (
                 isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "RunnerError"
+                and ((isinstance(node.func, ast.Name) and node.func.id == "RunnerError")
+                     or (isinstance(node.func, ast.Attribute) and node.func.attr == "RunnerError"))
             ):
                 self.assertIsInstance(node.args[0], ast.Constant)
                 codes.add(node.args[0].value)

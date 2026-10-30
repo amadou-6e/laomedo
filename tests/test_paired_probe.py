@@ -11,9 +11,24 @@ from experiments.exp100.paired_provider import Provider
 from experiments.exp100.probe_paired import isolated_environment; from experiments.exp100.probe_paired import install_direct_journal; from experiments.exp100.probe_paired import received_updates
 from experiments.exp104.probe_active_delivery import git
 from pathlib import Path
+from unittest.mock import patch
+from experiments.exp104 import probe_active_delivery
+from laomedo.git.command import GitCommandRunner
+from laomedo.git.models import GitCommand, GitExecutionContext
 
 
 class PairedProbeTests(unittest.TestCase):
+    def setUp(self):
+        # Preserve refusal in the historical live probe. This suite exercises
+        # its local fixture journal with an explicit credential-free environment.
+        home = tempfile.TemporaryDirectory(prefix='paired-control-home-')
+        self.addCleanup(home.cleanup)
+        environment = GitCommandRunner().environment(
+            GitCommand(arguments=[], context=GitExecutionContext()), Path(home.name))
+        binding = patch.object(probe_active_delivery, '_base_git_environment', return_value=environment)
+        binding.start()
+        self.addCleanup(binding.stop)
+
     def test_committed_original_observation_and_actual_negative_controls(self):
         source = Path(__file__).resolve().parents[1] / 'experiments/exp100/PAIRED-OBSERVATION.json'
         raw = source.read_bytes()

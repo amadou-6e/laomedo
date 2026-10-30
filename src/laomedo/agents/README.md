@@ -1,9 +1,11 @@
 # Agent architecture redesign
 
-**Status: IN PROGRESS, NOT VALIDATED.** This document records the target design
-and the migration status discussed with the owner. Package ownership has been
-relocated; object/interface integration and real validation remain unfinished.
-The target below is not a completed refactor or approval to merge. The owner selected the nested
+**Status: integrated; final validation in progress.** This document distinguishes
+the implemented ownership increment from the longer-term target design. Package
+ownership, object names, interface bindings, shared Git mechanics and workspace
+integration have been migrated. Real workflow validation remains in progress;
+the target below is not a claim that every proposed abstraction exists or an
+approval to merge. The owner selected the nested
 `agents/agents/{claude,codex,opencode,base}` layout and the Agent-only module
 boundary below. Implementation contracts and migration still require the checks
 below; earlier Claude reviews do not approve later edits or implementation.
@@ -215,12 +217,13 @@ empty files or duplicate models solely to make folder contents identical.
 | Commit identities, remotes, bundles, requests and results | Canonical Pydantic models in `git/models.py` | Git objects and their callers |
 | Standalone Git credential-helper mechanics and protocol-generic assets | `git/credentials/` and `git/resources/` | Approved host-side Git operations; the current helper stays standard-library-only and GitHub-host-bound, with dynamic credential lookup |
 
-The current code shows why consolidation is needed: Agent workspace preparation
-and the GitHub Git transport each implement Git process-tree timeout handling.
-Skills and mediation reuse private Agent workspace helpers, while verified
-publication imports Git environment/process helpers from the GitHub transport.
-Consolidate those mechanics with a caller and error-contract audit; do not merely
-relocate files while leaving multiple command paths.
+Before this increment, Agent workspace preparation and the GitHub Git transport
+each implemented Git process-tree timeout handling. Skills and mediation reused
+private Agent workspace helpers, while verified publication imported Git
+environment/process helpers from the GitHub transport. These callers now use
+the shared Git objects, with their existing authorization and error translations
+kept at the calling boundary. Structural controls prevent the retired private
+process helpers and their duplicate implementations from returning.
 
 Policy stays with the caller:
 
