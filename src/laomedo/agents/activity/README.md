@@ -42,12 +42,12 @@ counter conversion. Unknown/incomplete native usage remains unknown and never
 passes through a zero-filling constructor. Raw native item maps remain extensible
 JSON, distinct from these closed, validated counters.
 
-## Projection envelope (PROPOSED / NOT IMPLEMENTED)
+## Projection envelope
 
-`ActivityProjection` in `models.py` will own the application response envelope,
+`ActivityProjection` in `models.py` owns the application response envelope,
 not native interpretation. The name joins the domain `Activity` with the
 responsibility `Projection`; there is one shared value, without a provider
-subclass or an abstract base. Shared and OpenCode projector functions will compose
+subclass or an abstract base. Shared and OpenCode projector functions compose
 it after their existing parsing, grouping, usage and pricing work. The dependency
 direction is projector to shared model; the model does not import projectors.
 

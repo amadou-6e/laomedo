@@ -5,6 +5,7 @@ remain readable; a CLI snapshot never claims to be an HTTP/SSE observation.
 """
 
 from laomedo.agents.agents.opencode.activity.models import OpenCodeTokenUsage
+from laomedo.agents.activity.models import ActivityProjection
 
 from copy import deepcopy
 from datetime import datetime
@@ -386,10 +387,10 @@ def project(events, *, root_thread=None, model=None):
             else {"amount": None}
         )
         projected_turns.append({**lane, "usage": turn_usage, "cost": turn_cost})
-    return {
-        "turns": projected_turns,
-        "items": sorted(items, key=lambda item: item["started"]),
-        "threads": [
+    return ActivityProjection(
+        turns=projected_turns,
+        items=sorted(items, key=lambda item: item["started"]),
+        threads=[
             {
                 "id": thread,
                 "parent": parent,
@@ -397,20 +398,20 @@ def project(events, *, root_thread=None, model=None):
             }
             for thread, parent in parents.items()
         ],
-        "usage": usage,
-        "usage_by_thread": per_thread,
-        "usage_points": points,
-        "telemetry": telemetry,
-        "telemetry_coverage": (
+        usage=usage,
+        usage_by_thread=per_thread,
+        usage_points=points,
+        telemetry=telemetry,
+        telemetry_coverage=(
             "observed adapter OTLP spans from native OpenCode records; completeness reported on invocation"
             if telemetry
             else "not observed; historical/native OpenCode HTTP message snapshots may have no telemetry"
         ),
-        "uncorrelated_thread_count": 0,
-        "clock": "native message timestamps; runner receipt fallback",
-        "cost": cost,
-        "cost_reason": cost.get("reason") or cost["basis"],
-    }
+        uncorrelated_thread_count=0,
+        clock="native message timestamps; runner receipt fallback",
+        cost=cost,
+        cost_reason=cost.get("reason") or cost["basis"],
+    ).to_usage_first_payload()
 
 
 def estimate_native(model, usage, rates, source=None):

@@ -15,9 +15,9 @@ counters. `to_activity_usage()` derives the shared `TokenUsage` object; its
 The projection retains native admission and incomplete-usage handling. These
 objects introduce no new model, price, version or provider capability assumptions.
 
-## Shared response envelope (PROPOSED / NOT IMPLEMENTED)
+## Shared response envelope
 
-Native parsing remains here; the final response will compose the shared
+Native parsing remains here; the final response composes the shared
 `ActivityProjection` in `agents/activity/models.py`. Its explicit
 `to_usage_first_payload()` method names this provider's existing field ordering
 and retains absent diagnostics. No provider-specific envelope model or new native
