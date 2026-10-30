@@ -2,6 +2,7 @@
 
 import ast
 import hashlib
+from importlib.util import resolve_name
 import json
 from pathlib import Path
 import unittest
@@ -21,22 +22,26 @@ class ModuleCohesionTests(unittest.TestCase):
                     modules = [
                         item.name
                         for item in node.names
-                        if item.name.startswith("laomedo.")
+                        if item.name == "laomedo" or item.name.startswith("laomedo.")
                     ]
-                elif (
-                    isinstance(node, ast.ImportFrom)
-                    and node.module
-                    and node.module.startswith("laomedo.")
-                ):
+                elif isinstance(node, ast.ImportFrom):
+                    package = ".".join(path.relative_to(ROOT / "src").parts[:-1])
+                    module = (
+                        resolve_name("." * node.level + (node.module or ""), package)
+                        if node.level
+                        else node.module
+                    )
+                    if not module or not (
+                        module == "laomedo" or module.startswith("laomedo.")
+                    ):
+                        continue
                     for item in node.names:
-                        member = ROOT.joinpath(
-                            "src", *node.module.split("."), item.name
-                        )
+                        member = ROOT.joinpath("src", *module.split("."), item.name)
                         if (
                             member.with_suffix(".py").is_file()
                             or (member / "__init__.py").is_file()
                         ):
-                            modules.append(node.module + "." + item.name)
+                            modules.append(module + "." + item.name)
                 violations.extend(
                     f"{path.relative_to(SOURCE).as_posix()}:{node.lineno}:{module}"
                     for module in modules

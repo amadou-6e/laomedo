@@ -162,6 +162,14 @@ class SkillsDirectImportTests(unittest.TestCase):
         )
         original = (ROOT / "tests/contracts" / historical["path"]).read_bytes()
         self.assertEqual(hashlib.sha256(original).hexdigest(), historical["sha256"])
+        header = b"blob " + str(len(original)).encode() + b"\0"
+        self.assertEqual(
+            hashlib.sha1(header + original).hexdigest(), historical["git_blob"]
+        )
+        self.assertIn(
+            "tests/contracts/" + historical["path"] + " -text",
+            (ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines(),
+        )
         self.assertTrue(json.loads(original)["known_missing_entries"])
         for code in inventory["catalogued_codes"]:
             for field in ("title", "description", "recovery"):

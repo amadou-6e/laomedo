@@ -31,3 +31,6 @@ examples/claude-agent/no-skill-flow.json -text
 examples/skill-operations/executed-flow.json -text
 examples/skill-summary/executed-flow.json -text
 examples/github-pr/original-agent/historical-flow-before-agent-module-refactor.json -text
+
+# Archived audit evidence retains exact original Git blob bytes.
+tests/contracts/skills-direct-import-errors-a55279d.json -text

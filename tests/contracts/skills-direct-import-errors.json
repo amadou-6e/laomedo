@@ -25,6 +25,8 @@
   "historical_inventory": {
     "revision": "a55279d1d51b05a5df6faedab861b68766844de0",
     "path": "skills-direct-import-errors-a55279d.json",
-    "sha256": "559021c6dfcd5a932d89ec182fb72c66d31dbf041790551bc67d151e8953b2d2"
+    "sha256": "dccb601cb74fbbb4aef4bbddc4f8622a2e70515350b3a30ed428923b7c14dc2e",
+    "git_blob": "c60f8db83f8b32e226360d913e37de72d6ef4b9e",
+    "byte_policy": "Exact original Git blob bytes; path is marked -text to prohibit working-tree line-ending conversion."
   }
 }
