@@ -27,6 +27,9 @@ IMAGE_ID = PINNED_IMAGE_ID
 class BundleStageTests(unittest.TestCase):
     def test_exp139_verifier_reads_commit_from_real_frozen_bundle(self):
         sys.path.append(str(Path(__file__).resolve().parents[1]))
+        from retained_github import load_retained_github
+
+        load_retained_github("experiments.exp139.runtime")
         from experiments.exp139.runtime import verify_attempt
 
         self.assertNotIn("advertised_commit", self.frozen)

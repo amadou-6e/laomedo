@@ -1,6 +1,7 @@
 """Typed PR-node records; public identities never authorize a write."""
 
-from laomedo.github.issues.contract import issue_digest, labels_value
+from laomedo.github.contract import issue_digest
+from laomedo.github.contract import labels_value
 from laomedo.github.pull_requests.models import GitHubPullRequest, PullRequestHead
 import re
 

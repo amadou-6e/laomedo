@@ -7,8 +7,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from retained_github import load_retained_github
+
 try:
-    from experiments.exp19 import live_e2e
+    live_e2e = load_retained_github("experiments.exp19.live_e2e")
     from experiments.exp19.probe import _graph
     from experiments.exp19.probe import _pages
 except ModuleNotFoundError as error:

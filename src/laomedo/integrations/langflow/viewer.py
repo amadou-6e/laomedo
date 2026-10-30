@@ -4,19 +4,22 @@ Langflow is an optional deployment dependency, not imported by the core package.
 No runner/provider credentials are used by this route.
 """
 
+from laomedo.github.contract import labels_value
+from laomedo.github.contract import repository_from_url
+
 from pathlib import Path
-import laomedo.skills.inspection.errors as _inspection_errors
-import laomedo.skills.inspection.utils as _inspection_utils
-import laomedo.integrations.langflow.settings as _langflow_settings
+from laomedo.skills.inspection.errors import InspectionError
+from laomedo.skills.inspection.utils import inspect_skill
+from laomedo.integrations.langflow.settings import Settings
 
 
 def install_routes(app, root: Path, authenticate):
     from laomedo.agents.activity.routes import install_activity_routes
 
     install_activity_routes(app, authenticate)
-    import laomedo.host.runner.routes as _runner_routes
+    from laomedo.host.runner.routes import install_runner_service_routes
 
-    _runner_routes.install_runner_service_routes(app, authenticate)
+    install_runner_service_routes(app, authenticate)
     from fastapi import Depends
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
@@ -30,9 +33,7 @@ def install_routes(app, root: Path, authenticate):
         from laomedo.skills.interface.operations.client import skill_request
 
         try:
-            await run_in_threadpool(
-                _inspection_utils.inspect_skill, root, skill_id, revision_id
-            )
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
             value = await run_in_threadpool(
                 skill_request,
                 "history",
@@ -54,9 +55,7 @@ def install_routes(app, root: Path, authenticate):
         from laomedo.skills.interface.operations.client import skill_request
 
         try:
-            await run_in_threadpool(
-                _inspection_utils.inspect_skill, root, skill_id, revision_id
-            )
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
             value = await run_in_threadpool(
                 skill_request,
                 "diff",
@@ -77,9 +76,7 @@ def install_routes(app, root: Path, authenticate):
         from laomedo.skills.interface.operations.client import skill_request
 
         try:
-            await run_in_threadpool(
-                _inspection_utils.inspect_skill, root, skill_id, revision_id
-            )
+            await run_in_threadpool(inspect_skill, root, skill_id, revision_id)
             value = await run_in_threadpool(
                 skill_request,
                 "compare",
@@ -100,13 +97,13 @@ def install_routes(app, root: Path, authenticate):
     async def read_skill(skill_id: str, revision_id: str):
         try:
             result = await run_in_threadpool(
-                _inspection_utils.inspect_skill,
+                inspect_skill,
                 root,
                 skill_id,
                 revision_id,
                 include_images=True,
             )
-        except _inspection_errors.InspectionError as exc:
+        except InspectionError as exc:
             code = str(exc)
             status = (
                 400
@@ -124,13 +121,13 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_issue(payload: dict):
         from laomedo.github.interface.issues.client import issue_request
-        import laomedo.github.issues.contract as _issues_contract
+        from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
 
         try:
             if set(payload) != {"repository_url", "issue_number", "labels", "state"}:
                 raise ValueError("invalid_request")
-            _issues_contract.repository_from_url(payload["repository_url"])
-            _issues_contract.labels_value(payload["labels"])
+            repository_from_url(payload["repository_url"])
+            labels_value(payload["labels"])
             if (
                 type(payload["issue_number"]) is not int
                 or not 0 < payload["issue_number"] <= 2**53 - 1
@@ -146,7 +143,7 @@ def install_routes(app, root: Path, authenticate):
         except Exception as exc:
             code = (
                 str(exc)
-                if str(exc) in _issues_contract.ERROR_CODES
+                if str(exc) in ISSUE_ERROR_CODES
                 else "github_issue_unavailable"
             )
             raise HTTPException(status_code=400, detail={"code": code}) from None
@@ -164,14 +161,14 @@ def install_routes(app, root: Path, authenticate):
     )
     async def read_pr(payload: dict):
         from laomedo.github.interface.pull_requests.client import pr_request
-        import laomedo.github.issues.contract as _issues_contract
-        import laomedo.github.pull_requests.contract as _pull_requests_contract
+        from laomedo.github.issues.contract import ERROR_CODES as ISSUE_ERROR_CODES
+        from laomedo.github.pull_requests.contract import ERROR_CODES as PR_ERROR_CODES
 
         try:
             if set(payload) != {"repository_url", "pr_number", "labels", "state"}:
                 raise ValueError("invalid_request")
-            _issues_contract.repository_from_url(payload["repository_url"])
-            _issues_contract.labels_value(payload["labels"])
+            repository_from_url(payload["repository_url"])
+            labels_value(payload["labels"])
             if (
                 type(payload["pr_number"]) is not int
                 or not 0 < payload["pr_number"] <= 2**53 - 1
@@ -185,11 +182,7 @@ def install_routes(app, root: Path, authenticate):
             if not pr or result["operation"]["status"] != "not_requested":
                 raise ValueError("github_pr_unavailable")
         except Exception as exc:
-            code = (
-                str(exc)
-                if str(exc) in _pull_requests_contract.ERROR_CODES
-                else "github_pr_unavailable"
-            )
+            code = str(exc) if str(exc) in PR_ERROR_CODES else "github_pr_unavailable"
             raise HTTPException(status_code=400, detail={"code": code}) from None
         return JSONResponse(
             {
@@ -206,7 +199,7 @@ def create_app():
     from langflow.main import setup_static_files
     from langflow.services.auth.utils import get_current_active_user
 
-    settings = _langflow_settings.Settings()
+    settings = Settings()
     root = Path(settings.required_path("skill_store"))
     frontend = Path(settings.required_path("frontend"))
     app = upstream_app()

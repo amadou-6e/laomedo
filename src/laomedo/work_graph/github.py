@@ -4,8 +4,8 @@ from datetime import datetime
 from datetime import timezone
 from typing import Callable
 import json
-import laomedo.work_graph.models as _work_graph_models
-import re
+from laomedo.work_graph.models import Dependency, GraphSnapshot, WorkItem
+from laomedo.github.contract import validate_repository
 import subprocess
 
 QUERY = """
@@ -29,12 +29,6 @@ query($owner: String!, $name: String!, $cursor: String) {
   }
 }
 """
-
-
-def validate_repository(repository: str) -> tuple[str, str]:
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
-        raise ValueError("Repository must be owner/name")
-    return tuple(repository.split("/"))
 
 
 def _gh_page(owner: str, name: str, cursor: str | None) -> dict:
@@ -74,9 +68,7 @@ def _connection(page: dict, repository: str) -> dict | None:
     return source.get("issues")
 
 
-def fetch(
-    repository: str, request: Callable = _gh_page
-) -> _work_graph_models.GraphSnapshot:
+def fetch(repository: str, request: Callable = _gh_page) -> GraphSnapshot:
     owner, name = validate_repository(repository)
     pages, seen, cursor = [], set(), None
     while True:
@@ -103,7 +95,7 @@ def fetch(
 
 def import_pages(
     repository: str, pages: list[dict], fetched_at: str | None = None
-) -> _work_graph_models.GraphSnapshot:
+) -> GraphSnapshot:
     """Import captured GraphQL pages without credentials or network access."""
     validate_repository(repository)
     fetched_at = fetched_at or datetime.now(timezone.utc).isoformat()
@@ -142,7 +134,7 @@ def import_pages(
                 complete = False
                 warnings.add("labels_incomplete")
             blockers = node["blockedBy"]
-            item = _work_graph_models.WorkItem(
+            item = WorkItem(
                 key=key,
                 repository=repository,
                 number=node["number"],
@@ -183,7 +175,7 @@ def import_pages(
                     repositories = (ref["repository"]["nameWithOwner"], repository)
                     if relation == "blocking":
                         repositories = repositories[::-1]
-                    edge = _work_graph_models.Dependency(
+                    edge = Dependency(
                         prerequisite=prerequisite,
                         dependent=dependent,
                         prerequisite_url=urls[0],
@@ -200,7 +192,7 @@ def import_pages(
     if counts != {len(items)}:
         warnings.add("item_count_mismatch")
     complete = complete and finished and counts == {len(items)}
-    return _work_graph_models.GraphSnapshot(
+    return GraphSnapshot(
         repository=repository,
         fetched_at=fetched_at,
         source_complete=complete,
