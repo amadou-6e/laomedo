@@ -28,14 +28,15 @@ EXPECTED = next(
     for item in CONTRACT["files"]
     if item["path"] == PROBE_PATH.relative_to(ROOT).as_posix()
 )
-assert hashlib.sha256(PROBE_PATH.read_bytes()).hexdigest() == EXPECTED
-sys.path.insert(0, str(ROOT / "tools/migrations"))
-MIGRATION = runpy.run_path(str(ROOT / "tools/migrations/migrate_module_paths.py"))
+if hashlib.sha256(PROBE_PATH.read_bytes()).hexdigest() != EXPECTED:
+    raise AssertionError("Retained S7 probe source changed")
+with patch.object(sys, "path", [str(ROOT / "tools/migrations"), *sys.path]):
+    MIGRATION = runpy.run_path(str(ROOT / "tools/migrations/migrate_module_paths.py"))
 SOURCE = PROBE_PATH.read_text(encoding="utf-8")
 MIGRATED = MIGRATION["migrate_source"](SOURCE)
 # A retained protocol fixture is adapted only in memory for internal controls.
 # Its source bytes remain historical evidence; no model or Docker run occurs.
-assert ast.dump(
+if ast.dump(
     ast.Module(
         body=[
             node
@@ -44,7 +45,7 @@ assert ast.dump(
         ],
         type_ignores=[],
     )
-) == ast.dump(
+) != ast.dump(
     ast.Module(
         body=[
             node
@@ -53,7 +54,8 @@ assert ast.dump(
         ],
         type_ignores=[],
     )
-)
+):
+    raise AssertionError("Retained S7 probe migration changed non-import code")
 probe_stage_s7 = types.ModuleType("exp100_stage_s7")
 probe_stage_s7.__file__ = str(PROBE_PATH)
 exec(compile(MIGRATED, str(PROBE_PATH), "exec"), probe_stage_s7.__dict__)

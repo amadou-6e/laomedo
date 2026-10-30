@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.publication.ingestion.errors import BundleIngestError
@@ -26,8 +26,8 @@ RENAMES = {
     "_bundle_bytes": "read_bundle_bytes",
     "_IDENTITY": "RUN_IDENTITY",
 }
-sys.path.insert(0, str(ROOT / "tools/migrations"))
-MIGRATION = runpy.run_path(str(ROOT / "tools/migrations/migrate_module_paths.py"))
+with patch.object(sys, "path", [str(ROOT / "tools/migrations"), *sys.path]):
+    MIGRATION = runpy.run_path(str(ROOT / "tools/migrations/migrate_module_paths.py"))
 CONTRACT_TOOLS = runpy.run_path(str(ROOT / "tools/capture_http_handler_contracts.py"))
 
 
