@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import laomedo.host.runner.settings as _runner_settings
+from laomedo.host.runner.settings import Settings
 
 
 def install_runner_service_routes(app, authenticate, service=None):
-    import laomedo.host.runner.service as _runner_service
+    from laomedo.host.runner.service import RunnerService
     from fastapi import Depends
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
     from starlette.concurrency import run_in_threadpool
 
-    service = service or _runner_service.RunnerService(
-        _runner_settings.Settings().service_file
-    )
+    service = service or RunnerService(Settings().service_file)
 
     async def respond(action, url):
         try:

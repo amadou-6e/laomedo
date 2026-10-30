@@ -6,9 +6,9 @@ import json
 
 
 def _deny(code):
-    import laomedo.host.mediation.errors as _mediation_errors
+    from laomedo.host.mediation.errors import MediationError
 
-    raise _mediation_errors.MediationError(code)
+    raise MediationError(code)
 
 
 def _json(value):

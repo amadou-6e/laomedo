@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import argparse
-import laomedo.host.leases.utils as _leases_utils
+from laomedo.host.leases.utils import supervise
 
 
 def main() -> None:
@@ -17,7 +17,7 @@ def main() -> None:
     parser.add_argument("result", type=Path)
     args = parser.parse_args()
     raise SystemExit(
-        _leases_utils.supervise(
+        supervise(
             args.record, args.name, args.run_id, args.token, args.ready, args.result
         )
     )

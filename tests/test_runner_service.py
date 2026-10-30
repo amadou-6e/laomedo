@@ -118,9 +118,7 @@ class RunnerServiceTests(unittest.TestCase):
         self.service = RunnerService(self.path)
         self.url = "http://127.0.0.1:18769"
         # Internal controls; these are not evidence of the host's Docker state.
-        docker = patch(
-            "laomedo.host.runner.prerequisites.check_docker", return_value=None
-        )
+        docker = patch("laomedo.host.runner.service.check_docker", return_value=None)
         self.docker = docker.start()
         self.addCleanup(docker.stop)
         self.real_connect = socket.create_connection
