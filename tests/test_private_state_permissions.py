@@ -56,6 +56,7 @@ class LegacyDirectoryPermissionTests(unittest.TestCase):
         )
 
     def test_legacy_policy_failure_translates_without_native_details(self):
+        path = Path("private-leaf")
         for identity in (
             SimpleNamespace(returncode=1, stdout="private-native-output"),
             SimpleNamespace(returncode=0, stdout="malformed"),
@@ -70,7 +71,7 @@ class LegacyDirectoryPermissionTests(unittest.TestCase):
                 ),
                 self.assertRaises(AuthError) as raised,
             ):
-                _restrict_windows_directory(Path("private-leaf"))
+                _restrict_windows_directory(path)
             self.assertEqual(str(raised.exception), "auth_store_permissions_unverified")
             self.assertTrue(raised.exception.__suppress_context__)
 

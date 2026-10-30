@@ -1,22 +1,116 @@
-"""Opt-in local Claude access-credential mirror; host retains refresh ownership."""
+"""Opt-in local access-only mirror through py-docker's owned Session lifecycle."""
 
-from __future__ import annotations
-
-from pathlib import Path
-from urllib.parse import urlsplit
+from importlib.resources import files
 import json
-from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 import math
 import os
+from pathlib import Path
 import re
 import subprocess
 import time
+from urllib.parse import urlsplit
+from uuid import uuid4
+
+from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
+from laomedo.agents.agents.claude.auth.models import ClaudeAccessLoginRecord
+from laomedo.agents.agents.claude.auth.settings import (
+    CLEANUP_SECONDS,
+    COPY_SECONDS,
+    Settings,
+)
+from laomedo.host.private_state.models import DirectoryPermissionPolicy
+from laomedo.host.private_state.utils import prepare_private_directory
+from laomedo.host.private_state.windows import WindowsDirectorySecurity
+
+
+def _remaining(deadline: float, ceiling: float = 20.0) -> float:
+    """Clamp one stage to its original normal-phase admission deadline."""
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise LocalClaudeLoginError("claude_local_login_copy_failed")
+    return min(remaining, ceiling)
+
+
+def _local_endpoint(environment: dict[str, str], deadline: float) -> str:
+    """Preserve bare CLI context selection, then admit only a local socket."""
+    if environment.get("DOCKER_CONTEXT") or not environment.get("DOCKER_HOST"):
+        result = subprocess.run(
+            ["docker", "context", "inspect"],
+            capture_output=True,
+            env=environment,
+            timeout=_remaining(deadline),
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if result.returncode:
+            raise LocalClaudeLoginError("claude_local_login_copy_failed")
+        endpoint = json.loads(result.stdout)[0]["Endpoints"]["docker"]["Host"]
+    else:
+        endpoint = environment["DOCKER_HOST"]
+    if not isinstance(endpoint, str):
+        raise LocalClaudeLoginError("claude_local_login_copy_failed")
+    # Do not normalize a CLI-rejected spelling into a different valid target.
+    if re.fullmatch(r"npipe:////\./pipe/[^/\\]+", endpoint):
+        return endpoint
+    url = urlsplit(endpoint)
+    if (
+        url.scheme == "unix"
+        and not url.netloc
+        and url.path.startswith("/")
+        and not url.query
+        and not url.fragment
+        and "\\" not in endpoint
+    ):
+        return "unix://" + url.path
+    raise LocalClaudeLoginError("claude_local_login_copy_failed")
+
+
+def _private_directory(
+    snapshot: dict[str, str], settings: Settings, deadline: float
+) -> Path:
+    """Admit a host-owned leaf outside Git without changing existing leaf ACLs."""
+    if settings.private_state_directory is not None:
+        path = Path(settings.private_state_directory)
+    elif os.name == "nt":
+        base = snapshot.get("LOCALAPPDATA")
+        if not base:
+            raise LocalClaudeLoginError("claude_local_login_copy_failed")
+        path = Path(base) / "Laomedo" / "state" / "claude-login"
+    else:
+        xdg = snapshot.get("XDG_STATE_HOME")
+        base = (
+            Path(xdg)
+            if xdg and Path(xdg).is_absolute()
+            else Path.home() / ".local/state"
+        )
+        path = base / "laomedo" / "claude-login"
+    policy = None
+    if os.name == "nt":
+        system = WindowsDirectorySecurity().system_directory()
+        policy = DirectoryPermissionPolicy(
+            whoami=system / "whoami.exe",
+            icacls=system / "icacls.exe",
+            environment=snapshot,
+            deadline=deadline,
+        )
+    prepare_private_directory(path, policy=policy)
+    return path
 
 
 def mirror_login(
-    profile, image, *, source=None, environment=None, minimum_validity_seconds=180
+    profile,
+    image,
+    *,
+    source=None,
+    environment=None,
+    minimum_validity_seconds=180,
+    deadline=None,
 ):
-    # Only the trusted host calls this; browser/model payloads supply no paths.
+    """Copy only the selected access login; exact cleanup owns outcome precedence.
+
+    The source is read only after endpoint, private-state and dedicated-volume
+    admission. Credential bytes travel solely through session stdin. The host
+    remains refresh owner. Explicit deadlines cap admission, not hard wall time.
+    """
     if not re.fullmatch(r"laomedo-claude-[a-z0-9-]+", profile) or not re.fullmatch(
         r"sha256:[0-9a-f]{64}", image
     ):
@@ -25,8 +119,21 @@ def mirror_login(
         type(minimum_validity_seconds) not in (int, float)
         or not math.isfinite(minimum_validity_seconds)
         or not 0 < minimum_validity_seconds <= 86400
+        or deadline is not None
+        and (type(deadline) not in (int, float) or not math.isfinite(deadline))
     ):
         raise LocalClaudeLoginError("claude_local_login_copy_failed")
+    normal_deadline = time.monotonic() + COPY_SECONDS
+    if deadline is not None:
+        normal_deadline = min(normal_deadline, deadline)
+    snapshot = dict(os.environ if environment is None else environment)
+    # Explicit None prevents supplied settings falling through to ambient values.
+    settings = Settings(
+        LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN=snapshot.get(
+            "LAOMEDO_CLAUDE_MIRROR_HOST_LOGIN"
+        ),
+        LAOMEDO_CLAUDE_LOGIN_STATE_DIR=snapshot.get("LAOMEDO_CLAUDE_LOGIN_STATE_DIR"),
+    )
     allowed = {
         "PATH",
         "SYSTEMROOT",
@@ -43,125 +150,104 @@ def mirror_login(
         "DOCKER_CERT_PATH",
         "DOCKER_TLS_VERIFY",
     }
-    env = {
-        k.upper(): v
-        for k, v in (os.environ if environment is None else environment).items()
-        if k.upper() in allowed
+    docker_environment = {
+        key.upper(): value for key, value in snapshot.items() if key.upper() in allowed
     }
-    endpoint = None
-
-    def docker(args, payload=None):
-        try:
-            result = subprocess.run(
-                ["docker", *(["--host", endpoint] if endpoint else []), *args],
-                input=payload,
-                capture_output=True,
-                env=env,
-                timeout=20,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-        except (OSError, subprocess.SubprocessError):
-            raise LocalClaudeLoginError("claude_local_login_copy_failed") from None
-        if result.returncode:
-            raise LocalClaudeLoginError("claude_local_login_copy_failed")
-        return result.stdout
-
+    client = None
+    failure = None
     try:
-        endpoint = (
-            json.loads(docker(["context", "inspect"]))[0]["Endpoints"]["docker"]["Host"]
-            if env.get("DOCKER_CONTEXT") or not env.get("DOCKER_HOST")
-            else env["DOCKER_HOST"]
+        from py_docker import Client
+        from py_docker.connection.settings import ConnectionSettings
+        from py_docker.containers.models import ContainerSpec, Mount
+        from py_docker.sessions.models import ContainerSession
+        from py_docker.streams.models import StreamLimits
+
+        endpoint = _local_endpoint(docker_environment, normal_deadline)
+        state = _private_directory(
+            docker_environment | {"XDG_STATE_HOME": snapshot.get("XDG_STATE_HOME", "")},
+            settings,
+            normal_deadline,
         )
-        url = urlsplit(endpoint)
-        local_pipe = bool(
-            re.fullmatch(
-                r"npipe:/{2,4}\./pipe/[^/]+", endpoint.replace("\\", "/"), re.I
-            )
-        )
-        if not (local_pipe or url.scheme == "unix" and not url.netloc):
-            raise ValueError()
-        env.pop("DOCKER_HOST", None)
-        env.pop("DOCKER_CONTEXT", None)
-        volume = json.loads(docker(["volume", "inspect", profile]))[0]
-        if (volume.get("Labels") or {}).get("laomedo.provider") != "claude":
-            raise ValueError()
-    except (ValueError, KeyError, IndexError, TypeError):
-        raise LocalClaudeLoginError("claude_local_login_copy_failed") from None
-    try:
-        value = json.loads(
-            (source or Path.home() / ".claude/.credentials.json").read_text(
-                encoding="utf-8"
-            )
-        )["claudeAiOauth"]
-        access = value["accessToken"]
-        expires = value["expiresAt"]
-        if (
-            not isinstance(access, str)
-            or not access
-            or len(access) > 32768
-            or type(expires) not in (int, float)
-            or not math.isfinite(expires)
-        ):
-            raise ValueError()
-    except (OSError, ValueError, TypeError, KeyError):
-        raise LocalClaudeLoginError("claude_host_login_unavailable") from None
-    if expires <= (time.time() + minimum_validity_seconds + 30) * 1000:
-        raise LocalClaudeLoginError("claude_host_login_expired")
-    # Never duplicate the rotating refresh credential or host profile/session data.
-    login = {
-        key: value[key]
         for key in (
-            "accessToken",
-            "expiresAt",
-            "scopes",
-            "subscriptionType",
-            "rateLimitTier",
+            "DOCKER_HOST",
+            "DOCKER_CONTEXT",
+            "DOCKER_CERT_PATH",
+            "DOCKER_TLS_VERIFY",
+        ):
+            docker_environment.pop(key, None)
+        client = Client(
+            ConnectionSettings(
+                endpoint=endpoint,
+                context=None,
+                timeout_seconds=_remaining(normal_deadline),
+            ),
+            environment=docker_environment,
         )
-        if key in value
-    }
-    login["refreshToken"] = ""
-    payload = json.dumps({"claudeAiOauth": login}).encode()
-    script = """import os,sys,tempfile
-p='/profile/config'
-assert not os.path.islink(p)
-os.makedirs(p,exist_ok=True)
-existing=p+'/.credentials.json'
-assert not os.path.islink(existing)
-if os.path.exists(existing):
-    import json
-    with open(existing) as f: old=json.load(f)
-    if old.get('claudeAiOauth',{}).get('refreshToken'):
-        raise SystemExit('Dedicated profile has its own refresh-capable login; mirror refused')
-fd,tmp=tempfile.mkstemp(prefix='.login-',dir=p)
-try:
-    with os.fdopen(fd,'wb') as f: f.write(sys.stdin.buffer.read())
-    os.chmod(tmp,0o600)
-    os.replace(tmp,p+'/.credentials.json')
-finally:
-    if os.path.exists(tmp): os.unlink(tmp)
-"""
-    docker(
-        [
-            "run",
-            "--rm",
-            "--init",
-            "--network=none",
-            "--cap-drop=ALL",
-            "--security-opt=no-new-privileges",
-            "--read-only",
-            "--pids-limit=32",
-            "--memory=256m",
-            "--cpus=1",
-            "--tmpfs",
-            "/tmp:rw,nosuid,nodev,size=16m",
-            "--mount",
-            f"type=volume,source={profile},target=/profile",
-            "-i",
-            "--entrypoint",
-            "python3",
-            image,
-            "-c",
-            script,
-        ],
-        payload,
-    )
+        if not client.volumes.has_labels(profile, {"laomedo.provider": "claude"}):
+            raise LocalClaudeLoginError("claude_local_login_copy_failed")
+        _remaining(normal_deadline)
+        try:
+            value = json.loads(
+                (source or Path.home() / ".claude/.credentials.json").read_text(
+                    encoding="utf-8"
+                )
+            )["claudeAiOauth"]
+            record = ClaudeAccessLoginRecord.from_host_record(value)
+        except (OSError, ValueError, TypeError, KeyError):
+            raise LocalClaudeLoginError("claude_host_login_unavailable") from None
+        record.require_expiry_after(
+            (time.time() + minimum_validity_seconds + 30) * 1000
+        )
+        payload = record.to_private_bytes()
+        writer = (
+            files("laomedo.agents.agents.claude.auth.resources")
+            .joinpath("write_login.py")
+            .read_text(encoding="utf-8")
+        )
+        request = ContainerSession(
+            spec=ContainerSpec(
+                image=image,
+                name="laomedo-claude-login-" + uuid4().hex,
+                entrypoint=["python3"],
+                command=["-c", writer, str(len(payload))],
+                mounts=[Mount(type="volume", source=profile, target="/profile")],
+                init=True,
+                stdin_open=True,
+                log_driver="none",
+                network_mode="none",
+                read_only=True,
+                cap_drop=["ALL"],
+                security_opt=["no-new-privileges"],
+                pids_limit=32,
+                mem_limit="256m",
+                nano_cpus=1_000_000_000,
+                tmpfs={"/tmp": "rw,nosuid,nodev,size=16m"},
+            ),
+            limits=StreamLimits(
+                seconds=_remaining(normal_deadline, COPY_SECONDS), max_bytes=65536
+            ),
+            receipt_path=state / (profile + ".json"),
+        )
+        with client.sessions.open(
+            request, deadline=float(normal_deadline), cleanup_seconds=CLEANUP_SECONDS
+        ) as session:
+            session.write(payload)
+            while session.read_frame() is not None:
+                pass  # Drain without logging or retaining private output.
+            if session.wait(timeout=_remaining(normal_deadline)) != 0:
+                raise LocalClaudeLoginError("claude_local_login_copy_failed")
+    except LocalClaudeLoginError as error:
+        failure = error
+    except Exception:
+        # SDK retains exact pending intent when cleanup cannot be confirmed.
+        # Never dispatch a fallback CLI copy or another model request.
+        failure = LocalClaudeLoginError("claude_local_login_copy_failed")
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                if failure is None:
+                    failure = LocalClaudeLoginError("claude_local_login_copy_failed")
+    if failure is not None:
+        raise failure from None

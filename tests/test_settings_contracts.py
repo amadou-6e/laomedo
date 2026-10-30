@@ -182,7 +182,7 @@ class SettingsContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertNotIn("os.environ", claude)
-        self.assertIn('environment={"DOCKER_HOST": self.docker_endpoint}', claude)
+        self.assertIn('"DOCKER_HOST": self.docker_endpoint', claude)
         split = (SOURCE / "agents/agents/codex/split/executor.py").read_text()
         self.assertNotIn("os.environ", split)
         self.assertIn("environment=environment", split)
