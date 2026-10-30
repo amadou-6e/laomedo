@@ -17,7 +17,8 @@ roles. Full signatures and detailed parameter contracts remain in source.
 | Object | Defining module | Public/framework methods |
 | --- | --- | --- |
 | `ClaudeTelemetry` | `telemetry.py` | `bind_thread`, `__init__`, `record`, `decode`, `close` |
-# Telemetry configuration value
+
+## Telemetry configuration value
 
 `ClaudeTelemetryEnvironment` in `models.py` groups the exporter endpoint and its
 excluded `SecretStr` bearer token. `to_environment()` is the explicit privileged

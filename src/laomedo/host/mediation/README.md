@@ -4,7 +4,8 @@
 expiry, effect accounting and GitHub credential custody. New metadata values live
 in `models.py`: `MediationServiceRecord` describes the local discovery file;
 `AuthorizedLeaseScope` groups the admitted repository/branch, operations,
-connection generation and explicit PR targets. `to_record()` preserves optional
+connection generation and explicit PR targets. Existing approvals without a
+connection keep both connection fields explicitly null. `to_record()` preserves optional
 fields and the private Python set/int-keyed-map callback contract where applicable.
 Neither value object authorizes itself or performs a provider request.
 

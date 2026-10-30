@@ -1,12 +1,17 @@
 """Synthetic CLI composition checks for separately launched host services."""
 
-from laomedo.host.leases.service import LeaseService as _owned_lease_service_LeaseService
+from laomedo.host.leases.service import (
+    LeaseService as _owned_lease_service_LeaseService,
+)
 
-from laomedo.host.mediation.service import JournaledTransport as _owned_mediation_service_JournaledTransport
-from laomedo.host.mediation.service import MediationHTTPService as _owned_mediation_service_MediationHTTPService
+from laomedo.host.mediation.service import (
+    JournaledTransport as _owned_mediation_service_JournaledTransport,
+)
+from laomedo.host.mediation.service import (
+    MediationHTTPService as _owned_mediation_service_MediationHTTPService,
+)
 
 import json
-from contextlib import nullcontext
 from pathlib import Path
 import sys
 import tempfile
@@ -40,15 +45,30 @@ class MediationServiceStartupTests(unittest.TestCase):
         def close(instance):
             instance.server.server_close()
 
-        args = ["mediation_service", "--state", str(self.state),
-                "--repository", "example/disposable",
-                "--checkout", str(self.checkout), "--baseline", "a" * 40,
-                "--agent-mount", str(self.agent_mount),
-                "--connection-id", "selected", "--connection-generation", "1",
-                "--token-file", str(self.token_file)]
-        with patch.object(sys, "argv", args), patch.object(
-                _owned_mediation_service_MediationHTTPService, "serve", serve), patch.object(
-                _owned_mediation_service_MediationHTTPService, "close", close):
+        args = [
+            "mediation_service",
+            "--state",
+            str(self.state),
+            "--repository",
+            "example/disposable",
+            "--checkout",
+            str(self.checkout),
+            "--baseline",
+            "a" * 40,
+            "--agent-mount",
+            str(self.agent_mount),
+            "--connection-id",
+            "selected",
+            "--connection-generation",
+            "1",
+            "--token-file",
+            str(self.token_file),
+        ]
+        with (
+            patch.object(sys, "argv", args),
+            patch.object(_owned_mediation_service_MediationHTTPService, "serve", serve),
+            patch.object(_owned_mediation_service_MediationHTTPService, "close", close),
+        ):
             mediation_service.main()
         status = json.loads((self.state / "mediator.json").read_text(encoding="utf-8"))
         self.assertEqual(status["connection_id"], "selected")
@@ -62,19 +82,34 @@ class MediationServiceStartupTests(unittest.TestCase):
             seen.append(instance)
             instance.server.server_close()
 
-        args = ["lease_service", "serve", "--state", str(self.state / "lease"),
-                "--mediator-store", str(self.state / "mediator.sqlite"),
-                "--authority-store", str(self.state / "authority.sqlite"),
-                "--repository", "example/disposable",
-                "--connection-id", "selected", "--connection-generation", "1"]
-        with patch.object(sys, "argv", args), patch.object(
-                _owned_lease_service_LeaseService, "serve", serve):
+        args = [
+            "lease_service",
+            "serve",
+            "--state",
+            str(self.state / "lease"),
+            "--mediator-store",
+            str(self.state / "mediator.sqlite"),
+            "--authority-store",
+            str(self.state / "authority.sqlite"),
+            "--repository",
+            "example/disposable",
+            "--connection-id",
+            "selected",
+            "--connection-generation",
+            "1",
+        ]
+        with (
+            patch.object(sys, "argv", args),
+            patch.object(_owned_lease_service_LeaseService, "serve", serve),
+        ):
             lease_service.main()
         self.assertIsNotNone(seen[0].mediator)
         self.assertIsNotNone(seen[0].mediation_authority)
         self.assertEqual(seen[0].server.server_address[0], "127.0.0.1")
 
-    def test_both_service_entries_use_their_host_store_for_prior_stage_confirmation(self):
+    def test_both_service_entries_use_their_host_store_for_prior_stage_confirmation(
+        self,
+    ):
         # Composition regression only: stage integrity/journal authorization
         # have their real-Git controls in test_verified_stage.py. No provider
         # operation, acceptance probe or service loop is executed here.
@@ -97,54 +132,100 @@ class MediationServiceStartupTests(unittest.TestCase):
                     instance.server.server_close()
 
                 state = self.state / entry.__name__.split(".")[-1]
-                with patch("laomedo.host.publication.verified.utils.make_grant_bundle_freezer", factory), \
-                        patch("laomedo.host.mediation.store.MediationStore", store_factory), \
-                        (patch.object(entry, "make_grant_bundle_freezer", factory) if entry is mediation_service else nullcontext()), \
-                        (patch.object(entry, "MediationStore", store_factory) if entry is mediation_service else nullcontext()):
+                with (
+                    patch(
+                        "laomedo.host.publication.verified.utils.make_grant_bundle_freezer",
+                        factory,
+                    ),
+                    patch("laomedo.host.mediation.store.MediationStore", store_factory),
+                    patch.object(entry, "make_grant_bundle_freezer", factory),
+                    patch.object(entry, "MediationStore", store_factory),
+                ):
                     if entry is host_services:
                         lease, mediator = entry.build_services(
-                            state=state, repository="example/disposable",
-                            checkout=self.checkout, baseline="a" * 40,
-                            agent_mount=self.agent_mount, connection_id="selected",
-                            connection_generation=1, token_file=self.token_file,
+                            state=state,
+                            repository="example/disposable",
+                            checkout=self.checkout,
+                            baseline="a" * 40,
+                            agent_mount=self.agent_mount,
+                            connection_id="selected",
+                            connection_generation=1,
+                            token_file=self.token_file,
                             runner_state=self.path / "runner",
-                            private_stage=self.path / "stages")
+                            private_stage=self.path / "stages",
+                        )
                         lease.server.server_close()
                         mediator.server.server_close()
                     else:
-                        args = ["mediation_service", "--state", str(state),
-                            "--repository", "example/disposable", "--checkout",
-                            str(self.checkout), "--baseline", "a" * 40,
-                            "--agent-mount", str(self.agent_mount),
-                            "--connection-id", "selected", "--connection-generation", "1",
-                            "--token-file", str(self.token_file),
-                            "--runner-state", str(self.path / "runner"),
-                            "--private-stage", str(self.path / "stages")]
-                        with patch.object(sys, "argv", args), patch.object(
-                                _owned_mediation_service_MediationHTTPService, "serve", lambda _instance: None), \
-                                patch.object(_owned_mediation_service_MediationHTTPService, "close", close):
+                        args = [
+                            "mediation_service",
+                            "--state",
+                            str(state),
+                            "--repository",
+                            "example/disposable",
+                            "--checkout",
+                            str(self.checkout),
+                            "--baseline",
+                            "a" * 40,
+                            "--agent-mount",
+                            str(self.agent_mount),
+                            "--connection-id",
+                            "selected",
+                            "--connection-generation",
+                            "1",
+                            "--token-file",
+                            str(self.token_file),
+                            "--runner-state",
+                            str(self.path / "runner"),
+                            "--private-stage",
+                            str(self.path / "stages"),
+                        ]
+                        with (
+                            patch.object(sys, "argv", args),
+                            patch.object(
+                                _owned_mediation_service_MediationHTTPService,
+                                "serve",
+                                lambda _instance: None,
+                            ),
+                            patch.object(
+                                _owned_mediation_service_MediationHTTPService,
+                                "close",
+                                close,
+                            ),
+                        ):
                             entry.main()
                 callback = captured.get("confirmed_stage_authorizer")
                 self.assertTrue(callable(callback), "host confirmation gate missing")
                 grant, snapshot = {"grant_id": "host-grant"}, object()
                 for permitted in (False, True):
-                    with patch.object(captured["store"], "confirmed_stage",
-                                      return_value=permitted) as confirmed:
+                    with patch.object(
+                        captured["store"], "confirmed_stage", return_value=permitted
+                    ) as confirmed:
                         self.assertIs(callback(grant, snapshot), permitted)
                         confirmed.assert_called_once_with(grant, snapshot)
 
     def test_provider_journal_counts_attempts_without_secret_payload(self):
         journal = self.path / "attempts.jsonl"
         transport = _owned_mediation_service_JournaledTransport(
-            lambda repository, operation, payload, **binding:
-            {"accepted": True}, journal)
-        result = transport("example/disposable", "git_push", {
-            "branch": "probe-a", "commit": "a" * 40,
-            "secret": "synthetic-provider-secret"},
-            connection_id="selected", connection_generation=1)
+            lambda repository, operation, payload, **binding: {"accepted": True},
+            journal,
+        )
+        result = transport(
+            "example/disposable",
+            "git_push",
+            {
+                "branch": "probe-a",
+                "commit": "a" * 40,
+                "secret": "synthetic-provider-secret",
+            },
+            connection_id="selected",
+            connection_generation=1,
+        )
         self.assertEqual(result, {"accepted": True})
-        events = [json.loads(line) for line in journal.read_text(
-            encoding="utf-8").splitlines()]
+        events = [
+            json.loads(line)
+            for line in journal.read_text(encoding="utf-8").splitlines()
+        ]
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["branch"], "probe-a")
         self.assertNotIn("synthetic-provider-secret", json.dumps(events))
@@ -157,29 +238,42 @@ class MediationServiceStartupTests(unittest.TestCase):
             raise PushOutcomeUnknown("authentication_or_authorization", 1)
 
         journal = _owned_mediation_service_JournaledTransport(
-            nonzero_push, attempts, diagnostics)
+            nonzero_push, attempts, diagnostics
+        )
         store = MediationStore(
             self.path / "effects.sqlite",
-            workflow_change_classifier=lambda *_args: False)
+            workflow_change_classifier=lambda *_args: False,
+        )
         _, bearer = store.issue(
-            run_id="run-a", invocation_id="invocation-a",
-            repository="example/disposable", branch="probe-a",
-            operations={"git_push"}, ttl_seconds=60)
+            run_id="run-a",
+            invocation_id="invocation-a",
+            repository="example/disposable",
+            branch="probe-a",
+            operations={"git_push"},
+            ttl_seconds=60,
+        )
         payload = {"branch": "probe-a", "commit": "a" * 40}
         first = store.invoke(
-            token=bearer, repository="example/disposable",
-            operation="git_push", payload=payload, effect_id="push-a",
-            transport=journal)
+            token=bearer,
+            repository="example/disposable",
+            operation="git_push",
+            payload=payload,
+            effect_id="push-a",
+            transport=journal,
+        )
         second = store.invoke(
-            token=bearer, repository="example/disposable",
-            operation="git_push", payload=payload, effect_id="push-a",
-            transport=journal)
+            token=bearer,
+            repository="example/disposable",
+            operation="git_push",
+            payload=payload,
+            effect_id="push-a",
+            transport=journal,
+        )
         self.assertEqual(first, {"state": "unknown", "resent": False})
         self.assertEqual(second, first)
         self.assertEqual(len(attempts.read_text(encoding="utf-8").splitlines()), 1)
         diagnostic = json.loads(diagnostics.read_text(encoding="utf-8"))
-        self.assertEqual(diagnostic["category"],
-                         "authentication_or_authorization")
+        self.assertEqual(diagnostic["category"], "authentication_or_authorization")
         self.assertEqual(diagnostic["exit_code"], 1)
         self.assertNotIn("synthetic-provider-secret", json.dumps(diagnostic))
         self.assertNotIn(bearer, json.dumps(diagnostic))

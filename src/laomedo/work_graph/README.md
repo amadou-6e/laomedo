@@ -7,6 +7,10 @@ work identity/content digest and its frozen/current authorization evidence.
 refreshes source, checks prerequisites and validates override admission before
 constructing those values; a binding is evidence, never a grant.
 
+`WorkOverride` emits its three admitted keys in model order. The values and
+selected-content/input digests are unchanged; caller key order is not a hash
+input. Historical journal readers retain their existing behavior.
+
 Dynamic graph indexes and serialized graph-schema projections remain mappings.
 `WorkflowRunStore` retains transactions and historical lifecycle records; this
 increment does not reject old journals through a new strict reader.

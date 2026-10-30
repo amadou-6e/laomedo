@@ -1,7 +1,11 @@
 """Implementation owned by host / leases / service."""
 
 from __future__ import annotations
-from laomedo.host.leases.models import LeaseRefusalRecord, LeaseRevocationRecord
+from laomedo.host.leases.models import (
+    LeaseCleanupObservation,
+    LeaseRefusalRecord,
+    LeaseRevocationRecord,
+)
 
 from laomedo.host.leases.server import LeaseHTTPServer
 from pathlib import Path
@@ -212,6 +216,7 @@ class LeaseService:
                     )
             except Exception:
                 verified, detail = False, "cleanup_error"
+            cleanup = LeaseCleanupObservation.from_result(verified, detail)
             try:
                 _write_json(
                     lease_dir / "result.json",
@@ -224,8 +229,8 @@ class LeaseService:
                         detected_at_monotonic=detected_at_monotonic,
                         revoked_at_monotonic=revoked_at_monotonic,
                         cleanup_finished_at_monotonic=time.monotonic(),
-                        cleanup_verified=verified,
-                        state=detail,
+                        cleanup_verified=cleanup.verified,
+                        state=cleanup.state,
                     ).to_record(),
                 )
             finally:
@@ -365,6 +370,7 @@ class LeaseService:
                         )
                     except Exception:
                         detail = "cleanup_error"
+                cleanup = LeaseCleanupObservation.from_result(cleanup_verified, detail)
                 _write_json(
                     lease_dir / "result.json",
                     LeaseRefusalRecord(
@@ -377,8 +383,8 @@ class LeaseService:
                         detected_at=now,
                         revoked_grants=revoked,
                         revocation_verified=revocation_verified,
-                        cleanup_verified=cleanup_verified,
-                        state=detail,
+                        cleanup_verified=cleanup.verified,
+                        state=cleanup.state,
                     ).to_record(),
                 )
             except OSError:

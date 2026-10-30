@@ -51,6 +51,94 @@ from laomedo.github.models import GitHubGrantBinding, GitHubOperationIntent
 class StructuredHostRecordsTests(unittest.TestCase):
     """Pin old construction boundaries independently of their new serializers."""
 
+    def test_unconnected_approval_round_trip_preserves_optional_base_and_null_connection(
+        self,
+    ):
+        from laomedo.host.mediation.authority import RunGrantAuthority
+
+        for operations in ({"actions_read"}, {"git_fetch"}, {"pr_update"}):
+            with self.subTest(operations=operations), TemporaryDirectory() as temporary:
+                authority = RunGrantAuthority(Path(temporary) / "authority.sqlite")
+                targets = {17: "develop"}
+                reference = authority.approve(
+                    invocation_id="invocation",
+                    repository="owner/repo",
+                    branch="work",
+                    operations=operations,
+                    reviewed_by="reviewer",
+                    target_prs=targets,
+                    base_branch="develop",
+                )
+                request = authority.bind_run(reference, "run")
+                expected = dict(
+                    invocation_id="invocation", repository="owner/repo", branch="work"
+                )
+                if operations != {"actions_read"}:
+                    expected["base_branch"] = "develop"
+                self.assertEqual(request, expected)
+                lease = {"run_id": "run", "token": "private-lease"}
+                scope = authority.authorize_lease(lease, request)
+                self.assertEqual(
+                    scope,
+                    {
+                        **expected,
+                        "operations": operations,
+                        "approval_identity": "reviewer",
+                        "connection_id": None,
+                        "connection_generation": None,
+                        "target_prs": targets,
+                    },
+                )
+                self.assertIn("connection_id", scope)
+                self.assertIn("connection_generation", scope)
+                self.assertIsNone(scope["connection_id"])
+                self.assertIsNone(scope["connection_generation"])
+                self.assertIs(type(scope["operations"]), set)
+                self.assertIs(type(next(iter(scope["target_prs"]))), int)
+                self.assertEqual(authority.authorize_lease(lease, request), scope)
+                self.assertIsNone(
+                    authority.authorize_lease(
+                        {**lease, "token": "other-lease"}, request
+                    )
+                )
+                self.assertIsNone(
+                    authority.authorize_lease(
+                        lease, {**request, "base_branch": "other"}
+                    )
+                )
+
+    def test_claude_attempt_preserves_original_serialized_field_order(self):
+        # Captured order of the original Claude attempt writer; the shared
+        # default serializer has a different order for the other providers.
+        expected = dict(
+            id="attempt",
+            native_start=2,
+            otel_start=3,
+            usage_baseline={"thread": {"native_extension": None}},
+            native_end=None,
+            fresh_thread=False,
+            otel_end=None,
+            status="running",
+            ended_at=None,
+        )
+        record = ActivityAttemptRecord(**expected).to_claude_record()
+        self.assertEqual(record, expected)
+        self.assertEqual(
+            list(record),
+            [
+                "id",
+                "native_start",
+                "otel_start",
+                "usage_baseline",
+                "native_end",
+                "fresh_thread",
+                "otel_end",
+                "status",
+                "ended_at",
+            ],
+        )
+        self.assertEqual(json.dumps(record), json.dumps(expected))
+
     def test_gateway_intent_hashes_preserve_request_identity_and_optional_changes(self):
         from test_live_github_issue import LiveGitHubIssueTests
         from test_live_github_pr import LiveGitHubPRTests

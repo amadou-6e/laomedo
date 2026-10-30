@@ -291,10 +291,8 @@ class GitHubPRGateway:
                     state=state,
                     operation=operation,
                     binding=GitHubGrantBinding(
-                        **{
-                            "grant_id": authenticated["grant_id"],
-                            "run_id": authenticated["run_id"],
-                        }
+                        grant_id=authenticated["grant_id"],
+                        run_id=authenticated["run_id"],
                     ),
                 ).to_payload()
             )

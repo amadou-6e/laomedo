@@ -19,7 +19,8 @@ publication policy. Generic Git execution is composed from `laomedo/git`.
 The old duplicate Git process adapter is removed. Timeouts/startup failures keep
 `stage_git_unavailable`; invalid snapshot/import/history/diff retain their existing
 codes. A staged object store is neither provider authorization nor proof of a push.
-# Verified-stage identity
+
+## Verified-stage identity
 
 `VerifiedStageIdentity` in `models.py` groups the exact run/attempt, repository,
 branch, baseline/commit, source/output bundle hashes and one existing run-binding

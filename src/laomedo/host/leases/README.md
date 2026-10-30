@@ -10,3 +10,8 @@ clock domains. `GrantBook` retains locking, random grant issuance and audit writ
 records using `to_record()` at the existing JSON writer. Optional fields are
 omitted unless observed. Historical lease readers and independent container
 cleanup remain unchanged. No model confers authority or confirms unobserved cleanup.
+
+`LeaseCleanupObservation.from_result()` admits an injected cleanup callback's
+verdict and diagnostic together. Invalid verdicts or non-JSON diagnostics are
+recorded as the existing `cleanup_error` with cleanup unverified, so a malformed
+callback cannot lose the result journal or imply successful cleanup.

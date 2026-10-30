@@ -80,7 +80,7 @@ Python parse errors: `0`.
 | `src/laomedo/host/leases/service.py:216` `LeaseService._revoke_and_cleanup.finish_cleanup` | Model / reuse | LeaseRevocationRecord preserves completed cleanup observations without inference. |
 | `src/laomedo/host/leases/service.py:371` `LeaseService._refuse_lease.finish_refusal` | Model / reuse | LeaseRefusalRecord groups observed refusal and cleanup evidence. |
 | `src/laomedo/host/managed_service.py:14` `` | Retain | Static service-name to command-line option registry, not an object instance. |
-| `src/laomedo/host/mediation/authority.py:250` `RunGrantAuthority.authorize_lease` | Model / reuse | AuthorizedLeaseScope preserves sets, integer target keys and optional branch/base. |
+| `src/laomedo/host/mediation/authority.py:250` `RunGrantAuthority.authorize_lease` | Model / reuse | AuthorizedLeaseScope preserves sets, integer target keys, optional branch/base and required nullable connection identity/generation for existing unconnected approvals. |
 | `src/laomedo/host/mediation/cli.py:121` `main` | Model / reuse | Shared MediationServiceRecord preserves standalone service metadata shape. |
 | `src/laomedo/host/publication/bundle/stage.py:247` `_locked_container_stage` | Model / reuse | ContainerStageRecord constructs initial journal; later cleanup mutation stays service-owned. |
 | `src/laomedo/host/publication/bundle/stage.py:465` `verify_frozen_bundle` | Model / reuse | BundleVerificationRecord constructs initial journal; readers and outcome policy unchanged. |

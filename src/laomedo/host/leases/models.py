@@ -5,6 +5,7 @@ from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import SecretStr
 from pydantic import JsonValue
+from pydantic import ValidationError
 from laomedo.host.leases.settings import GRANT_TTL_SECONDS
 
 
@@ -158,6 +159,28 @@ class LeaseGrant(BaseModel):
             and clock.wall < self.expires_at
             and self.issued_monotonic <= clock.monotonic < self.expires_monotonic
         )
+
+
+class LeaseCleanupObservation(BaseModel):
+    """Safe cleanup evidence, including malformed callback refusal."""
+
+    model_config = ConfigDict(
+        strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
+    )
+    verified: bool = Field(
+        description="Only an actual boolean callback verdict can confirm cleanup."
+    )
+    state: JsonValue = Field(
+        description="Existing JSON diagnostic, or safe cleanup_error for an invalid callback result."
+    )
+
+    @classmethod
+    def from_result(cls, verified, state) -> "LeaseCleanupObservation":
+        """Keep malformed private callback values out of the result journal."""
+        try:
+            return cls(verified=verified, state=state)
+        except ValidationError:
+            return cls(verified=False, state="cleanup_error")
 
 
 class LeaseRevocationRecord(BaseModel):

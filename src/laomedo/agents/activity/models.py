@@ -108,6 +108,22 @@ class ActivityAttemptRecord(BaseModel):
         """Preserve the existing provider variants without inventing end evidence."""
         return self.model_dump(exclude_unset=True)
 
+    def to_claude_record(self) -> dict:
+        """Retain Claude's historical field order as well as unknown values."""
+        value = self.to_record()
+        order = (
+            "id",
+            "native_start",
+            "otel_start",
+            "usage_baseline",
+            "native_end",
+            "fresh_thread",
+            "otel_end",
+            "status",
+            "ended_at",
+        )
+        return {key: value[key] for key in order if key in value}
+
 
 class TokenUsage(BaseModel):
     """The six validated normalized token counters, with existing wire names."""

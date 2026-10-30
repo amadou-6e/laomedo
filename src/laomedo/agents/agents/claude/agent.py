@@ -988,7 +988,7 @@ class ClaudeAgent(BaseAgent):
                 otel_end=None,
                 status="running",
                 ended_at=None,
-            ).to_record()
+            ).to_claude_record()
             _json(folder / (attempt_id + ".json"), attempt)
             record["activity_attempt_id"] = attempt_id
             prompt = self._prompt(root, record, task)

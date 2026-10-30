@@ -33,7 +33,8 @@ report unsupported capabilities and preserve unknown usage or partial evidence.
 Successful execution, capture completeness and cleanup confirmation remain
 separate facts. Existing stable error codes and persisted records do not change
 with the Python object name.
-# Runtime identity value
+
+## Runtime identity value
 
 `OpenCodeRuntimeIdentity` groups the controller/worker images, profile identity,
 CLI version and existing keyed credential fingerprint. `IsolatedOpenCode` keeps

@@ -11,6 +11,7 @@ from pathlib import Path
 import tempfile
 import threading
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from urllib import error
@@ -33,6 +34,130 @@ def _result(directory: Path) -> dict:
 
 
 class LeaseServiceTests(unittest.TestCase):
+    def test_loss_cleanup_always_publishes_safe_final_callback_observation(self):
+        self.service.loss_seconds = 60
+        cases = (
+            ("nonbool", (1, "private-cleanup-secret"), False, "cleanup_error"),
+            (
+                "object",
+                (True, SimpleNamespace(secret="private-cleanup-secret")),
+                False,
+                "cleanup_error",
+            ),
+            (
+                "exception-value",
+                (True, RuntimeError("private-cleanup-secret")),
+                False,
+                "cleanup_error",
+            ),
+            ("raises", RuntimeError("private-cleanup-secret"), False, "cleanup_error"),
+            (
+                "json",
+                (True, {"removed": ["owned"], "unknown": None}),
+                True,
+                {"removed": ["owned"], "unknown": None},
+            ),
+            (
+                "json-failed",
+                (False, {"removed": [], "observed": "running"}),
+                False,
+                {"removed": [], "observed": "running"},
+            ),
+        )
+        for name, callback_result, verified, detail in cases:
+            with self.subTest(case=name):
+                lease_dir, secret = self.register("cleanup-" + name)
+                (lease_dir / "heartbeat").write_text(
+                    repr(time.time() - 120), encoding="utf-8"
+                )
+                errors = []
+                options = (
+                    {"side_effect": callback_result}
+                    if isinstance(callback_result, Exception)
+                    else {"return_value": callback_result}
+                )
+                with (
+                    patch.object(self.service, "cleanup", **options),
+                    patch("threading.excepthook", side_effect=errors.append),
+                ):
+                    self.service.tick()
+                    result = _result(lease_dir)
+                self.assertEqual(errors, [])
+                self.assertEqual(result["reason"], "heartbeat_lost")
+                self.assertIs(result["cleanup_verified"], verified)
+                self.assertEqual(result["state"], detail)
+                self.assertFalse(self.service.book.check(secret)[0])
+                self.assertEqual(len(result["revoked_grants"]), 1)
+                self.assertIn("cleanup_finished_at", result)
+                self.assertIn("cleanup_finished_at_monotonic", result)
+                self.assertNotIn(
+                    "private-cleanup-secret",
+                    (lease_dir / "result.json").read_text(encoding="utf-8"),
+                )
+
+    def test_refused_lease_cleanup_always_publishes_safe_final_callback_observation(
+        self,
+    ):
+        cases = (
+            ("nonbool", ("yes", "private-cleanup-secret"), False, "cleanup_error"),
+            (
+                "object",
+                (True, {"nested": SimpleNamespace(secret="private-cleanup-secret")}),
+                False,
+                "cleanup_error",
+            ),
+            (
+                "exception-value",
+                (True, RuntimeError("private-cleanup-secret")),
+                False,
+                "cleanup_error",
+            ),
+            ("raises", RuntimeError("private-cleanup-secret"), False, "cleanup_error"),
+            (
+                "json",
+                (True, {"removed": ["owned"], "unknown": None}),
+                True,
+                {"removed": ["owned"], "unknown": None},
+            ),
+        )
+        for name, callback_result, verified, detail in cases:
+            with self.subTest(case=name):
+                token = "refused-" + name
+                lease_dir = self.state / "leases" / token
+                lease_dir.mkdir(parents=True)
+                # Valid owned identity, but no heartbeat: registration refuses
+                # before dispatch and still must finish its cleanup journal.
+                (lease_dir / "lease.json").write_text(
+                    json.dumps(
+                        {"token": token, "run_id": "run-one", "name": "exact-name"}
+                    ),
+                    encoding="utf-8",
+                )
+                errors = []
+                options = (
+                    {"side_effect": callback_result}
+                    if isinstance(callback_result, Exception)
+                    else {"return_value": callback_result}
+                )
+                with (
+                    patch.object(self.service, "cleanup", **options),
+                    patch("threading.excepthook", side_effect=errors.append),
+                ):
+                    self.service.tick()
+                    result = _result(lease_dir)
+                self.assertEqual(errors, [])
+                self.assertEqual(result["reason"], "refused")
+                self.assertTrue(result["revocation_verified"])
+                self.assertIs(result["cleanup_verified"], verified)
+                self.assertEqual(result["state"], detail)
+                self.assertTrue((lease_dir / "refused.json").exists())
+                self.assertFalse((lease_dir / "accepted.json").exists())
+                self.assertFalse((lease_dir / "grant.secret").exists())
+                self.assertNotIn(
+                    "private-cleanup-secret",
+                    (lease_dir / "result.json").read_text(encoding="utf-8"),
+                )
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

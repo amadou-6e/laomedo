@@ -133,9 +133,7 @@ class LocalGrantAuthority:
             scope=row["scope"],
             expires_at=row["expires_at"],
             limits=WorkGrantLimits(
-                **{
-                    "timeout_seconds": row["timeout_seconds"],
-                    "max_turns": row["max_turns"],
-                }
+                timeout_seconds=row["timeout_seconds"],
+                max_turns=row["max_turns"],
             ),
         ).to_payload()

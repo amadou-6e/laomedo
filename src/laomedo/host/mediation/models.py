@@ -49,8 +49,12 @@ class AuthorizedLeaseScope(BaseModel):
     approval_identity: str = Field(
         description="Existing host-supplied review identity."
     )
-    connection_id: str = Field(description="Safe connection identity, never a token.")
-    connection_generation: int = Field(description="Admitted connection generation.")
+    connection_id: str | None = Field(
+        description="Safe connection identity, explicitly null for existing unconnected approvals."
+    )
+    connection_generation: int | None = Field(
+        description="Admitted connection generation, explicitly null when no connection is bound."
+    )
     target_prs: dict[int, str] = Field(
         description="Exact PR-number to base-branch targets, preserving integer keys."
     )

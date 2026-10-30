@@ -26,11 +26,13 @@ roles. Full signatures and detailed parameter contracts remain in source.
 | `ActivityInvocation` | `models.py` | Validated fields / inherited interface |
 | `Settings` | `settings.py` | `settings_customise_sources` |
 | `ActivityStore` | `store.py` | `__init__`, `db`, `start`, `append`, `bind`, `graph_runs`, `claim_attempt`, `finish`, `runs`, `read` |
-# Shared attempt and usage values
+
+## Shared attempt and usage values
 
 `ActivityAttemptRecord` in `models.py` constructs the common provider attempt
 boundary. `to_record()` preserves optional `fresh_thread` omission and explicit
-null end markers. Provider services retain later lifecycle updates and historical
+null end markers; `to_claude_record()` additionally retains Claude's original
+field order. Provider services retain later lifecycle updates and historical
 readers; a new record does not imply capture completeness.
 
 `TokenUsage` groups the six normalized counters with their existing wire aliases;
