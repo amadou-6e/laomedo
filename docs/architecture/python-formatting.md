@@ -18,6 +18,13 @@ environments, caches, generated build output and private state. It formats
 Python files, not JavaScript, Markdown, patch payloads, embedded code strings
 or immutable JSON graph/execution exports.
 
+Maintained graph templates still need their embedded component code refreshed
+when the source changes. Preserve graph/run identities and unrelated JSON bytes;
+refresh a recognized component source hash only after confirming its original
+hash matches. The strict source/hash splicer in `tools/migrations/` provides these
+checks. Historical execution exports remain untouched. The saved-flow regression
+tests check that maintained templates embed their current component source.
+
 ## Exact historical exceptions
 
 The existing [migration policy](package-layout.md#one-time-migration)
@@ -25,6 +32,8 @@ requires preserving historical execution evidence. A tracked-file audit at
 `4b46032` found the following seven archived experiment sources whose current
 bytes still match SHA-256 values in retained evidence. `force-exclude` protects
 only these exact paths, including when an editor passes them explicitly.
+Their unchanged digests were rechecked against semantic baseline `24cc712` before
+the project-wide formatting pass.
 Existing evidence is not rewritten or resealed, and no experiment directory
 or future file is exempted as a whole. Other historical manifests describe
 their original revision; formatting current maintained copies does not
