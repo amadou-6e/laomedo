@@ -24,7 +24,10 @@ def main():
         time.sleep(60)
     elif mode == "descendant":
         process = subprocess.Popen([sys.executable, __file__, "wait", "60"])
-        Path(sys.argv[2]).write_text(json.dumps({"pid": process.pid, "parent_pid": os.getpid()}), encoding="utf-8")
+        Path(sys.argv[2]).write_text(
+            json.dumps({"pid": process.pid, "parent_pid": os.getpid()}),
+            encoding="utf-8",
+        )
         time.sleep(60)
     else:
         raise ValueError("unknown internal child control")
