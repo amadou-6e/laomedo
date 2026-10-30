@@ -45,9 +45,40 @@ the upstream Langflow license also applies to its patched files.
 The selected LaomedoSkill node exposes Skill files instead of primary Code.
 A read-only Monaco viewer includes nested folder navigation, open-file tabs,
 source search, Markdown preview and binary metadata. The panel snapshots the
-selected ID/revision, clears old data while loading, and handles fixed errors
-with Retry. Opening, browsing or closing never executes the graph or changes a
+selected ID/revision and clears old data while loading. Opening, browsing or closing never executes the graph or changes a
 skill revision. Other component nodes keep the existing Code action.
+
+## Skill inspection failures (PROPOSED / NOT IMPLEMENTED)
+
+The existing file-view dialog will render failures as inline viewer content,
+through the shared `describeNodeFailure` catalogue and reusable `ErrorExplanation`
+body/copy formatter. It will not mount a notification portal, add another modal,
+change notification placement/focus, or offer runner/graph/model/write actions.
+`ErrorExplanation` names the shared descriptive body; `formatErrorCopy` formats
+only that presenter's safe title, explanation, recovery and allowlisted technical
+details. Existing `CopyIcon` supplies the subtle copy affordance. Shared code
+lives under `components/laomedoErrors`; viewer code depends on that boundary.
+
+| User story | Observable acceptance criterion |
+| --- | --- |
+| Open the selected/current revision when inspection fails | Show a plain-language title, explanation and truthful recovery inline; retain the stable code under Technical details; no raw response/payload/trace appears. |
+| Load history or a previous revision when its read fails | Show the same shared explanation in the affected pane; a history failure leaves current files usable and a failed comparison does not show stale files. |
+| Choose a missing, mutable, unsafe or oversized revision | Explain selecting an immutable/available/safe revision or the viewer limit; no blanket Retry or Reload control claims to repair an immutable refusal. |
+| Read fails for an unrecognized external reason | Use a neutral inspection-specific safe fallback with cause unconfirmed; expose only allowlisted diagnostics. Read-only Reload files/history may repeat the same GET, without operation/model rerun. |
+| Change selection or close while a request is pending | Abort the old request; late success/failure cannot overwrite the current selection or reopen dismissed content. |
+| Copy a failure | Existing subtle icon copies the shared safe explanation and technical details, never arbitrary backend bodies or traces; manual text selection remains available if clipboard access fails. |
+
+`Reload files` and `Reload history` refer only to repeating the read of the same
+selection. Known immutable/unsafe/oversized/invalid refusals have no reload
+button. Selecting another revision remains an existing node/dialog navigation
+action. No automatic request replay, editing, graph execution or model call is
+introduced. Summary-source and invalid-operation codes will also get catalogue
+entries based on their actual pre-publication/proposal effects.
+
+Frontend/catalogue tests are internal controls only. Full real-browser normal,
+failure, stale-selection, copy, focus and read-only paths on the final installed
+app remain pending parent-run browser verification and user validation; no
+fixture-based acceptance is claimed by this change.
 
 The optional `laomedo.integrations.langflow.viewer:create_app` backend factory registers
 GET `/api/v1/laomedo/skills/{id}/{sha256-revision}` before the SPA catch-all,
