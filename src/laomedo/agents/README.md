@@ -31,7 +31,7 @@ delegates into `agents/interface/langflow/`. The integration now uses `BaseAgent
 the three concrete `*Agent` names, `HttpAgentBridge`, `AgentHandoffController`,
 `AgentRequest` and `ActivityCapture`. The five HTTP handlers are module-level
 collaborators; `OpenCodeConfig.to_config()` owns the private native configuration.
-Provider pipeline overrides still remain. The next integration replaces distributed
+Provider pipeline overrides still remain. The integration replaces distributed
 Git process helpers with `git/GitCommandRunner`, `GitRepository` and
 `GitWorkingTree`; `AgentWorkspace` owns source admission and preparation, with
 `WorkspacePaths` and `WorkspaceSnapshot` as its canonical data. GitHub workflow
@@ -76,8 +76,9 @@ Migration checkpoints are ordered as follows:
 The trusted HTTP server entrypoint under `host/runner/http/` is an explicit
 composition-boundary exception: it may bind the base Agent implementation, while
 public interface contracts must remain independent of that implementation.
-Workspace tree hashing is an Agent working-state responsibility; repository
-detection and reusable Git invocation belong to the shared Git owner.
+Workspace tree hashing and source admission are Agent working-state responsibilities;
+reusable Git invocation belongs to the shared Git owner. The base's private-state
+repository detection remains in `agents/base/utils.py` during this increment.
 
 ## Module boundary and owning objects
 

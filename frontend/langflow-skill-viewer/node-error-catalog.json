@@ -1736,12 +1736,12 @@
   },
   "git_timeout": {
     "title": "A local Git operation timed out",
-    "description": "The Git command exceeded its deadline and process-tree cleanup was confirmed. A remote effect may still have completed.",
+    "description": "The Git command exceeded its deadline and process-tree cleanup was confirmed. If it contacted a remote, that operation may still have completed.",
     "recovery": "Check the existing run and any remote result before starting new work. Do not blindly repeat a push."
   },
   "git_timeout_cleanup_unverified": {
     "title": "A local Git operation timed out and cleanup is uncertain",
-    "description": "The Git command exceeded its deadline, and the runner could not confirm all related processes stopped. A remote effect may still be active or completed.",
+    "description": "The Git command exceeded its deadline, and the runner could not confirm all related processes stopped. If it contacted a remote, that operation may still be active or completed.",
     "recovery": "Check the existing run, local Git processes and any remote result before continuing. Do not retry a push while its outcome is uncertain."
   }
 }

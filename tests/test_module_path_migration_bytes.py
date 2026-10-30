@@ -11,6 +11,14 @@ from test_module_path_migration import TOOL; from test_module_path_migration imp
 
 
 class MigrationFileTests(unittest.TestCase):
+    def test_changed_code_with_a_stale_twelve_digit_revision_requires_manual_work(self):
+        graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': '0123456789ab'},
+                 'template': {'code': {'value': 'import laomedo.local_runner\n'}}}}}]}
+        source = json.dumps(graph)
+        with self.assertRaisesRegex(migration.ManualMigrationRequired, 'does not match its original source'):
+            migration.migrate_json_source(source)
+        self.assertEqual(json.dumps(graph), source)
+
     def test_unchanged_code_keeps_a_stale_or_external_revision_key_byte_exact(self):
         graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': '0123456789ab'},
                  'template': {'code': {'value': 'answer = "\u03bb"\n'}}}}}]}

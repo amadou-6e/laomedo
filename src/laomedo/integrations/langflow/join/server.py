@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from urllib.parse import urlsplit
 import json
-import laomedo.work_graph.runs.errors as _workflow_errors
+from laomedo.work_graph.runs.errors import LaunchError
 
 
 class JoinServer(ThreadingHTTPServer):
@@ -85,7 +85,7 @@ class JoinServer(ThreadingHTTPServer):
                     return
                 try:
                     action()
-                except _workflow_errors.LaunchError as exc:
+                except LaunchError as exc:
                     category = str(exc)
                     code = (
                         409
@@ -121,11 +121,11 @@ class JoinServer(ThreadingHTTPServer):
                 def perform():
                     length = int(self.headers.get("Content-Length", "0"))
                     if not 0 < length <= 65536:
-                        raise _workflow_errors.LaunchError("invalid_join_body")
+                        raise LaunchError("invalid_join_body")
                     try:
                         payload = json.loads(self.rfile.read(length))
                     except (ValueError, TypeError):
-                        raise _workflow_errors.LaunchError(
+                        raise LaunchError(
                             "invalid_join_body"
                         ) from None
                     if path.path == "/v1/invocations":
@@ -136,7 +136,7 @@ class JoinServer(ThreadingHTTPServer):
                             "stage_id",
                             "runner_body",
                         }:
-                            raise _workflow_errors.LaunchError("invalid_join_body")
+                            raise LaunchError("invalid_join_body")
                         snapshot = controller.start(**payload)
                         self.reply(202, self.presented(snapshot))
                         return

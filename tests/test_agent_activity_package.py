@@ -16,5 +16,6 @@ class AgentActivityPackageTests(unittest.TestCase):
     def test_capture_uses_canonical_globals(self):
         from laomedo.agents.activity.capture import ActivityCapture
         component = SimpleNamespace(runner_url="http://localhost:1", timeout_seconds=1)
-        with patch("laomedo.agents.activity.utils.capture_for", return_value=None):
+        with patch("laomedo.agents.activity.capture.capture_for", return_value=None) as capture:
             self.assertIsNone(ActivityCapture(component).capture)
+        capture.assert_called_once_with(component)

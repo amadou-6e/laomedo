@@ -1079,6 +1079,7 @@
   "laomedo.host_services.make_grant_stage_resolver": "laomedo.host.publication.verified.utils.make_grant_stage_resolver",
   "laomedo.host_services.serve_services": "laomedo.host.host_services.serve_services",
   "laomedo.host_token_connection.HostTokenConnection": "laomedo.host.credentials.token.connection.HostTokenConnection",
+  "laomedo.integrations.langflow.agent.errors.RunnerResultError": "laomedo.agents.interface.langflow.errors.RunnerResultError",
   "laomedo.integrations.langflow.langflow_join.LangflowJoinController": "laomedo.integrations.langflow.join.controller.LangflowJoinController",
   "laomedo.integrations.langflow.langflow_join.LaunchError": "laomedo.work_graph.runs.errors.LaunchError",
   "laomedo.integrations.langflow.langflow_join.WorkflowRunStore": "laomedo.work_graph.runs.store.WorkflowRunStore",

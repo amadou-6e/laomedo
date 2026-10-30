@@ -149,9 +149,23 @@ def migrate_source(source: str) -> str:
 
         imported_modules = {item.asname or item.name: item.name for node in ast.walk(tree)
                             if isinstance(node, ast.Import) for item in node.names}
+        imported_modules.update({item.asname or item.name: node.module + "." + item.name
+                                 for node in ast.walk(tree)
+                                 if isinstance(node, ast.ImportFrom) and node.module and not node.level
+                                 for item in node.names})
+
+        def imported_reference(node):
+            """Resolve module aliases without evaluating arbitrary saved Python."""
+            if isinstance(node, ast.Name):
+                return imported_modules.get(node.id, "")
+            if isinstance(node, ast.Attribute):
+                parent = imported_reference(node.value)
+                return parent + "." + node.attr if parent else ""
+            return ""
+
         for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-                full = imported_modules.get(node.value.id, "") + "." + node.attr
+            if isinstance(node, ast.Attribute):
+                full = imported_reference(node)
                 if full in MANUAL_SYMBOLS:
                     raise ManualMigrationRequired(full + ": " + MANUAL_SYMBOLS[full])
         for node in ast.walk(tree):
@@ -550,6 +564,10 @@ def _component_hash_updates(value):
                     "Unknown component code hash format; manual component-revision migration is required"
                 )
             continue
+        if existing != sha256(code.encode("utf-8")).hexdigest()[:12]:
+            raise ManualMigrationRequired(
+                "Component code hash does not match its original source; manual component-revision migration is required"
+            )
         path = prefix + ("nodes", index, "data", "node", "metadata", "code_hash")
         updates[path] = sha256(migrated.encode("utf-8")).hexdigest()[:12]
     return updates

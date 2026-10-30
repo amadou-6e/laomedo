@@ -6,7 +6,7 @@ or grant-issuing endpoint. The normal runner's behavior remains unchanged.
 
 from copy import deepcopy
 import json
-import laomedo.agents.interface.output.utils as _contracts_output
+from laomedo.agents.interface.output.utils import evaluate_envelope
 import laomedo.host.mediation.errors as _mediation_errors
 import math
 import threading
@@ -100,7 +100,7 @@ class PublicationController:
                     "evidence_complete": record.get("evidence_complete", "unknown"),
                     "requirements_revision": record.get("requirements_revision"),
                 }
-                checked = _contracts_output.evaluate_envelope(
+                checked = evaluate_envelope(
                     record["output_requirements"], envelope
                 )
                 if (

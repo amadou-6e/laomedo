@@ -15,8 +15,9 @@ A controller and optional executor span the attempt and output corrections. Nati
 | `recover_interrupted(record)` | Reconcile exact recorded resources, without replaying execution. |
 | `_execute(...)` | Protected provider hook, currently a pipeline override awaiting consolidation. |
 
-Native `activity/` and authentication under `auth/` (where implemented) belong
-to this provider. `settings.py` owns protocol pins/configuration; `models.py`
+Native `activity/` belongs to this provider. Codex's ChatGPT connection and secure
+storage remain host-owned under `host/credentials/siwc`; no provider `auth/`
+package is implied. `settings.py` owns protocol pins/configuration; `models.py`
 owns structured values where present. No empty auth/model modules are required
 for symmetry. Provider-independent secure storage, grants and Docker mechanics
 retain their shared owners. Sibling provider imports are forbidden.

@@ -13,6 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PackageLayoutTests(unittest.TestCase):
+    def test_retired_module_files_cannot_return_even_in_an_editable_checkout(self):
+        retired = json.loads((ROOT/'tools/migrations/module-paths.json').read_text())
+        self.assertTrue(retired)
+        for name in retired:
+            path = package_root().parent.joinpath(*name.split('.')).with_suffix('.py')
+            self.assertFalse(path.exists(), name)
+
     def test_installed_package_has_no_retired_python_modules(self):
         """Catch stale build output copied into an otherwise successful wheel."""
         source = ROOT.joinpath("src/laomedo")

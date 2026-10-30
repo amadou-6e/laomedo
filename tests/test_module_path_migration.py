@@ -138,6 +138,8 @@ class ModuleMigrationTests(unittest.TestCase):
             'from laomedo.agents.workspaces.git import _bounded_git\n',
             'from laomedo.github.transport.git.utils import _credential_environment\n',
             'import laomedo.github_git_transport as git\ngit._run_bounded_tree(args)\n',
+            'from laomedo.github.transport.git import utils as u\nu._run_bounded_tree(args)\n',
+            'from laomedo.github.transport import git as g\ng.utils._run_bounded_tree(args)\n',
         ]
         for source in sources:
             with self.subTest(source=source), self.assertRaises(migration.ManualMigrationRequired):

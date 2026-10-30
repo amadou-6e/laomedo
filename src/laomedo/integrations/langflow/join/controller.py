@@ -7,10 +7,11 @@ unverified executing editor graph and never replays an uncertain native start.""
 from __future__ import annotations
 
 from threading import RLock
-import laomedo.work_graph.runs.errors as _workflow_errors
-import laomedo.work_graph.runs.store as _workflow_store
-import laomedo.work_graph.runs.utils as _workflow_utils
-import laomedo.integrations.langflow.join.utils as _join_utils
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
+from laomedo.work_graph.runs.utils import runner_attempt_terminal
+from laomedo.integrations.langflow.join.utils import _digest
+from laomedo.integrations.langflow.join.utils import _uuid
 
 
 class LangflowJoinController:
@@ -22,7 +23,7 @@ class LangflowJoinController:
     """
 
     def __init__(
-        self, store: _workflow_store.WorkflowRunStore, runner, resolve_saved_flow
+        self, store: WorkflowRunStore, runner, resolve_saved_flow
     ):
         if not callable(resolve_saved_flow):
             raise ValueError("flow_resolver_required")
@@ -30,7 +31,7 @@ class LangflowJoinController:
         self.runner = runner
         self.provider = getattr(runner, "provider", "codex")
         if self.provider not in {"codex", "claude"}:
-            raise _workflow_errors.LaunchError("unsupported_join_provider")
+            raise LaunchError("unsupported_join_provider")
         self.resolve_saved_flow = resolve_saved_flow
         self._cancel_lock = RLock()
 
@@ -52,18 +53,18 @@ class LangflowJoinController:
             or exported.get("id") != flow_id
             or not isinstance(exported.get("data"), dict)
         ):
-            raise _workflow_errors.LaunchError("saved_flow_identity_mismatch")
+            raise LaunchError("saved_flow_identity_mismatch")
         graph = exported["data"]
         nodes = graph.get("nodes")
         if not isinstance(nodes, list) or not nodes:
-            raise _workflow_errors.LaunchError("unresolved_saved_graph")
+            raise LaunchError("unresolved_saved_graph")
         codes = {}
         for node in nodes:
             try:
                 node_id = node["id"]
                 code = node["data"]["node"]["template"]["code"]["value"]
             except (KeyError, TypeError):
-                raise _workflow_errors.LaunchError(
+                raise LaunchError(
                     "unresolved_component_identity"
                 ) from None
             if (
@@ -73,10 +74,10 @@ class LangflowJoinController:
                 or not code.strip()
                 or node_id in codes
             ):
-                raise _workflow_errors.LaunchError("unresolved_component_identity")
+                raise LaunchError("unresolved_component_identity")
             codes[node_id] = code
         if stage_id not in codes:
-            raise _workflow_errors.LaunchError("stage_not_in_saved_flow")
+            raise LaunchError("stage_not_in_saved_flow")
         return graph, codes
 
     def _snapshot(self, client_id):
@@ -101,7 +102,7 @@ class LangflowJoinController:
 
     def status(self, client_request_id):
         """Read native status; a pending Stop may reconcile and cancel exactly once."""
-        client_request_id = _join_utils._uuid(
+        client_request_id = _uuid(
             client_request_id, "invalid_client_request_id"
         )
         snapshot = self._snapshot(client_request_id)
@@ -117,13 +118,13 @@ class LangflowJoinController:
         try:
             native = self.runner.status(snapshot["runner_run_id"])
         except Exception as exc:
-            raise _workflow_errors.LaunchError("runner_status_unknown") from exc
+            raise LaunchError("runner_status_unknown") from exc
         if (
             not isinstance(native, dict)
             or native.get("run_id") != snapshot["runner_run_id"]
         ):
-            raise _workflow_errors.LaunchError("runner_status_identity_mismatch")
-        if _workflow_utils.runner_attempt_terminal(native):
+            raise LaunchError("runner_status_identity_mismatch")
+        if runner_attempt_terminal(native):
             self.store.record_runner_terminal(
                 snapshot["run_id"],
                 snapshot["invocation_id"],
@@ -144,7 +145,7 @@ class LangflowJoinController:
 
     def start(self, *, client_request_id, flow_id, graph_run_id, stage_id, runner_body):
         """Persist a unique reservation before one native async start request."""
-        client_request_id = _join_utils._uuid(
+        client_request_id = _uuid(
             client_request_id, "invalid_client_request_id"
         )
         if (
@@ -159,9 +160,9 @@ class LangflowJoinController:
             or not runner_body["task"].strip()
             or "request_id" in runner_body
         ):
-            raise _workflow_errors.LaunchError("invalid_langflow_start")
+            raise LaunchError("invalid_langflow_start")
         body = dict(runner_body)
-        client_hash = _join_utils._digest(
+        client_hash = _digest(
             {
                 "flow_id": flow_id,
                 "graph_run_id": graph_run_id,
@@ -172,7 +173,7 @@ class LangflowJoinController:
         prior = self.store.langflow_client_snapshot(client_request_id)
         if prior is not None:
             if prior["client_request_hash"] != client_hash:
-                raise _workflow_errors.LaunchError("client_request_identity_conflict")
+                raise LaunchError("client_request_identity_conflict")
             return self.status(client_request_id)
         exported = self.resolve_saved_flow(flow_id)
         graph, codes = self._saved_graph(exported, flow_id, stage_id)
@@ -189,7 +190,7 @@ class LangflowJoinController:
         )
         run_id = run["run_id"]
         invocation_id = self.store.reserve_invocation(run_id, stage_id)
-        request_hash = _join_utils._digest(body)
+        request_hash = _digest(body)
         self.store.freeze_runner_request(
             run_id, invocation_id, request_hash, provider=self.provider
         )
@@ -214,7 +215,7 @@ class LangflowJoinController:
                 run_id, invocation_id, category="runner_transport_error"
             )
             self._reconcile_stop_after_failure(client_request_id)
-            raise _workflow_errors.LaunchError("runner_start_unknown") from exc
+            raise LaunchError("runner_start_unknown") from exc
         if (
             not isinstance(ack, dict)
             or ack.get("client_request_id") != invocation_id
@@ -225,7 +226,7 @@ class LangflowJoinController:
                 run_id, invocation_id, category="runner_ack_identity_mismatch"
             )
             self._reconcile_stop_after_failure(client_request_id)
-            raise _workflow_errors.LaunchError("runner_ack_identity_mismatch")
+            raise LaunchError("runner_ack_identity_mismatch")
         try:
             self.store.bind_runner_ack(
                 run_id,
@@ -235,7 +236,7 @@ class LangflowJoinController:
                 runner_run_id=ack.get("run_id"),
                 raw_event_ref=ack.get("raw_event_ref"),
             )
-        except _workflow_errors.LaunchError:
+        except LaunchError:
             self.store.record_runner_failure(
                 run_id, invocation_id, category="runner_binding_conflict"
             )
@@ -250,7 +251,7 @@ class LangflowJoinController:
 
     def cancel(self, client_request_id):
         """Retain Stop before ack; reconcile only by read-only native lookup."""
-        client_request_id = _join_utils._uuid(
+        client_request_id = _uuid(
             client_request_id, "invalid_client_request_id"
         )
         row = self.store.request_langflow_cancel(client_request_id)
@@ -274,14 +275,14 @@ class LangflowJoinController:
                             **self._snapshot(client_request_id),
                             "status": "cancel_pending_runner_lookup",
                         }
-                    raise _workflow_errors.LaunchError("runner_lookup_unknown") from exc
+                    raise LaunchError("runner_lookup_unknown") from exc
                 if (
                     not isinstance(found, dict)
                     or found.get("client_request_id") != invocation_id
                     or found.get("request_hash") != row["runner_request_hash"]
                     or found.get("provider") != self.provider
                 ):
-                    raise _workflow_errors.LaunchError("runner_lookup_mismatch")
+                    raise LaunchError("runner_lookup_mismatch")
                 self.store.bind_runner_ack(
                     run_id,
                     invocation_id,
@@ -292,7 +293,7 @@ class LangflowJoinController:
                 )
                 runner_run_id = found["run_id"]
             status = self.runner.status(runner_run_id)
-            if _workflow_utils.runner_attempt_terminal(status):
+            if runner_attempt_terminal(status):
                 self.store.record_runner_observation(
                     run_id,
                     invocation_id,

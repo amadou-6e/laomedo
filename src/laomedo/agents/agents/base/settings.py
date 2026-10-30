@@ -3,12 +3,6 @@
 MAX_BODY = 64 * 1024
 
 
-
-
-
-
-
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

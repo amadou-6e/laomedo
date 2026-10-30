@@ -257,3 +257,8 @@ in comments or docstrings. Review those references manually; the tool never
 guesses a new object call signature. Unchanged component code leaves its revision
 key untouched. Changed code uses the pinned LFX hash, checked against the actual
 `lfx.custom.utils._generate_code_hash` implementation in the Langflow suite.
+
+Direct-symbol imports also change private monkeypatch bindings. Patch the name
+where a consumer uses it, for example `agents.activity.capture.capture_for`, not
+the original utility module's `capture_for`. Public component/error import paths
+remain explicit delegates; they do not proxy private test bindings.

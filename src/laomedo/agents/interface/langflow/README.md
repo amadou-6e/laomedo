@@ -16,3 +16,10 @@ discovery stay outside the Agent module. Failure presentation preserves catalogu
 codes and safe identities; an acknowledged request is not a completed execution.
 Known embedded source revisions need backed-up migration; unknown consumers are
 not declared compatible merely because this entrypoint exists.
+
+`errors.py` defines `RunnerResultError`: an invocation failure retaining the safe
+run reference for recovery. The established graph-side error import re-exports
+that same class. The adapter explicitly calls the graph-owned
+`integrations/langflow/output/utils.downstream_requirements` hook when inspecting
+its outgoing graph connections; generic output validation remains in the public
+Agent output contract. The public contract models do not import graph machinery.

@@ -237,7 +237,7 @@ class WorkGraphLaunchTests(unittest.TestCase):
             graph_snapshot=self.frozen,
             expires_at=expiry,
             timeout_seconds=30, max_turns=0)
-        with patch("laomedo.work_graph.grant_utils._host_principal", return_value="other-user"):
+        with patch("laomedo.work_graph.grants._host_principal", return_value="other-user"):
             with self.assertRaisesRegex(LaunchError, "grant_operator_mismatch"):
                 authority(ref, binding)
         record, result = launch_work_stage(frozen=self.frozen,

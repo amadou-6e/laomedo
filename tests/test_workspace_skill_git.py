@@ -145,9 +145,11 @@ class WorkspaceSkillGitTests(unittest.TestCase):
         with patch('laomedo.skills.workspace.utils._is_link',
                    side_effect=lambda path: path.name == '.agents'), patch(
                 'laomedo.skills.workspace.utils.inventory') as read, patch.object(
-                runner, '_open_server') as server:
+                runner, '_open_server') as server, patch(
+                'laomedo.agents.agents.base.agent.inventory') as baseline_read:
             result = runner._execute(record['run_id'], 'fixture', resume=False)
         read.assert_not_called()
+        baseline_read.assert_not_called()
         server.assert_not_called()
         self.assertEqual(result['error_category'], 'unsafe_materialized_skill_path')
 
