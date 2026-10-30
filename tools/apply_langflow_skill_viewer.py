@@ -80,6 +80,12 @@ def apply(checkout):
     )
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
+    (target / "SkillFilesModal.test.tsx").write_text(
+        (overlay / "SkillFilesModal.test.tsx")
+        .read_text(encoding="utf-8")
+        .replace('from "./SkillFilesModal"', 'from "./index"'),
+        encoding="utf-8",
+    )
     shutil.copy2(overlay / "SkillActions.tsx", target / "SkillActions.tsx")
     shutil.copy2(overlay / "SkillActions.test.tsx", target / "SkillActions.test.tsx")
     shutil.copy2(overlay / "SkillNavigation.tsx", target / "SkillNavigation.tsx")
@@ -92,6 +98,13 @@ def apply(checkout):
     shutil.copy2(overlay / "SkillFileDiff.test.tsx", target / "SkillFileDiff.test.tsx")
     shutil.copy2(overlay / "SkillHistory.tsx", target / "SkillHistory.tsx")
     shutil.copy2(overlay / "SkillHistory.test.tsx", target / "SkillHistory.test.tsx")
+    shutil.copy2(
+        overlay / "SkillInspectionError.tsx", target / "SkillInspectionError.tsx"
+    )
+    shutil.copy2(
+        overlay / "SkillInspectionError.test.tsx",
+        target / "SkillInspectionError.test.tsx",
+    )
     shutil.copy2(overlay / "SkillSplitPane.tsx", target / "SkillSplitPane.tsx")
     shutil.copy2(
         overlay / "SkillSplitPane.test.tsx", target / "SkillSplitPane.test.tsx"
@@ -162,6 +175,7 @@ def apply(checkout):
         "nodeErrors.test.ts",
         "NodeErrorNotice.test.tsx",
         "ErrorPopup.tsx",
+        "ErrorExplanation.tsx",
         "ErrorPopup.test.tsx",
         "ErrorAlertMigration.test.tsx",
         "ApplicationErrorPopup.tsx",

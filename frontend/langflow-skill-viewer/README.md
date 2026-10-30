@@ -48,9 +48,9 @@ source search, Markdown preview and binary metadata. The panel snapshots the
 selected ID/revision and clears old data while loading. Opening, browsing or closing never executes the graph or changes a
 skill revision. Other component nodes keep the existing Code action.
 
-## Skill inspection failures (PROPOSED / NOT IMPLEMENTED)
+## Skill inspection failures
 
-The existing file-view dialog will render failures as inline viewer content,
+The existing file-view dialog renders failures as inline viewer content,
 through the shared `describeNodeFailure` catalogue and reusable `ErrorExplanation`
 body/copy formatter. It will not mount a notification portal, add another modal,
 change notification placement/focus, or offer runner/graph/model/write actions.
@@ -72,8 +72,14 @@ lives under `components/laomedoErrors`; viewer code depends on that boundary.
 selection. Known immutable/unsafe/oversized/invalid refusals have no reload
 button. Selecting another revision remains an existing node/dialog navigation
 action. No automatic request replay, editing, graph execution or model call is
-introduced. Summary-source and invalid-operation codes will also get catalogue
-entries based on their actual pre-publication/proposal effects.
+introduced. Summary-source and invalid-operation codes have catalogue
+entries based on their actual pre-publication/proposal effects. `describeInspectionFailure`
+reads only the public response code and delegates to the shared presenter. Unknown
+codes retain safe diagnostics but use the neutral read-only viewer explanation.
+Edit-attribution and missing-agent-provenance codes also have descriptive entries;
+no admission or operation behavior changes. Existing operation HTTP wrappers
+still collapse refused proposals to `skill_operation_refused`; catalogue coverage
+does not claim that those wrappers expose the original inner code.
 
 Frontend/catalogue tests are internal controls only. Full real-browser normal,
 failure, stale-selection, copy, focus and read-only paths on the final installed

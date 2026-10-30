@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/controllers/API/api";
 import { getBaseUrl } from "@/customization/utils/urls";
 import SkillFileDiff from "./SkillFileDiff";
+import SkillInspectionError, { describeInspectionFailure } from "./SkillInspectionError";
+import type { NodeFailure } from "@/components/laomedoErrors/nodeErrors";
 
 export type Commit = { commit_id: string; parent_commit: string | null; revision_id: string;
   message: string; created_at: string; editor: Record<string, string>; policy_ref?: Record<string, string> };
@@ -17,18 +19,18 @@ export default function CommitTree({ skillId, revision, selected, onSelect }: {
   const [cursor, setCursor] = useState("");
   const [next, setNext] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<NodeFailure | null>(null);
   const [reload, setReload] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError(false);
+    setLoading(true); setError(null);
     if (!cursor) setItems([]);
     const url = `${getBaseUrl()}laomedo/skills/${encodeURIComponent(skillId)}/${encodeURIComponent(revision)}/history`;
     api.get<History>(url, { params: { before: cursor }, signal: controller.signal }).then(({ data }) => {
       if (controller.signal.aborted) return;
       if (data.skill_id !== skillId || data.selected_revision !== revision || !Array.isArray(data.commits)) throw new Error();
       setItems((old) => cursor ? [...old, ...data.commits] : data.commits); setNext(data.next);
-    }).catch(() => { if (!controller.signal.aborted) setError(true); })
+    }).catch((failure) => { if (!controller.signal.aborted) setError(describeInspectionFailure(failure, "skill_history_unavailable")); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [skillId, revision, cursor, reload]);
@@ -51,7 +53,7 @@ export default function CommitTree({ skillId, revision, selected, onSelect }: {
       </button>
     </li>)}</ol>
     {loading && <p role="status" className="p-2 text-sm">Loading commits…</p>}
-    {error && <div role="alert" className="p-2 text-sm">History unavailable. <button type="button" onClick={() => setReload(reload + 1)}>Retry</button></div>}
+    {error && <SkillInspectionError failure={error} onReload={() => setReload((value) => value + 1)} reloadLabel="Reload history" />}
     {!loading && !error && !items.length && <p className="p-2 text-sm">No operation history for this skill.</p>}
     {!loading && !error && next && <button type="button" className="m-2 text-sm underline" onClick={() => setCursor(next)}>Load older</button>}
   </nav>;
@@ -63,18 +65,18 @@ export function RevisionDiff({ skillId, revision, commit, path, current, onFiles
 }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<NodeFailure | null>(null);
   const [reload, setReload] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    setSnapshot(null); setError(false); setLoading(true); onFiles([]);
+    setSnapshot(null); setError(null); setLoading(true); onFiles([]);
     const url = `${getBaseUrl()}laomedo/skills/${encodeURIComponent(skillId)}/${encodeURIComponent(commit.revision_id)}`;
     api.get<Snapshot>(url, { signal: controller.signal }).then(({ data }) => {
       if (controller.signal.aborted) return;
       if (data.schema_version !== "laomedo.skill-inspection.v1" || data.skill_id !== skillId ||
           data.revision_id !== commit.revision_id || data.tree_hash !== commit.revision_id) throw new Error();
       setSnapshot(data); onFiles(data.files);
-    }).catch(() => { if (!controller.signal.aborted) setError(true); })
+    }).catch((failure) => { if (!controller.signal.aborted) setError(describeInspectionFailure(failure)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [skillId, revision, commit.commit_id, commit.revision_id, reload, onFiles]);
@@ -93,7 +95,7 @@ export function RevisionDiff({ skillId, revision, commit, path, current, onFiles
       </details>
     </div>
     {loading && <p role="status" className="p-4">Loading comparison…</p>}
-    {error && <div role="alert" className="p-4">Comparison unavailable. <button type="button" onClick={() => setReload(reload + 1)}>Retry</button></div>}
+    {error && <SkillInspectionError failure={error} onReload={() => setReload((value) => value + 1)} reloadLabel="Reload files" />}
     {ready && <SkillFileDiff key={`${commit.commit_id}:${path}`} path={path} original={original} current={current} />}
   </section>;
 }

@@ -42,16 +42,28 @@ let browser;
  await expect(page.getByText('Preview unavailable for binary files.',{exact:false})).toBeVisible();
  await page.getByRole('button',{name:'Close image.bin',exact:true}).click();
  await expect(page.locator('.monaco-editor .view-lines')).toContainText('must never execute');
- // Fixed-error/retry path through the real node UI, without stale file contents.
+ // Internal fixture harness only; not owner/live integration acceptance.
+ // Immutable refusal has descriptive details and no futile reload.
  await page.keyboard.press('Escape');
  await page.route('**/api/v1/laomedo/skills/**',r=>r.fulfill({status:404,contentType:'application/json',body:JSON.stringify({detail:{code:'skill_revision_unavailable'}})}));
  await node.click();
  await page.getByTestId('skill-files-button').click();
- await expect(page.getByRole('alert')).toContainText('skill_revision_unavailable');
+ await expect(page.getByRole('heading',{name:'The selected skill revision is unavailable'})).toBeVisible();
+ await expect(page.getByRole('button',{name:/^(Retry|Reload files)$/})).toHaveCount(0);
  await expect(page.getByTestId('skill-file-source')).toHaveCount(0);
  await page.unroute('**/api/v1/laomedo/skills/**');
- await page.getByRole('button',{name:'Retry',exact:true}).click();
-
+ await page.keyboard.press('Escape');
+ await node.click(); await page.getByTestId('skill-files-button').click();
+ await expect(page.getByRole('alert')).toHaveCount(0,{timeout:30000});
+ await expect(page.locator('.monaco-editor .view-lines')).toContainText('Read-only searchable phrase.',{timeout:30000});
+ // Unknown read failure can repeat only the same GET after restoration.
+ await page.keyboard.press('Escape');
+ await page.route('**/api/v1/laomedo/skills/**',r=>r.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:{code:'future_inspection_condition',trace:'private-body'}})}));
+ await node.click(); await page.getByTestId('skill-files-button').click();
+ await expect(page.getByRole('heading',{name:'Skill files could not be loaded'})).toBeVisible();
+ await expect(page.getByRole('alert')).not.toContainText('private-body');
+ await page.unroute('**/api/v1/laomedo/skills/**');
+ await page.getByRole('button',{name:'Reload files',exact:true}).click();
  await expect(page.getByRole('alert')).toHaveCount(0,{timeout:30000});
  await expect(page.locator('.monaco-editor .view-lines')).toContainText('Read-only searchable phrase.',{timeout:30000});
  await page.keyboard.press('Escape');
