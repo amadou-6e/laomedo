@@ -81,6 +81,13 @@ The shared code filter rejects unknown credential-prefixed values (`sk_`,
 Exact catalogue codes and admitted native timeout codes retain priority; ordinary
 safe unknown machine codes remain inspectable. Internal prefix-only sentinels
 exercise shared text/structured errors and the viewer's DOM/copy boundary.
+Comparison read failures use the comparison-specific fallback, including when
+the response has no code or an unknown safe code. Its recovery refers to the
+existing Current source/history controls; Reload files repeats only that
+historical revision read. Copied explanations retain this comparison context.
+Node identifiers use the same credential-prefix exclusion as unknown codes,
+before they can appear in Technical details or copied explanations. This does
+not change the deliberate safe unknown-code policy described above.
 Edit-attribution and missing-agent-provenance codes also have descriptive entries;
 no admission or operation behavior changes. Existing operation HTTP wrappers
 still collapse refused proposals to `skill_operation_refused`; catalogue coverage

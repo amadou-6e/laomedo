@@ -76,7 +76,7 @@ export function RevisionDiff({ skillId, revision, commit, path, current, onFiles
       if (data.schema_version !== "laomedo.skill-inspection.v1" || data.skill_id !== skillId ||
           data.revision_id !== commit.revision_id || data.tree_hash !== commit.revision_id) throw new Error();
       setSnapshot(data); onFiles(data.files);
-    }).catch((failure) => { if (!controller.signal.aborted) setError(describeInspectionFailure(failure)); })
+    }).catch((failure) => { if (!controller.signal.aborted) setError(describeInspectionFailure(failure, "skill_comparison_unavailable")); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [skillId, revision, commit.commit_id, commit.revision_id, reload, onFiles]);

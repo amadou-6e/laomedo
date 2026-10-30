@@ -208,3 +208,12 @@ test("credential-prefix filtering preserves admitted catalogue, native timeout a
  expect(describeNodeFailure("request_timeout:session/new", undefined).diagnostics.code).toBe("request_timeout:session/new");
  expect(describeNodeFailure("future_inspection_condition", undefined).diagnostics.code).toBe("future_inspection_condition");
 });
+
+test.each(["sk_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"]
+ .flatMap(prefix => [prefix + "a".repeat(36), prefix.toUpperCase() + "A".repeat(36)]))(
+ "credential-shaped node identifiers are redacted from shared diagnostics: %s", nodeId => {
+  const failure = describeNodeFailure("skill_operation_invalid", undefined, { nodeId });
+  expect(failure.diagnostics.code).toBe("skill_operation_invalid");
+  expect(failure.diagnostics.node_id).toBeUndefined();
+  expect(JSON.stringify(failure)).not.toContain(nodeId);
+ });
