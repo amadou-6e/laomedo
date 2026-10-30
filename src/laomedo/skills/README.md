@@ -47,3 +47,13 @@ under their existing owners; no common handler base or forwarding layer is added
 Application callers use defining modules in interface; only explicit CLI startup
 loads host/native composition. Source-domain fixed policy remains source-owned.
 Current checkpoint status and migration constraints are in `interface/README.md`.
+
+
+## Registry helper ownership
+
+The registry README defines the Store/reference/revision/draft vocabulary and
+method contract before its D1 split. Path admission, exact hashing, filesystem
+record I/O, policy checks and patch rendering have separate function-only owners
+under `registry/`; no service or model facade is introduced. Existing canonical
+Pydantic records and atomic SkillOperations transactions remain intact. Source
+Git behavior and Agent workspace ownership are separate later checkpoints.
