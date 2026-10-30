@@ -2,6 +2,9 @@
 
 The same in-memory graph whose executable vertices are checked is dispatched.
 Posting a flow ID to Langflow's run API would load mutable saved flow state again.
+The pinned upstream umbrella depends on langflow-base, which supplies the app
+and depends on lfx. Either app distribution is admitted, with all present app
+distributions and lfx required to match the pinned version.
 """
 
 from copy import deepcopy
@@ -16,6 +19,28 @@ PINNED_LANGFLOW = "1.12.3"
 
 
 class FrozenLangflowStage:
+    @staticmethod
+    def _require_pinned_runtime():
+        """Admit the pinned base app or umbrella and reject mixed revisions."""
+        found_app = False
+        missing_app = None
+        for distribution in ("langflow", "langflow-base"):
+            try:
+                installed_version = version(distribution)
+            except PackageNotFoundError as exc:
+                missing_app = exc
+                continue
+            found_app = True
+            if installed_version != PINNED_LANGFLOW:
+                raise LaunchError("unsupported_langflow_revision")
+        if not found_app:
+            raise LaunchError("langflow_runtime_unavailable") from missing_app
+        try:
+            if version("lfx") != PINNED_LANGFLOW:
+                raise LaunchError("unsupported_langflow_revision")
+        except PackageNotFoundError as exc:
+            raise LaunchError("langflow_runtime_unavailable") from exc
+
     @classmethod
     def from_saved_flow(cls, flow_id, fetch_export):
         """Fetch one saved revision immediately before building its graph."""
@@ -27,14 +52,7 @@ class FrozenLangflowStage:
         return cls(exported)
 
     def __init__(self, exported_flow):
-        try:
-            if (
-                version("langflow") != PINNED_LANGFLOW
-                or version("lfx") != PINNED_LANGFLOW
-            ):
-                raise LaunchError("unsupported_langflow_revision")
-        except PackageNotFoundError as exc:
-            raise LaunchError("langflow_runtime_unavailable") from exc
+        self._require_pinned_runtime()
         if not isinstance(exported_flow, dict):
             raise LaunchError("unresolved_graph_identity")
         self.export = deepcopy(exported_flow)

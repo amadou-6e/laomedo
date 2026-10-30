@@ -53,6 +53,59 @@ def field(flow, node_id, name):
     ]["node"]["template"][name]
 
 
+class LangflowRuntimeAdmissionTests(unittest.TestCase):
+    """Metadata doubles check rejection categories, not real graph acceptance."""
+
+    def test_runtime_distribution_admission_precedes_graph_construction(self):
+        cases = (
+            ({"langflow": "1.12.3", "lfx": "1.12.3"}, "unresolved_graph_identity"),
+            (
+                {"langflow-base": "1.12.3", "lfx": "1.12.3"},
+                "unresolved_graph_identity",
+            ),
+            (
+                {"langflow": "1.12.3", "langflow-base": "1.12.3", "lfx": "1.12.3"},
+                "unresolved_graph_identity",
+            ),
+            ({}, "langflow_runtime_unavailable"),
+            ({"lfx": "1.12.3"}, "langflow_runtime_unavailable"),
+            ({"langflow": "1.12.3"}, "langflow_runtime_unavailable"),
+            ({"langflow-base": "1.12.3"}, "langflow_runtime_unavailable"),
+            ({"langflow": "1.12.2"}, "unsupported_langflow_revision"),
+            ({"langflow-base": "1.12.2"}, "unsupported_langflow_revision"),
+            (
+                {"langflow": "1.12.3", "langflow-base": "1.12.2", "lfx": "1.12.3"},
+                "unsupported_langflow_revision",
+            ),
+            (
+                {"langflow": "1.12.2", "langflow-base": "1.12.3", "lfx": "1.12.3"},
+                "unsupported_langflow_revision",
+            ),
+            (
+                {"langflow-base": "1.12.3", "lfx": "1.12.2"},
+                "unsupported_langflow_revision",
+            ),
+            (
+                {"langflow": "1.12.3", "lfx": "1.12.2"},
+                "unsupported_langflow_revision",
+            ),
+        )
+        for installed, expected in cases:
+            with self.subTest(installed=installed):
+
+                def metadata_version(distribution):
+                    if distribution not in installed:
+                        raise PackageNotFoundError(distribution)
+                    return installed[distribution]
+
+                with patch(
+                    "laomedo.integrations.langflow.stage_adapter.version",
+                    side_effect=metadata_version,
+                ):
+                    with self.assertRaisesRegex(LaunchError, "^" + expected + "$"):
+                        FrozenLangflowStage(None)
+
+
 @unittest.skipUnless(
     pinned_runtime_available(), "requires the optional pinned Langflow 1.12.3 runtime"
 )
@@ -187,6 +240,7 @@ class LangflowStageAdapterTests(unittest.TestCase):
                 "grant_id": ref,
                 "operator_authorized": True,
                 "work_key": "github:S-20",
+                "content_digest": binding["selected_content_digest"],
                 "graph_snapshot_id": binding["selected_graph_snapshot_id"],
                 "runner": "langflow-local",
                 "scope": "stage-launch",
