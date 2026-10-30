@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import CommitTree, { RevisionDiff } from "./SkillHistory";
 import { api } from "@/controllers/API/api";
-jest.mock("@/controllers/API/api", () => ({ api: { get: jest.fn() } }));
+jest.mock("@/controllers/API/api", () => ({ api: { get: jest.fn(), post: jest.fn() } }));
 jest.mock("@/customization/utils/urls", () => ({ getBaseUrl: () => "/api/v1/" }));
 const commit = { commit_id: "commit-one", parent_commit: "root", revision_id: "old-tree",
   message: "Clarify two files", created_at: "2026-10-16T00:00:00Z", editor: { kind: "agent", run_id: "run-one" } };
@@ -41,6 +41,36 @@ test("mismatched comparison fails and retries without stale content", async () =
   expect(screen.queryByTestId("visual-diff")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Reload files" }));
   await screen.findByTestId("visual-diff");
+});
+
+test.each([undefined, "future_comparison_condition"])("comparison read failure keeps its context, safe copy and read-only recovery: %s", async (code) => {
+  (api.get as jest.Mock).mockReset();
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  (api.get as jest.Mock).mockRejectedValueOnce({ response: { data: { detail: { code, trace: "private-body" } } } })
+    .mockResolvedValueOnce({ data: compared });
+  render(<RevisionDiff {...props} />);
+  const failure = await screen.findByRole("alert");
+  expect(failure).toHaveTextContent("The skill comparison could not be loaded");
+  expect(failure).toHaveTextContent("Select Current source");
+  expect(failure).toHaveTextContent("choose another revision in the history");
+  expect(screen.getByText("Technical details").closest("details")).not.toHaveAttribute("open");
+  expect(screen.queryByTestId("visual-diff")).toBeNull();
+  expect(onFiles).toHaveBeenCalledWith([]);
+  fireEvent.click(screen.getByRole("button", { name: "Copy error" }));
+  await act(async () => {});
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(writeText.mock.calls[0][0]).toContain("The skill comparison could not be loaded");
+  expect(writeText.mock.calls[0][0]).toContain("Select Current source");
+  expect(writeText.mock.calls[0][0]).toContain(`"code": "${code ?? "skill_comparison_unavailable"}"`);
+  expect(writeText.mock.calls[0][0]).not.toContain("private-body");
+  expect(document.body.textContent).not.toContain("private-body");
+  fireEvent.click(screen.getByRole("button", { name: "Reload files" }));
+  await screen.findByTestId("visual-diff");
+  expect(api.get).toHaveBeenCalledTimes(2);
+  expect((api.get as jest.Mock).mock.calls[0][0]).toBe((api.get as jest.Mock).mock.calls[1][0]);
+  expect((api.get as jest.Mock).mock.calls[1][0]).toContain("/skill/old-tree");
+  expect(api.post).not.toHaveBeenCalled();
 });
 
 test("unmounted revision cannot display a late comparison", async () => {
