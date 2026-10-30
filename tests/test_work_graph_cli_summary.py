@@ -22,13 +22,13 @@ class WorkGraphCliSummaryTests(unittest.TestCase):
                 "graph_revision": "sha256:fixture"}
             with (patch("laomedo.work_graph.models.GraphSnapshot.from_dict",
                         return_value=object()),
-                  patch("laomedo.work_graph.grants.LocalGrantAuthority",
+                  patch("laomedo.work_graph.local_launch.LocalGrantAuthority",
                         return_value=Mock(path=grant_path)),
-                  patch("laomedo.work_graph.grant_utils._private_path",
+                  patch("laomedo.work_graph.local_launch._private_path",
                         return_value=run_path),
-                  patch("laomedo.work_graph.runs.store.WorkflowRunStore"),
+                  patch("laomedo.work_graph.local_launch.WorkflowRunStore"),
                   patch("laomedo.work_graph.client.LangflowLocalClient"),
-                  patch("laomedo.work_graph.launch.launch_github_docker_saved_flow_stage",
+                  patch("laomedo.work_graph.local_launch.launch_github_docker_saved_flow_stage",
                         return_value=(record, "PRIVATE RESULT"))):
                 summary = launch_local_saved_flow(snapshot_path=snapshot,
                     work_key="github:S-20", flow_id="fixture",
