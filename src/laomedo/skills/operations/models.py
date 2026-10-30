@@ -6,6 +6,8 @@ the existing public contract and stable error categories.
 
 from __future__ import annotations
 
+from laomedo.skills.registry.paths import validate_relative_path
+
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
@@ -17,7 +19,6 @@ from typing import Literal
 from laomedo.skills.registry.models import SkillPolicyReference, SkillReference
 import json
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.registry.utils import _safe_relative
 
 
 class FileEdit(BaseModel):
@@ -38,7 +39,7 @@ class FileEdit(BaseModel):
     @field_validator("path")
     @classmethod
     def validate_path(cls, value):
-        return _safe_relative(value)
+        return validate_relative_path(value)
 
     @field_validator("content")
     @classmethod
@@ -106,7 +107,7 @@ class SkillProposal(BaseModel):
         for edit in value["files"]:
             if not isinstance(edit, dict) or set(edit) != {"path", "content"}:
                 raise SkillStoreError("skill_operation_invalid")
-            path = _safe_relative(edit["path"])
+            path = validate_relative_path(edit["path"])
             if (
                 path.casefold() in seen
                 or len(path) > 512

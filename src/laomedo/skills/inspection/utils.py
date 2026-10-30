@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from laomedo.skills.registry.files import is_link
+from laomedo.skills.registry.hashing import file_hashes
+from laomedo.skills.registry.hashing import tree_hash
+
 from pathlib import Path
 import base64
 import json
@@ -9,18 +13,13 @@ import laomedo.skills.inspection.settings as _inspection_settings
 import laomedo.skills.inspection.errors as _inspection_errors
 import laomedo.skills.registry.settings as _registry_settings
 import laomedo.skills.registry.errors as _registry_errors
-import laomedo.skills.registry.utils as _registry_utils
 import os
 import stat
 
 
 def _read_regular(path: Path, limit: int) -> bytes:
     metadata = path.lstat()
-    if (
-        _registry_utils._is_link(path)
-        or not stat.S_ISREG(metadata.st_mode)
-        or metadata.st_nlink != 1
-    ):
+    if is_link(path) or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
         raise _inspection_errors.InspectionError("skill_revision_unsafe")
     descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     with os.fdopen(descriptor, "rb") as stream:
@@ -57,13 +56,13 @@ def inspect_skill(
             folder.parent,
             folder,
         ):
-            if _registry_utils._is_link(path) or not path.is_dir():
+            if is_link(path) or not path.is_dir():
                 raise _inspection_errors.InspectionError("skill_revision_unavailable")
         record = json.loads(_read_regular(folder / "record.json", 64 * 1024))
         if not isinstance(record, dict):
             raise _inspection_errors.InspectionError("skill_revision_unavailable")
         bundle = folder / "bundle"
-        if _registry_utils._is_link(bundle) or not bundle.is_dir():
+        if is_link(bundle) or not bundle.is_dir():
             raise _inspection_errors.InspectionError("skill_revision_unsafe")
         contents = {}
         total = 0
@@ -77,7 +76,7 @@ def inspect_skill(
             ):
                 raise _inspection_errors.InspectionError("skill_revision_too_large")
             for name in directories:
-                if _registry_utils._is_link(Path(parent) / name):
+                if is_link(Path(parent) / name):
                     raise _inspection_errors.InspectionError("skill_revision_unsafe")
             for name in names:
                 path = Path(parent) / name
@@ -93,8 +92,8 @@ def inspect_skill(
             or record.get("skill_id") != skill_id
             or record.get("revision_id") != revision_id
             or record.get("tree_hash") != revision_id
-            or _registry_utils.tree_hash(contents) != revision_id
-            or _registry_utils.file_hashes(contents) != record.get("file_hashes")
+            or tree_hash(contents) != revision_id
+            or file_hashes(contents) != record.get("file_hashes")
         ):
             raise _inspection_errors.InspectionError("skill_revision_unavailable")
         files = []

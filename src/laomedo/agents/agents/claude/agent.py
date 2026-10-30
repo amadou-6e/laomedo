@@ -1,6 +1,9 @@
 """Isolated Claude Code runner with persistent sessions and streamed native events."""
 
 from __future__ import annotations
+
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
 from laomedo.agents.activity.models import ActivityAttemptRecord
 
 from concurrent.futures import Future
@@ -35,8 +38,6 @@ from laomedo.agents.agents.claude.auth.errors import LocalClaudeLoginError
 from laomedo.agents.agents.claude.auth.utils import mirror_login
 from laomedo.host.leases.models import ContainerIdentity
 from laomedo.host.leases.utils import cleanup_exact
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
 from laomedo.skills.workspace.utils import verify
 from laomedo.agents.agents.claude.auth.settings import Settings
 import re

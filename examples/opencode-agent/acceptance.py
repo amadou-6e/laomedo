@@ -1,5 +1,8 @@
 """Bounded private OpenCode Docker acceptance; stdout contains sanitized metadata only."""
 
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
+
 import argparse
 import hashlib
 import json
@@ -19,8 +22,6 @@ from experiments.turn_harness import VerificationOpenCodeRunner as OpenCodeAgent
 from laomedo.agents.agents.opencode.auth.utils import console_provider
 from laomedo.skills.registry.store import SkillStore
 from laomedo.skills.registry.errors import ConflictError
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
 
 IMAGE = "laomedo-opencode-controller:1.18.33"
 IMAGE_ID = "sha256:73313fbaf91940471244ff0efb2442a333de119389875765a63bc168fec181fd"

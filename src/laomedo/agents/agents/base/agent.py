@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from laomedo.skills.registry.files import inventory
+from laomedo.skills.registry.hashing import tree_hash
+
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -42,8 +45,6 @@ from laomedo.agents.workspaces.workspace import AgentWorkspace
 from laomedo.agents.workspaces.models import WorkspacePaths
 from laomedo.host.mediation.errors import MediationError
 from laomedo.skills.registry.store import SkillStore
-from laomedo.skills.registry.utils import inventory
-from laomedo.skills.registry.utils import tree_hash
 from laomedo.skills.workspace.errors import WorkspaceSkillError
 from laomedo.skills.workspace.utils import initialize
 from laomedo.skills.workspace.utils import install

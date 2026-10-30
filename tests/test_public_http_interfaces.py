@@ -78,6 +78,7 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             self.assertIn("-m " + cli, MIGRATION["migrate_source"]("python -m " + old))
 
     def test_example_patch_targets_and_viewer_commands_use_current_interfaces(self):
+        """Cover bare literal patch calls and the source-service command in two viewer docs."""
         for path in ROOT.joinpath("examples").rglob("*.py"):
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
                 if not isinstance(node, ast.Call) or not node.args:
@@ -98,7 +99,7 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             "frontend/langflow-skill-viewer/SOURCE-DEPLOYMENT.md",
             "frontend/langflow-skill-viewer/README.md",
         ):
-            text = ROOT.joinpath(relative).read_text()
+            text = ROOT.joinpath(relative).read_text(encoding="utf-8")
             self.assertIn(current, text, relative)
             self.assertNotIn("laomedo.skills.sources.cli", text, relative)
         target = "laomedo.github.interface.pull_requests.client.pr_request"
@@ -114,10 +115,14 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             f"from {old} import Settings\nvalue = Settings()\n",
             f"import {old} as settings\nvalue = settings.Settings()\n",
             "from laomedo.skills.sources import settings\nvalue = settings.Settings()\n",
+            f"from {old} import Settings, SKIP\nvalue = (Settings(), SKIP)\n",
         ):
             migrated = MIGRATION["migrate_source"](source)
             self.assertIn(new, migrated)
             self.assertEqual(MIGRATION["migrate_source"](migrated), migrated)
+            if "Settings, SKIP" in source:
+                self.assertIn(f"from {old} import SKIP", migrated)
+                self.assertIn(f"from {new} import Settings", migrated)
         for source in (
             f"from {old} import *\n",
             f"import {old} as settings\nvalue = getattr(settings, 'Settings')\n",

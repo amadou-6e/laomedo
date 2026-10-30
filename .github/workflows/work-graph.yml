@@ -43,8 +43,8 @@ jobs:
           python -m unittest discover -s "$GITHUB_WORKSPACE/tests" -v
       - name: Test synthetic EXP-08 skill materialization in checkout
         run: |
-          python -m unittest experiments.exp08.test_probe -v
-          python -m experiments.exp08.probe
+          python tools/run_retained_exp08.py test
+          python tools/run_retained_exp08.py probe
       - name: Test synthetic EXP-05 probe in checkout
         run: |
           python -m unittest experiments.exp05.test_evidence -v

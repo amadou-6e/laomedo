@@ -23,9 +23,10 @@ MODULE_PATHS = json.loads(Path(__file__).with_name("module-paths.json").read_tex
 SYMBOL_PATHS = json.loads(Path(__file__).with_name("symbol-paths.json").read_text())
 MANUAL_SYMBOLS = json.loads(Path(__file__).with_name("manual-symbols.json").read_text())
 CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
-# This module remains a valid domain owner after only its HTTP Settings moves.
-# Its constants must never be redirected to the interface's configuration class.
-SPLIT_MODULES = {"laomedo.skills.sources.settings"}
+# Partial splits preserve the old owner for its remaining members; retired splits
+# require every imported member to resolve to an explicit defining-symbol mapping.
+RETIRED_SPLIT_MODULES = {"laomedo.skills.registry.utils"}
+SPLIT_MODULES = {"laomedo.skills.sources.settings"} | RETIRED_SPLIT_MODULES
 if set(MODULE_PATHS.values()) & set(MODULE_PATHS):
     raise ValueError("Migration map targets must be final modules")
 SYMBOL_PATTERN = re.compile(
@@ -75,7 +76,10 @@ def _is_retired_dotted_reference(reference):
         for module in FINAL_FILE_MODULES
     ):
         return False
-    return any(reference.startswith(old + ".") for old in MODULE_PATHS)
+    return any(reference.startswith(old + ".") for old in MODULE_PATHS) or any(
+        reference == old or reference.startswith(old + ".")
+        for old in RETIRED_SPLIT_MODULES
+    )
 
 
 LAUNCH_FIELDS = {
@@ -200,6 +204,9 @@ def migrate_source(source: str) -> str:
                     full = node.module + "." + item.name
                     if full in SPLIT_MODULES:
                         aliases[item.asname or item.name] = full
+                    if full in RETIRED_SPLIT_MODULES:
+                        changed = True
+                        continue
                     if node.module in SPLIT_MODULES and item.name == "*":
                         raise ManualMigrationRequired(
                             "A star import from a split module requires manual migration to defining symbols"
@@ -269,7 +276,10 @@ def migrate_source(source: str) -> str:
                             )
                         )
                         changed = True
-                    elif node.module in MODULE_PATHS:
+                    elif (
+                        node.module in MODULE_PATHS
+                        or node.module in RETIRED_SPLIT_MODULES
+                    ):
                         raise ManualMigrationRequired(
                             "No safe symbol mapping for "
                             + full
@@ -288,6 +298,14 @@ def migrate_source(source: str) -> str:
             elif isinstance(node, ast.Import):
                 statements, changed = [], False
                 for item in node.names:
+                    if item.name in RETIRED_SPLIT_MODULES:
+                        if not item.asname:
+                            raise ManualMigrationRequired(
+                                "A fully qualified retired split-module import requires manual migration"
+                            )
+                        aliases[item.asname] = item.name
+                        changed = True
+                        continue
                     target = MODULE_PATHS.get(item.name, item.name)
                     statements.append(
                         "import "
@@ -395,10 +413,14 @@ def migrate_source(source: str) -> str:
                         node.args[0]
                     )
                     member = node.args[1]
-                    if original in SPLIT_MODULES and (
-                        not isinstance(member, ast.Constant)
-                        or not isinstance(member.value, str)
-                        or original + "." + member.value in SYMBOL_PATHS
+                    if (
+                        original in RETIRED_SPLIT_MODULES
+                        or original in SPLIT_MODULES
+                        and (
+                            not isinstance(member, ast.Constant)
+                            or not isinstance(member.value, str)
+                            or original + "." + member.value in SYMBOL_PATHS
+                        )
                     ):
                         raise ManualMigrationRequired(
                             "Dynamic access to a relocated split-module member requires manual migration to its defining symbol"
@@ -535,12 +557,25 @@ def migrate_source(source: str) -> str:
                             "from " + target + " import " + name + " as " + alias
                         )
                         replace(node, alias)
-                elif original in MODULE_PATHS:
+                elif original in MODULE_PATHS or original in RETIRED_SPLIT_MODULES:
                     raise ManualMigrationRequired(
                         "No safe attribute mapping for "
                         + full
                         + "; manual migration is required"
                     )
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and aliases.get(node.id) in RETIRED_SPLIT_MODULES
+                and not (
+                    isinstance(parents.get(node), ast.Attribute)
+                    and parents[node].value is node
+                )
+            ):
+                raise ManualMigrationRequired(
+                    "A retired split-module object cannot be passed around; import its defining symbols"
+                )
         for start, end, value in sorted(replacements, reverse=True):
             source = source[:start] + value + source[end:]
         if additional:

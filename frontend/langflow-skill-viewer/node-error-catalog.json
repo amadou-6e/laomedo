@@ -2098,5 +2098,60 @@
     "title": "The handoff bundle could not be read",
     "description": "The local publication stage encountered a filesystem error while reading the run's fixed handoff file. This capture was refused.",
     "recovery": "Check the existing run and publication attempt before starting new work. A refused capture does not authorize publishing or retrying an uncertain remote operation."
+  },
+  "unsafe_relative_path": {
+    "title": "A skill file path is unsafe",
+    "description": "A skill file path is absolute, contains an unsupported separator or attempts to leave its skill folder. The registry refused that path.",
+    "recovery": "Use relative file paths inside the skill, then select or import a verified revision."
+  },
+  "invalid_tree_root": {
+    "title": "The skill folder is unavailable",
+    "description": "The registry could not use the expected skill folder as a regular directory. It may be missing or linked to another location.",
+    "recovery": "Check the selected skill source and registry files before selecting or importing a verified revision."
+  },
+  "linked_path": {
+    "title": "The skill contains a linked path",
+    "description": "The registry found a symbolic link, junction or reparse point inside the skill folder and refused to follow it.",
+    "recovery": "Use a skill revision containing regular files and folders without links."
+  },
+  "special_file": {
+    "title": "The skill contains an unsupported file",
+    "description": "The registry found a filesystem entry that is not a regular file or directory. It refused to include that entry in the skill.",
+    "recovery": "Remove unsupported filesystem entries from the source and import a verified skill revision."
+  },
+  "hardlinked_file": {
+    "title": "The skill contains a hard-linked file",
+    "description": "A skill file shares its filesystem contents with another path. The registry refused it because another path could change those bytes.",
+    "recovery": "Use independent regular files in the source and import a verified skill revision."
+  },
+  "missing_skill_file": {
+    "title": "The skill is missing SKILL.md",
+    "description": "The expected skill folder does not contain its required SKILL.md file. The registry could not verify a complete skill revision.",
+    "recovery": "Check the selected source or registry revision and use a skill with a SKILL.md file at its root."
+  },
+  "empty_directory": {
+    "title": "The skill contains an empty folder",
+    "description": "The registry found an empty folder that cannot be represented by the skill file inventory. It refused the tree.",
+    "recovery": "Remove empty folders from the source or add their intended files, then import a verified skill revision."
+  },
+  "invalid_revision_id": {
+    "title": "The skill revision reference is invalid",
+    "description": "The selected skill revision does not have the immutable hash format required by the registry. The runner refused to read that revision.",
+    "recovery": "Select an existing immutable revision on the Skill node before starting new work."
+  },
+  "latest_pointer_integrity_failure": {
+    "title": "The latest skill reference is inconsistent",
+    "description": "The registry latest pointer does not match its recorded tree identity. The runner refused to use that reference.",
+    "recovery": "Select a known immutable revision, or restore the registry from a trusted copy before starting new work."
+  },
+  "revision_integrity_failure": {
+    "title": "The skill revision failed its integrity check",
+    "description": "The selected revision metadata or file bytes no longer match its immutable identity. The runner refused to use those contents.",
+    "recovery": "Use a verified immutable revision or restore the registry from a trusted copy before starting new work."
+  },
+  "file_not_in_revision": {
+    "title": "The file is not part of the skill revision",
+    "description": "The requested file is not listed in the selected immutable skill revision. The registry refused the read.",
+    "recovery": "Check the selected skill revision and use its recorded files. Restore inconsistent registry metadata from a trusted copy before starting new work."
   }
 }

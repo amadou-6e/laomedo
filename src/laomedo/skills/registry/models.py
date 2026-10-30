@@ -1,8 +1,11 @@
 """Typed construction of new registry records; historical readers stay unchanged."""
 
+from laomedo.skills.registry.diff import patch_for
+from laomedo.skills.registry.hashing import file_hashes
+from laomedo.skills.registry.hashing import tree_hash
+
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
-from laomedo.skills.registry.utils import file_hashes, patch_for, tree_hash
 
 
 class SkillPolicyReference(BaseModel):
