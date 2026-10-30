@@ -31,6 +31,27 @@ Imports and service commands use their owning domain modules. Older saved
 graphs and launchers have an explicit one-time migration; forwarding modules
 and the checkout-only import bridge are removed.
 
+## Python formatting
+
+Install the development tools with `python -m pip install -e '.[dev]'` (or
+`uv sync --extra dev`). From this repository root, format Python with:
+
+```text
+python -m black .
+```
+
+The **Python formatting / black** CI job enforces the same scope on every push
+and pull request with `python -m black --check --diff --no-cache .`. Run that
+command before committing. Black's version, Python target and line length live
+in `pyproject.toml`; upgrade the development pin, required version and lockfile
+together. Editors should use this environment's Black and project configuration.
+
+The rule covers Python source, components, Docker helpers, examples, tests, tools
+and unsealed experiment helpers, including newly added files. Ignored local
+environments, generated caches and private runtime state are outside the scope.
+Only exact historical experiment sources already bound to retained SHA-256
+evidence are excluded; see the [formatting policy](docs/architecture/python-formatting.md).
+
 ## Historical investigation records
 
 These investigations describe their original revisions and availability limits.
