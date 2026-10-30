@@ -72,12 +72,15 @@ contract but do not replace the actual Edge recheck or owner validation.
 
 ## Canvas lifetime during background reads
 
-`PageComponent` gates its initial canvas on the builds query's `isLoading`, named
-`isBuildsLoading` locally. A cached builds refresh can have `isFetching=true`
-without initial loading: it must preserve the mounted ReactFlow tree, node
-selection and open viewer. The pinned query library defines initial loading as
-pending and actively fetching; an initially paused request or completed error
-keeps the former non-fetching gate behavior. No global viewer store is introduced.
+`PageComponent` waits for initial builds loading or an active fetch whose data
+is only a previous-flow placeholder: `isLoading || (isFetching &&
+isPlaceholderData)`. The local aliases are `isBuildsLoading`, `isBuildsFetching`
+and `isBuildsPlaceholder`. A same-flow cached refresh preserves the mounted
+ReactFlow tree, selected node and open viewer. A new flow's active history read
+still gates its initial canvas even when `keepPreviousData` supplies a placeholder.
+An initially paused request or completed error keeps the former non-fetching
+gate behavior. Flow changes reset `flowPool`; no old-build-data leak is claimed.
+No global viewer store is introduced.
 
 On reconnect, the existing Reload files/history controls remain in the same
 viewer and repeat only their read. Background build monitoring must not dismiss
@@ -87,6 +90,9 @@ separately. The focused `tests/browser/canvas_refresh.cjs <loopback-flow-url>
 <skill-node-id>` regression holds a real builds response in transit to check the
 same mounted child during refresh. Its controlled interception is supporting
 coverage, not a replacement for the complete real no-interception recovery path.
+`CanvasQueryState.test.ts` separately checks the actual query observer's first
+fetch, new-key placeholder, same-key refresh, paused and error flags. These
+internal contract controls do not replace a real flow-loading/browser check.
 
 Cancellation retires the client's interest and ignores results for a closed or
 changed selection. It does not guarantee that a server read stops or that the

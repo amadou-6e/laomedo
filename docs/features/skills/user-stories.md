@@ -44,6 +44,8 @@ Acceptance criteria:
   editor handling; Escape closes Find before closing the viewer.
 - Background build-history refresh preserves the mounted canvas, selected node
   and open viewer; reconnect leaves its read-only Reload control usable.
+  A new flow's active history read still gates the initial canvas, including when
+  the query temporarily supplies a previous-flow placeholder.
 - Closing or changing selection retires old client results; a completed server
   read must not overwrite the new selection or reopen dismissed content.
 
