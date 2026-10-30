@@ -26,10 +26,25 @@ FLOW = Path(__file__).resolve().parents[1] / "experiments" / "exp03" / "flow.jso
 
 
 def pinned_runtime_available():
+    """Admit either pinned app distribution; the controls exercise its real APIs.
+
+    Minimal app installs use langflow-base rather than the langflow umbrella.
+    Every installed app distribution and lfx must match the pinned runtime.
+    """
     try:
-        return version("langflow") == "1.12.3" and version("lfx") == "1.12.3"
+        if version("lfx") != "1.12.3":
+            return False
     except PackageNotFoundError:
         return False
+    installed_versions = []
+    for distribution in ("langflow", "langflow-base"):
+        try:
+            installed_versions.append(version(distribution))
+        except PackageNotFoundError:
+            continue
+    return bool(installed_versions) and all(
+        installed_version == "1.12.3" for installed_version in installed_versions
+    )
 
 
 def field(flow, node_id, name):
