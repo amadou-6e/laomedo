@@ -1,7 +1,6 @@
 # GitHub operation delivery
 
-PROPOSED / NOT IMPLEMENTED in this README-first D4 checkpoint: move the existing
-`GitHubMediatedTransport` from `git/transport.py` into `mediated.py`. Keep GitHub
+`GitHubMediatedTransport` lives in `mediated.py`. Keep GitHub
 Git policy in `git/`, REST policy in `rest/`, and generic Git mechanics in
 `laomedo.git`. This is composition, not a common base or new transport pipeline.
 

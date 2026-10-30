@@ -11,8 +11,7 @@ descriptive and grants no authority. `contract.issue_value()` preserves the
 existing response admission and error categories, constructs this object, then
 calls `to_payload()` at the public dictionary boundary. Labels are normalized
 by the existing validator before construction. Null provider bodies become empty
-strings; all nine normalized fields remain present. `issue_digest()` hashes the
-unchanged canonical JSON payload.
+strings; all nine normalized fields remain present. `github.contract.issue_digest()` hashes the unchanged canonical JSON payload.
 
 The gateway owns filtering, authorization and effect reconciliation. A model
 does not make HTTP calls, validate grants or retry unknown writes. Historical
@@ -23,12 +22,11 @@ shared issue/PR idempotency preimage. Construct them only after the gateway's
 existing admission and grant authentication; `to_payload()` preserves the old
 hash inputs and does not validate or authorize a grant.
 
-## D4 context-reader design
+## Read-only context reader and CLI
 
-PROPOSED / NOT IMPLEMENTED in this README-first checkpoint: `context_reader.py`
-will own the existing read-only `gh` functions, and `context.py` will own the
-actual CLI parser and `main() -> int`, retaining its existing `-m` entrypoint.
-Shared repository/label/digest primitives move to `github/contract.py`; normalized
+`context_reader.py` owns the existing read-only `gh` functions, and `context.py`
+owns the actual CLI parser and `main() -> int`, retaining its existing `-m`
+entrypoint. Shared repository/label/digest primitives live in `github/contract.py`; normalized
 Issue response admission and patch validation stay in `issues/contract.py`.
 
 | Function | Interface and effects |

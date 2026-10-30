@@ -11,6 +11,9 @@ import threading
 import unittest
 from uuid import uuid4
 
+from retained_github import load_retained_github
+
+load_retained_github("experiments.exp139.runtime")
 from experiments.exp139.persistent_demo import PerRunWriteBudget
 from experiments.exp139.persistent_demo import PersistentRunner
 from experiments.exp139.persistent_demo import policy

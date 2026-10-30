@@ -8,11 +8,11 @@ mediator capability. Unsupported operations fail explicitly.
 from __future__ import annotations
 
 from laomedo.http.redirect import NoRedirect
-from laomedo.github.issues.contract import issue_digest
+from laomedo.github.contract import issue_digest
 from laomedo.github.issues.contract import issue_value
-from laomedo.github.issues.contract import labels_value
+from laomedo.github.contract import labels_value
 from laomedo.github.issues.contract import validate_patch
-from laomedo.github.pull_requests.contract import pr_digest
+from laomedo.github.contract import issue_digest as pr_digest
 from laomedo.github.pull_requests.contract import pr_value
 from laomedo.github.pull_requests.contract import validate_patch as pr_validate_patch
 from laomedo.host.mediation.errors import KnownRejected
