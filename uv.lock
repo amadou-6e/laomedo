@@ -500,6 +500,7 @@ observability = [
 runner = [
     { name = "agent-client-protocol" },
     { name = "py-docker" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 
 [package.metadata]
@@ -509,10 +510,11 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'observability'", specifier = "==1.45.1" },
     { name = "opentelemetry-proto", marker = "extra == 'observability'", specifier = "==1.45.1" },
     { name = "opentelemetry-sdk", marker = "extra == 'observability'", specifier = "==1.45.1" },
-    { name = "py-docker", marker = "extra == 'runner'", git = "https://github.com/amadou-6e/py-docker.git?rev=c0d92a785eccd3d423a8d00f856d82fa47afc461" },
+    { name = "py-docker", marker = "extra == 'runner'", git = "https://github.com/amadou-6e/py-docker.git?rev=49652f4281b37e62fb43404532a376a3f1f2e07d" },
     { name = "pydantic", specifier = ">=2.13,<2.14" },
     { name = "pydantic-settings", specifier = ">=2.14.2,<2.16" },
     { name = "pyjwt", extras = ["crypto"], specifier = "==2.15.1" },
+    { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'runner'", specifier = ">=304" },
     { name = "truststore", specifier = "==0.10.4" },
 ]
 provides-extras = ["dev", "runner", "observability"]
@@ -698,7 +700,7 @@ wheels = [
 [[package]]
 name = "py-docker"
 version = "0.1.0a3"
-source = { git = "https://github.com/amadou-6e/py-docker.git?rev=c0d92a785eccd3d423a8d00f856d82fa47afc461#c0d92a785eccd3d423a8d00f856d82fa47afc461" }
+source = { git = "https://github.com/amadou-6e/py-docker.git?rev=49652f4281b37e62fb43404532a376a3f1f2e07d#49652f4281b37e62fb43404532a376a3f1f2e07d" }
 dependencies = [
     { name = "docker" },
     { name = "filelock" },

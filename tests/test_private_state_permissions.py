@@ -151,6 +151,37 @@ class StrictPrivateDirectoryTests(unittest.TestCase):
                 prepare_private_directory(path, policy=policy)
             restrict.assert_not_called()
             security.return_value.verify.assert_called_once_with(path, "S-1-5-21-123")
+            security.return_value.restrict.assert_not_called()
+
+    @unittest.skipUnless(os.name == "nt", "Windows descriptor adapter")
+    def test_new_leaf_uses_native_owner_only_policy_not_legacy_icacls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "private"
+            policy = DirectoryPermissionPolicy(
+                whoami=path / "whoami.exe",
+                icacls=path / "icacls.exe",
+                environment={},
+                deadline=100000000000.0,
+            )
+            with (
+                patch(
+                    "laomedo.host.private_state.utils._owner_sid",
+                    return_value="S-1-5-21-123",
+                ),
+                patch("laomedo.host.private_state.utils.restrict_directory") as legacy,
+                patch(
+                    "laomedo.host.private_state.utils.WindowsDirectorySecurity"
+                ) as security,
+            ):
+                prepare_private_directory(path, policy=policy)
+            legacy.assert_not_called()
+            self.assertEqual(
+                security.return_value.method_calls,
+                [
+                    call.restrict(path, "S-1-5-21-123"),
+                    call.verify(path, "S-1-5-21-123"),
+                ],
+            )
 
     def test_policy_deadline_is_fixed_and_values_are_not_dumped(self):
         path = Path.cwd()

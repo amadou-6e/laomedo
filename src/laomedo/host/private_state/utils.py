@@ -104,14 +104,14 @@ def prepare_private_directory(
     if os.name == "nt":
         if policy is None:
             raise PrivateStateError("private_state_policy_required")
-        identity = (
-            restrict_directory(path, policy=policy)
-            if created
-            else DirectoryPermissionResult(owner_sid=_owner_sid(policy))
-        )
+        identity = DirectoryPermissionResult(owner_sid=_owner_sid(policy))
         if identity.owner_sid is None:
             raise PrivateStateError("private_state_permissions_unverified")
-        WindowsDirectorySecurity().verify(path, identity.owner_sid)
+        security = WindowsDirectorySecurity()
+        if created:
+            policy.timeout_seconds(20.0, time.monotonic())
+            security.restrict(path, identity.owner_sid)
+        security.verify(path, identity.owner_sid)
     else:
         observed = path.lstat()
         if observed.st_uid != os.getuid() or stat.S_IMODE(observed.st_mode) != 0o700:
