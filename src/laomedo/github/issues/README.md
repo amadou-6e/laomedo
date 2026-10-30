@@ -22,3 +22,23 @@ journal readers are unchanged; these strict models describe new normalized value
 shared issue/PR idempotency preimage. Construct them only after the gateway's
 existing admission and grant authentication; `to_payload()` preserves the old
 hash inputs and does not validate or authorize a grant.
+
+## D4 context-reader design
+
+PROPOSED / NOT IMPLEMENTED in this README-first checkpoint: `context_reader.py`
+will own the existing read-only `gh` functions, and `context.py` will own the
+actual CLI parser and `main() -> int`, retaining its existing `-m` entrypoint.
+Shared repository/label/digest primitives move to `github/contract.py`; normalized
+Issue response admission and patch validation stay in `issues/contract.py`.
+
+| Function | Interface and effects |
+| --- | --- |
+| `fetch_context(repository, number, *, supplied_target_pr, request, fetched_at, max_timeline_pages)` | Read issue/timeline pages and confirm the issue again; return the existing context dictionary, never edit GitHub. Injected `request` retains its current signature/default. |
+| `_gh_json(path)` | Run the existing bounded `gh api` read; retain safe `IssueContextError.code` categories without exposing stderr. |
+| `_issue`, `_pr_candidates` | Admit the existing weaker context schema and distinguish discovered PR candidates from an explicitly supplied target. No authorization is granted. |
+| `main()` | Parse existing arguments, call the reader, print the existing JSON success/error result and return its existing exit status. |
+
+Timeline failure remains incomplete evidence, never a confirmed empty search;
+changed issue text remains an explicit error. Context dictionaries intentionally
+do not become node `GitHubIssue` records. Caller migrations preserve all function
+arguments and default bindings. There is no compatibility `utils.py` runtime.

@@ -42,3 +42,42 @@ under their existing owners; no common handler base or forwarding layer is added
 Application callers use defining modules in interface; only explicit CLI startup
 loads host/native composition. Source-domain fixed policy remains source-owned.
 Current checkpoint status and migration constraints are in `interface/README.md`.
+
+## D4 shared contracts and delivery ownership
+
+PROPOSED / NOT IMPLEMENTED in this README-first checkpoint: move the existing
+repository URL, label and canonical resource-digest functions to `contract.py`.
+Move the existing case-preserving `validate_repository` from work_graph into that
+same dependency-light owner. URL admission still lowercases its result; owner/name
+validation still preserves case and its existing argument error. These are distinct
+contracts. Issue/PR response and patch admission remain feature-owned.
+
+The read-only `gh` reader belongs in `issues/context_reader.py`; the active
+`python -m laomedo.github.issues.context` CLI keeps its actual parser and `main`.
+Its weaker historical context dictionary is intentionally separate from the
+normalized node `GitHubIssue` model. No new schema or authorization is introduced.
+
+`transport/mediated.py` owns `GitHubMediatedTransport`, which composes the existing
+Git and REST transports and forwards admitted operation/binding arguments. GitHub
+Git publication policy stays in `transport/git/`; reusable Git execution stays in
+`laomedo.git`. There is no abstract gateway, transport framework or forwarding API.
+
+| Name | Meaning and interface vocabulary |
+| --- | --- |
+| `repository_from_url`, `validate_repository` | Admit the existing URL or owner/name form without merging their different normalization/error rules. |
+| `labels_value`, `issue_digest` | Preserve exact label admission and canonical JSON hashing; the historical digest name remains supported. |
+| `fetch_context` | Read and confirm issue text, discover timeline PR candidates, and preserve incomplete/unknown results. |
+| `GitHubMediatedTransport` | Compose Git/REST routing through `__init__` and `__call__`; select no new identity or authority. |
+
+Names retain the existing noun vocabulary: Gateway admits effects; Transport
+delivers an admitted operation; a context reader performs reads. `Base` is reserved
+for a real abstract extension contract. This move needs no new base or variant.
+Public HTTP adapters remain discoverable under `interface/`; core contracts do not
+import host composition, work_graph or optional graph frameworks.
+
+All maintained callers and flat migration maps move to defining symbols. The PR
+contract keeps its intentional `pr_digest = issue_digest` identity binding. Retained
+experiment sources remain byte-pinned, with explicit import-only adaptation for
+internal controls; they are not executed as live verification or silently rewritten.
+Unknown external saved graphs remain an explicit migration constraint. Code moves
+preserve errors, payloads, callable signatures, authorization and unknown outcomes.
