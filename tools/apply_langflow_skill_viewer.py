@@ -78,6 +78,11 @@ def apply(checkout):
         overlay / "AgentAdvancedControls.test.tsx",
         agent_target / "AgentAdvancedControls.test.tsx",
     )
+    shutil.copy2(
+        overlay / "CanvasQueryState.test.ts",
+        checkout
+        / "src/frontend/src/pages/FlowPage/components/PageComponent/__tests__/CanvasQueryState.test.ts",
+    )
     target.mkdir()
     shutil.copy2(overlay / "SkillFilesModal.tsx", target / "index.tsx")
     (target / "SkillFilesModal.test.tsx").write_text(
