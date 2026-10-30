@@ -22,7 +22,7 @@ share `GitCommandRunner.isolated_home()` so its hooks path stays stable; ordinar
 transport commands retain per-command homes, including the Git 2.31 workaround.
 Verified publication retains its original stricter home-cleanup behavior through
 the context's explicit cleanup policy; the GitHub transport still ignores those
-cleanup errors as before. Environment profiles remain the two existing variants.
+cleanup errors as before. These two earlier profiles retain their existing behavior; the separately described D2 profiles do not broaden them.
 
 Stdin behavior is deliberately preserved: WORKSPACE closes stdin with DEVNULL;
 HOST_TRANSPORT retains inherited stdin. There is no speculative stdin setting.
@@ -68,3 +68,64 @@ request/push policy in its transport, grants/credentials in trusted host service
 Never route normal model-side container Git to host execution through these objects.
 Centralization must replace both existing process runners, with caller-specific
 stable error translation and exact cleanup behavior preserved.
+
+
+## D2 source-read extension contract
+
+This design is recorded before implementation. The shared runner gains active
+spooled-output/deadline/budget observation through a canonical
+`GitExecutionBudget` in `models.py`; it does not learn Skill cache paths, labels,
+registry writes or source admission. An optional source-owned budget callback is
+excluded from representation/serialization. `GitTreeEntry` groups native mode,
+kind and object identity without granting access or changing source blob policy.
+Existing GitCommand/Context/Credential models remain canonical.
+
+`ISOLATED_HTTPS_READ_ONLY` preserves the source launcher's narrow environment and
+ordered no-credentials/no-hooks/no-redirect/HTTPS-only configuration. A distinct
+`ISOLATED_FILE_READ_ONLY` profile is selected only by the existing trusted
+constructor test adapter; the production profile rejects attempts to smuggle
+file transport, credentials, hook/protocol configuration or extra environment.
+Native command cwd is separate from the existing `-C` repository argument.
+Only the read/cache Git verbs used by this boundary and the version query are
+admitted; selecting a profile never grants a GitHub effect.
+
+The runner owns Popen, process groups, polling, spooled stdout and bounded tree
+cleanup; there is no second source launcher. Source-owned cache budget checks
+are invoked at the same polling point. `GitCommandLimitExceeded` records the
+active budget refusal and cleanup observation without exporting native output.
+`GitCommandCleanupError` means termination was not confirmed; callers must not
+report successful cleanup or infer a safe retry. Source translation preserves
+confirmed-cleanup categories and introduces the explicit
+`repository_cleanup_unverified` category only for that uncertainty case.
+
+Budgeted source reads share one five-second cleanup deadline across native tree
+termination, pipe draining and final wait. On Windows they use a
+[suspended, job-contained root](windows/README.md), with no breakaway or taskkill
+fallback. Zero active processes in that job is required even after a normal root
+exit; root exit or a taskkill return code alone never proves descendant cleanup.
+POSIX retains its existing process-group path. Legacy profiles keep their existing
+five-second bound per cleanup substep. Process creation, polling and native kill
+calls add operating-system overhead; neither rule is a hard real-time guarantee.
+The source operation retains its 60-second deadline and existing 65-second HTTP
+client timeout, so an HTTP timeout can still win that race and retain the safe
+transport fallback rather than deliver a cleanup category.
+
+| D2 object / methods | Contract |
+| --- | --- |
+| `GitExecutionBudget` | Group stdout cap, shared monotonic operation deadline, finite polling interval and excluded caller accounting callback. An expired deadline is admitted; NaN is refused. |
+| `GitCommand.validate_execution_profile` | Validate trusted read-profile construction and recheck mutable argument/configuration containers at execution; never grant caller authorization. |
+| `GitCommandRunner._execute_budgeted` | Reuse the single native launcher, spool stdout and inspect active output, operation time and caller budgets. |
+| `GitCommandRunner._stop_tree`, `_cleanup_timeout` | Apply the selected cleanup budget and retain uncertainty on native failure; no success inferred from an exited root alone. |
+| `GitCommandRunner._read_process_tree` | Own a Windows job only for budgeted reads; close only its own handle, with no process-name or PID-tree search. |
+| `GitTreeEntry` | Carry native mode, object kind and object identity; path/blob admission belongs to the source consumer. |
+
+Legacy WORKSPACE/HOST_TRANSPORT environment, argv, stdin, credential helper and
+completed-result behavior remain unchanged. Their existing timeout categories
+and cleanup fields are preserved. The new bounded-source controls compare against
+an independent old-launcher capture and exercise real controlled processes,
+including descendants; they do not establish live HTTPS or provider acceptance.
+
+On an interrupt, the runner still attempts cleanup but preserves the original
+`KeyboardInterrupt`/`SystemExit` object and arguments, with `cleanup_verified`
+recording the observation. An uncertain interrupted clone keeps its staging;
+it is not converted into an ordinary source error or deleted before cleanup.

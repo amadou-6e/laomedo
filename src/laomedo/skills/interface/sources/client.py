@@ -1,15 +1,13 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import urllib.error
+import urllib.request
+from urllib.parse import urlsplit
+
 from laomedo.http.redirect import NoRedirect
 from laomedo.skills.interface.sources.settings import Settings
-import urllib.request
-
-from pathlib import Path
-from pathlib import PurePosixPath
-from urllib.parse import urlsplit
-import json
-import re
-import urllib.error
 
 
 def source_request(action, **body):
@@ -49,7 +47,25 @@ def source_request(action, **body):
         if len(data) > 1024 * 1024:
             raise ValueError()
         return json.loads(data)
-    except urllib.error.HTTPError:
-        raise ValueError("source_discovery_failed") from None
+    except urllib.error.HTTPError as error:
+        category = "source_discovery_failed"
+        try:
+            # One explicitly admitted uncertainty category; never forward remote text.
+            data = error.read(16 * 1024 + 1)
+            if len(data) <= 16 * 1024:
+                payload = json.loads(data)
+                if (
+                    isinstance(payload, dict)
+                    and payload.get("error_category") == "repository_cleanup_unverified"
+                ):
+                    category = "repository_cleanup_unverified"
+        except Exception:
+            pass
+        finally:
+            try:
+                error.close()
+            except Exception:
+                category = "source_discovery_failed"
+        raise ValueError(category) from None
     except Exception:
         raise ValueError("source_service_unavailable") from None
