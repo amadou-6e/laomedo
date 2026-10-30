@@ -7,9 +7,10 @@ import shlex
 import signal
 import subprocess
 import sys
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, TemporaryFile
+import time
 
-from .errors import GitCommandTimeout
+from .errors import GitCommandTimeout, GitCommandLimitExceeded, GitCommandCleanupError
 from .models import GitCommand, GitEnvironmentProfile
 from .settings import GIT_TREE_CLEANUP_SECONDS, MEDIATED_TOKEN_ENV
 
@@ -40,6 +41,12 @@ class GitCommandRunner:
         OSError from startup propagates to the caller's existing error mapping.
         The private credential environment is cleared on every exit path.
         """
+        command.validate_execution_profile()
+        if command.context.profile in {
+            GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY,
+            GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY,
+        }:
+            return self._execute(command, command.context.hooks_path)
         if command.context.home is not None:
             return self._execute(command, command.context.home)
         with self.isolated_home(
@@ -50,6 +57,33 @@ class GitCommandRunner:
 
     def environment(self, command: GitCommand, home: Path) -> dict[str, str]:
         """Build the existing private profile at point of use, without global mutation."""
+        if command.context.profile in {
+            GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY,
+            GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY,
+        }:
+            environment = {
+                key: value
+                for key, value in os.environ.items()
+                if key.upper()
+                in {
+                    "PATH",
+                    "SYSTEMROOT",
+                    "WINDIR",
+                    "SYSTEMDRIVE",
+                    "COMSPEC",
+                    "PATHEXT",
+                    "TEMP",
+                    "TMP",
+                }
+            }
+            environment.update(
+                GIT_CONFIG_NOSYSTEM="1",
+                GIT_CONFIG_GLOBAL=os.devnull,
+                GIT_TERMINAL_PROMPT="0",
+                GIT_ASKPASS="",
+                SSH_ASKPASS="",
+            )
+            return environment
         environment = {
             key: value
             for key, value in os.environ.items()
@@ -83,6 +117,23 @@ class GitCommandRunner:
     def _arguments(self, command: GitCommand, home: Path) -> list[str]:
         """Project the native invocation without ever placing a token in argv."""
         arguments = ["git"]
+        if command.context.profile in {
+            GitEnvironmentProfile.ISOLATED_HTTPS_READ_ONLY,
+            GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY,
+        }:
+            if command.context.profile == GitEnvironmentProfile.ISOLATED_FILE_READ_ONLY:
+                arguments.extend(["-c", "protocol.file.allow=always"])
+            configuration = [
+                ("credential.helper", ""),
+                ("core.hooksPath", str(command.context.hooks_path)),
+                ("http.followRedirects", "false"),
+                ("protocol.allow", "never"),
+                ("protocol.https.allow", "always"),
+            ]
+            for key, value in configuration:
+                arguments.extend(["-c", key + "=" + value])
+            arguments.extend(command.arguments)
+            return arguments
         configuration = list(command.configuration)
         if command.context.hardened:
             configuration = [
@@ -109,19 +160,12 @@ class GitCommandRunner:
         """Bind native arguments and isolate their full process tree under a deadline."""
         environment = self.environment(command, home)
         arguments = self._arguments(command, home)
-        options = {
-            "stdout": subprocess.PIPE,
-            "stderr": subprocess.PIPE,
-            "env": environment,
-        }
-        if command.context.profile == GitEnvironmentProfile.WORKSPACE:
-            options["stdin"] = subprocess.DEVNULL
-        if os.name == "nt":
-            options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            options["start_new_session"] = True
         try:
-            process = subprocess.Popen(arguments, **options)
+            if command.budget is not None:
+                return self._execute_budgeted(command, arguments, environment)
+            process = self._start_process(
+                command, arguments, environment, subprocess.PIPE, subprocess.PIPE
+            )
             try:
                 stdout, stderr = process.communicate(timeout=command.context.timeout)
             except subprocess.TimeoutExpired:
@@ -135,8 +179,67 @@ class GitCommandRunner:
         finally:
             environment.pop(MEDIATED_TOKEN_ENV, None)
 
-    def _stop_tree(self, process) -> bool:
-        """Preserve the fuller existing bounded cleanup, including inherited pipes."""
+    def _start_process(self, command, arguments, environment, stdout, stderr):
+        """One native launch owner; retain each profile's existing cwd/stdin behavior."""
+        options = {"stdout": stdout, "stderr": stderr, "env": environment}
+        if (
+            command.context.profile == GitEnvironmentProfile.WORKSPACE
+            or command.budget is not None
+        ):
+            options["stdin"] = subprocess.DEVNULL
+        if command.cwd is not None:
+            options["cwd"] = command.cwd
+        if command.budget is not None:
+            options["start_new_session"] = os.name != "nt"
+            options["creationflags"] = (
+                subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+            )
+        elif os.name == "nt":
+            options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            options["start_new_session"] = True
+        return subprocess.Popen(arguments, **options)
+
+    def _execute_budgeted(self, command, arguments, environment):
+        """Spool and actively observe a read budget without buffering child output."""
+        budget = command.budget
+        with TemporaryFile() as output:
+            process = self._start_process(
+                command, arguments, environment, output, subprocess.DEVNULL
+            )
+            deadline = min(
+                time.monotonic() + command.context.timeout, budget.operation_deadline
+            )
+            try:
+                while process.poll() is None:
+                    if (
+                        output.tell() > budget.stdout_limit
+                        or time.monotonic() > deadline
+                    ):
+                        raise GitCommandLimitExceeded()
+                    if budget.check_budget is not None:
+                        budget.check_budget()
+                    time.sleep(budget.poll_seconds)
+                output.seek(0)
+                data = output.read(budget.stdout_limit + 1)
+                return subprocess.CompletedProcess(
+                    arguments, process.returncode, data, b""
+                )
+            except BaseException as error:
+                try:
+                    cleanup_verified = self._stop_tree(
+                        process, deadline=time.monotonic() + GIT_TREE_CLEANUP_SECONDS
+                    )
+                except (OSError, subprocess.TimeoutExpired):
+                    cleanup_verified = False
+                if not cleanup_verified:
+                    raise GitCommandCleanupError() from None
+                if isinstance(error, GitCommandLimitExceeded):
+                    error.cleanup_verified = True
+                raise
+
+    def _stop_tree(self, process, *, deadline=None) -> bool:
+        """Keep legacy substep bounds; budgeted reads share one cleanup deadline."""
         cleanup_verified = False
         if os.name == "nt":
             try:
@@ -145,7 +248,7 @@ class GitCommandRunner:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     check=False,
-                    timeout=GIT_TREE_CLEANUP_SECONDS,
+                    timeout=self._cleanup_timeout(deadline),
                 )
                 cleanup_verified = killed.returncode == 0
             except (OSError, subprocess.TimeoutExpired):
@@ -162,13 +265,22 @@ class GitCommandRunner:
             except ProcessLookupError:
                 pass
         try:
-            process.communicate(timeout=GIT_TREE_CLEANUP_SECONDS)
+            process.communicate(timeout=self._cleanup_timeout(deadline))
         except subprocess.TimeoutExpired:
             for pipe in (process.stdout, process.stderr):
                 if pipe is not None:
                     pipe.close()
             try:
-                process.wait(timeout=GIT_TREE_CLEANUP_SECONDS)
+                process.wait(timeout=self._cleanup_timeout(deadline))
             except subprocess.TimeoutExpired:
                 cleanup_verified = False
         return cleanup_verified
+
+    @staticmethod
+    def _cleanup_timeout(deadline):
+        """Retain each legacy wait, or consume the remaining shared read budget."""
+        return (
+            GIT_TREE_CLEANUP_SECONDS
+            if deadline is None
+            else max(0.0, deadline - time.monotonic())
+        )

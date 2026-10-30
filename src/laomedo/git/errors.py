@@ -41,3 +41,19 @@ class GitCommandTimeout(TimeoutExpired):
     def __reduce__(self):
         """Retain cleanup observation when an exception crosses a process boundary."""
         return type(self), (self.cmd, self.timeout, self.cleanup_verified)
+
+
+class GitCommandLimitExceeded(GitOperationError):
+    """An active read budget was exceeded; the runner confirms cleanup before export."""
+
+    def __init__(self):
+        super().__init__("git_command_limit_exceeded")
+        self.cleanup_verified = False
+
+
+class GitCommandCleanupError(GitOperationError):
+    """Owned process-tree termination could not be confirmed; never authorize a retry."""
+
+    def __init__(self):
+        super().__init__("git_command_cleanup_unverified")
+        self.cleanup_verified = False

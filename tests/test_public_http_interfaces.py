@@ -29,7 +29,18 @@ class PublicHttpInterfaceTests(unittest.TestCase):
             manifest["baseline"], "23cb11505c46ab24715055ad2abc09f3b1565d4f"
         )
         self.assertEqual(len(manifest["modules"]), 21)
+        revision = json.loads(
+            (ROOT / "tests/contracts/source-client-d2.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            CONTRACTS["source_digest"](revision["baseline_source"]),
+            revision["baseline_body_sha256"],
+        )
         for record in manifest["modules"]:
+            expected = record["body_sha256"]
+            if record["new_module"] == revision["module"]:
+                self.assertEqual(expected, revision["baseline_body_sha256"])
+                expected = revision["body_sha256"]
             path = ROOT.joinpath("src", *record["new_module"].split(".")).with_suffix(
                 ".py"
             )
@@ -37,7 +48,7 @@ class PublicHttpInterfaceTests(unittest.TestCase):
                 CONTRACTS["source_digest"](
                     path.read_text(), selection=record["selection"]
                 ),
-                record["body_sha256"],
+                expected,
                 record["new_module"],
             )
 

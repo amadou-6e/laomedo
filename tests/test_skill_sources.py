@@ -11,7 +11,7 @@ import urllib.error
 
 from laomedo.skills.sources.service import SkillSources
 from laomedo.skills.sources.errors import SourceError
-from laomedo.skills.sources.utils import _bundle
+from laomedo.skills.sources.bundle import validate_bundle
 from laomedo.skills.interface.sources.server import SkillSourceServer as server
 from laomedo.skills.interface.sources.client import source_request
 
@@ -226,7 +226,7 @@ class SkillSourceTests(unittest.TestCase):
             ),
             patch("subprocess.Popen", side_effect=observe),
         ):
-            self.resolver._git(self.root, ["--version"])
+            self.resolver.repository_source._run(self.root, ["--version"])
         for name in ("OPENAI_API_KEY", "GH_TOKEN", "GIT_CONFIG_PARAMETERS", "HOME"):
             self.assertNotIn(name, captured[0])
         self.assertEqual(captured[0]["GIT_CONFIG_GLOBAL"], os.devnull)
@@ -239,7 +239,7 @@ class SkillSourceTests(unittest.TestCase):
             {"SKILL.md": b"skill", "references/a. ": b"alias"},
         ):
             with self.subTest(files=list(files)), self.assertRaises(SourceError):
-                _bundle(files)
+                validate_bundle(files)
 
     def test_refused_option_overflow_does_not_import_or_change_index(self):
         choice = self.resolver.discover(str(self.source))["skills"][0]["choice"]
