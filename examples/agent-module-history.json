@@ -1,0 +1,54 @@
+{
+  "baseline": "8e2a2925c74748672f3028ba09359c49b13e1635",
+  "files": [
+    {
+      "current_template": "examples/claude-agent/current-template-flow.json",
+      "historical_original": "examples/claude-agent/activity-flow.json",
+      "immutable": true,
+      "sha256": "62c17cea5105d466052fc49f7c085ca55a6db8380d14fecb685dcc7281b2d909",
+      "git_blob": "134eb38434a3c5579d9a7118f284dbccaad20037"
+    },
+    {
+      "current_template": "examples/claude-agent/current-template-flow.json",
+      "historical_original": "examples/claude-agent/executed-flow.json",
+      "immutable": true,
+      "sha256": "dacdd81a4aba43ac27691a8565a60d8fcdb5c12b91bea81341132a6227d94341",
+      "git_blob": "6f47d751535abd16fbedec7b408fb4a61c1c9607"
+    },
+    {
+      "current_template": "examples/claude-agent/current-template-flow.json",
+      "historical_original": "examples/claude-agent/first-executed-flow.json",
+      "immutable": true,
+      "sha256": "f6b5fd9fe94f9aa6d1d84c55203158a00c7df4c92dd6fd908d11a6839f3d9d02",
+      "git_blob": "de8412e7932d6db646868f87fd4930c3cc4dec67"
+    },
+    {
+      "current_template": "examples/claude-agent/current-template-flow.json",
+      "historical_original": "examples/claude-agent/no-skill-flow.json",
+      "immutable": true,
+      "sha256": "f9cba2a8a5aa779ae066cd4d06586ae06931501157ea25b2d08ff0d3a67f1c38",
+      "git_blob": "610619a5ae9bc8d9ac2bc86d7a64effd07c8b4d0"
+    },
+    {
+      "current_template": "examples/skill-operations/flow.json",
+      "historical_original": "examples/skill-operations/executed-flow.json",
+      "immutable": true,
+      "sha256": "eec3ea4595003a1d0171d2b53cfc00d1adae5987c491cda51fcecdbeab12a29c",
+      "git_blob": "5107085734bf9a4858610a48a71fa0cde211386a"
+    },
+    {
+      "current_template": "examples/skill-summary/flow.json",
+      "historical_original": "examples/skill-summary/executed-flow.json",
+      "immutable": true,
+      "sha256": "ce900199e600204dcd39a02804c4f7d6bd4995bba3bd7c2a88327c7b75a76f18",
+      "git_blob": "851dd443bf73957da2d022d6c0a81f1db2059307"
+    },
+    {
+      "current_template": "examples/github-pr/original-agent/flow.json",
+      "historical_original": "examples/github-pr/original-agent/historical-flow-before-agent-module-refactor.json",
+      "immutable": true,
+      "sha256": "4964fea1c973be83111d3decc31fbfbb727812af77c2ca5293cce773d2c3976c",
+      "git_blob": "51bc2b2b326a8b15b3a9aa52c2787d6d7d5dd6a4"
+    }
+  ]
+}

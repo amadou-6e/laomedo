@@ -22,3 +22,12 @@ frontend/langflow-skill-viewer/claude-selection.patch text eol=lf whitespace=-bl
 # Historical graph evidence retains exact original bytes.
 examples/github-pr/original-agent/historical-flow-before-skill-input.json -text
 examples/skill-operations/historical-flow-before-skill-input.json -text
+
+# Immutable execution exports and their exact pre-refactor Git blobs.
+examples/claude-agent/activity-flow.json -text
+examples/claude-agent/executed-flow.json -text
+examples/claude-agent/first-executed-flow.json -text
+examples/claude-agent/no-skill-flow.json -text
+examples/skill-operations/executed-flow.json -text
+examples/skill-summary/executed-flow.json -text
+examples/github-pr/original-agent/historical-flow-before-agent-module-refactor.json -text

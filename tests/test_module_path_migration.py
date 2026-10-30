@@ -140,6 +140,9 @@ class ModuleMigrationTests(unittest.TestCase):
             'import laomedo.github_git_transport as git\ngit._run_bounded_tree(args)\n',
             'from laomedo.github.transport.git import utils as u\nu._run_bounded_tree(args)\n',
             'from laomedo.github.transport import git as g\ng.utils._run_bounded_tree(args)\n',
+            'from laomedo.github_git_transport import GitHubGitTransport\nGitHubGitTransport(repo, path, sha, token, run=callback)\n',
+            'from laomedo.host.publication.verified.utils import stage_verified_git as stage\nstage(snapshot, run=callback)\n',
+            'import laomedo.github_git_transport as g\ng.GitHubGitTransport(repo, path, sha, token, run=callback)\n',
         ]
         for source in sources:
             with self.subTest(source=source), self.assertRaises(migration.ManualMigrationRequired):

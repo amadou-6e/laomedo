@@ -20,8 +20,10 @@ class AcpBoundaryTests(unittest.TestCase):
 
     def test_retired_opencode_producers_and_http_client_are_removed(self):
         root = package_root()
+        # These intentionally name the ACTUAL retired producer location. Do not
+        # rewrite the historical names when moving current provider packages.
         for name in ("events.py", "settings.py", "utils.py"):
-            self.assertFalse((root / "agents/agents/opencode/activity" / name).exists())
+            self.assertFalse((root / "activity/opencode" / name).exists())
         runner = ast.parse((root / "agents/agents/opencode/agent.py").read_text())
         self.assertFalse(
             any(
@@ -30,8 +32,10 @@ class AcpBoundaryTests(unittest.TestCase):
             )
         )
         retired = {
-            "laomedo.agents.agents.opencode.activity.events",
-            "laomedo.agents.agents.opencode.activity.utils",
+            "laomedo.activity.opencode.events",
+            "laomedo.activity.opencode.utils",
+            "laomedo.opencode_events",
+            "laomedo.opencode_activity",
         }
         for path in root.rglob("*.py"):
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):

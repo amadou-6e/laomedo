@@ -10,6 +10,18 @@ SOURCE = ROOT / 'src' / 'laomedo'
 
 
 class ModuleCohesionTests(unittest.TestCase):
+    def test_historical_execution_graph_blobs_are_preserved_beside_templates(self):
+        manifest = json.loads((ROOT/'examples/agent-module-history.json').read_text(encoding='utf-8'))
+        self.assertEqual(manifest['baseline'], '8e2a2925c74748672f3028ba09359c49b13e1635')
+        self.assertEqual(len(manifest['files']), 7)
+        for record in manifest['files']:
+            original = ROOT/record['historical_original']
+            self.assertTrue(record['immutable'])
+            raw = original.read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), record['sha256'])
+            header = b'blob ' + str(len(raw)).encode('ascii') + b'\0'
+            self.assertEqual(hashlib.sha1(header + raw).hexdigest(), record['git_blob'])
+
     def test_historical_graph_inputs_keep_their_original_bytes(self):
         # Baseline:6069ac99998af97acd314bb2c56c08d4bc2c3f29; migrate copies only.
         expected = {'examples/github-pr/original-agent/historical-flow-before-skill-input.json': '3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f', 'examples/skill-operations/historical-flow-before-skill-input.json': '45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf'}

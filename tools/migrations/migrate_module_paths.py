@@ -164,6 +164,16 @@ def migrate_source(source: str) -> str:
             return ""
 
         for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                reference = imported_reference(node.func)
+                target = SYMBOL_PATHS.get(reference, reference)
+                if target in {
+                    "laomedo.github.transport.git.transport.GitHubGitTransport",
+                    "laomedo.host.publication.verified.utils.stage_verified_git",
+                } and any(keyword.arg == "run" for keyword in node.keywords):
+                    raise ManualMigrationRequired(
+                        reference + ": run= was replaced by an explicit GitCommandRunner object; manual migration is required"
+                    )
             if isinstance(node, ast.Attribute):
                 full = imported_reference(node)
                 if full in MANUAL_SYMBOLS:
@@ -680,7 +690,15 @@ def main() -> None:
     args = parser.parse_args()
     plans = []
     try:
+        project_root = Path(__file__).resolve().parents[2]
+        history = json.loads((project_root / "examples/agent-module-history.json").read_text(encoding="utf-8"))
+        immutable = {(project_root / record["historical_original"]).resolve()
+                     for record in history["files"] if record.get("immutable")}
         for path in args.files:
+            if path.resolve() in immutable:
+                raise ManualMigrationRequired(
+                    "Historical execution evidence is immutable; migrate an explicitly named copy instead"
+                )
             if (
                 path.is_symlink()
                 or not path.is_file()

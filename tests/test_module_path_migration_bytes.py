@@ -11,6 +11,32 @@ from test_module_path_migration import TOOL; from test_module_path_migration imp
 
 
 class MigrationFileTests(unittest.TestCase):
+    def test_cli_refuses_documented_historical_execution_paths_without_writing(self):
+        path = TOOL.parents[2]/'examples/claude-agent/executed-flow.json'
+        original = path.read_bytes()
+        result = subprocess.run([sys.executable, str(TOOL), '--apply', str(path)], capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(b'Historical execution evidence is immutable', result.stderr)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertFalse(path.with_name(path.name+'.before-module-migration').exists())
+
+    def test_actual_baseline_stale_components_are_refused_or_left_untouched(self):
+        path = Path(__file__).with_name('fixtures')/'module-refactor-stale-components.json'
+        cases = json.loads(path.read_text(encoding='utf-8'))
+        self.assertTrue(cases)
+        for case in cases:
+            with self.subTest(source=case['source_file'], node=case['node_id']):
+                code, stored = case['code'], case['code_hash']
+                self.assertNotEqual(sha256(code.encode('utf-8')).hexdigest()[:12], stored)
+                self.assertEqual(migration.migrate_source(code) != code, case['requires_code_migration'])
+                graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': stored},
+                         'template': {'code': {'value': code}}}}}]}
+                if case['requires_code_migration']:
+                    with self.assertRaisesRegex(migration.ManualMigrationRequired, 'does not match its original source'):
+                        migration.migrate_value(graph)
+                else:
+                    self.assertEqual(migration.migrate_value(graph), graph)
+
     def test_changed_code_with_a_stale_twelve_digit_revision_requires_manual_work(self):
         graph = {'nodes': [{'data': {'node': {'metadata': {'code_hash': '0123456789ab'},
                  'template': {'code': {'value': 'import laomedo.local_runner\n'}}}}}]}
