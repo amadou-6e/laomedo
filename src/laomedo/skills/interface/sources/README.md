@@ -1,6 +1,6 @@
 # Sources HTTP boundary
 
-PROPOSED C3 location for the existing API; README written before moving code.
+C3 location for the existing API; README committed before moving code.
 This leaf adapts local HTTP to `SkillSources` in `skills/sources`. It owns no duplicate
 domain records or authority. `source choices and pinned revisions` remain canonical under the domain owner.
 

@@ -145,7 +145,7 @@ class SettingsContractTests(unittest.TestCase):
                 )
 
     def test_dotenv_and_secret_directories_are_not_configuration_sources(self):
-        from laomedo.skills.sources.settings import Settings
+        from laomedo.skills.interface.sources.settings import Settings
 
         with (
             tempfile.TemporaryDirectory() as directory,

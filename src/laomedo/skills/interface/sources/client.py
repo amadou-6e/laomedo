@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from laomedo.http.redirect import NoRedirect
-from laomedo.skills.sources.settings import Settings
+from laomedo.skills.interface.sources.settings import Settings
 import urllib.request
 
 from pathlib import Path

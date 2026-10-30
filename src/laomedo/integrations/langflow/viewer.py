@@ -27,14 +27,14 @@ def install_routes(app, root: Path, authenticate):
         dependencies=[Depends(authenticate)],
     )
     async def skill_history(skill_id: str, revision_id: str, before: str = ""):
-        import laomedo.skills.operations.client as _operations_client
+        from laomedo.skills.interface.operations.client import skill_request
 
         try:
             await run_in_threadpool(
                 _inspection_utils.inspect_skill, root, skill_id, revision_id
             )
             value = await run_in_threadpool(
-                _operations_client.skill_request,
+                skill_request,
                 "history",
                 skill_id=skill_id,
                 revision_id=revision_id,
@@ -51,14 +51,14 @@ def install_routes(app, root: Path, authenticate):
         dependencies=[Depends(authenticate)],
     )
     async def skill_diff(skill_id: str, revision_id: str, commit_id: str):
-        import laomedo.skills.operations.client as _operations_client
+        from laomedo.skills.interface.operations.client import skill_request
 
         try:
             await run_in_threadpool(
                 _inspection_utils.inspect_skill, root, skill_id, revision_id
             )
             value = await run_in_threadpool(
-                _operations_client.skill_request,
+                skill_request,
                 "diff",
                 skill_id=skill_id,
                 commit_id=commit_id,
@@ -74,14 +74,14 @@ def install_routes(app, root: Path, authenticate):
         dependencies=[Depends(authenticate)],
     )
     async def compare_skill(skill_id: str, revision_id: str, commit_id: str):
-        import laomedo.skills.operations.client as _operations_client
+        from laomedo.skills.interface.operations.client import skill_request
 
         try:
             await run_in_threadpool(
                 _inspection_utils.inspect_skill, root, skill_id, revision_id
             )
             value = await run_in_threadpool(
-                _operations_client.skill_request,
+                skill_request,
                 "compare",
                 skill_id=skill_id,
                 revision_id=revision_id,
@@ -123,7 +123,7 @@ def install_routes(app, root: Path, authenticate):
         "/api/v1/laomedo/github-issues/inspect", dependencies=[Depends(authenticate)]
     )
     async def read_issue(payload: dict):
-        import laomedo.github.issues.client as _issues_client
+        from laomedo.github.interface.issues.client import issue_request
         import laomedo.github.issues.contract as _issues_contract
 
         try:
@@ -138,7 +138,7 @@ def install_routes(app, root: Path, authenticate):
             ):
                 raise ValueError("selected_issue_invalid")
             result = await run_in_threadpool(
-                _issues_client.issue_request, "execute", **payload, operation=None
+                issue_request, "execute", **payload, operation=None
             )
             issue = result.get("issue")
             if not issue or result["operation"]["status"] != "not_requested":
@@ -163,7 +163,7 @@ def install_routes(app, root: Path, authenticate):
         "/api/v1/laomedo/github-prs/inspect", dependencies=[Depends(authenticate)]
     )
     async def read_pr(payload: dict):
-        import laomedo.github.pull_requests.client as _pull_requests_client
+        from laomedo.github.interface.pull_requests.client import pr_request
         import laomedo.github.issues.contract as _issues_contract
         import laomedo.github.pull_requests.contract as _pull_requests_contract
 
@@ -179,7 +179,7 @@ def install_routes(app, root: Path, authenticate):
             ):
                 raise ValueError("selected_pr_invalid")
             result = await run_in_threadpool(
-                _pull_requests_client.pr_request, "execute", **payload, operation=None
+                pr_request, "execute", **payload, operation=None
             )
             pr = result.get("pr")
             if not pr or result["operation"]["status"] != "not_requested":

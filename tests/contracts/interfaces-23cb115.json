@@ -1,0 +1,172 @@
+{
+  "baseline": "23cb11505c46ab24715055ad2abc09f3b1565d4f",
+  "derivation": "tools/capture_interface_contracts.py: exact Git source, named AST, remove imports/module docstring, collapse only actual Laomedo module aliases. Preserve bytes as typed hex, all constants, signatures, field defaults, routes, errors and other statements.",
+  "modules": [
+    {
+      "old_module": "laomedo.github.issues.client",
+      "new_module": "laomedo.github.interface.issues.client",
+      "selection": "module",
+      "source_git_blob": "685d25c04eacf3eb21d4b329825024bdd6be1367",
+      "source_sha256": "ebaf5a2bd5f794a22ea535bc1f63a185a0acda8ccfe8ceb0be367e0b3c082b2b",
+      "body_sha256": "0e07f3c2fabbe918c1a7b3c3165760dd70f128c5ef6ed60d49f694c0f1fa19be"
+    },
+    {
+      "old_module": "laomedo.github.issues.handler",
+      "new_module": "laomedo.github.interface.issues.handler",
+      "selection": "module",
+      "source_git_blob": "6c4fbaa53684be864cff74122f0c856a4059abd1",
+      "source_sha256": "8dc2be0e1ddd152270dfa301ace0b6ac66f1ebf3646fa0ed9f7eac58b2524563",
+      "body_sha256": "eae4000ec8c01e625442d7b6c8f998124a54bc5b803687fb5338420b426f0fda"
+    },
+    {
+      "old_module": "laomedo.github.issues.server",
+      "new_module": "laomedo.github.interface.issues.server",
+      "selection": "module",
+      "source_git_blob": "151efa6fe0b9dab5439338febe9c3b8d72f1f910",
+      "source_sha256": "ab1094b7bdd76893ecd476da28b034af24cbacb8bf95e5ae75b8df8f6907b57f",
+      "body_sha256": "74d036ca8974f9971ebade2299a7fa62711ae479a2b52255f5a4d56559c3394d"
+    },
+    {
+      "old_module": "laomedo.github.issues.cli",
+      "new_module": "laomedo.github.interface.issues.cli",
+      "selection": "module",
+      "source_git_blob": "97cbd9314b9864b7f3ea8b224fa2b4de89ab322b",
+      "source_sha256": "47ac66d38a97ebcb49eae39e12730898ef01f9f74c9f0edc362312a9beb68beb",
+      "body_sha256": "8df51a4e2edadeb8d4b4d49a2517eea85bc4e89c097483360447052d9b98d0f9"
+    },
+    {
+      "old_module": "laomedo.github.issues.settings",
+      "new_module": "laomedo.github.interface.issues.settings",
+      "selection": "module",
+      "source_git_blob": "00b914962f40ae2349f098a75ed74d6c00c63e7c",
+      "source_sha256": "dbcd09d386660a8f955668c14eb1b58c212aa0eb8c35c5150ff287a9beef4062",
+      "body_sha256": "22bcc0b36bc3dfb359305625c607627cf52046def96d899720d6d8141598fcbf"
+    },
+    {
+      "old_module": "laomedo.github.pull_requests.client",
+      "new_module": "laomedo.github.interface.pull_requests.client",
+      "selection": "module",
+      "source_git_blob": "2807f76e64ba664d02eaa0b40ac17769303ef3a1",
+      "source_sha256": "591eee51e94299ff51872b9cd25b157262a39702f73b2d7ba2f0414b259912d3",
+      "body_sha256": "55ede60b2d9d1605b9fcbd41d0f7b7c2f3db4e62832e340b9de48ae98b65a13e"
+    },
+    {
+      "old_module": "laomedo.github.pull_requests.handler",
+      "new_module": "laomedo.github.interface.pull_requests.handler",
+      "selection": "module",
+      "source_git_blob": "dac046cd0d2c238c2717a6b99ba9b9a7418cab7d",
+      "source_sha256": "c2307061197488f94d84f61a969ee6cc66cee0dc67d43766102d9ac4b21ded68",
+      "body_sha256": "b9e3686cd47f74b8e7818faca8ac197f5fcb19e47165f5e4ffea73b5e62f1ab1"
+    },
+    {
+      "old_module": "laomedo.github.pull_requests.server",
+      "new_module": "laomedo.github.interface.pull_requests.server",
+      "selection": "module",
+      "source_git_blob": "0bdc5c970e30668932f57fa41ead7365c76199d3",
+      "source_sha256": "b64f24f268c91f2cf88e7b6675066f0a71554f5110748ea522429fddf6c155be",
+      "body_sha256": "11f7bb49bb338b479b834d94e3a91ab3a33c95b1b98a97f96e9a75383ba35943"
+    },
+    {
+      "old_module": "laomedo.github.pull_requests.cli",
+      "new_module": "laomedo.github.interface.pull_requests.cli",
+      "selection": "module",
+      "source_git_blob": "7d677806f61f89736415f27e0cab5ef7b8440e75",
+      "source_sha256": "00494e8304c80fadd5ee3153e9308f6fe4db5ba6258a6245e1423486bdf64971",
+      "body_sha256": "b5cbe48354ba314a906a61a3e5e123608801eef204434e4f3beb67c3ecfa02ec"
+    },
+    {
+      "old_module": "laomedo.github.pull_requests.settings",
+      "new_module": "laomedo.github.interface.pull_requests.settings",
+      "selection": "module",
+      "source_git_blob": "7d77bebd85480a60610c28f7d5d5d50a1c25cbe8",
+      "source_sha256": "ac17e1d4c448e6f62709dbd21c45aec0ff65301cb3f0d12b7bd89b9acf83190a",
+      "body_sha256": "bcd17617e715989ccbefb5281b241e7cf045e6d06faf6079304512382fcb4989"
+    },
+    {
+      "old_module": "laomedo.skills.sources.client",
+      "new_module": "laomedo.skills.interface.sources.client",
+      "selection": "module",
+      "source_git_blob": "9b7af2246956a5022edae07fe13eb10846b9af58",
+      "source_sha256": "9ba3e7c651862dc3f9fedb950a2bd757cc80d878e8dedd7f38bc36cc93009f05",
+      "body_sha256": "dd3f2e9d934f64878da2f87e24e30e55d3f5c29f4faf16021387766ab1929164"
+    },
+    {
+      "old_module": "laomedo.skills.sources.handler",
+      "new_module": "laomedo.skills.interface.sources.handler",
+      "selection": "module",
+      "source_git_blob": "9beade4d95a2855bf86078365b04e2f0b1952577",
+      "source_sha256": "5b0375d51f565f705eeb5b780c0b6f4623aac35848c422947e6fa6d85c9170ee",
+      "body_sha256": "8da3f5c1d2ac2915f5e7ca386a81e99b138c1d8a9c55213743b82f15f703ff1c"
+    },
+    {
+      "old_module": "laomedo.skills.sources.server",
+      "new_module": "laomedo.skills.interface.sources.server",
+      "selection": "module",
+      "source_git_blob": "91e3260e9b2300db46e4af2510570b9d1158813c",
+      "source_sha256": "5f8e35d9cf15e031f0bb036390db451a8d1f89af5805379f5994df99dbde437a",
+      "body_sha256": "265e652bccd60a1607920076a8b0a3f45901e961dd788d38c391831d6be5be88"
+    },
+    {
+      "old_module": "laomedo.skills.sources.cli",
+      "new_module": "laomedo.skills.interface.sources.cli",
+      "selection": "module",
+      "source_git_blob": "8ae26bf9f6ed9fbc5c00de142668450136a06b03",
+      "source_sha256": "9ea9b703b1f8b77e1f6763ee6f484327a577032bffb3b9198bb5a7f4ae5cbd3c",
+      "body_sha256": "f1edd1ad58b1d38b615783c223bfbd8885a439b1a75e72b69054ba69b4c0d075"
+    },
+    {
+      "old_module": "laomedo.skills.sources.settings",
+      "new_module": "laomedo.skills.interface.sources.settings",
+      "selection": "Settings",
+      "source_git_blob": "183556880768828ac4b6acf7c1d908d9f8bec5a1",
+      "source_sha256": "c4e97787d724a22761b11ef5c7c68c0e2d29b61b19606a07ae806d4d6be24f34",
+      "body_sha256": "e8fc499484627393d7e0db605680d3176e1b165c19054e5a28be0370cab0daa5"
+    },
+    {
+      "old_module": "laomedo.skills.operations.client",
+      "new_module": "laomedo.skills.interface.operations.client",
+      "selection": "module",
+      "source_git_blob": "7d675d0cf33500a1aa0bcbdd3b24803db9575b23",
+      "source_sha256": "acb271b32115e0bed7707c674a0d3295304451ca3a07880c5cad96f66ab62613",
+      "body_sha256": "4f9b35206c7cc8b56f1f838ca32d0ba0fb8d285efd824fe5d28b9e385da2a0fd"
+    },
+    {
+      "old_module": "laomedo.skills.operations.handler",
+      "new_module": "laomedo.skills.interface.operations.handler",
+      "selection": "module",
+      "source_git_blob": "c9def279defade1ca788c072cd72155589d4c809",
+      "source_sha256": "35f7f24eb60b6de2c9a0fa47bb4eb7de924fb32bdef52b960cf926fb825e4505",
+      "body_sha256": "9f23789853bfa4242cf501a2fe69a8007d08741b99e86755194f91e3c111511c"
+    },
+    {
+      "old_module": "laomedo.skills.operations.server",
+      "new_module": "laomedo.skills.interface.operations.server",
+      "selection": "module",
+      "source_git_blob": "38c7683c648b16849e1d7a6e5ae7a0b70717db09",
+      "source_sha256": "d643f102b5bba5ea0a72e59fa257845173991da020fad9167fcb97b6405ca0cf",
+      "body_sha256": "26b5404cdca1b0801f6b6f82966a2b8d6de08e4d176a818ceece8e0268f4cc81"
+    },
+    {
+      "old_module": "laomedo.skills.operations.cli",
+      "new_module": "laomedo.skills.interface.operations.cli",
+      "selection": "module",
+      "source_git_blob": "ad48a86ddd148ded05f9b577448467287a6ed00a",
+      "source_sha256": "68f0d40f0ea914ab1a331f252ea28400840fee41c9e63aff398b90f6874e41f7",
+      "body_sha256": "d1bc912210203a30c359e725accd33c2fdc47b1595134997c6529576d4954e99"
+    },
+    {
+      "old_module": "laomedo.skills.operations.settings",
+      "new_module": "laomedo.skills.interface.operations.settings",
+      "selection": "module",
+      "source_git_blob": "bc288152ddd3e36ea2e43f6f4551f08a716f62c2",
+      "source_sha256": "e60f04f0baab2a3a25ce43938fa6298b494ed97d93b53b13b9fac3ac98d3be45",
+      "body_sha256": "f7c1a3016dd9894a98d7b7c13e966e8515e7340bea023fa7a38320bde65a2886"
+    },
+    {
+      "old_module": "laomedo.skills.sources.settings",
+      "new_module": "laomedo.skills.sources.settings",
+      "selection": "fixed_source_policy",
+      "body_sha256": "3be63f44d6d202b4547dfb1d84d71eef2cdff8901b6c80a20b8b262e1555478d"
+    }
+  ]
+}

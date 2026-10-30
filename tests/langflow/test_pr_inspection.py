@@ -28,7 +28,7 @@ class PRInspectionTests(unittest.TestCase):
 
     def test_authenticated_read_only_no_store(self):
         with patch(
-            "laomedo.github.pull_requests.client.pr_request",
+            "laomedo.github.interface.pull_requests.client.pr_request",
             return_value={
                 "pr": {"number": 1},
                 "fetched_at": "now",
@@ -54,7 +54,7 @@ class PRInspectionTests(unittest.TestCase):
             backend.assert_called_once_with("execute", **self.body, operation=None)
 
     def test_operation_and_invalid_identity_never_reach_gateway(self):
-        with patch("laomedo.github.pull_requests.client.pr_request") as backend:
+        with patch("laomedo.github.interface.pull_requests.client.pr_request") as backend:
             for body in (
                 {**self.body, "operation": {"action": "close"}},
                 {**self.body, "pr_number": True},
@@ -72,7 +72,7 @@ class PRInspectionTests(unittest.TestCase):
 
     def test_failed_read_omits_provider_details(self):
         with patch(
-            "laomedo.github.pull_requests.client.pr_request",
+            "laomedo.github.interface.pull_requests.client.pr_request",
             side_effect=RuntimeError("private-token"),
         ):
             response = self.client.post(

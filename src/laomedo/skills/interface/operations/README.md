@@ -1,6 +1,6 @@
 # Operations HTTP boundary
 
-PROPOSED C3 location for the existing API; README written before moving code.
+C3 location for the existing API; README committed before moving code.
 This leaf adapts local HTTP to `SkillOperations` in `skills/operations`. It owns no duplicate
 domain records or authority. `SkillProposal, SkillCommit and SkillOperationResult` remain canonical under the domain owner.
 

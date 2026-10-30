@@ -1,19 +1,8 @@
 # Issue records
 
-## HTTP object and method vocabulary (C1)
-
-`IssueServer` in `server.py` owns loopback lifetime, the gateway and its private
-bearer token. `IssueRequestHandler` in `handler.py` is a module-level collaborator:
-`do_POST` authenticates/parses/routes, `reply` writes the existing JSON response,
-and `log_message` suppresses private request logging. Bindings come from
-`self.server`, never a nested class closure or mutable global.
-
-`GitHubIssueGateway.discover` lists matching choices; `execute` admits a selected
-resource and any authorized operation; `_finish` preserves durable outcome
-precedence. The handler retains the existing routes, exact field checks, 1-MiB
-body cap, status codes and pre-dispatch/unknown-write distinction. A transport
-failure during a write does not authorize another write. Client/server/CLI paths
-stay in this package until the separately reviewed interface relocation.
+HTTP clients, handlers, servers, Settings and trusted startup live in
+`github/interface/issues/`; see that leaf README for supported protocol and
+object/method vocabulary. This package retains domain behavior and values.
 
 ## Canonical values
 

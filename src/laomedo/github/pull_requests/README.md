@@ -1,19 +1,8 @@
 # Pull request records
 
-## HTTP object and method vocabulary (C1)
-
-`PullRequestServer` in `server.py` owns loopback lifetime, the gateway and private
-bearer token. Module-level `PullRequestHandler` in `handler.py` implements
-`do_POST`, `reply` and a private-log-suppressing `log_message`, using only its
-server instance bindings. No nested class, captured credential or global binding
-is needed.
-
-`GitHubPRGateway` owns `discover`, `execute`, `prepare_feedback` and
-`apply_feedback`. Selection and feedback remain PR concerns. The handler keeps
-all four current routes, accepted field sets, 1-MiB request cap, JSON encoding,
-status codes and unknown-write classification. Failure after possible dispatch
-never becomes advice to blindly retry. HTTP adapter relocation is a later C3
-checkpoint; current module/CLI entrypoints and canonical models stay unchanged.
+HTTP clients, handlers, servers, Settings and trusted startup live in
+`github/interface/pull_requests/`; see that leaf README for supported protocol and
+object/method vocabulary. This package retains domain behavior and values.
 
 ## Canonical values
 

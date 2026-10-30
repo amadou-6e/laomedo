@@ -1,7 +1,7 @@
 # Skills application interface
 
 This is the discoverable boundary used by components, the viewer and local
-service startup. C3's proposed move places the existing HTTP clients, handlers,
+service startup. C3 places the existing HTTP clients, handlers,
 servers and startup CLIs here; it introduces no forwarding facade or parallel
 protocol. Domain values and service behavior stay in their canonical packages.
 
@@ -27,11 +27,12 @@ stay direct imports; they do not authorize broader host access. The neutral shar
 redirect policy remains `laomedo.http.redirect.NoRedirect`.
 
 CLI commands and maintained component imports migrate through explicit flat
-module/symbol/CLI maps. No old-package runtime facade or import hook is planned.
+module/symbol/CLI maps. No old-package runtime facade or import hook is installed.
 Historical graphs and retained probe sources remain byte-preserved; external
 saved services/graphs require an explicitly selected migration before using this
 installed version. Node identities, ports, routes, fields, environment names,
 missing/empty semantics, error codes and remote-effect uncertainty are unchanged.
 
-This README precedes implementation. Registry/source Git/workspace changes and
-real graph acceptance are separate checkpoints; it is not a completion claim.
+This README was committed before implementation. Registry/source Git/workspace
+changes remain separate checkpoints. Internal controls and this source move do
+not establish real graph acceptance or permission to merge.

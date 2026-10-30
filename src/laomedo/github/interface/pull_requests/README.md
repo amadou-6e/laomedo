@@ -1,6 +1,6 @@
 # Pull Requests HTTP boundary
 
-PROPOSED C3 location for the existing API; README written before moving code.
+C3 location for the existing API; README committed before moving code.
 This leaf adapts local HTTP to `GitHubPRGateway` in `github/pull_requests`. It owns no duplicate
 domain records or authority. `GitHubPullRequest` remain canonical under the domain owner.
 

@@ -1,7 +1,7 @@
 """Authenticated loopback boundary for Skill operations; no source/Git writes."""
 
 from http.server import ThreadingHTTPServer
-from laomedo.skills.operations.handler import SkillOperationRequestHandler
+from laomedo.skills.interface.operations.handler import SkillOperationRequestHandler
 
 
 class SkillOperationServer(ThreadingHTTPServer):

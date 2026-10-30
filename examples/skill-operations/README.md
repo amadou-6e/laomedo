@@ -30,7 +30,7 @@ can forge those assertions; the viewer labels this boundary. Real acceptance
 must compare run references independently with the actual runner receipts.
 
 Configure the independent loopback service with `python -m
-laomedo.skills.operations.cli --registry PATH --database PATH --policies PATH
+laomedo.skills.interface.operations.cli --registry PATH --database PATH --policies PATH
 --api-token-file PATH --port PORT`. Policies is a private JSON map from skill ID
 to a validated existing edit policy. Backend-only environment variables are
 `LAOMEDO_SKILL_OPERATION_URL` and `LAOMEDO_SKILL_OPERATION_TOKEN_FILE`. No token,
