@@ -194,7 +194,6 @@ class SharedGitTests(unittest.TestCase):
             "agents/workspaces",
             "github/transport/git",
             "host/publication/verified",
-            "skills/workspace",
             "host/mediation",
         ):
             for path in (source / relative).rglob("*.py"):

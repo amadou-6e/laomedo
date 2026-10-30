@@ -19,7 +19,7 @@ from laomedo.agents.agents.base.utils import _id
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.skills.registry.errors import SkillStoreError
-from laomedo.skills.workspace.utils import verify
+from laomedo.agents.workspaces.skills.utils import verify
 import re
 import shutil
 import threading

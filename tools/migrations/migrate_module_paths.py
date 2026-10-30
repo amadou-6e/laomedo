@@ -25,7 +25,14 @@ MANUAL_SYMBOLS = json.loads(Path(__file__).with_name("manual-symbols.json").read
 CLI_PATHS = json.loads(Path(__file__).with_name("cli-paths.json").read_text())
 # Partial splits preserve the old owner for its remaining members; retired splits
 # require every imported member to resolve to an explicit defining-symbol mapping.
-RETIRED_SPLIT_MODULES = {"laomedo.skills.registry.utils", "laomedo.github.issues.utils"}
+RETIRED_SPLIT_MODULES = {
+    "laomedo.github.issues.utils",
+    "laomedo.skills.registry.utils",
+    "laomedo.skills.workspace",
+    "laomedo.skills.workspace.utils",
+    "laomedo.skills.workspace_skills",
+    "laomedo.workspace_skills",
+}
 SPLIT_MODULES = {
     "laomedo.github.issues.contract",
     "laomedo.github.pull_requests.contract",
