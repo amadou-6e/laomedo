@@ -41,3 +41,32 @@ readers; a new record does not imply capture completeness.
 counter conversion. Unknown/incomplete native usage remains unknown and never
 passes through a zero-filling constructor. Raw native item maps remain extensible
 JSON, distinct from these closed, validated counters.
+
+## Projection envelope (PROPOSED / NOT IMPLEMENTED)
+
+`ActivityProjection` in `models.py` will own the application response envelope,
+not native interpretation. The name joins the domain `Activity` with the
+responsibility `Projection`; there is one shared value, without a provider
+subclass or an abstract base. Shared and OpenCode projector functions will compose
+it after their existing parsing, grouping, usage and pricing work. The dependency
+direction is projector to shared model; the model does not import projectors.
+
+| Method | Boundary and behavior |
+| --- | --- |
+| `to_payload()` | Return the existing shared field order, including diagnostics only when supplied. |
+| `to_usage_first_payload()` | Return OpenCode's existing usage-before-telemetry field order. |
+
+These projections return the original values and container references; they do
+not recursively dump, copy or normalize native observations. Raw turns, items,
+threads, diagnostics, telemetry, usage snapshots/points and cost evidence are
+explicitly observed external structures: their typed fields skip new validation
+and are excluded from the model representation. Partial counters, unknown fields
+and explicit nulls stay intact, independently of `TokenUsage`. Application-owned
+scalar metadata remains strict. An omitted diagnostics field stays omitted;
+explicit empty diagnostics remain present. A frozen envelope does not freeze its
+nested observations. Neither method mutates state or performs I/O.
+
+The retained `tests/contracts/activity-projection-3508b7aee.json` records old
+projector bytes and Git blob provenance captured before implementation. These
+are synthetic internal compatibility controls, not a working graph demonstration
+or live provider acceptance.
