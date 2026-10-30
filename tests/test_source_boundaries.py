@@ -1,6 +1,7 @@
 """D2 internal source contract controls; these do not establish live acceptance."""
 
 import ast
+import hashlib
 import io
 import json
 import os
@@ -26,6 +27,7 @@ from laomedo.git.models import (
     GitExecutionContext,
 )
 from laomedo.skills.interface.sources.client import source_request
+from laomedo.skills.inspection.settings import MAX_FILE_BYTES
 from laomedo.skills.sources.errors import SourceError
 from laomedo.skills.sources.repository import GitSkillSource
 from laomedo.skills.sources.staging import SkillSourceStagingDirectory
@@ -161,6 +163,57 @@ class SourceBoundaryTests(unittest.TestCase):
                 self.assertRaisesRegex(SourceError, expected),
             ):
                 GitSkillSource(self.root, runner=runner)._run(self.root, ["--version"])
+
+    def test_each_repository_command_retains_its_existing_cap_and_operation_deadline(
+        self,
+    ):
+        runner = MagicMock()
+        source = GitSkillSource(self.root, runner=runner)
+        url = "https://github.com/example/skills.git"
+        folder = Path(self.root, hashlib.sha256(url.encode()).hexdigest())
+        folder.mkdir()
+        deadline = time.monotonic() + 60
+        runner.run.side_effect = [
+            subprocess.CompletedProcess([], 0, b"", b""),
+            subprocess.CompletedProcess([], 0, b"refs/heads/main\n", b""),
+            subprocess.CompletedProcess([], 0, b"a" * 40 + b"\n", b""),
+        ]
+        state = source.repository(url, refresh=True, deadline=deadline)
+        commands = [call.args[0] for call in runner.run.call_args_list]
+        self.assertEqual(
+            [command.arguments[0] for command in commands],
+            ["fetch", "for-each-ref", "rev-parse"],
+        )
+        self.assertEqual(
+            [command.budget.stdout_limit for command in commands],
+            [4 * 1024 * 1024, 64 * 1024, 1024],
+        )
+        runner.reset_mock()
+        runner.run.side_effect = None
+        runner.run.return_value = subprocess.CompletedProcess(
+            [], 0, b"100644 blob " + b"a" * 40 + b"\tSKILL.md\0", b""
+        )
+        entries = source.entries(folder, state.refs[0].commit, deadline)
+        self.assertEqual(
+            runner.run.call_args.args[0].budget.stdout_limit, 2 * 1024 * 1024
+        )
+        commands.append(runner.run.call_args.args[0])
+        runner.reset_mock()
+        runner.run.side_effect = [
+            subprocess.CompletedProcess([], 0, b"10", b""),
+            subprocess.CompletedProcess([], 0, b"skillbytes\n", b""),
+        ]
+        self.assertEqual(
+            source.read_blob(folder, entries["SKILL.md"], deadline), b"skillbytes\n"
+        )
+        reads = [call.args[0] for call in runner.run.call_args_list]
+        self.assertEqual(
+            [command.budget.stdout_limit for command in reads], [128, MAX_FILE_BYTES]
+        )
+        commands.extend(reads)
+        self.assertTrue(
+            all(command.budget.operation_deadline == deadline for command in commands)
+        )
 
     def test_active_native_process_limits_and_exit_between_polls_preserve_categories(
         self,
