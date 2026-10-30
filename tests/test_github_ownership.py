@@ -157,6 +157,28 @@ class GitHubOwnershipTests(unittest.TestCase):
         module = load_retained_github("experiments.exp100.probe_native_capture")
         self.assertIs(module.GitHubMediatedTransport, GitHubMediatedTransport)
 
+    def test_retained_run_injection_requires_manual_full_source_migration(self):
+        """Import-only controls cannot silently bless retired full probe calls."""
+        paths = (
+            "experiments/exp100/probe_native_capture.py",
+            "experiments/exp100/probe_paired.py",
+            "experiments/exp104/probe_active_delivery.py",
+        )
+        for relative in paths:
+            with self.subTest(path=relative):
+                source = Path(ROOT, relative).read_text(encoding="utf-8")
+                self.assertTrue(
+                    any(
+                        isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Name)
+                        and node.func.id == "GitHubGitTransport"
+                        and any(keyword.arg == "run" for keyword in node.keywords)
+                        for node in ast.walk(ast.parse(source))
+                    )
+                )
+                with self.assertRaises(MIGRATION["ManualMigrationRequired"]):
+                    MIGRATION["migrate_source"](source)
+
     def test_current_producers_keep_catalogue_and_cli_only_errors_distinct(self):
         catalogue = json.loads(
             Path(
