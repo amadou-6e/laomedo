@@ -31,6 +31,7 @@ from lfx.schema import Message
 _STOP_TASKS = set()
 _TERMINAL = {"completed", "cancelled", "failed", "timeout", "interrupted"}
 _ROUTABLE_ERRORS = {
+    "invalid_join_body",
     "external_git_directory_unsupported",
     "invalid_skill_id",
     "materialized_skill_mismatch",

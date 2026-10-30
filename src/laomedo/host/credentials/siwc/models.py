@@ -102,8 +102,9 @@ class OAuthAttempt(BaseModel):
         description="Existing enrolled client or explicit null for dynamic enrollment."
     )
     previous_subject: JsonValue = Field(
-        repr=False, exclude=True,
-        description="Existing private subject observation, retained only by the attempt boundary."
+        repr=False,
+        exclude=True,
+        description="Existing private subject observation, retained only by the attempt boundary.",
     )
 
     def to_private_payload(self) -> dict:

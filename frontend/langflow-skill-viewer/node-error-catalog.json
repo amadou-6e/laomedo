@@ -599,6 +599,11 @@
     "description": "The selected operation cannot use these start-only requirements or handoff settings.",
     "recovery": "Use Fresh or Start for start-only requirements. To continue an existing run, preserve its original configuration and remove incompatible start-only overrides."
   },
+  "invalid_join_body": {
+    "title": "The graph request could not be read",
+    "description": "The local graph bridge rejected a missing, oversized or malformed request before dispatching this request.",
+    "recovery": "Reopen the graph and check its Agent configuration. If this was a status or cancellation request, check the existing run before starting a replacement; rejecting this request does not stop earlier work."
+  },
   "join_bridge_requires_fresh_start": {
     "title": "This configuration requires a new session",
     "description": "The selected operation cannot use these start-only requirements or handoff settings.",
