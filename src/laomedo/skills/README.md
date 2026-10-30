@@ -36,3 +36,15 @@ C2 moves generic run-bound bundle ingress to `host/publication/ingestion/`.
 It does not inspect or modify skills and therefore has no compatibility owner
 under this package. Registry, source and operation behavior remain unchanged;
 Agent-only workspace helpers and source Git launcher changes are later work.
+
+
+## C3 public interface design
+
+The proposed `interface/` boundary contains actual existing HTTP adapters:
+clients, handlers, servers, feature-local Settings and trusted startup CLIs.
+Its README and per-feature READMEs define the object/method vocabulary before
+implementation. Domain models, gateways/services and immutable persistence remain
+under their existing owners; no common handler base or forwarding layer is added.
+Application callers use defining modules in interface; only explicit CLI startup
+loads host/native composition. Source-domain fixed policy remains source-owned.
+Current checkpoint status and migration constraints are in `interface/README.md`.
