@@ -14,7 +14,6 @@ from unittest.mock import Mock
 
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.publication.ingestion.errors import BundleIngestError
-from test_http_handler_boundaries import HandlerStructureTests
 
 ROOT = Path(__file__).resolve().parents[1]
 OWNER = "laomedo.host.publication.ingestion"
@@ -202,6 +201,8 @@ class PublicationIngestionBoundaryTests(unittest.TestCase):
             self.assertTrue(self.retired_imports(source), source)
 
     def test_maintained_example_code_has_no_retired_ingestion_imports(self):
+        from test_http_handler_boundaries import HandlerStructureTests
+
         historical = {
             item["historical_original"]: item["sha256"]
             for item in json.loads(
