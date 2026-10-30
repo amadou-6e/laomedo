@@ -36,9 +36,7 @@ def skill_request(action, **body):
                 "Content-Type": "application/json",
             },
         )
-        with request.build_opener(NoRedirect()).open(
-            call, timeout=65
-        ) as response:
+        with request.build_opener(NoRedirect()).open(call, timeout=65) as response:
             raw = response.read(16 * 1024 * 1024 + 1)
         if len(raw) > 16 * 1024 * 1024:
             raise ValueError()

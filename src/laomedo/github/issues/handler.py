@@ -9,6 +9,7 @@ from laomedo.host.mediation.errors import KnownRejected
 
 class IssueRequestHandler(BaseHTTPRequestHandler):
     """Authenticate and route one request using only its server instance bindings."""
+
     def log_message(self, *_):
         pass
 
@@ -29,10 +30,7 @@ class IssueRequestHandler(BaseHTTPRequestHandler):
             return
         executing_write = False
         try:
-            if (
-                self.headers.get("Content-Type", "").split(";")[0]
-                != "application/json"
-            ):
+            if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                 raise ValueError("invalid_request")
             size = int(self.headers.get("Content-Length", "0"))
             if not 0 < size <= 1024 * 1024:
@@ -61,23 +59,17 @@ class IssueRequestHandler(BaseHTTPRequestHandler):
         except Exception as error:
             category = (
                 str(error)
-                if type(error) is ValueError
-                and str(error) in ERROR_CODES
+                if type(error) is ValueError and str(error) in ERROR_CODES
                 else "github_issue_unavailable"
             )
-            if isinstance(
-                error, KnownRejected
-            ) and error.code in {
+            if isinstance(error, KnownRejected) and error.code in {
                 "github_http_401",
                 "github_http_403",
                 "github_http_404",
                 "github_http_410",
             }:
                 category = error.code
-            if (
-                executing_write
-                and category not in PRE_DISPATCH_ERRORS
-            ):
+            if executing_write and category not in PRE_DISPATCH_ERRORS:
                 self.reply(503, {"error_category": "issue_write_unknown"})
             else:
                 self.reply(400, {"error_category": category})

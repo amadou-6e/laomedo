@@ -1,0 +1,25 @@
+{
+  "baseline": "422887273038523ca6343234739775b1d218b673",
+  "handlers": {
+    "github/issues": {
+      "handler_ast_sha256": "91e21fbb90481ef2354119daae571a2fe892d5ea03a86da1d1b33bd3c329e116",
+      "admission_ast_sha256": "e2a56c64403f5b27c5bf5a47dcca04295779313c37f6e4be9706ab36b9a083fa",
+      "arguments_ast_sha256": "7494511f103393ae4c470908bd7d01138a623376e753cc9fbcc6da962052da89"
+    },
+    "github/pull_requests": {
+      "handler_ast_sha256": "719f3a12af81b31e8fea7e9d4064bb513fffd2262712e8df71aecd6c57ec2b82",
+      "admission_ast_sha256": "c06d3fc1090434af69cd12aff7094a0a99ae812087c26b0f8541a485898d3469",
+      "arguments_ast_sha256": "2271872b2ff1186e59ab06bae46908f19c85528c22f4f8f68221d60cbad8de1e"
+    },
+    "skills/sources": {
+      "handler_ast_sha256": "18fb0185c87c2d8d3c913abb2d4e7afd320ec8c86e3a6e935ae18002c223fc56",
+      "admission_ast_sha256": "6fafbeb9370ac02e52e56009c5f0604747c93179f7d831301411a09f1ef82386",
+      "arguments_ast_sha256": "53f683e6138d8828c8fc7828bbdd878c57d087db7064ce63e3e5335791444563"
+    },
+    "skills/operations": {
+      "handler_ast_sha256": "45dd6e9b914548a1e16e461f23aecd07c4c878859b415bc3e918fedebe50fa07",
+      "admission_ast_sha256": "155b213ea9c5c0d092bd9f85cdbffe6e73c2d4659a5cddc62ecf1be322784d92",
+      "arguments_ast_sha256": "0ba57237e88c4b53494c6188e06fb7a96d976f2d9124f227c87d5e0abdf576db"
+    }
+  }
+}

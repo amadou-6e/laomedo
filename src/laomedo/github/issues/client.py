@@ -39,9 +39,7 @@ def issue_request(action, **payload):
                 "Authorization": "Bearer " + token,
             },
         )
-        with request.build_opener(NoRedirect()).open(
-            call, timeout=90
-        ) as response:
+        with request.build_opener(NoRedirect()).open(call, timeout=90) as response:
             data = response.read(1024 * 1024 + 1)
         if len(data) > 1024 * 1024:
             raise ValueError()
@@ -70,10 +68,7 @@ def issue_request(action, **payload):
         if (
             action == "execute"
             and payload.get("operation")
-            and (
-                exc.code not in {400, 401}
-                or category not in PRE_DISPATCH_ERRORS
-            )
+            and (exc.code not in {400, 401} or category not in PRE_DISPATCH_ERRORS)
         ):
             category = "issue_write_unknown"
         raise ValueError(category) from None

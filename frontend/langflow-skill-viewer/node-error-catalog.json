@@ -1748,5 +1748,335 @@
     "title": "A local Git operation timed out and cleanup is uncertain",
     "description": "The Git command exceeded its deadline, and the runner could not confirm all related processes stopped. If it contacted a remote, that operation may still be active or completed.",
     "recovery": "Check the existing run, local Git processes and any remote result before continuing. Do not retry a push while its outcome is uncertain."
+  },
+  "absolute_local_source_required": {
+    "title": "The local source needs an absolute path",
+    "description": "A relative path cannot identify an admitted local skill source.",
+    "recovery": "Select an absolute local path within the configured allowed source roots."
+  },
+  "discovered_revision_required": {
+    "title": "Choose a discovered revision",
+    "description": "The selected revision was not established by source discovery.",
+    "recovery": "List the selected skill's revisions and choose an available immutable revision."
+  },
+  "discovered_skill_required": {
+    "title": "Choose a discovered skill",
+    "description": "The selected skill was not established by source discovery.",
+    "recovery": "Refresh the source choices and choose a discovered skill before listing revisions."
+  },
+  "github_discovery_incomplete": {
+    "title": "GitHub returned an incomplete list",
+    "description": "The application could not establish a complete list of matching resources.",
+    "recovery": "Check GitHub connectivity and refresh the read-only selection before choosing a resource."
+  },
+  "github_http_401": {
+    "title": "GitHub authentication was refused",
+    "description": "The configured connection was not accepted by GitHub.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_http_403": {
+    "title": "GitHub access was refused",
+    "description": "GitHub did not permit this request for the configured connection.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_http_404": {
+    "title": "The GitHub resource is unavailable",
+    "description": "GitHub could not provide the selected resource; it may be missing or inaccessible.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_http_410": {
+    "title": "The GitHub resource is no longer available",
+    "description": "GitHub reports that the selected resource is no longer available.",
+    "recovery": "Check the resource on GitHub and the configured connection's repository access before another operation."
+  },
+  "github_issue_unavailable": {
+    "title": "The issue could not be read",
+    "description": "The application could not confirm a usable response from the configured service or GitHub.",
+    "recovery": "Check service availability and inspect the resource on GitHub. Confirm any existing write outcome before another operation."
+  },
+  "github_pr_unavailable": {
+    "title": "The pull request could not be read",
+    "description": "The application could not confirm a usable response from the configured service or GitHub.",
+    "recovery": "Check service availability and inspect the resource on GitHub. Confirm any existing write outcome before another operation."
+  },
+  "invalid_source_operation": {
+    "title": "The skill source action is invalid",
+    "description": "The requested source action is unsupported.",
+    "recovery": "Use the supported source discovery, revision listing or resolution action."
+  },
+  "issue_grant_unavailable": {
+    "title": "Operation authorization is unavailable",
+    "description": "The host could not confirm authorization for this issue operation.",
+    "recovery": "Check the configured repository connection and operation authorization; keep credentials out of the graph."
+  },
+  "issue_operation_conflict": {
+    "title": "The operation identity conflicts with an earlier request",
+    "description": "This request identity was already used with different operation inputs.",
+    "recovery": "Inspect the earlier request and its outcome. Keep one stable request identity for each intended change."
+  },
+  "issue_operation_invalid": {
+    "title": "The issue operation is invalid",
+    "description": "The operation payload does not match a supported action or identity contract.",
+    "recovery": "Check the Operation input and its supported action fields before submitting a change."
+  },
+  "issue_patch_invalid": {
+    "title": "The issue change is invalid",
+    "description": "The proposed changes contain unsupported fields or values.",
+    "recovery": "Use supported title, body, labels or close changes and inspect the proposal before submission."
+  },
+  "issue_reference_mismatch": {
+    "title": "The issue reference does not match",
+    "description": "The supplied reference differs from the selected resource.",
+    "recovery": "Inspect the intended resource and make the node selection and operation reference agree."
+  },
+  "issue_response_invalid": {
+    "title": "The issue response could not be verified",
+    "description": "The returned resource did not match the expected identity or response contract.",
+    "recovery": "Inspect the resource on GitHub and the existing operation outcome before submitting another operation."
+  },
+  "issue_service_not_configured": {
+    "title": "The local issue service is not configured",
+    "description": "The local service address or credential-file configuration is invalid.",
+    "recovery": "Check the local service configuration before using this node; keep credential contents out of graph inputs."
+  },
+  "issue_state_invalid": {
+    "title": "The selection state is invalid",
+    "description": "The requested state is unsupported.",
+    "recovery": "Choose a supported state on the node."
+  },
+  "issue_write_unknown": {
+    "title": "The issue change is not confirmed",
+    "description": "The request may have reached GitHub, but its final outcome could not be confirmed.",
+    "recovery": "Inspect the resource on GitHub and the existing operation result before submitting another change. Do not blindly repeat the write."
+  },
+  "json_required": {
+    "title": "The source request format is invalid",
+    "description": "The local source endpoint requires a JSON request.",
+    "recovery": "Use the configured application client or send the supported JSON request format."
+  },
+  "labels_invalid": {
+    "title": "The selected labels are invalid",
+    "description": "The label selection contains unsupported or repeated values.",
+    "recovery": "Select valid labels on the node and inspect the selection before running an operation."
+  },
+  "local_source_invalid": {
+    "title": "The local source address is invalid",
+    "description": "The local source URI contains unsupported address parts.",
+    "recovery": "Use an absolute local directory path or a supported file URI."
+  },
+  "local_source_not_allowed": {
+    "title": "This local source is not allowed",
+    "description": "The selected directory is outside the configured source roots.",
+    "recovery": "Select a directory within an allowed root or update the local source service configuration."
+  },
+  "local_source_unavailable": {
+    "title": "The local skill source is unavailable",
+    "description": "The selected local directory could not be used as an admitted source.",
+    "recovery": "Check that the selected source directory exists and is accessible within an allowed root."
+  },
+  "local_source_unsafe": {
+    "title": "The local source could not be read safely",
+    "description": "The source contains a redirected path or does not meet the local source boundary.",
+    "recovery": "Select an allowed directory containing ordinary files and directories."
+  },
+  "pr_agent_cancelled": {
+    "title": "The PR proposal was cancelled",
+    "description": "The Agent proposal was cancelled before feedback could proceed.",
+    "recovery": "Inspect the existing Agent run and PR; a cancelled proposal does not establish a successful PR change."
+  },
+  "pr_agent_failed": {
+    "title": "The Agent did not complete the PR proposal",
+    "description": "The Agent failed before a usable PR feedback proposal was available.",
+    "recovery": "Inspect the Agent's run and the current PR before starting another operation."
+  },
+  "pr_agent_loop_invalid": {
+    "title": "The PR feedback request is invalid",
+    "description": "The Agent feedback request does not match the supported PR operation contract.",
+    "recovery": "Inspect the Agent's operation proposal and the selected PR before running feedback."
+  },
+  "pr_changed_since_agent_read": {
+    "title": "The PR changed after the Agent read it",
+    "description": "The current PR no longer matches the snapshot used for the Agent's proposal.",
+    "recovery": "Read the current PR and review a new proposal against that state before applying a change."
+  },
+  "pr_feedback_not_configured": {
+    "title": "PR feedback is not configured",
+    "description": "The local PR service does not provide the authorization needed for Agent feedback.",
+    "recovery": "Check the local PR feedback configuration and inspect the existing PR before another operation."
+  },
+  "pr_feedback_ticket_invalid": {
+    "title": "PR feedback authorization is invalid",
+    "description": "The supplied feedback ticket could not be accepted for this operation.",
+    "recovery": "Inspect the existing operation outcome and current PR before requesting new feedback authorization."
+  },
+  "pr_grant_unavailable": {
+    "title": "Operation authorization is unavailable",
+    "description": "The host could not confirm authorization for this pull request operation.",
+    "recovery": "Check the configured repository connection and operation authorization; keep credentials out of the graph."
+  },
+  "pr_operation_conflict": {
+    "title": "The operation identity conflicts with an earlier request",
+    "description": "This request identity was already used with different operation inputs.",
+    "recovery": "Inspect the earlier request and its outcome. Keep one stable request identity for each intended change."
+  },
+  "pr_operation_invalid": {
+    "title": "The pull request operation is invalid",
+    "description": "The operation payload does not match a supported action or identity contract.",
+    "recovery": "Check the Operation input and its supported action fields before submitting a change."
+  },
+  "pr_patch_invalid": {
+    "title": "The pull request change is invalid",
+    "description": "The proposed changes contain unsupported fields or values.",
+    "recovery": "Use supported title, body, labels or close changes and inspect the proposal before submission."
+  },
+  "pr_reference_mismatch": {
+    "title": "The pull request reference does not match",
+    "description": "The supplied reference differs from the selected resource.",
+    "recovery": "Inspect the intended resource and make the node selection and operation reference agree."
+  },
+  "pr_response_invalid": {
+    "title": "The pull request response could not be verified",
+    "description": "The returned resource did not match the expected identity or response contract.",
+    "recovery": "Inspect the resource on GitHub and the existing operation outcome before submitting another operation."
+  },
+  "pr_service_not_configured": {
+    "title": "The local pull request service is not configured",
+    "description": "The local service address or credential-file configuration is invalid.",
+    "recovery": "Check the local service configuration before using this node; keep credential contents out of graph inputs."
+  },
+  "pr_state_invalid": {
+    "title": "The selection state is invalid",
+    "description": "The requested state is unsupported.",
+    "recovery": "Choose a supported state on the node."
+  },
+  "pr_write_unknown": {
+    "title": "The pull request change is not confirmed",
+    "description": "The request may have reached GitHub, but its final outcome could not be confirmed.",
+    "recovery": "Inspect the resource on GitHub and the existing operation result before submitting another change. Do not blindly repeat the write."
+  },
+  "repository_access_unavailable": {
+    "title": "The skill repository could not be read",
+    "description": "The source service could not complete its bounded Git repository read.",
+    "recovery": "Check that the selected HTTPS source is accessible and supported by the local source service."
+  },
+  "repository_connection_unavailable": {
+    "title": "The repository connection is unavailable",
+    "description": "The configured GitHub connection does not provide access to this repository.",
+    "recovery": "Check the configured GitHub connection and select a repository it can access."
+  },
+  "repository_limit_exceeded": {
+    "title": "The skill repository read exceeded a limit",
+    "description": "The repository operation exceeded its time, output or local cache budget.",
+    "recovery": "Use a smaller supported source and check the local source service's available storage."
+  },
+  "repository_revision_unavailable": {
+    "title": "No usable repository revision is available",
+    "description": "The source did not provide a usable branch or tag revision.",
+    "recovery": "Check the source repository's branches and tags before refreshing its revisions."
+  },
+  "repository_url_invalid": {
+    "title": "The repository URL is invalid",
+    "description": "The selected source has an unsupported or malformed repository URL.",
+    "recovery": "Enter an HTTPS repository URL supported by this node."
+  },
+  "selected_issue_invalid": {
+    "title": "The selected issue is invalid",
+    "description": "The selected issue number cannot be used.",
+    "recovery": "Select an available issue from the configured repository."
+  },
+  "selected_issue_no_longer_matches": {
+    "title": "The issue no longer matches the selection",
+    "description": "The current resource no longer matches the node's labels or state filter.",
+    "recovery": "Read the current issue and update the selection before proposing another change."
+  },
+  "selected_issue_required": {
+    "title": "Select a issue",
+    "description": "This operation needs a selected issue.",
+    "recovery": "Choose the intended issue on the node before running the operation."
+  },
+  "selected_label_unavailable": {
+    "title": "A selected label is no longer available",
+    "description": "A selected label is missing from the repository's current labels.",
+    "recovery": "Update the node's label selection using the repository's current labels."
+  },
+  "selected_pr_invalid": {
+    "title": "The selected pull request is invalid",
+    "description": "The selected pull request number cannot be used.",
+    "recovery": "Select an available pull request from the configured repository."
+  },
+  "selected_pr_no_longer_matches": {
+    "title": "The pull request no longer matches the selection",
+    "description": "The current resource no longer matches the node's labels or state filter.",
+    "recovery": "Read the current pull request and update the selection before proposing another change."
+  },
+  "selected_pr_required": {
+    "title": "Select a pull request",
+    "description": "This operation needs a selected pull request.",
+    "recovery": "Choose the intended pull request on the node before running the operation."
+  },
+  "skill_name_invalid": {
+    "title": "The skill name is invalid",
+    "description": "The skill's declared name cannot be used as a registry identity.",
+    "recovery": "Use the supported lowercase letters, digits, hyphens and underscores in the skill name."
+  },
+  "skill_operation_refused": {
+    "title": "The skill operation was refused",
+    "description": "The local service could not accept this Skill operation; private parser and authorization details were withheld.",
+    "recovery": "Inspect the selected revision and proposed edits. Confirm the existing operation outcome before submitting another change."
+  },
+  "skill_operation_service_not_configured": {
+    "title": "The skill operation service is not configured",
+    "description": "The local operation service address or requested action is invalid.",
+    "recovery": "Check the configured local Skill operation service before using editing or history actions."
+  },
+  "skill_operation_unavailable": {
+    "title": "The skill operation result is unavailable",
+    "description": "The application could not confirm a usable response from the local Skill operation service.",
+    "recovery": "Check local service availability and inspect the existing revision/history before submitting another edit."
+  },
+  "source_bundle_invalid": {
+    "title": "The skill bundle is incomplete or unsupported",
+    "description": "The selected bundle does not meet the supported Skill file structure and limits.",
+    "recovery": "Select a complete skill directory containing SKILL.md."
+  },
+  "source_bundle_unsafe": {
+    "title": "The skill bundle contains an unsafe path",
+    "description": "A source file path or file type is excluded by the Skill source boundary.",
+    "recovery": "Use a skill directory containing supported ordinary files without secret files or redirected paths."
+  },
+  "source_discovery_failed": {
+    "title": "Skill source discovery was refused",
+    "description": "The local source service refused the discovery request.",
+    "recovery": "Check the selected source and its allowed-root or repository configuration before refreshing choices."
+  },
+  "source_limit_exceeded": {
+    "title": "The skill source exceeded a limit",
+    "description": "The source exceeded the supported file, size, depth or discovery budget.",
+    "recovery": "Select a smaller skill source that fits the documented source limits."
+  },
+  "source_reference_invalid": {
+    "title": "The skill source reference does not match",
+    "description": "The cached source choice and immutable revision identity disagree.",
+    "recovery": "Refresh the source and reselect the intended immutable skill revision."
+  },
+  "source_required": {
+    "title": "Choose a skill source",
+    "description": "No usable skill source was supplied.",
+    "recovery": "Enter a supported repository URL or an allowed absolute local path on the Skill node."
+  },
+  "source_service_not_configured": {
+    "title": "The skill source service is not configured",
+    "description": "The local source service address is missing or invalid.",
+    "recovery": "Check the local Skill source service configuration before discovering a source."
+  },
+  "source_service_unavailable": {
+    "title": "The skill source service is unavailable",
+    "description": "The application could not confirm a usable response from the local source service.",
+    "recovery": "Check that the configured local source service is available before refreshing source choices."
+  },
+  "source_unavailable": {
+    "title": "The skill source could not be read",
+    "description": "The source service could not safely complete this request.",
+    "recovery": "Check the selected source and local source service availability before refreshing read-only choices."
   }
 }

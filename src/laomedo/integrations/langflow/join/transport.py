@@ -13,8 +13,6 @@ from urllib.parse import urlsplit
 import json
 
 
-
-
 class RunnerHTTPTransport:
     """Authenticated host-side client for the existing local Codex runner."""
 

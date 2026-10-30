@@ -28,8 +28,6 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 ISSUE_GRAPHQL_QUERY = "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){issues(first:30,states:OPEN){nodes{number title body}}}}"
 
 
-
-
 class GitHubRestTransport:
     """Narrow first-slice adapter; never reads the ambient gh login."""
 
@@ -70,10 +68,7 @@ class GitHubRestTransport:
                 connection_generation,
                 query={"state": payload["state"]},
             )
-            prs = [
-                pr_value(item, repository, item["number"])
-                for item in raw
-            ]
+            prs = [pr_value(item, repository, item["number"]) for item in raw]
             return {"items": [item for item in prs if selected <= set(item["labels"])]}
         if operation == "pr_node_read":
             if (
@@ -157,9 +152,7 @@ class GitHubRestTransport:
                         connection_id=connection_id,
                         connection_generation=connection_generation,
                     )
-                    if pr_digest(
-                        observed
-                    ) != pr_digest(acknowledged):
+                    if pr_digest(observed) != pr_digest(acknowledged):
                         raise ValueError("pr_update_readback_unknown")
                     before_write()
                     self._call(
@@ -547,9 +540,7 @@ class GitHubRestTransport:
                 else self.token_supplier(connection_id, connection_generation)
             )
         except (TypeError, KeyError, ValueError):
-            raise KnownRejected(
-                "provider_credential_unavailable"
-            ) from None
+            raise KnownRejected("provider_credential_unavailable") from None
         if not isinstance(token, str) or not token or "\n" in token or "\r" in token:
             raise KnownRejected("provider_credential_unavailable")
         encoded = (
@@ -598,7 +589,5 @@ class GitHubRestTransport:
             # A complete, explicitly non-creating response is distinct from
             # a lost response or server error. Do not expose provider bodies.
             if failure.code in {400, 401, 403, 404, 410, 422}:
-                raise KnownRejected(
-                    f"github_http_{failure.code}"
-                ) from None
+                raise KnownRejected(f"github_http_{failure.code}") from None
             raise

@@ -8,6 +8,7 @@ from laomedo.skills.sources.errors import SourceError
 
 class SkillSourceRequestHandler(BaseHTTPRequestHandler):
     """Authenticate and route one request using only its server instance bindings."""
+
     def log_message(self, *_):
         pass  # Source URLs, filenames and request bodies are not access-log content.
 
@@ -27,10 +28,7 @@ class SkillSourceRequestHandler(BaseHTTPRequestHandler):
             self.reply(401, {"error_category": "unauthorized"})
             return
         try:
-            if (
-                self.headers.get("Content-Type", "").split(";")[0]
-                != "application/json"
-            ):
+            if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                 raise SourceError("json_required")
             size = int(self.headers.get("Content-Length", "0"))
             if size < 1 or size > 16 * 1024:
@@ -48,10 +46,7 @@ class SkillSourceRequestHandler(BaseHTTPRequestHandler):
                 self.path != "/v1/skill-sources/" + action
                 or action not in fields
                 or set(body) != fields[action]
-                or any(
-                    not isinstance(v, str) or len(v) > 4096
-                    for v in body.values()
-                )
+                or any(not isinstance(v, str) or len(v) > 4096 for v in body.values())
             ):
                 raise SourceError("invalid_request")
             if action == "discover":

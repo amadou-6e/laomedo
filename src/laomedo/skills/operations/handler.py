@@ -7,6 +7,7 @@ import secrets
 
 class SkillOperationRequestHandler(BaseHTTPRequestHandler):
     """Authenticate and route one request using only its server instance bindings."""
+
     def log_message(self, *_):
         pass
 
@@ -28,8 +29,7 @@ class SkillOperationRequestHandler(BaseHTTPRequestHandler):
         try:
             size = int(self.headers.get("Content-Length", "0"))
             if (
-                self.headers.get("Content-Type", "").split(";")[0]
-                != "application/json"
+                self.headers.get("Content-Type", "").split(";")[0] != "application/json"
                 or not 0 < size <= 4 * 1024 * 1024
             ):
                 raise ValueError("skill_request_invalid")
