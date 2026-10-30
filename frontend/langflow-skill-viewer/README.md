@@ -70,6 +70,28 @@ change. Keyboard selection/navigation and Find still work. Escape closes Find
 before closing the viewer. Internal native-EditContext/event tests support this
 contract but do not replace the actual Edge recheck or owner validation.
 
+## Canvas lifetime during background reads
+
+`PageComponent` gates its initial canvas on the builds query's `isLoading`, named
+`isBuildsLoading` locally. A cached builds refresh can have `isFetching=true`
+without initial loading: it must preserve the mounted ReactFlow tree, node
+selection and open viewer. The pinned query library defines initial loading as
+pending and actively fetching; an initially paused request or completed error
+keeps the former non-fetching gate behavior. No global viewer store is introduced.
+
+On reconnect, the existing Reload files/history controls remain in the same
+viewer and repeat only their read. Background build monitoring must not dismiss
+it. `7492045` exposed the old `isFetching` gate unmounting the canvas before a
+response returned; record corrected behavior with exact-source browser evidence
+separately. The focused `tests/browser/canvas_refresh.cjs <loopback-flow-url>
+<skill-node-id>` regression holds a real builds response in transit to check the
+same mounted child during refresh. Its controlled interception is supporting
+coverage, not a replacement for the complete real no-interception recovery path.
+
+Cancellation retires the client's interest and ignores results for a closed or
+changed selection. It does not guarantee that a server read stops or that the
+browser emits a network-aborted event; an already-issued read can finish.
+
 ## Skill inspection failures
 
 The existing file-view dialog renders failures as inline viewer content,
@@ -87,7 +109,7 @@ lives under `components/laomedoErrors`; viewer code depends on that boundary.
 | Load history or a previous revision when its read fails | Show the same shared explanation in the affected pane; a history failure leaves current files usable and a failed comparison does not show stale files. |
 | Choose a missing, mutable, unsafe or oversized revision | Explain selecting an immutable/available/safe revision or the viewer limit; no blanket Retry or Reload control claims to repair an immutable refusal. |
 | Read fails for an unrecognized external reason | Use a neutral inspection-specific safe fallback with cause unconfirmed; expose only allowlisted diagnostics. Read-only Reload files/history may repeat the same GET, without operation/model rerun. |
-| Change selection or close while a request is pending | Abort the old request; late success/failure cannot overwrite the current selection or reopen dismissed content. |
+| Change selection or close while a request is pending | Cancel client observation of the old request; late success/failure cannot overwrite the current selection or reopen dismissed content. |
 | Copy a failure | Existing subtle icon copies the shared safe explanation and technical details, never arbitrary backend bodies or traces; manual text selection remains available if clipboard access fails. |
 
 `Reload files` and `Reload history` refer only to repeating the read of the same

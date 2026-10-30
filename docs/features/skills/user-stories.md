@@ -42,6 +42,10 @@ Acceptance criteria:
 - Printable keys in the focused source editor do not activate canvas shortcuts,
   close the viewer or open Assistant. Selection, navigation and Find retain native
   editor handling; Escape closes Find before closing the viewer.
+- Background build-history refresh preserves the mounted canvas, selected node
+  and open viewer; reconnect leaves its read-only Reload control usable.
+- Closing or changing selection retires old client results; a completed server
+  read must not overwrite the new selection or reopen dismissed content.
 
 **Recorded failure:** the actual Edge check at `67177b1` failed keyboard
 isolation with Monaco's native EditContext DIV: typing in the read-only editor
