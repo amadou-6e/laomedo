@@ -1,5 +1,21 @@
 # Contributor instructions
 
+## Experiments and production work
+
+- Use the permanent `exp` branch for new experiments, disposable probes, campaign
+  harnesses and experiment evidence. Follow `CONTRIBUTING.md`; do not add these
+  artifacts to `develop`, `main` or production PRs.
+- Use a separate worktree for `exp` and preserve other agents' checkouts. Bring
+  accepted `develop` changes into `exp` as needed; extract production-ready work
+  onto its own issue branch from `develop`. Never merge `exp` wholesale back.
+- Preserve historical files on `exp` before production removal. Move useful
+  assertions into concern-owned tests rather than importing campaign scripts.
+  Production tests must not fetch or require `exp`. No secrets or private runtime
+  state belong in either branch.
+- The current cleanup covers Shared preparation and Skills. Agent/GitHub
+  experiments and their existing test/CI dependencies are deferred, not examples
+  to follow for new work.
+
 ## Python formatting
 
 - Install the pinned formatter with `python -m pip install -e '.[dev]'`.

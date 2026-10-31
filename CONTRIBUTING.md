@@ -14,21 +14,26 @@ The permanent `exp` branch contains investigations and experiment history. Bring
 accepted `develop` changes into it as needed. Never merge `exp` wholesale into
 `develop` or `main`. Extract a production-ready change onto its owning issue
 branch from `develop`, remove experiment-only scaffolding, and validate that cut.
+Use a separate worktree for `exp` so experimental work cannot replace another
+agent's active checkout. The same rule is stated in `AGENTS.md` for agents.
 
 Keep disposable probes, campaign harnesses and investigation-only artifacts on
 the experiment branch. Keep production regression cases in `tests` and the
 smallest useful maintained workflows in `examples`. An experiment branch is not
-permission to commit secrets,
-browser profiles, tokens, private logs, caches or dependency trees. A campaign's
+permission to commit secrets, browser profiles, tokens, private logs, caches or
+dependency trees. A campaign's
 model allowance is not a gate in a normal service.
 
 Preserve actual historical evidence with its original revision and limitations.
 Archive approved artifacts before removing them from the production cut. A
 production test must not fetch an experiment branch or require its checkout.
 
-Existing experiment sources required by tests and CI remain in this checkout
-until their owning domains migrate. In particular, the retained Shared caller
-inventory and experiment CI jobs are not removed by the Skills organization pass.
+EXP-08 is archived on `exp`; its useful assertions live under
+`tests/skills/workspace` and run in normal discovery. Agent/GitHub experiment
+sources and their existing test/CI dependencies remain until their separately
+selected migration. In particular, the retained Shared caller inventory and the
+EXP-05, EXP-09 and EXP-100 jobs are deferred. Their presence is not permission to
+add new experiments to production.
 
 ## Test ownership and shared setup
 

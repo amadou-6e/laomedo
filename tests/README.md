@@ -2,7 +2,7 @@
 
 Tests follow the concern they protect. `shared/` owns Git, HTTP, migration,
 formatting and component-template controls. `skills/` owns the registry, sources,
-operations, inspection and authoring. Source and operation graph cases live with
+operations, inspection, authoring and workspace delivery. Graph cases live with
 their respective Skill concern. Other domains retain their existing layout;
 this is not a completed repository-wide test reorganization.
 
@@ -47,6 +47,11 @@ migration tool and restores the temporary import path. Migration assertions stay
 in the test modules. Existing root `retained_shared.py` and `git_runner_controls.py`
 remain shared by deferred Agent/GitHub controls; their historical dependencies
 are retained. No test fetches an experiment branch or requires a second checkout.
+
+`skills/workspace` retains the exact-byte and Git-isolation assertions from the
+archived EXP-08 campaign. It uses the installed registry/materialization boundary
+and shared Git command runner; ordinary discovery replaces the old campaign CI
+invocation. No archived script or model turn is needed.
 
 Keep helpers small and concern-owned. Consolidate repeated setup, not distinct
 error, authorization, wire-format, path, history or cleanup assertions. Compare
