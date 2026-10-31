@@ -10,20 +10,25 @@ an existing owning issue, or create one, before starting a task branch named
 exactly `<type>/<issue-number>`, using `feat`, `fix`, `docs`, `chore` or
 `refactor`. Follow the canonical review rules.
 
-The owner-selected permanent experiment branch contains investigations and experiment history. Bring
-accepted develop changes into that branch as needed. Never merge the experiment branch wholesale into
-develop or main. Extract a production-ready change onto its owning issue branch
-from develop, remove experiment-only scaffolding, and validate that exact cut.
+The permanent `exp` branch contains investigations and experiment history. Bring
+accepted `develop` changes into it as needed. Never merge `exp` wholesale into
+`develop` or `main`. Extract a production-ready change onto its owning issue
+branch from `develop`, remove experiment-only scaffolding, and validate that cut.
 
 Keep disposable probes, campaign harnesses and investigation-only artifacts on
-the experiment branch. Keep production regression cases in tests and the smallest useful maintained
-workflows in examples. An experiment branch is not permission to commit secrets,
+the experiment branch. Keep production regression cases in `tests` and the
+smallest useful maintained workflows in `examples`. An experiment branch is not
+permission to commit secrets,
 browser profiles, tokens, private logs, caches or dependency trees. A campaign's
 model allowance is not a gate in a normal service.
 
 Preserve actual historical evidence with its original revision and limitations.
 Archive approved artifacts before removing them from the production cut. A
 production test must not fetch an experiment branch or require its checkout.
+
+Existing experiment sources required by tests and CI remain in this checkout
+until their owning domains migrate. In particular, the retained Shared caller
+inventory and experiment CI jobs are not removed by the Skills organization pass.
 
 ## Test ownership and shared setup
 
@@ -82,7 +87,3 @@ a review that did not run. Resolve blockers and obtain final configured CI.
 Graph/browser work also requires the requesting user's inspection and explicit
 validation of the actual final stories before merging. Reviewer approval and
 internal tests do not replace that validation.
-
-Existing experiment sources required by tests and CI remain in this checkout
-until their owning domains migrate. In particular, the retained Shared caller
-inventory and experiment CI jobs are not removed by the Skills organization pass.

@@ -7,6 +7,7 @@ from lfx.custom.utils import build_custom_component_template
 
 
 def node(path, identifier, values, x, y):
+    """Return native node metadata for one actual component and supplied values."""
     code = path.read_text(encoding="utf-8")
     template, _ = build_custom_component_template(Component(_code=code))
     component_type = next(
@@ -29,6 +30,7 @@ def node(path, identifier, values, x, y):
 
 
 def edge(source, name, target, field):
+    """Connect declared output/input metadata without inventing handle types."""
     output = next(
         item for item in source["data"]["node"]["outputs"] if item["name"] == name
     )

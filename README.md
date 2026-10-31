@@ -17,6 +17,7 @@ and feature guides.
 
 See [Contributing](CONTRIBUTING.md) for branch, experiment, test and example rules,
 and the [test guide](tests/README.md) for concern ownership and discovery commands.
+The [examples index](examples/README.md) leads to the maintained Skill workflow.
 
 ## Source layout
 
