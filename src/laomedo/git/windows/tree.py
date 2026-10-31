@@ -143,7 +143,7 @@ class WindowsProcessTree:
         return accounting.ActiveProcesses
 
     def terminate(self, deadline):
-        """Confirm zero active processes under the caller's unchanged cleanup deadline."""
+        """Confirm zero active processes under the caller's cleanup deadline."""
         if self.active_processes() == 0:
             return True
         if time.monotonic() >= deadline:

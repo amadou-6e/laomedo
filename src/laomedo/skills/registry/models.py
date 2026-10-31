@@ -1,4 +1,4 @@
-"""Typed construction of new registry records; historical readers stay unchanged."""
+"""Canonical registry references, revision metadata, drafts and review records."""
 
 from laomedo.skills.registry.diff import patch_for
 from laomedo.skills.registry.hashing import file_hashes
@@ -71,7 +71,7 @@ class SkillRevision(SkillReference):
     )
 
     def to_record(self) -> dict:
-        """Preserve all six existing fields, their order and explicit null values."""
+        """Serialize six revision fields in order, including explicit null values."""
         value = self.model_dump()
         return {
             key: value[key]
@@ -105,7 +105,7 @@ class SkillDraft(BaseModel):
     )
 
     def to_record(self) -> dict:
-        """Return the existing draft file shape, including the initial status."""
+        """Serialize the draft record, including its initial status."""
         return self.model_dump()
 
 
@@ -189,10 +189,10 @@ class FrozenSkillDraft(BaseModel):
         edit_run_id: JsonValue,
         trace_ref: JsonValue,
     ) -> "FrozenSkillDraft":
-        """Derive one coherent result after existing store admission and byte checks.
+        """Derive one coherent review result after store admission and byte checks.
 
-        The legacy record reader remains authoritative; this constructs the new
-        review artifact rather than revalidating the historical draft schema.
+        Persisted draft readers own admission; this constructor projects the review
+        result without imposing a different schema on historical draft records.
         """
         eligible = proposed is not None and not errors
         observed = tree_hash(proposed) if proposed is not None else None
@@ -235,6 +235,6 @@ class FrozenSkillDraft(BaseModel):
     def to_record(self) -> dict:
         """Preserve explicit nulls, empty results and the sixteen-field review shape."""
         value = self.model_dump()
-        # The old freeze path read this reference from sorted-key disk JSON.
+        # Policy references serialize in sorted-key order.
         value["policy_ref"] = dict(sorted(value["policy_ref"].items()))
         return value

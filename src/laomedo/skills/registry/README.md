@@ -48,9 +48,10 @@ verifies bytes; `_finish_promotion` completes the promotion transaction.
 Strict models construct new writes. Record readers check integrity and tolerate historical extension fields;
 they do not impose new-write models on persisted records. A policy reference identifies policy, not authority.
 
-`SkillOperations` uses the store's package-internal directory and staging methods
-within its authorized transaction. These helpers support collaboration inside
-Skills; application adapters use the public registry and operations interfaces.
+`SkillOperations` and `SkillSources` use the store's package-internal directory
+and staging methods for authorized edits and immutable source imports. These
+helpers support collaboration inside Skills; application adapters use the public
+registry and operations interfaces.
 
 ## Exact byte behavior and saved consumers
 

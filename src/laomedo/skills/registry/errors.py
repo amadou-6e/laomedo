@@ -6,7 +6,7 @@ from __future__ import annotations
 class SkillStoreError(ValueError):
     """A skill registry validation, integrity or lifecycle operation failed.
 
-    ``code`` is the existing machine category consumed by service boundaries.
+    ``code`` is the stable machine category consumed by service boundaries.
     This base includes invalid input and failed invariants; it does not imply
     that a conflict can be repaired by replaying a write."""
 

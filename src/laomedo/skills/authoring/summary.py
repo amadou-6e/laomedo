@@ -1,6 +1,5 @@
 """Conservative missing-description detection for host-owned authoring tasks."""
 
-from pathlib import Path
 from laomedo._paths import package_root
 from laomedo.skills.registry.errors import SkillStoreError
 import re

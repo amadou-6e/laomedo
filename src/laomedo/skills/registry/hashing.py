@@ -1,4 +1,4 @@
-"""Registry hashing; existing admission and byte behavior are preserved."""
+"""Compute canonical policy, file and length-prefixed tree identities."""
 
 from __future__ import annotations
 

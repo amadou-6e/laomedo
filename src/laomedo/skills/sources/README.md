@@ -33,7 +33,7 @@ the registry and shared Git runner. Independent helpers use function-only module
 | `SkillSources.revisions(source, choice)` | Collect exact bytes, enforce option limits before registry effects and cache immutable choices |
 | `SkillSources.resolve(source, choice, revision)` | Resolve a previously offered immutable reference and verify registry bytes |
 | `SkillSources._source`, `_register`, `_save` | Admit source kind, publish verified bytes/provenance and replace index state |
-| `GitSkillSource.repository(source, deadline, refresh=False)` | Clone/fetch owned cache and capture bounded refs through GitCommandRunner |
+| `GitSkillSource.repository(source, refresh=False, *, deadline)` | Clone/fetch owned cache and capture bounded refs through GitCommandRunner |
 | `GitSkillSource.entries(repository, commit, deadline)` | Decode tree metadata and apply path/entry exclusions |
 | `GitSkillSource.read_blob(repository, entry, deadline)` | Admit blob mode and enforce byte limits before reading |
 | `GitSkillSource._run`, `_check_cache_budget` | Translate process observations and enforce cache accounting |

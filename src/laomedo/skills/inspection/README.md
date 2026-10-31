@@ -6,7 +6,7 @@ boundary for current files and for the snapshots underlying historical compariso
 
 | Owner | Interface | Responsibility |
 | --- | --- | --- |
-| `utils.py` | `inspect_skill(root, skill_id, revision_id, include_images=False)` | Verify identity, inventory and hashes, then project bounded file metadata/text and optional verified raster previews |
+| `utils.py` | `inspect_skill(root, skill_id, revision_id, *, include_images=False)` | Verify identity, inventory and hashes, then project bounded file metadata/text and optional verified raster previews |
 | `errors.py` | `InspectionError` | Stable safe failure code without paths, payloads or parser output |
 | `settings.py` | Fixed limits | File count, directory count/depth, per-file bytes and total bundle bytes |
 

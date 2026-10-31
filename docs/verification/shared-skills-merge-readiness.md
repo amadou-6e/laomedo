@@ -25,6 +25,21 @@ and recognized source hashes now follow canonical component files. All other
 graph values are preserved, including selections, inputs, outputs, edges, handles
 and positions. A single current masked-graph contract protects those values.
 
+Refreshing stale embedded code changes what those templates execute: PR feedback,
+Claude Skill feedback, description instructions and cleanup-error propagation now
+follow the canonical components. The seven refreshed nodes in five example files
+have not been newly run against real services by this audit. Their import/structure
+checks and the retained component's earlier real execution are supporting evidence,
+not acceptance of each refreshed template. PR example changes belong to the later
+GitHub slice when partitioning the audit patch.
+
+The broad `skill_feedback_task_only` check is replaced by the common
+`skill_input_vertices` admission in `integrations/langflow/feedback/pr.py`.
+`feedback_edge` calls it before operation preparation. It requires exactly one
+controller Task and admits at most sixteen independent read-only Skill references;
+other inputs and mutating dependencies refuse before dispatch. The dedicated
+Langflow rejection control passes, but does not establish real failure-path UI.
+
 The private REST redirect alias is removed. Its internal archived-probe consumer
 uses explicit hash-checked import adaptation. Archived sources remain unchanged.
 Four local retired directories containing only bytecode were removed, including
@@ -78,6 +93,8 @@ against their actual develop bases; integrated-candidate CI does not prove them.
 
 - A caller-complete, independently tested develop-based Shared preparation slice.
 - A caller-complete Skills slice with its relevant specification/review coverage.
+- Real user-story validation of the refreshed example graphs appropriate to each
+  owning module; their canonical source/hash alignment alone is insufficient.
 - A verified real cleanup-uncertainty discovery UI path. Internal process controls,
   ordinary outages and synthetic error codes do not establish that story.
 - Resolution or explicit supported-input assessment of the observed public-source
