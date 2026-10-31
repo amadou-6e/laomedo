@@ -10,7 +10,7 @@ from lfx.graph.graph.base import Graph
 ROOT = Path(__file__).resolve().parents[2]
 laomedo.__path__.append(str(ROOT / "components/laomedo"))
 spec = importlib.util.spec_from_file_location(
-    "skill_builder", ROOT / "examples/skill-operations/build_flow.py"
+    "skill_builder", ROOT / "examples/skills/build_flow.py"
 )
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
@@ -19,7 +19,7 @@ spec.loader.exec_module(builder)
 def build(skill_id, revision, editor_revision, runner_url, edit_request):
     flow = builder.build(skill_id, revision, editor_revision, runner_url, edit_request)
     values = flow["data"]["nodes"][1]["data"]["node"]["template"]
-    agent = builder.builder.node(
+    agent = builder.node(
         ROOT / "components/laomedo/claude_agent.py",
         "agent",
         {
@@ -42,9 +42,9 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request):
     flow["data"]["nodes"][1] = agent
     editor = flow["data"]["nodes"][2]
     flow["data"]["edges"] = [
-        builder.builder.helper.edge(skill, "task", agent, "task"),
-        builder.builder.helper.edge(agent, "answer", skill, "operation"),
-        builder.builder.helper.edge(editor, "skill", agent, "skill_reference"),
+        builder.edge(skill, "task", agent, "task"),
+        builder.edge(agent, "answer", skill, "operation"),
+        builder.edge(editor, "skill", agent, "skill_reference"),
     ]
     Graph.from_payload(flow)
     return flow

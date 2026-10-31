@@ -40,7 +40,7 @@ state = Path(os.environ["LAOMEDO_GUIDE_STATE"])
 store = SkillStore(state / "registry")
 for skill_id, source in [
     ("pr-feedback-title", repo / "examples/github-pr/original-agent/title-skill"),
-    ("skill-operation-editor", repo / "examples/skill-operations/editor-skill"),
+    ("skill-operation-editor", repo / "examples/skills/editor-skill"),
 ]:
     revision = store.import_skill(skill_id, source)
     print(skill_id, revision["revision_id"])

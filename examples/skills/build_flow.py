@@ -11,14 +11,15 @@ from laomedo.agents.contracts.output import requirements
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
-    "skill_operation_builder", ROOT / "examples/langflow-workgraph-demo/build_flow.py"
+    "skill_operation_builder", Path(__file__).with_name("graph.py")
 )
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
+node, edge = builder.node, builder.edge
 
 
 def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_id=""):
-    skill = builder.node(
+    skill = node(
         ROOT / "components/laomedo/skill.py",
         "skill",
         {
@@ -33,7 +34,7 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
     )
     for field, value in [("skill_id", skill_id), ("revision_id", revision)]:
         skill["data"]["node"]["template"][field]["options"] = [value]
-    agent = builder.node(
+    agent = node(
         ROOT / "components/laomedo/codex_agent.py",
         "agent",
         {
@@ -71,7 +72,7 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
         600,
         0,
     )
-    editor = builder.node(
+    editor = node(
         ROOT / "components/laomedo/skill.py",
         "agent-skill",
         {"skill_id": "skill-operation-editor", "revision_id": editor_revision},
@@ -91,9 +92,9 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
         "data": {
             "nodes": [skill, agent, editor],
             "edges": [
-                builder.helper.edge(skill, "task", agent, "task"),
-                builder.helper.edge(agent, "answer", skill, "operation"),
-                builder.helper.edge(editor, "skill", agent, "skill_reference"),
+                edge(skill, "task", agent, "task"),
+                edge(agent, "answer", skill, "operation"),
+                edge(editor, "skill", agent, "skill_reference"),
             ],
             "viewport": {"x": 60, "y": 50, "zoom": 0.8},
         },

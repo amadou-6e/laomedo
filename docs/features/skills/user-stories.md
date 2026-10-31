@@ -62,8 +62,8 @@ Acceptance criteria:
 
 Visual: [the actual Skill Operation input](assets/skill-node.png) and
 [an example single-file revision comparison](assets/skill-history.png).
-Historical evidence: [real multi-file Agent edit](../../../examples/skill-operations/evidence.json)
-and [operation contract and limitations](../../../examples/skill-operations/README.md).
+Historical evidence: [real multi-file Agent edit](https://github.com/amadou-6e/laomedo/blob/1d3c2aa2d2e93222eac558091a5846c68fc33cec/archives/examples/skill-operations/evidence.json)
+and [operation contract and limitations](https://github.com/amadou-6e/laomedo/blob/1d3c2aa2d2e93222eac558091a5846c68fc33cec/archives/examples/skill-operations/README.md).
 Those records establish their named runs and revisions, not a fresh test of this checkout.
 
 ## SK-04 — Compare a file across revisions

@@ -22,7 +22,7 @@ from skills.operations.utils import make_operation_case
 
 ROOT = repository_root()
 spec = importlib.util.spec_from_file_location(
-    "skill_ops_graph_builder", ROOT / "examples/skill-operations/build_flow.py"
+    "skill_ops_graph_builder", ROOT / "examples/skills/build_flow.py"
 )
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
@@ -97,7 +97,7 @@ class LaomedoCodexAgent(Component):
 
     async def test_external_agent_input_refused_before_operation(self):
         flow = self.build()
-        extra = builder.builder.node(
+        extra = builder.node(
             ROOT / "components/laomedo/skill.py",
             "extra",
             {
@@ -110,9 +110,7 @@ class LaomedoCodexAgent(Component):
         )
         flow["data"]["nodes"].append(extra)
         flow["data"]["edges"].append(
-            builder.builder.helper.edge(
-                extra, "skill", flow["data"]["nodes"][1], "skill_reference"
-            )
+            builder.edge(extra, "skill", flow["data"]["nodes"][1], "skill_reference")
         )
         with self.assertRaisesRegex(Exception, "pr_agent_loop_invalid"):
             graph = Graph.from_payload(flow)
@@ -185,10 +183,10 @@ class InternalSkillOperation(Component):
 """.replace("PAYLOAD", repr(self.control.operation)))
         flow = self.build()
         skill = flow["data"]["nodes"][0]
-        operation = builder.builder.node(path, "operation", {}, 600, 0)
+        operation = builder.node(path, "operation", {}, 600, 0)
         flow["data"]["nodes"] = [operation, skill]
         flow["data"]["edges"] = [
-            builder.builder.helper.edge(operation, "operation", skill, "operation")
+            builder.edge(operation, "operation", skill, "operation")
         ]
         return flow
 
@@ -210,13 +208,13 @@ class InternalSkillConsumer(Component):
         self.update_ctx({"internal_skill_consumer_called":1})
         return Data(data={"consumed":True})
 """)
-        consumer = builder.builder.node(path, "consumer", {}, 900, 0)
+        consumer = builder.node(path, "consumer", {}, 900, 0)
         skill = flow["data"]["nodes"][1]
         flow["data"]["nodes"].append(consumer)
         flow["data"]["edges"].extend(
             [
-                builder.builder.helper.edge(skill, "skill", consumer, "reference"),
-                builder.builder.helper.edge(skill, "task", consumer, "task"),
+                builder.edge(skill, "skill", consumer, "reference"),
+                builder.edge(skill, "task", consumer, "task"),
             ]
         )
         calls = []

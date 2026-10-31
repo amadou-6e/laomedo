@@ -13,9 +13,10 @@ SOURCE = ROOT / "src" / "laomedo"
 class ModuleCohesionTests(unittest.TestCase):
     def test_historical_graph_inputs_keep_their_original_bytes(self):
         # Baseline:6069ac99998af97acd314bb2c56c08d4bc2c3f29; migrate copies only.
+        # The Skill campaign is preserved on exp at1d3c2aa with byte provenance;
+        # it is no longer a production test asset. The deferred PR asset remains.
         expected = {
             "examples/github-pr/original-agent/historical-flow-before-skill-input.json": "3584ef1108f5be5ddc5b0f7a6f583044fcf31f769874d5368ec86772c63b6b4f",
-            "examples/skill-operations/historical-flow-before-skill-input.json": "45ea8e14f22dc52e50e97d367812ad832deb048e1e31e9c58bff8b48c62879cf",
         }
         for relative, digest in expected.items():
             self.assertEqual(
