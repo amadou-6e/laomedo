@@ -1,5 +1,19 @@
 # Contributor instructions
 
+## Experiment branch
+
+- `exp` is the permanent branch for experiments, disposable probes, campaign
+  harnesses and experimental evidence. Keep new investigations here, outside
+  `develop`, `main` and production PRs. Use a separate worktree and preserve
+  other agents' checkouts and edits.
+- Incorporate accepted `develop` updates into `exp` as needed. Extract a reviewed
+  production change onto its owning issue branch from `develop`; never merge
+  `exp` wholesale back into production.
+- Archive files retain their original provenance and limitations. They are not
+  current acceptance results. Promote useful assertions into concern-owned tests
+  that run without importing or fetching this branch. No secrets or private
+  runtime state belong in either branch.
+
 - Before merging any PR, use the Claude reviewer workflow at
   `specs/shared/skills/claude-reviewer/SKILL.md` in the workspace's canonical specs
   checkout (normally the sibling of this implementation checkout).
