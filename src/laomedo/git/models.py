@@ -9,14 +9,14 @@ from .settings import GIT_COMMAND_TIMEOUT_SECONDS
 
 
 class GitEnvironmentProfile(str, Enum):
-    "Isolation profiles; choosing a profile does not grant an effect."
+    """Isolation profiles; choosing a profile does not grant an effect."""
 
     WORKSPACE = "workspace"
     HOST_TRANSPORT = "host_transport"
 
 
 class GitCredential(BaseModel):
-    "Private token binding for the GitHub-bound credential helper."
+    """Private token binding for the GitHub-bound credential helper."""
 
     model_config = ConfigDict(
         strict=True, frozen=True, extra="forbid", hide_input_in_errors=True
@@ -30,7 +30,7 @@ class GitCredential(BaseModel):
     @field_validator("token")
     @classmethod
     def validate_token(cls, token: SecretStr) -> SecretStr:
-        "Keep protocol delimiters out of credential-helper input."
+        """Keep protocol delimiters out of credential-helper input."""
         value = token.get_secret_value()
         if not value or "\n" in value or "\r" in value:
             raise ValueError("credential_unavailable")

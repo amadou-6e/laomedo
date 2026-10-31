@@ -65,14 +65,14 @@ class GitWorkingTree:
         )
 
     def status_porcelain(self) -> bytes | None:
-        "Inspect tracked and untracked changes using the stable porcelain format."
+        """Inspect tracked and untracked changes using the stable porcelain format."""
         result = self.repository.run(
             ["status", "--porcelain=v1", "--untracked-files=all"]
         )
         return result.stdout if result.returncode == 0 else None
 
     def sparse_enabled(self) -> bool:
-        "Read the local sparse-checkout value using Git's admitted truth values."
+        """Read the local sparse-checkout value using Git's admitted truth values."""
         result = self.repository.run(
             ["config", "--local", "--get", "core.sparseCheckout"]
         )

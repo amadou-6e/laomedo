@@ -11,7 +11,7 @@ class GitOperationError(ValueError):
     """
 
     def __init__(self, code: str):
-        "Expose the stable machine category and ValueError argument shape."
+        """Expose the stable machine category and ValueError argument shape."""
         self.code = code
         super().__init__(code)
 
